@@ -311,3 +311,40 @@ func FuzzUnmarshal(f *testing.F) {
 		Unmarshal(b) //nolint:errcheck
 	})
 }
+
+func TestStrictArray(t *testing.T) {
+	data := []byte{
+		0x0a, 0x00, 0x00, 0x00, 0x02, 0x02, 0x00, 0x06,
+		0x72, 0x61, 0x6e, 0x64, 0x6f, 0x6d, 0x00, 0x40,
+		0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	t.Run("strictArray", func(t *testing.T) {
+		dec, err := Unmarshal(data)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{nil}, dec)
+	})
+}
+
+func TestLongString(t *testing.T) {
+	data := []byte{
+		0x0c, 0x00, 0x00, 0x00, 0x06, 0x72, 0x61, 0x6e, 0x64,
+		0x6f, 0x6d,
+	}
+	t.Run("longString", func(t *testing.T) {
+		dec, err := Unmarshal(data)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{"random"}, dec)
+	})
+}
+
+func TestDate(t *testing.T) {
+	data := []byte{
+		0x0b, 0x40, 0xa3, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00,
+	}
+	t.Run("date", func(t *testing.T) {
+		dec, err := Unmarshal(data)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{float64(2500)}, dec)
+	})
+}

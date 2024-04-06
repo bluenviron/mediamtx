@@ -219,7 +219,7 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 		date := math.Float64frombits(uint64(buf[0])<<56 | uint64(buf[1])<<48 | uint64(buf[2])<<40 | uint64(buf[3])<<32 |
 			uint64(buf[4])<<24 | uint64(buf[5])<<16 | uint64(buf[6])<<8 | uint64(buf[7]))
 		buf = buf[8:]
-		//timeZone := uint16(buf[0])<<8 | uint16(buf[1])
+		// timeZone := uint16(buf[0])<<8 | uint16(buf[1])
 		buf = buf[2:] // skip timeZone
 		return date, buf, nil
 	default:
