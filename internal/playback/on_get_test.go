@@ -229,6 +229,7 @@ func TestOnGet(t *testing.T) {
 
 	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
 	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000.mp4"))
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
@@ -252,7 +253,7 @@ func TestOnGet(t *testing.T) {
 	v := url.Values{}
 	v.Set("path", "mypath")
 	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
-	v.Set("duration", "2")
+	v.Set("duration", "3")
 	v.Set("format", "fmp4")
 	u.RawQuery = v.Encode()
 
@@ -283,6 +284,15 @@ func TestOnGet(t *testing.T) {
 							Duration: 0,
 							Payload:  []byte{3, 4},
 						},
+						{
+							Duration:        90000,
+							IsNonSyncSample: true,
+							Payload:         []byte{5, 6},
+						},
+						{
+							Duration: 90000,
+							Payload:  []byte{7, 8},
+						},
 					},
 				},
 			},
@@ -292,27 +302,11 @@ func TestOnGet(t *testing.T) {
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,
-					BaseTime: 0,
-					Samples: []*fmp4.PartSample{
-						{
-							Duration:        90000,
-							IsNonSyncSample: true,
-							Payload:         []byte{5, 6},
-						},
-					},
-				},
-			},
-		},
-		{
-			SequenceNumber: 2,
-			Tracks: []*fmp4.PartTrack{
-				{
-					ID:       1,
-					BaseTime: 90000,
+					BaseTime: 180000,
 					Samples: []*fmp4.PartSample{
 						{
 							Duration: 90000,
-							Payload:  []byte{7, 8},
+							Payload:  []byte{9, 10},
 						},
 					},
 				},
@@ -385,6 +379,11 @@ func TestOnGetDifferentInit(t *testing.T) {
 							Duration: 0,
 							Payload:  []byte{3, 4},
 						},
+						{
+							Duration:        90000,
+							IsNonSyncSample: true,
+							Payload:         []byte{5, 6},
+						},
 					},
 				},
 			},
@@ -456,17 +455,6 @@ func TestOnGetNTPCompensation(t *testing.T) {
 							Duration: 0,
 							Payload:  []byte{3, 4},
 						},
-					},
-				},
-			},
-		},
-		{
-			SequenceNumber: 1,
-			Tracks: []*fmp4.PartTrack{
-				{
-					ID:       1,
-					BaseTime: 0,
-					Samples: []*fmp4.PartSample{
 						{
 							Duration:        45000, // 90 - 45
 							IsNonSyncSample: true,
@@ -481,11 +469,11 @@ func TestOnGetNTPCompensation(t *testing.T) {
 			},
 		},
 		{
-			SequenceNumber: 2,
+			SequenceNumber: 1,
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,
-					BaseTime: 135000, // 180 - 45
+					BaseTime: 135000,
 					Samples: []*fmp4.PartSample{
 						{
 							Duration: 90000,

@@ -374,12 +374,15 @@ func segmentFMP4SeekAndMuxParts(
 					return nil, err
 				}
 
-				m.writeSample(
+				err = m.writeSample(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
 					payload,
 				)
+				if err != nil {
+					return nil, err
+				}
 
 				muxerDTS += int64(e.SampleDuration)
 			}
@@ -388,12 +391,6 @@ func segmentFMP4SeekAndMuxParts(
 
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
-			}
-
-		case "mdat":
-			err := m.flush()
-			if err != nil {
-				return nil, err
 			}
 		}
 		return nil, nil
@@ -474,12 +471,15 @@ func segmentFMP4WriteParts(
 					return nil, err
 				}
 
-				m.writeSample(
+				err = m.writeSample(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
 					payload,
 				)
+				if err != nil {
+					return nil, err
+				}
 
 				muxerDTS += int64(e.SampleDuration)
 			}
@@ -488,12 +488,6 @@ func segmentFMP4WriteParts(
 
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
-			}
-
-		case "mdat":
-			err := m.flush()
-			if err != nil {
-				return nil, err
 			}
 		}
 		return nil, nil
