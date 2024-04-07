@@ -110,14 +110,13 @@ func seekAndMux(
 			}()
 			if err != nil {
 				if errors.Is(err, errStopIteration) {
-					return nil
+					break
 				}
-
 				return err
 			}
 		}
 
-		err = m.finalFlush()
+		err = m.flush()
 		if err != nil {
 			return err
 		}
