@@ -3,7 +3,6 @@ package playback
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +15,20 @@ import (
 )
 
 var errStopIteration = errors.New("stop iteration")
+
+type writerWrapper struct {
+	ctx     *gin.Context
+	written bool
+}
+
+func (w *writerWrapper) Write(p []byte) (int, error) {
+	if !w.written {
+		w.written = true
+		w.ctx.Header("Accept-Ranges", "none")
+		w.ctx.Header("Content-Type", "video/mp4")
+	}
+	return w.ctx.Writer.Write(p)
+}
 
 func parseDuration(raw string) (time.Duration, error) {
 	// seconds
@@ -32,7 +45,7 @@ func seekAndMux(
 	segments []*Segment,
 	start time.Time,
 	duration time.Duration,
-	w io.Writer,
+	w muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
 		minTime := start.Sub(segments[0].Start)
@@ -47,12 +60,14 @@ func seekAndMux(
 			}
 			defer f.Close()
 
-			init, err = fmp4ReadInit(f)
+			init, err = segmentFMP4ReadInit(f)
 			if err != nil {
 				return err
 			}
 
-			maxElapsed, err = fmp4SeekAndMuxParts(f, init, minTime, maxTime, w)
+			w.writeInit(init)
+
+			maxElapsed, err = segmentFMP4SeekAndMuxParts(f, minTime, maxTime, w)
 			if err != nil {
 				return err
 			}
@@ -76,16 +91,16 @@ func seekAndMux(
 				}
 				defer f.Close()
 
-				init, err := fmp4ReadInit(f)
+				init, err := segmentFMP4ReadInit(f)
 				if err != nil {
 					return err
 				}
 
-				if !fmp4CanBeConcatenated(prevInit, prevEnd, init, seg.Start) {
+				if !segmentFMP4CanBeConcatenated(prevInit, prevEnd, init, seg.Start) {
 					return errStopIteration
 				}
 
-				maxElapsed, err = fmp4MuxParts(f, overallElapsed, duration, w)
+				maxElapsed, err = segmentFMP4WriteParts(f, overallElapsed, duration, w)
 				if err != nil {
 					return err
 				}
@@ -153,8 +168,9 @@ func (p *Server) onGet(ctx *gin.Context) {
 	}
 
 	ww := &writerWrapper{ctx: ctx}
+	sw := &muxerFMP4{w: ww}
 
-	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, ww)
+	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, sw)
 	if err != nil {
 		// user aborted the download
 		var neterr *net.OpError
