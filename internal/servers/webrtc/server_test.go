@@ -221,10 +221,17 @@ func TestServerPublish(t *testing.T) {
 		path.stream.Desc().Medias[0],
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
+			select {
+			case <-recv:
+				return nil
+			default:
+			}
+
 			require.Equal(t, [][]byte{
 				{1},
 			}, u.(*unit.H264).AU)
 			close(recv)
+
 			return nil
 		})
 
