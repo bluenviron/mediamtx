@@ -47,7 +47,7 @@ func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*S
 					return err
 				}
 
-				duration, err := fmp4ReadDuration(f)
+				maxDuration, err := fmp4ReadMaxDuration(f)
 				if err != nil {
 					return err
 				}
@@ -58,12 +58,12 @@ func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*S
 					init,
 					seg.Start) {
 					prevStart := out[len(out)-1].Start
-					curEnd := seg.Start.Add(duration)
+					curEnd := seg.Start.Add(maxDuration)
 					out[len(out)-1].Duration = listEntryDuration(curEnd.Sub(prevStart))
 				} else {
 					out = append(out, listEntry{
 						Start:    seg.Start,
-						Duration: listEntryDuration(duration),
+						Duration: listEntryDuration(maxDuration),
 					})
 				}
 
