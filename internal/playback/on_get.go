@@ -38,7 +38,7 @@ func seekAndMux(
 		minTime := start.Sub(segments[0].Start)
 		maxTime := minTime + duration
 		var init []byte
-		var elapsed time.Duration
+		var maxElapsed time.Duration
 
 		err := func() error {
 			f, err := os.Open(segments[0].Fpath)
@@ -52,7 +52,7 @@ func seekAndMux(
 				return err
 			}
 
-			elapsed, err = fmp4SeekAndMuxParts(f, init, minTime, maxTime, w)
+			maxElapsed, err = fmp4SeekAndMuxParts(f, init, minTime, maxTime, w)
 			if err != nil {
 				return err
 			}
@@ -63,10 +63,10 @@ func seekAndMux(
 			return err
 		}
 
+		duration -= maxElapsed
+		overallElapsed := maxElapsed
 		prevInit := init
-		prevEnd := start.Add(elapsed)
-		duration -= elapsed
-		overallElapsed := elapsed
+		prevEnd := start.Add(maxElapsed)
 
 		for _, seg := range segments[1:] {
 			err := func() error {
@@ -85,7 +85,7 @@ func seekAndMux(
 					return errStopIteration
 				}
 
-				elapsed, err = fmp4MuxParts(f, overallElapsed, duration, w)
+				maxElapsed, err = fmp4MuxParts(f, overallElapsed, duration, w)
 				if err != nil {
 					return err
 				}
@@ -100,9 +100,9 @@ func seekAndMux(
 				return err
 			}
 
-			prevEnd = seg.Start.Add(elapsed)
-			duration -= elapsed
-			overallElapsed += elapsed
+			duration -= maxElapsed
+			overallElapsed += maxElapsed
+			prevEnd = seg.Start.Add(maxElapsed)
 		}
 
 		return nil

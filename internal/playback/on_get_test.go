@@ -59,27 +59,40 @@ func writeSegment1(t *testing.T, fpath string) {
 		},
 		{
 			SequenceNumber: 1,
-			Tracks: []*fmp4.PartTrack{{
-				ID:       1,
-				BaseTime: 30 * 90000,
-				Samples: []*fmp4.PartSample{
-					{
-						Duration:        30 * 90000,
-						IsNonSyncSample: false,
-						Payload:         []byte{1, 2},
-					},
-					{
-						Duration:        1 * 90000,
-						IsNonSyncSample: false,
-						Payload:         []byte{3, 4},
-					},
-					{
-						Duration:        1 * 90000,
-						IsNonSyncSample: true,
-						Payload:         []byte{5, 6},
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID:       1,
+					BaseTime: 30 * 90000,
+					Samples: []*fmp4.PartSample{
+						{
+							Duration:        30 * 90000,
+							IsNonSyncSample: false,
+							Payload:         []byte{1, 2},
+						},
+						{
+							Duration:        1 * 90000,
+							IsNonSyncSample: false,
+							Payload:         []byte{3, 4},
+						},
+						{
+							Duration:        1 * 90000,
+							IsNonSyncSample: true,
+							Payload:         []byte{5, 6},
+						},
 					},
 				},
-			}},
+				{
+					ID:       2,
+					BaseTime: 29 * 90000,
+					Samples: []*fmp4.PartSample{
+						{
+							Duration:        30 * 90000,
+							IsNonSyncSample: false,
+							Payload:         []byte{1, 2},
+						},
+					},
+				},
+			},
 		},
 	}
 	err = parts.Marshal(&buf2)

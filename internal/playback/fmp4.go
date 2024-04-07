@@ -95,7 +95,7 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 	return buf, nil
 }
 
-func fmp4ReadDuration(r io.ReadSeeker) (time.Duration, error) {
+func fmp4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
 	// find and skip ftyp
 
 	buf := make([]byte, 8)
@@ -321,7 +321,7 @@ func fmp4SeekAndMuxParts(
 	var outPart *fmp4.Part
 	var outTrack *fmp4.PartTrack
 	var outBuf seekablebuffer.Buffer
-	elapsed := uint64(0)
+	maxElapsed := uint64(0)
 	initWritten := false
 	firstSampleWritten := make(map[uint32]struct{})
 	gop := make(map[uint32][]*fmp4.PartSample)
@@ -370,7 +370,7 @@ func fmp4SeekAndMuxParts(
 				return nil, err
 			}
 
-			elapsed = tfdt.BaseMediaDecodeTimeV1
+			elapsed := tfdt.BaseMediaDecodeTimeV1
 			baseTimeSet := false
 
 			for _, e := range trun.Entries {
@@ -426,6 +426,10 @@ func fmp4SeekAndMuxParts(
 				elapsed += uint64(e.SampleDuration)
 			}
 
+			if elapsed > maxElapsed {
+				maxElapsed = elapsed
+			}
+
 			if outTrack.Samples != nil {
 				outPart.Tracks = append(outPart.Tracks, outTrack)
 			}
@@ -467,9 +471,9 @@ func fmp4SeekAndMuxParts(
 		return 0, errNoSegmentsFound
 	}
 
-	elapsed -= minTimeMP4
+	maxElapsed -= minTimeMP4
 
-	return durationMp4ToGo(elapsed, fmp4Timescale), nil
+	return durationMp4ToGo(maxElapsed, fmp4Timescale), nil
 }
 
 func fmp4MuxParts(
@@ -485,7 +489,7 @@ func fmp4MuxParts(
 	var outPart *fmp4.Part
 	var outTrack *fmp4.PartTrack
 	var outBuf seekablebuffer.Buffer
-	elapsed := uint64(0)
+	maxElapsed := uint64(0)
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -534,7 +538,7 @@ func fmp4MuxParts(
 				return nil, err
 			}
 
-			elapsed = tfdt.BaseMediaDecodeTimeV1
+			elapsed := tfdt.BaseMediaDecodeTimeV1
 
 			for _, e := range trun.Entries {
 				payload := make([]byte, e.SampleSize)
@@ -559,6 +563,10 @@ func fmp4MuxParts(
 				outTrack.Samples = append(outTrack.Samples, sa)
 
 				elapsed += uint64(e.SampleDuration)
+			}
+
+			if elapsed > maxElapsed {
+				maxElapsed = elapsed
 			}
 
 			if outTrack.Samples != nil {
@@ -590,5 +598,5 @@ func fmp4MuxParts(
 		return 0, err
 	}
 
-	return durationMp4ToGo(elapsed, fmp4Timescale), nil
+	return durationMp4ToGo(maxElapsed, fmp4Timescale), nil
 }
