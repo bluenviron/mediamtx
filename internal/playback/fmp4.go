@@ -14,7 +14,7 @@ import (
 
 const (
 	sampleFlagIsNonSyncSample = 1 << 16
-	concatenationTolerance    = 1 * time.Second
+	concatenationTolerance    = 500 * time.Millisecond
 	fmp4Timescale             = 90000
 )
 
@@ -266,8 +266,6 @@ func fmp4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
 			return 0, fmt.Errorf("invalid tfdt box: %w", err)
 		}
 
-		elapsed := tfdt.BaseMediaDecodeTimeV1
-
 		// parse trun
 
 		_, err = io.ReadFull(r, buf)
@@ -293,6 +291,8 @@ func fmp4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid trun box: %w", err)
 		}
+
+		elapsed := tfdt.BaseMediaDecodeTimeV1
 
 		for _, entry := range trun.Entries {
 			elapsed += uint64(entry.SampleDuration)
