@@ -45,13 +45,11 @@ func seekAndMux(
 	segments []*Segment,
 	start time.Time,
 	duration time.Duration,
-	w muxer,
+	m muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
-		minTime := start.Sub(segments[0].Start)
-		maxTime := minTime + duration
-		var init []byte
-		var maxElapsed time.Duration
+		var firstInit []byte
+		var segmentEnd time.Time
 
 		err := func() error {
 			f, err := os.Open(segments[0].Fpath)
@@ -60,28 +58,27 @@ func seekAndMux(
 			}
 			defer f.Close()
 
-			init, err = segmentFMP4ReadInit(f)
+			firstInit, err = segmentFMP4ReadInit(f)
 			if err != nil {
 				return err
 			}
 
-			w.writeInit(init)
+			m.writeInit(firstInit)
 
-			maxElapsed, err = segmentFMP4SeekAndMuxParts(f, minTime, maxTime, w)
+			segmentStartOffset := start.Sub(segments[0].Start)
+
+			segmentMaxElapsed, err := segmentFMP4SeekAndMuxParts(f, segmentStartOffset, duration, m)
 			if err != nil {
 				return err
 			}
+
+			segmentEnd = start.Add(segmentMaxElapsed)
 
 			return nil
 		}()
 		if err != nil {
 			return err
 		}
-
-		duration -= maxElapsed
-		overallElapsed := maxElapsed
-		prevInit := init
-		prevEnd := start.Add(maxElapsed)
 
 		for _, seg := range segments[1:] {
 			err := func() error {
@@ -96,14 +93,18 @@ func seekAndMux(
 					return err
 				}
 
-				if !segmentFMP4CanBeConcatenated(prevInit, prevEnd, init, seg.Start) {
+				if !segmentFMP4CanBeConcatenated(firstInit, segmentEnd, init, seg.Start) {
 					return errStopIteration
 				}
 
-				maxElapsed, err = segmentFMP4WriteParts(f, overallElapsed, duration, w)
+				segmentStartOffset := seg.Start.Sub(start)
+
+				segmentMaxElapsed, err := segmentFMP4WriteParts(f, segmentStartOffset, duration, m)
 				if err != nil {
 					return err
 				}
+
+				segmentEnd = start.Add(segmentMaxElapsed)
 
 				return nil
 			}()
@@ -114,10 +115,11 @@ func seekAndMux(
 
 				return err
 			}
+		}
 
-			duration -= maxElapsed
-			overallElapsed += maxElapsed
-			prevEnd = seg.Start.Add(maxElapsed)
+		err = m.finalFlush()
+		if err != nil {
+			return err
 		}
 
 		return nil

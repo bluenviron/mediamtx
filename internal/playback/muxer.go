@@ -1,10 +1,10 @@
 package playback
 
-import "github.com/bluenviron/mediacommon/pkg/formats/fmp4"
-
 type muxer interface {
 	writeInit(init []byte)
 	setTrack(trackID int)
-	writeSample(normalizedElapsed int64, sample *fmp4.PartSample)
+	writeSample(dts int64, ptsOffset int32, isNonSyncSample bool, payload []byte)
+	writeFinalDTS(dts int64)
 	flush() error
+	finalFlush() error
 }
