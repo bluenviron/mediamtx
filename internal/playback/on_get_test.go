@@ -283,6 +283,17 @@ func TestOnGet(t *testing.T) {
 							Duration: 0,
 							Payload:  []byte{3, 4},
 						},
+					},
+				},
+			},
+		},
+		{
+			SequenceNumber: 1,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID:       1,
+					BaseTime: 0,
+					Samples: []*fmp4.PartSample{
 						{
 							Duration:        90000,
 							IsNonSyncSample: true,
@@ -293,7 +304,7 @@ func TestOnGet(t *testing.T) {
 			},
 		},
 		{
-			SequenceNumber: 1,
+			SequenceNumber: 2,
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,
@@ -374,10 +385,111 @@ func TestOnGetDifferentInit(t *testing.T) {
 							Duration: 0,
 							Payload:  []byte{3, 4},
 						},
+					},
+				},
+			},
+		},
+	}, parts)
+}
+
+func TestOnGetNTPCompensation(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4")) // remove 0.5 secs
+
+	s := &Server{
+		Address:     "127.0.0.1:9996",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Playback:   true,
+				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+			},
+		},
+		AuthManager: authManager,
+		Parent:      &test.NilLogger{},
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/get")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("duration", "3")
+	v.Set("format", "fmp4")
+	u.RawQuery = v.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	buf, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(buf)
+	require.NoError(t, err)
+
+	require.Equal(t, fmp4.Parts{
+		{
+			SequenceNumber: 0,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID: 1,
+					Samples: []*fmp4.PartSample{
 						{
-							Duration:        90000,
+							Duration: 0,
+							Payload:  []byte{3, 4},
+						},
+					},
+				},
+			},
+		},
+		{
+			SequenceNumber: 1,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID:       1,
+					BaseTime: 0,
+					Samples: []*fmp4.PartSample{
+						{
+							Duration:        45000, // 90 - 45
 							IsNonSyncSample: true,
 							Payload:         []byte{5, 6},
+						},
+						{
+							Duration: 90000,
+							Payload:  []byte{7, 8},
+						},
+					},
+				},
+			},
+		},
+		{
+			SequenceNumber: 2,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID:       1,
+					BaseTime: 135000, // 180 - 45
+					Samples: []*fmp4.PartSample{
+						{
+							Duration: 90000,
+							Payload:  []byte{9, 10},
 						},
 					},
 				},

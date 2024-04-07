@@ -8,13 +8,16 @@ import (
 )
 
 type muxerFMP4Track struct {
-	started bool
-	fmp4.PartTrack
+	started  bool
+	id       int
+	firstDTS uint64
+	lastDTS  int64
+	samples  []*fmp4.PartSample
 }
 
 func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
 	for _, track := range tracks {
-		if track.ID == id {
+		if track.id == id {
 			return track
 		}
 	}
@@ -39,49 +42,105 @@ func (w *muxerFMP4) setTrack(trackID int) {
 	w.curTrack = findTrack(w.tracks, trackID)
 	if w.curTrack == nil {
 		w.curTrack = &muxerFMP4Track{
-			PartTrack: fmp4.PartTrack{
-				ID: trackID,
-			},
+			id: trackID,
 		}
 		w.tracks = append(w.tracks, w.curTrack)
 	}
 }
 
-func (w *muxerFMP4) writeSample(normalizedElapsed int64, sample *fmp4.PartSample) {
+func (w *muxerFMP4) writeSample(dts int64, ptsOffset int32, isNonSyncSample bool, payload []byte) {
 	if !w.curTrack.started {
-		if normalizedElapsed >= 0 {
+		if dts >= 0 {
 			w.curTrack.started = true
-			w.curTrack.BaseTime = uint64(normalizedElapsed)
+			w.curTrack.firstDTS = uint64(dts)
 
-			if !sample.IsNonSyncSample {
-				w.curTrack.Samples = []*fmp4.PartSample{sample}
+			if !isNonSyncSample {
+				w.curTrack.samples = []*fmp4.PartSample{{
+					PTSOffset:       ptsOffset,
+					IsNonSyncSample: isNonSyncSample,
+					Payload:         payload,
+				}}
 			} else {
-				w.curTrack.Samples = append(w.curTrack.Samples, sample)
+				w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
+					PTSOffset:       ptsOffset,
+					IsNonSyncSample: isNonSyncSample,
+					Payload:         payload,
+				})
 			}
+			w.curTrack.lastDTS = dts
 		} else {
-			sample.Duration = 0
-			sample.PTSOffset = 0
+			ptsOffset = 0
 
-			if !sample.IsNonSyncSample {
-				w.curTrack.Samples = []*fmp4.PartSample{sample}
+			if !isNonSyncSample {
+				w.curTrack.samples = []*fmp4.PartSample{{
+					PTSOffset:       ptsOffset,
+					IsNonSyncSample: isNonSyncSample,
+					Payload:         payload,
+				}}
 			} else {
-				w.curTrack.Samples = append(w.curTrack.Samples, sample)
+				w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
+					PTSOffset:       ptsOffset,
+					IsNonSyncSample: isNonSyncSample,
+					Payload:         payload,
+				})
 			}
 		}
 	} else {
-		if w.curTrack.Samples == nil {
-			w.curTrack.BaseTime = uint64(normalizedElapsed)
+		if w.curTrack.samples == nil {
+			w.curTrack.firstDTS = uint64(dts)
+		} else {
+			diff := dts - w.curTrack.lastDTS
+			if diff < 0 {
+				diff = 0
+			}
+
+			w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(diff)
 		}
-		w.curTrack.Samples = append(w.curTrack.Samples, sample)
+
+		w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
+			PTSOffset:       ptsOffset,
+			IsNonSyncSample: isNonSyncSample,
+			Payload:         payload,
+		})
+		w.curTrack.lastDTS = dts
 	}
 }
 
-func (w *muxerFMP4) flush() error {
+func (w *muxerFMP4) writeFinalDTS(dts int64) {
+	if w.curTrack.started && w.curTrack.samples != nil {
+		diff := dts - w.curTrack.lastDTS
+		if diff < 0 {
+			diff = 0
+		}
+
+		w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(diff)
+	}
+}
+
+func (w *muxerFMP4) flush2(final bool) error {
 	var part fmp4.Part
 
 	for _, track := range w.tracks {
-		if track.started && track.Samples != nil {
-			part.Tracks = append(part.Tracks, &track.PartTrack)
+		if track.started && (len(track.samples) > 1 || (final && len(track.samples) != 0)) {
+			var samples []*fmp4.PartSample
+			if !final {
+				samples = track.samples[:len(track.samples)-1]
+			} else {
+				samples = track.samples
+			}
+
+			part.Tracks = append(part.Tracks, &fmp4.PartTrack{
+				ID:       track.id,
+				BaseTime: track.firstDTS,
+				Samples:  samples,
+			})
+
+			if !final {
+				track.samples = track.samples[len(track.samples)-1:]
+				track.firstDTS = uint64(track.lastDTS)
+			} else {
+				track.samples = nil
+			}
 		}
 	}
 
@@ -110,11 +169,13 @@ func (w *muxerFMP4) flush() error {
 		w.outBuf.Reset()
 	}
 
-	for _, track := range w.tracks {
-		if track.started {
-			track.Samples = nil
-		}
-	}
-
 	return nil
+}
+
+func (w *muxerFMP4) flush() error {
+	return w.flush2(false)
+}
+
+func (w *muxerFMP4) finalFlush() error {
+	return w.flush2(true)
 }
