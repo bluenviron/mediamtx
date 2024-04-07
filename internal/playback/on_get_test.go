@@ -58,7 +58,7 @@ func writeSegment1(t *testing.T, fpath string) {
 			}},
 		},
 		{
-			SequenceNumber: 1,
+			SequenceNumber: 2,
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,
@@ -293,7 +293,7 @@ func TestOnGet(t *testing.T) {
 			},
 		},
 		{
-			SequenceNumber: 0,
+			SequenceNumber: 1,
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,

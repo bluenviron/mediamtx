@@ -66,7 +66,7 @@ func BenchmarkFMP4ReadInit(b *testing.B) {
 			}
 			defer f.Close()
 
-			_, err = fmp4ReadInit(f)
+			_, err = segmentFMP4ReadInit(f)
 			if err != nil {
 				panic(err)
 			}

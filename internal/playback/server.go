@@ -18,20 +18,6 @@ import (
 
 var errNoSegmentsFound = errors.New("no recording segments found for the given timestamp")
 
-type writerWrapper struct {
-	ctx     *gin.Context
-	written bool
-}
-
-func (w *writerWrapper) Write(p []byte) (int, error) {
-	if !w.written {
-		w.written = true
-		w.ctx.Header("Accept-Ranges", "none")
-		w.ctx.Header("Content-Type", "video/mp4")
-	}
-	return w.ctx.Writer.Write(p)
-}
-
 // Server is the playback server.
 type Server struct {
 	Address     string

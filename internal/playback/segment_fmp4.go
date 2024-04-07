@@ -9,7 +9,6 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
-	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 )
 
 const (
@@ -34,7 +33,7 @@ func durationMp4ToGo(v uint64, timeScale uint32) time.Duration {
 
 var errTerminated = errors.New("terminated")
 
-func fmp4CanBeConcatenated(
+func segmentFMP4CanBeConcatenated(
 	prevInit []byte,
 	prevEnd time.Time,
 	curInit []byte,
@@ -45,7 +44,7 @@ func fmp4CanBeConcatenated(
 		!curStart.After(prevEnd.Add(concatenationTolerance))
 }
 
-func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
+func segmentFMP4ReadInit(r io.ReadSeeker) ([]byte, error) {
 	buf := make([]byte, 8)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
@@ -95,7 +94,7 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 	return buf, nil
 }
 
-func fmp4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
+func segmentFMP4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
 	// find and skip ftyp
 
 	buf := make([]byte, 8)
@@ -306,31 +305,24 @@ func fmp4ReadMaxDuration(r io.ReadSeeker) (time.Duration, error) {
 	return durationMp4ToGo(maxElapsed, fmp4Timescale), nil
 }
 
-func fmp4SeekAndMuxParts(
+func segmentFMP4SeekAndMuxParts(
 	r io.ReadSeeker,
-	init []byte,
 	minTime time.Duration,
 	maxTime time.Duration,
-	w io.Writer,
+	w muxer,
 ) (time.Duration, error) {
 	minTimeMP4 := durationGoToMp4(minTime, fmp4Timescale)
 	maxTimeMP4 := durationGoToMp4(maxTime, fmp4Timescale)
 	moofOffset := uint64(0)
 	var tfhd *mp4.Tfhd
 	var tfdt *mp4.Tfdt
-	var outPart *fmp4.Part
-	var outTrack *fmp4.PartTrack
-	var outBuf seekablebuffer.Buffer
 	maxElapsed := uint64(0)
-	initWritten := false
-	firstSampleWritten := make(map[uint32]struct{})
-	gop := make(map[uint32][]*fmp4.PartSample)
+	atLeastOnePartWritten := false
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
 		case "moof":
 			moofOffset = h.BoxInfo.Offset
-			outPart = &fmp4.Part{}
 			return h.Expand()
 
 		case "traf":
@@ -354,7 +346,7 @@ func fmp4SeekAndMuxParts(
 				return nil, errTerminated
 			}
 
-			outTrack = &fmp4.PartTrack{ID: int(tfhd.TrackID)}
+			w.setTrack(int(tfhd.TrackID))
 
 		case "trun":
 			box, _, err := h.ReadPayload()
@@ -371,7 +363,6 @@ func fmp4SeekAndMuxParts(
 			}
 
 			elapsed := tfdt.BaseMediaDecodeTimeV1
-			baseTimeSet := false
 
 			for _, e := range trun.Entries {
 				payload := make([]byte, e.SampleSize)
@@ -384,44 +375,18 @@ func fmp4SeekAndMuxParts(
 					break
 				}
 
-				isRandom := (e.SampleFlags & sampleFlagIsNonSyncSample) == 0
-				_, fsw := firstSampleWritten[tfhd.TrackID]
+				normalizedElapsed := int64(elapsed) - int64(minTimeMP4)
 
-				sa := &fmp4.PartSample{
+				if normalizedElapsed >= 0 {
+					atLeastOnePartWritten = true
+				}
+
+				w.writeSample(normalizedElapsed, &fmp4.PartSample{
 					Duration:        e.SampleDuration,
 					PTSOffset:       e.SampleCompositionTimeOffsetV1,
-					IsNonSyncSample: !isRandom,
+					IsNonSyncSample: (e.SampleFlags & sampleFlagIsNonSyncSample) != 0,
 					Payload:         payload,
-				}
-
-				if !fsw {
-					if isRandom {
-						gop[tfhd.TrackID] = []*fmp4.PartSample{sa}
-					} else {
-						gop[tfhd.TrackID] = append(gop[tfhd.TrackID], sa)
-					}
-				}
-
-				if elapsed >= minTimeMP4 {
-					if !baseTimeSet {
-						outTrack.BaseTime = elapsed - minTimeMP4
-
-						if !fsw {
-							if !isRandom {
-								for _, sa2 := range gop[tfhd.TrackID][:len(gop[tfhd.TrackID])-1] {
-									sa2.Duration = 0
-									sa2.PTSOffset = 0
-									outTrack.Samples = append(outTrack.Samples, sa2)
-								}
-							}
-
-							delete(gop, tfhd.TrackID)
-							firstSampleWritten[tfhd.TrackID] = struct{}{}
-						}
-					}
-
-					outTrack.Samples = append(outTrack.Samples, sa)
-				}
+				})
 
 				elapsed += uint64(e.SampleDuration)
 			}
@@ -430,36 +395,11 @@ func fmp4SeekAndMuxParts(
 				maxElapsed = elapsed
 			}
 
-			if outTrack.Samples != nil {
-				outPart.Tracks = append(outPart.Tracks, outTrack)
-			}
-
-			outTrack = nil
-
 		case "mdat":
-			if outPart.Tracks != nil {
-				if !initWritten {
-					initWritten = true
-					_, err := w.Write(init)
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				err := outPart.Marshal(&outBuf)
-				if err != nil {
-					return nil, err
-				}
-
-				_, err = w.Write(outBuf.Bytes())
-				if err != nil {
-					return nil, err
-				}
-
-				outBuf.Reset()
+			err := w.flush()
+			if err != nil {
+				return nil, err
 			}
-
-			outPart = nil
 		}
 		return nil, nil
 	})
@@ -467,7 +407,7 @@ func fmp4SeekAndMuxParts(
 		return 0, err
 	}
 
-	if !initWritten {
+	if !atLeastOnePartWritten {
 		return 0, errNoSegmentsFound
 	}
 
@@ -476,26 +416,22 @@ func fmp4SeekAndMuxParts(
 	return durationMp4ToGo(maxElapsed, fmp4Timescale), nil
 }
 
-func fmp4MuxParts(
+func segmentFMP4WriteParts(
 	r io.ReadSeeker,
 	startTime time.Duration,
 	maxTime time.Duration,
-	w io.Writer,
+	w muxer,
 ) (time.Duration, error) {
 	maxTimeMP4 := durationGoToMp4(maxTime, fmp4Timescale)
 	moofOffset := uint64(0)
 	var tfhd *mp4.Tfhd
 	var tfdt *mp4.Tfdt
-	var outPart *fmp4.Part
-	var outTrack *fmp4.PartTrack
-	var outBuf seekablebuffer.Buffer
 	maxElapsed := uint64(0)
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
 		case "moof":
 			moofOffset = h.BoxInfo.Offset
-			outPart = &fmp4.Part{}
 			return h.Expand()
 
 		case "traf":
@@ -519,10 +455,7 @@ func fmp4MuxParts(
 				return nil, errTerminated
 			}
 
-			outTrack = &fmp4.PartTrack{
-				ID:       int(tfhd.TrackID),
-				BaseTime: tfdt.BaseMediaDecodeTimeV1 + durationGoToMp4(startTime, fmp4Timescale),
-			}
+			w.setTrack(int(tfhd.TrackID))
 
 		case "trun":
 			box, _, err := h.ReadPayload()
@@ -551,16 +484,14 @@ func fmp4MuxParts(
 					break
 				}
 
-				isRandom := (e.SampleFlags & sampleFlagIsNonSyncSample) == 0
+				normalizedElapsed := int64(elapsed) + int64(durationGoToMp4(startTime, fmp4Timescale))
 
-				sa := &fmp4.PartSample{
+				w.writeSample(normalizedElapsed, &fmp4.PartSample{
 					Duration:        e.SampleDuration,
 					PTSOffset:       e.SampleCompositionTimeOffsetV1,
-					IsNonSyncSample: !isRandom,
+					IsNonSyncSample: (e.SampleFlags & sampleFlagIsNonSyncSample) != 0,
 					Payload:         payload,
-				}
-
-				outTrack.Samples = append(outTrack.Samples, sa)
+				})
 
 				elapsed += uint64(e.SampleDuration)
 			}
@@ -569,28 +500,11 @@ func fmp4MuxParts(
 				maxElapsed = elapsed
 			}
 
-			if outTrack.Samples != nil {
-				outPart.Tracks = append(outPart.Tracks, outTrack)
-			}
-
-			outTrack = nil
-
 		case "mdat":
-			if outPart.Tracks != nil {
-				err := outPart.Marshal(&outBuf)
-				if err != nil {
-					return nil, err
-				}
-
-				_, err = w.Write(outBuf.Bytes())
-				if err != nil {
-					return nil, err
-				}
-
-				outBuf.Reset()
+			err := w.flush()
+			if err != nil {
+				return nil, err
 			}
-
-			outPart = nil
 		}
 		return nil, nil
 	})
