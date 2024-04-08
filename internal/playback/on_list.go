@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/gin-gonic/gin"
 )
@@ -27,7 +28,7 @@ type listEntry struct {
 func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*Segment) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
 		out := []listEntry{}
-		var prevInit []byte
+		var prevInit *fmp4.Init
 
 		for _, seg := range segments {
 			err := func() error {
@@ -47,7 +48,7 @@ func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*S
 					return err
 				}
 
-				maxDuration, err := segmentFMP4ReadMaxDuration(f)
+				maxDuration, err := segmentFMP4ReadMaxDuration(f, init)
 				if err != nil {
 					return err
 				}
