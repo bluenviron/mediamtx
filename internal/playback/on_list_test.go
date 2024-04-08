@@ -64,11 +64,11 @@ func TestOnList(t *testing.T) {
 
 	require.Equal(t, []interface{}{
 		map[string]interface{}{
-			"duration": float64(64),
+			"duration": float64(65),
 			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 		},
 		map[string]interface{}{
-			"duration": float64(2),
+			"duration": float64(3),
 			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 		},
 	}, out)

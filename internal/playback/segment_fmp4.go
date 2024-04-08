@@ -359,6 +359,7 @@ func segmentFMP4SeekAndMuxParts(
 			}
 
 			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) - int64(segmentStartOffsetMP4)
+			atLeastOneSampleWritten := false
 
 			for _, e := range trun.Entries {
 				if muxerDTS >= int64(durationMP4) {
@@ -386,10 +387,13 @@ func segmentFMP4SeekAndMuxParts(
 					return nil, err
 				}
 
+				atLeastOneSampleWritten = true
 				muxerDTS += int64(e.SampleDuration)
 			}
 
-			m.writeFinalDTS(muxerDTS)
+			if atLeastOneSampleWritten {
+				m.writeFinalDTS(muxerDTS)
+			}
 
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
@@ -467,6 +471,7 @@ func segmentFMP4WriteParts(
 			}
 
 			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) + int64(segmentStartOffsetMP4)
+			atLeastOneSampleWritten := false
 
 			for _, e := range trun.Entries {
 				if muxerDTS >= int64(durationMP4) {
@@ -490,10 +495,13 @@ func segmentFMP4WriteParts(
 					return nil, err
 				}
 
+				atLeastOneSampleWritten = true
 				muxerDTS += int64(e.SampleDuration)
 			}
 
-			m.writeFinalDTS(muxerDTS)
+			if atLeastOneSampleWritten {
+				m.writeFinalDTS(muxerDTS)
+			}
 
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
