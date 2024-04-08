@@ -134,7 +134,7 @@ func writeSegment2(t *testing.T, fpath string) {
 	var buf2 seekablebuffer.Buffer
 	parts := fmp4.Parts{
 		{
-			SequenceNumber: 1,
+			SequenceNumber: 3,
 			Tracks: []*fmp4.PartTrack{{
 				ID:       1,
 				BaseTime: 0,
@@ -148,6 +148,20 @@ func writeSegment2(t *testing.T, fpath string) {
 						Duration:        1 * 90000,
 						IsNonSyncSample: false,
 						Payload:         []byte{9, 10},
+					},
+				},
+			}},
+		},
+		{
+			SequenceNumber: 4,
+			Tracks: []*fmp4.PartTrack{{
+				ID:       1,
+				BaseTime: 2 * 90000,
+				Samples: []*fmp4.PartSample{
+					{
+						Duration:        1 * 90000,
+						IsNonSyncSample: false,
+						Payload:         []byte{11, 12},
 					},
 				},
 			}},
@@ -189,7 +203,7 @@ func writeSegment3(t *testing.T, fpath string) {
 					{
 						Duration:        1 * 90000,
 						IsNonSyncSample: false,
-						Payload:         []byte{10, 11},
+						Payload:         []byte{13, 14},
 					},
 				},
 			}},
@@ -478,6 +492,10 @@ func TestOnGetNTPCompensation(t *testing.T) {
 						{
 							Duration: 90000,
 							Payload:  []byte{9, 10},
+						},
+						{
+							Duration: 90000,
+							Payload:  []byte{11, 12},
 						},
 					},
 				},
