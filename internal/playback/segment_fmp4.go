@@ -317,6 +317,7 @@ func segmentFMP4SeekAndMuxParts(
 	var tfdt *mp4.Tfdt
 	atLeastOnePartWritten := false
 	maxMuxerDTS := int64(0)
+	breakAtNextMdat := false
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -361,6 +362,7 @@ func segmentFMP4SeekAndMuxParts(
 
 			for _, e := range trun.Entries {
 				if muxerDTS >= int64(durationMP4) {
+					breakAtNextMdat = true
 					break
 				}
 
@@ -392,6 +394,11 @@ func segmentFMP4SeekAndMuxParts(
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
 			}
+
+		case "mdat":
+			if breakAtNextMdat {
+				return nil, errTerminated
+			}
 		}
 		return nil, nil
 	})
@@ -418,6 +425,7 @@ func segmentFMP4WriteParts(
 	var tfhd *mp4.Tfhd
 	var tfdt *mp4.Tfdt
 	maxMuxerDTS := int64(0)
+	breakAtNextMdat := false
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -462,6 +470,7 @@ func segmentFMP4WriteParts(
 
 			for _, e := range trun.Entries {
 				if muxerDTS >= int64(durationMP4) {
+					breakAtNextMdat = true
 					break
 				}
 
@@ -488,6 +497,11 @@ func segmentFMP4WriteParts(
 
 			if muxerDTS > maxMuxerDTS {
 				maxMuxerDTS = muxerDTS
+			}
+
+		case "mdat":
+			if breakAtNextMdat {
+				return nil, errTerminated
 			}
 		}
 		return nil, nil
