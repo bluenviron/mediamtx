@@ -182,7 +182,7 @@ type Conf struct {
 
 	// HLS server
 	HLS                bool           `json:"hls"`
-	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // depreacted
+	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // deprecated
 	HLSAddress         string         `json:"hlsAddress"`
 	HLSEncryption      bool           `json:"hlsEncryption"`
 	HLSServerKey       string         `json:"hlsServerKey"`
