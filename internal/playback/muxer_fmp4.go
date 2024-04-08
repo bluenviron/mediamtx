@@ -8,13 +8,16 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 )
 
-var partSize = durationGoToMp4(1*time.Second, fmp4Timescale)
+const (
+	partSize = 1 * time.Second
+)
 
 type muxerFMP4Track struct {
-	id       int
-	firstDTS int64
-	lastDTS  int64
-	samples  []*fmp4.PartSample
+	id        int
+	timeScale uint32
+	firstDTS  int64
+	lastDTS   int64
+	samples   []*fmp4.PartSample
 }
 
 func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
@@ -29,26 +32,29 @@ func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
 type muxerFMP4 struct {
 	w io.Writer
 
-	init               []byte
+	init               *fmp4.Init
 	nextSequenceNumber uint32
 	tracks             []*muxerFMP4Track
 	curTrack           *muxerFMP4Track
 	outBuf             seekablebuffer.Buffer
 }
 
-func (w *muxerFMP4) writeInit(init []byte) {
+func (w *muxerFMP4) writeInit(init *fmp4.Init) {
 	w.init = init
+
+	w.tracks = make([]*muxerFMP4Track, len(init.Tracks))
+
+	for i, track := range init.Tracks {
+		w.tracks[i] = &muxerFMP4Track{
+			id:        track.ID,
+			timeScale: track.TimeScale,
+			firstDTS:  -1,
+		}
+	}
 }
 
 func (w *muxerFMP4) setTrack(trackID int) {
 	w.curTrack = findTrack(w.tracks, trackID)
-	if w.curTrack == nil {
-		w.curTrack = &muxerFMP4Track{
-			id:       trackID,
-			firstDTS: -1,
-		}
-		w.tracks = append(w.tracks, w.curTrack)
-	}
 }
 
 func (w *muxerFMP4) writeSample(dts int64, ptsOffset int32, isNonSyncSample bool, payload []byte) error {
@@ -75,7 +81,9 @@ func (w *muxerFMP4) writeSample(dts int64, ptsOffset int32, isNonSyncSample bool
 		})
 		w.curTrack.lastDTS = dts
 
-		if (w.curTrack.lastDTS - w.curTrack.firstDTS) > int64(partSize) {
+		partSizeMP4 := durationGoToMp4(partSize, w.curTrack.timeScale)
+
+		if (w.curTrack.lastDTS - w.curTrack.firstDTS) > partSizeMP4 {
 			err := w.innerFlush(false)
 			if err != nil {
 				return err
@@ -141,11 +149,18 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 		w.nextSequenceNumber++
 
 		if w.init != nil {
-			_, err := w.w.Write(w.init)
+			err := w.init.Marshal(&w.outBuf)
 			if err != nil {
 				return err
 			}
+
+			_, err = w.w.Write(w.outBuf.Bytes())
+			if err != nil {
+				return err
+			}
+
 			w.init = nil
+			w.outBuf.Reset()
 		}
 
 		err := part.Marshal(&w.outBuf)

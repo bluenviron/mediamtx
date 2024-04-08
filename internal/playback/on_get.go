@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -48,7 +49,7 @@ func seekAndMux(
 	m muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
-		var firstInit []byte
+		var firstInit *fmp4.Init
 		var segmentEnd time.Time
 
 		err := func() error {
@@ -67,7 +68,7 @@ func seekAndMux(
 
 			segmentStartOffset := start.Sub(segments[0].Start)
 
-			segmentMaxElapsed, err := segmentFMP4SeekAndMuxParts(f, segmentStartOffset, duration, m)
+			segmentMaxElapsed, err := segmentFMP4SeekAndMuxParts(f, segmentStartOffset, duration, firstInit, m)
 			if err != nil {
 				return err
 			}
@@ -99,7 +100,7 @@ func seekAndMux(
 
 				segmentStartOffset := seg.Start.Sub(start)
 
-				segmentMaxElapsed, err := segmentFMP4WriteParts(f, segmentStartOffset, duration, m)
+				segmentMaxElapsed, err := segmentFMP4WriteParts(f, segmentStartOffset, duration, firstInit, m)
 				if err != nil {
 					return err
 				}
