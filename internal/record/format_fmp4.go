@@ -114,7 +114,7 @@ func (f *formatFMP4) initialize() {
 
 	addTrack := func(format rtspformat.Format, codec fmp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
-			TimeScale: 90000,
+			TimeScale: uint32(format.ClockRate()),
 			Codec:     codec,
 		}
 		initTrack.ID = nextID
