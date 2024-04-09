@@ -1,7 +1,6 @@
 package playback
 
 import (
-	"fmt"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -24,10 +23,6 @@ func findSegmentsInTimespan(
 	start time.Time,
 	duration time.Duration,
 ) ([]*Segment, error) {
-	if !pathConf.Playback {
-		return nil, fmt.Errorf("playback is disabled on path '%s'", pathName)
-	}
-
 	recordPath := record.PathAddExtension(
 		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
 		pathConf.RecordFormat,
@@ -99,10 +94,6 @@ func FindSegments(
 	pathConf *conf.Path,
 	pathName string,
 ) ([]*Segment, error) {
-	if !pathConf.Playback {
-		return nil, fmt.Errorf("playback is disabled on path '%s'", pathName)
-	}
-
 	recordPath := record.PathAddExtension(
 		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
 		pathConf.RecordFormat,
