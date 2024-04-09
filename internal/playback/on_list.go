@@ -96,11 +96,6 @@ func (p *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	if !pathConf.Playback {
-		p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
-		return
-	}
-
 	segments, err := FindSegments(pathConf, pathName)
 	if err != nil {
 		if errors.Is(err, errNoSegmentsFound) {

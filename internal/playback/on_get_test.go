@@ -250,7 +250,6 @@ func TestOnGet(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
-				Playback:   true,
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
@@ -345,7 +344,6 @@ func TestOnGetDifferentInit(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
-				Playback:   true,
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
@@ -421,7 +419,6 @@ func TestOnGetNTPCompensation(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
-				Playback:   true,
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},

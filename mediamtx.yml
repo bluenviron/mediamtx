@@ -372,12 +372,10 @@ pathDefaults:
   fallback:
 
   ###############################################
-  # Default path settings -> Record and playback
+  # Default path settings -> Record
 
   # Record streams to disk.
   record: no
-  # Enable serving recordings with the playback server.
-  playback: yes
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)

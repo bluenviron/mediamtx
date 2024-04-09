@@ -1128,11 +1128,6 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 		return
 	}
 
-	if !pathConf.Playback {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
-		return
-	}
-
 	ctx.JSON(http.StatusOK, recordingEntry(pathConf, pathName))
 }
 
@@ -1152,11 +1147,6 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 	_, pathConf, _, err := conf.FindPathConf(c.Paths, pathName)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	if !pathConf.Playback {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
 		return
 	}
 

@@ -223,10 +223,8 @@ components:
         fallback:
           type: string
 
-        # Record and playback
+        # Record
         record:
-          type: boolean
-        playback:
           type: boolean
         recordPath:
           type: string

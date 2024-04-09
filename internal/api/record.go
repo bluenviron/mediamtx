@@ -103,14 +103,12 @@ func getAllPathsWithRecordings(paths map[string]*conf.Path) []string {
 	pathNames := []string{}
 
 	for _, pathConf := range paths {
-		if pathConf.Playback {
-			if pathConf.Regexp == nil {
-				if fixedPathHasRecordings(pathConf) {
-					pathNames = append(pathNames, pathConf.Name)
-				}
-			} else {
-				pathNames = append(pathNames, regexpPathGetRecordings(pathConf)...)
+		if pathConf.Regexp == nil {
+			if fixedPathHasRecordings(pathConf) {
+				pathNames = append(pathNames, pathConf.Name)
 			}
+		} else {
+			pathNames = append(pathNames, regexpPathGetRecordings(pathConf)...)
 		}
 	}
 
