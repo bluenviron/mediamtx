@@ -41,7 +41,7 @@ func writeBenchInit(f io.WriteSeeker) {
 	}
 
 	_, err = f.Write([]byte{
-		'm', 'o', 'o', 'f', 0x00, 0x00, 0x00, 0x10,
+		0x00, 0x00, 0x00, 0x10, 'm', 'o', 'o', 'f',
 	})
 	if err != nil {
 		panic(err)
