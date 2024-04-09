@@ -203,9 +203,13 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
-		scheme := ctx.Request.URL.Scheme
+	scheme := ctx.Request.URL.Scheme
 	if scheme == "" {
 		scheme = "http"
+	}
+	// Nginx detection
+	if ctx.Request.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
 	}
 	ctx.Writer.Header().Set("Location", scheme + "://" + ctx.Request.Host + ctx.Request.URL.Path + "/" + res.sx.secret.String())
 	ctx.Writer.WriteHeader(http.StatusCreated)
