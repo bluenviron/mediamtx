@@ -61,7 +61,7 @@ func (w *muxerFMP4) writeSample(
 	dts int64,
 	ptsOffset int32,
 	isNonSyncSample bool,
-	_ int,
+	_ uint32,
 	getPayload func() ([]byte, error),
 ) error {
 	pl, err := getPayload()

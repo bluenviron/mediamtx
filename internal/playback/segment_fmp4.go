@@ -420,7 +420,7 @@ func segmentFMP4SeekAndMuxParts(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
-					int(e.SampleSize),
+					e.SampleSize,
 					func() ([]byte, error) {
 						payload := make([]byte, sampleSize)
 						n, err := r.ReadAt(payload, int64(sampleOffset))
@@ -544,7 +544,7 @@ func segmentFMP4MuxParts(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
-					int(e.SampleSize),
+					e.SampleSize,
 					func() ([]byte, error) {
 						payload := make([]byte, sampleSize)
 						n, err := r.ReadAt(payload, int64(sampleOffset))
