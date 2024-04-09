@@ -45,15 +45,11 @@ func TestSource(t *testing.T) {
 		}})
 		require.NoError(t, err)
 
-		err = w.WriteH26x(track, 0, 0, true, [][]byte{{ // non-IDR
-			5, 2,
-		}})
-		require.NoError(t, err)
-
 		err = bw.Flush()
 		require.NoError(t, err)
 
-		time.Sleep(1000 * time.Millisecond)
+		// wait for internal SRT queue to be written
+		time.Sleep(500 * time.Millisecond)
 	}()
 
 	te := test.NewSourceTester(
