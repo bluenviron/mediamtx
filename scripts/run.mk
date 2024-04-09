@@ -24,7 +24,7 @@ paths:
   all:
 #    runOnReady: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$MTX_PATH -c copy -f mpegts myfile_$$MTX_PATH.ts
 #    readUser: test
-#    readPass: tast
+#    readPass: test
 #    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/$$MTX_PATH
 
 #  proxied:
