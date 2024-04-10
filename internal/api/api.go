@@ -17,6 +17,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -156,6 +159,11 @@ type apiParent interface {
 	APIConfigSet(conf *conf.Conf)
 }
 
+// SystemStatus contains methods used by the API and Metrics server.
+type SystemStatus interface {
+	APIGetSystemStatus() (*defs.SystemStats, error)
+}
+
 // API is an API server.
 type API struct {
 	Address      string
@@ -248,6 +256,8 @@ func (a *API) Initialize() error {
 	group.GET("/v3/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/v3/recordings/deletesegment", a.onRecordingDeleteSegment)
 
+	group.GET("/v3/system/stats", a.onGetSystemStats)
+
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
 	var err error
@@ -267,6 +277,37 @@ func (a *API) Initialize() error {
 	a.Log(logger.Info, "listener opened on "+address)
 
 	return nil
+}
+
+func getSystemStats() (*defs.SystemStats, error) {
+	stats := &defs.SystemStats{}
+
+	// Get CPU usage
+	cpuPercent, err := cpu.Percent(0, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(cpuPercent) > 0 {
+		stats.CPUUsagePercent = cpuPercent[0]
+	}
+
+	// Get memory usage
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+	stats.TotalMemory = vmStat.Total
+	stats.UsedMemory = vmStat.Used
+
+	// Get disk usage (assuming '/' as the disk path for simplicity)
+	diskStat, err := disk.Usage("/")
+	if err != nil {
+		return nil, err
+	}
+	stats.TotalDiskSpace = diskStat.Total
+	stats.UsedDiskSpace = diskStat.Used
+
+	return stats, nil
 }
 
 // Close closes the API.
@@ -350,6 +391,15 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 	go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
+}
+
+func (a *API) onGetSystemStats(ctx *gin.Context) {
+	stats, err := getSystemStats()
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, stats)
 }
 
 func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {

@@ -332,3 +332,12 @@ type APIRecordingList struct {
 	PageCount int             `json:"pageCount"`
 	Items     []*APIRecording `json:"items"`
 }
+
+// SystemStats is the system statistics.
+type SystemStats struct {
+	CPUUsagePercent float64 `json:"cpuUsagePercent"`
+	TotalMemory     uint64  `json:"totalMemory"`
+	UsedMemory      uint64  `json:"usedMemory"`
+	TotalDiskSpace  uint64  `json:"totalDiskSpace"`
+	UsedDiskSpace   uint64  `json:"usedDiskSpace"`
+}

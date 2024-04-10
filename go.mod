@@ -26,6 +26,7 @@ require (
 	github.com/pion/rtp v1.8.5
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.22.0
 	golang.org/x/sys v0.19.0
@@ -43,6 +44,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
@@ -64,9 +66,12 @@ require (
 	github.com/pion/transport/v2 v2.2.3 // indirect
 	github.com/pion/turn/v2 v2.1.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
