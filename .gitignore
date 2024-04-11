@@ -3,3 +3,5 @@
 /coverage*.txt
 /apidocs/*.html
 **/hls.min.js
+server.crt
+server.key
