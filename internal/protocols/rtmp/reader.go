@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/abema/go-mp4"
@@ -78,7 +79,14 @@ func hasVideo(md amf0.Object) (bool, error) {
 func hasAudio(md amf0.Object, audioTrack *format.Format) (bool, error) {
 	v, ok := md.Get("audiocodecid")
 	if !ok {
-		return false, nil
+		// If "audiocodecid" is not present, check for "audiosamplerate"
+		_, ok := md.Get("audiosamplerate")
+		if !ok {
+			// If neither "audiocodecid" nor "audiosamplerate" is present, assume no audio
+			return false, nil
+		}
+		// "audiosamplerate" is present but no "audiocodecid", assume a default codec
+		return true, nil
 	}
 
 	switch vt := v.(type) {
@@ -700,11 +708,65 @@ func (r *Reader) Read() error {
 		return r.onDataVideo(msg)
 
 	case *message.Audio:
-		if r.onDataAudio == nil {
-			return fmt.Errorf("received an audio packet, but track is not set up")
+		if r.audioTrack == nil { // Check if the audio track isn't set up yet
+			// Dynamically set up the audio track based on the codec
+			switch msg.Codec {
+			case message.CodecMPEG4Audio:
+				if msg.AACType == message.AudioAACTypeConfig {
+					// Handle AAC audio configuration
+					audioTrack, err := trackFromAACDecoderConfig(msg.Payload)
+					if err != nil {
+						return nil // Log error as needed
+					}
+					r.audioTrack = audioTrack
+				}
+				log.Print("Audio track set up for MPEG-4 Audio")
+
+			case message.CodecLPCM:
+				// Setup LPCM audio track; adjust settings as necessary
+				r.audioTrack = &format.LPCM{
+					// Example settings; adjust as necessary
+					SampleRate:   48000, // Typically 48kHz for video applications
+					ChannelCount: 2,     // Stereo
+					BitDepth:     16,    // Common bit depth
+				}
+				log.Print("Audio track set up for LPCM")
+
+			case message.CodecMPEG1Audio:
+				// Setup MPEG-1 Audio track
+				r.audioTrack = &format.MPEG1Audio{
+					// Example settings; adjust as necessary
+				}
+				log.Print("Audio track set up for MPEG-1 Audio")
+
+			case message.CodecPCMA:
+				// Setup PCM A-law track
+				r.audioTrack = &format.G711{
+					PayloadTyp:   8, // Common payload type for PCMA
+					MULaw:        false,
+					SampleRate:   8000,
+					ChannelCount: 1,
+				}
+				log.Print("Audio track set up for PCM A-law")
+
+			case message.CodecPCMU:
+				// Setup PCM μ-law track
+				r.audioTrack = &format.G711{
+					PayloadTyp:   0, // Common payload type for PCMU
+					MULaw:        true,
+					SampleRate:   8000,
+					ChannelCount: 1,
+				}
+				log.Print("Audio track set up for PCM μ-law")
+			}
+			return nil
 		}
 
-		return r.onDataAudio(msg)
+		if r.onDataAudio != nil && r.audioTrack != nil {
+			return r.onDataAudio(msg)
+		}
+
+		return nil
 	}
 
 	return nil
