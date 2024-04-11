@@ -602,8 +602,8 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
-runOnRecordSegmentComplete: >
-  curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data $MTX_SEGMENT_PATH
+  runOnRecordSegmentComplete: >
+    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data $MTX_SEGMENT_PATH
 
 ###############################################
 # Path settings
