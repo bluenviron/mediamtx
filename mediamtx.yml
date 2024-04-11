@@ -40,12 +40,12 @@ pprofAddress: :9999
 # * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
-runOnConnect:
+runOnConnect: curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
 # Restart the command if it exits.
 runOnConnectRestart: no
 # Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
-runOnDisconnect:
+runOnDisconnect: curl --location --request POST "http://localhost:3000/disconnected/$MTX_CONN_ID"
 
 ###############################################
 # Global settings -> Authentication
@@ -375,7 +375,7 @@ pathDefaults:
   # Default path settings -> Record
 
   # Record streams to disk.
-  record: no
+  record: yes
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
@@ -389,10 +389,10 @@ pathDefaults:
   # Therefore, the part duration is equal to the RPO (recovery point objective).
   recordPartDuration: 100ms
   # Minimum duration of each segment.
-  recordSegmentDuration: 1h
+  recordSegmentDuration: 15m
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
-  recordDeleteAfter: 24h
+  recordDeleteAfter: 2h
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
@@ -602,7 +602,8 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
-  runOnRecordSegmentComplete:
+runOnRecordSegmentComplete: |
+  curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data $MTX_SEGMENT_PATH
 
 ###############################################
 # Path settings
@@ -615,8 +616,8 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  # my_camera:
-  #   source: rtsp://my_camera
+#  live/ai-live:
+#    source: rtsp://p1.s2tlive.com:8554/live/HF38078707846
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
