@@ -136,7 +136,7 @@ authJWTJWKS:
 # Global settings -> API
 
 # Enable controlling the server through the API.
-api: no
+api: yes
 # Address of the API listener.
 apiAddress: :9997
 
@@ -217,7 +217,7 @@ hls: yes
 hlsAddress: :8888
 # Enable TLS/HTTPS on the HLS server.
 # This is required for Low-Latency HLS.
-hlsEncryption: no
+hlsEncryption: yes
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -227,7 +227,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
-hlsAlwaysRemux: no
+hlsAlwaysRemux: yes
 # Variant of the HLS protocol to use. Available options are:
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
@@ -272,7 +272,7 @@ webrtc: yes
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
 # Enable TLS/HTTPS on the WebRTC server.
-webrtcEncryption: no
+webrtcEncryption: yes
 # Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
