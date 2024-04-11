@@ -9,7 +9,7 @@
 # Verbosity of the program; available values are "error", "warn", "info", "debug".
 logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
-logDestinations: [stdout]
+logDestinations: [ stdout ]
 # If "file" is in logDestinations, this is the file which will receive the logs.
 logFile: mediamtx.log
 
@@ -40,12 +40,14 @@ pprofAddress: :9999
 # * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
-runOnConnect: curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
+runOnConnect: >
+  curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
 # Restart the command if it exits.
 runOnConnectRestart: no
 # Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
-runOnDisconnect: curl --location --request POST "http://localhost:3000/disconnected/$MTX_CONN_ID"
+runOnDisconnect: >
+  curl --location --request POST "http://localhost:3000/disconnected/$MTX_CONN_ID"
 
 ###############################################
 # Global settings -> Authentication
@@ -61,34 +63,34 @@ authMethod: internal
 authInternalUsers:
   # Default unprivileged user.
   # Username. 'any' means any user, including anonymous ones.
-- user: any
-  # Password. Not used in case of 'any' user.
-  pass:
-  # IPs or networks allowed to use this user. An empty list means any IP.
-  ips: []
-  # List of permissions.
-  permissions:
-    # Available actions are: publish, read, playback, api, metrics, pprof.
-  - action: publish
-    # Paths can be set to further restrict access to a specific path.
-    # An empty path means any path.
-    # Regular expressions can be used by using a tilde as prefix.
-    path:
-  - action: read
-    path:
-  - action: playback
-    path:
+  - user: any
+    # Password. Not used in case of 'any' user.
+    pass:
+    # IPs or networks allowed to use this user. An empty list means any IP.
+    ips: [ ]
+    # List of permissions.
+    permissions:
+      # Available actions are: publish, read, playback, api, metrics, pprof.
+      - action: publish
+        # Paths can be set to further restrict access to a specific path.
+        # An empty path means any path.
+        # Regular expressions can be used by using a tilde as prefix.
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
 
-  # Default administrator.
-  # This allows to use API, metrics and PPROF without authentication,
-  # if the IP is localhost.
-- user: any
-  pass:
-  ips: []
-  permissions:
-  - action: api
-  - action: metrics
-  - action: pprof
+    # Default administrator.
+    # This allows to use API, metrics and PPROF without authentication,
+    # if the IP is localhost.
+  - user: any
+    pass:
+    ips: [ ]
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
@@ -110,9 +112,9 @@ authHTTPAddress:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
-- action: api
-- action: metrics
-- action: pprof
+  - action: api
+  - action: metrics
+  - action: pprof
 
 # JWT-based authentication.
 # Users have to login through an external identity server and obtain a JWT.
@@ -159,7 +161,7 @@ rtsp: yes
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
-protocols: [udp, multicast, tcp]
+protocols: [ udp, multicast, tcp ]
 # Encrypt handshakes and TCP streams with TLS (RTSPS).
 # Available values are "no", "strict", "optional".
 encryption: "no"
@@ -186,7 +188,7 @@ serverKey: server.key
 serverCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
-rtspAuthMethods: [basic]
+rtspAuthMethods: [ basic ]
 
 ###############################################
 # Global settings -> RTMP server
@@ -258,7 +260,7 @@ hlsAllowOrigin: '*'
 # List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
-hlsTrustedProxies: []
+hlsTrustedProxies: [ ]
 # Directory in which to save segments, instead of keeping them in the RAM.
 # This decreases performance, since reading from disk is less performant than
 # reading from RAM, but allows to save RAM.
@@ -286,7 +288,7 @@ webrtcAllowOrigin: '*'
 # List of IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
-webrtcTrustedProxies: []
+webrtcTrustedProxies: [ ]
 # Address of a local UDP listener that will receive connections.
 # Use a blank string to disable.
 webrtcLocalUDPAddress: :8189
@@ -299,19 +301,19 @@ webrtcLocalTCPAddress: ''
 webrtcIPsFromInterfaces: yes
 # List of interfaces whose IPs will be sent to clients.
 # An empty value means to use all available interfaces.
-webrtcIPsFromInterfacesList: []
+webrtcIPsFromInterfacesList: [ ]
 # List of additional hosts or IPs to send to clients.
-webrtcAdditionalHosts: []
+webrtcAdditionalHosts: [ ]
 # ICE servers. Needed only when local listeners can't be reached by clients.
 # STUN servers allows to obtain and share the public IP of the server.
 # TURN/TURNS servers forces all traffic through them.
-webrtcICEServers2: []
+webrtcICEServers2: [ ]
   # - url: stun:stun.l.google.com:19302
   # if user is "AUTH_SECRET", then authentication is secret based.
   # the secret must be inserted into the password field.
   # username: ''
   # password: ''
-  # clientOnly: false
+# clientOnly: false
 
 ###############################################
 # Global settings -> SRT server
@@ -457,7 +459,7 @@ pathDefaults:
   rpiCameraAWB: auto
   # auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
   # format: [red,blue]
-  rpiCameraAWBGains: [0, 0]
+  rpiCameraAWBGains: [ 0, 0 ]
   # denoise operating mode.
   # values: off, cdn_off, cdn_fast, cdn_hq
   rpiCameraDenoise: "off"
@@ -616,8 +618,8 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-#  live/ai-live:
-#    source: rtsp://p1.s2tlive.com:8554/live/HF38078707846
+  #  live/ai-live:
+  #    source: rtsp://p1.s2tlive.com:8554/live/HF38078707846
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
