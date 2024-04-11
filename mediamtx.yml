@@ -84,7 +84,7 @@ authInternalUsers:
   # if the IP is localhost.
 - user: any
   pass:
-  ips: ['127.0.0.1', '::1']
+  ips: []
   permissions:
   - action: api
   - action: metrics
