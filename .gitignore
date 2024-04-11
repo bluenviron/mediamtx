@@ -5,3 +5,5 @@
 **/hls.min.js
 server.crt
 server.key
+recordings
+.idea
