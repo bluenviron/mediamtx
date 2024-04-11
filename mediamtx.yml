@@ -146,7 +146,7 @@ apiAddress: :9997
 # Global settings -> Playback server
 
 # Enable downloading recordings from the playback server.
-playback: no
+playback: yes
 # Address of the playback server listener.
 playbackAddress: :9996
 
@@ -605,7 +605,7 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
   runOnRecordSegmentComplete: >
-    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "${PWD}/${MTX_SEGMENT_PATH}"
+    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "/home/ubuntu/orbit-launch/${MTX_SEGMENT_PATH}"
 
 ###############################################
 # Path settings
