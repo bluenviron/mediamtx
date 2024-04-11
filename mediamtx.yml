@@ -381,7 +381,7 @@ pathDefaults:
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
-  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S
   # Format of recorded segments.
   # Available formats are "fmp4" (fragmented MP4) and "mpegts" (MPEG-TS).
   recordFormat: fmp4
@@ -605,7 +605,7 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
   runOnRecordSegmentComplete: >
-    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data $MTX_SEGMENT_PATH
+    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "${PWD}/${MTX_SEGMENT_PATH}"
 
 ###############################################
 # Path settings
