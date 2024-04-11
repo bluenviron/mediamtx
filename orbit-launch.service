@@ -1,0 +1,12 @@
+[Unit]
+Description=Orbit Play Service
+After=network.target
+
+[Service]
+ExecStart=/home/ubuntu/orbit-launch/mediamtx
+WorkingDirectory=/home/ubuntu/orbit-launch
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
