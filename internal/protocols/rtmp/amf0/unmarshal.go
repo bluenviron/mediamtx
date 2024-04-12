@@ -183,6 +183,29 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 	case markerNull:
 		return nil, buf, nil
 
+	case markerStrictArray:
+		if len(buf) < 4 {
+			return nil, nil, errBufferTooShort
+		}
+
+		arrayCount := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+		buf = buf[4:]
+
+		out := StrictArray{}
+
+		for i := 0; i < int(arrayCount); i++ {
+			var value interface{}
+			var err error
+			value, buf, err = unmarshal(buf)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			out = append(out, value)
+		}
+
+		return out, buf, nil
+
 	default:
 		return nil, nil, fmt.Errorf("unsupported marker 0x%.2x", marker)
 	}
