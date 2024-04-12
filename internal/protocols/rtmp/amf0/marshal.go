@@ -81,6 +81,20 @@ func marshalSizeItem(item interface{}) (int, error) {
 
 		return n, nil
 
+	case StrictArray:
+		n := 5
+
+		for _, entry := range item {
+			en, err := marshalSizeItem(entry)
+			if err != nil {
+				return 0, err
+			}
+
+			n += en
+		}
+
+		return n, nil
+
 	case nil:
 		return 1, nil
 
@@ -163,6 +177,21 @@ func marshalItem(item interface{}, buf []byte) int {
 		buf[n+2] = markerObjectEnd
 
 		return n + 3
+
+	case StrictArray:
+		le := len(item)
+		buf[0] = markerStrictArray
+		buf[1] = byte(le >> 24)
+		buf[2] = byte(le >> 16)
+		buf[3] = byte(le >> 8)
+		buf[4] = byte(le)
+		n := 5
+
+		for _, entry := range item {
+			n += marshalItem(entry, buf[n:])
+		}
+
+		return n
 
 	default:
 		buf[0] = markerNull

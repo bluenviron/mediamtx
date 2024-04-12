@@ -187,41 +187,25 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 		if len(buf) < 4 {
 			return nil, nil, errBufferTooShort
 		}
-		keyLen := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		arrayCount := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
 		buf = buf[4:]
-		for i := 0; i < int(keyLen); i++ {
-			var buffData []byte
+
+		out := StrictArray{}
+
+		for i := 0; i < int(arrayCount); i++ {
+			var value interface{}
 			var err error
-			_, buffData, err = unmarshal(buf)
+			value, buf, err = unmarshal(buf)
 			if err != nil {
 				return nil, nil, err
 			}
-			buf = buffData
-		}
-		return nil, buf, nil
 
-	case markerLongString, markerXMLDocument:
-		if len(buf) < 4 {
-			return nil, nil, errBufferTooShort
-		}
-		keyLen := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
-		buf = buf[4:]
-		if len(buf) < int(keyLen) {
-			return nil, nil, errBufferTooShort
+			out = append(out, value)
 		}
 
-		return string(buf[:keyLen]), buf[keyLen:], nil
+		return out, buf, nil
 
-	case markerDate:
-		if len(buf) < 10 {
-			return nil, nil, errBufferTooShort
-		}
-		date := math.Float64frombits(uint64(buf[0])<<56 | uint64(buf[1])<<48 | uint64(buf[2])<<40 | uint64(buf[3])<<32 |
-			uint64(buf[4])<<24 | uint64(buf[5])<<16 | uint64(buf[6])<<8 | uint64(buf[7]))
-		buf = buf[8:]
-		// timeZone := uint16(buf[0])<<8 | uint16(buf[1])
-		buf = buf[2:] // skip timeZone
-		return date, buf, nil
 	default:
 		return nil, nil, fmt.Errorf("unsupported marker 0x%.2x", marker)
 	}
