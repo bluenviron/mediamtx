@@ -180,7 +180,7 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 
 		return out, buf[1:], nil
 
-	case markerNull, markerUnsupported, markerUndefined:
+	case markerNull:
 		return nil, buf, nil
 
 	case markerStrictArray:
