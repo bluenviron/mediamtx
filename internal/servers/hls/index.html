@@ -1,142 +1,596 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<style>
-html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-	font-family: 'Arial', sans-serif;
-}
-#video {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgb(30, 30, 30);
-}
-#message {
-	position: absolute;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	text-align: center;
-	justify-content: center;
-	font-size: 16px;
-	font-weight: bold;
-	color: white;
-	pointer-events: none;
-	padding: 20px;
-	box-sizing: border-box;
-	text-shadow: 0 0 5px black;
-}
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> <!-- Material Icons -->
+
+    <style>
+        @keyframes pulse {
+            0% {
+                transform: scale(0.8);
+            }
+            50% {
+                transform: scale(1.3); /* Increase size by 10% */
+            }
+            100% {
+                transform: scale(0.8);
+            }
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .material-icons {
+            font-size: 20px; /* Adjust icon size as needed */
+            vertical-align: middle;
+        }
+
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .alert {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            gap: 10px;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .camera-tamper-alert {
+            background-color: #ffccbc; /* Light red for camera tamper */
+        }
+
+        .noise-alert {
+            background-color: #bbdefb; /* Light blue for noise */
+        }
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgb(30, 30, 30);
+            object-fit: fill;
+        }
+
+        .flex-row {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .flex-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-card, .alert-card {
+            position: fixed;
+            top: 10%;
+            left: 20px;
+
+            flex-direction: column; /* Adjust to stack items vertically */
+        }
+
+        .visibility-alert {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            /*margin-top: 10%;*/
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 10px 20px;
+            gap: 10px;
+            color: white;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .audio-visibility-alert {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-top: 10%;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 10px 20px;
+            gap: 10px;
+            color: white;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .visibility-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: red; /* Red dot for visibility alert */
+            animation: pulse 5s infinite; /* Apply the animation */
+        }
+
+        .visibility-text {
+            font-size: 14px; /* Smaller text for the visibility alert */
+            color: red; /* Text color */
+        }
+
+        .alert-card {
+            top: auto; /* Remove top positioning */
+            left: 50px;
+            bottom: 50px; /* Position it at the bottom */
+        }
+
+        .info-icon.alert, .visibility-icon.alert {
+            color: red; /* Red color for text/icons */
+            opacity: 0.5; /* Translucent */
+        }
+
+        .info-icon {
+            /*display: inline-block;*/
+            margin-right: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .visibility-icon, .audio-icon {
+            font-size: 20px;
+        }
+
+        #zoomControls {
+            /*border: 1px solid #ffffff; !* White border for visibility *!*/
+            padding: 1px;
+            border-radius: 5px;
+        }
+
+        #bottomBar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px; /* Increased height for better control visibility */
+            background-color: rgba(0, 0, 0, 0.7); /* Darker background for contrast */
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bottomBarAi {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            display: flex;
+            align-items: center;
+            margin-left: 4px;
+            justify-content: center;
+            background-color: #333; /* Darker buttons for contrast */
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #00a76f;
+        }
+
+        /* Audio Controls */
+        .audio-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .volume-slider {
+            margin-left: 10px;
+            width: 100px; /* Fixed width for the slider */
+        }
+
+        /* People Counter */
+        .people-count {
+            font-weight: bold;
+            font-size: 0.9em; /* Larger and bolder text */
+            color: #212121; /* Dark grey for emphasis */
+            background: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
+        }
+
+        .material-icons.md-18 {
+            font-size: 18px;
+        }
+
+        .material-icons.md-24 {
+            font-size: 24px;
+        }
+
+        /* Default size */
+        .material-icons.md-36 {
+            font-size: 36px;
+        }
+
+        .material-icons.md-48 {
+            font-size: 48px;
+        }
+
+    </style>
 </head>
 <body>
 
-<video id="video"></video>
-<div id="message"></div>
+<div id="videoContainer">
+    <video id="video"></video>
+    <div id="overlay" class="info-card">
 
+
+        <div class="visibility-alert" style="display: none;"> <!-- Initially hidden -->
+            <div class="visibility-dot"></div>
+            <span class="visibility-text">Camera Tampered</span>
+        </div>
+
+        <div class="audio-visibility-alert" style="display: none;"> <!-- Initially hidden -->
+            <div class="visibility-dot"></div>
+            <span class="visibility-text">Noise Detected</span>
+        </div>
+
+        <div id="alert-overlay" class="alert-card">
+            <!--            <span class="info-icon audio-icon"></span>-->
+        </div>
+    </div>
+
+</div>
+<div id="bottomBar" class="flex-row">
+    <!-- Audio Controls -->
+    <div class="audio-controls">
+        <button id="muteToggle"><span class="material-icons">volume_off</span></button> <!-- Material Icon for Mute -->
+        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="0">
+    </div>
+    <div class="bottomBarAi">
+        <span class="people-count">People: 0</span>
+    </div>
+    <div id="zoomControls" class="flex-row">
+        <button id="zoomIn"><span class="material-icons">add</span></button> <!-- Material Icon for Zoom In -->
+        <button id="zoomOut"><span class="material-icons">remove</span></button> <!-- Material Icon for Zoom Out -->
+        <button id="resetZoom"><span class="material-icons">refresh</span></button>
+        <!-- Material Icon for Reset Zoom -->
+        <button id="fullscreen"><span class="material-icons">fullscreen</span></button>
+        <!-- Material Icon for Fullscreen -->
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.js"></script>
 <script src="hls.min.js"></script>
 
-<script>
+<script type="module">
 
-const retryPause = 2000;
+    const retryPause = 2000;
 
-const video = document.getElementById('video');
-const message = document.getElementById('message');
+    let zoomLevel = 1;
+    const zoomSteps = [1, 1.2, 1.5, 2, 5];
 
-let defaultControls = false;
+    let defaultControls = false;
 
-const setMessage = (str) => {
-	if (str !== '') {
-		video.controls = false;
-	} else {
-		video.controls = defaultControls;
-	}
-	message.innerText = str;
-};
+    const volumeSlider = document.getElementById('volumeSlider');
+    const muteToggle = document.getElementById('muteToggle');
+    const video = document.getElementById('video');
+    const message = document.getElementById('message');
+    const peopleCountIcon = document.querySelector('.people-count');
+    const peopleCount = document.querySelector('.bottomBarAi');
+    const visibilityIcon = document.querySelector('.visibility-alert');
+    const audioIcon = document.querySelector('.audio-visibility-alert');
+    const bottomBar = document.getElementById('bottomBar');
 
-const loadStream = () => {
-	// always prefer hls.js over native HLS.
-	// this is because some Android versions support native HLS
-	// but don't support fMP4s.
-	if (Hls.isSupported()) {
-		const hls = new Hls({
-			maxLiveSyncPlaybackRate: 1.5,
-		});
+    function startAI() {
+        const ws = new WebSocket('wss://rabbitmq.orbitplay.online:15673/ws');
+        const client = Stomp.over(ws);
 
-		hls.on(Hls.Events.ERROR, (evt, data) => {
-			if (data.fatal) {
-				hls.destroy();
+        client.debug = null
 
-				if (data.details === 'manifestIncompatibleCodecsError') {
-					setMessage('stream makes use of codecs which are incompatible with this browser or operative system');
-				} else if (data.response && data.response.code === 404) {
-					setMessage('stream not found, retrying in some seconds');
-				} else {
-					setMessage(data.error + ', retrying in some seconds');
-				}
+        peopleCount.style.display = 'flex';
+        visibilityIcon.style.display = 'none';
+        audioIcon.style.display = 'none';
 
-				setTimeout(() => loadStream(video), retryPause);
-			}
-		});
+        function onConnect() {
+            const streamId = window.location.href.split('/').at(window.location.href.split("/").length - 2)
 
-		hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-			hls.loadSource('index.m3u8' + window.location.search);
-		});
+            var binding_keys = ["2302012913011752"];
 
-		hls.on(Hls.Events.MANIFEST_PARSED, () => {
-			setMessage('');
-			video.play();
-		});
+            binding_keys.forEach(function (key) {
+                client.subscribe("/exchange/orbit_play_ai/" + key, function (message) {
+                    // Called when a message arrives
+                    const data = JSON.parse(message.body);
+                    updateOverlay(data);
+                    console.log('Received message:', data);
+                });
+            });
 
-		hls.attachMedia(video);
+            console.log('Connected: Waiting for messages...');
+        }
 
-	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		// since it's not possible to detect timeout errors in iOS,
-		// wait for the playlist to be available before starting the stream
-		fetch('index.m3u8')
-			.then(() => {
-				video.src = 'index.m3u8';
-				video.play();
-			});
-	}
-};
+        function onSocketError(error) {
+            console.log('Could not connect to WebSocket, error:', error);
+        }
 
-const parseBoolString = (str, defaultVal) => {
-	str = (str || '');
+        client.connect('user', 'password', onConnect, onSocketError, "/");
+    }
 
-	if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
-		return true;
-	}
-	if (['0', 'no', 'false'].includes(str.toLowerCase())) {
-		return false;
-	}
-	return defaultVal;
-};
+    function disableAI() {
+        console.log('AI disabled');
+        visibilityIcon.style.display = 'none';
+        audioIcon.style.display = 'none';
+        peopleCount.style.display = 'none';
+        peopleCountIcon.style.display = 'none';
+    }
 
-const loadAttributesFromQuery = () => {
-	const params = new URLSearchParams(window.location.search);
-	video.controls = parseBoolString(params.get('controls'), true);
-	video.muted = parseBoolString(params.get('muted'), true);
-	video.autoplay = parseBoolString(params.get('autoplay'), true);
-	video.playsInline = parseBoolString(params.get('playsinline'), true);
-	defaultControls = video.controls;
-};
+    function updateOverlay(data) {
 
-const init = () => {
-	loadAttributesFromQuery();
-	loadStream();
-};
+        const peopleCount = data.bboxes.length;
+        const cameraEdge = parseFloat(data.camera_edge); // Assuming "Visible" or other condition
+        const decibelLevel = parseFloat(data.decibel_level);
 
-window.addEventListener('DOMContentLoaded', init);
+        // Update people count
+        peopleCountIcon.textContent = `People: ${peopleCount}`;
+
+        // Update visibility icon based on condition and apply alert class if needed
+        if (cameraEdge < 1) {
+            visibilityIcon.style.display = 'flex'; // Visible
+        } else {
+            visibilityIcon.style.display = 'none'; // Hidden
+        }
+
+        // Update audio icon based on decibel level and apply alert class if needed
+        if (decibelLevel > -20) {
+            audioIcon.style.display = 'block'; // High volume
+        } else {
+            audioIcon.style.display = 'none'; // Low volume
+        }
+    }
+
+    const setMessage = (str) => {
+        if (str !== '') {
+            video.controls = false;
+        } else {
+            video.controls = defaultControls;
+        }
+        message.innerText = str;
+    };
+
+    const loadStream = () => {
+        // always prefer hls.js over native HLS.
+        // this is because some Android versions support native HLS
+        // but don't support fMP4s.
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                maxBufferLength: 30,
+                maxLiveSyncPlaybackRate: 1.5,
+            });
+
+            hls.on(Hls.Events.ERROR, (evt, data) => {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            // try to recover network error
+                            console.log("Network error encountered, attempting to recover.");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Media error encountered, attempting to recover.");
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            // cannot recover
+                            // hls.destroy();
+                            break;
+                    }
+
+                    if (data.details === 'manifestIncompatibleCodecsError') {
+                        setMessage('stream makes use of codecs which are incompatible with this browser or operative system');
+                    } else if (data.response && data.response.code === 404) {
+                        setMessage('stream not found, retrying in some seconds');
+                    } else {
+                        setMessage(data.error + ', retrying in some seconds');
+                    }
+
+                    setTimeout(() => loadStream(video), retryPause);
+                }
+            });
+
+            hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+                hls.loadSource('index.m3u8' + window.location.search);
+            });
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                setMessage('');
+                video.play();
+            });
+
+            hls.attachMedia(video);
+
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // since it's not possible to detect timeout errors in iOS,
+            // wait for the playlist to be available before starting the stream
+            fetch('index.m3u8')
+                .then(() => {
+                    video.src = 'index.m3u8';
+                    video.play();
+                });
+        }
+    };
+
+    const parseBoolString = (str, defaultVal) => {
+        str = (str || '');
+
+        if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
+            return true;
+        }
+        if (['0', 'no', 'false'].includes(str.toLowerCase())) {
+            return false;
+        }
+        return defaultVal;
+    };
+
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === 'visible') {
+            // The page has become visible so seek to the live edge
+            if (hls && video) {
+                // Check if hls and video are defined and ready
+                const livePosition = hls.liveSyncPosition;
+                if (livePosition !== undefined) {
+                    video.currentTime = livePosition;
+                } else {
+                    // Fallback if liveSyncPosition is not available
+                    video.currentTime = video.duration;
+                }
+                video.play().catch(e => console.error("Error playing video: ", e));
+            }
+        }
+    });
+
+
+    const loadAttributesFromQuery = () => {
+
+        const params = new URLSearchParams(window.location.search);
+
+        const enableControl = parseBoolString(params.get('controls'), false);
+
+        video.controls = enableControl;
+        bottomBar.style.display = enableControl ? 'flex' : 'none';
+        video.muted = parseBoolString(params.get('muted'), true);
+        video.autoplay = parseBoolString(params.get('autoplay'), true);
+        video.playsInline = parseBoolString(params.get('playsinline'), true);
+        const enableAI = parseBoolString(params.get('ai'), false);
+        if (enableAI) {
+            startAI();
+        } else {
+            disableAI();
+        }
+        defaultControls = video.controls;
+    };
+
+    document.getElementById('zoomIn').addEventListener('click', () => {
+        const currentIndex = zoomSteps.indexOf(zoomLevel);
+        if (currentIndex < zoomSteps.length - 1) {
+            zoomLevel = zoomSteps[currentIndex + 1];
+            updateZoom();
+        }
+    });
+
+    document.getElementById('zoomOut').addEventListener('click', () => {
+        const currentIndex = zoomSteps.indexOf(zoomLevel);
+        if (currentIndex > 0) {
+            zoomLevel = zoomSteps[currentIndex - 1];
+            updateZoom();
+        }
+    });
+
+    document.getElementById('resetZoom').addEventListener('click', () => {
+        zoomLevel = 1;
+        updateZoom();
+    });
+
+    document.getElementById('fullscreen').addEventListener('click', () => {
+        // Inside the fullscreen click event listener, after the if/else statements:
+        if (document.fullscreenElement || document.webkitFullscreenElement ||
+            document.mozFullScreenElement || document.msFullscreenElement) {
+            // Now in fullscreen, change to 'exit fullscreen' icon
+            document.getElementById('fullscreen').innerHTML = '<span class="material-icons">fullscreen</span>';
+        } else {
+            // Not in fullscreen, change to 'enter fullscreen' icon
+            document.getElementById('fullscreen').innerHTML = '<span class="material-icons">fullscreen_exit</span>';
+        }
+
+        if (!document.fullscreenElement &&    // standard
+            !document.webkitFullscreenElement && // Safari/Opera
+            !document.mozFullScreenElement && // Firefox
+            !document.msFullscreenElement // IE/Edge
+        ) {
+            // Enter fullscreen
+            const element = document.documentElement; // This represents the whole page
+            if (element.requestFullscreen) {
+                element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) { /* Safari */
+                element.webkitRequestFullscreen();
+            } else if (element.mozRequestFullScreen) { /* Firefox */
+                element.mozRequestFullScreen();
+            } else if (element.msRequestFullscreen) { /* IE/Edge */
+                element.msRequestFullscreen();
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) { /* IE/Edge */
+                document.msExitFullscreen();
+            }
+        }
+
+    });
+
+    const updateZoom = () => {
+        video.style.transform = `scale(${zoomLevel})`;
+    };
+
+    volumeSlider.addEventListener('input', () => {
+        video.volume = volumeSlider.value / 100;
+        video.muted = video.volume === 0;
+        updateMuteButton();
+    });
+
+    // Mute or unmute video based on button click
+    muteToggle.addEventListener('click', () => {
+        video.muted = !video.muted;
+        updateMuteButton();
+    });
+
+    // Update the mute button icon based on the video's muted state
+    function updateMuteButton() {
+        if (video.muted || video.volume === 0) {
+            muteToggle.innerHTML = '<span class="material-icons">volume_off</span>';
+            volumeSlider.value = 0; // Reflects mute in the slider position
+        } else {
+            muteToggle.innerHTML = '<span class="material-icons">volume_up</span>';
+            volumeSlider.value = video.volume * 100; // Reflects current volume in the slider position
+        }
+    }
+
+
+    const init = () => {
+        loadAttributesFromQuery();
+        loadStream();
+    };
+
+    window.addEventListener('DOMContentLoaded', init);
 
 </script>
 
