@@ -220,6 +220,7 @@
             color: #212121; /* Dark grey for emphasis */
             background: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
             padding: 5px 10px;
+            display: none;
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
         }
@@ -478,9 +479,10 @@
 
         const params = new URLSearchParams(window.location.search);
 
-        const enableControl = parseBoolString(params.get('controls'), false);
+        const enableControl = parseBoolString(params.get('controls'), true);
 
-        video.controls = enableControl;
+        video.controls = false;
+
         bottomBar.style.display = enableControl ? 'flex' : 'none';
         video.muted = parseBoolString(params.get('muted'), true);
         video.autoplay = parseBoolString(params.get('autoplay'), true);
