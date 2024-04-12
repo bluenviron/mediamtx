@@ -12,6 +12,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
+RUN go generate ./...
 RUN go build -o /mediamtx .
 
 COPY bench/read/start.sh /
