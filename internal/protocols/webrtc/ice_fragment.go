@@ -60,6 +60,9 @@ func ICEFragmentMarshal(offer string, candidates []*webrtc.ICECandidateInit) ([]
 
 	candidatesByMedia := make(map[uint16][]*webrtc.ICECandidateInit)
 	for _, candidate := range candidates {
+		if candidate.SDPMLineIndex == nil {
+			return nil, fmt.Errorf("sdpMLineIndex is null")
+		}
 		mid := *candidate.SDPMLineIndex
 		candidatesByMedia[mid] = append(candidatesByMedia[mid], candidate)
 	}
