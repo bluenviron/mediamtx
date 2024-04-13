@@ -24,6 +24,7 @@ type APIPathConfList struct {
 type APIPathSourceOrReader struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
+	Path string `json:"path"`
 }
 
 // APIPath is a path.

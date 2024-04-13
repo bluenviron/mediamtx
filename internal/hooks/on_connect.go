@@ -30,6 +30,7 @@ func OnConnect(params OnConnectParams) func() {
 			"RTSP_PORT":     port,
 			"MTX_CONN_TYPE": params.Desc.Type,
 			"MTX_CONN_ID":   params.Desc.ID,
+			"PATH":          params.Desc.Path,
 		}
 	}
 

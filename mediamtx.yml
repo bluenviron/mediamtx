@@ -40,14 +40,14 @@ pprofAddress: :9999
 # * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
-runOnConnect: >
-  curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
+runOnConnect: ./orbit-play-api connected --streamId $PATH
+#
+#  curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
 # Restart the command if it exits.
 runOnConnectRestart: no
 # Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
-runOnDisconnect: >
-  curl --location --request POST "http://localhost:3000/disconnected/$MTX_CONN_ID"
+runOnDisconnect: ./orbit-play-api disconnected --streamId $PATH
 
 ###############################################
 # Global settings -> Authentication
@@ -312,7 +312,7 @@ webrtcICEServers2: [ ]
   # if user is "AUTH_SECRET", then authentication is secret based.
   # the secret must be inserted into the password field.
   # username: ''
-  # password: ''
+# password: ''
 # clientOnly: false
 
 ###############################################
@@ -604,8 +604,8 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
-  runOnRecordSegmentComplete: >
-    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "/home/ubuntu/orbit-launch/${MTX_SEGMENT_PATH}"
+  runOnRecordSegmentComplete: ./orbit-play-api uploadRecording --path $MTX_SEGMENT_PATH
+#    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "/home/ubuntu/orbit-launch/${MTX_SEGMENT_PATH}"
 
 ###############################################
 # Path settings

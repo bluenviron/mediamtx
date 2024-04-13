@@ -106,16 +106,16 @@ func (c *conn) ip() net.IP {
 func (c *conn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
-		Logger:              c,
-		ExternalCmdPool:     c.externalCmdPool,
-		RunOnConnect:        c.runOnConnect,
-		RunOnConnectRestart: c.runOnConnectRestart,
-		RunOnDisconnect:     c.runOnDisconnect,
-		RTSPAddress:         c.rtspAddress,
-		Desc:                c.APIReaderDescribe(),
-	})
-	defer onDisconnectHook()
+	//onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
+	//	Logger:              c,
+	//	ExternalCmdPool:     c.externalCmdPool,
+	//	RunOnConnect:        c.runOnConnect,
+	//	RunOnConnectRestart: c.runOnConnectRestart,
+	//	RunOnDisconnect:     c.runOnDisconnect,
+	//	RTSPAddress:         c.rtspAddress,
+	//	Desc:                c.APIReaderDescribe(),
+	//})
+	//defer onDisconnectHook()
 
 	err := c.runInner()
 
@@ -151,6 +151,20 @@ func (c *conn) runReader() error {
 	if err != nil {
 		return err
 	}
+
+	pathName, _, _ := pathNameAndQuery(u)
+	c.pathName = pathName
+
+	onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
+		Logger:              c,
+		ExternalCmdPool:     c.externalCmdPool,
+		RunOnConnect:        c.runOnConnect,
+		RunOnConnectRestart: c.runOnConnectRestart,
+		RunOnDisconnect:     c.runOnDisconnect,
+		RTSPAddress:         c.rtspAddress,
+		Desc:                c.APIReaderDescribe(),
+	})
+	defer onDisconnectHook()
 
 	c.mutex.Lock()
 	c.rconn = conn
@@ -570,6 +584,7 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 // APIReaderDescribe implements reader.
 func (c *conn) APIReaderDescribe() defs.APIPathSourceOrReader {
+	fmt.Printf("Path", c.pathName)
 	return defs.APIPathSourceOrReader{
 		Type: func() string {
 			if c.isTLS {
@@ -577,7 +592,8 @@ func (c *conn) APIReaderDescribe() defs.APIPathSourceOrReader {
 			}
 			return "rtmpConn"
 		}(),
-		ID: c.uuid.String(),
+		ID:   c.uuid.String(),
+		Path: string(c.pathName),
 	}
 }
 
