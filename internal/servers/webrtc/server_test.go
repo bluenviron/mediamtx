@@ -207,8 +207,17 @@ func TestServerOptionsICEServer(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc,
-		"http://myuser:mypass@localhost:8886/nonexisting/whep")
+	req, err := http.NewRequest(http.MethodOptions,
+		"http://myuser:mypass@localhost:8886/nonexisting/whep", nil)
+	require.NoError(t, err)
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	iceServers, err := webrtc.LinkHeaderUnmarshal(res.Header["Link"])
 	require.NoError(t, err)
 
 	require.Equal(t, []pwebrtc.ICEServer{{
