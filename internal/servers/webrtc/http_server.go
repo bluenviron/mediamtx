@@ -236,7 +236,11 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		candidates: candidates,
 	})
 	if res.err != nil {
-		writeError(ctx, http.StatusInternalServerError, res.err)
+		if errors.Is(res.err, ErrSessionNotFound) {
+			writeError(ctx, http.StatusNotFound, res.err)
+		} else {
+			writeError(ctx, http.StatusInternalServerError, res.err)
+		}
 		return
 	}
 
@@ -254,7 +258,11 @@ func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 		secret: secret,
 	})
 	if err != nil {
-		writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, ErrSessionNotFound) {
+			writeError(ctx, http.StatusNotFound, err)
+		} else {
+			writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
