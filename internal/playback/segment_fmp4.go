@@ -19,6 +19,12 @@ const (
 
 var errTerminated = errors.New("terminated")
 
+type readSeekerAt interface {
+	io.Reader
+	io.Seeker
+	io.ReaderAt
+}
+
 func durationGoToMp4(v time.Duration, timeScale uint32) int64 {
 	timeScale64 := int64(timeScale)
 	secs := v / time.Second
@@ -337,7 +343,7 @@ func segmentFMP4ReadMaxDuration(
 }
 
 func segmentFMP4SeekAndMuxParts(
-	r io.ReadSeeker,
+	r readSeekerAt,
 	segmentStartOffset time.Duration,
 	duration time.Duration,
 	init *fmp4.Init,
@@ -394,12 +400,6 @@ func segmentFMP4SeekAndMuxParts(
 			trun := box.(*mp4.Trun)
 
 			dataOffset := moofOffset + uint64(trun.DataOffset)
-
-			_, err = r.Seek(int64(dataOffset), io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-
 			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) - segmentStartOffsetMP4
 			atLeastOneSampleWritten := false
 
@@ -413,23 +413,33 @@ func segmentFMP4SeekAndMuxParts(
 					atLeastOnePartWritten = true
 				}
 
-				payload := make([]byte, e.SampleSize)
-				_, err := io.ReadFull(r, payload)
-				if err != nil {
-					return nil, err
-				}
+				sampleOffset := dataOffset
+				sampleSize := e.SampleSize
 
 				err = m.writeSample(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
-					payload,
+					e.SampleSize,
+					func() ([]byte, error) {
+						payload := make([]byte, sampleSize)
+						n, err := r.ReadAt(payload, int64(sampleOffset))
+						if err != nil {
+							return nil, err
+						}
+						if n != int(sampleSize) {
+							return nil, fmt.Errorf("partial read")
+						}
+
+						return payload, nil
+					},
 				)
 				if err != nil {
 					return nil, err
 				}
 
 				atLeastOneSampleWritten = true
+				dataOffset += uint64(e.SampleSize)
 				muxerDTS += int64(e.SampleDuration)
 			}
 
@@ -461,8 +471,8 @@ func segmentFMP4SeekAndMuxParts(
 	return maxMuxerDTS, nil
 }
 
-func segmentFMP4WriteParts(
-	r io.ReadSeeker,
+func segmentFMP4MuxParts(
+	r readSeekerAt,
 	segmentStartOffset time.Duration,
 	duration time.Duration,
 	init *fmp4.Init,
@@ -518,12 +528,6 @@ func segmentFMP4WriteParts(
 			trun := box.(*mp4.Trun)
 
 			dataOffset := moofOffset + uint64(trun.DataOffset)
-
-			_, err = r.Seek(int64(dataOffset), io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-
 			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) + segmentStartOffsetMP4
 			atLeastOneSampleWritten := false
 
@@ -533,23 +537,33 @@ func segmentFMP4WriteParts(
 					break
 				}
 
-				payload := make([]byte, e.SampleSize)
-				_, err := io.ReadFull(r, payload)
-				if err != nil {
-					return nil, err
-				}
+				sampleOffset := dataOffset
+				sampleSize := e.SampleSize
 
 				err = m.writeSample(
 					muxerDTS,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
-					payload,
+					e.SampleSize,
+					func() ([]byte, error) {
+						payload := make([]byte, sampleSize)
+						n, err := r.ReadAt(payload, int64(sampleOffset))
+						if err != nil {
+							return nil, err
+						}
+						if n != int(sampleSize) {
+							return nil, fmt.Errorf("partial read")
+						}
+
+						return payload, nil
+					},
 				)
 				if err != nil {
 					return nil, err
 				}
 
 				atLeastOneSampleWritten = true
+				dataOffset += uint64(e.SampleSize)
 				muxerDTS += int64(e.SampleDuration)
 			}
 

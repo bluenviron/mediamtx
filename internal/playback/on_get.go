@@ -15,8 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var errStopIteration = errors.New("stop iteration")
-
 type writerWrapper struct {
 	ctx     *gin.Context
 	written bool
@@ -52,69 +50,52 @@ func seekAndMux(
 		var firstInit *fmp4.Init
 		var segmentEnd time.Time
 
-		err := func() error {
-			f, err := os.Open(segments[0].Fpath)
+		f, err := os.Open(segments[0].Fpath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		firstInit, err = segmentFMP4ReadInit(f)
+		if err != nil {
+			return err
+		}
+
+		m.writeInit(firstInit)
+
+		segmentStartOffset := start.Sub(segments[0].Start)
+
+		segmentMaxElapsed, err := segmentFMP4SeekAndMuxParts(f, segmentStartOffset, duration, firstInit, m)
+		if err != nil {
+			return err
+		}
+
+		segmentEnd = start.Add(segmentMaxElapsed)
+
+		for _, seg := range segments[1:] {
+			f, err := os.Open(seg.Fpath)
 			if err != nil {
 				return err
 			}
 			defer f.Close()
 
-			firstInit, err = segmentFMP4ReadInit(f)
+			init, err := segmentFMP4ReadInit(f)
 			if err != nil {
 				return err
 			}
 
-			m.writeInit(firstInit)
+			if !segmentFMP4CanBeConcatenated(firstInit, segmentEnd, init, seg.Start) {
+				break
+			}
 
-			segmentStartOffset := start.Sub(segments[0].Start)
+			segmentStartOffset := seg.Start.Sub(start)
 
-			segmentMaxElapsed, err := segmentFMP4SeekAndMuxParts(f, segmentStartOffset, duration, firstInit, m)
+			segmentMaxElapsed, err := segmentFMP4MuxParts(f, segmentStartOffset, duration, firstInit, m)
 			if err != nil {
 				return err
 			}
 
 			segmentEnd = start.Add(segmentMaxElapsed)
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
-
-		for _, seg := range segments[1:] {
-			err := func() error {
-				f, err := os.Open(seg.Fpath)
-				if err != nil {
-					return err
-				}
-				defer f.Close()
-
-				init, err := segmentFMP4ReadInit(f)
-				if err != nil {
-					return err
-				}
-
-				if !segmentFMP4CanBeConcatenated(firstInit, segmentEnd, init, seg.Start) {
-					return errStopIteration
-				}
-
-				segmentStartOffset := seg.Start.Sub(start)
-
-				segmentMaxElapsed, err := segmentFMP4WriteParts(f, segmentStartOffset, duration, firstInit, m)
-				if err != nil {
-					return err
-				}
-
-				segmentEnd = start.Add(segmentMaxElapsed)
-
-				return nil
-			}()
-			if err != nil {
-				if errors.Is(err, errStopIteration) {
-					break
-				}
-				return err
-			}
 		}
 
 		err = m.flush()
@@ -147,8 +128,18 @@ func (p *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
+	ww := &writerWrapper{ctx: ctx}
+	var m muxer
+
 	format := ctx.Query("format")
-	if format != "" && format != "fmp4" {
+	switch format {
+	case "", "fmp4":
+		m = &muxerFMP4{w: ww}
+
+	case "mp4":
+		m = &muxerMP4{w: ww}
+
+	default:
 		p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid format: %s", format))
 		return
 	}
@@ -169,10 +160,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	ww := &writerWrapper{ctx: ctx}
-	sw := &muxerFMP4{w: ww}
-
-	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, sw)
+	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, m)
 	if err != nil {
 		// user aborted the download
 		var neterr *net.OpError

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	partSize = 1 * time.Second
+	partDuration = 1 * time.Second
 )
 
 type muxerFMP4Track struct {
@@ -57,12 +57,23 @@ func (w *muxerFMP4) setTrack(trackID int) {
 	w.curTrack = findTrack(w.tracks, trackID)
 }
 
-func (w *muxerFMP4) writeSample(dts int64, ptsOffset int32, isNonSyncSample bool, payload []byte) error {
+func (w *muxerFMP4) writeSample(
+	dts int64,
+	ptsOffset int32,
+	isNonSyncSample bool,
+	_ uint32,
+	getPayload func() ([]byte, error),
+) error {
+	pl, err := getPayload()
+	if err != nil {
+		return err
+	}
+
 	if dts >= 0 {
 		if w.curTrack.firstDTS < 0 {
 			w.curTrack.firstDTS = dts
 
-			// reset GOP preceding the first frame
+			// if frame is a IDR, remove previous GOP
 			if !isNonSyncSample {
 				w.curTrack.samples = nil
 			}
@@ -77,29 +88,30 @@ func (w *muxerFMP4) writeSample(dts int64, ptsOffset int32, isNonSyncSample bool
 		w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
 			PTSOffset:       ptsOffset,
 			IsNonSyncSample: isNonSyncSample,
-			Payload:         payload,
+			Payload:         pl,
 		})
 		w.curTrack.lastDTS = dts
 
-		partSizeMP4 := durationGoToMp4(partSize, w.curTrack.timeScale)
+		partDurationMP4 := durationGoToMp4(partDuration, w.curTrack.timeScale)
 
-		if (w.curTrack.lastDTS - w.curTrack.firstDTS) > partSizeMP4 {
+		if (w.curTrack.lastDTS - w.curTrack.firstDTS) > partDurationMP4 {
 			err := w.innerFlush(false)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		// store GOP preceding the first frame, with PTSOffset = 0 and Duration = 0
-		if !isNonSyncSample {
+		// store GOP of the first frame, and set PTSOffset = 0 and Duration = 0 in each sample
+		if !isNonSyncSample { // if frame is a IDR, reset GOP
 			w.curTrack.samples = []*fmp4.PartSample{{
 				IsNonSyncSample: isNonSyncSample,
-				Payload:         payload,
+				Payload:         pl,
 			}}
 		} else {
+			// append frame to current GOP
 			w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
 				IsNonSyncSample: isNonSyncSample,
-				Payload:         payload,
+				Payload:         pl,
 			})
 		}
 	}
