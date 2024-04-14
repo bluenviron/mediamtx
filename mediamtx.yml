@@ -25,12 +25,12 @@ writeQueueSize: 512
 udpMaxPayloadSize: 1472
 
 # Enable Prometheus-compatible metrics.
-metrics: no
+metrics: yes
 # Address of the metrics listener.
 metricsAddress: :9998
 
 # Enable pprof-compatible endpoint to monitor performances.
-pprof: no
+pprof: yes
 # Address of the pprof listener.
 pprofAddress: :9999
 
