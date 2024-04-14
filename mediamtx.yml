@@ -377,7 +377,7 @@ pathDefaults:
   # Default path settings -> Record
 
   # Record streams to disk.
-  record: yes
+  record: no
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)

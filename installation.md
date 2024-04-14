@@ -44,6 +44,10 @@ There are several installation methods available: standalone binary, Docker imag
     ```
 
 4. **Create a Systemd Service File:**
+   ```
+    sudo cp orbit-launch.service /etc/systemd/system/
+    ```
+   
     ```sh
     sudo nano /etc/systemd/system/orbit-play.service
     ```
@@ -68,8 +72,8 @@ There are several installation methods available: standalone binary, Docker imag
 5. **Enable and Start the Service:**
     ```sh
     sudo systemctl daemon-reload
-    sudo systemctl enable orbit-play
-    sudo systemctl start orbit-play
+    sudo systemctl enable orbit-launch.service 
+    sudo systemctl start orbit-launch.service
     ```
 
 6. **Start the Wasabi Server:**
