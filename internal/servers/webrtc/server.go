@@ -150,6 +150,7 @@ type webRTCAddSessionCandidatesRes struct {
 }
 
 type webRTCAddSessionCandidatesReq struct {
+	pathName   string
 	secret     uuid.UUID
 	candidates []*pwebrtc.ICECandidateInit
 	res        chan webRTCAddSessionCandidatesRes
@@ -160,8 +161,9 @@ type webRTCDeleteSessionRes struct {
 }
 
 type webRTCDeleteSessionReq struct {
-	secret uuid.UUID
-	res    chan webRTCDeleteSessionRes
+	pathName string
+	secret   uuid.UUID
+	res      chan webRTCDeleteSessionRes
 }
 
 type serverPathManager interface {
@@ -343,7 +345,7 @@ outer:
 
 		case req := <-s.chAddSessionCandidates:
 			sx, ok := s.sessionsBySecret[req.secret]
-			if !ok {
+			if !ok || sx.req.pathName != req.pathName {
 				req.res <- webRTCAddSessionCandidatesRes{err: ErrSessionNotFound}
 				continue
 			}
@@ -352,7 +354,7 @@ outer:
 
 		case req := <-s.chDeleteSession:
 			sx, ok := s.sessionsBySecret[req.secret]
-			if !ok {
+			if !ok || sx.req.pathName != req.pathName {
 				req.res <- webRTCDeleteSessionRes{err: ErrSessionNotFound}
 				continue
 			}
