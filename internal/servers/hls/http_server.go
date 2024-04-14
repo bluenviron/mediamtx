@@ -29,6 +29,14 @@ var hlsIndex []byte
 //go:embed hls.min.js
 var hlsMinJS []byte
 
+func mergePathAndQuery(path string, rawQuery string) string {
+	res := path
+	if rawQuery != "" {
+		res += "?" + rawQuery
+	}
+	return res
+}
+
 type httpServer struct {
 	address        string
 	encryption     bool
@@ -134,7 +142,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		dir, fname = pa, ""
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Writer.Header().Set("Location", httpp.LocationWithTrailingSlash(ctx.Request.URL))
+			ctx.Writer.Header().Set("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
 			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 			return
 		}

@@ -31,7 +31,7 @@ func (c *WHIPClient) Publish(
 	videoTrack format.Format,
 	audioTrack format.Format,
 ) ([]*OutgoingTrack, error) {
-	iceServers, err := c.optionsICEServers(ctx, c.URL.String())
+	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (c *WHIPClient) Publish(
 		return nil, err
 	}
 
-	res, err := c.postOffer(ctx, c.URL.String(), offer)
+	res, err := c.postOffer(ctx, offer)
 	if err != nil {
 		c.pc.Close()
 		return nil, err
@@ -81,7 +81,7 @@ func (c *WHIPClient) Publish(
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
-		c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -93,9 +93,9 @@ outer:
 	for {
 		select {
 		case ca := <-c.pc.NewLocalCandidate():
-			err := c.patchCandidate(ctx, c.URL.String(), offer, res.ETag, ca)
+			err := c.patchCandidate(ctx, offer, res.ETag, ca)
 			if err != nil {
-				c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()
 				return nil, err
 			}
@@ -106,7 +106,7 @@ outer:
 			break outer
 
 		case <-t.C:
-			c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
 			return nil, fmt.Errorf("deadline exceeded while waiting connection")
 		}
@@ -117,7 +117,7 @@ outer:
 
 // Read reads tracks.
 func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
-	iceServers, err := c.optionsICEServers(ctx, c.URL.String())
+	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	res, err := c.postOffer(ctx, c.URL.String(), offer)
+	res, err := c.postOffer(ctx, offer)
 	if err != nil {
 		c.pc.Close()
 		return nil, err
@@ -162,7 +162,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 	var sdp sdp.SessionDescription
 	err = sdp.Unmarshal([]byte(res.Answer.SDP))
 	if err != nil {
-		c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -170,14 +170,14 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 	// check that there are at most two tracks
 	_, err = TrackCount(sdp.MediaDescriptions)
 	if err != nil {
-		c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
-		c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -189,9 +189,9 @@ outer:
 	for {
 		select {
 		case ca := <-c.pc.NewLocalCandidate():
-			err := c.patchCandidate(ctx, c.URL.String(), offer, res.ETag, ca)
+			err := c.patchCandidate(ctx, offer, res.ETag, ca)
 			if err != nil {
-				c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()
 				return nil, err
 			}
@@ -202,7 +202,7 @@ outer:
 			break outer
 
 		case <-t.C:
-			c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
 			return nil, fmt.Errorf("deadline exceeded while waiting connection")
 		}
@@ -210,7 +210,7 @@ outer:
 
 	tracks, err := c.pc.GatherIncomingTracks(ctx, 0)
 	if err != nil {
-		c.deleteSession(context.Background(), c.URL.String()) //nolint:errcheck
+		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -220,7 +220,7 @@ outer:
 
 // Close closes the client.
 func (c *WHIPClient) Close() error {
-	err := c.deleteSession(context.Background(), c.URL.String())
+	err := c.deleteSession(context.Background())
 	c.pc.Close()
 	return err
 }
@@ -238,9 +238,8 @@ func (c *WHIPClient) Wait(ctx context.Context) error {
 
 func (c *WHIPClient) optionsICEServers(
 	ctx context.Context,
-	ur string,
 ) ([]webrtc.ICEServer, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, ur, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, c.URL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -266,10 +265,9 @@ type whipPostOfferResponse struct {
 
 func (c *WHIPClient) postOffer(
 	ctx context.Context,
-	ur string,
 	offer *webrtc.SessionDescription,
 ) (*whipPostOfferResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ur, bytes.NewReader([]byte(offer.SDP)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL.String(), bytes.NewReader([]byte(offer.SDP)))
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +320,6 @@ func (c *WHIPClient) postOffer(
 
 func (c *WHIPClient) patchCandidate(
 	ctx context.Context,
-	ur string,
 	offer *webrtc.SessionDescription,
 	etag string,
 	candidate *webrtc.ICECandidateInit,
@@ -332,7 +329,7 @@ func (c *WHIPClient) patchCandidate(
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, ur, bytes.NewReader(frag))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.URL.String(), bytes.NewReader(frag))
 	if err != nil {
 		return err
 	}
@@ -355,9 +352,8 @@ func (c *WHIPClient) patchCandidate(
 
 func (c *WHIPClient) deleteSession(
 	ctx context.Context,
-	ur string,
 ) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, ur, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.URL.String(), nil)
 	if err != nil {
 		return err
 	}

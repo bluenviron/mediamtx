@@ -34,14 +34,22 @@ var (
 	reWHIPWHEPWithID = regexp.MustCompile("^/(.+?)/(whip|whep)/(.+?)$")
 )
 
+func mergePathAndQuery(path string, rawQuery string) string {
+	res := path
+	if rawQuery != "" {
+		res += "?" + rawQuery
+	}
+	return res
+}
+
 func writeError(ctx *gin.Context, statusCode int, err error) {
 	ctx.JSON(statusCode, &defs.APIError{
 		Error: err.Error(),
 	})
 }
 
-func sessionLocation(publish bool, secret uuid.UUID) string {
-	ret := ""
+func sessionLocation(publish bool, path string, secret uuid.UUID) string {
+	ret := "/" + path + "/"
 	if publish {
 		ret += "whip"
 	} else {
@@ -107,12 +115,12 @@ func (s *httpServer) close() {
 	s.inner.Close()
 }
 
-func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publish bool) bool {
+func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
-			Name:    path,
+			Name:    pathName,
 			Query:   ctx.Request.URL.RawQuery,
 			Publish: publish,
 			IP:      net.ParseIP(ctx.ClientIP()),
@@ -146,8 +154,8 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 	return true
 }
 
-func (s *httpServer) onWHIPOptions(ctx *gin.Context, path string, publish bool) {
-	if !s.checkAuthOutsideSession(ctx, path, publish) {
+func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bool) {
+	if !s.checkAuthOutsideSession(ctx, pathName, publish) {
 		return
 	}
 
@@ -164,7 +172,7 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, path string, publish bool) 
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
-func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
+func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool) {
 	if ctx.Request.Header.Get("Content-Type") != "application/sdp" {
 		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
@@ -178,7 +186,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 	user, pass, _ := ctx.Request.BasicAuth()
 
 	res := s.parent.newSession(webRTCNewSessionReq{
-		pathName:   path,
+		pathName:   pathName,
 		remoteAddr: httpp.RemoteAddr(ctx),
 		query:      ctx.Request.URL.RawQuery,
 		user:       user,
@@ -203,12 +211,12 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
-	ctx.Writer.Header().Set("Location", sessionLocation(publish, res.sx.secret))
+	ctx.Writer.Header().Set("Location", sessionLocation(publish, pathName, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)
 	ctx.Writer.Write(res.answer)
 }
 
-func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
+func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
 		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
@@ -232,6 +240,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 	}
 
 	res := s.parent.addSessionCandidates(webRTCAddSessionCandidatesReq{
+		pathName:   pathName,
 		secret:     secret,
 		candidates: candidates,
 	})
@@ -247,7 +256,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
-func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
+func (s *httpServer) onWHIPDelete(ctx *gin.Context, pathName string, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
 		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
@@ -255,7 +264,8 @@ func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 	}
 
 	err = s.parent.deleteSession(webRTCDeleteSessionReq{
-		secret: secret,
+		pathName: pathName,
+		secret:   secret,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
@@ -269,8 +279,8 @@ func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 	ctx.Writer.WriteHeader(http.StatusOK)
 }
 
-func (s *httpServer) onPage(ctx *gin.Context, path string, publish bool) {
-	if !s.checkAuthOutsideSession(ctx, path, publish) {
+func (s *httpServer) onPage(ctx *gin.Context, pathName string, publish bool) {
+	if !s.checkAuthOutsideSession(ctx, pathName, publish) {
 		return
 	}
 
@@ -320,10 +330,10 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	if m := reWHIPWHEPWithID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
 		case http.MethodPatch:
-			s.onWHIPPatch(ctx, m[3])
+			s.onWHIPPatch(ctx, m[1], m[3])
 
 		case http.MethodDelete:
-			s.onWHIPDelete(ctx, m[3])
+			s.onWHIPDelete(ctx, m[1], m[3])
 		}
 		return
 	}
@@ -339,7 +349,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Writer.Header().Set("Location", httpp.LocationWithTrailingSlash(ctx.Request.URL))
+				ctx.Writer.Header().Set("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
 				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 
 			default:
