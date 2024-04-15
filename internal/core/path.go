@@ -371,7 +371,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	pa.confMutex.Unlock()
 
 	if pa.conf.HasStaticSource() {
-		go pa.source.(*staticSourceHandler).reloadConf(newConf)
+		pa.source.(*staticSourceHandler).reloadConf(newConf)
 	}
 
 	if pa.conf.Record {
