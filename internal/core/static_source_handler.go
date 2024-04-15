@@ -224,10 +224,18 @@ func (s *staticSourceHandler) run() {
 }
 
 func (s *staticSourceHandler) reloadConf(newConf *conf.Path) {
-	select {
-	case s.chReloadConf <- newConf:
-	case <-s.ctx.Done():
+	ctx := s.ctx
+
+	if !s.running {
+		return
 	}
+
+	go func() {
+		select {
+		case s.chReloadConf <- newConf:
+		case <-ctx.Done():
+		}
+	}()
 }
 
 // APISourceDescribe instanceements source.
