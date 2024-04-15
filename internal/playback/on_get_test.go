@@ -305,6 +305,17 @@ func TestOnGet(t *testing.T) {
 										IsNonSyncSample: true,
 										Payload:         []byte{5, 6},
 									},
+								},
+							},
+						},
+					},
+					{
+						SequenceNumber: 1,
+						Tracks: []*fmp4.PartTrack{
+							{
+								ID:       1,
+								BaseTime: 90000,
+								Samples: []*fmp4.PartSample{
 									{
 										Duration: 90000,
 										Payload:  []byte{7, 8},
@@ -314,7 +325,7 @@ func TestOnGet(t *testing.T) {
 						},
 					},
 					{
-						SequenceNumber: 1,
+						SequenceNumber: 2,
 						Tracks: []*fmp4.PartTrack{
 							{
 								ID:       1,
@@ -660,6 +671,17 @@ func TestOnGetNTPCompensation(t *testing.T) {
 							Duration: 90000,
 							Payload:  []byte{9, 10},
 						},
+					},
+				},
+			},
+		},
+		{
+			SequenceNumber: 2,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID:       1,
+					BaseTime: 225000,
+					Samples: []*fmp4.PartSample{
 						{
 							Duration: 90000,
 							Payload:  []byte{11, 12},
