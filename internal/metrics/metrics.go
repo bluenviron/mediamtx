@@ -100,6 +100,7 @@ func (m *Metrics) mwAuth(ctx *gin.Context) {
 	err := m.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  ctx.Request.URL.RawQuery,
 		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionMetrics,
 	})

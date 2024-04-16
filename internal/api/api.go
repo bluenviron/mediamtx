@@ -296,6 +296,7 @@ func (a *API) mwAuth(ctx *gin.Context) {
 	err := a.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  ctx.Request.URL.RawQuery,
 		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionAPI,
 	})

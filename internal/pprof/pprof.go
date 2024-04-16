@@ -73,6 +73,7 @@ func (pp *PPROF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  r.URL.RawQuery,
 		IP:     net.ParseIP(ip),
 		Action: conf.AuthActionMetrics,
 	})

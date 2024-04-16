@@ -101,6 +101,7 @@ func (p *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	err := p.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  ctx.Request.URL.RawQuery,
 		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionPlayback,
 		Path:   pathName,
