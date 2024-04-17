@@ -307,9 +307,13 @@ const setCodec = (section, codec) => {
 	}
 
 	const lines3 = [];
+	let firstLine = true;
 
 	for (const line of lines2) {
-		if (line.startsWith('a=fmtp:')) {
+		if (firstLine) {
+			firstLine = false;
+			lines3.push(line.split(' ').slice(0, 3).concat(payloadFormats).join(' '));
+		} else if (line.startsWith('a=fmtp:')) {
 			if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
 				lines3.push(line);
 			}
@@ -368,15 +372,28 @@ const setAudioBitrate = (section, bitrate, voice) => {
 	return lines.join('\r\n');
 };
 
-const editAnswer = (sdp, videoCodec, audioCodec, videoBitrate, audioBitrate, audioVoice) => {
+const editOffer = (sdp) => {
 	const sections = sdp.split('m=');
 
 	for (let i = 0; i < sections.length; i++) {
 		const section = sections[i];
 		if (section.startsWith('video')) {
-			sections[i] = setVideoBitrate(setCodec(section, videoCodec), videoBitrate);
+			sections[i] = setCodec(section, videoForm.codec.value);
 		} else if (section.startsWith('audio')) {
-			sections[i] = setAudioBitrate(setCodec(section, audioCodec), audioBitrate, audioVoice);
+			sections[i] = setAudioBitrate(setCodec(section, audioForm.codec.value), audioForm.bitrate.value, audioForm.voice.checked);
+		}
+	}
+
+	return sections.join('m=');
+};
+
+const editAnswer = (sdp) => {
+	const sections = sdp.split('m=');
+
+	for (let i = 0; i < sections.length; i++) {
+		const section = sections[i];
+		if (section.startsWith('video')) {
+			sections[i] = setVideoBitrate(section, videoForm.bitrate.value);
 		}
 	}
 
@@ -421,14 +438,7 @@ const onRemoteAnswer = (sdp) => {
 		return;
 	}
 
-	sdp = editAnswer(
-		sdp,
-		videoForm.codec.value,
-		audioForm.codec.value,
-		videoForm.bitrate.value,
-		audioForm.bitrate.value,
-		audioForm.voice.checked,
-	);
+	sdp = editAnswer(sdp);
 
 	pc.setRemoteDescription(new RTCSessionDescription({
 		type: 'answer',
@@ -442,12 +452,14 @@ const onRemoteAnswer = (sdp) => {
 };
 
 const sendOffer = (offer) => {
+	offer = editOffer(offer);
+
 	fetch(new URL('whip', window.location.href) + window.location.search, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/sdp',
 		},
-		body: offer.sdp,
+		body: offer,
 	})
 		.then((res) => {
 			if (res.status !== 201) {
@@ -456,7 +468,7 @@ const sendOffer = (offer) => {
 			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
 			return res.text();
 		})
-		.then((sdp) => onRemoteAnswer(sdp))
+		.then((answer) => onRemoteAnswer(answer))
 		.catch((err) => {
 			onError(err.toString(), true);
 		});
@@ -467,7 +479,7 @@ const createOffer = () => {
 		.then((offer) => {
 			offerData = parseOffer(offer.sdp);
 			pc.setLocalDescription(offer);
-			sendOffer(offer);
+			sendOffer(offer.sdp);
 		});
 };
 
