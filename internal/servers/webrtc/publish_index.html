@@ -577,28 +577,28 @@ const onPublish = () => {
 	}
 };
 
+const selectHasOption = (select, option) => {
+	for (const opt of select.querySelectorAll('option')) {
+		if (opt.value === option) {
+			return true;
+		}
+	}
+	return false;
+};
+
 const populateDevices = () => {
 	return navigator.mediaDevices.enumerateDevices()
 		.then((devices) => {
 			for (const device of devices) {
-				switch (device.kind) {
-				case 'videoinput':
-					{
-						const opt = document.createElement('option');
-						opt.value = device.deviceId;
-						opt.text = device.label;
-						videoForm.device.appendChild(opt);
-					}
-					break;
+				if (device.kind === 'videoinput' || device.kind === 'audioinput') {
+					const select = (device.kind === 'videoinput') ? videoForm.device : audioForm.device;
 
-				case 'audioinput':
-					{
+					if (!selectHasOption(select, device.deviceId)) {
 						const opt = document.createElement('option');
 						opt.value = device.deviceId;
 						opt.text = device.label;
-						audioForm.device.appendChild(opt);
+						select.appendChild(opt);
 					}
-					break;
 				}
 			}
 
