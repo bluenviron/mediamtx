@@ -609,10 +609,12 @@ const populateDevices = () => {
 				videoForm.device.appendChild(opt);
 			}
 
+			// set first available device as default device
 			if (videoForm.device.children.length !== 0) {
 				videoForm.device.value = videoForm.device.children[1].value;
 			}
 
+			// set first available device as default device
 			if (audioForm.device.children.length !== 0) {
 				audioForm.device.value = audioForm.device.children[1].value;
 			}
@@ -665,6 +667,10 @@ const populateOptions = () => {
 						.forEach((track) => track.stop());
 
 					setMessage('');
+
+					loadValuesFromQuery();
+					setupEventListeners();
+
 					video.style.display = 'none';
 					controls.style.display = 'flex';
 				});
@@ -674,7 +680,7 @@ const populateOptions = () => {
 		});
 };
 
-const updateQueryOnControls = () => {
+const setupEventListeners = () => {
 	const url = new URL(window.location.href);
 	const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
 
@@ -702,7 +708,7 @@ const updateQueryOnControls = () => {
 	}
 };
 
-const loadControlsFromQuery = () => {
+const loadValuesFromQuery = () => {
 	const params = new URLSearchParams(window.location.search);
 	const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
 
@@ -714,7 +720,7 @@ const loadControlsFromQuery = () => {
 			} else if (input instanceof HTMLInputElement && input.type === 'checkbox') {
 				input.checked = value === 'true';
 			} else if (input instanceof HTMLSelectElement) {
-				input.value = value
+				input.value = value;
 			}
 		}
 	}
@@ -726,8 +732,6 @@ const init = () => {
 		return;
 	}
 
-	loadControlsFromQuery();
-	updateQueryOnControls();
 	publishButton.addEventListener('click', onPublish);
 	populateOptions();
 };
