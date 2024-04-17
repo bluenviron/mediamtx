@@ -359,7 +359,7 @@ const setAudioBitrate = (section, bitrate, voice) => {
 				lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
 					+ (parseInt(bitrate) * 1024).toString();
 			} else {
-				lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate'
+				lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate='
 					+ (parseInt(bitrate) * 1024).toString();
 			}
 		}
