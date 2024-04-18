@@ -216,23 +216,6 @@ func writeSegment3(t *testing.T, fpath string) {
 	require.NoError(t, err)
 }
 
-var authManager = &auth.Manager{
-	Method: conf.AuthMethodInternal,
-	InternalUsers: []conf.AuthInternalUser{
-		{
-			User: "myuser",
-			Pass: "mypass",
-			Permissions: []conf.AuthInternalUserPermission{
-				{
-					Action: conf.AuthActionPlayback,
-					Path:   "mypath",
-				},
-			},
-		},
-	},
-	RTSPAuthMethods: nil,
-}
-
 func TestOnGet(t *testing.T) {
 	for _, format := range []string{"fmp4", "mp4"} {
 		t.Run(format, func(t *testing.T) {
@@ -255,8 +238,20 @@ func TestOnGet(t *testing.T) {
 						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 					},
 				},
-				AuthManager: authManager,
-				Parent:      &test.NilLogger{},
+				AuthManager: &test.AuthManager{
+					Func: func(req *auth.Request) error {
+						require.Equal(t, &auth.Request{
+							User:   "myuser",
+							Pass:   "mypass",
+							IP:     req.IP,
+							Action: "playback",
+							Path:   "mypath",
+							Query:  req.Query,
+						}, req)
+						return nil
+					},
+				},
+				Parent: test.NilLogger,
 			}
 			err = s.Initialize()
 			require.NoError(t, err)
@@ -528,8 +523,8 @@ func TestOnGetDifferentInit(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		AuthManager: authManager,
-		Parent:      &test.NilLogger{},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
@@ -603,8 +598,8 @@ func TestOnGetNTPCompensation(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		AuthManager: authManager,
-		Parent:      &test.NilLogger{},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)

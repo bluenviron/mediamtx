@@ -32,6 +32,10 @@ func metricFloat(key string, tags string, value float64) string {
 	return key + tags + " " + strconv.FormatFloat(value, 'f', -1, 64) + "\n"
 }
 
+type metricsAuthManager interface {
+	Authenticate(req *auth.Request) error
+}
+
 type metricsParent interface {
 	logger.Writer
 }
@@ -40,7 +44,7 @@ type metricsParent interface {
 type Metrics struct {
 	Address     string
 	ReadTimeout conf.StringDuration
-	AuthManager *auth.Manager
+	AuthManager metricsAuthManager
 	Parent      metricsParent
 
 	httpServer   *httpp.WrappedServer

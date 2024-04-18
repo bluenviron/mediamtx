@@ -17,6 +17,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
+type pprofAuthManager interface {
+	Authenticate(req *auth.Request) error
+}
+
 type pprofParent interface {
 	logger.Writer
 }
@@ -25,7 +29,7 @@ type pprofParent interface {
 type PPROF struct {
 	Address     string
 	ReadTimeout conf.StringDuration
-	AuthManager *auth.Manager
+	AuthManager pprofAuthManager
 	Parent      pprofParent
 
 	httpServer *httpp.WrappedServer

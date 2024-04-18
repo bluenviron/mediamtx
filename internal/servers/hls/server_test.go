@@ -90,7 +90,7 @@ func TestServerNotFound(t *testing.T) {
 				ReadTimeout:     conf.StringDuration(10 * time.Second),
 				WriteQueueSize:  512,
 				PathManager:     &dummyPathManager{},
-				Parent:          &test.NilLogger{},
+				Parent:          test.NilLogger,
 			}
 			err := s.Initialize()
 			require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestServerRead(t *testing.T) {
 			1460,
 			desc,
 			true,
-			test.NilLogger{},
+			test.NilLogger,
 		)
 		require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestServerRead(t *testing.T) {
 			ReadTimeout:     conf.StringDuration(10 * time.Second),
 			WriteQueueSize:  512,
 			PathManager:     pathManager,
-			Parent:          &test.NilLogger{},
+			Parent:          test.NilLogger,
 		}
 		err = s.Initialize()
 		require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestServerRead(t *testing.T) {
 			1460,
 			desc,
 			true,
-			test.NilLogger{},
+			test.NilLogger,
 		)
 		require.NoError(t, err)
 
@@ -239,7 +239,7 @@ func TestServerRead(t *testing.T) {
 			ReadTimeout:     conf.StringDuration(10 * time.Second),
 			WriteQueueSize:  512,
 			PathManager:     pathManager,
-			Parent:          &test.NilLogger{},
+			Parent:          test.NilLogger,
 		}
 		err = s.Initialize()
 		require.NoError(t, err)
@@ -307,7 +307,7 @@ func TestDirectory(t *testing.T) {
 		1460,
 		desc,
 		true,
-		test.NilLogger{},
+		test.NilLogger,
 	)
 	require.NoError(t, err)
 
@@ -330,7 +330,7 @@ func TestDirectory(t *testing.T) {
 		ReadTimeout:     conf.StringDuration(10 * time.Second),
 		WriteQueueSize:  512,
 		PathManager:     pathManager,
-		Parent:          &test.NilLogger{},
+		Parent:          test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)

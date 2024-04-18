@@ -523,7 +523,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				c := &webrtc.WHIPClient{
 					HTTPClient: hc,
 					URL:        u,
-					Log:        test.NilLogger{},
+					Log:        test.NilLogger,
 				}
 
 				_, err = c.Read(context.Background())
@@ -996,7 +996,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				c := &webrtc.WHIPClient{
 					HTTPClient: hc,
 					URL:        u,
-					Log:        test.NilLogger{},
+					Log:        test.NilLogger,
 				}
 
 				_, err = c.Publish(context.Background(), medi.Formats[0], nil)
