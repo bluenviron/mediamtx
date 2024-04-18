@@ -181,7 +181,7 @@ func TestConfigGlobalPatch(t *testing.T) {
 	require.Equal(t, float64(4096), out["readBufferCount"])
 }
 
-func TestAPIConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
+func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -218,7 +218,7 @@ func TestAPIConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	checkError(t, "json: unknown field \"test\"", res.Body)
 }
 
-func TestAPIConfigPathDefaultsGet(t *testing.T) {
+func TestConfigPathDefaultsGet(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -241,7 +241,7 @@ func TestAPIConfigPathDefaultsGet(t *testing.T) {
 	require.Equal(t, "publisher", out["source"])
 }
 
-func TestAPIConfigPathDefaultsPatch(t *testing.T) {
+func TestConfigPathDefaultsPatch(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -273,7 +273,7 @@ func TestAPIConfigPathDefaultsPatch(t *testing.T) {
 	require.Equal(t, "mypass", out["readPass"])
 }
 
-func TestAPIConfigPathsList(t *testing.T) {
+func TestConfigPathsList(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n"+
 		"paths:\n"+
 		"  path1:\n"+
@@ -318,7 +318,7 @@ func TestAPIConfigPathsList(t *testing.T) {
 	require.Equal(t, "mypass2", out.Items[1]["readPass"])
 }
 
-func TestAPIConfigPathsGet(t *testing.T) {
+func TestConfigPathsGet(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n"+
 		"paths:\n"+
 		"  my/path:\n"+
@@ -346,7 +346,7 @@ func TestAPIConfigPathsGet(t *testing.T) {
 	require.Equal(t, "myuser", out["readUser"])
 }
 
-func TestAPIConfigPathsAdd(t *testing.T) {
+func TestConfigPathsAdd(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -380,7 +380,7 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	require.Equal(t, true, out["rpiCameraVFlip"])
 }
 
-func TestAPIConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
+func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -417,7 +417,7 @@ func TestAPIConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	checkError(t, "json: unknown field \"test\"", res.Body)
 }
 
-func TestAPIConfigPathsPatch(t *testing.T) { //nolint:dupl
+func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -457,7 +457,7 @@ func TestAPIConfigPathsPatch(t *testing.T) { //nolint:dupl
 	require.Equal(t, true, out["rpiCameraVFlip"])
 }
 
-func TestAPIConfigPathsReplace(t *testing.T) { //nolint:dupl
+func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
@@ -497,7 +497,7 @@ func TestAPIConfigPathsReplace(t *testing.T) { //nolint:dupl
 	require.Equal(t, false, out["rpiCameraVFlip"])
 }
 
-func TestAPIConfigPathsDelete(t *testing.T) {
+func TestConfigPathsDelete(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{

@@ -79,10 +79,11 @@ func TestSource(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	s := &http.Server{Handler: router}
+
 	ln, err := net.Listen("tcp", "localhost:5780")
 	require.NoError(t, err)
 
-	s := &http.Server{Handler: router}
 	go s.Serve(ln)
 	defer s.Shutdown(context.Background())
 
