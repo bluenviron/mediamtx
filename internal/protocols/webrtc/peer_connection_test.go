@@ -18,7 +18,7 @@ func TestPeerConnectionCloseAfterError(t *testing.T) {
 	pc := &PeerConnection{
 		API:     api,
 		Publish: false,
-		Log:     test.NilLogger{},
+		Log:     test.NilLogger,
 	}
 	err = pc.Start()
 	require.NoError(t, err)

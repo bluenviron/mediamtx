@@ -174,7 +174,7 @@ webrtc_sessions_bytes_sent 0
 			s := &webrtc.WHIPClient{
 				HTTPClient: hc,
 				URL:        su,
-				Log:        test.NilLogger{},
+				Log:        test.NilLogger,
 			}
 
 			tracks, err := s.Publish(context.Background(), test.MediaH264.Formats[0], nil)

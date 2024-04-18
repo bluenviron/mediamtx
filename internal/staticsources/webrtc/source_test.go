@@ -36,7 +36,7 @@ func TestSource(t *testing.T) {
 	pc := &webrtc.PeerConnection{
 		API:     api,
 		Publish: true,
-		Log:     test.NilLogger{},
+		Log:     test.NilLogger,
 	}
 	err = pc.Start()
 	require.NoError(t, err)

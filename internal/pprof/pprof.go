@@ -17,6 +17,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
+type pprofAuthManager interface {
+	Authenticate(req *auth.Request) error
+}
+
 type pprofParent interface {
 	logger.Writer
 }
@@ -25,7 +29,7 @@ type pprofParent interface {
 type PPROF struct {
 	Address     string
 	ReadTimeout conf.StringDuration
-	AuthManager *auth.Manager
+	AuthManager pprofAuthManager
 	Parent      pprofParent
 
 	httpServer *httpp.WrappedServer
@@ -73,6 +77,7 @@ func (pp *PPROF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  r.URL.RawQuery,
 		IP:     net.ParseIP(ip),
 		Action: conf.AuthActionMetrics,
 	})

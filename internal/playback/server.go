@@ -18,12 +18,16 @@ import (
 
 var errNoSegmentsFound = errors.New("no recording segments found for the given timestamp")
 
+type serverAuthManager interface {
+	Authenticate(req *auth.Request) error
+}
+
 // Server is the playback server.
 type Server struct {
 	Address     string
 	ReadTimeout conf.StringDuration
 	PathConfs   map[string]*conf.Path
-	AuthManager *auth.Manager
+	AuthManager serverAuthManager
 	Parent      logger.Writer
 
 	httpServer *httpp.WrappedServer
@@ -101,6 +105,7 @@ func (p *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	err := p.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  ctx.Request.URL.RawQuery,
 		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionPlayback,
 		Path:   pathName,

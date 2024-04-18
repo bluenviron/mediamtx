@@ -43,7 +43,7 @@ func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stre
 		1460,
 		req.Desc,
 		true,
-		test.NilLogger{},
+		test.NilLogger,
 	)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func TestServerPublish(t *testing.T) {
 		RunOnDisconnect:     "",
 		ExternalCmdPool:     nil,
 		PathManager:         pathManager,
-		Parent:              &test.NilLogger{},
+		Parent:              test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestServerPublish(t *testing.T) {
 
 	<-path.streamCreated
 
-	aw := asyncwriter.New(512, &test.NilLogger{})
+	aw := asyncwriter.New(512, test.NilLogger)
 
 	recv := make(chan struct{})
 
@@ -174,7 +174,7 @@ func TestServerRead(t *testing.T) {
 		1460,
 		desc,
 		true,
-		test.NilLogger{},
+		test.NilLogger,
 	)
 	require.NoError(t, err)
 
@@ -205,7 +205,7 @@ func TestServerRead(t *testing.T) {
 		RunOnDisconnect:     "",
 		ExternalCmdPool:     nil,
 		PathManager:         pathManager,
-		Parent:              &test.NilLogger{},
+		Parent:              test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)

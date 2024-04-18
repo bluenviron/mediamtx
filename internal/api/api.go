@@ -151,6 +151,10 @@ type WebRTCServer interface {
 	APISessionsKick(uuid.UUID) error
 }
 
+type apiAuthManager interface {
+	Authenticate(req *auth.Request) error
+}
+
 type apiParent interface {
 	logger.Writer
 	APIConfigSet(conf *conf.Conf)
@@ -161,7 +165,7 @@ type API struct {
 	Address      string
 	ReadTimeout  conf.StringDuration
 	Conf         *conf.Conf
-	AuthManager  *auth.Manager
+	AuthManager  apiAuthManager
 	PathManager  PathManager
 	RTSPServer   RTSPServer
 	RTSPSServer  RTSPServer
@@ -296,6 +300,7 @@ func (a *API) mwAuth(ctx *gin.Context) {
 	err := a.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
+		Query:  ctx.Request.URL.RawQuery,
 		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionAPI,
 	})
