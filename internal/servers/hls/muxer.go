@@ -59,6 +59,7 @@ type muxer struct {
 	pathName        string
 	pathManager     serverPathManager
 	parent          *Server
+	query           string
 
 	ctx             context.Context
 	ctxCancel       func()
@@ -124,6 +125,7 @@ func (m *muxer) runInner() error {
 		AccessRequest: defs.PathAccessRequest{
 			Name:     m.pathName,
 			SkipAuth: true,
+			Query:    m.query,
 		},
 	})
 	if err != nil {

@@ -199,6 +199,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		mux, err := s.parent.getMuxer(serverGetMuxerReq{
 			path:           dir,
 			remoteAddr:     httpp.RemoteAddr(ctx),
+			query:          ctx.Request.URL.RawQuery,
 			sourceOnDemand: pathConf.SourceOnDemand,
 		})
 		if err != nil {
