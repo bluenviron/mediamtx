@@ -1,371 +1,783 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<style>
-html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-	font-family: 'Arial', sans-serif;
-}
-#video {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgb(30, 30, 30);
-}
-#message {
-	position: absolute;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	text-align: center;
-	justify-content: center;
-	font-size: 16px;
-	font-weight: bold;
-	color: white;
-	pointer-events: none;
-	padding: 20px;
-	box-sizing: border-box;
-	text-shadow: 0 0 5px black;
-}
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> <!-- Material Icons -->
+
+    <!--    Scripts for H5 Camera-->
+    <script src="https://starwatchxr-js.b-cdn.net/decoder_def.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/jadecoder.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/hevcdec.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/glutils.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/connector.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/audioplay.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/md5.js"></script>
+    <script src="https://starwatchxr-js.b-cdn.net/play.js"></script>
+    <style>
+        @keyframes pulse {
+            0% {
+                transform: scale(0.8);
+            }
+            50% {
+                transform: scale(1.3); /* Increase size by 10% */
+            }
+            100% {
+                transform: scale(0.8);
+            }
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .material-icons {
+            font-size: 20px; /* Adjust icon size as needed */
+            vertical-align: middle;
+        }
+
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgb(30, 30, 30);
+            object-fit: fill;
+        }
+
+        .flex-row {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .flex-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-card, .alert-card {
+            position: fixed;
+            top: 10%;
+            left: 20px;
+
+            flex-direction: column; /* Adjust to stack items vertically */
+        }
+
+        .visibility-alert {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            /*margin-top: 10%;*/
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 10px 20px;
+            gap: 10px;
+            color: white;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .audio-visibility-alert {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-top: 10%;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 10px 20px;
+            gap: 10px;
+            color: white;
+            transition: all 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        .visibility-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: red; /* Red dot for visibility alert */
+            animation: pulse 5s infinite; /* Apply the animation */
+        }
+
+        .visibility-text {
+            font-size: 14px; /* Smaller text for the visibility alert */
+            color: red; /* Text color */
+        }
+
+        .alert-card {
+            top: auto; /* Remove top positioning */
+            left: 50px;
+            bottom: 50px; /* Position it at the bottom */
+        }
+
+        /* PTZ Controls styling */
+        .ptz-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px; /* Space between buttons */
+        }
+
+        .ptz-button {
+            background-color: #333; /* Match other buttons */
+            border: none;
+            border-radius: 50%; /* Circular buttons */
+            width: 36px; /* Fixed width and height to create a circle */
+            height: 36px;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .ptz-button:hover {
+            background-color: #00a76f; /* Hover effect to match other buttons */
+        }
+
+        .material-icons {
+            color: white; /* Icon color */
+            font-size: 24px; /* Icon size */
+        }
+
+
+        #zoomControls {
+            /*border: 1px solid #ffffff; !* White border for visibility *!*/
+            padding: 1px;
+            border-radius: 5px;
+        }
+
+        #bottomBar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px; /* Increased height for better control visibility */
+            background-color: rgba(0, 0, 0, 0.7); /* Darker background for contrast */
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bottomBarAi {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            display: flex;
+            align-items: center;
+            margin-left: 4px;
+            justify-content: center;
+            background-color: #333; /* Darker buttons for contrast */
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #00a76f;
+        }
+
+        /* Audio Controls */
+        .audio-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .volume-slider {
+            margin-left: 10px;
+            width: 100px; /* Fixed width for the slider */
+        }
+
+        /* People Counter */
+        .people-count {
+            font-weight: bold;
+            font-size: 0.9em; /* Larger and bolder text */
+            color: #212121; /* Dark grey for emphasis */
+            background: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
+            padding: 5px 10px;
+            display: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
+        }
+
+        .material-icons.md-18 {
+            font-size: 18px;
+        }
+
+        .material-icons.md-24 {
+            font-size: 24px;
+        }
+
+        /* Default size */
+        .material-icons.md-36 {
+            font-size: 36px;
+        }
+
+        .material-icons.md-48 {
+            font-size: 48px;
+        }
+
+        #message {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            pointer-events: none;
+            padding: 20px;
+            box-sizing: border-box;
+            text-shadow: 0 0 5px black;
+        }
+    </style>
 </head>
 <body>
+<div id="cameraCanvas" style="display: none;">
+    <canvas id="canvas"></canvas>
+</div>
+<div id="videoContainer">
+    <video id="video"></video>
+    <div id="overlay" class="info-card">
 
-<video id="video"></video>
+
+        <div class="visibility-alert" style="display: none;"> <!-- Initially hidden -->
+            <div class="visibility-dot"></div>
+            <span class="visibility-text">Camera Tampered</span>
+        </div>
+
+        <div class="audio-visibility-alert" style="display: none;"> <!-- Initially hidden -->
+            <div class="visibility-dot"></div>
+            <span class="visibility-text">Noise Detected</span>
+        </div>
+
+        <div id="alert-overlay" class="alert-card">
+            <!--            <span class="info-icon audio-icon"></span>-->
+        </div>
+    </div>
+
+</div>
+
+<div id="bottomBar" class="flex-row">
+    <!-- Audio Controls -->
+    <div class="audio-controls">
+        <button id="muteToggle"><span class="material-icons">volume_off</span></button> <!-- Material Icon for Mute -->
+        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="0">
+    </div>
+
+    <div id="ptzControls" class="ptz-controls">
+        <button id="ptz_left" class="ptz-button"><span class="material-icons">keyboard_arrow_left</span></button>
+        <button id="ptz_up" class="ptz-button"><span class="material-icons">keyboard_arrow_up</span></button>
+        <button id="ptz_down" class="ptz-button"><span class="material-icons">keyboard_arrow_down</span></button>
+        <button id="ptz_right" class="ptz-button"><span class="material-icons">keyboard_arrow_right</span></button>
+    </div>
+
+    <div class="bottomBarAi">
+        <span class="people-count">People: 0</span>
+    </div>
+    <div id="zoomControls" class="flex-row">
+        <button id="zoomIn"><span class="material-icons">add</span></button> <!-- Material Icon for Zoom In -->
+        <button id="zoomOut"><span class="material-icons">remove</span></button> <!-- Material Icon for Zoom Out -->
+        <button id="resetZoom"><span class="material-icons">refresh</span></button>
+        <!-- Material Icon for Reset Zoom -->
+        <button id="fullscreen"><span class="material-icons">fullscreen</span></button>
+        <!-- Material Icon for Fullscreen -->
+    </div>
+</div>
+
 <div id="message"></div>
 
 <script>
 
-const retryPause = 2000;
+    const retryPause = 2000;
 
-const video = document.getElementById('video');
-const message = document.getElementById('message');
+    const video = document.getElementById('video');
+    const message = document.getElementById('message');
 
-let pc = null;
-let restartTimeout = null;
-let sessionUrl = '';
-let offerData = '';
-let queuedCandidates = [];
-let defaultControls = false;
+    let pc = null;
+    let restartTimeout = null;
+    let sessionUrl = '';
+    let offerData = '';
+    let queuedCandidates = [];
+    let defaultControls = false;
 
-const setMessage = (str) => {
-	if (str !== '') {
-		video.controls = false;
-	} else {
-		video.controls = defaultControls;
-	}
-	message.innerText = str;
-};
+    let streamId = window.location.href.split('/').at(window.location.href.split("/").length - 2)
 
-const unquoteCredential = (v) => (
-	JSON.parse(`"${v}"`)
-);
+    const volumeSlider = document.getElementById('volumeSlider');
+    const muteToggle = document.getElementById('muteToggle');
+    const peopleCountIcon = document.querySelector('.people-count');
+    const peopleCount = document.querySelector('.bottomBarAi');
+    const visibilityIcon = document.querySelector('.visibility-alert');
+    const audioIcon = document.querySelector('.audio-visibility-alert');
+    const bottomBar = document.getElementById('bottomBar');
 
-const linkToIceServers = (links) => (
-	(links !== null) ? links.split(', ').map((link) => {
-		const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
-		const ret = {
-			urls: [m[1]],
-		};
+    const setMessage = (str) => {
+        if (str !== '') {
+            video.controls = false;
+        } else {
+            video.controls = defaultControls;
+        }
+        message.innerText = str;
+    };
 
-		if (m[3] !== undefined) {
-			ret.username = unquoteCredential(m[3]);
-			ret.credential = unquoteCredential(m[4]);
-			ret.credentialType = 'password';
-		}
+    const unquoteCredential = (v) => (
+        JSON.parse(`"${v}"`)
+    );
 
-		return ret;
-	}) : []
-);
+    const linkToIceServers = (links) => (
+        (links !== null) ? links.split(', ').map((link) => {
+            const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
+            const ret = {
+                urls: [m[1]],
+            };
 
-const parseOffer = (offer) => {
-	const ret = {
-		iceUfrag: '',
-		icePwd: '',
-		medias: [],
-	};
+            if (m[3] !== undefined) {
+                ret.username = unquoteCredential(m[3]);
+                ret.credential = unquoteCredential(m[4]);
+                ret.credentialType = 'password';
+            }
 
-	for (const line of offer.split('\r\n')) {
-		if (line.startsWith('m=')) {
-			ret.medias.push(line.slice('m='.length));
-		} else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
-			ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
-		} else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
-			ret.icePwd = line.slice('a=ice-pwd:'.length);
-		}
-	}
+            return ret;
+        }) : []
+    );
 
-	return ret;
-};
+    const parseOffer = (offer) => {
+        const ret = {
+            iceUfrag: '',
+            icePwd: '',
+            medias: [],
+        };
 
-const enableStereoOpus = (section) => {
-	let opusPayloadFormat = '';
-	let lines = section.split('\r\n');
+        for (const line of offer.split('\r\n')) {
+            if (line.startsWith('m=')) {
+                ret.medias.push(line.slice('m='.length));
+            } else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
+                ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
+            } else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
+                ret.icePwd = line.slice('a=ice-pwd:'.length);
+            }
+        }
 
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
-			opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
-			break;
-		}
-	}
+        return ret;
+    };
 
-	if (opusPayloadFormat === '') {
-		return section;
-	}
+    const enableStereoOpus = (section) => {
+        let opusPayloadFormat = '';
+        let lines = section.split('\r\n');
 
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
-			if (!lines[i].includes('stereo')) {
-				lines[i] += ';stereo=1';
-			}
-			if (!lines[i].includes('sprop-stereo')) {
-				lines[i] += ';sprop-stereo=1';
-			}
-		}
-	}
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+                opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+                break;
+            }
+        }
 
-	return lines.join('\r\n');
-};
+        if (opusPayloadFormat === '') {
+            return section;
+        }
 
-const editOffer = (offer) => {
-	const sections = offer.sdp.split('m=');
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+                if (!lines[i].includes('stereo')) {
+                    lines[i] += ';stereo=1';
+                }
+                if (!lines[i].includes('sprop-stereo')) {
+                    lines[i] += ';sprop-stereo=1';
+                }
+            }
+        }
 
-	for (let i = 0; i < sections.length; i++) {
-		const section = sections[i];
-		if (section.startsWith('audio')) {
-			sections[i] = enableStereoOpus(section);
-		}
-	}
+        return lines.join('\r\n');
+    };
 
-	offer.sdp = sections.join('m=');
-};
+    const editOffer = (offer) => {
+        const sections = offer.sdp.split('m=');
 
-const generateSdpFragment = (od, candidates) => {
-	const candidatesByMedia = {};
-	for (const candidate of candidates) {
-		const mid = candidate.sdpMLineIndex;
-		if (candidatesByMedia[mid] === undefined) {
-			candidatesByMedia[mid] = [];
-		}
-		candidatesByMedia[mid].push(candidate);
-	}
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            if (section.startsWith('audio')) {
+                sections[i] = enableStereoOpus(section);
+            }
+        }
 
-	let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
-		+ 'a=ice-pwd:' + od.icePwd + '\r\n';
+        offer.sdp = sections.join('m=');
+    };
 
-	let mid = 0;
+    const generateSdpFragment = (od, candidates) => {
+        const candidatesByMedia = {};
+        for (const candidate of candidates) {
+            const mid = candidate.sdpMLineIndex;
+            if (candidatesByMedia[mid] === undefined) {
+                candidatesByMedia[mid] = [];
+            }
+            candidatesByMedia[mid].push(candidate);
+        }
 
-	for (const media of od.medias) {
-		if (candidatesByMedia[mid] !== undefined) {
-			frag += 'm=' + media + '\r\n'
-				+ 'a=mid:' + mid + '\r\n';
+        let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
+            + 'a=ice-pwd:' + od.icePwd + '\r\n';
 
-			for (const candidate of candidatesByMedia[mid]) {
-				frag += 'a=' + candidate.candidate + '\r\n';
-			}
-		}
-		mid++;
-	}
+        let mid = 0;
 
-	return frag;
-};
+        for (const media of od.medias) {
+            if (candidatesByMedia[mid] !== undefined) {
+                frag += 'm=' + media + '\r\n'
+                    + 'a=mid:' + mid + '\r\n';
 
-const loadStream = () => {
-	requestICEServers();
-};
+                for (const candidate of candidatesByMedia[mid]) {
+                    frag += 'a=' + candidate.candidate + '\r\n';
+                }
+            }
+            mid++;
+        }
 
-const onError = (err) => {
-	if (restartTimeout === null) {
-		setMessage(err + ', retrying in some seconds');
+        return frag;
+    };
 
-		if (pc !== null) {
-			pc.close();
-			pc = null;
-		}
+    const loadStream = () => {
+        requestICEServers();
+    };
 
-		restartTimeout = window.setTimeout(() => {
-			restartTimeout = null;
-			loadStream();
-		}, retryPause);
+    const onError = (err) => {
+        if (restartTimeout === null) {
+            setMessage(err + ', retrying in some seconds');
 
-		if (sessionUrl) {
-			fetch(sessionUrl, {
-				method: 'DELETE',
-			});
-		}
-		sessionUrl = '';
+            if (pc !== null) {
+                pc.close();
+                pc = null;
+            }
 
-		queuedCandidates = [];
-	}
-};
+            restartTimeout = window.setTimeout(() => {
+                restartTimeout = null;
+                loadStream();
+            }, retryPause);
 
-const sendLocalCandidates = (candidates) => {
-	fetch(sessionUrl + window.location.search, {
-		method: 'PATCH',
-		headers: {
-			'Content-Type': 'application/trickle-ice-sdpfrag',
-			'If-Match': '*',
-		},
-		body: generateSdpFragment(offerData, candidates),
-	})
-		.then((res) => {
-			switch (res.status) {
-			case 204:
-				break;
-			case 404:
-				throw new Error('stream not found');
-			default:
-				throw new Error(`bad status code ${res.status}`);
-			}
-		})
-		.catch((err) => {
-			onError(err.toString());
-		});
-};
+            if (sessionUrl) {
+                fetch(sessionUrl, {
+                    method: 'DELETE',
+                });
+            }
+            sessionUrl = '';
 
-const onLocalCandidate = (evt) => {
-	if (restartTimeout !== null) {
-		return;
-	}
+            queuedCandidates = [];
+        }
+    };
 
-	if (evt.candidate !== null) {
-		if (sessionUrl === '') {
-			queuedCandidates.push(evt.candidate);
-		} else {
-			sendLocalCandidates([evt.candidate])
-		}
-	}
-};
+    const sendLocalCandidates = (candidates) => {
+        fetch(sessionUrl + window.location.search, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/trickle-ice-sdpfrag',
+                'If-Match': '*',
+            },
+            body: generateSdpFragment(offerData, candidates),
+        })
+            .then((res) => {
+                switch (res.status) {
+                    case 204:
+                        break;
+                    case 404:
+                        throw new Error('stream not found');
+                    default:
+                        throw new Error(`bad status code ${res.status}`);
+                }
+            })
+            .catch((err) => {
+                onError(err.toString());
+            });
+    };
 
-const onRemoteAnswer = (sdp) => {
-	if (restartTimeout !== null) {
-		return;
-	}
+    const onLocalCandidate = (evt) => {
+        if (restartTimeout !== null) {
+            return;
+        }
 
-	pc.setRemoteDescription(new RTCSessionDescription({
-		type: 'answer',
-		sdp,
-	}));
+        if (evt.candidate !== null) {
+            if (sessionUrl === '') {
+                queuedCandidates.push(evt.candidate);
+            } else {
+                sendLocalCandidates([evt.candidate])
+            }
+        }
+    };
 
-	if (queuedCandidates.length !== 0) {
-		sendLocalCandidates(queuedCandidates);
-		queuedCandidates = [];
-	}
-};
+    const onRemoteAnswer = (sdp) => {
+        if (restartTimeout !== null) {
+            return;
+        }
 
-const sendOffer = (offer) => {
-	fetch(new URL('whep', window.location.href) + window.location.search, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/sdp',
-		},
-		body: offer.sdp,
-	})
-		.then((res) => {
-			switch (res.status) {
-			case 201:
-				break;
-			case 404:
-				throw new Error('stream not found');
-			default:
-				throw new Error(`bad status code ${res.status}`);
-			}
-			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
-			return res.text();
-		})
-		.then((sdp) => onRemoteAnswer(sdp))
-		.catch((err) => {
-			onError(err.toString());
-		});
-};
+        pc.setRemoteDescription(new RTCSessionDescription({
+            type: 'answer',
+            sdp,
+        }));
 
-const createOffer = () => {
-	pc.createOffer()
-		.then((offer) => {
-			editOffer(offer);
-			offerData = parseOffer(offer.sdp);
-			pc.setLocalDescription(offer);
-			sendOffer(offer);
-		});
-};
+        if (queuedCandidates.length !== 0) {
+            sendLocalCandidates(queuedCandidates);
+            queuedCandidates = [];
+        }
+    };
 
-const onConnectionState = () => {
-	if (restartTimeout !== null) {
-		return;
-	}
+    const sendOffer = (offer) => {
+        fetch(new URL('whep', window.location.href) + window.location.search, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/sdp',
+            },
+            body: offer.sdp,
+        })
+            .then((res) => {
+                switch (res.status) {
+                    case 201:
+                        break;
+                    case 404:
+                        throw new Error('stream not found');
+                    default:
+                        throw new Error(`bad status code ${res.status}`);
+                }
+                sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
+                return res.text();
+            })
+            .then((sdp) => onRemoteAnswer(sdp))
+            .catch((err) => {
+                onError(err.toString());
+            });
+    };
 
-	if (pc.iceConnectionState === 'disconnected') {
-		onError('peer connection disconnected');
-	}
-};
+    const createOffer = () => {
+        pc.createOffer()
+            .then((offer) => {
+                editOffer(offer);
+                offerData = parseOffer(offer.sdp);
+                pc.setLocalDescription(offer);
+                sendOffer(offer);
+            });
+    };
 
-const onTrack = (evt) => {
-	setMessage('');
-	video.srcObject = evt.streams[0];
-};
+    const onConnectionState = () => {
+        if (restartTimeout !== null) {
+            return;
+        }
 
-const requestICEServers = () => {
-	fetch(new URL('whep', window.location.href) + window.location.search, {
-		method: 'OPTIONS',
-	})
-		.then((res) => {
-			pc = new RTCPeerConnection({
-				iceServers: linkToIceServers(res.headers.get('Link')),
-				// https://webrtc.org/getting-started/unified-plan-transition-guide
-				sdpSemantics: 'unified-plan',
-			});
+        if (pc.iceConnectionState === 'disconnected') {
+            onError('peer connection disconnected');
+        }
+    };
 
-			const direction = 'sendrecv';
-			pc.addTransceiver('video', { direction });
-			pc.addTransceiver('audio', { direction });
+    const onTrack = (evt) => {
+        setMessage('');
+        video.srcObject = evt.streams[0];
+    };
 
-			pc.onicecandidate = (evt) => onLocalCandidate(evt);
-			pc.oniceconnectionstatechange = () => onConnectionState();
-			pc.ontrack = (evt) => onTrack(evt);
+    const requestICEServers = () => {
+        fetch(new URL('whep', window.location.href) + window.location.search, {
+            method: 'OPTIONS',
+        })
+            .then((res) => {
+                pc = new RTCPeerConnection({
+                    iceServers: linkToIceServers(res.headers.get('Link')),
+                    // https://webrtc.org/getting-started/unified-plan-transition-guide
+                    sdpSemantics: 'unified-plan',
+                });
 
-			createOffer();
-		})
-		.catch((err) => {
-			onError(err.toString());
-		});
-};
+                const direction = 'sendrecv';
+                pc.addTransceiver('video', {direction});
+                pc.addTransceiver('audio', {direction});
 
- const parseBoolString = (str, defaultVal) => {
-	str = (str || '');
+                pc.onicecandidate = (evt) => onLocalCandidate(evt);
+                pc.oniceconnectionstatechange = () => onConnectionState();
+                pc.ontrack = (evt) => onTrack(evt);
 
-	if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
-		return true;
-	}
-	if (['0', 'no', 'false'].includes(str.toLowerCase())) {
-		return false;
-	}
-	return defaultVal;
-};
+                createOffer();
+            })
+            .catch((err) => {
+                onError(err.toString());
+            });
+    };
 
-const loadAttributesFromQuery = () => {
-	const params = new URLSearchParams(window.location.search);
-	video.controls = parseBoolString(params.get('controls'), true);
-	video.muted = parseBoolString(params.get('muted'), true);
-	video.autoplay = parseBoolString(params.get('autoplay'), true);
-	video.playsInline = parseBoolString(params.get('playsinline'), true);
-	defaultControls = video.controls;
-};
+    const parseBoolString = (str, defaultVal) => {
+        str = (str || '');
 
-const init = () => {
-	loadAttributesFromQuery();
-	loadStream();
-};
+        if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
+            return true;
+        }
+        if (['0', 'no', 'false'].includes(str.toLowerCase())) {
+            return false;
+        }
+        return defaultVal;
+    };
 
-window.addEventListener('DOMContentLoaded', init);
+    const loadAttributesFromQuery = () => {
+        const params = new URLSearchParams(window.location.search);
+        const enableControl = parseBoolString(params.get('controls'), true);
+
+        video.controls = false;
+        bottomBar.style.display = enableControl ? 'flex' : 'none';
+
+        video.muted = parseBoolString(params.get('muted'), true);
+        video.autoplay = parseBoolString(params.get('autoplay'), true);
+        video.playsInline = parseBoolString(params.get('playsinline'), true);
+        defaultControls = video.controls;
+    };
+
+    // Camera Controls
+    document.getElementById('zoomIn').addEventListener('click', () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 8, 6)
+        setTimeout(() => stopPtz(), 1000)
+    });
+
+    document.getElementById('zoomOut').addEventListener('click', () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 9, 6)
+        setTimeout(() => stopPtz(), 1000)
+    });
+
+    document.getElementById('resetZoom').addEventListener('click', () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 9, 6)
+        setTimeout(() => stopPtz(), 5000)
+    });
+
+    document.getElementById('fullscreen').addEventListener('click', () => {
+        // Inside the fullscreen click event listener, after the if/else statements:
+        if (document.fullscreenElement || document.webkitFullscreenElement ||
+            document.mozFullScreenElement || document.msFullscreenElement) {
+            // Now in fullscreen, change to 'exit fullscreen' icon
+            document.getElementById('fullscreen').innerHTML = '<span class="material-icons">fullscreen</span>';
+        } else {
+            // Not in fullscreen, change to 'enter fullscreen' icon
+            document.getElementById('fullscreen').innerHTML = '<span class="material-icons">fullscreen_exit</span>';
+        }
+
+        if (!document.fullscreenElement &&    // standard
+            !document.webkitFullscreenElement && // Safari/Opera
+            !document.mozFullScreenElement && // Firefox
+            !document.msFullscreenElement // IE/Edge
+        ) {
+            // Enter fullscreen
+            const element = document.documentElement; // This represents the whole page
+            if (element.requestFullscreen) {
+                element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) { /* Safari */
+                element.webkitRequestFullscreen();
+            } else if (element.mozRequestFullScreen) { /* Firefox */
+                element.mozRequestFullScreen();
+            } else if (element.msRequestFullscreen) { /* IE/Edge */
+                element.msRequestFullscreen();
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) { /* IE/Edge */
+                document.msExitFullscreen();
+            }
+        }
+
+    });
+
+    document.getElementById("ptz_up").addEventListener("click", () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 2, 6)
+        setTimeout(() => stopPtz(), 1000)
+    })
+
+    document.getElementById("ptz_down").addEventListener("click", () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 3, 6)
+    })
+
+    document.getElementById("ptz_left").addEventListener("click", () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 4, 6)
+    })
+
+    document.getElementById("ptz_right").addEventListener("click", () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 5, 6)
+    })
+
+    const stopPtz = () => {
+        const channel = 0;
+        Player.ptz_ctrl(streamId, '', channel, 0, 0)
+    }
+
+    const updateZoom = () => {
+        video.style.transform = `scale(${zoomLevel})`;
+    };
+
+    volumeSlider.addEventListener('input', () => {
+        video.volume = volumeSlider.value / 100;
+        video.muted = video.volume === 0;
+        updateMuteButton();
+    });
+
+    // Mute or unmute video based on button click
+    muteToggle.addEventListener('click', () => {
+        video.muted = !video.muted;
+        updateMuteButton();
+    });
+
+    // Update the mute button icon based on the video's muted state
+    function updateMuteButton() {
+        if (video.muted || video.volume === 0) {
+            muteToggle.innerHTML = '<span class="material-icons">volume_off</span>';
+            volumeSlider.value = 0; // Reflects mute in the slider position
+        } else {
+            muteToggle.innerHTML = '<span class="material-icons">volume_up</span>';
+            volumeSlider.value = video.volume * 100; // Reflects current volume in the slider position
+        }
+    }
+
+    const initH5Sdk = () => {
+        let canvas = document.getElementById("canvas")
+        Player.init([canvas]);
+
+        const user = "username";
+        const pwd = "password";
+        const channel = "channel";
+        Player.ConnectDevice(streamId, '', user, pwd, 0, 80, 0, channel, streamId, "wss")
+    }
+
+    const init = () => {
+        loadAttributesFromQuery();
+        loadStream();
+    };
+
+    window.addEventListener('DOMContentLoaded', init);
 
 </script>
 
