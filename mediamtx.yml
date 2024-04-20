@@ -564,7 +564,7 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
-  runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -vcodec copy -c:a libopus -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH/webrtc
+  runOnReady:
   # Restart the command if it exits.
   runOnReadyRestart: no
   # Command to run when the stream is not available anymore.
@@ -618,8 +618,12 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  live/2302012913011752:
-    source: rtsp://p1.s2tlive.com:8554/live/2302012913011752
+#  live/2305012912010514:
+#    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
+#
+#
+#  live/5778732566:
+#      source: rtsp://w3.s2tlive.com:8554/live/5778732566
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

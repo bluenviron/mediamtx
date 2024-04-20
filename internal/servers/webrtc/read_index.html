@@ -290,7 +290,7 @@
 
 <div id="bottomBar" class="flex-row">
     <!-- Audio Controls -->
-    <div class="audio-controls">
+    <div class="audio-controls" style="display: none">
         <button id="muteToggle"><span class="material-icons">volume_off</span></button> <!-- Material Icon for Mute -->
         <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="0">
     </div>
@@ -332,6 +332,7 @@
     let defaultControls = false;
 
     let streamId = window.location.href.split('/').at(window.location.href.split("/").length - 2)
+    const channel = 0;
 
     const volumeSlider = document.getElementById('volumeSlider');
     const muteToggle = document.getElementById('muteToggle');
@@ -650,19 +651,16 @@
 
     // Camera Controls
     document.getElementById('zoomIn').addEventListener('click', () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 8, 6)
         setTimeout(() => stopPtz(), 1000)
     });
 
     document.getElementById('zoomOut').addEventListener('click', () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 9, 6)
         setTimeout(() => stopPtz(), 1000)
     });
 
     document.getElementById('resetZoom').addEventListener('click', () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 9, 6)
         setTimeout(() => stopPtz(), 5000)
     });
@@ -710,28 +708,26 @@
     });
 
     document.getElementById("ptz_up").addEventListener("click", () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 2, 6)
         setTimeout(() => stopPtz(), 1000)
     })
 
     document.getElementById("ptz_down").addEventListener("click", () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 3, 6)
+        setTimeout(() => stopPtz(), 1000)
     })
 
     document.getElementById("ptz_left").addEventListener("click", () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 4, 6)
+        setTimeout(() => stopPtz(), 1000)
     })
 
     document.getElementById("ptz_right").addEventListener("click", () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 5, 6)
+        setTimeout(() => stopPtz(), 1000)
     })
 
     const stopPtz = () => {
-        const channel = 0;
         Player.ptz_ctrl(streamId, '', channel, 0, 0)
     }
 
@@ -766,15 +762,17 @@
         let canvas = document.getElementById("canvas")
         Player.init([canvas]);
 
-        const user = "username";
-        const pwd = "password";
-        const channel = "channel";
-        Player.ConnectDevice(streamId, '', user, pwd, 0, 80, 0, channel, streamId, "wss")
+        const user = "admin";
+        const pwd = "";
+        console.log(streamId)
+
+        Player.ConnectDevice(streamId, '', user, pwd, 0, 80, 0, channel, 0, "wss")
     }
 
     const init = () => {
         loadAttributesFromQuery();
         loadStream();
+        initH5Sdk();
     };
 
     window.addEventListener('DOMContentLoaded', init);
