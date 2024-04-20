@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -285,7 +286,7 @@ func (c *WHIPClient) postOffer(
 	}
 
 	contentType := res.Header.Get("Content-Type")
-	if contentType != "application/sdp" {
+	if strings.TrimSpace(strings.Split(contentType, ";")[0]) != "application/sdp" {
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
 
