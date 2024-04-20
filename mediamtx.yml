@@ -234,7 +234,7 @@ hlsAlwaysRemux: yes
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
 # * lowLatency - uses Low-Latency HLS.
-hlsVariant: lowLatency
+hlsVariant: fmp4
 # Number of HLS segments to keep on the server.
 # Segments allow to seek through the stream.
 # Their number doesn't influence latency.
@@ -244,13 +244,13 @@ hlsSegmentCount: 7
 # The final segment duration is also influenced by the interval between IDR frames,
 # since the server changes the duration in order to include at least one IDR frame
 # in each segment.
-hlsSegmentDuration: 1s
+hlsSegmentDuration: 4s
 # Minimum duration of each part.
 # A player usually puts 3 parts in a buffer before reproducing the stream.
 # Parts are used in Low-Latency HLS in place of segments.
 # Part duration is influenced by the distance between video/audio samples
 # and is adjusted in order to produce segments with a similar duration.
-hlsPartDuration: 200ms
+hlsPartDuration: 400ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M
