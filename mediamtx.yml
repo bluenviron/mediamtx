@@ -291,7 +291,7 @@ webrtcAllowOrigin: '*'
 webrtcTrustedProxies: [ ]
 # Address of a local UDP listener that will receive connections.
 # Use a blank string to disable.
-webrtcLocalUDPAddress: :8192
+webrtcLocalUDPAddress: :8189
 # Address of a local TCP listener that will receive connections.
 # This is disabled by default since TCP is less efficient than UDP and
 # introduces a progressive delay when network is congested.
