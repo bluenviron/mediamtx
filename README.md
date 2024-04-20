@@ -295,6 +295,16 @@ d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/m
 
 The resulting stream will be available in path `/mystream`.
 
+GStreamer can also publish a stream by using the [WebRTC / WHIP protocol](#webrtc). Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
+
+```
+gst-launch-1.0 videotestsrc \
+! video/x-raw,width=1920,height=1080,format=I420 \
+! x264enc speed-preset=ultrafast bitrate=2000 \
+! video/x-h264,profile=baseline \
+! whipclientsink signaller::whip-endpoint=http://localhost:8889/mystream/whip
+```
+
 #### OBS Studio
 
 OBS Studio can publish to the server in multiple ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
