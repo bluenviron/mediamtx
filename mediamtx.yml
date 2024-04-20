@@ -618,12 +618,12 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  live/2305012912010514:
-    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
-
-
-  live/5778732566:
-      source: rtsp://w3.s2tlive.com:8554/live/5778732566
+#  live/2305012912010514:
+#    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
+#
+#
+#  live/5778732566:
+#      source: rtsp://w3.s2tlive.com:8554/live/5778732566
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
