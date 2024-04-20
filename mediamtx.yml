@@ -307,8 +307,8 @@ webrtcAdditionalHosts: [ ]
 # ICE servers. Needed only when local listeners can't be reached by clients.
 # STUN servers allows to obtain and share the public IP of the server.
 # TURN/TURNS servers forces all traffic through them.
-webrtcICEServers2: [ ]
-  # - url: stun:stun.l.google.com:19302
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
   # if user is "AUTH_SECRET", then authentication is secret based.
   # the secret must be inserted into the password field.
   # username: ''
@@ -564,7 +564,7 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
-  runOnReady:
+  runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -vcodec copy -c:a libopus -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH/webrtc
   # Restart the command if it exits.
   runOnReadyRestart: no
   # Command to run when the stream is not available anymore.
@@ -618,8 +618,8 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  #  live/ai-live:
-  #    source: rtsp://p1.s2tlive.com:8554/live/HF38078707846
+  live/2302012913011752:
+    source: rtsp://p1.s2tlive.com:8554/live/2302012913011752
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
