@@ -4,6 +4,7 @@ package httpp
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -26,31 +27,29 @@ func (nilWriter) Write(p []byte) (int, error) {
 // - server header
 // - filtering of invalid requests
 type WrappedServer struct {
+	Network     string
+	Address     string
+	ReadTimeout time.Duration
+	Encryption  bool
+	ServerCert  string
+	ServerKey   string
+	Handler     http.Handler
+	Parent      logger.Writer
+
 	ln    net.Listener
 	inner *http.Server
 }
 
-// NewWrappedServer allocates a WrappedServer.
-func NewWrappedServer(
-	network string,
-	address string,
-	readTimeout time.Duration,
-	serverCert string,
-	serverKey string,
-	handler http.Handler,
-	parent logger.Writer,
-) (*WrappedServer, error) {
-	ln, err := net.Listen(network, address)
-	if err != nil {
-		return nil, err
-	}
-
+// Initialize initializes a WrappedServer.
+func (s *WrappedServer) Initialize() error {
 	var tlsConfig *tls.Config
-	if serverCert != "" {
-		crt, err := tls.LoadX509KeyPair(serverCert, serverKey)
+	if s.Encryption {
+		if s.ServerCert == "" {
+			return fmt.Errorf("server cert is missing")
+		}
+		crt, err := tls.LoadX509KeyPair(s.ServerCert, s.ServerKey)
 		if err != nil {
-			ln.Close()
-			return nil, err
+			return err
 		}
 
 		tlsConfig = &tls.Config{
@@ -58,21 +57,24 @@ func NewWrappedServer(
 		}
 	}
 
-	h := handler
+	var err error
+	s.ln, err = net.Listen(s.Network, s.Address)
+	if err != nil {
+		return err
+	}
+
+	h := s.Handler
 	h = &handlerFilterRequests{h}
 	h = &handlerFilterRequests{h}
 	h = &handlerServerHeader{h}
-	h = &handlerLogger{h, parent}
+	h = &handlerLogger{h, s.Parent}
 	h = &handlerExitOnPanic{h}
 
-	s := &WrappedServer{
-		ln: ln,
-		inner: &http.Server{
-			Handler:           h,
-			TLSConfig:         tlsConfig,
-			ReadHeaderTimeout: readTimeout,
-			ErrorLog:          log.New(&nilWriter{}, "", 0),
-		},
+	s.inner = &http.Server{
+		Handler:           h,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: s.ReadTimeout,
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	if tlsConfig != nil {
@@ -81,7 +83,7 @@ func NewWrappedServer(
 		go s.inner.Serve(s.ln)
 	}
 
-	return s, nil
+	return nil
 }
 
 // Close closes all resources and waits for all routines to return.

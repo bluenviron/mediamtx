@@ -162,19 +162,24 @@ type apiParent interface {
 
 // API is an API server.
 type API struct {
-	Address      string
-	ReadTimeout  conf.StringDuration
-	Conf         *conf.Conf
-	AuthManager  apiAuthManager
-	PathManager  PathManager
-	RTSPServer   RTSPServer
-	RTSPSServer  RTSPServer
-	RTMPServer   RTMPServer
-	RTMPSServer  RTMPServer
-	HLSServer    HLSServer
-	WebRTCServer WebRTCServer
-	SRTServer    SRTServer
-	Parent       apiParent
+	Address        string
+	Encryption     bool
+	ServerKey      string
+	ServerCert     string
+	AllowOrigin    string
+	TrustedProxies conf.IPNetworks
+	ReadTimeout    conf.StringDuration
+	Conf           *conf.Conf
+	AuthManager    apiAuthManager
+	PathManager    PathManager
+	RTSPServer     RTSPServer
+	RTSPSServer    RTSPServer
+	RTMPServer     RTMPServer
+	RTMPSServer    RTMPServer
+	HLSServer      HLSServer
+	WebRTCServer   WebRTCServer
+	SRTServer      SRTServer
+	Parent         apiParent
 
 	httpServer *httpp.WrappedServer
 	mutex      sync.RWMutex
@@ -183,9 +188,9 @@ type API struct {
 // Initialize initializes API.
 func (a *API) Initialize() error {
 	router := gin.New()
-	router.SetTrustedProxies(nil) //nolint:errcheck
+	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	group := router.Group("/", a.mwAuth)
+	group := router.Group("/", a.middlewareOrigin, a.middlewareAuth)
 
 	group.GET("/v3/config/global/get", a.onConfigGlobalGet)
 	group.PATCH("/v3/config/global/patch", a.onConfigGlobalPatch)
@@ -254,16 +259,17 @@ func (a *API) Initialize() error {
 
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
-	var err error
-	a.httpServer, err = httpp.NewWrappedServer(
-		network,
-		address,
-		time.Duration(a.ReadTimeout),
-		"",
-		"",
-		router,
-		a,
-	)
+	a.httpServer = &httpp.WrappedServer{
+		Network:     network,
+		Address:     address,
+		ReadTimeout: time.Duration(a.ReadTimeout),
+		Encryption:  a.Encryption,
+		ServerCert:  a.ServerCert,
+		ServerKey:   a.ServerKey,
+		Handler:     router,
+		Parent:      a,
+	}
+	err := a.httpServer.Initialize()
 	if err != nil {
 		return err
 	}
@@ -294,7 +300,12 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	})
 }
 
-func (a *API) mwAuth(ctx *gin.Context) {
+func (a *API) middlewareOrigin(ctx *gin.Context) {
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", a.AllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+}
+
+func (a *API) middlewareAuth(ctx *gin.Context) {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	err := a.AuthManager.Authenticate(&auth.Request{

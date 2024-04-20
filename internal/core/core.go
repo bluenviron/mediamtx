@@ -295,10 +295,15 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.Metrics &&
 		p.metrics == nil {
 		i := &metrics.Metrics{
-			Address:     p.conf.MetricsAddress,
-			ReadTimeout: p.conf.ReadTimeout,
-			AuthManager: p.authManager,
-			Parent:      p,
+			Address:        p.conf.MetricsAddress,
+			Encryption:     p.conf.MetricsEncryption,
+			ServerKey:      p.conf.MetricsServerKey,
+			ServerCert:     p.conf.MetricsServerCert,
+			AllowOrigin:    p.conf.MetricsAllowOrigin,
+			TrustedProxies: p.conf.MetricsTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			AuthManager:    p.authManager,
+			Parent:         p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -310,10 +315,15 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.PPROF &&
 		p.pprof == nil {
 		i := &pprof.PPROF{
-			Address:     p.conf.PPROFAddress,
-			ReadTimeout: p.conf.ReadTimeout,
-			AuthManager: p.authManager,
-			Parent:      p,
+			Address:        p.conf.PPROFAddress,
+			Encryption:     p.conf.PPROFEncryption,
+			ServerKey:      p.conf.PPROFServerKey,
+			ServerCert:     p.conf.PPROFServerCert,
+			AllowOrigin:    p.conf.PPROFAllowOrigin,
+			TrustedProxies: p.conf.PPROFTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			AuthManager:    p.authManager,
+			Parent:         p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -335,11 +345,16 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.Playback &&
 		p.playbackServer == nil {
 		i := &playback.Server{
-			Address:     p.conf.PlaybackAddress,
-			ReadTimeout: p.conf.ReadTimeout,
-			PathConfs:   p.conf.Paths,
-			AuthManager: p.authManager,
-			Parent:      p,
+			Address:        p.conf.PlaybackAddress,
+			Encryption:     p.conf.PlaybackEncryption,
+			ServerKey:      p.conf.PlaybackServerKey,
+			ServerCert:     p.conf.PlaybackServerCert,
+			AllowOrigin:    p.conf.PlaybackAllowOrigin,
+			TrustedProxies: p.conf.PlaybackTrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			PathConfs:      p.conf.Paths,
+			AuthManager:    p.authManager,
+			Parent:         p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -520,14 +535,14 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:      p.conf.HLSEncryption,
 			ServerKey:       p.conf.HLSServerKey,
 			ServerCert:      p.conf.HLSServerCert,
+			AllowOrigin:     p.conf.HLSAllowOrigin,
+			TrustedProxies:  p.conf.HLSTrustedProxies,
 			AlwaysRemux:     p.conf.HLSAlwaysRemux,
 			Variant:         p.conf.HLSVariant,
 			SegmentCount:    p.conf.HLSSegmentCount,
 			SegmentDuration: p.conf.HLSSegmentDuration,
 			PartDuration:    p.conf.HLSPartDuration,
 			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
-			AllowOrigin:     p.conf.HLSAllowOrigin,
-			TrustedProxies:  p.conf.HLSTrustedProxies,
 			Directory:       p.conf.HLSDirectory,
 			ReadTimeout:     p.conf.ReadTimeout,
 			WriteQueueSize:  p.conf.WriteQueueSize,
@@ -609,19 +624,24 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.API &&
 		p.api == nil {
 		i := &api.API{
-			Address:      p.conf.APIAddress,
-			ReadTimeout:  p.conf.ReadTimeout,
-			Conf:         p.conf,
-			AuthManager:  p.authManager,
-			PathManager:  p.pathManager,
-			RTSPServer:   p.rtspServer,
-			RTSPSServer:  p.rtspsServer,
-			RTMPServer:   p.rtmpServer,
-			RTMPSServer:  p.rtmpsServer,
-			HLSServer:    p.hlsServer,
-			WebRTCServer: p.webRTCServer,
-			SRTServer:    p.srtServer,
-			Parent:       p,
+			Address:        p.conf.APIAddress,
+			Encryption:     p.conf.APIEncryption,
+			ServerKey:      p.conf.APIServerKey,
+			ServerCert:     p.conf.APIServerCert,
+			AllowOrigin:    p.conf.APIAllowOrigin,
+			TrustedProxies: p.conf.APITrustedProxies,
+			ReadTimeout:    p.conf.ReadTimeout,
+			Conf:           p.conf,
+			AuthManager:    p.authManager,
+			PathManager:    p.pathManager,
+			RTSPServer:     p.rtspServer,
+			RTSPSServer:    p.rtspsServer,
+			RTMPServer:     p.rtmpServer,
+			RTMPSServer:    p.rtmpsServer,
+			HLSServer:      p.hlsServer,
+			WebRTCServer:   p.webRTCServer,
+			SRTServer:      p.srtServer,
+			Parent:         p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -660,6 +680,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
 		newConf.MetricsAddress != p.conf.MetricsAddress ||
+		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
+		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
+		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
+		newConf.MetricsAllowOrigin != p.conf.MetricsAllowOrigin ||
+		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closeAuthManager ||
 		closeLogger
@@ -667,6 +692,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
 		newConf.PPROFAddress != p.conf.PPROFAddress ||
+		newConf.PPROFEncryption != p.conf.PPROFEncryption ||
+		newConf.PPROFServerKey != p.conf.PPROFServerKey ||
+		newConf.PPROFServerCert != p.conf.PPROFServerCert ||
+		newConf.PPROFAllowOrigin != p.conf.PPROFAllowOrigin ||
+		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closeAuthManager ||
 		closeLogger
@@ -678,6 +708,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closePlaybackServer := newConf == nil ||
 		newConf.Playback != p.conf.Playback ||
 		newConf.PlaybackAddress != p.conf.PlaybackAddress ||
+		newConf.PlaybackEncryption != p.conf.PlaybackEncryption ||
+		newConf.PlaybackServerKey != p.conf.PlaybackServerKey ||
+		newConf.PlaybackServerCert != p.conf.PlaybackServerCert ||
+		newConf.PlaybackAllowOrigin != p.conf.PlaybackAllowOrigin ||
+		!reflect.DeepEqual(newConf.PlaybackTrustedProxies, p.conf.PlaybackTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closeAuthManager ||
 		closeLogger
@@ -780,14 +815,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
+		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
+		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSVariant != p.conf.HLSVariant ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
 		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
 		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
-		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
-		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -832,6 +867,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
+		newConf.APIEncryption != p.conf.APIEncryption ||
+		newConf.APIServerKey != p.conf.APIServerKey ||
+		newConf.APIServerCert != p.conf.APIServerCert ||
+		newConf.APIAllowOrigin != p.conf.APIAllowOrigin ||
+		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closeAuthManager ||
 		closePathManager ||

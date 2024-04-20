@@ -8,23 +8,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-type testLogger struct{}
-
-func (testLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-}
-
 func TestFilterEmptyPath(t *testing.T) {
-	s, err := NewWrappedServer(
-		"tcp",
-		"localhost:4555",
-		10*time.Second,
-		"",
-		"",
-		nil,
-		&testLogger{})
+	s := &WrappedServer{
+		Network:     "tcp",
+		Address:     "localhost:4555",
+		ReadTimeout: 10 * time.Second,
+		Parent:      test.NilLogger,
+	}
+	err := s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
 
