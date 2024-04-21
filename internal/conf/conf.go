@@ -130,10 +130,6 @@ type Conf struct {
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
-	Metrics             bool            `json:"metrics"`
-	MetricsAddress      string          `json:"metricsAddress"`
-	PPROF               bool            `json:"pprof"`
-	PPROFAddress        string          `json:"pprofAddress"`
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
@@ -146,13 +142,41 @@ type Conf struct {
 	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
 
-	// API
-	API        bool   `json:"api"`
-	APIAddress string `json:"apiAddress"`
+	// Control API
+	API               bool       `json:"api"`
+	APIAddress        string     `json:"apiAddress"`
+	APIEncryption     bool       `json:"apiEncryption"`
+	APIServerKey      string     `json:"apiServerKey"`
+	APIServerCert     string     `json:"apiServerCert"`
+	APIAllowOrigin    string     `json:"apiAllowOrigin"`
+	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
+
+	// Metrics
+	Metrics               bool       `json:"metrics"`
+	MetricsAddress        string     `json:"metricsAddress"`
+	MetricsEncryption     bool       `json:"metricsEncryption"`
+	MetricsServerKey      string     `json:"metricsServerKey"`
+	MetricsServerCert     string     `json:"metricsServerCert"`
+	MetricsAllowOrigin    string     `json:"metricsAllowOrigin"`
+	MetricsTrustedProxies IPNetworks `json:"metricsTrustedProxies"`
+
+	// PPROF
+	PPROF               bool       `json:"pprof"`
+	PPROFAddress        string     `json:"pprofAddress"`
+	PPROFEncryption     bool       `json:"pprofEncryption"`
+	PPROFServerKey      string     `json:"pprofServerKey"`
+	PPROFServerCert     string     `json:"pprofServerCert"`
+	PPROFAllowOrigin    string     `json:"pprofAllowOrigin"`
+	PPROFTrustedProxies IPNetworks `json:"pprofTrustedProxies"`
 
 	// Playback
-	Playback        bool   `json:"playback"`
-	PlaybackAddress string `json:"playbackAddress"`
+	Playback               bool       `json:"playback"`
+	PlaybackAddress        string     `json:"playbackAddress"`
+	PlaybackEncryption     bool       `json:"playbackEncryption"`
+	PlaybackServerKey      string     `json:"playbackServerKey"`
+	PlaybackServerCert     string     `json:"playbackServerCert"`
+	PlaybackAllowOrigin    string     `json:"playbackAllowOrigin"`
+	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
 
 	// RTSP server
 	RTSP              bool             `json:"rtsp"`
@@ -187,14 +211,14 @@ type Conf struct {
 	HLSEncryption      bool           `json:"hlsEncryption"`
 	HLSServerKey       string         `json:"hlsServerKey"`
 	HLSServerCert      string         `json:"hlsServerCert"`
+	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
+	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
 	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
 	HLSVariant         HLSVariant     `json:"hlsVariant"`
 	HLSSegmentCount    int            `json:"hlsSegmentCount"`
 	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
 	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
-	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
 	HLSDirectory       string         `json:"hlsDirectory"`
 
 	// WebRTC server
@@ -246,8 +270,6 @@ func (conf *Conf) setDefaults() {
 	conf.WriteTimeout = 10 * StringDuration(time.Second)
 	conf.WriteQueueSize = 512
 	conf.UDPMaxPayloadSize = 1472
-	conf.MetricsAddress = ":9998"
-	conf.PPROFAddress = ":9999"
 
 	// Authentication
 	conf.AuthInternalUsers = []AuthInternalUser{
@@ -295,11 +317,29 @@ func (conf *Conf) setDefaults() {
 		},
 	}
 
-	// API
+	// Control API
 	conf.APIAddress = ":9997"
+	conf.APIServerKey = "server.key"
+	conf.APIServerCert = "server.crt"
+	conf.APIAllowOrigin = "*"
+
+	// Metrics
+	conf.MetricsAddress = ":9998"
+	conf.MetricsServerKey = "server.key"
+	conf.MetricsServerCert = "server.crt"
+	conf.MetricsAllowOrigin = "*"
+
+	// PPROF
+	conf.PPROFAddress = ":9999"
+	conf.PPROFServerKey = "server.key"
+	conf.PPROFServerCert = "server.crt"
+	conf.PPROFAllowOrigin = "*"
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
+	conf.PlaybackServerKey = "server.key"
+	conf.PlaybackServerCert = "server.crt"
+	conf.PlaybackAllowOrigin = "*"
 
 	// RTSP server
 	conf.RTSP = true
@@ -331,12 +371,12 @@ func (conf *Conf) setDefaults() {
 	conf.HLSAddress = ":8888"
 	conf.HLSServerKey = "server.key"
 	conf.HLSServerCert = "server.crt"
+	conf.HLSAllowOrigin = "*"
 	conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
 	conf.HLSSegmentCount = 7
 	conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
 	conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
-	conf.HLSAllowOrigin = "*"
 
 	// WebRTC server
 	conf.WebRTC = true

@@ -43,14 +43,6 @@ components:
           type: integer
         externalAuthenticationURL:
           type: string
-        metrics:
-          type: boolean
-        metricsAddress:
-          type: string
-        pprof:
-          type: boolean
-        pprofAddress:
-          type: string
         runOnConnect:
           type: string
         runOnConnectRestart:
@@ -58,17 +50,77 @@ components:
         runOnDisconnect:
           type: string
 
-        # API
+        # Control API
         api:
           type: boolean
         apiAddress:
           type: string
+        apiEncryption:
+          type: boolean
+        apiServerKey:
+          type: string
+        apiServerCert:
+          type: string
+        apiAllowOrigin:
+          type: string
+        apiTrustedProxies:
+          type: array
+          items:
+            type: string
+
+        # Metrics
+        metrics:
+          type: boolean
+        metricsAddress:
+          type: string
+        metricsEncryption:
+          type: boolean
+        metricsServerKey:
+          type: string
+        metricsServerCert:
+          type: string
+        metricsAllowOrigin:
+          type: string
+        metricsTrustedProxies:
+          type: array
+          items:
+            type: string
+
+        # PPROF
+        pprof:
+          type: boolean
+        pprofAddress:
+          type: string
+        pprofEncryption:
+          type: boolean
+        pprofServerKey:
+          type: string
+        pprofServerCert:
+          type: string
+        pprofAllowOrigin:
+          type: string
+        pprofTrustedProxies:
+          type: array
+          items:
+            type: string
 
         # Playback server
         playback:
           type: boolean
         playbackAddress:
           type: string
+        playbackEncryption:
+          type: boolean
+        playbackServerKey:
+          type: string
+        playbackServerCert:
+          type: string
+        playbackAllowOrigin:
+          type: string
+        playbackTrustedProxies:
+          type: array
+          items:
+            type: string
 
         # RTSP server
         rtsp:
@@ -127,6 +179,12 @@ components:
           type: string
         hlsServerCert:
           type: string
+        hlsAllowOrigin:
+          type: string
+        hlsTrustedProxies:
+          type: array
+          items:
+            type: string
         hlsAlwaysRemux:
           type: boolean
         hlsVariant:
@@ -139,12 +197,6 @@ components:
           type: string
         hlsSegmentMaxSize:
           type: string
-        hlsAllowOrigin:
-          type: string
-        hlsTrustedProxies:
-          type: array
-          items:
-            type: string
         hlsDirectory:
           type: string
 

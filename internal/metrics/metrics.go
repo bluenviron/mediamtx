@@ -42,10 +42,15 @@ type metricsParent interface {
 
 // Metrics is a metrics provider.
 type Metrics struct {
-	Address     string
-	ReadTimeout conf.StringDuration
-	AuthManager metricsAuthManager
-	Parent      metricsParent
+	Address        string
+	Encryption     bool
+	ServerKey      string
+	ServerCert     string
+	AllowOrigin    string
+	TrustedProxies conf.IPNetworks
+	ReadTimeout    conf.StringDuration
+	AuthManager    metricsAuthManager
+	Parent         metricsParent
 
 	httpServer   *httpp.WrappedServer
 	mutex        sync.Mutex
@@ -62,22 +67,22 @@ type Metrics struct {
 // Initialize initializes metrics.
 func (m *Metrics) Initialize() error {
 	router := gin.New()
-	router.SetTrustedProxies(nil) //nolint:errcheck
-
-	router.GET("/metrics", m.mwAuth, m.onMetrics)
+	router.SetTrustedProxies(m.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
+	router.NoRoute(m.onRequest)
 
 	network, address := restrictnetwork.Restrict("tcp", m.Address)
 
-	var err error
-	m.httpServer, err = httpp.NewWrappedServer(
-		network,
-		address,
-		time.Duration(m.ReadTimeout),
-		"",
-		"",
-		router,
-		m,
-	)
+	m.httpServer = &httpp.WrappedServer{
+		Network:     network,
+		Address:     address,
+		ReadTimeout: time.Duration(m.ReadTimeout),
+		Encryption:  m.Encryption,
+		ServerCert:  m.ServerCert,
+		ServerKey:   m.ServerKey,
+		Handler:     router,
+		Parent:      m,
+	}
+	err := m.httpServer.Initialize()
 	if err != nil {
 		return err
 	}
@@ -98,7 +103,14 @@ func (m *Metrics) Log(level logger.Level, format string, args ...interface{}) {
 	m.Parent.Log(level, "[metrics] "+format, args...)
 }
 
-func (m *Metrics) mwAuth(ctx *gin.Context) {
+func (m *Metrics) onRequest(ctx *gin.Context) {
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", m.AllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	if ctx.Request.URL.Path != "/metrics" || ctx.Request.Method != http.MethodGet {
+		return
+	}
+
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	err := m.AuthManager.Authenticate(&auth.Request{
@@ -121,9 +133,7 @@ func (m *Metrics) mwAuth(ctx *gin.Context) {
 		ctx.Writer.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-}
 
-func (m *Metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
 	data, err := m.pathManager.APIPathsList()

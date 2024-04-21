@@ -4,7 +4,6 @@ package pprof
 import (
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	// start pprof
@@ -15,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
+	"github.com/gin-gonic/gin"
 )
 
 type pprofAuthManager interface {
@@ -27,28 +27,38 @@ type pprofParent interface {
 
 // PPROF is a pprof exporter.
 type PPROF struct {
-	Address     string
-	ReadTimeout conf.StringDuration
-	AuthManager pprofAuthManager
-	Parent      pprofParent
+	Address        string
+	Encryption     bool
+	ServerKey      string
+	ServerCert     string
+	AllowOrigin    string
+	TrustedProxies conf.IPNetworks
+	ReadTimeout    conf.StringDuration
+	AuthManager    pprofAuthManager
+	Parent         pprofParent
 
 	httpServer *httpp.WrappedServer
 }
 
 // Initialize initializes PPROF.
 func (pp *PPROF) Initialize() error {
+	router := gin.New()
+	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
+	router.NoRoute(pp.onRequest)
+
 	network, address := restrictnetwork.Restrict("tcp", pp.Address)
 
-	var err error
-	pp.httpServer, err = httpp.NewWrappedServer(
-		network,
-		address,
-		time.Duration(pp.ReadTimeout),
-		"",
-		"",
-		pp,
-		pp,
-	)
+	pp.httpServer = &httpp.WrappedServer{
+		Network:     network,
+		Address:     address,
+		ReadTimeout: time.Duration(pp.ReadTimeout),
+		Encryption:  pp.Encryption,
+		ServerCert:  pp.ServerCert,
+		ServerKey:   pp.ServerKey,
+		Handler:     router,
+		Parent:      pp,
+	}
+	err := pp.httpServer.Initialize()
 	if err != nil {
 		return err
 	}
@@ -69,31 +79,32 @@ func (pp *PPROF) Log(level logger.Level, format string, args ...interface{}) {
 	pp.Parent.Log(level, "[pprof] "+format, args...)
 }
 
-func (pp *PPROF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	user, pass, hasCredentials := r.BasicAuth()
+func (pp *PPROF) onRequest(ctx *gin.Context) {
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", pp.AllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
-	ip, _, _ := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
-		Query:  r.URL.RawQuery,
-		IP:     net.ParseIP(ip),
+		Query:  ctx.Request.URL.RawQuery,
+		IP:     net.ParseIP(ctx.ClientIP()),
 		Action: conf.AuthActionMetrics,
 	})
 	if err != nil {
 		if !hasCredentials {
-			w.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
-			w.WriteHeader(http.StatusUnauthorized)
+			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
+			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		w.WriteHeader(http.StatusUnauthorized)
+		ctx.Writer.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	http.DefaultServeMux.ServeHTTP(w, r)
+	http.DefaultServeMux.ServeHTTP(ctx.Writer, ctx.Request)
 }

@@ -74,31 +74,23 @@ type httpServer struct {
 }
 
 func (s *httpServer) initialize() error {
-	if s.encryption {
-		if s.serverCert == "" {
-			return fmt.Errorf("server cert is missing")
-		}
-	} else {
-		s.serverKey = ""
-		s.serverCert = ""
-	}
-
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.NoRoute(s.onRequest)
 
 	network, address := restrictnetwork.Restrict("tcp", s.address)
 
-	var err error
-	s.inner, err = httpp.NewWrappedServer(
-		network,
-		address,
-		time.Duration(s.readTimeout),
-		s.serverCert,
-		s.serverKey,
-		router,
-		s,
-	)
+	s.inner = &httpp.WrappedServer{
+		Network:     network,
+		Address:     address,
+		ReadTimeout: time.Duration(s.readTimeout),
+		Encryption:  s.encryption,
+		ServerCert:  s.serverCert,
+		ServerKey:   s.serverKey,
+		Handler:     router,
+		Parent:      s,
+	}
+	err := s.inner.Initialize()
 	if err != nil {
 		return err
 	}

@@ -24,85 +24,94 @@ type serverAuthManager interface {
 
 // Server is the playback server.
 type Server struct {
-	Address     string
-	ReadTimeout conf.StringDuration
-	PathConfs   map[string]*conf.Path
-	AuthManager serverAuthManager
-	Parent      logger.Writer
+	Address        string
+	Encryption     bool
+	ServerKey      string
+	ServerCert     string
+	AllowOrigin    string
+	TrustedProxies conf.IPNetworks
+	ReadTimeout    conf.StringDuration
+	PathConfs      map[string]*conf.Path
+	AuthManager    serverAuthManager
+	Parent         logger.Writer
 
 	httpServer *httpp.WrappedServer
 	mutex      sync.RWMutex
 }
 
 // Initialize initializes Server.
-func (p *Server) Initialize() error {
+func (s *Server) Initialize() error {
 	router := gin.New()
-	router.SetTrustedProxies(nil) //nolint:errcheck
+	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
+	group := router.Group("/", s.middlewareOrigin)
+	group.GET("/list", s.onList)
+	group.GET("/get", s.onGet)
 
-	group := router.Group("/")
+	network, address := restrictnetwork.Restrict("tcp", s.Address)
 
-	group.GET("/list", p.onList)
-	group.GET("/get", p.onGet)
-
-	network, address := restrictnetwork.Restrict("tcp", p.Address)
-
-	var err error
-	p.httpServer, err = httpp.NewWrappedServer(
-		network,
-		address,
-		time.Duration(p.ReadTimeout),
-		"",
-		"",
-		router,
-		p,
-	)
+	s.httpServer = &httpp.WrappedServer{
+		Network:     network,
+		Address:     address,
+		ReadTimeout: time.Duration(s.ReadTimeout),
+		Encryption:  s.Encryption,
+		ServerCert:  s.ServerCert,
+		ServerKey:   s.ServerKey,
+		Handler:     router,
+		Parent:      s,
+	}
+	err := s.httpServer.Initialize()
 	if err != nil {
 		return err
 	}
 
-	p.Log(logger.Info, "listener opened on "+address)
+	s.Log(logger.Info, "listener opened on "+address)
 
 	return nil
 }
 
 // Close closes Server.
-func (p *Server) Close() {
-	p.Log(logger.Info, "listener is closing")
-	p.httpServer.Close()
+func (s *Server) Close() {
+	s.Log(logger.Info, "listener is closing")
+	s.httpServer.Close()
 }
 
 // Log implements logger.Writer.
-func (p *Server) Log(level logger.Level, format string, args ...interface{}) {
-	p.Parent.Log(level, "[playback] "+format, args...)
+func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, "[playback] "+format, args...)
 }
 
 // ReloadPathConfs is called by core.Core.
-func (p *Server) ReloadPathConfs(pathConfs map[string]*conf.Path) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	p.PathConfs = pathConfs
+func (s *Server) ReloadPathConfs(pathConfs map[string]*conf.Path) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.PathConfs = pathConfs
 }
 
-func (p *Server) writeError(ctx *gin.Context, status int, err error) {
+func (s *Server) writeError(ctx *gin.Context, status int, err error) {
 	// show error in logs
-	p.Log(logger.Error, err.Error())
+	s.Log(logger.Error, err.Error())
 
 	// add error to response
 	ctx.String(status, err.Error())
 }
 
-func (p *Server) safeFindPathConf(name string) (*conf.Path, error) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+func (s *Server) safeFindPathConf(name string) (*conf.Path, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	_, pathConf, _, err := conf.FindPathConf(p.PathConfs, name)
+	_, pathConf, _, err := conf.FindPathConf(s.PathConfs, name)
 	return pathConf, err
 }
 
-func (p *Server) doAuth(ctx *gin.Context, pathName string) bool {
+func (s *Server) middlewareOrigin(ctx *gin.Context) {
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.AllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+}
+
+func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	err := p.AuthManager.Authenticate(&auth.Request{
+	err := s.AuthManager.Authenticate(&auth.Request{
 		User:   user,
 		Pass:   pass,
 		Query:  ctx.Request.URL.RawQuery,
@@ -120,7 +129,7 @@ func (p *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		var terr auth.Error
 		errors.As(err, &terr)
 
-		p.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
+		s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
 
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)

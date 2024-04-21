@@ -64,14 +64,14 @@ type Server struct {
 	Encryption      bool
 	ServerKey       string
 	ServerCert      string
+	AllowOrigin     string
+	TrustedProxies  conf.IPNetworks
 	AlwaysRemux     bool
 	Variant         conf.HLSVariant
 	SegmentCount    int
 	SegmentDuration conf.StringDuration
 	PartDuration    conf.StringDuration
 	SegmentMaxSize  conf.StringSize
-	AllowOrigin     string
-	TrustedProxies  conf.IPNetworks
 	Directory       string
 	ReadTimeout     conf.StringDuration
 	WriteQueueSize  int
