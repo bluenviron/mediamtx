@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -22,7 +23,8 @@ type WHIPClient struct {
 	URL        *url.URL
 	Log        logger.Writer
 
-	pc *PeerConnection
+	pc               *PeerConnection
+	patchIsSupported bool
 }
 
 // Publish publishes tracks.
@@ -285,14 +287,11 @@ func (c *WHIPClient) postOffer(
 	}
 
 	contentType := res.Header.Get("Content-Type")
-	if contentType != "application/sdp" {
+	if strings.TrimSpace(strings.Split(contentType, ";")[0]) != "application/sdp" {
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
 
-	acceptPatch := res.Header.Get("Accept-Patch")
-	if acceptPatch != "application/trickle-ice-sdpfrag" {
-		return nil, fmt.Errorf("wrong Accept-Patch: expected 'application/trickle-ice-sdpfrag', got '%s'", acceptPatch)
-	}
+	c.patchIsSupported = (res.Header.Get("Accept-Patch") == "application/trickle-ice-sdpfrag")
 
 	Location := res.Header.Get("Location")
 
@@ -324,6 +323,10 @@ func (c *WHIPClient) patchCandidate(
 	etag string,
 	candidate *webrtc.ICECandidateInit,
 ) error {
+	if !c.patchIsSupported {
+		return nil
+	}
+
 	frag, err := ICEFragmentMarshal(offer.SDP, []*webrtc.ICECandidateInit{candidate})
 	if err != nil {
 		return err

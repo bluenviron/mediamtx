@@ -37,7 +37,7 @@ func TestCleaner(t *testing.T) {
 			Format:      conf.RecordFormatFMP4,
 			DeleteAfter: 10 * time.Second,
 		}},
-		Parent: test.NilLogger{},
+		Parent: test.NilLogger,
 	}
 	c.Initialize()
 	defer c.Close()

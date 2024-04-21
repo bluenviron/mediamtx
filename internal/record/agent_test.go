@@ -123,7 +123,7 @@ func TestAgent(t *testing.T) {
 				1460,
 				desc,
 				true,
-				&test.NilLogger{},
+				test.NilLogger,
 			)
 			require.NoError(t, err)
 			defer stream.Close()
@@ -158,7 +158,7 @@ func TestAgent(t *testing.T) {
 				OnSegmentComplete: func(_ string) {
 					segDone <- struct{}{}
 				},
-				Parent:       &test.NilLogger{},
+				Parent:       test.NilLogger,
 				restartPause: 1 * time.Millisecond,
 			}
 			w.Initialize()
@@ -305,7 +305,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		1460,
 		desc,
 		true,
-		&test.NilLogger{},
+		test.NilLogger,
 	)
 	require.NoError(t, err)
 	defer stream.Close()
@@ -324,7 +324,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		SegmentDuration: 1 * time.Second,
 		PathName:        "mypath",
 		Stream:          stream,
-		Parent:          &test.NilLogger{},
+		Parent:          test.NilLogger,
 	}
 	w.Initialize()
 

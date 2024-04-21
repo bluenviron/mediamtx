@@ -407,7 +407,7 @@ func TestPathRunOnRead(t *testing.T) {
 					c := &webrtc.WHIPClient{
 						HTTPClient: hc,
 						URL:        u,
-						Log:        test.NilLogger{},
+						Log:        test.NilLogger,
 					}
 
 					writerDone := make(chan struct{})

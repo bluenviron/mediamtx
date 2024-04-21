@@ -644,6 +644,7 @@ func (conf *Conf) Validate() error {
 			optional = &OptionalPath{
 				Values: newOptionalPathValues(),
 			}
+			conf.OptionalPaths[name] = optional
 		}
 
 		pconf := newPath(&conf.PathDefaults, optional)

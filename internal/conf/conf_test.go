@@ -54,7 +54,7 @@ func TestConfFromFile(t *testing.T) {
 			SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:               RecordFormatFMP4,
-			RecordPartDuration:         100000000,
+			RecordPartDuration:         StringDuration(1 * time.Second),
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			OverridePublisher:          true,

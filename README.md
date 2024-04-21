@@ -295,6 +295,16 @@ d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/m
 
 The resulting stream will be available in path `/mystream`.
 
+GStreamer can also publish a stream by using the [WebRTC / WHIP protocol](#webrtc). Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
+
+```
+gst-launch-1.0 videotestsrc \
+! video/x-raw,width=1920,height=1080,format=I420 \
+! x264enc speed-preset=ultrafast bitrate=2000 \
+! video/x-h264,profile=baseline \
+! whipclientsink signaller::whip-endpoint=http://localhost:8889/mystream/whip
+```
+
 #### OBS Studio
 
 OBS Studio can publish to the server in multiple ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
@@ -316,7 +326,7 @@ If you want to generate a stream that can be read with WebRTC, open `Settings ->
 * FFmpeg output type: `Output to URL`
 * File path or URL: `rtsp://localhost:8554/mystream`
 * Container format: `rtsp`
-* Check `show all codecs (even if potentically incompatible`
+* Check `show all codecs (even if potentically incompatible)`
 * Video encoder: `h264_nvenc (libx264)`
 * Video encoder settings (if any): `bf=0`
 * Audio track: `1`
@@ -561,7 +571,7 @@ srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 
 Replace `mystream` with any name you want. The resulting stream will be available in path `/mystream`.
 
-If credentials are enabled, append username and password to `streamid`;
+If credentials are enabled, append username and password to `streamid`:
 
 ```
 srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
@@ -629,7 +639,7 @@ Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gst
 
 #### RTSP cameras and servers
 
-Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant to ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or multiple existing RTSP servers and read their video streams:
+Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant with ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or multiple existing RTSP servers and read their video streams:
 
 ```yml
 paths:
@@ -842,7 +852,7 @@ srt://localhost:8890?streamid=read:mystream
 
 Replace `mystream` with the path name.
 
-If credentials are enabled, append username and password to `streamid`;
+If credentials are enabled, append username and password to `streamid`:
 
 ```
 srt://localhost:8890?streamid=read:mystream:user:pass
@@ -882,7 +892,7 @@ Known clients that can read with RTSP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstr
 
 ##### Latency
 
-The RTSP protocol doesn't introduce any latency by itself. Latency is usually introduced by clients, that put frames in a buffer to compensate network fluctuations. In order to decrease latency, the best way consists in tuning the client. For instance, in VLC, latency can be decreased by decreasing the Network caching parameter, that is available in the "Open network stream" dialog or alternatively can be set with the command line:
+The RTSP protocol doesn't introduce any latency by itself. Latency is usually introduced by clients, that put frames in a buffer to compensate network fluctuations. In order to decrease latency, the best way consists in tuning the client. For instance, in VLC, latency can be decreased by decreasing the _Network caching_ parameter, that is available in the _Open network stream_ dialog or alternatively can be set with the command line:
 
 ```
 vlc --network-caching=50 rtsp://...
@@ -1062,7 +1072,7 @@ authInternalUsers:
     path:
 ```
 
-Only clients that provide username and passwords will be able to perform a given action:
+Only clients that provide username and passwords will be able to perform a certain action:
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://myuser:mypass@localhost:8554/mystream
@@ -1239,17 +1249,7 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
 
 ### Encrypt the configuration
 
-The configuration file can be entirely encrypted for security purposes.
-
-An online encryption tool is [available here](https://play.golang.org/p/rX29jwObNe4).
-
-The encryption procedure is the following:
-
-1. NaCL's `crypto_secretbox` function is applied to the content of the configuration. NaCL is a cryptographic library available for [C/C++](https://nacl.cr.yp.to/secretbox.html), [Go](https://pkg.go.dev/golang.org/x/crypto/nacl/secretbox), [C#](https://github.com/somdoron/NaCl.net) and many other languages;
-
-2. The string is prefixed with the nonce;
-
-3. The string is encoded with base64.
+The configuration file can be entirely encrypted for security purposes by using the `crypto_secretbox` function of the NaCL function. An online tool for performing this operation is [available here](https://play.golang.org/p/rX29jwObNe4).
 
 After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `MTX_CONFKEY` variable:
 
@@ -1372,7 +1372,7 @@ The resulting stream uses the fMP4 format, that is natively compatible with any 
 </video>
 ```
 
-The fMP4 format may offer limited compatibility with some players. It's possible to use the standard MP4 format by adding `format=mp4` to a `/get` request:
+The fMP4 format may offer limited compatibility with some players. To fix the issue, it's possible to use the standard MP4 format, by adding `format=mp4` to a `/get` request:
 
 ```
 http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&format=mp4
@@ -1674,19 +1674,21 @@ pathDefaults:
 
 ### Control API
 
-The server can be queried and controlled with an API, that must be enabled by setting the `api` parameter in the configuration:
+The server can be queried and controlled with an API, that can be enabled by setting the `api` parameter in the configuration:
 
 ```yml
 api: yes
 ```
 
-The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths, run:
+To obtain a list of of active paths, run:
 
 ```
 curl http://127.0.0.1:9997/v3/paths/list
 ```
 
 Full documentation of the Control API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
+
+Be aware that by default the Control API is accessible by localhost only; to increase visibility or add authentication, check [Authentication](#authentication).
 
 ### Metrics
 
@@ -1990,7 +1992,7 @@ Be aware that RTMPS is currently unsupported by all major players. However, you 
 
 ### Standard
 
-Install git and Go &ge; 1.21. Clone the repository, enter into the folder and start the building process:
+Install git and Go &ge; 1.22. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx
@@ -2005,7 +2007,7 @@ The command will produce the `mediamtx` binary.
 
 The server can be compiled with native support for the Raspberry Pi Camera. Compilation must be performed on a Raspberry Pi, with the following dependencies:
 
-* Go &ge; 1.21
+* Go &ge; 1.22
 * `libcamera-dev`
 * `libfreetype-dev`
 * `xxd`
@@ -2048,7 +2050,7 @@ If the OpenWrt device doesn't have enough resources to compile, you can [cross c
 
 Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
 
-On the machine you want to use to compile, install git and Go &ge; 1.21. Clone the repository, enter into the folder and start the building process:
+On the machine you want to use to compile, install git and Go &ge; 1.22. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx
