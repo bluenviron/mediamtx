@@ -159,7 +159,6 @@
 
 
         #zoomControls {
-            /*border: 1px solid #ffffff; !* White border for visibility *!*/
             padding: 1px;
             border-radius: 5px;
         }
@@ -296,22 +295,24 @@
     </div>
 
     <div id="ptzControls" class="ptz-controls">
-        <button id="ptz_left" class="ptz-button"><span class="material-icons">keyboard_arrow_left</span></button>
-        <button id="ptz_up" class="ptz-button"><span class="material-icons">keyboard_arrow_up</span></button>
-        <button id="ptz_down" class="ptz-button"><span class="material-icons">keyboard_arrow_down</span></button>
-        <button id="ptz_right" class="ptz-button"><span class="material-icons">keyboard_arrow_right</span></button>
+        <button id="ptz_left" onmousedown="ptzLeft()" onmouseup="stopPtz()" class="ptz-button"><span
+                class="material-icons">keyboard_arrow_left</span></button>
+        <button id="ptz_up" onmousedown="ptzUp()" onmouseup="stopPtz()" class="ptz-button"><span class="material-icons">keyboard_arrow_up</span>
+        </button>
+        <button id="ptz_down" onmousedown="ptzDown()" onmouseup="stopPtz()" class="ptz-button"><span
+                class="material-icons">keyboard_arrow_down</span></button>
+        <button id="ptz_right" onmousedown="ptzRight()" onmouseup="stopPtz()" class="ptz-button"><span
+                class="material-icons">keyboard_arrow_right</span></button>
     </div>
 
     <div class="bottomBarAi">
         <span class="people-count">People: 0</span>
     </div>
     <div id="zoomControls" class="flex-row">
-        <button id="zoomIn"><span class="material-icons">add</span></button> <!-- Material Icon for Zoom In -->
-        <button id="zoomOut"><span class="material-icons">remove</span></button> <!-- Material Icon for Zoom Out -->
+        <button id="zoomIn"><span class="material-icons">add</span></button>
+        <button id="zoomOut"><span class="material-icons">remove</span></button>
         <button id="resetZoom"><span class="material-icons">refresh</span></button>
-        <!-- Material Icon for Reset Zoom -->
         <button id="fullscreen"><span class="material-icons">fullscreen</span></button>
-        <!-- Material Icon for Fullscreen -->
     </div>
 </div>
 
@@ -341,6 +342,9 @@
     const visibilityIcon = document.querySelector('.visibility-alert');
     const audioIcon = document.querySelector('.audio-visibility-alert');
     const bottomBar = document.getElementById('bottomBar');
+
+    // PTZ Controls
+    const ptzControls = document.getElementById('ptzControls');
 
     const setMessage = (str) => {
         if (str !== '') {
@@ -639,9 +643,12 @@
     const loadAttributesFromQuery = () => {
         const params = new URLSearchParams(window.location.search);
         const enableControl = parseBoolString(params.get('controls'), true);
+        const ptzEnable = parseBoolString(params.get('ptz'), true);
 
         video.controls = false;
         bottomBar.style.display = enableControl ? 'flex' : 'none';
+
+        ptzControls.style.visibility = ptzEnable ? 'visible' : 'hidden';
 
         video.muted = parseBoolString(params.get('muted'), true);
         video.autoplay = parseBoolString(params.get('autoplay'), true);
@@ -707,25 +714,22 @@
 
     });
 
-    document.getElementById("ptz_up").addEventListener("click", () => {
+
+    const ptzUp = () => {
         Player.ptz_ctrl(streamId, '', channel, 2, 6)
-        setTimeout(() => stopPtz(), 1000)
-    })
+    }
 
-    document.getElementById("ptz_down").addEventListener("click", () => {
+    const ptzDown = () => {
         Player.ptz_ctrl(streamId, '', channel, 3, 6)
-        setTimeout(() => stopPtz(), 1000)
-    })
+    }
 
-    document.getElementById("ptz_left").addEventListener("click", () => {
+    const ptzLeft = () => {
         Player.ptz_ctrl(streamId, '', channel, 4, 6)
-        setTimeout(() => stopPtz(), 1000)
-    })
+    }
 
-    document.getElementById("ptz_right").addEventListener("click", () => {
+    const ptzRight = () => {
         Player.ptz_ctrl(streamId, '', channel, 5, 6)
-        setTimeout(() => stopPtz(), 1000)
-    })
+    }
 
     const stopPtz = () => {
         Player.ptz_ctrl(streamId, '', channel, 0, 0)
@@ -764,7 +768,6 @@
 
         const user = "admin";
         const pwd = "";
-        console.log(streamId)
 
         Player.ConnectDevice(streamId, '', user, pwd, 0, 80, 0, channel, 0, "wss")
     }
