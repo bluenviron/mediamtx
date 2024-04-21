@@ -308,7 +308,10 @@ webrtcAdditionalHosts: [ ]
 # STUN servers allows to obtain and share the public IP of the server.
 # TURN/TURNS servers forces all traffic through them.
 webrtcICEServers2:
-  - url: stun:stun.l.google.com:19302
+#  - url:
+  - url: turn:turn.orbitplay.online:5349
+    username: admin
+    password: password
   # if user is "AUTH_SECRET", then authentication is secret based.
   # the secret must be inserted into the password field.
   # username: ''
