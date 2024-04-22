@@ -345,6 +345,7 @@
 
     // PTZ Controls
     const ptzControls = document.getElementById('ptzControls');
+    let enablePtz = true;
 
     const setMessage = (str) => {
         if (str !== '') {
@@ -643,12 +644,12 @@
     const loadAttributesFromQuery = () => {
         const params = new URLSearchParams(window.location.search);
         const enableControl = parseBoolString(params.get('controls'), true);
-        const ptzEnable = parseBoolString(params.get('ptz'), true);
+        enablePtz = parseBoolString(params.get('ptz'), true);
 
         video.controls = false;
         bottomBar.style.display = enableControl ? 'flex' : 'none';
 
-        ptzControls.style.visibility = ptzEnable ? 'visible' : 'hidden';
+        ptzControls.style.visibility = enablePtz ? 'visible' : 'hidden';
 
         video.muted = parseBoolString(params.get('muted'), true);
         video.autoplay = parseBoolString(params.get('autoplay'), true);
@@ -658,18 +659,24 @@
 
     // Camera Controls
     document.getElementById('zoomIn').addEventListener('click', () => {
-        Player.ptz_ctrl(streamId, '', channel, 8, 6)
-        setTimeout(() => stopPtz(), 1000)
+        const currentIndex = zoomSteps.indexOf(zoomLevel);
+        if (currentIndex < zoomSteps.length - 1) {
+            zoomLevel = zoomSteps[currentIndex + 1];
+            updateZoom();
+        }
     });
 
     document.getElementById('zoomOut').addEventListener('click', () => {
-        Player.ptz_ctrl(streamId, '', channel, 9, 6)
-        setTimeout(() => stopPtz(), 1000)
+        const currentIndex = zoomSteps.indexOf(zoomLevel);
+        if (currentIndex > 0) {
+            zoomLevel = zoomSteps[currentIndex - 1];
+            updateZoom();
+        }
     });
 
     document.getElementById('resetZoom').addEventListener('click', () => {
-        Player.ptz_ctrl(streamId, '', channel, 9, 6)
-        setTimeout(() => stopPtz(), 5000)
+        zoomLevel = zoomSteps[0];
+        updateZoom();
     });
 
     document.getElementById('fullscreen').addEventListener('click', () => {
@@ -717,18 +724,26 @@
 
     const ptzUp = () => {
         Player.ptz_ctrl(streamId, '', channel, 2, 6)
+
+        setTimeout(() => stopPtz(), 1000)
     }
 
     const ptzDown = () => {
         Player.ptz_ctrl(streamId, '', channel, 3, 6)
+
+        setTimeout(() => stopPtz(), 1000)
     }
 
     const ptzLeft = () => {
         Player.ptz_ctrl(streamId, '', channel, 4, 6)
+
+        setTimeout(() => stopPtz(), 1000)
     }
 
     const ptzRight = () => {
         Player.ptz_ctrl(streamId, '', channel, 5, 6)
+
+        setTimeout(() => stopPtz(), 1000)
     }
 
     const stopPtz = () => {
