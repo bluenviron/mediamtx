@@ -40,14 +40,14 @@ pprofAddress: :9999
 # * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
-runOnConnect: ./orbit-play-api connected --streamId $PATH
+runOnConnect:
 #
 #  curl --location --request POST "http://localhost:3000/connected/$MTX_CONN_ID"
 # Restart the command if it exits.
 runOnConnectRestart: no
 # Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
-runOnDisconnect: ./orbit-play-api disconnected --streamId $PATH
+runOnDisconnect:
 
 ###############################################
 # Global settings -> Authentication
@@ -308,8 +308,8 @@ webrtcAdditionalHosts: [ ]
 # STUN servers allows to obtain and share the public IP of the server.
 # TURN/TURNS servers forces all traffic through them.
 webrtcICEServers2:
-#  - url:
-  - url: turn:turn.orbitplay.online:5349
+  #  - url:
+  - url: turn:coturn.s2tlive.com:5349
     username: admin
     password: password
   # if user is "AUTH_SECRET", then authentication is secret based.
@@ -567,12 +567,12 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
-  runOnReady:
+  runOnReady: ./orbit-play-api connected --streamId $MTX_PATH
   # Restart the command if it exits.
   runOnReadyRestart: no
   # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
-  runOnNotReady:
+  runOnNotReady: ./orbit-play-api disconnected --streamId $MTX_PATH
 
   # Command to run when a client starts reading.
   # This is terminated with SIGINT when a client stops reading.
@@ -621,12 +621,12 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-#  live/2305012912010514:
-#    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
-#
-#
-#  live/5778732566:
-#      source: rtsp://w3.s2tlive.com:8554/live/5778732566
+  #  live/2305012912010514:
+  #    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
+  #
+  #
+  #  live/5778732566:
+  #      source: rtsp://w3.s2tlive.com:8554/live/5778732566
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
