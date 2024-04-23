@@ -621,8 +621,8 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  #  live/2305012912010514:
-  #    source: rtsp://w3.s2tlive.com:8554/live/2305012912010514
+#  live/6233081215:
+#    source: rtsp://w4.s2tlive.com:8554/live/6233081215
   #
   #
   #  live/5778732566:
