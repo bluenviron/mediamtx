@@ -347,6 +347,10 @@
     const ptzControls = document.getElementById('ptzControls');
     let enablePtz = true;
 
+    // Zoom Controls
+    let zoomLevel = 1;
+    const zoomSteps = [1, 1.2, 1.5, 2, 5];
+
     const setMessage = (str) => {
         if (str !== '') {
             video.controls = false;
