@@ -607,7 +607,7 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
-  runOnRecordSegmentComplete: ./orbit-play-api uploadRecording --path /home/ubuntu/orbit-launch/$MTX_SEGMENT_PATH
+  runOnRecordSegmentComplete: ./orbit-play-api uploadRecording --path $MTX_SEGMENT_PATH
 #    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "/home/ubuntu/orbit-launch/${MTX_SEGMENT_PATH}"
 
 ###############################################
