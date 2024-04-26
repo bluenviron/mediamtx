@@ -3,9 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-    <meta http-equiv="Pragma" content="no-cache"/>
-    <meta http-equiv="Expires" content="0"/>
+    <meta http-equiv="Cache-Control" content="public, max-age=86400">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> <!-- Material Icons -->
 
     <!--    Scripts for H5 Camera-->
@@ -50,6 +48,31 @@
             overflow: hidden;
         }
 
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 6px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 6px solid #3498db;
+            width: 50px;
+            height: 50px;
+            -webkit-animation: spin 2s linear infinite; /* Safari */
+            animation: spin 2s linear infinite;
+            z-index: 10;
+        }
+
+        /* Safari */
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
         #video {
             position: absolute;
@@ -266,7 +289,8 @@
     <canvas id="canvas"></canvas>
 </div>
 <div id="videoContainer">
-    <video id="video"></video>
+    <div class="loader" id="loader"></div>
+    <video id="video" oncanplay="hideLoader()"></video>
     <div id="overlay" class="info-card">
 
 
@@ -323,6 +347,7 @@
     const retryPause = 2000;
 
     const video = document.getElementById('video');
+    const loader = document.getElementById('loader');
     const message = document.getElementById('message');
 
     let pc = null;
@@ -363,6 +388,20 @@
     const unquoteCredential = (v) => (
         JSON.parse(`"${v}"`)
     );
+
+    function hideLoader() {
+        loader.style.display = 'none';
+    }
+
+    video.addEventListener('loadstart', function() {
+        loader.style.display = 'block';
+    });
+
+    // Hide loader if the video can start playing
+    video.addEventListener('canplay', hideLoader);
+
+    // Hide loader on error
+    video.addEventListener('error', hideLoader);
 
     const linkToIceServers = (links) => (
         (links !== null) ? links.split(', ').map((link) => {
@@ -479,7 +518,7 @@
 
     const onError = (err) => {
         if (restartTimeout === null) {
-            setMessage(err + ', retrying in some seconds');
+            setMessage("Poor Network" + ', retrying in some seconds');
 
             if (pc !== null) {
                 pc.close();
