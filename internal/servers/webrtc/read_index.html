@@ -50,18 +50,18 @@
 
         .loader {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 6px solid #f3f3f3;
+            top: 40%;
+            left: 45%;
+            transform: translate(-50%, -50%); /* This ensures centering */
+            border: 6px solid #f3f3f3; /* Lighter part of the loader */
             border-radius: 50%;
-            border-top: 6px solid #3498db;
+            border-top: 6px solid #3498db; /* Blue part of the loader, indicates loading */
             width: 50px;
             height: 50px;
-            -webkit-animation: spin 2s linear infinite; /* Safari */
             animation: spin 2s linear infinite;
-            z-index: 10;
+            z-index: 1000; /* Make sure this is high enough to be on top */
         }
+
 
         /* Safari */
         @-webkit-keyframes spin {
