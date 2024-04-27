@@ -12,6 +12,8 @@ github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc
 github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1 h1:fD6eZt+3/t8bzFn6ZZA2eP63xBP06v3EPfPJu8DO8ys=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1/go.mod h1:lT3kv5uUIlHfXHU/ZRD7uKD/ufM202+eTa3C/umgGf4=
+github.com/aler9/rtp v0.0.0-20240427184751-2502db909c7a h1:e78syd2gamX/4n7nT2tc1LpZjIZXTLYkZLO9cFePgKc=
+github.com/aler9/rtp v0.0.0-20240427184751-2502db909c7a/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU=
 github.com/aler9/webrtc/v3 v3.0.0-20231112223655-e402ed2689c6 h1:wMd3D1mLghoYYh31STig8Kwm2qi8QyQKUy09qUUZrVw=
 github.com/aler9/webrtc/v3 v3.0.0-20231112223655-e402ed2689c6/go.mod h1:1CaT2fcZzZ6VZA+O1i9yK2DU4EOcXVvSbWG9pr5jefs=
 github.com/asticode/go-astikit v0.30.0 h1:DkBkRQRIxYcknlaU7W7ksNfn4gMFsB0tqMJflxkRsZA=
@@ -148,10 +150,6 @@ github.com/pion/rtcp v1.2.10/go.mod h1:ztfEwXZNLGyF1oQDttz/ZKIBaeeg/oWbRYqzBM9TL
 github.com/pion/rtcp v1.2.12/go.mod h1:sn6qjxvnwyAkkPzPULIbVqSKI5Dv54Rv7VG0kNxh9L4=
 github.com/pion/rtcp v1.2.14 h1:KCkGV3vJ+4DAJmvP0vaQShsb0xkRfWkO540Gy102KyE=
 github.com/pion/rtcp v1.2.14/go.mod h1:sn6qjxvnwyAkkPzPULIbVqSKI5Dv54Rv7VG0kNxh9L4=
-github.com/pion/rtp v1.8.2/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU=
-github.com/pion/rtp v1.8.3/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU=
-github.com/pion/rtp v1.8.6 h1:MTmn/b0aWWsAzux2AmP8WGllusBVw4NPYPVFFd7jUPw=
-github.com/pion/rtp v1.8.6/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU=
 github.com/pion/sctp v1.8.5/go.mod h1:SUFFfDpViyKejTAdwD1d/HQsCu+V/40cCs2nZIvC3s0=
 github.com/pion/sctp v1.8.8 h1:5EdnnKI4gpyR1a1TwbiS/wxEgcUWBHsc7ILAjARJB+U=
 github.com/pion/sctp v1.8.8/go.mod h1:igF9nZBrjh5AtmKc7U30jXltsFHicFCXSmWA2GWRaWs=
