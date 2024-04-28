@@ -169,10 +169,10 @@ webrtc_sessions_bytes_sent 0
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()
-			hc := &http.Client{Transport: tr}
+			hc2 := &http.Client{Transport: tr}
 
 			s := &webrtc.WHIPClient{
-				HTTPClient: hc,
+				HTTPClient: hc2,
 				URL:        su,
 				Log:        test.NilLogger,
 			}

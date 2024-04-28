@@ -189,13 +189,13 @@ func TestAgent(t *testing.T) {
 
 			if ca == "fmp4" {
 				func() {
-					f, err := os.Open(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
-					require.NoError(t, err)
+					f, err2 := os.Open(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
+					require.NoError(t, err2)
 					defer f.Close()
 
 					var init fmp4.Init
-					err = init.Unmarshal(f)
-					require.NoError(t, err)
+					err2 = init.Unmarshal(f)
+					require.NoError(t, err2)
 
 					require.Equal(t, fmp4.Init{
 						Tracks: []*fmp4.InitTrack{
@@ -252,7 +252,7 @@ func TestAgent(t *testing.T) {
 				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext))
 				require.NoError(t, err)
 			} else {
-				_, err := os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
+				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
 				require.NoError(t, err)
 
 				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext))

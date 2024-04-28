@@ -32,7 +32,7 @@ func (c *Chunk0) Read(r io.Reader, maxBodyLen uint32, _ bool) error {
 	c.MessageStreamID = uint32(header[8])<<24 | uint32(header[9])<<16 | uint32(header[10])<<8 | uint32(header[11])
 
 	if c.Timestamp >= 0xFFFFFF {
-		_, err := io.ReadFull(r, header[:4])
+		_, err = io.ReadFull(r, header[:4])
 		if err != nil {
 			return err
 		}

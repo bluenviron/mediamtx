@@ -342,7 +342,6 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 
 	var rw io.ReadWriter
 	if keyIn != nil {
-		var err error
 		rw, err = newRC4ReadWriter(c.bc, keyIn, keyOut)
 		if err != nil {
 			return nil, false, err

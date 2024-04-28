@@ -30,7 +30,7 @@ func rtpH264ExtractParams(payload []byte) ([]byte, []byte) {
 		return nil, payload
 
 	case h264.NALUTypeSTAPA:
-		payload := payload[1:]
+		payload = payload[1:]
 		var sps []byte
 		var pps []byte
 

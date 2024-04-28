@@ -69,12 +69,12 @@ func TestSource(t *testing.T) {
 				require.Equal(t, "/my/resource", r.URL.Path)
 				require.Equal(t, "application/sdp", r.Header.Get("Content-Type"))
 
-				body, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
+				body, err2 := io.ReadAll(r.Body)
+				require.NoError(t, err2)
 				offer := whipOffer(body)
 
-				answer, err := pc.CreateFullAnswer(context.Background(), offer)
-				require.NoError(t, err)
+				answer, err2 := pc.CreateFullAnswer(context.Background(), offer)
+				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")
 				w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
@@ -84,10 +84,10 @@ func TestSource(t *testing.T) {
 				w.Write([]byte(answer.SDP))
 
 				go func() {
-					err = pc.WaitUntilConnected(context.Background())
-					require.NoError(t, err)
+					err3 := pc.WaitUntilConnected(context.Background())
+					require.NoError(t, err3)
 
-					err = tracks[0].WriteRTP(&rtp.Packet{
+					err3 = tracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -98,7 +98,7 @@ func TestSource(t *testing.T) {
 						},
 						Payload: []byte{5, 2},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err3)
 				}()
 
 			default:

@@ -28,37 +28,37 @@ func TestNewClientConn(t *testing.T) {
 			done := make(chan struct{})
 
 			go func() {
-				conn, err := ln.Accept()
-				require.NoError(t, err)
+				conn, err2 := ln.Accept()
+				require.NoError(t, err2)
 				defer conn.Close()
 				bc := bytecounter.NewReadWriter(conn)
 
-				_, _, err = handshake.DoServer(bc, false)
-				require.NoError(t, err)
+				_, _, err2 = handshake.DoServer(bc, false)
+				require.NoError(t, err2)
 
 				mrw := message.NewReadWriter(bc, bc, true)
 
-				msg, err := mrw.Read()
-				require.NoError(t, err)
+				msg, err2 := mrw.Read()
+				require.NoError(t, err2)
 				require.Equal(t, &message.SetWindowAckSize{
 					Value: 2500000,
 				}, msg)
 
-				msg, err = mrw.Read()
-				require.NoError(t, err)
+				msg, err2 = mrw.Read()
+				require.NoError(t, err2)
 				require.Equal(t, &message.SetPeerBandwidth{
 					Value: 2500000,
 					Type:  2,
 				}, msg)
 
-				msg, err = mrw.Read()
-				require.NoError(t, err)
+				msg, err2 = mrw.Read()
+				require.NoError(t, err2)
 				require.Equal(t, &message.SetChunkSize{
 					Value: 65536,
 				}, msg)
 
-				msg, err = mrw.Read()
-				require.NoError(t, err)
+				msg, err2 = mrw.Read()
+				require.NoError(t, err2)
 				require.Equal(t, &message.CommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "connect",
@@ -77,7 +77,7 @@ func TestNewClientConn(t *testing.T) {
 					},
 				}, msg)
 
-				err = mrw.Write(&message.CommandAMF0{
+				err2 = mrw.Write(&message.CommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "_result",
 					CommandID:     1,
@@ -94,12 +94,12 @@ func TestNewClientConn(t *testing.T) {
 						},
 					},
 				})
-				require.NoError(t, err)
+				require.NoError(t, err2)
 
 				switch ca {
 				case "read", "read nginx rtmp":
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "createStream",
@@ -109,7 +109,7 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					err = mrw.Write(&message.CommandAMF0{
+					err2 = mrw.Write(&message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "_result",
 						CommandID:     2,
@@ -118,16 +118,16 @@ func TestNewClientConn(t *testing.T) {
 							float64(1),
 						},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.UserControlSetBufferLength{
 						BufferLength: 0x64,
 					}, msg)
 
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID:   4,
 						MessageStreamID: 0x1000000,
@@ -139,7 +139,7 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					err = mrw.Write(&message.CommandAMF0{
+					err2 = mrw.Write(&message.CommandAMF0{
 						ChunkStreamID:   5,
 						MessageStreamID: 0x1000000,
 						Name:            "onStatus",
@@ -158,11 +158,11 @@ func TestNewClientConn(t *testing.T) {
 							},
 						},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 
 				case "publish":
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "releaseStream",
@@ -173,8 +173,8 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "FCPublish",
@@ -185,8 +185,8 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "createStream",
@@ -196,7 +196,7 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					err = mrw.Write(&message.CommandAMF0{
+					err2 = mrw.Write(&message.CommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "_result",
 						CommandID:     4,
@@ -205,10 +205,10 @@ func TestNewClientConn(t *testing.T) {
 							float64(1),
 						},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 
-					msg, err = mrw.Read()
-					require.NoError(t, err)
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
 					require.Equal(t, &message.CommandAMF0{
 						ChunkStreamID:   4,
 						MessageStreamID: 0x1000000,
@@ -221,7 +221,7 @@ func TestNewClientConn(t *testing.T) {
 						},
 					}, msg)
 
-					err = mrw.Write(&message.CommandAMF0{
+					err2 = mrw.Write(&message.CommandAMF0{
 						ChunkStreamID:   5,
 						MessageStreamID: 0x1000000,
 						Name:            "onStatus",
@@ -235,7 +235,7 @@ func TestNewClientConn(t *testing.T) {
 							},
 						},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 				}
 
 				close(done)
@@ -280,12 +280,12 @@ func TestNewServerConn(t *testing.T) {
 			done := make(chan struct{})
 
 			go func() {
-				nconn, err := ln.Accept()
-				require.NoError(t, err)
+				nconn, err2 := ln.Accept()
+				require.NoError(t, err2)
 				defer nconn.Close()
 
-				_, u, isPublishing, err := NewServerConn(nconn)
-				require.NoError(t, err)
+				_, u, isPublishing, err2 := NewServerConn(nconn)
+				require.NoError(t, err2)
 
 				require.Equal(t, &url.URL{
 					Scheme: "rtmp",

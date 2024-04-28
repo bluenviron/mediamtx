@@ -147,12 +147,12 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
 						}.Marshal()
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return enc
 					}(),
 				},
@@ -267,12 +267,12 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
 						}.Marshal()
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return enc
 					}(),
 				},
@@ -302,12 +302,12 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
 						}.Marshal()
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return enc
 					}(),
 				},
@@ -320,12 +320,12 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
 						}.Marshal()
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return enc
 					}(),
 					DTS: 1 * time.Second,
@@ -385,12 +385,12 @@ func TestReadTracks(t *testing.T) {
 					IsKeyFrame:      true,
 					Type:            message.VideoTypeAU,
 					Payload: func() []byte {
-						avcc, err := h264.AVCCMarshal([][]byte{
+						avcc, err2 := h264.AVCCMarshal([][]byte{
 							test.FormatH265.VPS,
 							test.FormatH265.SPS,
 							test.FormatH265.PPS,
 						})
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return avcc
 					}(),
 				},
@@ -403,12 +403,12 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
 						}.Marshal()
-						require.NoError(t, err)
+						require.NoError(t, err2)
 						return enc
 					}(),
 				},

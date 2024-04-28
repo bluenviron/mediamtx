@@ -26,7 +26,7 @@ func (c *Chunk3) Read(r io.Reader, bodyLen uint32, hasExtendedTimestamp bool) er
 	c.ChunkStreamID = header[0] & 0x3F
 
 	if hasExtendedTimestamp {
-		_, err := io.ReadFull(r, header[:4])
+		_, err = io.ReadFull(r, header[:4])
 		if err != nil {
 			return err
 		}

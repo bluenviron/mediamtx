@@ -134,7 +134,8 @@ func (p *Presentation) marshalFtypAndMoov(w io.Writer) error {
 	stcosOffsets := make([]int, len(p.Tracks))
 
 	for i, track := range p.Tracks {
-		res, err := track.marshal(mw)
+		var res *headerTrackMarshalResult
+		res, err = track.marshal(mw)
 		if err != nil {
 			return err
 		}

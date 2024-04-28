@@ -52,10 +52,10 @@ func TestStreamIDUnmarshal(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			var streamID streamID
-			err := streamID.unmarshal(ca.raw)
+			var sid streamID
+			err := sid.unmarshal(ca.raw)
 			require.NoError(t, err)
-			require.Equal(t, ca.dec, streamID)
+			require.Equal(t, ca.dec, sid)
 		})
 	}
 }

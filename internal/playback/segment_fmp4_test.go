@@ -60,7 +60,7 @@ func BenchmarkFMP4ReadInit(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		func() {
-			f, err := os.Open(f.Name())
+			f, err = os.Open(f.Name())
 			if err != nil {
 				panic(err)
 			}
