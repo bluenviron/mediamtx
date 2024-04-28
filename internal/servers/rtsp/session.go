@@ -212,8 +212,8 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		if err != nil {
 			var terr auth.Error
 			if errors.As(err, &terr) {
-				res, err := c.handleAuthError(terr)
-				return res, nil, err
+				res, err2 := c.handleAuthError(terr)
+				return res, nil, err2
 			}
 
 			var terr2 defs.PathNoOnePublishingError

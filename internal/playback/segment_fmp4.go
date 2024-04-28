@@ -159,7 +159,8 @@ func segmentFMP4ReadMaxDuration(
 	lastMoofPos := int64(-1)
 
 	for {
-		moofPos, err := r.Seek(0, io.SeekCurrent)
+		var moofPos int64
+		moofPos, err = r.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return 0, err
 		}
@@ -423,9 +424,9 @@ func segmentFMP4SeekAndMuxParts(
 					e.SampleSize,
 					func() ([]byte, error) {
 						payload := make([]byte, sampleSize)
-						n, err := r.ReadAt(payload, int64(sampleOffset))
-						if err != nil {
-							return nil, err
+						n, err2 := r.ReadAt(payload, int64(sampleOffset))
+						if err2 != nil {
+							return nil, err2
 						}
 						if n != int(sampleSize) {
 							return nil, fmt.Errorf("partial read")
@@ -547,9 +548,9 @@ func segmentFMP4MuxParts(
 					e.SampleSize,
 					func() ([]byte, error) {
 						payload := make([]byte, sampleSize)
-						n, err := r.ReadAt(payload, int64(sampleOffset))
-						if err != nil {
-							return nil, err
+						n, err2 := r.ReadAt(payload, int64(sampleOffset))
+						if err2 != nil {
+							return nil, err2
 						}
 						if n != int(sampleSize) {
 							return nil, fmt.Errorf("partial read")

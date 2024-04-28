@@ -275,13 +275,13 @@ func (m *Manager) authenticateJWT(req *Request) error {
 		return fmt.Errorf("JWT not provided")
 	}
 
-	var customClaims customClaims
-	_, err = jwt.ParseWithClaims(v["jwt"][0], &customClaims, keyfunc)
+	var cc customClaims
+	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
 	if err != nil {
 		return err
 	}
 
-	if !matchesPermission(customClaims.MediaMTXPermissions, req) {
+	if !matchesPermission(cc.MediaMTXPermissions, req) {
 		return fmt.Errorf("user doesn't have permission to perform action")
 	}
 

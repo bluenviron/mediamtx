@@ -191,7 +191,7 @@ outer:
 	for {
 		select {
 		case ca := <-c.pc.NewLocalCandidate():
-			err := c.patchCandidate(ctx, offer, res.ETag, ca)
+			err = c.patchCandidate(ctx, offer, res.ETag, ca)
 			if err != nil {
 				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()

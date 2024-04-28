@@ -74,7 +74,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			return err
 		}
 	} else {
-		tmp, err := net.ListenPacket(restrictnetwork.Restrict("udp", addr.String()))
+		var tmp net.PacketConn
+		tmp, err = net.ListenPacket(restrictnetwork.Restrict("udp", addr.String()))
 		if err != nil {
 			return err
 		}

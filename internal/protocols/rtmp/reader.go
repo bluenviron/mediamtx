@@ -47,8 +47,8 @@ func hasVideo(md amf0.Object) (bool, error) {
 	v, ok := md.Get("videocodecid")
 	if !ok {
 		// some Dahua cameras send width and height without videocodecid
-		if v, ok := md.Get("width"); ok {
-			if vf, ok := v.(float64); ok && vf != 0 {
+		if v2, ok := md.Get("width"); ok {
+			if vf, ok := v2.(float64); ok && vf != 0 {
 				return true, nil
 			}
 		}
@@ -219,7 +219,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 
 					// format used by OBS < 29.1 to publish H265
 				} else if msg.Type == message.VideoTypeAU && msg.IsKeyFrame {
-					nalus, err := h264.AVCCUnmarshal(msg.Payload)
+					var nalus [][]byte
+					nalus, err = h264.AVCCUnmarshal(msg.Payload)
 					if err != nil {
 						if errors.Is(err, h264.ErrAVCCNoNALUs) {
 							continue
@@ -271,7 +272,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 				switch msg.FourCC {
 				case message.FourCCHEVC:
 					var hvcc mp4.HvcC
-					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &hvcc, mp4.Context{})
+					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &hvcc, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid H265 configuration: %w", err)
 					}
@@ -292,7 +293,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 
 				case message.FourCCAV1:
 					var av1c mp4.Av1C
-					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &av1c, mp4.Context{})
+					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &av1c, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid AV1 configuration: %w", err)
 					}
@@ -309,7 +310,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 
 				default: // VP9
 					var vpcc mp4.VpcC
-					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &vpcc, mp4.Context{})
+					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &vpcc, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid VP9 configuration: %w", err)
 					}

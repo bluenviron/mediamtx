@@ -309,8 +309,8 @@ func TestAuthJWT(t *testing.T) {
 
 	httpServ := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			response, err := jwkSet.JSONPublic(r.Context())
-			if err != nil {
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

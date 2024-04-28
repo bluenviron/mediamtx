@@ -305,7 +305,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthManager:    p.authManager,
 			Parent:         p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -325,7 +325,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthManager:    p.authManager,
 			Parent:         p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthManager:    p.authManager,
 			Parent:         p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -415,7 +415,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -486,7 +486,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -517,7 +517,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -549,7 +549,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:     p.pathManager,
 			Parent:          p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -583,7 +583,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:           p.pathManager,
 			Parent:                p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -610,7 +610,7 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}
@@ -643,7 +643,7 @@ func (p *Core) createResources(initial bool) error {
 			SRTServer:      p.srtServer,
 			Parent:         p,
 		}
-		err := i.Initialize()
+		err = i.Initialize()
 		if err != nil {
 			return err
 		}

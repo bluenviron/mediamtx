@@ -425,7 +425,7 @@ func TestPathRunOnRead(t *testing.T) {
 							case <-writerTerminate:
 								return
 							}
-							err := source.WritePacketRTP(media0, &rtp.Packet{
+							err2 := source.WritePacketRTP(media0, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        2,
 									Marker:         true,
@@ -436,7 +436,7 @@ func TestPathRunOnRead(t *testing.T) {
 								},
 								Payload: []byte{5},
 							})
-							require.NoError(t, err)
+							require.NoError(t, err2)
 							i++
 						}
 					}()
@@ -525,7 +525,7 @@ func TestPathRecord(t *testing.T) {
 	defer source.Close()
 
 	for i := 0; i < 4; i++ {
-		err := source.WritePacketRTP(media0, &rtp.Packet{
+		err = source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -562,7 +562,7 @@ func TestPathRecord(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	for i := 4; i < 8; i++ {
-		err := source.WritePacketRTP(media0, &rtp.Packet{
+		err = source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -761,7 +761,7 @@ func TestPathOverridePublisher(t *testing.T) {
 			require.NoError(t, err)
 
 			if ca == "enabled" {
-				err := s1.Wait()
+				err = s1.Wait()
 				require.EqualError(t, err, "EOF")
 
 				err = s2.WritePacketRTP(medi, &rtp.Packet{

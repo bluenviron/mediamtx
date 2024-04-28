@@ -33,7 +33,7 @@ func rtpH265ExtractParams(payload []byte) ([]byte, []byte, []byte) {
 		return nil, nil, payload
 
 	case h265.NALUType_AggregationUnit:
-		payload := payload[2:]
+		payload = payload[2:]
 		var vps []byte
 		var sps []byte
 		var pps []byte

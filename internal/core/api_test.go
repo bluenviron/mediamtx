@@ -506,7 +506,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 
-					err := source.WritePacketRTP(medi, &rtp.Packet{
+					err2 := source.WritePacketRTP(medi, &rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -517,7 +517,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 						},
 						Payload: []byte{5, 1, 2, 3, 4},
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 				}()
 
 				c := &webrtc.WHIPClient{
