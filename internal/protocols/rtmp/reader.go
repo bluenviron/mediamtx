@@ -501,6 +501,11 @@ func (r *Reader) readTracks() (format.Format, format.Format, error) {
 			}
 		}
 
+		// skip SetChunkSize
+		if _, ok := msg.(*message.SetChunkSize); ok {
+			continue
+		}
+
 		if data, ok := msg.(*message.DataAMF0); ok && len(data.Payload) >= 1 {
 			payload := data.Payload
 
