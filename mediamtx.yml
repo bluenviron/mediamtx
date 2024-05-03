@@ -67,7 +67,7 @@ authInternalUsers:
     # Password. Not used in case of 'any' user.
     pass: # IPs or networks allowed to use this user. An empty list means any IP.
 
-    ips: []
+    ips: [ ]
     # List of permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.
@@ -81,12 +81,12 @@ authInternalUsers:
       - action: playback
         path:
 
-          # Default administrator.
-          # This allows to use API, metrics and PPROF without authentication,
-          # if the IP is localhost.
+        # Default administrator.
+        # This allows to use API, metrics and PPROF without authentication,
+        # if the IP is localhost.
   - user: any
     pass:
-    ips: []
+    ips: [ ]
     permissions:
       - action: api
       - action: metrics
@@ -260,7 +260,7 @@ hlsAllowOrigin: '*'
 # List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
-hlsTrustedProxies: []
+hlsTrustedProxies: [ ]
 # Directory in which to save segments, instead of keeping them in the RAM.
 # This decreases performance, since reading from disk is less performant than
 # reading from RAM, but allows to save RAM.
@@ -288,7 +288,7 @@ webrtcAllowOrigin: '*'
 # List of IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
-webrtcTrustedProxies: []
+webrtcTrustedProxies: [ ]
 # Address of a local UDP listener that will receive connections.
 # Use a blank string to disable.
 webrtcLocalUDPAddress: :8189
@@ -301,9 +301,9 @@ webrtcLocalTCPAddress: ''
 webrtcIPsFromInterfaces: yes
 # List of interfaces whose IPs will be sent to clients.
 # An empty value means to use all available interfaces.
-webrtcIPsFromInterfacesList: []
+webrtcIPsFromInterfacesList: [ ]
 # List of additional hosts or IPs to send to clients.
-webrtcAdditionalHosts: []
+webrtcAdditionalHosts: [ ]
 # ICE servers. Needed only when local listeners can't be reached by clients.
 # STUN servers allows to obtain and share the public IP of the server.
 # TURN/TURNS servers forces all traffic through them.
@@ -626,4 +626,8 @@ paths:
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
+  8f42295d-56b9-455f-bef5-4705c4dd64c9:
+    source: rtsp://192.168.1.10:554/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif
+
   all_others:
+
