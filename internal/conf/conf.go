@@ -15,7 +15,7 @@ import (
 
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 
 	"github.com/bluenviron/mediamtx/internal/conf/decrypt"
 	"github.com/bluenviron/mediamtx/internal/conf/env"
@@ -47,7 +47,7 @@ func firstThatExists(paths []string) string {
 	return ""
 }
 
-func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
+func contains(list []auth.ValidateMethod, item auth.ValidateMethod) bool {
 	for _, i := range list {
 		if i == item {
 			return true
@@ -359,7 +359,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastRTCPPort = 8003
 	conf.ServerKey = "server.key"
 	conf.ServerCert = "server.crt"
-	conf.RTSPAuthMethods = RTSPAuthMethods{headers.AuthBasic}
+	conf.RTSPAuthMethods = RTSPAuthMethods{auth.ValidateMethodBasic}
 
 	// RTMP server
 	conf.RTMP = true
@@ -577,7 +577,7 @@ func (conf *Conf) Validate() error {
 	if conf.AuthMethods != nil {
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
-	if contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
+	if contains(conf.RTSPAuthMethods, auth.ValidateMethodDigestMD5) {
 		if conf.AuthMethod != AuthMethodInternal {
 			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 		}
