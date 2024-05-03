@@ -2,6 +2,8 @@ github.com/MicahParks/jwkset v0.5.17 h1:DrcwyKwSP5adD0G2XJTvDulnWXjD6gbjROMgMXDb
 github.com/MicahParks/jwkset v0.5.17/go.mod h1:q8ptTGn/Z9c4MwbcfeCDssADeVQb3Pk7PnVxrvi+2QY=
 github.com/MicahParks/keyfunc/v3 v3.3.2 h1:YTtwc4dxalBZKFqHhqctBWN6VhbLdGhywmne9u5RQVM=
 github.com/MicahParks/keyfunc/v3 v3.3.2/go.mod h1:GJBeEjnv25OnD9y2OYQa7ELU6gYahEMBNXINZb+qm34=
+github.com/StarwatchXR/mediacommon v1.9.5 h1:B/HLZSVMpnIVWLFDaFZYvbQRBV/d6l8nUXBVOXXuoIg=
+github.com/StarwatchXR/mediacommon v1.9.5/go.mod h1:0z/KHiSTlaAB8FoyW+mYulZRG70Kupcy/0yZZkgLe5M=
 github.com/abema/go-mp4 v1.2.0 h1:gi4X8xg/m179N/J15Fn5ugywN9vtI6PLk6iLldHGLAk=
 github.com/abema/go-mp4 v1.2.0/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
 github.com/alecthomas/assert/v2 v2.6.0 h1:o3WJwILtexrEUk3cUVal3oiQY2tfgr/FHWiz/v2n4FU=
@@ -24,8 +26,6 @@ github.com/bluenviron/gohlslib v1.3.1 h1:87JEFXWfvSlfwYBX6JSCxsu+fr4zuBgk82Y4qgx
 github.com/bluenviron/gohlslib v1.3.1/go.mod h1:wD8ysO6HB90d17sxoIQXGHINo2KYj/mZirMnPtKLJZQ=
 github.com/bluenviron/gortsplib/v4 v4.8.1 h1:e9rxYIxPzmqEH0+Y7RQqzbXjVHNpchutGOurmptxW88=
 github.com/bluenviron/gortsplib/v4 v4.8.1/go.mod h1:1nYp6zYJq0qqRDG+NRAk6lrf6lugQBTYlSL9LPDJHQ4=
-github.com/bluenviron/mediacommon v1.9.3 h1:qpY7m26aXdTW9SgcOHLJXazd4Jr4rle6IH2RFuQkUvE=
-github.com/bluenviron/mediacommon v1.9.3/go.mod h1:0z/KHiSTlaAB8FoyW+mYulZRG70Kupcy/0yZZkgLe5M=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s=
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=

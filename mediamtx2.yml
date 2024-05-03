@@ -270,7 +270,7 @@ hlsDirectory: ''
 # Global settings -> WebRTC server
 
 # Enable publishing and reading streams with the WebRTC protocol.
-webrtc: no
+webrtc: yes
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
 # Enable TLS/HTTPS on the WebRTC server.
@@ -358,8 +358,8 @@ pathDefaults:
   # validate it anyway. It can be obtained by running:
   # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
   # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
-  sourceFingerprint:
-  # If the source is a URL, it will be pulled only when at least
+  sourceFingerprint: # If the source is a URL, it will be pulled only when at least
+
   # one reader is connected, saving bandwidth.
   sourceOnDemand: no
   # If sourceOnDemand is "yes", readers will be put on hold until the source is
@@ -371,8 +371,8 @@ pathDefaults:
   # Maximum number of readers. Zero means no limit.
   maxReaders: 0
   # SRT encryption passphrase require to read from this path
-  srtReadPassphrase:
-  # If the stream is not available, redirect readers to this path.
+  srtReadPassphrase: # If the stream is not available, redirect readers to this path.
+
   # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   fallback:
 
@@ -397,7 +397,7 @@ pathDefaults:
   recordSegmentDuration: 15m
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
-  recordDeleteAfter: 0s
+  recordDeleteAfter: 12h
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
@@ -529,8 +529,8 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnInit:
-  # Restart the command if it exits.
+  runOnInit: # Restart the command if it exits.
+
   runOnInitRestart: no
 
   # Command to run when this path is requested by a reader
@@ -543,8 +543,8 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnDemand:
-  # Restart the command if it exits.
+  runOnDemand: # Restart the command if it exits.
+
   runOnDemandRestart: no
   # Readers will be put on hold until the runOnDemand command starts publishing
   # or until this amount of time has passed.
@@ -567,12 +567,12 @@ pathDefaults:
   #   a regular expression.
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
-  runOnReady:
+  runOnReady: ./orbit-play-api connected --streamId $MTX_PATH
   # Restart the command if it exits.
   runOnReadyRestart: no
   # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
-  runOnNotReady:
+  runOnNotReady: ./orbit-play-api disconnected --streamId $MTX_PATH
 
   # Command to run when a client starts reading.
   # This is terminated with SIGINT when a client stops reading.
@@ -607,7 +607,7 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
-  runOnRecordSegmentComplete:
+  runOnRecordSegmentComplete: ./orbit-play-api uploadRecording --path $MTX_SEGMENT_PATH
 #    curl --location "http://localhost:3000/upload" --header 'Content-Type: text/plain' --data "/home/ubuntu/orbit-launch/${MTX_SEGMENT_PATH}"
 
 ###############################################
@@ -623,7 +623,16 @@ paths:
   # example:
   #  test:
   #    source: rtsp://p1.s2tlive.com:8554/live/2305012913005476
+  #
+  #
+  #  live/5778732566:
+  #      source: rtsp://w3.s2tlive.com:8554/live/5778732566
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
+  8f42295d-56b9-455f-bef5-4705c4dd64c9:
+    source: rtsp://192.168.1.10:554/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif
+
+  test:
+    source: rtsp://192.168.1.10:554/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif
   all_others:
