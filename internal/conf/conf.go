@@ -120,6 +120,7 @@ func anyPathHasDeprecatedCredentials(paths map[string]*OptionalPath) bool {
 }
 
 // Conf is a configuration.
+// WARNING: Avoid using slices directly due to https://github.com/golang/go/issues/21092
 type Conf struct {
 	// General
 	LogLevel            LogLevel        `json:"logLevel"`
@@ -135,12 +136,12 @@ type Conf struct {
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
 
 	// Authentication
-	AuthMethod                AuthMethod                   `json:"authMethod"`
-	AuthInternalUsers         []AuthInternalUser           `json:"authInternalUsers"`
-	AuthHTTPAddress           string                       `json:"authHTTPAddress"`
-	ExternalAuthenticationURL *string                      `json:"externalAuthenticationURL,omitempty"` // deprecated
-	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
-	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
+	AuthMethod                AuthMethod                  `json:"authMethod"`
+	AuthInternalUsers         AuthInternalUsers           `json:"authInternalUsers"`
+	AuthHTTPAddress           string                      `json:"authHTTPAddress"`
+	ExternalAuthenticationURL *string                     `json:"externalAuthenticationURL,omitempty"` // deprecated
+	AuthHTTPExclude           AuthInternalUserPermissions `json:"authHTTPExclude"`
+	AuthJWTJWKS               string                      `json:"authJWTJWKS"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -222,24 +223,24 @@ type Conf struct {
 	HLSDirectory       string         `json:"hlsDirectory"`
 
 	// WebRTC server
-	WebRTC                      bool              `json:"webrtc"`
-	WebRTCDisable               *bool             `json:"webrtcDisable,omitempty"` // deprecated
-	WebRTCAddress               string            `json:"webrtcAddress"`
-	WebRTCEncryption            bool              `json:"webrtcEncryption"`
-	WebRTCServerKey             string            `json:"webrtcServerKey"`
-	WebRTCServerCert            string            `json:"webrtcServerCert"`
-	WebRTCAllowOrigin           string            `json:"webrtcAllowOrigin"`
-	WebRTCTrustedProxies        IPNetworks        `json:"webrtcTrustedProxies"`
-	WebRTCLocalUDPAddress       string            `json:"webrtcLocalUDPAddress"`
-	WebRTCLocalTCPAddress       string            `json:"webrtcLocalTCPAddress"`
-	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
-	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
-	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
-	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
-	WebRTCICEUDPMuxAddress      *string           `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
-	WebRTCICETCPMuxAddress      *string           `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
-	WebRTCICEHostNAT1To1IPs     *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
-	WebRTCICEServers            *[]string         `json:"webrtcICEServers,omitempty"`        // deprecated
+	WebRTC                      bool             `json:"webrtc"`
+	WebRTCDisable               *bool            `json:"webrtcDisable,omitempty"` // deprecated
+	WebRTCAddress               string           `json:"webrtcAddress"`
+	WebRTCEncryption            bool             `json:"webrtcEncryption"`
+	WebRTCServerKey             string           `json:"webrtcServerKey"`
+	WebRTCServerCert            string           `json:"webrtcServerCert"`
+	WebRTCAllowOrigin           string           `json:"webrtcAllowOrigin"`
+	WebRTCTrustedProxies        IPNetworks       `json:"webrtcTrustedProxies"`
+	WebRTCLocalUDPAddress       string           `json:"webrtcLocalUDPAddress"`
+	WebRTCLocalTCPAddress       string           `json:"webrtcLocalTCPAddress"`
+	WebRTCIPsFromInterfaces     bool             `json:"webrtcIPsFromInterfaces"`
+	WebRTCIPsFromInterfacesList []string         `json:"webrtcIPsFromInterfacesList"`
+	WebRTCAdditionalHosts       []string         `json:"webrtcAdditionalHosts"`
+	WebRTCICEServers2           WebRTCICEServers `json:"webrtcICEServers2"`
+	WebRTCICEUDPMuxAddress      *string          `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
+	WebRTCICETCPMuxAddress      *string          `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
+	WebRTCICEHostNAT1To1IPs     *[]string        `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
+	WebRTCICEServers            *[]string        `json:"webrtcICEServers,omitempty"`        // deprecated
 
 	// SRT server
 	SRT        bool   `json:"srt"`
