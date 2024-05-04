@@ -165,7 +165,8 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bo
 }
 
 func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool) {
-	if ctx.Request.Header.Get("Content-Type") != "application/sdp" {
+	contentType := httpp.ParseContentType(ctx.Request.Header.Get("Content-Type"))
+	if contentType != "application/sdp" {
 		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
@@ -215,7 +216,8 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 		return
 	}
 
-	if ctx.Request.Header.Get("Content-Type") != "application/trickle-ice-sdpfrag" {
+	contentType := httpp.ParseContentType(ctx.Request.Header.Get("Content-Type"))
+	if contentType != "application/trickle-ice-sdpfrag" {
 		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
