@@ -56,7 +56,6 @@ type Request struct {
 	ID          *uuid.UUID
 	Query       string
 	RTSPRequest *base.Request
-	RTSPBaseURL *base.URL
 	RTSPNonce   string
 }
 
@@ -203,7 +202,6 @@ func (m *Manager) authenticateWithUser(
 				req.RTSPRequest,
 				string(u.User),
 				string(u.Pass),
-				req.RTSPBaseURL,
 				m.RTSPAuthMethods,
 				rtspAuthRealm,
 				req.RTSPNonce)

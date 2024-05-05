@@ -225,7 +225,7 @@ func (f *formatFMP4) initialize() {
 
 					randomAccess := false
 
-					if h.FrameType == vp9.FrameTypeKeyFrame {
+					if !h.NonKeyFrame {
 						randomAccess = true
 
 						if w := h.Width(); codec.Width != w {

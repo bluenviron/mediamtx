@@ -8,9 +8,9 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.3.2
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.9.0
-	github.com/bluenviron/gohlslib v1.3.1
-	github.com/bluenviron/gortsplib/v4 v4.8.2
-	github.com/bluenviron/mediacommon v1.9.3
+	github.com/bluenviron/gohlslib v1.3.2
+	github.com/bluenviron/gortsplib/v4 v4.9.0
+	github.com/bluenviron/mediacommon v1.10.0
 	github.com/datarhei/gosrt v0.6.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.9.1
@@ -24,7 +24,7 @@ require (
 	github.com/pion/interceptor v0.1.29
 	github.com/pion/logging v0.2.2
 	github.com/pion/rtcp v1.2.14
-	github.com/pion/rtp v1.8.6
+	github.com/pion/rtp v1.8.7-0.20240429002300-bc5124c9d0d0
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
 	github.com/stretchr/testify v1.9.0

@@ -121,7 +121,6 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 			Proto:       auth.ProtocolRTSP,
 			ID:          &c.uuid,
 			RTSPRequest: ctx.Request,
-			RTSPBaseURL: nil,
 			RTSPNonce:   c.authNonce,
 		},
 	})
@@ -173,19 +172,6 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		baseURL := &base.URL{
-			Scheme:   ctx.Request.URL.Scheme,
-			Host:     ctx.Request.URL.Host,
-			Path:     ctx.Path,
-			RawQuery: ctx.Query,
-		}
-
-		if ctx.Query != "" {
-			baseURL.RawQuery += "/"
-		} else {
-			baseURL.Path += "/"
-		}
-
 		if c.authNonce == "" {
 			var err error
 			c.authNonce, err = rtspauth.GenerateNonce()
@@ -205,7 +191,6 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 				Proto:       auth.ProtocolRTSP,
 				ID:          &c.uuid,
 				RTSPRequest: ctx.Request,
-				RTSPBaseURL: baseURL,
 				RTSPNonce:   c.authNonce,
 			},
 		})
