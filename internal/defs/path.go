@@ -49,7 +49,6 @@ type PathAccessRequest struct {
 	Proto       auth.Protocol
 	ID          *uuid.UUID
 	RTSPRequest *base.Request
-	RTSPBaseURL *base.URL
 	RTSPNonce   string
 }
 
@@ -70,7 +69,6 @@ func (r *PathAccessRequest) ToAuthRequest() *auth.Request {
 		ID:          r.ID,
 		Query:       r.Query,
 		RTSPRequest: r.RTSPRequest,
-		RTSPBaseURL: r.RTSPBaseURL,
 		RTSPNonce:   r.RTSPNonce,
 	}
 }
