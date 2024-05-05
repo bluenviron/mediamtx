@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var errNoSegmentsFound = errors.New("no recording segments found for the given timestamp")
+var errNoSegmentsFound = errors.New("no recording segments found")
 
 type serverAuthManager interface {
 	Authenticate(req *auth.Request) error
