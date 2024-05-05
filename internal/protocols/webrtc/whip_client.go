@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -15,6 +14,7 @@ import (
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
 // WHIPClient is a WHIP client.
@@ -286,8 +286,8 @@ func (c *WHIPClient) postOffer(
 		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	contentType := res.Header.Get("Content-Type")
-	if strings.TrimSpace(strings.Split(contentType, ";")[0]) != "application/sdp" {
+	contentType := httpp.ParseContentType(req.Header.Get("Content-Type"))
+	if contentType != "application/sdp" {
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
 
