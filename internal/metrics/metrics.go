@@ -190,7 +190,7 @@ func (m *Metrics) onRequest(ctx *gin.Context) {
 			data, err := m.rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
-					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
+					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\", path=\"" + string(i.Path) + "\", remoteAddr=\"" + string(i.RemoteAddr) + "\"	}"
 					out += metric("rtsp_sessions", tags, 1)
 					out += metric("rtsp_sessions_bytes_received", tags, int64(i.BytesReceived))
 					out += metric("rtsp_sessions_bytes_sent", tags, int64(i.BytesSent))
@@ -338,10 +338,11 @@ func (m *Metrics) onRequest(ctx *gin.Context) {
 		data, err := m.webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
-				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
+				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\", path=\"" + string(i.Path) + "\", remoteCandidate=\"" + string(i.RemoteCandidate) + "\", localCandidate=\"" + string(i.LocalCandidate) + "\"}"
 				out += metric("webrtc_sessions", tags, 1)
 				out += metric("webrtc_sessions_bytes_received", tags, int64(i.BytesReceived))
 				out += metric("webrtc_sessions_bytes_sent", tags, int64(i.BytesSent))
+
 			}
 		} else {
 			out += metric("webrtc_sessions", "", 0)
