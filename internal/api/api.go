@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -205,6 +206,9 @@ func (a *API) Initialize() error {
 	group.POST("/v3/config/paths/replace/*name", a.onConfigPathsReplace)
 	group.DELETE("/v3/config/paths/delete/*name", a.onConfigPathsDelete)
 
+	group.GET("/v3/config/file", a.onConfigYamlGet)
+	group.POST("/v3/config/file", a.onConfigYamlPost)
+
 	group.GET("/v3/paths/list", a.onPathsList)
 	group.GET("/v3/paths/get/*name", a.onPathsGet)
 
@@ -403,6 +407,46 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
+func (a *API) onConfigYamlGet(ctx *gin.Context) {
+	a.mutex.RLock()
+
+	cnf, err := os.ReadFile("mediamtx.yml")
+
+	a.mutex.RUnlock()
+
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	// Convert byte slice to string
+	yamlContent := string(cnf)
+
+	// Return the YAML content in the response
+	ctx.Header("Content-Type", "application/yaml")
+	ctx.String(http.StatusOK, yamlContent)
+}
+
+func (a *API) onConfigYamlPost(ctx *gin.Context) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	// Extract YAML data from the request body
+	yamlData, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	// Write YAML data to the file
+	err = os.WriteFile("mediamtx.yml", yamlData, 0644)
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Status(http.StatusOK)
+}
 func (a *API) onConfigPathsList(ctx *gin.Context) {
 	a.mutex.RLock()
 	c := a.Conf
