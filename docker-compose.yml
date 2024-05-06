@@ -1,0 +1,11 @@
+services:
+  mtx:
+    image: piscada/mtx:latest
+    stdin_open: true
+    labels:
+      service.name: "mtx"
+    tty: true
+
+    # network_mode: "host"
+    ports:
+      - "3000:3000"
