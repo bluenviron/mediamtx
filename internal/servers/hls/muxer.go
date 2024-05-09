@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	closeCheckPeriod     = 1 * time.Second
-	closeAfterInactivity = 60 * time.Second
-	recreatePause        = 10 * time.Second
+	closeCheckPeriod = 1 * time.Second
+	recreatePause    = 10 * time.Second
 )
 
 func int64Ptr(v int64) *int64 {
@@ -55,6 +54,7 @@ type muxer struct {
 	segmentMaxSize  conf.StringSize
 	directory       string
 	writeQueueSize  int
+	closeAfter      conf.StringDuration
 	wg              *sync.WaitGroup
 	pathName        string
 	pathManager     serverPathManager
@@ -221,7 +221,7 @@ func (m *muxer) runInner() error {
 
 		case <-activityCheckTimer.C:
 			t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
-			if time.Since(t) >= closeAfterInactivity {
+			if time.Since(t) >= time.Duration(m.closeAfter) {
 				return fmt.Errorf("not used anymore")
 			}
 			activityCheckTimer = time.NewTimer(closeCheckPeriod)

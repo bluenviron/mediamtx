@@ -75,6 +75,7 @@ type Server struct {
 	Directory       string
 	ReadTimeout     conf.StringDuration
 	WriteQueueSize  int
+	MuxerCloseAfter conf.StringDuration
 	PathManager     serverPathManager
 	Parent          serverParent
 
@@ -232,6 +233,7 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 		pathManager:     s.PathManager,
 		parent:          s,
 		query:           query,
+		closeAfter:      s.MuxerCloseAfter,
 	}
 	r.initialize()
 	s.muxers[pathName] = r

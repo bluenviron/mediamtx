@@ -329,6 +329,9 @@ hlsSegmentMaxSize: 50M
 # This decreases performance, since reading from disk is less performant than
 # reading from RAM, but allows to save RAM.
 hlsDirectory: ''
+# The muxer will be closed when there are no
+# reader requests and this amount of time has passed.
+hlsMuxerCloseAfter: 60s
 
 ###############################################
 # Global settings -> WebRTC server
