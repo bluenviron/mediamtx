@@ -281,6 +281,15 @@ func TestConfErrors(t *testing.T) {
 				"  ~^.*$:\n",
 			`all_others, all and '~^.*$' are aliases`,
 		},
+		{
+			"playback",
+			"playback: yes\n" +
+				"paths:\n" +
+				"  my_path:\n" +
+				"    recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S",
+			`record path './recordings/%path/%Y-%m-%d_%H-%M-%S' is missing one of the` +
+				` mandatory elements for the playback server to work: %Y %m %d %H %M %S %f`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
