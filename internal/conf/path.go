@@ -378,6 +378,22 @@ func (pconf *Path) validate(
 		}
 	}
 
+	// Record
+
+	if conf.Playback {
+		if !strings.Contains(pconf.RecordPath, "%Y") ||
+			!strings.Contains(pconf.RecordPath, "%m") ||
+			!strings.Contains(pconf.RecordPath, "%d") ||
+			!strings.Contains(pconf.RecordPath, "%H") ||
+			!strings.Contains(pconf.RecordPath, "%M") ||
+			!strings.Contains(pconf.RecordPath, "%S") ||
+			!strings.Contains(pconf.RecordPath, "%f") {
+			return fmt.Errorf("record path '%s' is missing one of the mandatory elements"+
+				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
+				pconf.RecordPath)
+		}
+	}
+
 	// Authentication (deprecated)
 
 	if deprecatedCredentialsMode {
