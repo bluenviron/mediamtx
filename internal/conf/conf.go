@@ -758,9 +758,8 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 
 // ReplacePath replaces a path.
 func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
-	_, ok := conf.OptionalPaths[name]
-	if !ok {
-		return ErrPathNotFound
+	if conf.OptionalPaths == nil {
+		conf.OptionalPaths = make(map[string]*OptionalPath)
 	}
 
 	conf.OptionalPaths[name] = optional2

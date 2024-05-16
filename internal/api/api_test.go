@@ -515,6 +515,38 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	require.Equal(t, false, out["rpiCameraVFlip"])
 }
 
+func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
+	cnf := tempConf(t, "api: yes\n")
+
+	api := API{
+		Address:     "localhost:9997",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		Conf:        cnf,
+		AuthManager: test.NilAuthManager,
+		Parent:      &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
+		map[string]interface{}{
+			"source":         "rtsp://127.0.0.1:9998/mypath",
+			"sourceOnDemand": true,
+		}, nil)
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
+	require.Equal(t, true, out["sourceOnDemand"])
+	require.Equal(t, nil, out["disablePublisherOverride"])
+	require.Equal(t, false, out["rpiCameraVFlip"])
+}
+
 func TestConfigPathsDelete(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
