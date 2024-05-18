@@ -112,8 +112,8 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
-					PayloadTyp: 96,
-					IsStereo:   (codec.ChannelCount >= 2),
+					PayloadTyp:   96,
+					ChannelCount: codec.ChannelCount,
 				}},
 			}
 

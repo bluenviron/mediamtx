@@ -184,12 +184,7 @@ func (f *formatMPEGTS) initialize() {
 
 			case *rtspformat.Opus:
 				track := addTrack(forma, &mpegts.CodecOpus{
-					ChannelCount: func() int {
-						if forma.IsStereo {
-							return 2
-						}
-						return 1
-					}(),
+					ChannelCount: forma.ChannelCount,
 				})
 
 				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
