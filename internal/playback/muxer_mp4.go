@@ -4,11 +4,11 @@ import (
 	"io"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
-	"github.com/bluenviron/mediamtx/internal/playback/mp4"
+	"github.com/bluenviron/mediacommon/pkg/formats/pmp4"
 )
 
 type muxerMP4Track struct {
-	mp4.Track
+	pmp4.Track
 	lastDTS int64
 }
 
@@ -33,7 +33,7 @@ func (w *muxerMP4) writeInit(init *fmp4.Init) {
 
 	for i, track := range init.Tracks {
 		w.tracks[i] = &muxerMP4Track{
-			Track: mp4.Track{
+			Track: pmp4.Track{
 				ID:        track.ID,
 				TimeScale: track.TimeScale,
 				Codec:     track.Codec,
@@ -73,7 +73,7 @@ func (w *muxerMP4) writeSample(
 		ptsOffset = 0
 	}
 
-	w.curTrack.Samples = append(w.curTrack.Samples, &mp4.Sample{
+	w.curTrack.Samples = append(w.curTrack.Samples, &pmp4.Sample{
 		PTSOffset:       ptsOffset,
 		IsNonSyncSample: isNonSyncSample,
 		PayloadSize:     payloadSize,
@@ -93,8 +93,8 @@ func (w *muxerMP4) writeFinalDTS(dts int64) {
 }
 
 func (w *muxerMP4) flush() error {
-	h := mp4.Presentation{
-		Tracks: make([]*mp4.Track, len(w.tracks)),
+	h := pmp4.Presentation{
+		Tracks: make([]*pmp4.Track, len(w.tracks)),
 	}
 
 	for i, track := range w.tracks {
