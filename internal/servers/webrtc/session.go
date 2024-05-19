@@ -518,7 +518,7 @@ func (s *session) runRead() (int, error) {
 			return http.StatusUnauthorized, err
 		}
 
-		var terr2 *defs.PathNoOnePublishingError
+		var terr2 defs.PathNoOnePublishingError
 		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
 		}
