@@ -179,6 +179,18 @@
             align-items: center;
         }
 
+        .camera-name {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 20; /* Ensure it's above the video */
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
         .bottomBarAi {
             display: none;
             justify-content: space-between;
@@ -251,23 +263,25 @@
 </div>
 <div id="videoContainer">
     <video id="video"></video>
-    <div id="overlay" class="info-card">
-
-
-        <div class="visibility-alert" style="display: none;"> <!-- Initially hidden -->
-            <div class="visibility-dot"></div>
-            <span class="visibility-text">Camera Tampered</span>
-        </div>
-
-        <div class="audio-visibility-alert" style="display: none;"> <!-- Initially hidden -->
-            <div class="visibility-dot"></div>
-            <span class="visibility-text">Noise Detected</span>
-        </div>
-
-        <div id="alert-overlay" class="alert-card">
-            <!--            <span class="info-icon audio-icon"></span>-->
-        </div>
+    <!--    <div id="overlay" class="info-card">-->
+    <div class="camera-name-container">
+        <span class="camera-name" id="camera-name-id"></span>
     </div>
+
+    <div class="visibility-alert" style="display: none;"> <!-- Initially hidden -->
+        <div class="visibility-dot"></div>
+        <span class="visibility-text">Camera Tampered</span>
+    </div>
+
+    <div class="audio-visibility-alert" style="display: none;"> <!-- Initially hidden -->
+        <div class="visibility-dot"></div>
+        <span class="visibility-text">Noise Detected</span>
+    </div>
+
+    <div id="alert-overlay" class="alert-card">
+        <!--            <span class="info-icon audio-icon"></span>-->
+    </div>
+    <!--    </div>-->
 
 </div>
 <div id="bottomBar" class="flex-row">
@@ -499,13 +513,19 @@
 
         const params = new URLSearchParams(window.location.search);
 
+        // Get camera name from URL parameter
+        const cameraName = params.get('camera');
+        if (cameraName) {
+            document.getElementById('camera-name-id').textContent = cameraName;
+        }
+
         const enableControl = parseBoolString(params.get('controls'), true);
-        enablePtz = parseBoolString(params.get('ptz'), true);
+        enablePtz = parseBoolString(params.get('ptz'), false);
 
         video.controls = false;
 
         bottomBar.style.display = enableControl ? 'flex' : 'none';
-        ptzControls.style.visibility = enablePtz ? 'visible' : 'hidden';
+        ptzControls.style.display = enablePtz ? 'flex' : 'none';
         video.muted = parseBoolString(params.get('muted'), true);
         video.autoplay = parseBoolString(params.get('autoplay'), true);
         video.playsInline = parseBoolString(params.get('playsinline'), true);

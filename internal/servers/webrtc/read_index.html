@@ -686,13 +686,19 @@
 
     const loadAttributesFromQuery = () => {
         const params = new URLSearchParams(window.location.search);
+        // Get camera name from URL parameter
+        const cameraName = params.get('camera');
+        if (cameraName) {
+            document.getElementById('camera-name-id').textContent = cameraName;
+        }
+
         const enableControl = parseBoolString(params.get('controls'), true);
-        enablePtz = parseBoolString(params.get('ptz'), true);
+        enablePtz = parseBoolString(params.get('ptz'), false);
 
         video.controls = false;
-        bottomBar.style.display = enableControl ? 'flex' : 'none';
 
-        ptzControls.style.visibility = enablePtz ? 'visible' : 'hidden';
+        bottomBar.style.display = enableControl ? 'flex' : 'none';
+        ptzControls.style.display = enablePtz ? 'flex' : 'none';
 
         video.muted = parseBoolString(params.get('muted'), true);
         video.autoplay = parseBoolString(params.get('autoplay'), true);

@@ -34,7 +34,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 3. **Download and Set Permissions for Binaries:**
     ```sh
-    wget --no-check-certificate 'https://drive.google.com/uc?export=download&id=1eQ6XrK0ovxUQw1XnYV363pfAv6JO_4uy' -O orbit-play
+    wget --no-check-certificate 'https://drive.google.com/uc?export=download&id=1Pls3rmF7PmXtrJQ8yuSl8yF1M2q1aQse' -O orbit-play
     chmod +x orbit-play
 
     wget --no-check-certificate 'https://drive.google.com/uc?export=download&id=12a1lcEil3l7vdGYwOo40-J1PP2XMb82G' -O orbit-play-wasabi-sync
