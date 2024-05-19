@@ -27,29 +27,20 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 }
 
 func TestSource(t *testing.T) {
-	api, err := webrtc.NewAPI(webrtc.APIConf{
+	outgoingTracks := []*webrtc.OutgoingTrack{{Format: &format.Opus{
+		PayloadTyp:   111,
+		ChannelCount: 2,
+	}}}
+	pc := &webrtc.PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
-	})
-	require.NoError(t, err)
-
-	pc := &webrtc.PeerConnection{
-		API:     api,
-		Publish: true,
-		Log:     test.NilLogger,
+		Publish:           true,
+		OutgoingTracks:    outgoingTracks,
+		Log:               test.NilLogger,
 	}
-	err = pc.Start()
+	err := pc.Start()
 	require.NoError(t, err)
 	defer pc.Close()
-
-	tracks, err := pc.SetupOutgoingTracks(
-		nil,
-		&format.Opus{
-			PayloadTyp:   111,
-			ChannelCount: 2,
-		},
-	)
-	require.NoError(t, err)
 
 	state := 0
 
@@ -87,7 +78,7 @@ func TestSource(t *testing.T) {
 					err3 := pc.WaitUntilConnected(context.Background())
 					require.NoError(t, err3)
 
-					err3 = tracks[0].WriteRTP(&rtp.Packet{
+					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,

@@ -415,7 +415,7 @@ func TestServerRead(t *testing.T) {
 		Header: rtp.Header{
 			Version:        2,
 			Marker:         true,
-			PayloadType:    100,
+			PayloadType:    101,
 			SequenceNumber: pkt.SequenceNumber,
 			Timestamp:      pkt.Timestamp,
 			SSRC:           pkt.SSRC,

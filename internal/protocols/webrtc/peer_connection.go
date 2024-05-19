@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -19,6 +20,15 @@ const (
 	webrtcStreamID           = "mediamtx"
 )
 
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 type trackRecvPair struct {
 	track    *webrtc.TrackRemote
 	receiver *webrtc.RTPReceiver
@@ -26,10 +36,16 @@ type trackRecvPair struct {
 
 // PeerConnection is a wrapper around webrtc.PeerConnection.
 type PeerConnection struct {
-	ICEServers []webrtc.ICEServer
-	API        *webrtc.API
-	Publish    bool
-	Log        logger.Writer
+	ICEServers            []webrtc.ICEServer
+	ICEUDPMux             ice.UDPMux
+	ICETCPMux             ice.TCPMux
+	LocalRandomUDP        bool
+	IPsFromInterfaces     bool
+	IPsFromInterfacesList []string
+	AdditionalHosts       []string
+	Publish               bool
+	OutgoingTracks        []*OutgoingTrack
+	Log                   logger.Writer
 
 	wr                *webrtc.PeerConnection
 	stateChangeMutex  sync.Mutex
@@ -46,12 +62,87 @@ type PeerConnection struct {
 
 // Start starts the peer connection.
 func (co *PeerConnection) Start() error {
-	configuration := webrtc.Configuration{
-		ICEServers: co.ICEServers,
+	settingsEngine := webrtc.SettingEngine{}
+
+	settingsEngine.SetInterfaceFilter(func(iface string) bool {
+		return co.IPsFromInterfaces && (len(co.IPsFromInterfacesList) == 0 ||
+			stringInSlice(iface, co.IPsFromInterfacesList))
+	})
+
+	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)
+
+	var networkTypes []webrtc.NetworkType
+
+	// always enable UDP in order to support STUN/TURN
+	networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+
+	if co.ICEUDPMux != nil {
+		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
-	var err error
-	co.wr, err = co.API.NewPeerConnection(configuration)
+	if co.ICETCPMux != nil {
+		settingsEngine.SetICETCPMux(co.ICETCPMux)
+		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+	}
+
+	if co.LocalRandomUDP {
+		settingsEngine.SetICEUDPRandom(true)
+	}
+
+	settingsEngine.SetNetworkTypes(networkTypes)
+
+	mediaEngine := &webrtc.MediaEngine{}
+
+	if co.Publish {
+		for _, tr := range co.OutgoingTracks {
+			params, err := tr.codecParameters()
+			if err != nil {
+				return err
+			}
+
+			var codecType webrtc.RTPCodecType
+			if tr.isVideo() {
+				codecType = webrtc.RTPCodecTypeVideo
+			} else {
+				codecType = webrtc.RTPCodecTypeAudio
+			}
+
+			err = mediaEngine.RegisterCodec(params, codecType)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, codec := range incomingVideoCodecs {
+			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, codec := range incomingAudioCodecs {
+			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	interceptorRegistry := &interceptor.Registry{}
+
+	err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry)
+	if err != nil {
+		return err
+	}
+
+	api := webrtc.NewAPI(
+		webrtc.WithSettingEngine(settingsEngine),
+		webrtc.WithMediaEngine(mediaEngine),
+		webrtc.WithInterceptorRegistry(interceptorRegistry))
+
+	co.wr, err = api.NewPeerConnection(webrtc.Configuration{
+		ICEServers: co.ICEServers,
+	})
 	if err != nil {
 		return err
 	}
@@ -65,7 +156,15 @@ func (co *PeerConnection) Start() error {
 
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
-	if !co.Publish {
+	if co.Publish {
+		for _, tr := range co.OutgoingTracks {
+			err = tr.setup(co)
+			if err != nil {
+				co.wr.Close() //nolint:errcheck
+				return err
+			}
+		}
+	} else {
 		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
@@ -177,6 +276,9 @@ func (co *PeerConnection) CreateFullAnswer(
 
 	answer, err := co.wr.CreateAnswer(nil)
 	if err != nil {
+		if err.Error() == "unable to populate media section, RTPSender created with no codecs" {
+			return nil, fmt.Errorf("track codecs are not supported by remote")
+		}
 		return nil, err
 	}
 
@@ -266,27 +368,6 @@ func (co *PeerConnection) GatherIncomingTracks(
 			return nil, fmt.Errorf("terminated")
 		}
 	}
-}
-
-// SetupOutgoingTracks setups outgoing tracks.
-func (co *PeerConnection) SetupOutgoingTracks(
-	videoTrack format.Format,
-	audioTrack format.Format,
-) ([]*OutgoingTrack, error) {
-	var tracks []*OutgoingTrack
-
-	for _, forma := range []format.Format{videoTrack, audioTrack} {
-		if forma != nil {
-			track, err := newOutgoingTrack(forma, co.wr.AddTrack)
-			if err != nil {
-				return nil, err
-			}
-
-			tracks = append(tracks, track)
-		}
-	}
-
-	return tracks, nil
 }
 
 // Connected returns when connected.

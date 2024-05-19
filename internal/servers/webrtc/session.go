@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/google/uuid"
+	"github.com/pion/ice/v2"
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v3"
 
@@ -281,14 +282,18 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 }
 
 type session struct {
-	parentCtx       context.Context
-	writeQueueSize  int
-	api             *pwebrtc.API
-	req             webRTCNewSessionReq
-	wg              *sync.WaitGroup
-	externalCmdPool *externalcmd.Pool
-	pathManager     serverPathManager
-	parent          *Server
+	parentCtx             context.Context
+	writeQueueSize        int
+	ipsFromInterfaces     bool
+	ipsFromInterfacesList []string
+	additionalHosts       []string
+	iceUDPMux             ice.UDPMux
+	iceTCPMux             ice.TCPMux
+	req                   webRTCNewSessionReq
+	wg                    *sync.WaitGroup
+	externalCmdPool       *externalcmd.Pool
+	pathManager           serverPathManager
+	parent                *Server
 
 	ctx       context.Context
 	ctxCancel func()
@@ -403,10 +408,14 @@ func (s *session) runPublish() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		ICEServers: iceServers,
-		API:        s.api,
-		Publish:    false,
-		Log:        s,
+		ICEServers:            iceServers,
+		IPsFromInterfaces:     s.ipsFromInterfaces,
+		IPsFromInterfacesList: s.ipsFromInterfacesList,
+		AdditionalHosts:       s.additionalHosts,
+		ICEUDPMux:             s.iceUDPMux,
+		ICETCPMux:             s.iceTCPMux,
+		Publish:               false,
+		Log:                   s,
 	}
 	err = pc.Start()
 	if err != nil {
@@ -537,18 +546,6 @@ func (s *session) runRead() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	pc := &webrtc.PeerConnection{
-		ICEServers: iceServers,
-		API:        s.api,
-		Publish:    false,
-		Log:        s,
-	}
-	err = pc.Start()
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-	defer pc.Close()
-
 	writer := asyncwriter.New(s.writeQueueSize, s)
 
 	videoTrack, videoSetup := findVideoTrack(stream, writer)
@@ -558,10 +555,31 @@ func (s *session) runRead() (int, error) {
 		return http.StatusBadRequest, errNoSupportedCodecs
 	}
 
-	tracks, err := pc.SetupOutgoingTracks(videoTrack, audioTrack)
+	var outgoingTracks []*webrtc.OutgoingTrack
+
+	if videoTrack != nil {
+		outgoingTracks = append(outgoingTracks, &webrtc.OutgoingTrack{Format: videoTrack})
+	}
+	if audioTrack != nil {
+		outgoingTracks = append(outgoingTracks, &webrtc.OutgoingTrack{Format: audioTrack})
+	}
+
+	pc := &webrtc.PeerConnection{
+		ICEServers:            iceServers,
+		IPsFromInterfaces:     s.ipsFromInterfaces,
+		IPsFromInterfacesList: s.ipsFromInterfacesList,
+		AdditionalHosts:       s.additionalHosts,
+		ICEUDPMux:             s.iceUDPMux,
+		ICETCPMux:             s.iceTCPMux,
+		Publish:               true,
+		OutgoingTracks:        outgoingTracks,
+		Log:                   s,
+	}
+	err = pc.Start()
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+	defer pc.Close()
 
 	offer := whipOffer(s.req.offer)
 
@@ -588,7 +606,7 @@ func (s *session) runRead() (int, error) {
 	n := 0
 
 	if videoTrack != nil {
-		err := videoSetup(tracks[n])
+		err := videoSetup(outgoingTracks[n])
 		if err != nil {
 			return 0, err
 		}
@@ -596,7 +614,7 @@ func (s *session) runRead() (int, error) {
 	}
 
 	if audioTrack != nil {
-		err := audioSetup(tracks[n])
+		err := audioSetup(outgoingTracks[n])
 		if err != nil {
 			return 0, err
 		}

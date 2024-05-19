@@ -38,28 +38,25 @@ func (c *WHIPClient) Publish(
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-	})
-	if err != nil {
-		return nil, err
+	var outgoingTracks []*OutgoingTrack
+
+	if videoTrack != nil {
+		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: videoTrack})
+	}
+	if audioTrack != nil {
+		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: audioTrack})
 	}
 
 	c.pc = &PeerConnection{
-		ICEServers: iceServers,
-		API:        api,
-		Publish:    true,
-		Log:        c.Log,
+		ICEServers:        iceServers,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
+		OutgoingTracks:    outgoingTracks,
+		Log:               c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
-		return nil, err
-	}
-
-	tracks, err := c.pc.SetupOutgoingTracks(videoTrack, audioTrack)
-	if err != nil {
-		c.pc.Close()
 		return nil, err
 	}
 
@@ -114,7 +111,7 @@ outer:
 		}
 	}
 
-	return tracks, nil
+	return outgoingTracks, nil
 }
 
 // Read reads tracks.
@@ -124,19 +121,12 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{
+	c.pc = &PeerConnection{
+		ICEServers:        iceServers,
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	c.pc = &PeerConnection{
-		ICEServers: iceServers,
-		API:        api,
-		Publish:    false,
-		Log:        c.Log,
+		Publish:           false,
+		Log:               c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
