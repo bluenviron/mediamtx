@@ -90,7 +90,7 @@ func (pm *dummyPathManager) AddPublisher(_ defs.PathAddPublisherReq) (defs.Path,
 
 func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 	if req.AccessRequest.Name == "nonexisting" {
-		return nil, nil, &defs.PathNoOnePublishingError{}
+		return nil, nil, defs.PathNoOnePublishingError{}
 	}
 	return pm.path, pm.path.stream, nil
 }
