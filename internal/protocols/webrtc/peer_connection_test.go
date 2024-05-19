@@ -9,18 +9,13 @@ import (
 )
 
 func TestPeerConnectionCloseAfterError(t *testing.T) {
-	api, err := NewAPI(APIConf{
+	pc := &PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
-	})
-	require.NoError(t, err)
-
-	pc := &PeerConnection{
-		API:     api,
-		Publish: false,
-		Log:     test.NilLogger,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
-	err = pc.Start()
+	err := pc.Start()
 	require.NoError(t, err)
 
 	_, err = pc.CreatePartialOffer()
