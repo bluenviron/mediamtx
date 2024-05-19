@@ -215,6 +215,10 @@ func findAudioTrack(
 
 	if opusFormat != nil {
 		return opusFormat, func(track *webrtc.OutgoingTrack) error {
+			if opusFormat.ChannelCount > 2 {
+				return fmt.Errorf("unsupported Opus channel count: %d", opusFormat.ChannelCount)
+			}
+
 			stream.AddReader(writer, media, opusFormat, func(u unit.Unit) error {
 				for _, pkt := range u.GetRTPPackets() {
 					track.WriteRTP(pkt) //nolint:errcheck

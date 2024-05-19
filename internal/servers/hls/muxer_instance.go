@@ -227,12 +227,7 @@ func (mi *muxerInstance) createAudioTrack() *gohlslib.Track {
 
 		return &gohlslib.Track{
 			Codec: &codecs.Opus{
-				ChannelCount: func() int {
-					if audioFormatOpus.IsStereo {
-						return 2
-					}
-					return 1
-				}(),
+				ChannelCount: audioFormatOpus.ChannelCount,
 			},
 		}
 	}

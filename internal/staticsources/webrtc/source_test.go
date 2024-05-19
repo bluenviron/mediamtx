@@ -45,8 +45,8 @@ func TestSource(t *testing.T) {
 	tracks, err := pc.SetupOutgoingTracks(
 		nil,
 		&format.Opus{
-			PayloadTyp: 111,
-			IsStereo:   true,
+			PayloadTyp:   111,
+			ChannelCount: 2,
 		},
 	)
 	require.NoError(t, err)

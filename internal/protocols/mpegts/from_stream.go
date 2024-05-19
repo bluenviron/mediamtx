@@ -165,12 +165,7 @@ func FromStream(
 
 			case *format.Opus:
 				track := addTrack(&mcmpegts.CodecOpus{
-					ChannelCount: func() int {
-						if forma.IsStereo {
-							return 2
-						}
-						return 1
-					}(),
+					ChannelCount: forma.ChannelCount,
 				})
 
 				stream.AddReader(writer, medi, forma, func(u unit.Unit) error {

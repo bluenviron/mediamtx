@@ -594,12 +594,7 @@ func (f *formatFMP4) initialize() {
 
 			case *rtspformat.Opus:
 				codec := &fmp4.CodecOpus{
-					ChannelCount: func() int {
-						if forma.IsStereo {
-							return 2
-						}
-						return 1
-					}(),
+					ChannelCount: forma.ChannelCount,
 				}
 				track := addTrack(forma, codec)
 

@@ -72,7 +72,12 @@ func newIncomingTrack(
 	case strings.ToLower(webrtc.MimeTypeOpus):
 		t.format = &format.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
-			IsStereo:   strings.Contains(track.Codec().SDPFmtpLine, "stereo=1"),
+			ChannelCount: func() int {
+				if strings.Contains(track.Codec().SDPFmtpLine, "stereo=1") {
+					return 2
+				}
+				return 1
+			}(),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeG722):
