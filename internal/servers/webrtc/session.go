@@ -652,7 +652,7 @@ func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 		select {
 		case req := <-s.chAddCandidates:
 			for _, candidate := range req.candidates {
-				err := pc.AddRemoteCandidate(*candidate)
+				err := pc.AddRemoteCandidate(candidate)
 				if err != nil {
 					req.res <- webRTCAddSessionCandidatesRes{err: err}
 				}
