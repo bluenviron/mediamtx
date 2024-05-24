@@ -2015,9 +2015,7 @@ The server can be compiled with native support for the Raspberry Pi Camera. Comp
 Download the repository, open a terminal in it and run:
 
 ```sh
-cd internal/protocols/rpicamera/exe
-make
-cd ../../../../
+make -C internal/protocols/rpicamera/exe -j$(nproc)
 go generate ./...
 go build -tags rpicamera .
 ```
