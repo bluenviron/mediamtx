@@ -69,7 +69,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 			return err
 		}
 
-		ts := t.timeEncoder.Encode(u.PTS)
+		ts := t.timeEncoder.Encode(pts)
 		pkt.Timestamp += ts
 
 		rtpPackets = append(rtpPackets, pkt)
