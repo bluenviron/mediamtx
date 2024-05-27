@@ -107,6 +107,20 @@ const parseOffer = (offer) => {
 	return ret;
 };
 
+const enableStereoPcmau = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += " 118";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:118 PCMU/8000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:118 transport-cc");
+
+	lines[0] += " 119";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:119 PCMA/8000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:119 transport-cc");
+
+	return lines.join('\r\n');
+};
+
 const enableStereoOpus = (section) => {
 	let opusPayloadFormat = '';
 	let lines = section.split('\r\n');
@@ -142,7 +156,7 @@ const editOffer = (offer) => {
 	for (let i = 0; i < sections.length; i++) {
 		const section = sections[i];
 		if (section.startsWith('audio')) {
-			sections[i] = enableStereoOpus(section);
+			sections[i] = enableStereoPcmau(enableStereoOpus(section));
 		}
 	}
 

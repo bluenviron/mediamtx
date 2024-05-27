@@ -216,10 +216,6 @@ func findAudioTrack(
 
 	if opusFormat != nil {
 		return opusFormat, func(track *webrtc.OutgoingTrack) error {
-			if opusFormat.ChannelCount > 2 {
-				return fmt.Errorf("unsupported Opus channel count: %d", opusFormat.ChannelCount)
-			}
-
 			stream.AddReader(writer, media, opusFormat, func(u unit.Unit) error {
 				for _, pkt := range u.GetRTPPackets() {
 					track.WriteRTP(pkt) //nolint:errcheck
@@ -252,14 +248,6 @@ func findAudioTrack(
 
 	if g711Format != nil {
 		return g711Format, func(track *webrtc.OutgoingTrack) error {
-			if g711Format.SampleRate != 8000 {
-				return fmt.Errorf("unsupported G711 sample rate")
-			}
-
-			if g711Format.ChannelCount != 1 {
-				return fmt.Errorf("unsupported G711 channel count")
-			}
-
 			stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
 				for _, pkt := range u.GetRTPPackets() {
 					track.WriteRTP(pkt) //nolint:errcheck

@@ -22,16 +22,16 @@ const (
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeAV1,
-			ClockRate: 90000,
+			MimeType:    webrtc.MimeTypeAV1,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=1",
 		},
 		PayloadType: 96,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeVP9,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=0",
+			MimeType:  webrtc.MimeTypeAV1,
+			ClockRate: 90000,
 		},
 		PayloadType: 97,
 	},
@@ -39,16 +39,40 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeVP9,
 			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=1",
+			SDPFmtpLine: "profile-id=3",
 		},
 		PayloadType: 98,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=2",
+		},
+		PayloadType: 99,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=1",
+		},
+		PayloadType: 100,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=0",
+		},
+		PayloadType: 101,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypeVP8,
 			ClockRate: 90000,
 		},
-		PayloadType: 99,
+		PayloadType: 102,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -56,7 +80,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
 		},
-		PayloadType: 100,
+		PayloadType: 103,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -64,7 +88,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 		},
-		PayloadType: 101,
+		PayloadType: 104,
 	},
 }
 
@@ -84,6 +108,22 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 			ClockRate: 8000,
 		},
 		PayloadType: 9,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypePCMU,
+			ClockRate: 8000,
+			Channels:  2,
+		},
+		PayloadType: 118,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypePCMA,
+			ClockRate: 8000,
+			Channels:  2,
+		},
+		PayloadType: 119,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -166,19 +206,39 @@ func newIncomingTrack(
 		t.format = &format.G722{}
 
 	case strings.ToLower(webrtc.MimeTypePCMU):
+		channels := track.Codec().Channels
+		if channels == 0 {
+			channels = 1
+		}
+
+		payloadType := uint8(0)
+		if channels > 1 {
+			payloadType = 118
+		}
+
 		t.format = &format.G711{
-			PayloadTyp:   0,
+			PayloadTyp:   payloadType,
 			MULaw:        true,
 			SampleRate:   8000,
-			ChannelCount: 1,
+			ChannelCount: int(channels),
 		}
 
 	case strings.ToLower(webrtc.MimeTypePCMA):
+		channels := track.Codec().Channels
+		if channels == 0 {
+			channels = 1
+		}
+
+		payloadType := uint8(8)
+		if channels > 1 {
+			payloadType = 119
+		}
+
 		t.format = &format.G711{
-			PayloadTyp:   8,
+			PayloadTyp:   payloadType,
 			MULaw:        false,
 			SampleRate:   8000,
-			ChannelCount: 1,
+			ChannelCount: int(channels),
 		}
 
 	default:

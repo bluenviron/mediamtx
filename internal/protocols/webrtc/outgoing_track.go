@@ -33,7 +33,7 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 				ClockRate:   90000,
 				SDPFmtpLine: "profile-id=1",
 			},
-			PayloadType: 98,
+			PayloadType: 96,
 		}, nil
 
 	case *format.VP8:
@@ -42,7 +42,7 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 				MimeType:  webrtc.MimeTypeVP8,
 				ClockRate: 90000,
 			},
-			PayloadType: 99,
+			PayloadType: 96,
 		}, nil
 
 	case *format.H264:
@@ -52,17 +52,21 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 				ClockRate:   90000,
 				SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 			},
-			PayloadType: 101,
+			PayloadType: 96,
 		}, nil
 
 	case *format.Opus:
+		if forma.ChannelCount > 2 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported Opus channel count: %d", forma.ChannelCount)
+		}
+
 		return webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeOpus,
 				ClockRate: 48000,
 				Channels:  2,
 			},
-			PayloadType: 111,
+			PayloadType: 96,
 		}, nil
 
 	case *format.G722:
@@ -75,13 +79,39 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 		}, nil
 
 	case *format.G711:
+		if forma.SampleRate != 8000 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported G711 sample rate")
+		}
+
 		if forma.MULaw {
+			if forma.ChannelCount != 1 {
+				return webrtc.RTPCodecParameters{
+					RTPCodecCapability: webrtc.RTPCodecCapability{
+						MimeType:  webrtc.MimeTypePCMU,
+						ClockRate: uint32(forma.SampleRate),
+						Channels:  uint16(forma.ChannelCount),
+					},
+					PayloadType: 96,
+				}, nil
+			}
+
 			return webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
 					MimeType:  webrtc.MimeTypePCMU,
 					ClockRate: 8000,
 				},
 				PayloadType: 0,
+			}, nil
+		}
+
+		if forma.ChannelCount != 1 {
+			return webrtc.RTPCodecParameters{
+				RTPCodecCapability: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypePCMA,
+					ClockRate: uint32(forma.SampleRate),
+					Channels:  uint16(forma.ChannelCount),
+				},
+				PayloadType: 96,
 			}, nil
 		}
 
