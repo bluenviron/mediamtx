@@ -580,6 +580,8 @@ func (p *Core) createResources(initial bool) error {
 			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
 			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
 			ICEServers:            p.conf.WebRTCICEServers2,
+			HandshakeTimeout:      p.conf.WebRTCHandshakeTimeout,
+			TrackGatherTimeout:    p.conf.WebRTCTrackGatherTimeout,
 			ExternalCmdPool:       p.externalCmdPool,
 			PathManager:           p.pathManager,
 			Parent:                p,

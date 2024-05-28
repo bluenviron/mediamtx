@@ -13,8 +13,14 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+)
+
+const (
+	webrtcHandshakeTimeout   = 10 * time.Second
+	webrtcTrackGatherTimeout = 2 * time.Second
 )
 
 // WHIPClient is a WHIP client.
@@ -48,12 +54,14 @@ func (c *WHIPClient) Publish(
 	}
 
 	c.pc = &PeerConnection{
-		ICEServers:        iceServers,
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-		Publish:           true,
-		OutgoingTracks:    outgoingTracks,
-		Log:               c.Log,
+		ICEServers:         iceServers,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            true,
+		OutgoingTracks:     outgoingTracks,
+		Log:                c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
@@ -122,11 +130,13 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 	}
 
 	c.pc = &PeerConnection{
-		ICEServers:        iceServers,
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-		Publish:           false,
-		Log:               c.Log,
+		ICEServers:         iceServers,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            false,
+		Log:                c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {

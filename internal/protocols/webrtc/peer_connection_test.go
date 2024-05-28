@@ -4,16 +4,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPeerConnectionCloseAfterError(t *testing.T) {
 	pc := &PeerConnection{
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-		Publish:           false,
-		Log:               test.NilLogger,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            false,
+		Log:                test.NilLogger,
 	}
 	err := pc.Start()
 	require.NoError(t, err)

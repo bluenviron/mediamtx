@@ -246,6 +246,10 @@ components:
                 type: string
               clientOnly:
                 type: boolean
+        webrtcHandshakeTimeout:
+          type: string
+        webrtcTrackGatherTimeout:
+          type: string
 
         # SRT server
         srt:

@@ -381,6 +381,10 @@ webrtcICEServers2: []
   # username: ''
   # password: ''
   # clientOnly: false
+# Time to wait for the WebRTC handshake to complete.
+webrtcHandshakeTimeout: 10s
+# Maximum time to gather video tracks.
+webrtcTrackGatherTimeout: 2s
 
 ###############################################
 # Global settings -> SRT server

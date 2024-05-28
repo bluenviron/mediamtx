@@ -11,13 +11,12 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (
-	webrtcHandshakeTimeout   = 10 * time.Second
-	webrtcTrackGatherTimeout = 2 * time.Second
-	webrtcStreamID           = "mediamtx"
+	webrtcStreamID = "mediamtx"
 )
 
 func stringInSlice(a string, list []string) bool {
@@ -39,6 +38,8 @@ type PeerConnection struct {
 	ICEServers            []webrtc.ICEServer
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             ice.TCPMux
+	HandshakeTimeout      conf.StringDuration
+	TrackGatherTimeout    conf.StringDuration
 	LocalRandomUDP        bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
@@ -312,7 +313,7 @@ func (co *PeerConnection) WaitGatheringDone(ctx context.Context) error {
 func (co *PeerConnection) WaitUntilConnected(
 	ctx context.Context,
 ) error {
-	t := time.NewTimer(webrtcHandshakeTimeout)
+	t := time.NewTimer(time.Duration(co.HandshakeTimeout))
 	defer t.Stop()
 
 outer:
@@ -339,7 +340,7 @@ func (co *PeerConnection) GatherIncomingTracks(
 ) ([]*IncomingTrack, error) {
 	var tracks []*IncomingTrack
 
-	t := time.NewTimer(webrtcTrackGatherTimeout)
+	t := time.NewTimer(time.Duration(co.TrackGatherTimeout))
 	defer t.Stop()
 
 	for {
