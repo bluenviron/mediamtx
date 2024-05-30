@@ -61,7 +61,7 @@ func do() error {
 	}
 	version := strings.TrimSpace(string(buf))
 
-	log.Printf("downloading mediamtx-rpicamera version %s...", version)
+	log.Printf("downloading mediamtx-rpicamera %s...", version)
 
 	for _, f := range []string{"mtxrpicam_32.tar.gz", "mtxrpicam_64.tar.gz"} {
 		err = os.RemoveAll(strings.TrimSuffix(f, ".tar.gz"))

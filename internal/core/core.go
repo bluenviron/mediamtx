@@ -3,6 +3,7 @@ package core
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
 	"os/signal"
@@ -33,7 +34,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
-var version = "v0.0.0"
+//go:generate go run ./versiongetter
+
+//go:embed VERSION
+var version []byte
 
 var defaultConfPaths = []string{
 	"rtsp-simple-server.yml",
@@ -82,7 +86,7 @@ type Core struct {
 // New allocates a Core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
-		kong.Description("MediaMTX "+version),
+		kong.Description("MediaMTX "+string(version)),
 		kong.UsageOnError(),
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {

@@ -22,7 +22,7 @@ func do() error {
 	}
 	version := strings.TrimSpace(string(buf))
 
-	log.Printf("downloading hls.js version %s...", version)
+	log.Printf("downloading hls.js %s...", version)
 
 	res, err := http.Get("https://github.com/video-dev/hls.js/releases/download/" + version + "/release.zip")
 	if err != nil {
