@@ -409,6 +409,8 @@ func (s *session) runPublish() (int, error) {
 
 	pc := &webrtc.PeerConnection{
 		ICEServers:            iceServers,
+		HandshakeTimeout:      s.parent.HandshakeTimeout,
+		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
@@ -566,6 +568,8 @@ func (s *session) runRead() (int, error) {
 
 	pc := &webrtc.PeerConnection{
 		ICEServers:            iceServers,
+		HandshakeTimeout:      s.parent.HandshakeTimeout,
+		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,

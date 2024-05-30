@@ -192,6 +192,8 @@ type Server struct {
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
 	ICEServers            []conf.WebRTCICEServer
+	HandshakeTimeout      conf.StringDuration
+	TrackGatherTimeout    conf.StringDuration
 	ExternalCmdPool       *externalcmd.Pool
 	PathManager           serverPathManager
 	Parent                serverParent
