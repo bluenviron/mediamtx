@@ -190,6 +190,7 @@ func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
+	router.NoRoute(a.middlewareOrigin, a.middlewareAuth)
 	group := router.Group("/", a.middlewareOrigin, a.middlewareAuth)
 
 	group.GET("/v3/config/global/get", a.onConfigGlobalGet)

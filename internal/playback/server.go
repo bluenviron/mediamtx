@@ -43,7 +43,10 @@ type Server struct {
 func (s *Server) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
+
+	router.NoRoute(s.middlewareOrigin)
 	group := router.Group("/", s.middlewareOrigin)
+
 	group.GET("/list", s.onList)
 	group.GET("/get", s.onGet)
 
