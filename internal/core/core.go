@@ -850,6 +850,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
+		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
+		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger
