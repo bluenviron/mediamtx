@@ -480,8 +480,16 @@ const createOffer = () => {
 	pc.createOffer()
 		.then((offer) => {
 			offerData = parseOffer(offer.sdp);
-			pc.setLocalDescription(offer);
-			sendOffer(offer.sdp);
+			pc.setLocalDescription(offer)
+				.then(() => {
+					sendOffer(offer.sdp);
+				})
+				.catch((err) => {
+					onError(err.toString());
+				});
+		})
+		.catch((err) => {
+			onError(err.toString());
 		});
 };
 
@@ -491,7 +499,7 @@ const onConnectionState = () => {
 	}
 
 	if (pc.iceConnectionState === 'disconnected') {
-		onError('peer connection disconnected', true);
+		onError('peer connection closed', true);
 	} else if (pc.iceConnectionState === 'connected') {
 		setMessage('');
 	}
