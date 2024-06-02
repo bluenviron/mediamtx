@@ -8,6 +8,10 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+const (
+	mimeMultiopus = "audio/multiopus"
+)
+
 // OutgoingTrack is a WebRTC outgoing track
 type OutgoingTrack struct {
 	Format format.Format
@@ -29,9 +33,8 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 	case *format.VP9:
 		return webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:    webrtc.MimeTypeVP9,
-				ClockRate:   90000,
-				SDPFmtpLine: "profile-id=1",
+				MimeType:  webrtc.MimeTypeVP9,
+				ClockRate: 90000,
 			},
 			PayloadType: 96,
 		}, nil
@@ -57,7 +60,14 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 
 	case *format.Opus:
 		if forma.ChannelCount > 2 {
-			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported Opus channel count: %d", forma.ChannelCount)
+			return webrtc.RTPCodecParameters{
+				RTPCodecCapability: webrtc.RTPCodecCapability{
+					MimeType:  mimeMultiopus,
+					ClockRate: 48000,
+					Channels:  uint16(forma.ChannelCount),
+				},
+				PayloadType: 96,
+			}, nil
 		}
 
 		return webrtc.RTPCodecParameters{
@@ -65,6 +75,13 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 				MimeType:  webrtc.MimeTypeOpus,
 				ClockRate: 48000,
 				Channels:  2,
+				SDPFmtpLine: func() string {
+					s := "minptime=10;useinbandfec=1"
+					if forma.ChannelCount == 2 {
+						s += ";stereo=1;sprop-stereo=1"
+					}
+					return s
+				}(),
 			},
 			PayloadType: 96,
 		}, nil

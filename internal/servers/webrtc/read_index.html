@@ -122,6 +122,42 @@ const enableStereoPcmau = (section) => {
 	return lines.join('\r\n');
 };
 
+const enableMultichannelOpus = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += " 112";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:112 multiopus/48000/3");
+	lines.splice(lines.length - 1, 0, "a=fmtp:112 channel_mapping=0,2,1;num_streams=2;coupled_streams=1");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:112 transport-cc");
+
+	lines[0] += " 113";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:113 multiopus/48000/4");
+	lines.splice(lines.length - 1, 0, "a=fmtp:113 channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:113 transport-cc");
+
+	lines[0] += " 114";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:114 multiopus/48000/5");
+	lines.splice(lines.length - 1, 0, "a=fmtp:114 channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:114 transport-cc");
+
+	lines[0] += " 115";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:115 multiopus/48000/6");
+	lines.splice(lines.length - 1, 0, "a=fmtp:115 channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:115 transport-cc");
+
+	lines[0] += " 116";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:116 multiopus/48000/7");
+	lines.splice(lines.length - 1, 0, "a=fmtp:116 channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:116 transport-cc");
+
+	lines[0] += " 117";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:117 multiopus/48000/8");
+	lines.splice(lines.length - 1, 0, "a=fmtp:117 channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:117 transport-cc");
+
+	return lines.join('\r\n');
+};
+
 const enableStereoOpus = (section) => {
 	let opusPayloadFormat = '';
 	let lines = section.split('\r\n');
@@ -160,6 +196,10 @@ const editOffer = (sdp) => {
 
 			if (nonAdvertisedCodecs.includes('pcma/8000/2')) {
 				sections[i] = enableStereoPcmau(sections[i]);
+			}
+
+			if (nonAdvertisedCodecs.includes('multiopus/48000/6')) {
+				sections[i] = enableMultichannelOpus(sections[i]);
 			}
 
 			break;

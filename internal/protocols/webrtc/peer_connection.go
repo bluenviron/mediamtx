@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -261,8 +262,8 @@ func (co *PeerConnection) SetAnswer(answer *webrtc.SessionDescription) error {
 }
 
 // AddRemoteCandidate adds a remote candidate.
-func (co *PeerConnection) AddRemoteCandidate(candidate webrtc.ICECandidateInit) error {
-	return co.wr.AddICECandidate(candidate)
+func (co *PeerConnection) AddRemoteCandidate(candidate *webrtc.ICECandidateInit) error {
+	return co.wr.AddICECandidate(*candidate)
 }
 
 // CreateFullAnswer creates a full answer.
@@ -277,7 +278,7 @@ func (co *PeerConnection) CreateFullAnswer(
 
 	answer, err := co.wr.CreateAnswer(nil)
 	if err != nil {
-		if err.Error() == "unable to populate media section, RTPSender created with no codecs" {
+		if errors.Is(err, webrtc.ErrSenderWithNoCodecs) {
 			return nil, fmt.Errorf("track codecs are not supported by remote")
 		}
 		return nil, err
@@ -288,7 +289,7 @@ func (co *PeerConnection) CreateFullAnswer(
 		return nil, err
 	}
 
-	err = co.WaitGatheringDone(ctx)
+	err = co.waitGatheringDone(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -296,8 +297,7 @@ func (co *PeerConnection) CreateFullAnswer(
 	return co.wr.LocalDescription(), nil
 }
 
-// WaitGatheringDone waits until candidate gathering is complete.
-func (co *PeerConnection) WaitGatheringDone(ctx context.Context) error {
+func (co *PeerConnection) waitGatheringDone(ctx context.Context) error {
 	for {
 		select {
 		case <-co.NewLocalCandidate():
