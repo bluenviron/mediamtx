@@ -50,6 +50,7 @@ const retryPause = 2000;
 const video = document.getElementById('video');
 const message = document.getElementById('message');
 
+let nonAdvertisedCodecs = [];
 let pc = null;
 let restartTimeout = null;
 let sessionUrl = '';
@@ -87,14 +88,14 @@ const linkToIceServers = (links) => (
 	}) : []
 );
 
-const parseOffer = (offer) => {
+const parseOffer = (sdp) => {
 	const ret = {
 		iceUfrag: '',
 		icePwd: '',
 		medias: [],
 	};
 
-	for (const line of offer.split('\r\n')) {
+	for (const line of sdp.split('\r\n')) {
 		if (line.startsWith('m=')) {
 			ret.medias.push(line.slice('m='.length));
 		} else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
@@ -105,6 +106,20 @@ const parseOffer = (offer) => {
 	}
 
 	return ret;
+};
+
+const enableStereoPcmau = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += ' 118';
+	lines.splice(lines.length - 1, 0, 'a=rtpmap:118 PCMU/8000/2');
+	lines.splice(lines.length - 1, 0, 'a=rtcp-fb:118 transport-cc');
+
+	lines[0] += ' 119';
+	lines.splice(lines.length - 1, 0, 'a=rtpmap:119 PCMA/8000/2');
+	lines.splice(lines.length - 1, 0, 'a=rtcp-fb:119 transport-cc');
+
+	return lines.join('\r\n');
 };
 
 const enableStereoOpus = (section) => {
@@ -136,17 +151,22 @@ const enableStereoOpus = (section) => {
 	return lines.join('\r\n');
 };
 
-const editOffer = (offer) => {
-	const sections = offer.sdp.split('m=');
+const editOffer = (sdp) => {
+	const sections = sdp.split('m=');
 
 	for (let i = 0; i < sections.length; i++) {
-		const section = sections[i];
-		if (section.startsWith('audio')) {
-			sections[i] = enableStereoOpus(section);
+		if (sections[i].startsWith('audio')) {
+			sections[i] = enableStereoOpus(sections[i]);
+
+			if (nonAdvertisedCodecs.includes('pcma/8000/2')) {
+				sections[i] = enableStereoPcmau(sections[i]);
+			}
+
+			break;
 		}
 	}
 
-	offer.sdp = sections.join('m=');
+	return sections.join('m=');
 };
 
 const generateSdpFragment = (od, candidates) => {
@@ -181,6 +201,70 @@ const generateSdpFragment = (od, candidates) => {
 
 const loadStream = () => {
 	requestICEServers();
+};
+
+const supportsNonAdvertisedCodec = (codec, fmtp) => (
+	new Promise((resolve, reject) => {
+		const pc = new RTCPeerConnection({ iceServers: [] });
+		pc.addTransceiver('audio', { direction: 'recvonly' });
+		pc.createOffer()
+			.then((offer) => {
+				if (offer.sdp.includes(' ' + codec)) { // codec is advertised, there's no need to add it manually
+					resolve(false);
+					return;
+				}
+				const sections = offer.sdp.split('m=audio');
+				const lines = sections[1].split('\r\n');
+				lines[0] += ' 118';
+				lines.splice(lines.length - 1, 0, 'a=rtpmap:118 ' + codec);
+				if (fmtp !== undefined) {
+					lines.splice(lines.length - 1, 0, 'a=fmtp:118 ' + fmtp);
+				}
+				sections[1] = lines.join('\r\n');
+				offer.sdp = sections.join('m=audio');
+				return pc.setLocalDescription(offer);
+			})
+			.then(() => {
+				return pc.setRemoteDescription(new RTCSessionDescription({
+					type: 'answer',
+					sdp: 'v=0\r\n'
+					+ 'o=- 6539324223450680508 0 IN IP4 0.0.0.0\r\n'
+					+ 's=-\r\n'
+					+ 't=0 0\r\n'
+					+ 'a=fingerprint:sha-256 0D:9F:78:15:42:B5:4B:E6:E2:94:3E:5B:37:78:E1:4B:54:59:A3:36:3A:E5:05:EB:27:EE:8F:D2:2D:41:29:25\r\n'
+					+ 'm=audio 9 UDP/TLS/RTP/SAVPF 118\r\n'
+					+ 'c=IN IP4 0.0.0.0\r\n'
+					+ 'a=ice-pwd:7c3bf4770007e7432ee4ea4d697db675\r\n'
+					+ 'a=ice-ufrag:29e036dc\r\n'
+					+ 'a=sendonly\r\n'
+					+ 'a=rtcp-mux\r\n'
+					+ 'a=rtpmap:118 ' + codec + '\r\n'
+					+ ((fmtp !== undefined) ? 'a=fmtp:118 ' + fmtp + '\r\n' : ''),
+				}));
+			})
+			.then(() => {
+				resolve(true);
+			})
+			.catch((err) => {
+				resolve(false);
+			})
+			.finally(() => {
+				pc.close();
+			});
+	})
+);
+
+const getNonAdvertisedCodecs = () => {
+	Promise.all([
+		['pcma/8000/2'],
+		['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
+		['L16/48000/2']
+	].map((c) => supportsNonAdvertisedCodec(c[0], c[1]).then((r) => (r) ? c[0] : false)))
+		.then((c) => c.filter((e) => e !== false))
+		.then((codecs) => {
+			nonAdvertisedCodecs = codecs;
+			loadStream();
+		});
 };
 
 const onError = (err) => {
@@ -295,7 +379,7 @@ const sendOffer = (offer) => {
 const createOffer = () => {
 	pc.createOffer()
 		.then((offer) => {
-			editOffer(offer);
+			offer.sdp = editOffer(offer.sdp);
 			offerData = parseOffer(offer.sdp);
 			pc.setLocalDescription(offer);
 			sendOffer(offer);
@@ -366,7 +450,7 @@ const loadAttributesFromQuery = () => {
 
 const init = () => {
 	loadAttributesFromQuery();
-	loadStream();
+	getNonAdvertisedCodecs();
 };
 
 window.addEventListener('DOMContentLoaded', init);
