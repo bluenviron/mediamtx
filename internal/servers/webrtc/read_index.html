@@ -254,12 +254,16 @@ const onRemoteAnswer = (sdp) => {
 	pc.setRemoteDescription(new RTCSessionDescription({
 		type: 'answer',
 		sdp,
-	}));
-
-	if (queuedCandidates.length !== 0) {
-		sendLocalCandidates(queuedCandidates);
-		queuedCandidates = [];
-	}
+	}))
+		.then(() => {
+			if (queuedCandidates.length !== 0) {
+				sendLocalCandidates(queuedCandidates);
+				queuedCandidates = [];
+			}
+		})
+		.catch((err) => {
+			onError(err.toString());
+		});
 };
 
 const sendOffer = (offer) => {
