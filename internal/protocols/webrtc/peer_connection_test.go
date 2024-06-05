@@ -154,8 +154,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				ChannelCount: 1,
 			},
 		},
-		// TODO: check why this fails
-		/* {
+		{
 			"g711 pcmu mono",
 			&format.G711{
 				MULaw:        true,
@@ -169,7 +168,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				SampleRate:   8000,
 				ChannelCount: 1,
 			},
-		}, */
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			pc1 := &PeerConnection{

@@ -12,8 +12,8 @@ github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc
 github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1 h1:fD6eZt+3/t8bzFn6ZZA2eP63xBP06v3EPfPJu8DO8ys=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1/go.mod h1:lT3kv5uUIlHfXHU/ZRD7uKD/ufM202+eTa3C/umgGf4=
-github.com/aler9/webrtc/v3 v3.0.0-20240527213244-d3ff0bd9230f h1:IcGmhy+mh/cDCHR8BBDI8iUGeV2/O1A/qqoR3yi62Z0=
-github.com/aler9/webrtc/v3 v3.0.0-20240527213244-d3ff0bd9230f/go.mod h1:1CaT2fcZzZ6VZA+O1i9yK2DU4EOcXVvSbWG9pr5jefs=
+github.com/aler9/webrtc/v3 v3.0.0-20240605103651-01c72f58f2bd h1:pYkvTEbGnsoN55D55V8okpqZxBwbXp1XpSnZ3elpFs4=
+github.com/aler9/webrtc/v3 v3.0.0-20240605103651-01c72f58f2bd/go.mod h1:1CaT2fcZzZ6VZA+O1i9yK2DU4EOcXVvSbWG9pr5jefs=
 github.com/asticode/go-astikit v0.30.0 h1:DkBkRQRIxYcknlaU7W7ksNfn4gMFsB0tqMJflxkRsZA=
 github.com/asticode/go-astikit v0.30.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
 github.com/asticode/go-astits v1.13.0 h1:XOgkaadfZODnyZRR5Y0/DWkA9vrkLLPLeeOvDwfKZ1c=
