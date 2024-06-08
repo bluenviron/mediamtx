@@ -158,6 +158,24 @@ const enableMultichannelOpus = (section) => {
 	return lines.join('\r\n');
 };
 
+const enableL16 = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += " 120";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:120 L16/8000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:120 transport-cc");
+
+	lines[0] += " 121";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:121 L16/16000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:121 transport-cc");
+
+	lines[0] += " 122";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:122 L16/48000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:122 transport-cc");
+
+	return lines.join('\r\n');
+};
+
 const enableStereoOpus = (section) => {
 	let opusPayloadFormat = '';
 	let lines = section.split('\r\n');
@@ -200,6 +218,10 @@ const editOffer = (sdp) => {
 
 			if (nonAdvertisedCodecs.includes('multiopus/48000/6')) {
 				sections[i] = enableMultichannelOpus(sections[i]);
+			}
+
+			if (nonAdvertisedCodecs.includes('L16/48000/2')) {
+				sections[i] = enableL16(sections[i]);
 			}
 
 			break;

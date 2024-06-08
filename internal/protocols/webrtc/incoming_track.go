@@ -19,6 +19,11 @@ const (
 	keyFrameInterval = 2 * time.Second
 )
 
+const (
+	mimeTypeMultiopus = "audio/multiopus"
+	mimeTypeL16       = "audio/L16"
+)
+
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -95,7 +100,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    3,
 			SDPFmtpLine: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
@@ -104,7 +109,7 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    4,
 			SDPFmtpLine: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
@@ -113,7 +118,7 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    5,
 			SDPFmtpLine: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
@@ -122,7 +127,7 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    6,
 			SDPFmtpLine: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
@@ -131,7 +136,7 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    7,
 			SDPFmtpLine: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
@@ -140,7 +145,7 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeMultiopus,
+			MimeType:    mimeTypeMultiopus,
 			ClockRate:   48000,
 			Channels:    8,
 			SDPFmtpLine: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
@@ -192,6 +197,30 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 			ClockRate: 8000,
 		},
 		PayloadType: 8,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  mimeTypeL16,
+			ClockRate: 8000,
+			Channels:  2,
+		},
+		PayloadType: 120,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  mimeTypeL16,
+			ClockRate: 16000,
+			Channels:  2,
+		},
+		PayloadType: 121,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  mimeTypeL16,
+			ClockRate: 48000,
+			Channels:  2,
+		},
+		PayloadType: 122,
 	},
 }
 
@@ -245,7 +274,7 @@ func newIncomingTrack(
 			PacketizationMode: 1,
 		}
 
-	case strings.ToLower(mimeMultiopus):
+	case strings.ToLower(mimeTypeMultiopus):
 		t.format = &format.Opus{
 			PayloadTyp:   uint8(track.PayloadType()),
 			ChannelCount: int(track.Codec().Channels),
@@ -299,6 +328,14 @@ func newIncomingTrack(
 			MULaw:        false,
 			SampleRate:   8000,
 			ChannelCount: int(channels),
+		}
+
+	case strings.ToLower(mimeTypeL16):
+		t.format = &format.LPCM{
+			PayloadTyp:   uint8(track.PayloadType()),
+			BitDepth:     16,
+			SampleRate:   int(track.Codec().ClockRate),
+			ChannelCount: int(track.Codec().Channels),
 		}
 
 	default:

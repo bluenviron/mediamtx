@@ -8,10 +8,6 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-const (
-	mimeMultiopus = "audio/multiopus"
-)
-
 // OutgoingTrack is a WebRTC outgoing track
 type OutgoingTrack struct {
 	Format format.Format
@@ -62,7 +58,7 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 		if forma.ChannelCount > 2 {
 			return webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  mimeMultiopus,
+					MimeType:  mimeTypeMultiopus,
 					ClockRate: 48000,
 					Channels:  uint16(forma.ChannelCount),
 				},
@@ -138,6 +134,28 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 				ClockRate: 8000,
 			},
 			PayloadType: 8,
+		}, nil
+
+	case *format.LPCM:
+		if forma.BitDepth != 16 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported LPCM bit depth: %d", forma.BitDepth)
+		}
+
+		if forma.ClockRate() != 8000 && forma.ClockRate() != 16000 && forma.ClockRate() != 48000 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported clock rate: %d", forma.ClockRate())
+		}
+
+		if forma.ChannelCount != 1 && forma.ChannelCount != 2 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported channel count: %d", forma.ChannelCount)
+		}
+
+		return webrtc.RTPCodecParameters{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:  mimeTypeL16,
+				ClockRate: uint32(forma.ClockRate()),
+				Channels:  uint16(forma.ChannelCount),
+			},
+			PayloadType: 96,
 		}, nil
 
 	default:
