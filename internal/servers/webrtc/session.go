@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
+	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
 	"github.com/pion/sdp/v3"
@@ -41,6 +43,15 @@ type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
 func uint16Ptr(v uint16) *uint16 {
 	return &v
+}
+
+func randUint32() (uint32, error) {
+	var b [4]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]), nil
 }
 
 func findVideoTrack(
@@ -254,13 +265,72 @@ func findAudioTrack(
 
 	if g711Format != nil {
 		return g711Format, func(track *webrtc.OutgoingTrack) error {
-			stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
-				for _, pkt := range u.GetRTPPackets() {
-					track.WriteRTP(pkt) //nolint:errcheck
+			if g711Format.SampleRate == 8000 {
+				curTimestamp, err := randUint32()
+				if err != nil {
+					return err
 				}
 
-				return nil
-			})
+				stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
+					for _, pkt := range u.GetRTPPackets() {
+						// recompute timestamp from scratch.
+						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+						pkt.Timestamp = curTimestamp
+						curTimestamp += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
+
+						track.WriteRTP(pkt) //nolint:errcheck
+					}
+
+					return nil
+				})
+			} else {
+				encoder := &rtplpcm.Encoder{
+					PayloadType:    96,
+					PayloadMaxSize: webrtcPayloadMaxSize,
+					BitDepth:       16,
+					ChannelCount:   g711Format.ChannelCount,
+				}
+				err := encoder.Init()
+				if err != nil {
+					return err
+				}
+
+				curTimestamp, err := randUint32()
+				if err != nil {
+					return err
+				}
+
+				stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
+					tunit := u.(*unit.G711)
+
+					if tunit.Samples == nil {
+						return nil
+					}
+
+					var lpcmSamples []byte
+					if g711Format.MULaw {
+						lpcmSamples = g711.DecodeMulaw(tunit.Samples)
+					} else {
+						lpcmSamples = g711.DecodeAlaw(tunit.Samples)
+					}
+
+					packets, err := encoder.Encode(lpcmSamples)
+					if err != nil {
+						return nil //nolint:nilerr
+					}
+
+					for _, pkt := range packets {
+						// recompute timestamp from scratch.
+						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+						pkt.Timestamp = curTimestamp
+						curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
+
+						track.WriteRTP(pkt) //nolint:errcheck
+					}
+
+					return nil
+				})
+			}
 			return nil
 		}
 	}
@@ -281,6 +351,11 @@ func findAudioTrack(
 				return err
 			}
 
+			curTimestamp, err := randUint32()
+			if err != nil {
+				return err
+			}
+
 			stream.AddReader(writer, media, lpcmFormat, func(u unit.Unit) error {
 				tunit := u.(*unit.LPCM)
 
@@ -294,7 +369,11 @@ func findAudioTrack(
 				}
 
 				for _, pkt := range packets {
-					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					// recompute timestamp from scratch.
+					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+					pkt.Timestamp = curTimestamp
+					curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
+
 					track.WriteRTP(pkt) //nolint:errcheck
 				}
 

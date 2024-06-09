@@ -431,7 +431,7 @@ func TestServerRead(t *testing.T) {
 			[]byte{1, 2},
 		},*/
 		{
-			"g711",
+			"g711 8khz mono",
 			[]*description.Media{{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.G711{
@@ -444,6 +444,21 @@ func TestServerRead(t *testing.T) {
 				Samples: []byte{1, 2, 3},
 			},
 			[]byte{1, 2, 3},
+		},
+		{
+			"g711 16khz stereo",
+			[]*description.Media{{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.G711{
+					MULaw:        true,
+					SampleRate:   16000,
+					ChannelCount: 2,
+				}},
+			}},
+			&unit.G711{
+				Samples: []byte{1, 2, 3, 4},
+			},
+			[]byte{0x86, 0x84, 0x8a, 0x84, 0x8e, 0x84, 0x92, 0x84},
 		},
 		{
 			"lpcm",
