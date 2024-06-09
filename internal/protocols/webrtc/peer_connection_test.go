@@ -114,7 +114,35 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			&format.G722{},
 		},
 		{
-			"g711 pcma stereo",
+			"g711 pcma 8khz mono",
+			&format.G711{
+				PayloadTyp:   8,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+			&format.G711{
+				PayloadTyp:   8,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+		},
+		{
+			"g711 pcmu 8khz mono",
+			&format.G711{
+				MULaw:        true,
+				PayloadTyp:   0,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+			&format.G711{
+				MULaw:        true,
+				PayloadTyp:   0,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+		},
+		{
+			"g711 pcma 8khz stereo",
 			&format.G711{
 				PayloadTyp:   96,
 				SampleRate:   8000,
@@ -127,7 +155,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			},
 		},
 		{
-			"g711 pcmu stereo",
+			"g711 pcmu 8khz stereo",
 			&format.G711{
 				MULaw:        true,
 				PayloadTyp:   96,
@@ -142,35 +170,36 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			},
 		},
 		{
-			"g711 pcma mono",
+			"g711 pcma 16khz stereo",
 			&format.G711{
-				PayloadTyp:   8,
-				SampleRate:   8000,
-				ChannelCount: 1,
+				PayloadTyp:   96,
+				SampleRate:   16000,
+				ChannelCount: 2,
 			},
-			&format.G711{
-				PayloadTyp:   8,
-				SampleRate:   8000,
-				ChannelCount: 1,
-			},
-		},
-		{
-			"g711 pcmu mono",
-			&format.G711{
-				MULaw:        true,
-				PayloadTyp:   0,
-				SampleRate:   8000,
-				ChannelCount: 1,
-			},
-			&format.G711{
-				MULaw:        true,
-				PayloadTyp:   0,
-				SampleRate:   8000,
-				ChannelCount: 1,
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   16000,
+				ChannelCount: 2,
 			},
 		},
 		{
-			"l16 8000 stereo",
+			"g711 pcmu 16khz stereo",
+			&format.G711{
+				MULaw:        true,
+				PayloadTyp:   96,
+				SampleRate:   16000,
+				ChannelCount: 2,
+			},
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   16000,
+				ChannelCount: 2,
+			},
+		},
+		{
+			"l16 8khz stereo",
 			&format.LPCM{
 				PayloadTyp:   96,
 				BitDepth:     16,
@@ -185,7 +214,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			},
 		},
 		{
-			"l16 16000 stereo",
+			"l16 16khz stereo",
 			&format.LPCM{
 				PayloadTyp:   96,
 				BitDepth:     16,

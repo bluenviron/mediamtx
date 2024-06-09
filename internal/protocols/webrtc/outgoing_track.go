@@ -92,15 +92,43 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 		}, nil
 
 	case *format.G711:
-		if forma.SampleRate != 8000 {
-			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported G711 sample rate")
+		// These are the sample rates and channels supported by Chrome.
+		// Different sample rates and channels can be streamed too but we don't want compatibility issues.
+		// https://webrtc.googlesource.com/src/+/refs/heads/main/modules/audio_coding/codecs/pcm16b/audio_decoder_pcm16b.cc#23
+		if forma.ClockRate() != 8000 && forma.ClockRate() != 16000 &&
+			forma.ClockRate() != 32000 && forma.ClockRate() != 48000 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported clock rate: %d", forma.ClockRate())
+		}
+		if forma.ChannelCount != 1 && forma.ChannelCount != 2 {
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported channel count: %d", forma.ChannelCount)
 		}
 
-		if forma.MULaw {
-			if forma.ChannelCount != 1 {
+		if forma.SampleRate == 8000 {
+			if forma.MULaw {
+				if forma.ChannelCount != 1 {
+					return webrtc.RTPCodecParameters{
+						RTPCodecCapability: webrtc.RTPCodecCapability{
+							MimeType:  webrtc.MimeTypePCMU,
+							ClockRate: uint32(forma.SampleRate),
+							Channels:  uint16(forma.ChannelCount),
+						},
+						PayloadType: 96,
+					}, nil
+				}
+
 				return webrtc.RTPCodecParameters{
 					RTPCodecCapability: webrtc.RTPCodecCapability{
 						MimeType:  webrtc.MimeTypePCMU,
+						ClockRate: 8000,
+					},
+					PayloadType: 0,
+				}, nil
+			}
+
+			if forma.ChannelCount != 1 {
+				return webrtc.RTPCodecParameters{
+					RTPCodecCapability: webrtc.RTPCodecCapability{
+						MimeType:  webrtc.MimeTypePCMA,
 						ClockRate: uint32(forma.SampleRate),
 						Channels:  uint16(forma.ChannelCount),
 					},
@@ -110,30 +138,20 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 
 			return webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  webrtc.MimeTypePCMU,
+					MimeType:  webrtc.MimeTypePCMA,
 					ClockRate: 8000,
 				},
-				PayloadType: 0,
-			}, nil
-		}
-
-		if forma.ChannelCount != 1 {
-			return webrtc.RTPCodecParameters{
-				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  webrtc.MimeTypePCMA,
-					ClockRate: uint32(forma.SampleRate),
-					Channels:  uint16(forma.ChannelCount),
-				},
-				PayloadType: 96,
+				PayloadType: 8,
 			}, nil
 		}
 
 		return webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypePCMA,
-				ClockRate: 8000,
+				MimeType:  mimeTypeL16,
+				ClockRate: uint32(forma.ClockRate()),
+				Channels:  uint16(forma.ChannelCount),
 			},
-			PayloadType: 8,
+			PayloadType: 96,
 		}, nil
 
 	case *format.LPCM:
@@ -141,10 +159,13 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported LPCM bit depth: %d", forma.BitDepth)
 		}
 
-		if forma.ClockRate() != 8000 && forma.ClockRate() != 16000 && forma.ClockRate() != 48000 {
+		// These are the sample rates and channels supported by Chrome.
+		// Different sample rates and channels can be streamed too but we don't want compatibility issues.
+		// https://webrtc.googlesource.com/src/+/refs/heads/main/modules/audio_coding/codecs/pcm16b/audio_decoder_pcm16b.cc#23
+		if forma.ClockRate() != 8000 && forma.ClockRate() != 16000 &&
+			forma.ClockRate() != 32000 && forma.ClockRate() != 48000 {
 			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported clock rate: %d", forma.ClockRate())
 		}
-
 		if forma.ChannelCount != 1 && forma.ChannelCount != 2 {
 			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported channel count: %d", forma.ChannelCount)
 		}
