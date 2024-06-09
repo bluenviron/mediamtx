@@ -26,10 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func uint16Ptr(v uint16) *uint16 {
-	return &v
-}
-
 func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
 }
@@ -357,8 +353,7 @@ func TestServerRead(t *testing.T) {
 			},
 			[]byte{0, 2, 1, 2},
 		},
-		// TODO: check why this doesn't work
-		/*{
+		{
 			"vp9",
 			[]*description.Media{{
 				Type: description.MediaTypeVideo,
@@ -367,10 +362,14 @@ func TestServerRead(t *testing.T) {
 				}},
 			}},
 			&unit.VP9{
-				Frame: []byte{1, 2},
+				Frame: []byte{0x82, 0x49, 0x83, 0x42, 0x0, 0x77, 0xf0, 0x32, 0x34},
 			},
-			[]byte{1, 2},
-		},*/
+			[]byte{
+				0x8f, 0xa0, 0xfd, 0x18, 0x07, 0x80, 0x03, 0x24,
+				0x01, 0x14, 0x01, 0x82, 0x49, 0x83, 0x42, 0x00,
+				0x77, 0xf0, 0x32, 0x34,
+			},
+		},
 		{
 			"vp8",
 			[]*description.Media{{

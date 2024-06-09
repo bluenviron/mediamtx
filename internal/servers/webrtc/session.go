@@ -35,9 +35,13 @@ import (
 )
 
 var errNoSupportedCodecs = errors.New(
-	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711")
+	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711, LPCM")
 
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
+
+func uint16Ptr(v uint16) *uint16 {
+	return &v
+}
 
 func findVideoTrack(
 	stream *stream.Stream,
@@ -87,8 +91,9 @@ func findVideoTrack(
 	if vp9Format != nil {
 		return vp9Format, func(track *webrtc.OutgoingTrack) error {
 			encoder := &rtpvp9.Encoder{
-				PayloadType:    96,
-				PayloadMaxSize: webrtcPayloadMaxSize,
+				PayloadType:      96,
+				PayloadMaxSize:   webrtcPayloadMaxSize,
+				InitialPictureID: uint16Ptr(8445),
 			}
 			err := encoder.Init()
 			if err != nil {
