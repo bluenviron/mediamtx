@@ -29,7 +29,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeAV1,
 			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=1",
+			SDPFmtpLine: "profile=1",
 		},
 		PayloadType: 96,
 	},
