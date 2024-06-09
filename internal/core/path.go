@@ -810,6 +810,9 @@ func (pa *path) startRecording() {
 			if pa.conf.RunOnRecordSegmentComplete != "" {
 				env := pa.ExternalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
+				env["MTX_SEGMENT_DURATION"] = strconv.FormatFloat(
+					time.Duration(pa.conf.RecordSegmentDuration).Seconds(), 'f', -1, 64,
+				)
 
 				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
 				externalcmd.NewCmd(
