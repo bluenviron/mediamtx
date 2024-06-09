@@ -413,8 +413,7 @@ func TestServerRead(t *testing.T) {
 			},
 			[]byte{1, 2},
 		},
-		// TODO: check why this doesn't work
-		/*{
+		{
 			"g722",
 			[]*description.Media{{
 				Type:    description.MediaTypeAudio,
@@ -423,13 +422,20 @@ func TestServerRead(t *testing.T) {
 			&unit.Generic{
 				Base: unit.Base{
 					RTPPackets: []*rtp.Packet{{
-						Header:  rtp.Header{},
+						Header: rtp.Header{
+							Version:        2,
+							Marker:         true,
+							PayloadType:    9,
+							SequenceNumber: 1123,
+							Timestamp:      45343,
+							SSRC:           563423,
+						},
 						Payload: []byte{1, 2},
 					}},
 				},
 			},
 			[]byte{1, 2},
-		},*/
+		},
 		{
 			"g711 8khz mono",
 			[]*description.Media{{
@@ -483,7 +489,7 @@ func TestServerRead(t *testing.T) {
 			stream, err := stream.New(
 				1460,
 				desc,
-				true,
+				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
 				test.NilLogger,
 			)
 			require.NoError(t, err)
@@ -547,7 +553,13 @@ func TestServerRead(t *testing.T) {
 
 					r := reflect.New(reflect.TypeOf(ca.unit).Elem())
 					r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
-					stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+
+					if g, ok := r.Interface().(*unit.Generic); ok {
+						clone := *g.RTPPackets[0]
+						stream.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					} else {
+						stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+					}
 				}
 			}()
 
