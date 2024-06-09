@@ -169,8 +169,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	// check that there are at most two tracks
-	_, err = TrackCount(sdp.MediaDescriptions)
+	err = TracksAreValid(sdp.MediaDescriptions)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
@@ -210,7 +209,7 @@ outer:
 		}
 	}
 
-	tracks, err := c.pc.GatherIncomingTracks(ctx, 0)
+	tracks, err := c.pc.GatherIncomingTracks(ctx)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()

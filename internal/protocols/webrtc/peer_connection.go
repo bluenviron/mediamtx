@@ -10,6 +10,7 @@ import (
 
 	"github.com/pion/ice/v2"
 	"github.com/pion/interceptor"
+	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -27,6 +28,37 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+// TracksAreValid checks whether tracks in the SDP are valid
+func TracksAreValid(medias []*sdp.MediaDescription) error {
+	videoTrack := false
+	audioTrack := false
+
+	for _, media := range medias {
+		switch media.MediaName.Media {
+		case "video":
+			if videoTrack {
+				return fmt.Errorf("only a single video and a single audio track are supported")
+			}
+			videoTrack = true
+
+		case "audio":
+			if audioTrack {
+				return fmt.Errorf("only a single video and a single audio track are supported")
+			}
+			audioTrack = true
+
+		default:
+			return fmt.Errorf("unsupported media '%s'", media.MediaName.Media)
+		}
+	}
+
+	if !videoTrack && !audioTrack {
+		return fmt.Errorf("no valid tracks count")
+	}
+
+	return nil
 }
 
 type trackRecvPair struct {
@@ -334,10 +366,12 @@ outer:
 }
 
 // GatherIncomingTracks gathers incoming tracks.
-func (co *PeerConnection) GatherIncomingTracks(
-	ctx context.Context,
-	maxCount int,
-) ([]*IncomingTrack, error) {
+func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*IncomingTrack, error) {
+	var sdp sdp.SessionDescription
+	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
+
+	maxTrackCount := len(sdp.MediaDescriptions)
+
 	var tracks []*IncomingTrack
 
 	t := time.NewTimer(time.Duration(co.TrackGatherTimeout))
@@ -346,7 +380,7 @@ func (co *PeerConnection) GatherIncomingTracks(
 	for {
 		select {
 		case <-t.C:
-			if maxCount == 0 && len(tracks) != 0 {
+			if len(tracks) != 0 {
 				return tracks, nil
 			}
 			return nil, fmt.Errorf("deadline exceeded while waiting tracks")
@@ -358,7 +392,7 @@ func (co *PeerConnection) GatherIncomingTracks(
 			}
 			tracks = append(tracks, track)
 
-			if len(tracks) == maxCount || len(tracks) >= 2 {
+			if len(tracks) >= maxTrackCount {
 				return tracks, nil
 			}
 
