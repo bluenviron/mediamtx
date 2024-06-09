@@ -461,7 +461,7 @@ func (s *session) runPublish() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	trackCount, err := webrtc.TrackCount(sdp.MediaDescriptions)
+	err = webrtc.TracksAreValid(sdp.MediaDescriptions)
 	if err != nil {
 		// RFC draft-ietf-wish-whip
 		// if the number of audio and or video
@@ -489,7 +489,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	tracks, err := pc.GatherIncomingTracks(s.ctx, trackCount)
+	tracks, err := pc.GatherIncomingTracks(s.ctx)
 	if err != nil {
 		return 0, err
 	}

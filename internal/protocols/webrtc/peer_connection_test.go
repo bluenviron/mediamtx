@@ -284,7 +284,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			inc, err := pc2.GatherIncomingTracks(context.Background(), 1)
+			inc, err := pc2.GatherIncomingTracks(context.Background())
 			require.NoError(t, err)
 
 			require.Equal(t, ca.out, inc[0].Format())
