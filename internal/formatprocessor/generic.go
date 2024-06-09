@@ -20,7 +20,7 @@ func newGeneric(
 	generateRTPPackets bool,
 ) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {
-		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %+v", forma)
+		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %T", forma)
 	}
 
 	return &formatProcessorGeneric{

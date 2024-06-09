@@ -169,6 +169,51 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				ChannelCount: 1,
 			},
 		},
+		{
+			"l16 8000 stereo",
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   8000,
+				ChannelCount: 2,
+			},
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   8000,
+				ChannelCount: 2,
+			},
+		},
+		{
+			"l16 16000 stereo",
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   16000,
+				ChannelCount: 2,
+			},
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   16000,
+				ChannelCount: 2,
+			},
+		},
+		{
+			"l16 48khz stereo",
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   48000,
+				ChannelCount: 2,
+			},
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   48000,
+				ChannelCount: 2,
+			},
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			pc1 := &PeerConnection{

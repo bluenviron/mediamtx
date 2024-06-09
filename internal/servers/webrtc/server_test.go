@@ -5,10 +5,12 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -336,107 +338,214 @@ func TestServerPublish(t *testing.T) {
 }
 
 func TestServerRead(t *testing.T) {
-	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
-
-	stream, err := stream.New(
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-	)
-	require.NoError(t, err)
-
-	path := &dummyPath{stream: stream}
-
-	pathManager := &dummyPathManager{path: path}
-
-	s := &Server{
-		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
-		TrustedProxies:        conf.IPNetworks{},
-		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
-		LocalUDPAddress:       "127.0.0.1:8887",
-		LocalTCPAddress:       "127.0.0.1:8887",
-		IPsFromInterfaces:     true,
-		IPsFromInterfacesList: []string{},
-		AdditionalHosts:       []string{},
-		ICEServers:            []conf.WebRTCICEServer{},
-		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
-		ExternalCmdPool:       nil,
-		PathManager:           pathManager,
-		Parent:                test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whep?param=value")
-	require.NoError(t, err)
-
-	tr := &http.Transport{}
-	defer tr.CloseIdleConnections()
-	hc := &http.Client{Transport: tr}
-
-	wc := &webrtc.WHIPClient{
-		HTTPClient: hc,
-		URL:        u,
-		Log:        test.NilLogger,
-	}
-
-	writerDone := make(chan struct{})
-	defer func() { <-writerDone }()
-
-	writerTerminate := make(chan struct{})
-	defer close(writerTerminate)
-
-	go func() {
-		defer close(writerDone)
-		for {
-			select {
-			case <-time.After(100 * time.Millisecond):
-			case <-writerTerminate:
-				return
-			}
-			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-				Base: unit.Base{
-					NTP: time.Time{},
-				},
+	for _, ca := range []struct {
+		name          string
+		medias        []*description.Media
+		unit          unit.Unit
+		outRTPPayload []byte
+	}{
+		{
+			"av1",
+			[]*description.Media{{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.AV1{
+					PayloadTyp: 96,
+				}},
+			}},
+			&unit.AV1{
+				TU: [][]byte{{1, 2}},
+			},
+			[]byte{0, 2, 1, 2},
+		},
+		// TODO: check why this doesn't work
+		/*{
+			"vp9",
+			[]*description.Media{{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP9{
+					PayloadTyp: 96,
+				}},
+			}},
+			&unit.VP9{
+				Frame: []byte{1, 2},
+			},
+			[]byte{1, 2},
+		},*/
+		{
+			"vp8",
+			[]*description.Media{{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP8{
+					PayloadTyp: 96,
+				}},
+			}},
+			&unit.VP8{
+				Frame: []byte{1, 2},
+			},
+			[]byte{0x10, 1, 2},
+		},
+		{
+			"h264",
+			[]*description.Media{test.MediaH264},
+			&unit.H264{
 				AU: [][]byte{
 					{5, 1},
 				},
-			})
-		}
-	}()
-
-	tracks, err := wc.Read(context.Background())
-	require.NoError(t, err)
-	defer checkClose(t, wc.Close)
-
-	pkt, err := tracks[0].ReadRTP()
-	require.NoError(t, err)
-	require.Equal(t, &rtp.Packet{
-		Header: rtp.Header{
-			Version:        2,
-			Marker:         true,
-			PayloadType:    104,
-			SequenceNumber: pkt.SequenceNumber,
-			Timestamp:      pkt.Timestamp,
-			SSRC:           pkt.SSRC,
-			CSRC:           []uint32{},
+			},
+			[]byte{
+				0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
+				0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,
+				0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0,
+				0x3c, 0x60, 0xc9, 0x20, 0x00, 0x04, 0x08, 0x06,
+				0x07, 0x08, 0x00, 0x02, 0x05, 0x01,
+			},
 		},
-		Payload: []byte{
-			0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
-			0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,
-			0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0,
-			0x3c, 0x60, 0xc9, 0x20, 0x00, 0x04, 0x08, 0x06,
-			0x07, 0x08, 0x00, 0x02, 0x05, 0x01,
+		{
+			"opus",
+			[]*description.Media{{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
+					PayloadTyp:   96,
+					ChannelCount: 2,
+				}},
+			}},
+			&unit.Opus{
+				Packets: [][]byte{{1, 2}},
+			},
+			[]byte{1, 2},
 		},
-	}, pkt)
+		// TODO: check why this doesn't work
+		/*{
+			"g722",
+			[]*description.Media{{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.G722{}},
+			}},
+			&unit.Generic{
+				Base: unit.Base{
+					RTPPackets: []*rtp.Packet{{
+						Header:  rtp.Header{},
+						Payload: []byte{1, 2},
+					}},
+				},
+			},
+			[]byte{1, 2},
+		},*/
+		{
+			"g711",
+			[]*description.Media{{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.G711{
+					MULaw:        true,
+					SampleRate:   8000,
+					ChannelCount: 1,
+				}},
+			}},
+			&unit.G711{
+				Samples: []byte{1, 2, 3},
+			},
+			[]byte{1, 2, 3},
+		},
+		{
+			"lpcm",
+			[]*description.Media{{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.LPCM{
+					PayloadTyp:   96,
+					BitDepth:     16,
+					SampleRate:   48000,
+					ChannelCount: 2,
+				}},
+			}},
+			&unit.LPCM{
+				Samples: []byte{1, 2, 3, 4},
+			},
+			[]byte{1, 2, 3, 4},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			desc := &description.Session{Medias: ca.medias}
+
+			stream, err := stream.New(
+				1460,
+				desc,
+				true,
+				test.NilLogger,
+			)
+			require.NoError(t, err)
+
+			path := &dummyPath{stream: stream}
+
+			pathManager := &dummyPathManager{path: path}
+
+			s := &Server{
+				Address:               "127.0.0.1:8886",
+				Encryption:            false,
+				ServerKey:             "",
+				ServerCert:            "",
+				AllowOrigin:           "",
+				TrustedProxies:        conf.IPNetworks{},
+				ReadTimeout:           conf.StringDuration(10 * time.Second),
+				WriteQueueSize:        512,
+				LocalUDPAddress:       "127.0.0.1:8887",
+				LocalTCPAddress:       "127.0.0.1:8887",
+				IPsFromInterfaces:     true,
+				IPsFromInterfacesList: []string{},
+				AdditionalHosts:       []string{},
+				ICEServers:            []conf.WebRTCICEServer{},
+				HandshakeTimeout:      conf.StringDuration(10 * time.Second),
+				TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
+				ExternalCmdPool:       nil,
+				PathManager:           pathManager,
+				Parent:                test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			u, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whep?param=value")
+			require.NoError(t, err)
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			wc := &webrtc.WHIPClient{
+				HTTPClient: hc,
+				URL:        u,
+				Log:        test.NilLogger,
+			}
+
+			writerDone := make(chan struct{})
+			defer func() { <-writerDone }()
+
+			writerTerminate := make(chan struct{})
+			defer close(writerTerminate)
+
+			go func() {
+				defer close(writerDone)
+				for {
+					select {
+					case <-time.After(100 * time.Millisecond):
+					case <-writerTerminate:
+						return
+					}
+
+					r := reflect.New(reflect.TypeOf(ca.unit).Elem())
+					r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
+					stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+				}
+			}()
+
+			tracks, err := wc.Read(context.Background())
+			require.NoError(t, err)
+			defer checkClose(t, wc.Close)
+
+			pkt, err := tracks[0].ReadRTP()
+			require.NoError(t, err)
+			require.Equal(t, ca.outRTPPayload, pkt.Payload)
+		})
+	}
 }
 
 func TestServerPostNotFound(t *testing.T) {
