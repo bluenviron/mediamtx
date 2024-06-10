@@ -128,6 +128,9 @@ func (co *PeerConnection) Start() error {
 	mediaEngine := &webrtc.MediaEngine{}
 
 	if co.Publish {
+		videoSetupped := false
+		audioSetupped := false
+
 		for _, tr := range co.OutgoingTracks {
 			params, err := tr.codecParameters()
 			if err != nil {
@@ -137,11 +140,40 @@ func (co *PeerConnection) Start() error {
 			var codecType webrtc.RTPCodecType
 			if tr.isVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
+				videoSetupped = true
 			} else {
 				codecType = webrtc.RTPCodecTypeAudio
+				audioSetupped = true
 			}
 
 			err = mediaEngine.RegisterCodec(params, codecType)
+			if err != nil {
+				return err
+			}
+		}
+
+		// always register at least a video and a audio codec
+		// otherwise handshake will fail or audio will be muted on some clients (like Firefox)
+		if !videoSetupped {
+			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+				RTPCodecCapability: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeVP8,
+					ClockRate: 90000,
+				},
+				PayloadType: 96,
+			}, webrtc.RTPCodecTypeVideo)
+			if err != nil {
+				return err
+			}
+		}
+		if !audioSetupped {
+			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+				RTPCodecCapability: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypePCMU,
+					ClockRate: 8000,
+				},
+				PayloadType: 0,
+			}, webrtc.RTPCodecTypeAudio)
 			if err != nil {
 				return err
 			}

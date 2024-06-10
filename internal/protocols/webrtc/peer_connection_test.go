@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -408,4 +409,69 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			require.Equal(t, ca.out, inc[0].Format())
 		})
 	}
+}
+
+// test that an audio codec is present regardless of the fact that an audio track is not.
+func TestPeerConnectionFallbackCodecs(t *testing.T) {
+	pc1 := &PeerConnection{
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            false,
+		Log:                test.NilLogger,
+	}
+	err := pc1.Start()
+	require.NoError(t, err)
+	defer pc1.Close()
+
+	pc2 := &PeerConnection{
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            true,
+		OutgoingTracks: []*OutgoingTrack{{
+			Format: &format.AV1{
+				PayloadTyp: 96,
+			},
+		}},
+		Log: test.NilLogger,
+	}
+	err = pc2.Start()
+	require.NoError(t, err)
+	defer pc2.Close()
+
+	offer, err := pc1.CreatePartialOffer()
+	require.NoError(t, err)
+
+	answer, err := pc2.CreateFullAnswer(context.Background(), offer)
+	require.NoError(t, err)
+
+	var s sdp.SessionDescription
+	err = s.Unmarshal([]byte(answer.SDP))
+	require.NoError(t, err)
+
+	require.Equal(t, []*sdp.MediaDescription{
+		{
+			MediaName: sdp.MediaName{
+				Media:   "video",
+				Port:    sdp.RangedPort{Value: 9},
+				Protos:  []string{"UDP", "TLS", "RTP", "SAVPF"},
+				Formats: []string{"97"},
+			},
+			ConnectionInformation: s.MediaDescriptions[0].ConnectionInformation,
+			Attributes:            s.MediaDescriptions[0].Attributes,
+		},
+		{
+			MediaName: sdp.MediaName{
+				Media:   "audio",
+				Port:    sdp.RangedPort{Value: 9},
+				Protos:  []string{"UDP", "TLS", "RTP", "SAVPF"},
+				Formats: []string{"0"},
+			},
+			ConnectionInformation: s.MediaDescriptions[1].ConnectionInformation,
+			Attributes:            s.MediaDescriptions[1].Attributes,
+		},
+	}, s.MediaDescriptions)
 }
