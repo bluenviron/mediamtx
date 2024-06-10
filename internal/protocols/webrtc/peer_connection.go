@@ -311,7 +311,7 @@ func (co *PeerConnection) CreateFullAnswer(
 	answer, err := co.wr.CreateAnswer(nil)
 	if err != nil {
 		if errors.Is(err, webrtc.ErrSenderWithNoCodecs) {
-			return nil, fmt.Errorf("track codecs are not supported by remote")
+			return nil, fmt.Errorf("codecs not supported by client")
 		}
 		return nil, err
 	}
