@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,14 +37,19 @@ func TestPeerConnectionCloseImmediately(t *testing.T) {
 
 func TestPeerConnectionPublishRead(t *testing.T) {
 	for _, ca := range []struct {
-		name string
-		in   format.Format
-		out  format.Format
+		name      string
+		in        format.Format
+		webrtcOut webrtc.RTPCodecCapability
+		out       format.Format
 	}{
 		{
 			"av1",
 			&format.AV1{
 				PayloadTyp: 96,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "video/AV1",
+				ClockRate: 90000,
 			},
 			&format.AV1{
 				PayloadTyp: 96,
@@ -54,6 +60,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			&format.VP9{
 				PayloadTyp: 96,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:    "video/VP9",
+				ClockRate:   90000,
+				SDPFmtpLine: "profile-id=0",
+			},
 			&format.VP9{
 				PayloadTyp: 96,
 			},
@@ -63,6 +74,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			&format.VP8{
 				PayloadTyp: 96,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "video/VP8",
+				ClockRate: 90000,
+			},
 			&format.VP8{
 				PayloadTyp: 96,
 			},
@@ -70,6 +85,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 		{
 			"h264",
 			test.FormatH264,
+			webrtc.RTPCodecCapability{
+				MimeType:    "video/H264",
+				ClockRate:   90000,
+				SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+			},
 			&format.H264{
 				PayloadTyp:        96,
 				PacketizationMode: 1,
@@ -80,6 +100,12 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			&format.Opus{
 				PayloadTyp:   112,
 				ChannelCount: 6,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:    "audio/multiopus",
+				ClockRate:   48000,
+				Channels:    6,
+				SDPFmtpLine: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
 			},
 			&format.Opus{
 				PayloadTyp:   96,
@@ -92,6 +118,12 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				PayloadTyp:   111,
 				ChannelCount: 2,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:    "audio/opus",
+				ClockRate:   48000,
+				Channels:    2,
+				SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
+			},
 			&format.Opus{
 				PayloadTyp:   96,
 				ChannelCount: 2,
@@ -103,6 +135,12 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				PayloadTyp:   111,
 				ChannelCount: 1,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:    "audio/opus",
+				ClockRate:   48000,
+				Channels:    2,
+				SDPFmtpLine: "minptime=10;useinbandfec=1",
+			},
 			&format.Opus{
 				PayloadTyp:   96,
 				ChannelCount: 1,
@@ -111,6 +149,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 		{
 			"g722",
 			&format.G722{},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/G722",
+				ClockRate: 8000,
+			},
 			&format.G722{},
 		},
 		{
@@ -119,6 +161,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				PayloadTyp:   8,
 				SampleRate:   8000,
 				ChannelCount: 1,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/PCMA",
+				ClockRate: 8000,
 			},
 			&format.G711{
 				PayloadTyp:   8,
@@ -134,6 +180,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				SampleRate:   8000,
 				ChannelCount: 1,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/PCMU",
+				ClockRate: 8000,
+			},
 			&format.G711{
 				MULaw:        true,
 				PayloadTyp:   0,
@@ -147,6 +197,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				PayloadTyp:   96,
 				SampleRate:   8000,
 				ChannelCount: 2,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/PCMA",
+				ClockRate: 8000,
+				Channels:  2,
 			},
 			&format.G711{
 				PayloadTyp:   119,
@@ -162,6 +217,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				SampleRate:   8000,
 				ChannelCount: 2,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/PCMU",
+				ClockRate: 8000,
+				Channels:  2,
+			},
 			&format.G711{
 				MULaw:        true,
 				PayloadTyp:   118,
@@ -175,6 +235,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				PayloadTyp:   96,
 				SampleRate:   16000,
 				ChannelCount: 2,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/L16",
+				ClockRate: 16000,
+				Channels:  2,
 			},
 			&format.LPCM{
 				PayloadTyp:   96,
@@ -191,6 +256,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				SampleRate:   16000,
 				ChannelCount: 2,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/L16",
+				ClockRate: 16000,
+				Channels:  2,
+			},
 			&format.LPCM{
 				PayloadTyp:   96,
 				BitDepth:     16,
@@ -205,6 +275,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				BitDepth:     16,
 				SampleRate:   8000,
 				ChannelCount: 2,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/L16",
+				ClockRate: 8000,
+				Channels:  2,
 			},
 			&format.LPCM{
 				PayloadTyp:   96,
@@ -221,6 +296,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				SampleRate:   16000,
 				ChannelCount: 2,
 			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/L16",
+				ClockRate: 16000,
+				Channels:  2,
+			},
 			&format.LPCM{
 				PayloadTyp:   96,
 				BitDepth:     16,
@@ -235,6 +315,11 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 				BitDepth:     16,
 				SampleRate:   48000,
 				ChannelCount: 2,
+			},
+			webrtc.RTPCodecCapability{
+				MimeType:  "audio/L16",
+				ClockRate: 48000,
+				Channels:  2,
 			},
 			&format.LPCM{
 				PayloadTyp:   96,
@@ -315,6 +400,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 
 			inc, err := pc2.GatherIncomingTracks(context.Background())
 			require.NoError(t, err)
+
+			exp := ca.webrtcOut
+			exp.RTCPFeedback = inc[0].track.Codec().RTPCodecCapability.RTCPFeedback
+			require.Equal(t, exp, inc[0].track.Codec().RTPCodecCapability)
 
 			require.Equal(t, ca.out, inc[0].Format())
 		})
