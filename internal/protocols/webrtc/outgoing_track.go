@@ -8,6 +8,15 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+var multichannelOpusSDP = map[int]string{
+	3: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
+	4: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
+	5: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
+	6: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
+	7: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
+	8: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
+}
+
 // OutgoingTrack is a WebRTC outgoing track
 type OutgoingTrack struct {
 	Format format.Format
@@ -29,8 +38,9 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 	case *format.VP9:
 		return webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeVP9,
-				ClockRate: 90000,
+				MimeType:    webrtc.MimeTypeVP9,
+				ClockRate:   90000,
+				SDPFmtpLine: "profile-id=0",
 			},
 			PayloadType: 96,
 		}, nil
@@ -55,32 +65,38 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 		}, nil
 
 	case *format.Opus:
-		if forma.ChannelCount > 2 {
+		switch forma.ChannelCount {
+		case 1, 2:
 			return webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  mimeTypeMultiopus,
+					MimeType:  webrtc.MimeTypeOpus,
 					ClockRate: 48000,
-					Channels:  uint16(forma.ChannelCount),
+					Channels:  2,
+					SDPFmtpLine: func() string {
+						s := "minptime=10;useinbandfec=1"
+						if forma.ChannelCount == 2 {
+							s += ";stereo=1;sprop-stereo=1"
+						}
+						return s
+					}(),
 				},
 				PayloadType: 96,
 			}, nil
-		}
 
-		return webrtc.RTPCodecParameters{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeOpus,
-				ClockRate: 48000,
-				Channels:  2,
-				SDPFmtpLine: func() string {
-					s := "minptime=10;useinbandfec=1"
-					if forma.ChannelCount == 2 {
-						s += ";stereo=1;sprop-stereo=1"
-					}
-					return s
-				}(),
-			},
-			PayloadType: 96,
-		}, nil
+		case 3, 4, 5, 6, 7, 8:
+			return webrtc.RTPCodecParameters{
+				RTPCodecCapability: webrtc.RTPCodecCapability{
+					MimeType:    mimeTypeMultiopus,
+					ClockRate:   48000,
+					Channels:    uint16(forma.ChannelCount),
+					SDPFmtpLine: multichannelOpusSDP[forma.ChannelCount],
+				},
+				PayloadType: 96,
+			}, nil
+
+		default:
+			return webrtc.RTPCodecParameters{}, fmt.Errorf("unsupported channel count: %d", forma.ChannelCount)
+		}
 
 	case *format.G722:
 		return webrtc.RTPCodecParameters{
