@@ -426,13 +426,17 @@ const sendOffer = (offer) => {
 				break;
 			case 404:
 				throw new Error('stream not found');
+			case 400:
+				return res.json().then((e) => { throw new Error(e.error); });
 			default:
 				throw new Error(`bad status code ${res.status}`);
 			}
+
 			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
-			return res.text();
+
+			return res.text()
+				.then((sdp) => onRemoteAnswer(sdp));
 		})
-		.then((sdp) => onRemoteAnswer(sdp))
 		.catch((err) => {
 			onError(err.toString());
 		});

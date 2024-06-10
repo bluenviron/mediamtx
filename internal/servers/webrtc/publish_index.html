@@ -409,7 +409,7 @@ const sendLocalCandidates = (candidates) => {
 	})
 		.then((res) => {
 			if (res.status !== 204) {
-				throw new Error('bad status code');
+				throw new Error(`bad status code ${res.status}`);
 			}
 		})
 		.catch((err) => {
@@ -464,13 +464,20 @@ const sendOffer = (offer) => {
 		body: offer,
 	})
 		.then((res) => {
-			if (res.status !== 201) {
-				throw new Error('bad status code');
+			switch (res.status) {
+			case 201:
+				break;
+			case 400:
+				return res.json().then((e) => { throw new Error(e.error); });
+			default:
+				throw new Error(`bad status code ${res.status}`);
 			}
+
 			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
-			return res.text();
+
+			return res.text()
+				.then((answer) => onRemoteAnswer(answer));
 		})
-		.then((answer) => onRemoteAnswer(answer))
 		.catch((err) => {
 			onError(err.toString(), true);
 		});
