@@ -603,7 +603,7 @@ func TestServerRead(t *testing.T) {
 	}
 }
 
-func TestServerReadAuthorizationHeader(t *testing.T) {
+func TestServerReadAuthorizationBearerJWT(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	str, err := stream.New(
@@ -672,6 +672,85 @@ func TestServerReadAuthorizationHeader(t *testing.T) {
 
 	req.Header.Set("Content-Type", "application/sdp")
 	req.Header.Set("Authorization", "Bearer testing")
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusCreated, res.StatusCode)
+}
+
+func TestServerReadAuthorizationUserPass(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	str, err := stream.New(
+		1460,
+		desc,
+		true,
+		test.NilLogger,
+	)
+	require.NoError(t, err)
+
+	path := &dummyPath{stream: str}
+
+	pm := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return &conf.Path{}, nil
+		},
+		addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return path, str, nil
+		},
+	}
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		Encryption:            false,
+		ServerKey:             "",
+		ServerCert:            "",
+		AllowOrigin:           "",
+		TrustedProxies:        conf.IPNetworks{},
+		ReadTimeout:           conf.StringDuration(10 * time.Second),
+		WriteQueueSize:        512,
+		LocalUDPAddress:       "127.0.0.1:8887",
+		LocalTCPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
+		ExternalCmdPool:       nil,
+		PathManager:           pm,
+		Parent:                test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
+	require.NoError(t, err)
+	defer pc.Close() //nolint:errcheck
+
+	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
+	require.NoError(t, err)
+
+	offer, err := pc.CreateOffer(nil)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost,
+		"http://localhost:8886/teststream/whep", bytes.NewReader([]byte(offer.SDP)))
+	require.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/sdp")
+	req.Header.Set("Authorization", "Bearer myuser:mypass")
 
 	res, err := hc.Do(req)
 	require.NoError(t, err)

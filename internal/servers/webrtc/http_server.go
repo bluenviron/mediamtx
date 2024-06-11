@@ -121,10 +121,17 @@ func (s *httpServer) close() {
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
 	q := ctx.Request.URL.RawQuery
+
 	if h := ctx.Request.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		// JWT in authorization bearer -> JWT in query parameters
 		q = addJWTFromAuthorization(q, h)
+
+		// credentials in authorization bearer -> credentials in authorization basic
+		if parts := strings.Split(strings.TrimPrefix(h, "Bearer "), ":"); len(parts) == 2 {
+			user = parts[0]
+			pass = parts[1]
+		}
 	}
 
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
@@ -194,10 +201,17 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	}
 
 	user, pass, _ := ctx.Request.BasicAuth()
-
 	q := ctx.Request.URL.RawQuery
+
 	if h := ctx.Request.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		// JWT in authorization bearer -> JWT in query parameters
 		q = addJWTFromAuthorization(q, h)
+
+		// credentials in authorization bearer -> credentials in authorization basic
+		if parts := strings.Split(strings.TrimPrefix(h, "Bearer "), ":"); len(parts) == 2 {
+			user = parts[0]
+			pass = parts[1]
+		}
 	}
 
 	res := s.parent.newSession(webRTCNewSessionReq{
