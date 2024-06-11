@@ -11,7 +11,6 @@ import (
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -175,7 +174,6 @@ func TestServerRead(t *testing.T) {
 				require.Equal(t, time.Duration(0), pts)
 				require.Equal(t, time.Duration(0), dts)
 				require.Equal(t, [][]byte{
-					{byte(h264.NALUTypeAccessUnitDelimiter), 0xf0},
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
 					{5, 1},
@@ -276,7 +274,6 @@ func TestServerRead(t *testing.T) {
 				require.Equal(t, time.Duration(0), pts)
 				require.Equal(t, time.Duration(0), dts)
 				require.Equal(t, [][]byte{
-					{0x09, 0xf0},
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
 					{5, 1},
