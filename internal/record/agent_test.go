@@ -68,12 +68,15 @@ func TestAgent(t *testing.T) {
 		},
 	}}
 
-	writeToStream := func(stream *stream.Stream, ntp time.Time) {
-		for i := 0; i < 3; i++ {
+	writeToStream := func(stream *stream.Stream, startDTS time.Duration, startNTP time.Time) {
+		for i := 0; i < 2; i++ {
+			pts := startDTS + time.Duration(i)*100*time.Millisecond
+			ntp := startNTP.Add(time.Duration(i*60) * time.Second)
+
 			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 				Base: unit.Base{
-					PTS: (50 + time.Duration(i)) * time.Second,
-					NTP: ntp.Add(time.Duration(i) * 60 * time.Second),
+					PTS: pts,
+					NTP: ntp,
 				},
 				AU: [][]byte{
 					test.FormatH264.SPS,
@@ -84,7 +87,7 @@ func TestAgent(t *testing.T) {
 
 			stream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.H265{
 				Base: unit.Base{
-					PTS: (50 + time.Duration(i)) * time.Second,
+					PTS: pts,
 				},
 				AU: [][]byte{
 					test.FormatH265.VPS,
@@ -96,21 +99,21 @@ func TestAgent(t *testing.T) {
 
 			stream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
 				Base: unit.Base{
-					PTS: (50 + time.Duration(i)) * time.Second,
+					PTS: pts,
 				},
 				AUs: [][]byte{{1, 2, 3, 4}},
 			})
 
 			stream.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
 				Base: unit.Base{
-					PTS: (50 + time.Duration(i)) * time.Second,
+					PTS: pts,
 				},
 				Samples: []byte{1, 2, 3, 4},
 			})
 
 			stream.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.LPCM{
 				Base: unit.Base{
-					PTS: (50 + time.Duration(i)) * time.Second,
+					PTS: pts,
 				},
 				Samples: []byte{1, 2, 3, 4},
 			})
@@ -144,6 +147,15 @@ func TestAgent(t *testing.T) {
 				f = conf.RecordFormatMPEGTS
 			}
 
+			var ext string
+			if ca == "fmp4" {
+				ext = "mp4"
+			} else {
+				ext = "ts"
+			}
+
+			n := 0
+
 			w := &Agent{
 				WriteQueueSize:  1024,
 				PathFormat:      recordPath,
@@ -152,10 +164,27 @@ func TestAgent(t *testing.T) {
 				SegmentDuration: 1 * time.Second,
 				PathName:        "mypath",
 				Stream:          stream,
-				OnSegmentCreate: func(_ string) {
+				OnSegmentCreate: func(segPath string) {
+					switch n {
+					case 0:
+						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext), segPath)
+					case 1:
+						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext), segPath)
+					default:
+						require.Equal(t, filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext), segPath)
+					}
 					segCreated <- struct{}{}
 				},
-				OnSegmentComplete: func(_ string) {
+				OnSegmentComplete: func(segPath string) {
+					switch n {
+					case 0:
+						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext), segPath)
+					case 1:
+						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext), segPath)
+					default:
+						require.Equal(t, filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext), segPath)
+					}
+					n++
 					segDone <- struct{}{}
 				},
 				Parent:       test.NilLogger,
@@ -163,7 +192,13 @@ func TestAgent(t *testing.T) {
 			}
 			w.Initialize()
 
-			writeToStream(stream, time.Date(2008, 0o5, 20, 22, 15, 25, 0, time.UTC))
+			writeToStream(stream,
+				50*time.Second,
+				time.Date(2008, 0o5, 20, 22, 15, 25, 0, time.UTC))
+
+			writeToStream(stream,
+				52*time.Second,
+				time.Date(2008, 0o5, 20, 22, 16, 25, 0, time.UTC))
 
 			// simulate a write error
 			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
@@ -178,13 +213,6 @@ func TestAgent(t *testing.T) {
 			for i := 0; i < 2; i++ {
 				<-segCreated
 				<-segDone
-			}
-
-			var ext string
-			if ca == "fmp4" {
-				ext = "mp4"
-			} else {
-				ext = "ts"
 			}
 
 			if ca == "fmp4" {
@@ -261,16 +289,15 @@ func TestAgent(t *testing.T) {
 
 			time.Sleep(50 * time.Millisecond)
 
-			writeToStream(stream, time.Date(2010, 0o5, 20, 22, 15, 25, 0, time.UTC))
+			writeToStream(stream,
+				300*time.Second,
+				time.Date(2010, 0o5, 20, 22, 15, 25, 0, time.UTC))
 
 			time.Sleep(50 * time.Millisecond)
 
 			w.Close()
 
 			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext))
-			require.NoError(t, err)
-
-			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-16-25-000000."+ext))
 			require.NoError(t, err)
 		})
 	}
