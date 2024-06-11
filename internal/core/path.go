@@ -806,7 +806,7 @@ func (pa *path) startRecording() {
 					nil)
 			}
 		},
-		OnSegmentComplete: func(segmentPath string) {
+		OnSegmentComplete: func(segmentPath string, _ time.Duration) {
 			if pa.conf.RunOnRecordSegmentComplete != "" {
 				env := pa.ExternalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath

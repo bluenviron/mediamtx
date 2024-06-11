@@ -175,14 +175,17 @@ func TestAgent(t *testing.T) {
 					}
 					segCreated <- struct{}{}
 				},
-				OnSegmentComplete: func(segPath string) {
+				OnSegmentComplete: func(segPath string, du time.Duration) {
 					switch n {
 					case 0:
 						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext), segPath)
+						require.Equal(t, 2*time.Second, du)
 					case 1:
 						require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext), segPath)
+						require.Equal(t, 100*time.Millisecond, du)
 					default:
 						require.Equal(t, filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext), segPath)
+						require.Equal(t, 100*time.Millisecond, du)
 					}
 					n++
 					segDone <- struct{}{}
@@ -216,66 +219,67 @@ func TestAgent(t *testing.T) {
 			}
 
 			if ca == "fmp4" {
+				var init fmp4.Init
+
 				func() {
 					f, err2 := os.Open(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
 					require.NoError(t, err2)
 					defer f.Close()
 
-					var init fmp4.Init
 					err2 = init.Unmarshal(f)
 					require.NoError(t, err2)
+				}()
 
-					require.Equal(t, fmp4.Init{
-						Tracks: []*fmp4.InitTrack{
-							{
-								ID:        1,
-								TimeScale: 90000,
-								Codec: &fmp4.CodecH264{
-									SPS: test.FormatH264.SPS,
-									PPS: test.FormatH264.PPS,
-								},
+				require.Equal(t, fmp4.Init{
+					Tracks: []*fmp4.InitTrack{
+						{
+							ID:        1,
+							TimeScale: 90000,
+							Codec: &fmp4.CodecH264{
+								SPS: test.FormatH264.SPS,
+								PPS: test.FormatH264.PPS,
 							},
-							{
-								ID:        2,
-								TimeScale: 90000,
-								Codec: &fmp4.CodecH265{
-									VPS: test.FormatH265.VPS,
-									SPS: test.FormatH265.SPS,
-									PPS: test.FormatH265.PPS,
-								},
+						},
+						{
+							ID:        2,
+							TimeScale: 90000,
+							Codec: &fmp4.CodecH265{
+								VPS: test.FormatH265.VPS,
+								SPS: test.FormatH265.SPS,
+								PPS: test.FormatH265.PPS,
 							},
-							{
-								ID:        3,
-								TimeScale: 44100,
-								Codec: &fmp4.CodecMPEG4Audio{
-									Config: mpeg4audio.Config{
-										Type:         2,
-										SampleRate:   44100,
-										ChannelCount: 2,
-									},
-								},
-							},
-							{
-								ID:        4,
-								TimeScale: 8000,
-								Codec: &fmp4.CodecLPCM{
-									BitDepth:     16,
-									SampleRate:   8000,
-									ChannelCount: 1,
-								},
-							},
-							{
-								ID:        5,
-								TimeScale: 44100,
-								Codec: &fmp4.CodecLPCM{
-									BitDepth:     16,
+						},
+						{
+							ID:        3,
+							TimeScale: 44100,
+							Codec: &fmp4.CodecMPEG4Audio{
+								Config: mpeg4audio.Config{
+									Type:         2,
 									SampleRate:   44100,
 									ChannelCount: 2,
 								},
 							},
 						},
-					}, init)
-				}()
+						{
+							ID:        4,
+							TimeScale: 8000,
+							Codec: &fmp4.CodecLPCM{
+								BitDepth:     16,
+								SampleRate:   8000,
+								ChannelCount: 1,
+							},
+						},
+						{
+							ID:        5,
+							TimeScale: 44100,
+							Codec: &fmp4.CodecLPCM{
+								BitDepth:     16,
+								SampleRate:   44100,
+								ChannelCount: 2,
+							},
+						},
+					},
+				}, init)
 
 				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-16-25-000000."+ext))
 				require.NoError(t, err)
@@ -296,6 +300,9 @@ func TestAgent(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 
 			w.Close()
+
+			<-segCreated
+			<-segDone
 
 			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext))
 			require.NoError(t, err)

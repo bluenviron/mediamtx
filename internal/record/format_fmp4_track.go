@@ -11,7 +11,7 @@ type formatFMP4Track struct {
 	nextSample *sample
 }
 
-func (t *formatFMP4Track) record(sample *sample) error {
+func (t *formatFMP4Track) write(sample *sample) error {
 	// wait the first video sample before setting hasVideo
 	if t.initTrack.Codec.IsVideo() {
 		t.f.hasVideo = true
@@ -35,7 +35,7 @@ func (t *formatFMP4Track) record(sample *sample) error {
 		return nil
 	}
 
-	err := t.f.currentSegment.record(t, sample)
+	err := t.f.currentSegment.write(t, sample)
 	if err != nil {
 		return err
 	}
@@ -43,6 +43,7 @@ func (t *formatFMP4Track) record(sample *sample) error {
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
 		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.a.agent.SegmentDuration {
+		t.f.currentSegment.lastDTS = t.nextSample.dts
 		err := t.f.currentSegment.close()
 		if err != nil {
 			return err

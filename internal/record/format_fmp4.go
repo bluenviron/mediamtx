@@ -191,7 +191,7 @@ func (f *formatFMP4) initialize() {
 						return err
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: sampl,
 						dts:        tunit.PTS,
 						ntp:        tunit.NTP,
@@ -261,7 +261,7 @@ func (f *formatFMP4) initialize() {
 						firstReceived = true
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							IsNonSyncSample: !randomAccess,
 							Payload:         tunit.Frame,
@@ -364,7 +364,7 @@ func (f *formatFMP4) initialize() {
 						return err
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: sampl,
 						dts:        dts,
 						ntp:        tunit.NTP,
@@ -435,7 +435,7 @@ func (f *formatFMP4) initialize() {
 						return err
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: sampl,
 						dts:        dts,
 						ntp:        tunit.NTP,
@@ -494,7 +494,7 @@ func (f *formatFMP4) initialize() {
 					}
 					lastPTS = tunit.PTS
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							Payload:         tunit.Frame,
 							IsNonSyncSample: !randomAccess,
@@ -547,7 +547,7 @@ func (f *formatFMP4) initialize() {
 					}
 					lastPTS = tunit.PTS
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							Payload:         tunit.Frame,
 							IsNonSyncSample: !randomAccess,
@@ -583,7 +583,7 @@ func (f *formatFMP4) initialize() {
 						updateCodecs()
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							Payload: tunit.Frame,
 						},
@@ -607,7 +607,7 @@ func (f *formatFMP4) initialize() {
 					var dt time.Duration
 
 					for _, packet := range tunit.Packets {
-						err := track.record(&sample{
+						err := track.write(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: packet,
 							},
@@ -642,7 +642,7 @@ func (f *formatFMP4) initialize() {
 						dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
 							time.Second / sampleRate
 
-						err := track.record(&sample{
+						err := track.write(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: au,
 							},
@@ -688,7 +688,7 @@ func (f *formatFMP4) initialize() {
 							updateCodecs()
 						}
 
-						err = track.record(&sample{
+						err = track.write(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: frame,
 							},
@@ -756,7 +756,7 @@ func (f *formatFMP4) initialize() {
 						dt := time.Duration(i) * time.Duration(ac3.SamplesPerFrame) *
 							time.Second / time.Duration(codec.SampleRate)
 
-						err = track.record(&sample{
+						err = track.write(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: frame,
 							},
@@ -796,7 +796,7 @@ func (f *formatFMP4) initialize() {
 						out = g711.DecodeAlaw(tunit.Samples)
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							Payload: out,
 						},
@@ -820,7 +820,7 @@ func (f *formatFMP4) initialize() {
 						return nil
 					}
 
-					return track.record(&sample{
+					return track.write(&sample{
 						PartSample: &fmp4.PartSample{
 							Payload: tunit.Samples,
 						},
@@ -838,6 +838,12 @@ func (f *formatFMP4) initialize() {
 
 func (f *formatFMP4) close() {
 	if f.currentSegment != nil {
+		for _, track := range f.tracks {
+			if track.nextSample != nil && track.nextSample.dts > f.currentSegment.lastDTS {
+				f.currentSegment.lastDTS = track.nextSample.dts
+			}
+		}
+
 		f.currentSegment.close() //nolint:errcheck
 	}
 }
