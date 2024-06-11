@@ -69,7 +69,7 @@ func FromStream(
 					}
 
 					sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					err = (*w).WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+					err = (*w).WriteH265(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
 					if err != nil {
 						return err
 					}
@@ -102,7 +102,7 @@ func FromStream(
 					}
 
 					sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					err = (*w).WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), idrPresent, tunit.AU)
+					err = (*w).WriteH264(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), idrPresent, tunit.AU)
 					if err != nil {
 						return err
 					}

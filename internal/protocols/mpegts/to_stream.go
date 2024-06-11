@@ -41,7 +41,7 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 				}},
 			}
 
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
+			r.OnDataH265(track, func(pts int64, _ int64, au [][]byte) error {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
@@ -61,7 +61,7 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 				}},
 			}
 
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
+			r.OnDataH264(track, func(pts int64, _ int64, au [][]byte) error {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),

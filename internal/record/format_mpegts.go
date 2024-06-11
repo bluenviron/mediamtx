@@ -97,7 +97,7 @@ func (f *formatMPEGTS) initialize() {
 						true,
 						randomAccess,
 						func() error {
-							return f.mw.WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+							return f.mw.WriteH265(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
 						},
 					)
 				})
@@ -133,7 +133,7 @@ func (f *formatMPEGTS) initialize() {
 						true,
 						randomAccess,
 						func() error {
-							return f.mw.WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+							return f.mw.WriteH264(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
 						},
 					)
 				})

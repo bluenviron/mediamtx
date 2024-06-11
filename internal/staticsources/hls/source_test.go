@@ -63,7 +63,7 @@ func TestSource(t *testing.T) {
 		err := w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
 		require.NoError(t, err)
 
-		err = w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
+		err = w.WriteH264(track1, 2*90000, 2*90000, true, [][]byte{
 			{7, 1, 2, 3}, // SPS
 			{8},          // PPS
 		})
