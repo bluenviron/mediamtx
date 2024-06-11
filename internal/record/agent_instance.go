@@ -11,9 +11,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// OnSegmentFunc is the prototype of the function passed as runOnSegmentStart / runOnSegmentComplete
-type OnSegmentFunc = func(string)
-
 type sample struct {
 	*fmp4.PartSample
 	dts time.Duration

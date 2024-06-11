@@ -39,9 +39,11 @@ type formatFMP4Segment struct {
 	path    string
 	fi      *os.File
 	curPart *formatFMP4Part
+	lastDTS time.Duration
 }
 
 func (s *formatFMP4Segment) initialize() {
+	s.lastDTS = s.startDTS
 }
 
 func (s *formatFMP4Segment) close() error {
@@ -59,14 +61,17 @@ func (s *formatFMP4Segment) close() error {
 		}
 
 		if err2 == nil {
-			s.f.a.agent.OnSegmentComplete(s.path)
+			duration := s.lastDTS - s.startDTS
+			s.f.a.agent.OnSegmentComplete(s.path, duration)
 		}
 	}
 
 	return err
 }
 
-func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error {
+func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample) error {
+	s.lastDTS = sample.dts
+
 	if s.curPart == nil {
 		s.curPart = &formatFMP4Part{
 			s:              s,
@@ -92,5 +97,5 @@ func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error
 		s.f.nextSequenceNumber++
 	}
 
-	return s.curPart.record(track, sample)
+	return s.curPart.write(track, sample)
 }
