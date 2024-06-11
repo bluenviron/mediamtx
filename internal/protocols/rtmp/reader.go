@@ -327,6 +327,9 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 			}
 
 			if audioTrack == nil {
+				if len(msg.Payload) == 0 {
+					continue
+				}
 				switch {
 				case msg.Codec == message.CodecMPEG4Audio &&
 					msg.AACType == message.AudioAACTypeConfig:
