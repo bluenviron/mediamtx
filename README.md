@@ -1669,6 +1669,7 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
+  # * MTX_SEGMENT_DURATION: segment duration
   runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 

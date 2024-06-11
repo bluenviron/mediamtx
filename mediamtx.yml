@@ -675,6 +675,7 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
+  # * MTX_SEGMENT_DURATION: segment duration
   runOnRecordSegmentComplete:
 
 ###############################################
