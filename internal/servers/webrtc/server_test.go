@@ -12,7 +12,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
-	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -72,33 +71,31 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
 type dummyPathManager struct {
-	path *dummyPath
+	findPathConf func(req defs.PathFindPathConfReq) (*conf.Path, error)
+	addPublisher func(req defs.PathAddPublisherReq) (defs.Path, error)
+	addReader    func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
 func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
-	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, auth.Error{}
-	}
-	return &conf.Path{}, nil
+	return pm.findPathConf(req)
 }
 
-func (pm *dummyPathManager) AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, error) {
-	return pm.path, nil
+func (pm *dummyPathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
+	return pm.addPublisher(req)
 }
 
 func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-	if req.AccessRequest.Name == "nonexisting" {
-		return nil, nil, defs.PathNoOnePublishingError{}
-	}
-	return pm.path, pm.path.stream, nil
+	return pm.addReader(req)
 }
 
 func initializeTestServer(t *testing.T) *Server {
-	path := &dummyPath{
-		streamCreated: make(chan struct{}),
+	pm := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return &conf.Path{}, nil
+		},
 	}
-
-	pathManager := &dummyPathManager{path: path}
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
@@ -118,7 +115,7 @@ func initializeTestServer(t *testing.T) *Server {
 		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
 		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
 		ExternalCmdPool:       nil,
-		PathManager:           pathManager,
+		PathManager:           pm,
 		Parent:                test.NilLogger,
 	}
 	err := s.Initialize()
@@ -174,7 +171,13 @@ func TestServerOptionsPreflight(t *testing.T) {
 }
 
 func TestServerOptionsICEServer(t *testing.T) {
-	pathManager := &dummyPathManager{}
+	pathManager := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return &conf.Path{}, nil
+		},
+	}
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
@@ -234,7 +237,20 @@ func TestServerPublish(t *testing.T) {
 		streamCreated: make(chan struct{}),
 	}
 
-	pathManager := &dummyPathManager{path: path}
+	pathManager := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return &conf.Path{}, nil
+		},
+		addPublisher: func(req defs.PathAddPublisherReq) (defs.Path, error) {
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return path, nil
+		},
+	}
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
@@ -486,7 +502,7 @@ func TestServerRead(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
-			stream, err := stream.New(
+			str, err := stream.New(
 				1460,
 				desc,
 				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
@@ -494,9 +510,22 @@ func TestServerRead(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: stream}
+			path := &dummyPath{stream: str}
 
-			pathManager := &dummyPathManager{path: path}
+			pathManager := &dummyPathManager{
+				findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
+					return &conf.Path{}, nil
+				},
+				addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
+					return path, str, nil
+				},
+			}
 
 			s := &Server{
 				Address:               "127.0.0.1:8886",
@@ -556,9 +585,9 @@ func TestServerRead(t *testing.T) {
 
 					if g, ok := r.Interface().(*unit.Generic); ok {
 						clone := *g.RTPPackets[0]
-						stream.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+						str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
 					} else {
-						stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+						str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
 					}
 				}
 			}()
@@ -574,8 +603,118 @@ func TestServerRead(t *testing.T) {
 	}
 }
 
-func TestServerPostNotFound(t *testing.T) {
-	s := initializeTestServer(t)
+func TestServerReadAuthorizationHeader(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	str, err := stream.New(
+		1460,
+		desc,
+		true,
+		test.NilLogger,
+	)
+	require.NoError(t, err)
+
+	path := &dummyPath{stream: str}
+
+	pm := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "jwt=testing", req.AccessRequest.Query)
+			return &conf.Path{}, nil
+		},
+		addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			require.Equal(t, "jwt=testing", req.AccessRequest.Query)
+			return path, str, nil
+		},
+	}
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		Encryption:            false,
+		ServerKey:             "",
+		ServerCert:            "",
+		AllowOrigin:           "",
+		TrustedProxies:        conf.IPNetworks{},
+		ReadTimeout:           conf.StringDuration(10 * time.Second),
+		WriteQueueSize:        512,
+		LocalUDPAddress:       "127.0.0.1:8887",
+		LocalTCPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
+		ExternalCmdPool:       nil,
+		PathManager:           pm,
+		Parent:                test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
+	require.NoError(t, err)
+	defer pc.Close() //nolint:errcheck
+
+	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
+	require.NoError(t, err)
+
+	offer, err := pc.CreateOffer(nil)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost,
+		"http://localhost:8886/teststream/whep", bytes.NewReader([]byte(offer.SDP)))
+	require.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/sdp")
+	req.Header.Set("Authorization", "Bearer testing")
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusCreated, res.StatusCode)
+}
+
+func TestServerReadNotFound(t *testing.T) {
+	pm := &dummyPathManager{
+		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return &conf.Path{}, nil
+		},
+		addReader: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			return nil, nil, defs.PathNoOnePublishingError{}
+		},
+	}
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		Encryption:            false,
+		ServerKey:             "",
+		ServerCert:            "",
+		AllowOrigin:           "",
+		TrustedProxies:        conf.IPNetworks{},
+		ReadTimeout:           conf.StringDuration(10 * time.Second),
+		WriteQueueSize:        512,
+		LocalUDPAddress:       "127.0.0.1:8887",
+		LocalTCPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
+		ExternalCmdPool:       nil,
+		PathManager:           pm,
+		Parent:                test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
 	defer s.Close()
 
 	tr := &http.Transport{}
