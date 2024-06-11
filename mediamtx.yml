@@ -117,7 +117,7 @@ authHTTPExclude:
 #     }
 #   ]
 # }
-# Users are then expected to pass the JWT as a query parameter, i.e. ?jwt=...
+# Users are expected to pass the JWT in the Authorization header or as a query parameter.
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:

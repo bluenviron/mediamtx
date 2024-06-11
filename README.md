@@ -1180,10 +1180,18 @@ The JWT is expected to contain the `mediamtx_permissions` scope, with a list of 
 }
 ```
 
-Clients are expected to pass the JWT in query parameters, for instance:
+Clients are expected to pass the JWT in the Authorization header (in case of HLS and WebRTC) or in query parameters (in case of any other protocol), for instance (RTSP):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?jwt=MY_JWT
+```
+
+For instance (HLS):
+
+```
+GET /mypath/index.m3u8 HTTP/1.1
+Host: example.com
+Authorization: Bearer MY_JWT
 ```
 
 Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide such JWTs:
