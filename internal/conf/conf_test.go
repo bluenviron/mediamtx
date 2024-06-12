@@ -192,6 +192,66 @@ func TestConfEncryption(t *testing.T) {
 	require.Equal(t, true, ok)
 }
 
+func TestConfDeprecatedAuth(t *testing.T) {
+	tmpf, err := createTempFile([]byte(
+		"paths:\n" +
+			"  cam:\n" +
+			"    readUser: myuser\n" +
+			"    readPass: mypass\n"))
+	require.NoError(t, err)
+	defer os.Remove(tmpf)
+
+	conf, _, err := Load(tmpf, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, AuthInternalUsers{
+		{
+			User: "any",
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionPlayback,
+				},
+			},
+		},
+		{
+			User: "any",
+			IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionAPI,
+				},
+				{
+					Action: AuthActionMetrics,
+				},
+				{
+					Action: AuthActionPprof,
+				},
+			},
+		},
+		{
+			User: "any",
+			IPs:  IPNetworks{mustParseCIDR("0.0.0.0/0")},
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionPublish,
+					Path:   "cam",
+				},
+			},
+		},
+		{
+			User: "myuser",
+			Pass: "mypass",
+			IPs:  IPNetworks{mustParseCIDR("0.0.0.0/0")},
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionRead,
+					Path:   "cam",
+				},
+			},
+		},
+	}, conf.AuthInternalUsers)
+}
+
 func TestConfErrors(t *testing.T) {
 	for _, ca := range []struct {
 		name string
