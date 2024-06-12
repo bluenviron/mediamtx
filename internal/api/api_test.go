@@ -247,16 +247,14 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/pathdefaults/patch",
 		map[string]interface{}{
-			"readUser": "myuser",
-			"readPass": "mypass",
+			"recordFormat": "fmp4",
 		}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
-	require.Equal(t, "myuser", out["readUser"])
-	require.Equal(t, "mypass", out["readPass"])
+	require.Equal(t, "fmp4", out["recordFormat"])
 }
 
 func TestConfigPathsList(t *testing.T) {

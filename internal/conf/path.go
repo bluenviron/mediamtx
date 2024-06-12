@@ -399,17 +399,17 @@ func (pconf *Path) validate(
 	if deprecatedCredentialsMode {
 		func() {
 			var user Credential = "any"
-			if credentialIsNotEmpty(pconf.PublishUser) {
+			if pconf.PublishUser != nil && *pconf.PublishUser != "" {
 				user = *pconf.PublishUser
 			}
 
 			var pass Credential
-			if credentialIsNotEmpty(pconf.PublishPass) {
+			if pconf.PublishPass != nil && *pconf.PublishPass != "" {
 				pass = *pconf.PublishPass
 			}
 
 			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
-			if ipNetworkIsNotEmpty(pconf.PublishIPs) {
+			if pconf.PublishIPs != nil && len(*pconf.PublishIPs) != 0 {
 				ips = *pconf.PublishIPs
 			}
 
@@ -431,17 +431,17 @@ func (pconf *Path) validate(
 
 		func() {
 			var user Credential = "any"
-			if credentialIsNotEmpty(pconf.ReadUser) {
+			if pconf.ReadUser != nil && *pconf.ReadUser != "" {
 				user = *pconf.ReadUser
 			}
 
 			var pass Credential
-			if credentialIsNotEmpty(pconf.ReadPass) {
+			if pconf.ReadPass != nil && *pconf.ReadPass != "" {
 				pass = *pconf.ReadPass
 			}
 
 			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
-			if ipNetworkIsNotEmpty(pconf.ReadIPs) {
+			if pconf.ReadIPs != nil && len(*pconf.ReadIPs) != 0 {
 				ips = *pconf.ReadIPs
 			}
 
