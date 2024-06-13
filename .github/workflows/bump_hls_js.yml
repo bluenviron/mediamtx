@@ -19,10 +19,13 @@ jobs:
         && git config user.email bot@mediamtx
         && ((git checkout deps/hlsjs && git rebase ${GITHUB_REF_NAME}) || git checkout -b deps/hlsjs)
 
-    - run: >
+    - run: |
+        set -e
         VERSION=$(curl -s https://api.github.com/repos/video-dev/hls.js/releases?per_page=1 | grep tag_name | sed 's/\s\+"tag_name": "\(.\+\)",/\1/')
-        && echo $VERSION > internal/servers/hls/hlsjsdownloader/VERSION
-        && echo VERSION=$VERSION >> $GITHUB_ENV
+        HASH=$(curl -sL https://github.com/video-dev/hls.js/releases/download/$VERSION/release.zip -o- | sha256sum | cut -f1 -d ' ')
+        echo $VERSION > internal/servers/hls/hlsjsdownloader/VERSION
+        echo $HASH > internal/servers/hls/hlsjsdownloader/HASH
+        echo VERSION=$VERSION >> $GITHUB_ENV
 
     - id: check_repo
       run: >
