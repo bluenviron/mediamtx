@@ -947,6 +947,9 @@ func (pa *path) RemovePublisher(req defs.PathRemovePublisherReq) {
 		<-req.Res
 	case <-pa.ctx.Done():
 	}
+	if pa.conf.HasOnDemandPublisher() {
+		pa.onDemandPublisherStop("publisher removed")
+	}
 }
 
 // StartPublisher is called by a publisher.
