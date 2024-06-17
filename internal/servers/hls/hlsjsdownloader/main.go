@@ -2,8 +2,13 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -11,15 +16,16 @@ import (
 )
 
 func do() error {
-	log.Println("downloading hls.js...")
-
 	buf, err := os.ReadFile("./hlsjsdownloader/VERSION")
 	if err != nil {
 		return err
 	}
+
 	version := strings.TrimSpace(string(buf))
 
-	res, err := http.Get("https://cdn.jsdelivr.net/npm/hls.js@" + version + "/dist/hls.min.js")
+	log.Printf("downloading hls.js version %s...", version)
+
+	res, err := http.Get("https://github.com/video-dev/hls.js/releases/download/" + version + "/release.zip")
 	if err != nil {
 		return err
 	}
@@ -29,13 +35,36 @@ func do() error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	buf, err = io.ReadAll(res.Body)
+	zipBuf, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile("hls.min.js", buf, 0o644)
+	hashBuf, err := os.ReadFile("./hlsjsdownloader/HASH")
 	if err != nil {
+		return err
+	}
+	hash := make([]byte, hex.DecodedLen(len(hashBuf)))
+
+	if _, err = hex.Decode(hash, bytes.TrimSpace(hashBuf)); err != nil {
+		return err
+	}
+
+	if sum := sha256.Sum256(zipBuf); !bytes.Equal(sum[:], hash) {
+		return fmt.Errorf("hash mismatch")
+	}
+
+	z, err := zip.NewReader(bytes.NewReader(zipBuf), int64(len(zipBuf)))
+	if err != nil {
+		return err
+	}
+
+	hls, err := fs.ReadFile(z, "dist/hls.min.js")
+	if err != nil {
+		return err
+	}
+
+	if err = os.WriteFile("hls.min.js", hls, 0o644); err != nil {
 		return err
 	}
 
