@@ -106,7 +106,7 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=publish:mypath:myuser:mypass"
+	u := "srt://127.0.0.1:8890?streamid=publish:mypath:myuser:mypass"
 
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(u)
@@ -205,7 +205,7 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=read:mypath:myuser:mypass"
+	u := "srt://127.0.0.1:8890?streamid=read:mypath:myuser:mypass"
 
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(u)

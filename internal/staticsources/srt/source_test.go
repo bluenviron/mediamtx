@@ -15,7 +15,7 @@ import (
 )
 
 func TestSource(t *testing.T) {
-	ln, err := srt.Listen("srt", "localhost:9002", srt.DefaultConfig())
+	ln, err := srt.Listen("srt", "127.0.0.1:9002", srt.DefaultConfig())
 	require.NoError(t, err)
 	defer ln.Close()
 
@@ -55,7 +55,7 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "srt://localhost:9002?streamid=sidname&passphrase=ttest1234567",
+				ResolvedSource: "srt://127.0.0.1:9002?streamid=sidname&passphrase=ttest1234567",
 				ReadTimeout:    conf.StringDuration(10 * time.Second),
 				Parent:         p,
 			}
