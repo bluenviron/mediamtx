@@ -18,7 +18,7 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "udp://localhost:9001",
+				ResolvedSource: "udp://127.0.0.1:9001",
 				ReadTimeout:    conf.StringDuration(10 * time.Second),
 				Parent:         p,
 			}
@@ -29,7 +29,7 @@ func TestSource(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	conn, err := net.Dial("udp", "localhost:9001")
+	conn, err := net.Dial("udp", "127.0.0.1:9001")
 	require.NoError(t, err)
 	defer conn.Close()
 
