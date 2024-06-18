@@ -418,8 +418,10 @@ pathDefaults:
   # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
-  # If path name is a regular expression, $G1, G2, etc will be replaced
-  # with regular expression groups.
+  # The following variables can be used in the source string:
+  # * $MTX_QUERY: query parameters (passed by first reader)
+  # * $G1, $G2, ...: regular expression groups, if path name is
+  #   a regular expression.
   source: publisher
   # If the source is a URL, and the source certificate is self-signed
   # or invalid, you can provide the fingerprint of the certificate in order to

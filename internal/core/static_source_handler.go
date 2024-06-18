@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,18 @@ const (
 	staticSourceHandlerRetryPause = 5 * time.Second
 )
 
+func resolveSource(s string, matches []string, query string) string {
+	if len(matches) > 1 {
+		for i, ma := range matches[1:] {
+			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
+		}
+	}
+
+	s = strings.ReplaceAll(s, "$MTX_QUERY", query)
+
+	return s
+}
+
 type staticSourceHandlerParent interface {
 	logger.Writer
 	staticSourceHandlerSetReady(context.Context, defs.PathSourceStaticSetReadyReq)
@@ -35,13 +48,14 @@ type staticSourceHandler struct {
 	readTimeout    conf.StringDuration
 	writeTimeout   conf.StringDuration
 	writeQueueSize int
-	resolvedSource string
+	matches        []string
 	parent         staticSourceHandlerParent
 
 	ctx       context.Context
 	ctxCancel func()
 	instance  defs.StaticSource
 	running   bool
+	query     string
 
 	// in
 	chReloadConf          chan *conf.Path
@@ -58,60 +72,57 @@ func (s *staticSourceHandler) initialize() {
 	s.chInstanceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
 
 	switch {
-	case strings.HasPrefix(s.resolvedSource, "rtsp://") ||
-		strings.HasPrefix(s.resolvedSource, "rtsps://"):
+	case strings.HasPrefix(s.conf.Source, "rtsp://") ||
+		strings.HasPrefix(s.conf.Source, "rtsps://"):
 		s.instance = &rtspsource.Source{
-			ResolvedSource: s.resolvedSource,
 			ReadTimeout:    s.readTimeout,
 			WriteTimeout:   s.writeTimeout,
 			WriteQueueSize: s.writeQueueSize,
 			Parent:         s,
 		}
 
-	case strings.HasPrefix(s.resolvedSource, "rtmp://") ||
-		strings.HasPrefix(s.resolvedSource, "rtmps://"):
+	case strings.HasPrefix(s.conf.Source, "rtmp://") ||
+		strings.HasPrefix(s.conf.Source, "rtmps://"):
 		s.instance = &rtmpsource.Source{
-			ResolvedSource: s.resolvedSource,
-			ReadTimeout:    s.readTimeout,
-			WriteTimeout:   s.writeTimeout,
-			Parent:         s,
+			ReadTimeout:  s.readTimeout,
+			WriteTimeout: s.writeTimeout,
+			Parent:       s,
 		}
 
-	case strings.HasPrefix(s.resolvedSource, "http://") ||
-		strings.HasPrefix(s.resolvedSource, "https://"):
+	case strings.HasPrefix(s.conf.Source, "http://") ||
+		strings.HasPrefix(s.conf.Source, "https://"):
 		s.instance = &hlssource.Source{
-			ResolvedSource: s.resolvedSource,
-			ReadTimeout:    s.readTimeout,
-			Parent:         s,
+			ReadTimeout: s.readTimeout,
+			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.resolvedSource, "udp://"):
+	case strings.HasPrefix(s.conf.Source, "udp://"):
 		s.instance = &udpsource.Source{
-			ResolvedSource: s.resolvedSource,
-			ReadTimeout:    s.readTimeout,
-			Parent:         s,
+			ReadTimeout: s.readTimeout,
+			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.resolvedSource, "srt://"):
+	case strings.HasPrefix(s.conf.Source, "srt://"):
 		s.instance = &srtsource.Source{
-			ResolvedSource: s.resolvedSource,
-			ReadTimeout:    s.readTimeout,
-			Parent:         s,
+			ReadTimeout: s.readTimeout,
+			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.resolvedSource, "whep://") ||
-		strings.HasPrefix(s.resolvedSource, "wheps://"):
+	case strings.HasPrefix(s.conf.Source, "whep://") ||
+		strings.HasPrefix(s.conf.Source, "wheps://"):
 		s.instance = &webrtcsource.Source{
-			ResolvedSource: s.resolvedSource,
-			ReadTimeout:    s.readTimeout,
-			Parent:         s,
+			ReadTimeout: s.readTimeout,
+			Parent:      s,
 		}
 
-	case s.resolvedSource == "rpiCamera":
+	case s.conf.Source == "rpiCamera":
 		s.instance = &rpicamerasource.Source{
 			LogLevel: s.logLevel,
 			Parent:   s,
 		}
+
+	default:
+		panic("should not happen")
 	}
 }
 
@@ -119,12 +130,16 @@ func (s *staticSourceHandler) close(reason string) {
 	s.stop(reason)
 }
 
-func (s *staticSourceHandler) start(onDemand bool) {
+func (s *staticSourceHandler) start(onDemand bool, query string) {
 	if s.running {
 		panic("should not happen")
 	}
 
 	s.running = true
+	s.query = query
+	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+	s.done = make(chan struct{})
+
 	s.instance.Log(logger.Info, "started%s",
 		func() string {
 			if onDemand {
@@ -132,9 +147,6 @@ func (s *staticSourceHandler) start(onDemand bool) {
 			}
 			return ""
 		}())
-
-	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
-	s.done = make(chan struct{})
 
 	go s.run()
 }
@@ -145,6 +157,7 @@ func (s *staticSourceHandler) stop(reason string) {
 	}
 
 	s.running = false
+
 	s.instance.Log(logger.Info, "stopped: %s", reason)
 
 	s.ctxCancel()
@@ -167,12 +180,15 @@ func (s *staticSourceHandler) run() {
 	runReloadConf := make(chan *conf.Path)
 
 	recreate := func() {
+		resolvedSource := resolveSource(s.conf.Source, s.matches, s.query)
+
 		runCtx, runCtxCancel = context.WithCancel(context.Background())
 		go func() {
 			runErr <- s.instance.Run(defs.StaticSourceRunParams{
-				Context:    runCtx,
-				Conf:       s.conf,
-				ReloadConf: runReloadConf,
+				Context:        runCtx,
+				ResolvedSource: resolvedSource,
+				Conf:           s.conf,
+				ReloadConf:     runReloadConf,
 			})
 		}()
 	}

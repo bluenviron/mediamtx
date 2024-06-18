@@ -55,11 +55,11 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "srt://127.0.0.1:9002?streamid=sidname&passphrase=ttest1234567",
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				Parent:         p,
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
 			}
 		},
+		"srt://127.0.0.1:9002?streamid=sidname&passphrase=ttest1234567",
 		&conf.Path{},
 	)
 	defer te.Close()

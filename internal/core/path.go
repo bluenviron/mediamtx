@@ -169,26 +169,19 @@ func (pa *path) run() {
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
-		resolvedSource := pa.conf.Source
-		if len(pa.matches) > 1 {
-			for i, ma := range pa.matches[1:] {
-				resolvedSource = strings.ReplaceAll(resolvedSource, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
-			}
-		}
-
 		pa.source = &staticSourceHandler{
 			conf:           pa.conf,
 			logLevel:       pa.logLevel,
 			readTimeout:    pa.readTimeout,
 			writeTimeout:   pa.writeTimeout,
 			writeQueueSize: pa.writeQueueSize,
-			resolvedSource: resolvedSource,
+			matches:        pa.matches,
 			parent:         pa,
 		}
 		pa.source.(*staticSourceHandler).initialize()
 
 		if !pa.conf.SourceOnDemand {
-			pa.source.(*staticSourceHandler).start(false)
+			pa.source.(*staticSourceHandler).start(false, "")
 		}
 	}
 
@@ -431,7 +424,7 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 
 	if pa.conf.HasOnDemandStaticSource() {
 		if pa.onDemandStaticSourceState == pathOnDemandStateInitial {
-			pa.onDemandStaticSourceStart()
+			pa.onDemandStaticSourceStart(req.AccessRequest.Query)
 		}
 		pa.describeRequestsOnHold = append(pa.describeRequestsOnHold, req)
 		return
@@ -539,7 +532,7 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 
 	if pa.conf.HasOnDemandStaticSource() {
 		if pa.onDemandStaticSourceState == pathOnDemandStateInitial {
-			pa.onDemandStaticSourceStart()
+			pa.onDemandStaticSourceStart(req.AccessRequest.Query)
 		}
 		pa.readerAddRequestsOnHold = append(pa.readerAddRequestsOnHold, req)
 		return
@@ -655,8 +648,8 @@ func (pa *path) shouldClose() bool {
 		len(pa.readerAddRequestsOnHold) == 0
 }
 
-func (pa *path) onDemandStaticSourceStart() {
-	pa.source.(*staticSourceHandler).start(true)
+func (pa *path) onDemandStaticSourceStart(query string) {
+	pa.source.(*staticSourceHandler).start(true, query)
 
 	pa.onDemandStaticSourceReadyTimer.Stop()
 	pa.onDemandStaticSourceReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))

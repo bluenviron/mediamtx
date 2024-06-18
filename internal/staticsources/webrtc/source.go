@@ -19,9 +19,8 @@ import (
 
 // Source is a WebRTC static source.
 type Source struct {
-	ResolvedSource string
-	ReadTimeout    conf.StringDuration
-	Parent         defs.StaticSourceParent
+	ReadTimeout conf.StringDuration
+	Parent      defs.StaticSourceParent
 }
 
 // Log implements logger.Writer.
@@ -33,7 +32,7 @@ func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	u, err := url.Parse(s.ResolvedSource)
+	u, err := url.Parse(params.ResolvedSource)
 	if err != nil {
 		return err
 	}

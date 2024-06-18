@@ -18,11 +18,11 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "udp://127.0.0.1:9001",
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				Parent:         p,
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
 			}
 		},
+		"udp://127.0.0.1:9001",
 		&conf.Path{},
 	)
 	defer te.Close()
