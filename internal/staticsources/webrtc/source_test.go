@@ -121,11 +121,11 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "whep://localhost:9003/my/resource",
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				Parent:         p,
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
 			}
 		},
+		"whep://localhost:9003/my/resource",
 		&conf.Path{},
 	)
 	defer te.Close()

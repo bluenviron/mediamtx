@@ -700,13 +700,14 @@ func TestPathFallback(t *testing.T) {
 	}
 }
 
-func TestPathSourceRegexp(t *testing.T) {
+func TestPathResolveSource(t *testing.T) {
 	var stream *gortsplib.ServerStream
 
 	s := gortsplib.Server{
 		Handler: &testServer{
 			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 			) (*base.Response, *gortsplib.ServerStream, error) {
+				require.Equal(t, "key=val", ctx.Query)
 				require.Equal(t, "/a", ctx.Path)
 				return &base.Response{
 					StatusCode: base.StatusOK,
@@ -736,7 +737,7 @@ func TestPathSourceRegexp(t *testing.T) {
 	p, ok := newInstance(
 		"paths:\n" +
 			"  '~^test_(.+)$':\n" +
-			"    source: rtsp://127.0.0.1:8555/$G1\n" +
+			"    source: rtsp://127.0.0.1:8555/$G1?$MTX_QUERY\n" +
 			"    sourceOnDemand: yes\n" +
 			"  'all':\n")
 	require.Equal(t, true, ok)
@@ -744,7 +745,7 @@ func TestPathSourceRegexp(t *testing.T) {
 
 	reader := gortsplib.Client{}
 
-	u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a")
+	u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
 	require.NoError(t, err)
 
 	err = reader.Start(u.Scheme, u.Host)

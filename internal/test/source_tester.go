@@ -24,7 +24,11 @@ type SourceTester struct {
 }
 
 // NewSourceTester allocates a SourceTester.
-func NewSourceTester(createFunc func(defs.StaticSourceParent) defs.StaticSource, conf *conf.Path) *SourceTester {
+func NewSourceTester(
+	createFunc func(defs.StaticSourceParent) defs.StaticSource,
+	resolvedSource string,
+	conf *conf.Path,
+) *SourceTester {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	t := &SourceTester{
@@ -38,8 +42,9 @@ func NewSourceTester(createFunc func(defs.StaticSourceParent) defs.StaticSource,
 
 	go func() {
 		s.Run(defs.StaticSourceRunParams{ //nolint:errcheck
-			Context: ctx,
-			Conf:    conf,
+			Context:        ctx,
+			ResolvedSource: resolvedSource,
+			Conf:           conf,
 		})
 		close(t.done)
 	}()
