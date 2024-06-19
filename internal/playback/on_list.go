@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
@@ -90,6 +91,18 @@ func (p *Server) onList(ctx *gin.Context) {
 		return
 	}
 
+	var start time.Time
+	var err error
+
+	queryStart := ctx.Query("start")
+	if queryStart != "" {
+		start, err = time.Parse(time.RFC3339, queryStart)
+		if err != nil {
+			p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid start: %w", err))
+			return
+		}
+	}
+
 	pathConf, err := p.safeFindPathConf(pathName)
 	if err != nil {
 		p.writeError(ctx, http.StatusBadRequest, err)
@@ -104,6 +117,12 @@ func (p *Server) onList(ctx *gin.Context) {
 			p.writeError(ctx, http.StatusBadRequest, err)
 		}
 		return
+	}
+
+	if !start.IsZero() {
+		segments = slices.DeleteFunc(segments, func(a *Segment) bool {
+			return a.Start.Before(start)
+		})
 	}
 
 	out, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
