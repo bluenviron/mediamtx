@@ -84,6 +84,17 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 			},
 		},
 		{
+			"h265",
+			test.FormatH265,
+			webrtc.RTPCodecCapability{
+				MimeType:  "video/H265",
+				ClockRate: 90000,
+			},
+			&format.H265{
+				PayloadTyp: 96,
+			},
+		},
+		{
 			"h264",
 			test.FormatH264,
 			webrtc.RTPCodecCapability{

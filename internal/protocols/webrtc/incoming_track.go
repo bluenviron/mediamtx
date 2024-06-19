@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
@@ -81,9 +82,8 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH264,
-			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+			MimeType:  webrtc.MimeTypeH265,
+			ClockRate: 90000,
 		},
 		PayloadType: 103,
 	},
@@ -91,9 +91,17 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeH264,
 			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
 		},
 		PayloadType: 104,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+		PayloadType: 105,
 	},
 }
 
@@ -229,6 +237,7 @@ type IncomingTrack struct {
 	track *webrtc.TrackRemote
 	log   logger.Writer
 
+	typ       description.MediaType
 	format    format.Format
 	reorderer *rtpreorderer.Reorderer
 	pkts      []*rtp.Packet
@@ -246,41 +255,47 @@ func newIncomingTrack(
 		reorderer: rtpreorderer.New(),
 	}
 
-	isVideo := false
-
 	switch strings.ToLower(track.Codec().MimeType) {
 	case strings.ToLower(webrtc.MimeTypeAV1):
-		isVideo = true
+		t.typ = description.MediaTypeVideo
 		t.format = &format.AV1{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeVP9):
-		isVideo = true
+		t.typ = description.MediaTypeVideo
 		t.format = &format.VP9{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeVP8):
-		isVideo = true
+		t.typ = description.MediaTypeVideo
 		t.format = &format.VP8{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
+	case strings.ToLower(webrtc.MimeTypeH265):
+		t.typ = description.MediaTypeVideo
+		t.format = &format.H265{
+			PayloadTyp: uint8(track.PayloadType()),
+		}
+
 	case strings.ToLower(webrtc.MimeTypeH264):
-		isVideo = true
+		t.typ = description.MediaTypeVideo
 		t.format = &format.H264{
 			PayloadTyp:        uint8(track.PayloadType()),
 			PacketizationMode: 1,
 		}
 
 	case strings.ToLower(mimeTypeMultiopus):
+		t.typ = description.MediaTypeAudio
 		t.format = &format.Opus{
 			PayloadTyp:   uint8(track.PayloadType()),
 			ChannelCount: int(track.Codec().Channels),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeOpus):
+		t.typ = description.MediaTypeAudio
 		t.format = &format.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
 			ChannelCount: func() int {
@@ -292,9 +307,12 @@ func newIncomingTrack(
 		}
 
 	case strings.ToLower(webrtc.MimeTypeG722):
+		t.typ = description.MediaTypeAudio
 		t.format = &format.G722{}
 
 	case strings.ToLower(webrtc.MimeTypePCMU):
+		t.typ = description.MediaTypeAudio
+
 		channels := track.Codec().Channels
 		if channels == 0 {
 			channels = 1
@@ -313,6 +331,8 @@ func newIncomingTrack(
 		}
 
 	case strings.ToLower(webrtc.MimeTypePCMA):
+		t.typ = description.MediaTypeAudio
+
 		channels := track.Codec().Channels
 		if channels == 0 {
 			channels = 1
@@ -331,6 +351,7 @@ func newIncomingTrack(
 		}
 
 	case strings.ToLower(mimeTypeL16):
+		t.typ = description.MediaTypeAudio
 		t.format = &format.LPCM{
 			PayloadTyp:   uint8(track.PayloadType()),
 			BitDepth:     16,
@@ -339,7 +360,7 @@ func newIncomingTrack(
 		}
 
 	default:
-		return nil, fmt.Errorf("unsupported codec: %+v", track.Codec())
+		return nil, fmt.Errorf("unsupported codec: %+v", track.Codec().RTPCodecCapability)
 	}
 
 	// read incoming RTCP packets to make interceptors work
@@ -354,7 +375,7 @@ func newIncomingTrack(
 	}()
 
 	// send period key frame requests
-	if isVideo {
+	if t.typ == description.MediaTypeVideo {
 		go func() {
 			keyframeTicker := time.NewTicker(keyFrameInterval)
 			defer keyframeTicker.Stop()
