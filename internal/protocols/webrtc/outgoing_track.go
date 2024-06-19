@@ -54,6 +54,15 @@ func (t *OutgoingTrack) codecParameters() (webrtc.RTPCodecParameters, error) {
 			PayloadType: 96,
 		}, nil
 
+	case *format.H265:
+		return webrtc.RTPCodecParameters{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:  webrtc.MimeTypeH265,
+				ClockRate: 90000,
+			},
+			PayloadType: 96,
+		}, nil
+
 	case *format.H264:
 		return webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -205,6 +214,7 @@ func (t *OutgoingTrack) isVideo() bool {
 	case *format.AV1,
 		*format.VP9,
 		*format.VP8,
+		*format.H265,
 		*format.H264:
 		return true
 	}
