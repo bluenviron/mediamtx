@@ -287,6 +287,7 @@ func (p *Core) createResources(initial bool) error {
 			HTTPAddress:     p.conf.AuthHTTPAddress,
 			HTTPExclude:     p.conf.AuthHTTPExclude,
 			JWTJWKS:         p.conf.AuthJWTJWKS,
+			JWTExclude:      p.conf.AuthJWTExclude,
 			ReadTimeout:     time.Duration(p.conf.ReadTimeout),
 			RTSPAuthMethods: p.conf.RTSPAuthMethods,
 		}
@@ -674,6 +675,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthHTTPAddress != p.conf.AuthHTTPAddress ||
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
+		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods)
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {

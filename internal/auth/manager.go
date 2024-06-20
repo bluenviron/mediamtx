@@ -109,6 +109,7 @@ type Manager struct {
 	HTTPAddress     string
 	HTTPExclude     []conf.AuthInternalUserPermission
 	JWTJWKS         string
+	JWTExclude      []conf.AuthInternalUserPermission
 	ReadTimeout     time.Duration
 	RTSPAuthMethods []auth.ValidateMethod
 
@@ -255,6 +256,10 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 }
 
 func (m *Manager) authenticateJWT(req *Request) error {
+	if matchesPermission(m.JWTExclude, req) {
+		return nil
+	}
+
 	keyfunc, err := m.pullJWTJWKS()
 	if err != nil {
 		return err

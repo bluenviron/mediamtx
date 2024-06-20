@@ -177,6 +177,7 @@ type Conf struct {
 	ExternalAuthenticationURL *string                     `json:"externalAuthenticationURL,omitempty"` // deprecated
 	AuthHTTPExclude           AuthInternalUserPermissions `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                      `json:"authJWTJWKS"`
+	AuthJWTExclude            AuthInternalUserPermissions `json:"authJWTExclude"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -313,6 +314,17 @@ func (conf *Conf) setDefaults() {
 	// Authentication
 	conf.AuthInternalUsers = defaultAuthInternalUsers
 	conf.AuthHTTPExclude = []AuthInternalUserPermission{
+		{
+			Action: AuthActionAPI,
+		},
+		{
+			Action: AuthActionMetrics,
+		},
+		{
+			Action: AuthActionPprof,
+		},
+	}
+	conf.AuthJWTExclude = []AuthInternalUserPermission{
 		{
 			Action: AuthActionAPI,
 		},
