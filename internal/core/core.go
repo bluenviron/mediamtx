@@ -34,7 +34,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
-var version = "v0.0.0"
+//go:generate go run ./versiongetter
 
 var defaultConfPaths = []string{
 	"rtsp-simple-server.yml",
