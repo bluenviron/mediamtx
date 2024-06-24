@@ -155,7 +155,7 @@ func (mi *muxerInstance) createVideoTrack() *gohlslib.Track {
 				return nil
 			}
 
-			err := mi.hmuxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
+			err := mi.hmuxer.WriteH265(tunit.NTP, tunit.PTS, tunit.AU)
 			if err != nil {
 				return fmt.Errorf("muxer error: %w", err)
 			}
@@ -185,7 +185,7 @@ func (mi *muxerInstance) createVideoTrack() *gohlslib.Track {
 				return nil
 			}
 
-			err := mi.hmuxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
+			err := mi.hmuxer.WriteH264(tunit.NTP, tunit.PTS, tunit.AU)
 			if err != nil {
 				return fmt.Errorf("muxer error: %w", err)
 			}
@@ -227,12 +227,7 @@ func (mi *muxerInstance) createAudioTrack() *gohlslib.Track {
 
 		return &gohlslib.Track{
 			Codec: &codecs.Opus{
-				ChannelCount: func() int {
-					if audioFormatOpus.IsStereo {
-						return 2
-					}
-					return 1
-				}(),
+				ChannelCount: audioFormatOpus.ChannelCount,
 			},
 		}
 	}

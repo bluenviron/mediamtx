@@ -18,18 +18,18 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "udp://localhost:9001",
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				Parent:         p,
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
 			}
 		},
+		"udp://127.0.0.1:9001",
 		&conf.Path{},
 	)
 	defer te.Close()
 
 	time.Sleep(50 * time.Millisecond)
 
-	conn, err := net.Dial("udp", "localhost:9001")
+	conn, err := net.Dial("udp", "127.0.0.1:9001")
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -41,12 +41,12 @@ func TestSource(t *testing.T) {
 	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 	require.NoError(t, err)
 
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{{ // IDR
+	err = w.WriteH264(track, 0, 0, true, [][]byte{{ // IDR
 		5, 1,
 	}})
 	require.NoError(t, err)
 
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{{ // non-IDR
+	err = w.WriteH264(track, 0, 0, true, [][]byte{{ // non-IDR
 		5, 2,
 	}})
 	require.NoError(t, err)

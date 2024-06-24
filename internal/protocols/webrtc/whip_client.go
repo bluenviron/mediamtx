@@ -13,8 +13,14 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+)
+
+const (
+	webrtcHandshakeTimeout   = 10 * time.Second
+	webrtcTrackGatherTimeout = 2 * time.Second
 )
 
 // WHIPClient is a WHIP client.
@@ -38,28 +44,27 @@ func (c *WHIPClient) Publish(
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-	})
-	if err != nil {
-		return nil, err
+	var outgoingTracks []*OutgoingTrack
+
+	if videoTrack != nil {
+		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: videoTrack})
+	}
+	if audioTrack != nil {
+		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: audioTrack})
 	}
 
 	c.pc = &PeerConnection{
-		ICEServers: iceServers,
-		API:        api,
-		Publish:    true,
-		Log:        c.Log,
+		ICEServers:         iceServers,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            true,
+		OutgoingTracks:     outgoingTracks,
+		Log:                c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
-		return nil, err
-	}
-
-	tracks, err := c.pc.SetupOutgoingTracks(videoTrack, audioTrack)
-	if err != nil {
-		c.pc.Close()
 		return nil, err
 	}
 
@@ -114,7 +119,7 @@ outer:
 		}
 	}
 
-	return tracks, nil
+	return outgoingTracks, nil
 }
 
 // Read reads tracks.
@@ -124,19 +129,14 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	c.pc = &PeerConnection{
-		ICEServers: iceServers,
-		API:        api,
-		Publish:    false,
-		Log:        c.Log,
+		ICEServers:         iceServers,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            false,
+		Log:                c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
@@ -169,8 +169,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	// check that there are at most two tracks
-	_, err = TrackCount(sdp.MediaDescriptions)
+	err = TracksAreValid(sdp.MediaDescriptions)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
@@ -210,7 +209,7 @@ outer:
 		}
 	}
 
-	tracks, err := c.pc.GatherIncomingTracks(ctx, 0)
+	tracks, err := c.pc.GatherIncomingTracks(ctx)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()

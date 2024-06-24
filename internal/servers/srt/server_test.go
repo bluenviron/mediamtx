@@ -106,7 +106,7 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=publish:mypath:myuser:mypass"
+	u := "srt://127.0.0.1:8890?streamid=publish:mypath:myuser:mypass"
 
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(u)
@@ -127,7 +127,7 @@ func TestServerPublish(t *testing.T) {
 	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 	require.NoError(t, err)
 
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{
+	err = w.WriteH264(track, 0, 0, true, [][]byte{
 		test.FormatH264.SPS,
 		test.FormatH264.PPS,
 		{0x05, 1}, // IDR
@@ -156,7 +156,7 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{
+	err = w.WriteH264(track, 0, 0, true, [][]byte{
 		{5, 2},
 	})
 	require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=read:mypath:myuser:mypass"
+	u := "srt://127.0.0.1:8890?streamid=read:mypath:myuser:mypass"
 
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(u)
@@ -237,7 +237,7 @@ func TestServerRead(t *testing.T) {
 
 	received := false
 
-	r.OnDataH26x(r.Tracks()[0], func(pts int64, dts int64, au [][]byte) error {
+	r.OnDataH264(r.Tracks()[0], func(pts int64, dts int64, au [][]byte) error {
 		require.Equal(t, int64(0), pts)
 		require.Equal(t, int64(0), dts)
 		require.Equal(t, [][]byte{

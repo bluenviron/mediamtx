@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pion/ice/v2"
 	"github.com/pion/logging"
 	pwebrtc "github.com/pion/webrtc/v3"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -192,6 +192,8 @@ type Server struct {
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
 	ICEServers            []conf.WebRTCICEServer
+	HandshakeTimeout      conf.StringDuration
+	TrackGatherTimeout    conf.StringDuration
 	ExternalCmdPool       *externalcmd.Pool
 	PathManager           serverPathManager
 	Parent                serverParent
@@ -201,7 +203,8 @@ type Server struct {
 	httpServer       *httpServer
 	udpMuxLn         net.PacketConn
 	tcpMuxLn         net.Listener
-	api              *pwebrtc.API
+	iceUDPMux        ice.UDPMux
+	iceTCPMux        ice.TCPMux
 	sessions         map[*session]struct{}
 	sessionsBySecret map[uuid.UUID]*session
 
@@ -252,13 +255,6 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	apiConf := webrtc.APIConf{
-		LocalRandomUDP:        false,
-		IPsFromInterfaces:     s.IPsFromInterfaces,
-		IPsFromInterfacesList: s.IPsFromInterfacesList,
-		AdditionalHosts:       s.AdditionalHosts,
-	}
-
 	if s.LocalUDPAddress != "" {
 		s.udpMuxLn, err = net.ListenPacket(restrictnetwork.Restrict("udp", s.LocalUDPAddress))
 		if err != nil {
@@ -266,7 +262,7 @@ func (s *Server) Initialize() error {
 			ctxCancel()
 			return err
 		}
-		apiConf.ICEUDPMux = pwebrtc.NewICEUDPMux(webrtcNilLogger, s.udpMuxLn)
+		s.iceUDPMux = pwebrtc.NewICEUDPMux(webrtcNilLogger, s.udpMuxLn)
 	}
 
 	if s.LocalTCPAddress != "" {
@@ -277,16 +273,7 @@ func (s *Server) Initialize() error {
 			ctxCancel()
 			return err
 		}
-		apiConf.ICETCPMux = pwebrtc.NewICETCPMux(webrtcNilLogger, s.tcpMuxLn, 8)
-	}
-
-	s.api, err = webrtc.NewAPI(apiConf)
-	if err != nil {
-		s.udpMuxLn.Close()
-		s.tcpMuxLn.Close()
-		s.httpServer.close()
-		ctxCancel()
-		return err
+		s.iceTCPMux = pwebrtc.NewICETCPMux(webrtcNilLogger, s.tcpMuxLn, 8)
 	}
 
 	str := "listener opened on " + s.Address + " (HTTP)"
@@ -325,14 +312,18 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
-				parentCtx:       s.ctx,
-				writeQueueSize:  s.WriteQueueSize,
-				api:             s.api,
-				req:             req,
-				wg:              &wg,
-				externalCmdPool: s.ExternalCmdPool,
-				pathManager:     s.PathManager,
-				parent:          s,
+				parentCtx:             s.ctx,
+				writeQueueSize:        s.WriteQueueSize,
+				ipsFromInterfaces:     s.IPsFromInterfaces,
+				ipsFromInterfacesList: s.IPsFromInterfacesList,
+				additionalHosts:       s.AdditionalHosts,
+				iceUDPMux:             s.iceUDPMux,
+				iceTCPMux:             s.iceTCPMux,
+				req:                   req,
+				wg:                    &wg,
+				externalCmdPool:       s.ExternalCmdPool,
+				pathManager:           s.PathManager,
+				parent:                s,
 			}
 			sx.initialize()
 			s.sessions[sx] = struct{}{}

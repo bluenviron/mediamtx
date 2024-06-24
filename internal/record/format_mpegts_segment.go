@@ -13,13 +13,15 @@ type formatMPEGTSSegment struct {
 	startDTS time.Duration
 	startNTP time.Time
 
-	lastFlush time.Duration
 	path      string
 	fi        *os.File
+	lastFlush time.Duration
+	lastDTS   time.Duration
 }
 
 func (s *formatMPEGTSSegment) initialize() {
 	s.lastFlush = s.startDTS
+	s.lastDTS = s.startDTS
 	s.f.dw.setTarget(s)
 }
 
@@ -34,7 +36,8 @@ func (s *formatMPEGTSSegment) close() error {
 		}
 
 		if err2 == nil {
-			s.f.a.agent.OnSegmentComplete(s.path)
+			duration := s.lastDTS - s.startDTS
+			s.f.a.agent.OnSegmentComplete(s.path, duration)
 		}
 	}
 

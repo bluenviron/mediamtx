@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 )
 
 // RTSPAuthMethods is the rtspAuthMethods parameter.
-type RTSPAuthMethods []headers.AuthMethod
+type RTSPAuthMethods []auth.ValidateMethod
 
 // MarshalJSON implements json.Marshaler.
 func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
@@ -18,7 +18,7 @@ func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
 
 	for i, v := range d {
 		switch v {
-		case headers.AuthBasic:
+		case auth.ValidateMethodBasic:
 			out[i] = "basic"
 
 		default:
@@ -43,10 +43,10 @@ func (d *RTSPAuthMethods) UnmarshalJSON(b []byte) error {
 	for _, v := range in {
 		switch v {
 		case "basic":
-			*d = append(*d, headers.AuthBasic)
+			*d = append(*d, auth.ValidateMethodBasic)
 
 		case "digest":
-			*d = append(*d, headers.AuthDigestMD5)
+			*d = append(*d, auth.ValidateMethodDigestMD5)
 
 		default:
 			return fmt.Errorf("invalid authentication method: '%s'", v)

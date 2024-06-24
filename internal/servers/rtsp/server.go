@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
 	"github.com/google/uuid"
 
@@ -59,7 +59,7 @@ type serverParent interface {
 // Server is a RTSP server.
 type Server struct {
 	Address             string
-	AuthMethods         []headers.AuthMethod
+	AuthMethods         []auth.ValidateMethod
 	ReadTimeout         conf.StringDuration
 	WriteTimeout        conf.StringDuration
 	WriteQueueSize      int

@@ -22,8 +22,8 @@ Live streams can be published to the server with:
 |--------|--------|------------|------------|
 |[SRT clients](#srt-clients)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[SRT cameras and servers](#srt-cameras-and-servers)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
-|[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711 (PCMA, PCMU)|
-|[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H265, H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, H265, H264|Opus, G722, G711 (PCMA, PCMU)|
 |[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G711 (PCMA, PCMU), LPCM|
@@ -134,7 +134,8 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [SRT-specific features](#srt-specific-features)
     * [Standard stream ID syntax](#standard-stream-id-syntax)
   * [WebRTC-specific features](#webrtc-specific-features)
-    * [Connectivity issues](#connectivity-issues)
+    * [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep)
+    * [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues)
   * [RTSP-specific features](#rtsp-specific-features)
     * [Transport protocols](#transport-protocols)
     * [Encryption](#encryption)
@@ -338,6 +339,7 @@ Latest versions of OBS Studio can publish to the server with the [WebRTC / WHIP 
 
 * Service: `WHIP`
 * Server: `http://localhost:8889/mystream/whip`
+* Bearer Token: `myuser:mypass` (if internal authentication is enabled) or JWT (if JWT-based authentication is enabled)
 
 Save the configuration and click `Start streaming`.
 
@@ -610,7 +612,9 @@ WHIP is a WebRTC extensions that allows to publish streams by using a URL, witho
 http://localhost:8889/mystream/whip
 ```
 
-Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
+Regarding authentication, read [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep).
+
+Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues).
 
 Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
@@ -876,7 +880,9 @@ WHEP is a WebRTC extensions that allows to read streams by using a URL, without 
 http://localhost:8889/mystream/whep
 ```
 
-Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
+Regarding authentication, read [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep).
+
+Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues).
 
 Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [web browsers](#web-browsers-1).
 
@@ -1180,10 +1186,18 @@ The JWT is expected to contain the `mediamtx_permissions` scope, with a list of 
 }
 ```
 
-Clients are expected to pass the JWT in query parameters, for instance:
+Clients are expected to pass the JWT in the Authorization header (in case of HLS and WebRTC) or in query parameters (in case of any other protocol), for instance (RTSP):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?jwt=MY_JWT
+```
+
+For instance (HLS):
+
+```
+GET /mypath/index.m3u8 HTTP/1.1
+Host: example.com
+Authorization: Bearer MY_JWT
 ```
 
 Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide such JWTs:
@@ -1669,6 +1683,7 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   # * MTX_SEGMENT_PATH: segment file path
+  # * MTX_SEGMENT_DURATION: segment duration
   runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 
@@ -1829,7 +1844,35 @@ Where:
 
 ### WebRTC-specific features
 
-#### Connectivity issues
+#### Authenticating with WHIP/WHEP
+
+When using WHIP or WHEP to establish a WebRTC connection, there are multiple ways to provide credentials.
+
+If internal authentication or HTTP-based authentication is enabled, username and password can be passed through the `Authentication: Basic` header:
+
+```
+Authentication: Basic [base64_encoded_credentials]
+```
+
+Username and password can be also passed through the `Authentication: Bearer` header (since it's mandated by the specification):
+
+```
+Authentication: Bearer username:password
+```
+
+If JWT-based authentication is enabled, JWT can be passed through the `Authentication: Bearer` header:
+
+```
+Authentication: Bearer [jwt]
+```
+
+The JWT can also be passed through query parameters:
+
+```
+http://localhost:8889/mystream/whip?jwt=[jwt]
+```
+
+#### Solving WebRTC connectivity issues
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
@@ -2015,9 +2058,7 @@ The server can be compiled with native support for the Raspberry Pi Camera. Comp
 Download the repository, open a terminal in it and run:
 
 ```sh
-cd internal/protocols/rpicamera/exe
-make
-cd ../../../../
+make -C internal/protocols/rpicamera/exe -j$(nproc)
 go generate ./...
 go build -tags rpicamera .
 ```

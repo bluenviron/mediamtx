@@ -376,11 +376,10 @@ const editOffer = (sdp) => {
 	const sections = sdp.split('m=');
 
 	for (let i = 0; i < sections.length; i++) {
-		const section = sections[i];
-		if (section.startsWith('video')) {
-			sections[i] = setCodec(section, videoForm.codec.value);
-		} else if (section.startsWith('audio')) {
-			sections[i] = setAudioBitrate(setCodec(section, audioForm.codec.value), audioForm.bitrate.value, audioForm.voice.checked);
+		if (sections[i].startsWith('video')) {
+			sections[i] = setCodec(sections[i], videoForm.codec.value);
+		} else if (sections[i].startsWith('audio')) {
+			sections[i] = setAudioBitrate(setCodec(sections[i], audioForm.codec.value), audioForm.bitrate.value, audioForm.voice.checked);
 		}
 	}
 
@@ -391,9 +390,8 @@ const editAnswer = (sdp) => {
 	const sections = sdp.split('m=');
 
 	for (let i = 0; i < sections.length; i++) {
-		const section = sections[i];
-		if (section.startsWith('video')) {
-			sections[i] = setVideoBitrate(section, videoForm.bitrate.value);
+		if (sections[i].startsWith('video')) {
+			sections[i] = setVideoBitrate(sections[i], videoForm.bitrate.value);
 		}
 	}
 
@@ -411,7 +409,7 @@ const sendLocalCandidates = (candidates) => {
 	})
 		.then((res) => {
 			if (res.status !== 204) {
-				throw new Error('bad status code');
+				throw new Error(`bad status code ${res.status}`);
 			}
 		})
 		.catch((err) => {
@@ -443,12 +441,16 @@ const onRemoteAnswer = (sdp) => {
 	pc.setRemoteDescription(new RTCSessionDescription({
 		type: 'answer',
 		sdp,
-	}));
-
-	if (queuedCandidates.length !== 0) {
-		sendLocalCandidates(queuedCandidates);
-		queuedCandidates = [];
-	}
+	}))
+		.then(() => {
+			if (queuedCandidates.length !== 0) {
+				sendLocalCandidates(queuedCandidates);
+				queuedCandidates = [];
+			}
+		})
+		.catch((err) => {
+			onError(err.toString());
+		});
 };
 
 const sendOffer = (offer) => {
@@ -462,13 +464,20 @@ const sendOffer = (offer) => {
 		body: offer,
 	})
 		.then((res) => {
-			if (res.status !== 201) {
-				throw new Error('bad status code');
+			switch (res.status) {
+			case 201:
+				break;
+			case 400:
+				return res.json().then((e) => { throw new Error(e.error); });
+			default:
+				throw new Error(`bad status code ${res.status}`);
 			}
+
 			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
-			return res.text();
+
+			return res.text()
+				.then((answer) => onRemoteAnswer(answer));
 		})
-		.then((answer) => onRemoteAnswer(answer))
 		.catch((err) => {
 			onError(err.toString(), true);
 		});
@@ -478,8 +487,16 @@ const createOffer = () => {
 	pc.createOffer()
 		.then((offer) => {
 			offerData = parseOffer(offer.sdp);
-			pc.setLocalDescription(offer);
-			sendOffer(offer.sdp);
+			pc.setLocalDescription(offer)
+				.then(() => {
+					sendOffer(offer.sdp);
+				})
+				.catch((err) => {
+					onError(err.toString());
+				});
+		})
+		.catch((err) => {
+			onError(err.toString());
 		});
 };
 
@@ -489,7 +506,7 @@ const onConnectionState = () => {
 	}
 
 	if (pc.iceConnectionState === 'disconnected') {
-		onError('peer connection disconnected', true);
+		onError('peer connection closed', true);
 	} else if (pc.iceConnectionState === 'connected') {
 		setMessage('');
 	}

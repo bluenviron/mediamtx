@@ -13,7 +13,6 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
@@ -157,14 +156,14 @@ func TestAuthInternalRTSPDigest(t *testing.T) {
 			},
 		},
 		HTTPAddress:     "",
-		RTSPAuthMethods: []headers.AuthMethod{headers.AuthDigestMD5},
+		RTSPAuthMethods: []auth.ValidateMethod{auth.ValidateMethodDigestMD5},
 	}
 
 	u, err := base.ParseURL("rtsp://127.0.0.1:8554/mypath")
 	require.NoError(t, err)
 
 	s, err := auth.NewSender(
-		auth.GenerateWWWAuthenticate([]headers.AuthMethod{headers.AuthDigestMD5}, "IPCAM", "mynonce"),
+		auth.GenerateWWWAuthenticate([]auth.ValidateMethod{auth.ValidateMethodDigestMD5}, "IPCAM", "mynonce"),
 		"myuser",
 		"mypass",
 	)

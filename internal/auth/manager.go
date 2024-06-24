@@ -110,7 +110,7 @@ type Manager struct {
 	HTTPExclude     []conf.AuthInternalUserPermission
 	JWTJWKS         string
 	ReadTimeout     time.Duration
-	RTSPAuthMethods []headers.AuthMethod
+	RTSPAuthMethods []auth.ValidateMethod
 
 	mutex          sync.RWMutex
 	jwtHTTPClient  *http.Client
@@ -137,19 +137,15 @@ func (m *Manager) Authenticate(req *Request) error {
 func (m *Manager) authenticateInner(req *Request) error {
 	// if this is a RTSP request, fill username and password
 	var rtspAuthHeader headers.Authorization
+
 	if req.RTSPRequest != nil {
 		err := rtspAuthHeader.Unmarshal(req.RTSPRequest.Header["Authorization"])
 		if err == nil {
-			switch rtspAuthHeader.Method {
-			case headers.AuthBasic:
+			if rtspAuthHeader.Method == headers.AuthMethodBasic {
 				req.User = rtspAuthHeader.BasicUser
 				req.Pass = rtspAuthHeader.BasicPass
-
-			case headers.AuthDigestMD5:
+			} else { // digest
 				req.User = rtspAuthHeader.Username
-
-			default:
-				return fmt.Errorf("unsupported RTSP authentication method")
 			}
 		}
 	}
@@ -197,7 +193,7 @@ func (m *Manager) authenticateWithUser(
 	}
 
 	if u.User != "any" {
-		if req.RTSPRequest != nil && rtspAuthHeader.Method == headers.AuthDigestMD5 {
+		if req.RTSPRequest != nil && rtspAuthHeader.Method == headers.AuthMethodDigest {
 			err := auth.Validate(
 				req.RTSPRequest,
 				string(u.User),
