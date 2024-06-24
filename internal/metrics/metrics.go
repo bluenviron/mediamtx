@@ -342,6 +342,8 @@ func (m *Metrics) onRequest(ctx *gin.Context) {
 				out += metric("webrtc_sessions", tags, 1)
 				out += metric("webrtc_sessions_bytes_received", tags, int64(i.BytesReceived))
 				out += metric("webrtc_sessions_bytes_sent", tags, int64(i.BytesSent))
+				out += metric("webrtc_sessions_bitrate_sent", tags, int64(i.BitrateSent))
+				out += metric("webrtc_sessions_bitrate_received", tags, int64(i.BitrateReceived))
 
 			}
 		} else {

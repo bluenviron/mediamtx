@@ -306,6 +306,8 @@ type APIWebRTCSession struct {
 	Query                     string                `json:"query"`
 	BytesReceived             uint64                `json:"bytesReceived"`
 	BytesSent                 uint64                `json:"bytesSent"`
+	BitrateSent               uint64                `json:"bitrateSent"`
+	BitrateReceived           uint64                `json:"bitrateReceived"`
 }
 
 // APIWebRTCSessionList is a list of WebRTC sessions.

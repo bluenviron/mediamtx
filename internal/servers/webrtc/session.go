@@ -835,6 +835,8 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	remoteCandidate := ""
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
+	bitrateSent := uint64(0)
+	bitrateReceived := uint64(0)
 
 	if s.pc != nil {
 		peerConnectionEstablished = true
@@ -842,6 +844,8 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		remoteCandidate = s.pc.RemoteCandidate()
 		bytesReceived = s.pc.BytesReceived()
 		bytesSent = s.pc.BytesSent()
+		bitrateSent = s.pc.BitrateSent()
+		bitrateReceived = s.pc.BitrateReceived()
 	}
 
 	return &defs.APIWebRTCSession{
@@ -857,9 +861,11 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			}
 			return defs.APIWebRTCSessionStateRead
 		}(),
-		Path:          s.req.pathName,
-		Query:         s.req.query,
-		BytesReceived: bytesReceived,
-		BytesSent:     bytesSent,
+		Path:            s.req.pathName,
+		Query:           s.req.query,
+		BytesReceived:   bytesReceived,
+		BytesSent:       bytesSent,
+		BitrateSent:     bitrateSent,
+		BitrateReceived: bitrateReceived,
 	}
 }

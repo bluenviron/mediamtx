@@ -6,7 +6,7 @@
 ###############################################
 # Global settings -> General
 # Verbosity of the program; available values are "error", "warn", "info", "debug".
-logLevel: debug
+logLevel: warn
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
 # If "file" is in logDestinations, this is the file which will receive the logs.

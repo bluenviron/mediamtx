@@ -92,6 +92,14 @@ type PeerConnection struct {
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
+
+	// Fields for tracking bitrate
+	prevBytesSent  uint64
+	lastUpdateTime time.Time
+
+	// Fields for tracking bitrate received
+	prevBytesReceived  uint64
+	lastUpdateReceived time.Time
 }
 
 // Start starts the peer connection.
@@ -516,11 +524,76 @@ func (co *PeerConnection) BytesReceived() uint64 {
 // BytesSent returns sent bytes.
 func (co *PeerConnection) BytesSent() uint64 {
 	for _, stats := range co.wr.GetStats() {
+		// fmt.Println("stats: ", stats)
+		// print out what kind of webrtc stats we have
+		// fmt.Println("stats type: ", fmt.Sprintf("%T", stats))
 		if tstats, ok := stats.(webrtc.TransportStats); ok {
 			if tstats.ID == "iceTransport" {
 				return tstats.BytesSent
 			}
 		}
 	}
+	return 0
+}
+
+// BitrateSent returns sent bitrate.
+func (co *PeerConnection) BitrateSent() uint64 {
+	co.stateChangeMutex.Lock()
+	defer co.stateChangeMutex.Unlock()
+
+	// Get the current bytes sent
+	currentBytesSent := co.BytesSent()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesSent - co.prevBytesSent
+	timeDiff := currentTime.Sub(co.lastUpdateTime).Seconds()
+
+	fmt.Println("bytesDiff: ", bytesDiff)
+	fmt.Println("timeDiff: ", timeDiff)
+
+	// Update the previous bytes sent and last update time
+	co.prevBytesSent = currentBytesSent
+	co.lastUpdateTime = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if (timeDiff) > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
+	return 0
+}
+
+// BitrateReceived returns received bitrate.
+func (co *PeerConnection) BitrateReceived() uint64 {
+	co.stateChangeMutex.Lock()
+	defer co.stateChangeMutex.Unlock()
+
+	// Get the current bytes received
+	currentBytesReceived := co.BytesReceived()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesReceived - co.prevBytesReceived
+	timeDiff := currentTime.Sub(co.lastUpdateReceived).Seconds()
+
+	fmt.Println("bytesDiff: ", bytesDiff)
+	fmt.Println("timeDiff: ", timeDiff)
+
+	// Update the previous bytes received and last update time
+	co.prevBytesReceived = currentBytesReceived
+	co.lastUpdateReceived = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if timeDiff > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
 	return 0
 }
