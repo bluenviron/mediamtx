@@ -30,6 +30,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func interfaceIsEmpty(i interface{}) bool {
@@ -106,6 +107,7 @@ type apiAuthManager interface {
 type apiParent interface {
 	logger.Writer
 	APIConfigSet(conf *conf.Conf)
+	APIGetConfigPath() string
 }
 
 // API is an API server.
@@ -358,7 +360,10 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 func (a *API) onConfigYamlGet(ctx *gin.Context) {
 	a.mutex.RLock()
 
-	cnf, err := os.ReadFile("mediamtx.yml")
+	confPath := a.Parent.APIGetConfigPath()
+
+	// Read the YAML content from the file
+	cnf, err := os.ReadFile(confPath)
 
 	a.mutex.RUnlock()
 
@@ -376,8 +381,8 @@ func (a *API) onConfigYamlGet(ctx *gin.Context) {
 }
 
 func (a *API) onConfigYamlPost(ctx *gin.Context) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+
+	// Write YAML data to the file
 
 	// Extract YAML data from the request body
 	yamlData, err := io.ReadAll(ctx.Request.Body)
@@ -386,8 +391,26 @@ func (a *API) onConfigYamlPost(ctx *gin.Context) {
 		return
 	}
 
-	// Write YAML data to the file
-	err = os.WriteFile("mediamtx.yml", yamlData, 0644)
+	// Create a temporary file with the YAML content to validate the file saving it
+	filePath, err := test.CreateTempFile([]byte(yamlData))
+
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	_, _, errLoad := conf.Load(filePath, nil)
+	if errLoad != nil {
+		a.writeError(ctx, http.StatusBadRequest, errLoad)
+		return
+	}
+
+	defer os.Remove(filePath)
+
+	// Write final YAML to the file
+	confPath := a.Parent.APIGetConfigPath()
+
+	err = os.WriteFile(confPath, yamlData, 0644)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return

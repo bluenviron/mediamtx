@@ -1025,3 +1025,7 @@ func (p *Core) APIConfigSet(conf *conf.Conf) {
 	case <-p.ctx.Done():
 	}
 }
+
+func (p *Core) APIGetConfigPath() string {
+	return p.confPath
+}
