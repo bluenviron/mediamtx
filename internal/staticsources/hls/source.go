@@ -20,9 +20,8 @@ import (
 
 // Source is a HLS static source.
 type Source struct {
-	ResolvedSource string
-	ReadTimeout    conf.StringDuration
-	Parent         defs.StaticSourceParent
+	ReadTimeout conf.StringDuration
+	Parent      defs.StaticSourceParent
 }
 
 // Log implements logger.Writer.
@@ -49,7 +48,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
-		URI: s.ResolvedSource,
+		URI: params.ResolvedSource,
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
@@ -180,8 +179,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 					medi = &description.Media{
 						Type: description.MediaTypeAudio,
 						Formats: []format.Format{&format.Opus{
-							PayloadTyp: 96,
-							IsStereo:   (tcodec.ChannelCount >= 2),
+							PayloadTyp:   96,
+							ChannelCount: tcodec.ChannelCount,
 						}},
 					}
 

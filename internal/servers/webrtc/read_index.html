@@ -50,6 +50,7 @@ const retryPause = 2000;
 const video = document.getElementById('video');
 const message = document.getElementById('message');
 
+let nonAdvertisedCodecs = [];
 let pc = null;
 let restartTimeout = null;
 let sessionUrl = '';
@@ -87,14 +88,14 @@ const linkToIceServers = (links) => (
 	}) : []
 );
 
-const parseOffer = (offer) => {
+const parseOffer = (sdp) => {
 	const ret = {
 		iceUfrag: '',
 		icePwd: '',
 		medias: [],
 	};
 
-	for (const line of offer.split('\r\n')) {
+	for (const line of sdp.split('\r\n')) {
 		if (line.startsWith('m=')) {
 			ret.medias.push(line.slice('m='.length));
 		} else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
@@ -105,6 +106,74 @@ const parseOffer = (offer) => {
 	}
 
 	return ret;
+};
+
+const enableStereoPcmau = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += ' 118';
+	lines.splice(lines.length - 1, 0, 'a=rtpmap:118 PCMU/8000/2');
+	lines.splice(lines.length - 1, 0, 'a=rtcp-fb:118 transport-cc');
+
+	lines[0] += ' 119';
+	lines.splice(lines.length - 1, 0, 'a=rtpmap:119 PCMA/8000/2');
+	lines.splice(lines.length - 1, 0, 'a=rtcp-fb:119 transport-cc');
+
+	return lines.join('\r\n');
+};
+
+const enableMultichannelOpus = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += " 112";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:112 multiopus/48000/3");
+	lines.splice(lines.length - 1, 0, "a=fmtp:112 channel_mapping=0,2,1;num_streams=2;coupled_streams=1");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:112 transport-cc");
+
+	lines[0] += " 113";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:113 multiopus/48000/4");
+	lines.splice(lines.length - 1, 0, "a=fmtp:113 channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:113 transport-cc");
+
+	lines[0] += " 114";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:114 multiopus/48000/5");
+	lines.splice(lines.length - 1, 0, "a=fmtp:114 channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:114 transport-cc");
+
+	lines[0] += " 115";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:115 multiopus/48000/6");
+	lines.splice(lines.length - 1, 0, "a=fmtp:115 channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:115 transport-cc");
+
+	lines[0] += " 116";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:116 multiopus/48000/7");
+	lines.splice(lines.length - 1, 0, "a=fmtp:116 channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:116 transport-cc");
+
+	lines[0] += " 117";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:117 multiopus/48000/8");
+	lines.splice(lines.length - 1, 0, "a=fmtp:117 channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:117 transport-cc");
+
+	return lines.join('\r\n');
+};
+
+const enableL16 = (section) => {
+	let lines = section.split('\r\n');
+
+	lines[0] += " 120";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:120 L16/8000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:120 transport-cc");
+
+	lines[0] += " 121";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:121 L16/16000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:121 transport-cc");
+
+	lines[0] += " 122";
+	lines.splice(lines.length - 1, 0, "a=rtpmap:122 L16/48000/2");
+	lines.splice(lines.length - 1, 0, "a=rtcp-fb:122 transport-cc");
+
+	return lines.join('\r\n');
 };
 
 const enableStereoOpus = (section) => {
@@ -136,17 +205,30 @@ const enableStereoOpus = (section) => {
 	return lines.join('\r\n');
 };
 
-const editOffer = (offer) => {
-	const sections = offer.sdp.split('m=');
+const editOffer = (sdp) => {
+	const sections = sdp.split('m=');
 
 	for (let i = 0; i < sections.length; i++) {
-		const section = sections[i];
-		if (section.startsWith('audio')) {
-			sections[i] = enableStereoOpus(section);
+		if (sections[i].startsWith('audio')) {
+			sections[i] = enableStereoOpus(sections[i]);
+
+			if (nonAdvertisedCodecs.includes('pcma/8000/2')) {
+				sections[i] = enableStereoPcmau(sections[i]);
+			}
+
+			if (nonAdvertisedCodecs.includes('multiopus/48000/6')) {
+				sections[i] = enableMultichannelOpus(sections[i]);
+			}
+
+			if (nonAdvertisedCodecs.includes('L16/48000/2')) {
+				sections[i] = enableL16(sections[i]);
+			}
+
+			break;
 		}
 	}
 
-	offer.sdp = sections.join('m=');
+	return sections.join('m=');
 };
 
 const generateSdpFragment = (od, candidates) => {
@@ -181,6 +263,70 @@ const generateSdpFragment = (od, candidates) => {
 
 const loadStream = () => {
 	requestICEServers();
+};
+
+const supportsNonAdvertisedCodec = (codec, fmtp) => (
+	new Promise((resolve, reject) => {
+		const pc = new RTCPeerConnection({ iceServers: [] });
+		pc.addTransceiver('audio', { direction: 'recvonly' });
+		pc.createOffer()
+			.then((offer) => {
+				if (offer.sdp.includes(' ' + codec)) { // codec is advertised, there's no need to add it manually
+					resolve(false);
+					return;
+				}
+				const sections = offer.sdp.split('m=audio');
+				const lines = sections[1].split('\r\n');
+				lines[0] += ' 118';
+				lines.splice(lines.length - 1, 0, 'a=rtpmap:118 ' + codec);
+				if (fmtp !== undefined) {
+					lines.splice(lines.length - 1, 0, 'a=fmtp:118 ' + fmtp);
+				}
+				sections[1] = lines.join('\r\n');
+				offer.sdp = sections.join('m=audio');
+				return pc.setLocalDescription(offer);
+			})
+			.then(() => {
+				return pc.setRemoteDescription(new RTCSessionDescription({
+					type: 'answer',
+					sdp: 'v=0\r\n'
+					+ 'o=- 6539324223450680508 0 IN IP4 0.0.0.0\r\n'
+					+ 's=-\r\n'
+					+ 't=0 0\r\n'
+					+ 'a=fingerprint:sha-256 0D:9F:78:15:42:B5:4B:E6:E2:94:3E:5B:37:78:E1:4B:54:59:A3:36:3A:E5:05:EB:27:EE:8F:D2:2D:41:29:25\r\n'
+					+ 'm=audio 9 UDP/TLS/RTP/SAVPF 118\r\n'
+					+ 'c=IN IP4 0.0.0.0\r\n'
+					+ 'a=ice-pwd:7c3bf4770007e7432ee4ea4d697db675\r\n'
+					+ 'a=ice-ufrag:29e036dc\r\n'
+					+ 'a=sendonly\r\n'
+					+ 'a=rtcp-mux\r\n'
+					+ 'a=rtpmap:118 ' + codec + '\r\n'
+					+ ((fmtp !== undefined) ? 'a=fmtp:118 ' + fmtp + '\r\n' : ''),
+				}));
+			})
+			.then(() => {
+				resolve(true);
+			})
+			.catch((err) => {
+				resolve(false);
+			})
+			.finally(() => {
+				pc.close();
+			});
+	})
+);
+
+const getNonAdvertisedCodecs = () => {
+	Promise.all([
+		['pcma/8000/2'],
+		['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
+		['L16/48000/2']
+	].map((c) => supportsNonAdvertisedCodec(c[0], c[1]).then((r) => (r) ? c[0] : false)))
+		.then((c) => c.filter((e) => e !== false))
+		.then((codecs) => {
+			nonAdvertisedCodecs = codecs;
+			loadStream();
+		});
 };
 
 const onError = (err) => {
@@ -254,12 +400,16 @@ const onRemoteAnswer = (sdp) => {
 	pc.setRemoteDescription(new RTCSessionDescription({
 		type: 'answer',
 		sdp,
-	}));
-
-	if (queuedCandidates.length !== 0) {
-		sendLocalCandidates(queuedCandidates);
-		queuedCandidates = [];
-	}
+	}))
+		.then(() => {
+			if (queuedCandidates.length !== 0) {
+				sendLocalCandidates(queuedCandidates);
+				queuedCandidates = [];
+			}
+		})
+		.catch((err) => {
+			onError(err.toString());
+		});
 };
 
 const sendOffer = (offer) => {
@@ -276,13 +426,17 @@ const sendOffer = (offer) => {
 				break;
 			case 404:
 				throw new Error('stream not found');
+			case 400:
+				return res.json().then((e) => { throw new Error(e.error); });
 			default:
 				throw new Error(`bad status code ${res.status}`);
 			}
+
 			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
-			return res.text();
+
+			return res.text()
+				.then((sdp) => onRemoteAnswer(sdp));
 		})
-		.then((sdp) => onRemoteAnswer(sdp))
 		.catch((err) => {
 			onError(err.toString());
 		});
@@ -291,10 +445,18 @@ const sendOffer = (offer) => {
 const createOffer = () => {
 	pc.createOffer()
 		.then((offer) => {
-			editOffer(offer);
+			offer.sdp = editOffer(offer.sdp);
 			offerData = parseOffer(offer.sdp);
-			pc.setLocalDescription(offer);
-			sendOffer(offer);
+			pc.setLocalDescription(offer)
+				.then(() => {
+					sendOffer(offer);
+				})
+				.catch((err) => {
+					onError(err.toString());
+				});
+		})
+		.catch((err) => {
+			onError(err.toString());
 		});
 };
 
@@ -304,7 +466,7 @@ const onConnectionState = () => {
 	}
 
 	if (pc.iceConnectionState === 'disconnected') {
-		onError('peer connection disconnected');
+		onError('peer connection closed');
 	}
 };
 
@@ -362,7 +524,7 @@ const loadAttributesFromQuery = () => {
 
 const init = () => {
 	loadAttributesFromQuery();
-	loadStream();
+	getNonAdvertisedCodecs();
 };
 
 window.addEventListener('DOMContentLoaded', init);

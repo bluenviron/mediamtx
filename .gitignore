@@ -2,4 +2,6 @@
 /binaries
 /coverage*.txt
 /apidocs/*.html
-**/hls.min.js
+/internal/servers/hls/hls.min.js
+/internal/protocols/rpicamera/exe/text_font.h
+/internal/protocols/rpicamera/exe/exe

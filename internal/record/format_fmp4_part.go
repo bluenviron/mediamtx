@@ -81,7 +81,7 @@ func (p *formatFMP4Part) close() error {
 	return writePart(p.s.fi, p.sequenceNumber, p.partTracks)
 }
 
-func (p *formatFMP4Part) record(track *formatFMP4Track, sample *sample) error {
+func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample) error {
 	partTrack, ok := p.partTracks[track]
 	if !ok {
 		partTrack = &fmp4.PartTrack{

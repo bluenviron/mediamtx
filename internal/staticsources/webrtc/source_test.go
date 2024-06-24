@@ -27,29 +27,22 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 }
 
 func TestSource(t *testing.T) {
-	api, err := webrtc.NewAPI(webrtc.APIConf{
-		LocalRandomUDP:    true,
-		IPsFromInterfaces: true,
-	})
-	require.NoError(t, err)
-
+	outgoingTracks := []*webrtc.OutgoingTrack{{Format: &format.Opus{
+		PayloadTyp:   111,
+		ChannelCount: 2,
+	}}}
 	pc := &webrtc.PeerConnection{
-		API:     api,
-		Publish: true,
-		Log:     test.NilLogger,
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		Publish:            true,
+		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
+		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		OutgoingTracks:     outgoingTracks,
+		Log:                test.NilLogger,
 	}
-	err = pc.Start()
+	err := pc.Start()
 	require.NoError(t, err)
 	defer pc.Close()
-
-	tracks, err := pc.SetupOutgoingTracks(
-		nil,
-		&format.Opus{
-			PayloadTyp: 111,
-			IsStereo:   true,
-		},
-	)
-	require.NoError(t, err)
 
 	state := 0
 
@@ -87,7 +80,7 @@ func TestSource(t *testing.T) {
 					err3 := pc.WaitUntilConnected(context.Background())
 					require.NoError(t, err3)
 
-					err3 = tracks[0].WriteRTP(&rtp.Packet{
+					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -128,11 +121,11 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "whep://localhost:9003/my/resource",
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				Parent:         p,
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
 			}
 		},
+		"whep://localhost:9003/my/resource",
 		&conf.Path{},
 	)
 	defer te.Close()

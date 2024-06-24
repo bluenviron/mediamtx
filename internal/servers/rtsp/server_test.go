@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -93,7 +93,7 @@ func TestServerPublish(t *testing.T) {
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []headers.AuthMethod{headers.AuthBasic},
+		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
 		WriteQueueSize:      512,
@@ -184,7 +184,7 @@ func TestServerRead(t *testing.T) {
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []headers.AuthMethod{headers.AuthBasic},
+		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
 		WriteQueueSize:      512,

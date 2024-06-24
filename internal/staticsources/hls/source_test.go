@@ -63,7 +63,7 @@ func TestSource(t *testing.T) {
 		err := w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
 		require.NoError(t, err)
 
-		err = w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
+		err = w.WriteH264(track1, 2*90000, 2*90000, true, [][]byte{
 			{7, 1, 2, 3}, // SPS
 			{8},          // PPS
 		})
@@ -90,10 +90,10 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ResolvedSource: "http://localhost:5780/stream.m3u8",
-				Parent:         p,
+				Parent: p,
 			}
 		},
+		"http://localhost:5780/stream.m3u8",
 		&conf.Path{},
 	)
 	defer te.Close()

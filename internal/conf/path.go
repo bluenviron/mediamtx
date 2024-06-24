@@ -378,22 +378,38 @@ func (pconf *Path) validate(
 		}
 	}
 
+	// Record
+
+	if conf.Playback {
+		if !strings.Contains(pconf.RecordPath, "%Y") ||
+			!strings.Contains(pconf.RecordPath, "%m") ||
+			!strings.Contains(pconf.RecordPath, "%d") ||
+			!strings.Contains(pconf.RecordPath, "%H") ||
+			!strings.Contains(pconf.RecordPath, "%M") ||
+			!strings.Contains(pconf.RecordPath, "%S") ||
+			!strings.Contains(pconf.RecordPath, "%f") {
+			return fmt.Errorf("record path '%s' is missing one of the mandatory elements"+
+				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
+				pconf.RecordPath)
+		}
+	}
+
 	// Authentication (deprecated)
 
 	if deprecatedCredentialsMode {
 		func() {
 			var user Credential = "any"
-			if credentialIsNotEmpty(pconf.PublishUser) {
+			if pconf.PublishUser != nil && *pconf.PublishUser != "" {
 				user = *pconf.PublishUser
 			}
 
 			var pass Credential
-			if credentialIsNotEmpty(pconf.PublishPass) {
+			if pconf.PublishPass != nil && *pconf.PublishPass != "" {
 				pass = *pconf.PublishPass
 			}
 
 			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
-			if ipNetworkIsNotEmpty(pconf.PublishIPs) {
+			if pconf.PublishIPs != nil && len(*pconf.PublishIPs) != 0 {
 				ips = *pconf.PublishIPs
 			}
 
@@ -415,17 +431,17 @@ func (pconf *Path) validate(
 
 		func() {
 			var user Credential = "any"
-			if credentialIsNotEmpty(pconf.ReadUser) {
+			if pconf.ReadUser != nil && *pconf.ReadUser != "" {
 				user = *pconf.ReadUser
 			}
 
 			var pass Credential
-			if credentialIsNotEmpty(pconf.ReadPass) {
+			if pconf.ReadPass != nil && *pconf.ReadPass != "" {
 				pass = *pconf.ReadPass
 			}
 
 			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
-			if ipNetworkIsNotEmpty(pconf.ReadIPs) {
+			if pconf.ReadIPs != nil && len(*pconf.ReadIPs) != 0 {
 				ips = *pconf.ReadIPs
 			}
 

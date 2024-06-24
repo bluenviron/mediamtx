@@ -74,38 +74,6 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 	require.Equal(t, map[string]interface{}{"error": msg}, resErr)
 }
 
-func TestPaginate(t *testing.T) {
-	items := make([]int, 5)
-	for i := 0; i < 5; i++ {
-		items[i] = i
-	}
-
-	pageCount, err := paginate(&items, "1", "1")
-	require.NoError(t, err)
-	require.Equal(t, 5, pageCount)
-	require.Equal(t, []int{1}, items)
-
-	items = make([]int, 5)
-	for i := 0; i < 5; i++ {
-		items[i] = i
-	}
-
-	pageCount, err = paginate(&items, "3", "2")
-	require.NoError(t, err)
-	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{}, items)
-
-	items = make([]int, 6)
-	for i := 0; i < 6; i++ {
-		items[i] = i
-	}
-
-	pageCount, err = paginate(&items, "4", "1")
-	require.NoError(t, err)
-	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{4, 5}, items)
-}
-
 func TestConfigAuth(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
@@ -279,16 +247,14 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/pathdefaults/patch",
 		map[string]interface{}{
-			"readUser": "myuser",
-			"readPass": "mypass",
+			"recordFormat": "fmp4",
 		}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
-	require.Equal(t, "myuser", out["readUser"])
-	require.Equal(t, "mypass", out["readPass"])
+	require.Equal(t, "fmp4", out["recordFormat"])
 }
 
 func TestConfigPathsList(t *testing.T) {
@@ -500,6 +466,38 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 			"disablePublisherOverride": true, // test setting a deprecated parameter
 			"rpiCameraVFlip":           true,
 		}, nil)
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
+		map[string]interface{}{
+			"source":         "rtsp://127.0.0.1:9998/mypath",
+			"sourceOnDemand": true,
+		}, nil)
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
+	require.Equal(t, true, out["sourceOnDemand"])
+	require.Equal(t, nil, out["disablePublisherOverride"])
+	require.Equal(t, false, out["rpiCameraVFlip"])
+}
+
+func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
+	cnf := tempConf(t, "api: yes\n")
+
+	api := API{
+		Address:     "localhost:9997",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		Conf:        cnf,
+		AuthManager: test.NilAuthManager,
+		Parent:      &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
 		map[string]interface{}{

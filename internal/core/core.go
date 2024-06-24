@@ -546,6 +546,7 @@ func (p *Core) createResources(initial bool) error {
 			Directory:       p.conf.HLSDirectory,
 			ReadTimeout:     p.conf.ReadTimeout,
 			WriteQueueSize:  p.conf.WriteQueueSize,
+			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
 			PathManager:     p.pathManager,
 			Parent:          p,
 		}
@@ -579,6 +580,8 @@ func (p *Core) createResources(initial bool) error {
 			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
 			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
 			ICEServers:            p.conf.WebRTCICEServers2,
+			HandshakeTimeout:      p.conf.WebRTCHandshakeTimeout,
+			TrackGatherTimeout:    p.conf.WebRTCTrackGatherTimeout,
 			ExternalCmdPool:       p.externalCmdPool,
 			PathManager:           p.pathManager,
 			Parent:                p,
@@ -826,6 +829,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
 		closePathManager ||
 		closeMetrics ||
 		closeLogger
@@ -846,6 +850,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
+		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
+		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger

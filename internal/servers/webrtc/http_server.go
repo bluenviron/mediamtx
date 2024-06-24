@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -59,6 +60,17 @@ func sessionLocation(publish bool, path string, secret uuid.UUID) string {
 	return ret
 }
 
+func addJWTFromAuthorization(rawQuery string, auth string) string {
+	jwt := strings.TrimPrefix(auth, "Bearer ")
+	if rawQuery != "" {
+		if v, err := url.ParseQuery(rawQuery); err == nil && v.Get("jwt") == "" {
+			v.Set("jwt", jwt)
+			return v.Encode()
+		}
+	}
+	return url.Values{"jwt": []string{jwt}}.Encode()
+}
+
 type httpServer struct {
 	address        string
 	encryption     bool
@@ -109,11 +121,23 @@ func (s *httpServer) close() {
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
+	q := ctx.Request.URL.RawQuery
+
+	if h := ctx.Request.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		// JWT in authorization bearer -> JWT in query parameters
+		q = addJWTFromAuthorization(q, h)
+
+		// credentials in authorization bearer -> credentials in authorization basic
+		if parts := strings.Split(strings.TrimPrefix(h, "Bearer "), ":"); len(parts) == 2 {
+			user = parts[0]
+			pass = parts[1]
+		}
+	}
 
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    pathName,
-			Query:   ctx.Request.URL.RawQuery,
+			Query:   q,
 			Publish: publish,
 			IP:      net.ParseIP(ctx.ClientIP()),
 			User:    user,
@@ -177,11 +201,23 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	}
 
 	user, pass, _ := ctx.Request.BasicAuth()
+	q := ctx.Request.URL.RawQuery
+
+	if h := ctx.Request.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		// JWT in authorization bearer -> JWT in query parameters
+		q = addJWTFromAuthorization(q, h)
+
+		// credentials in authorization bearer -> credentials in authorization basic
+		if parts := strings.Split(strings.TrimPrefix(h, "Bearer "), ":"); len(parts) == 2 {
+			user = parts[0]
+			pass = parts[1]
+		}
+	}
 
 	res := s.parent.newSession(webRTCNewSessionReq{
 		pathName:   pathName,
 		remoteAddr: httpp.RemoteAddr(ctx),
-		query:      ctx.Request.URL.RawQuery,
+		query:      q,
 		user:       user,
 		pass:       pass,
 		offer:      offer,

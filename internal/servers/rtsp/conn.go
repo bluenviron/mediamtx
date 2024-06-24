@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	rtspauth "github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -27,7 +26,7 @@ const (
 type conn struct {
 	isTLS               bool
 	rtspAddress         string
-	authMethods         []headers.AuthMethod
+	authMethods         []rtspauth.ValidateMethod
 	readTimeout         conf.StringDuration
 	runOnConnect        string
 	runOnConnectRestart bool
