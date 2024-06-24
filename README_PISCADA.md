@@ -25,6 +25,10 @@ sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp
 
     # Produce Windowsy binary: mediamtx.exe file
     $env:CGO_ENABLED = "0"; go build .
+
+
+    # Run build:
+    .\mediamtx .\config\mediamtx.yml
 ```
 
 # How to build Linux amd64 binary: (in powershell and bash)
