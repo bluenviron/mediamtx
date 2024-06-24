@@ -3,3 +3,6 @@
 /coverage*.txt
 /apidocs/*.html
 **/hls.min.js
+
+mediamtx
+mediamtx.exe
