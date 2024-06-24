@@ -1,3 +1,6 @@
+volumes:
+  mtx_config:
+
 services:
   mtx:
     image: piscada/mtx:latest
@@ -5,7 +8,6 @@ services:
     labels:
       service.name: "mtx"
     tty: true
-
-    # network_mode: "host"
-    ports:
-      - "3000:3000"
+    network_mode: "host"
+    volumes:
+      - mtx_config:/root/config
