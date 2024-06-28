@@ -3,7 +3,7 @@ volumes:
 
 services:
   mtx:
-    image: piscada/mtx:latest
+    image: piscada/mtx:alpha
     stdin_open: true
     labels:
       service.name: "mtx"

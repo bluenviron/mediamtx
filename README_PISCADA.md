@@ -2,8 +2,8 @@
 
 # Build docker
 
-    docker build -t piscada/mtx:latest .
-    docker push piscada/mtx:latest
+    docker build -t piscada/mtx:alpha .
+    docker push piscada/mtx:alpha
     docker compose up
 
 # Run on Windows:

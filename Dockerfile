@@ -21,7 +21,10 @@ COPY --from=builder /usr/src/app/mediamtx .
 COPY --from=builder /usr/src/app/config/mediamtx.yml ./config/mediamtx.yml
 # VOLUME [ "/config" ]
 
+COPY pipeme .
+
 RUN chmod +x ./mediamtx
+RUN chmod +x ./pipeme
 
 # Install GStreamer pipeline dependencies
 RUN apt update && apt install -y --no-install-recommends \
