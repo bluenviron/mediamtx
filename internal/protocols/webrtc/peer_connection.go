@@ -549,9 +549,6 @@ func (co *PeerConnection) BitrateSent() uint64 {
 	bytesDiff := currentBytesSent - co.prevBytesSent
 	timeDiff := currentTime.Sub(co.lastUpdateTime).Seconds()
 
-	fmt.Println("bytesDiff: ", bytesDiff)
-	fmt.Println("timeDiff: ", timeDiff)
-
 	// Update the previous bytes sent and last update time
 	co.prevBytesSent = currentBytesSent
 	co.lastUpdateTime = currentTime
@@ -579,9 +576,6 @@ func (co *PeerConnection) BitrateReceived() uint64 {
 	// Calculate the difference in bytes and time
 	bytesDiff := currentBytesReceived - co.prevBytesReceived
 	timeDiff := currentTime.Sub(co.lastUpdateReceived).Seconds()
-
-	fmt.Println("bytesDiff: ", bytesDiff)
-	fmt.Println("timeDiff: ", timeDiff)
 
 	// Update the previous bytes received and last update time
 	co.prevBytesReceived = currentBytesReceived

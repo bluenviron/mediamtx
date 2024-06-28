@@ -240,6 +240,9 @@ type Conf struct {
 	RTMPServerKey  string     `json:"rtmpServerKey"`
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
+	// Gst Pipe server
+	GstPipe bool `json:"gstpipe"`
+
 	// HLS server
 	HLS                bool           `json:"hls"`
 	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // deprecated

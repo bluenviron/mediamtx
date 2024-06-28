@@ -21,6 +21,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/gstpipe"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/record"
@@ -78,6 +79,13 @@ type RTSPServer interface {
 	APISessionsGet(uuid.UUID) (*defs.APIRTSPSession, error)
 	APISessionsKick(uuid.UUID) error
 }
+type GstPipeServer interface {
+	APIGstPipeGet(string) (*defs.APIGstPipe, error)
+	APIGstPipeList() (*defs.APIGstPipeList, error)
+	APIGstJitterBufferStatPut(string, *defs.APIGstJitterBufferStats)
+	APIGstRtpSourceStatPut(string, *defs.APIGstRtpSourceStats)
+	APIGstRtpSessionStatPut(string, *defs.APIGstRtpSessionStats)
+}
 
 // RTMPServer contains methods used by the API and Metrics server.
 type RTMPServer interface {
@@ -122,6 +130,7 @@ type API struct {
 	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    PathManager
+	GstStatsServer GstPipeServer
 	RTSPServer     RTSPServer
 	RTSPSServer    RTSPServer
 	RTMPServer     RTMPServer
@@ -158,6 +167,16 @@ func (a *API) Initialize() error {
 
 	group.GET("/v3/config/file", a.onConfigYamlGet)
 	group.POST("/v3/config/file", a.onConfigYamlPost)
+
+	if !interfaceIsEmpty(a.GstStatsServer) {
+		group.GET("/v3/gst/stats/get/*name", a.onGstStatsGet)
+		group.GET("/v3/gst/stats/list", a.onGstStatsList)
+
+		group.POST("/v3/gst/stats/jitterbuffer/*name", a.onJitterBufferStatsReceived)
+		group.POST("/v3/gst/stats/rtpsource/*name", a.onRtpSourceStatsReceived)
+		group.POST("/v3/gst/stats/rtpsession/*name", a.onRtpSessionStatsReceived)
+
+	}
 
 	group.GET("/v3/paths/list", a.onPathsList)
 	group.GET("/v3/paths/get/*name", a.onPathsGet)
@@ -1204,4 +1223,121 @@ func (a *API) ReloadConf(conf *conf.Conf) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.Conf = conf
+}
+
+func (a *API) onJitterBufferStatsReceived(ctx *gin.Context) {
+
+	path, ok := paramName(ctx) // path or cameraId
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Camera ID/pathname"))
+		return
+	}
+
+	// Find
+	var c defs.APIGstJitterBufferStats
+	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.GstStatsServer.APIGstJitterBufferStatPut(path, &c)
+
+	ctx.Status(http.StatusOK)
+}
+func (a *API) onRtpSourceStatsReceived(ctx *gin.Context) {
+
+	path, ok := paramName(ctx) // path or cameraId
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Camera ID/pathname"))
+		return
+	}
+
+	// Find
+	var c defs.APIGstRtpSourceStats
+	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.GstStatsServer.APIGstRtpSourceStatPut(path, &c)
+
+	ctx.Status(http.StatusOK)
+
+}
+
+func (a *API) onRtpSessionStatsReceived(ctx *gin.Context) {
+
+	path, ok := paramName(ctx) // path or cameraId
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Camera ID/pathname"))
+		return
+	}
+
+	// Find
+	var c defs.APIGstRtpSessionStats
+	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.GstStatsServer.APIGstRtpSessionStatPut(path, &c)
+
+	ctx.Status(http.StatusOK)
+
+}
+
+func (a *API) onGstStatsGet(ctx *gin.Context) {
+	cameraId, ok := paramName(ctx)
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path name"))
+		return
+	}
+
+	data, err := a.GstStatsServer.APIGstPipeGet(cameraId)
+	if err != nil {
+		if errors.Is(err, gstpipe.ErrStatNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, data)
+
+}
+
+func (a *API) onGstStatsList(ctx *gin.Context) {
+
+	data, err := a.GstStatsServer.APIGstPipeList()
+
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	data.ItemCount = len(data.Items)
+	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	data.PageCount = pageCount
+
+	ctx.JSON(http.StatusOK, data)
+
 }

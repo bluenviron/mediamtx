@@ -13,6 +13,63 @@ type APIError struct {
 	Error string `json:"error"`
 }
 
+// APIGstPipeList is a list of GStreamer pipelines.
+type APIGstPipeList struct {
+	ItemCount int           `json:"itemCount"`
+	PageCount int           `json:"pageCount"`
+	Items     []*APIGstPipe `json:"items"`
+}
+
+type APIGstJitterBufferStats struct {
+
+	// The number of packets considered lost
+	NumLost uint64 `json:"numLost"`
+	// The number of packets arriving too late
+	NumLate uint64 `json:"numLate"`
+	// The number of duplicate packets
+	NumDuplicates uint64 `json:"numDuplicates"`
+	// The average jitter in nanoseconds
+	AvgJitter uint64 `json:"avgJitter"`
+	// The number of retransmissions requested
+	RtxCount uint64 `json:"rtxCount"`
+	// The number of successful retransmissions
+	RtxSuccessCount uint64 `json:"rtxSuccessCount"`
+	// Average number of RTX per packet
+	RtxPerPacket float64 `json:"rtxPerPacket"`
+	// Average round trip time per RTX
+	RtxRtt uint64 `json:"rtxRtt"`
+}
+
+type APIGstRtpSourceStats struct {
+	// Estimated amount of packets lost
+	PacketsLost int `json:"packetsLost"`
+	// Total number of packets received
+	PacketsReceived uint64 `json:"packetsReceived"`
+	// Bitrate in bits per second
+	Bitrate uint64 `json:"bitrate"`
+	// Estimated jitter (in clock rate units)
+	Jitter uint `json:"jitter"`
+}
+
+type APIGstRtpSessionStats struct {
+	// The number of retransmission events dropped (due to bandwidth constraints)
+	RtxDropCount uint64 `json:"rtxDropCount"`
+	// Number of NACKs sent
+	SentNackCount uint64 `json:"sentNackCount"`
+	// Number of NACKs received
+	RecvNackCount uint64 `json:"recvNackCount"`
+}
+
+// APIGstPipe is a GStreamer pipeline.
+type APIGstPipe struct {
+	// The configuration path-name or camera-id
+	Path            string                   `json:"path"`
+	Active          bool                     `json:"active"`
+	JitterStats     *APIGstJitterBufferStats `json:"jitterStats"`
+	RtpSourceStats  *APIGstRtpSourceStats    `json:"rtpSourceStats"`
+	RtpSessionStats *APIGstRtpSessionStats   `json:"rtpSessionStats"`
+}
+
 // APIPathConfList is a list of path configurations.
 type APIPathConfList struct {
 	ItemCount int          `json:"itemCount"`
@@ -92,11 +149,13 @@ type APIRTMPConnList struct {
 
 // APIRTSPConn is a RTSP connection.
 type APIRTSPConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID              uuid.UUID `json:"id"`
+	Created         time.Time `json:"created"`
+	RemoteAddr      string    `json:"remoteAddr"`
+	BytesReceived   uint64    `json:"bytesReceived"`
+	BytesSent       uint64    `json:"bytesSent"`
+	BitrateReceived uint64    `json:"bitrateReceived"`
+	BitrateSent     uint64    `json:"bitrateSent"`
 }
 
 // APIRTSPConnsList is a list of RTSP connections.
@@ -118,15 +177,17 @@ const (
 
 // APIRTSPSession is a RTSP session.
 type APIRTSPSession struct {
-	ID            uuid.UUID           `json:"id"`
-	Created       time.Time           `json:"created"`
-	RemoteAddr    string              `json:"remoteAddr"`
-	State         APIRTSPSessionState `json:"state"`
-	Path          string              `json:"path"`
-	Query         string              `json:"query"`
-	Transport     *string             `json:"transport"`
-	BytesReceived uint64              `json:"bytesReceived"`
-	BytesSent     uint64              `json:"bytesSent"`
+	ID              uuid.UUID           `json:"id"`
+	Created         time.Time           `json:"created"`
+	RemoteAddr      string              `json:"remoteAddr"`
+	State           APIRTSPSessionState `json:"state"`
+	Path            string              `json:"path"`
+	Query           string              `json:"query"`
+	Transport       *string             `json:"transport"`
+	BytesReceived   uint64              `json:"bytesReceived"`
+	BytesSent       uint64              `json:"bytesSent"`
+	BitrateSent     uint64              `json:"bitrateSent"`
+	BitrateReceived uint64              `json:"bitrateReceived"`
 }
 
 // APIRTSPSessionList is a list of RTSP sessions.

@@ -45,6 +45,14 @@ type session struct {
 	query           string
 	decodeErrLogger logger.Writer
 	writeErrLogger  logger.Writer
+
+	// Fields for tracking bitrate
+	prevBytesSent  uint64
+	lastUpdateTime time.Time
+
+	// Fields for tracking bitrate received
+	prevBytesReceived  uint64
+	lastUpdateReceived time.Time
 }
 
 func (s *session) initialize() {
@@ -368,6 +376,59 @@ func (s *session) onStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWriteEr
 	s.writeErrLogger.Log(logger.Warn, ctx.Error.Error())
 }
 
+// BitrateSent returns sent bitrate.
+func (s *session) BitrateSent() uint64 {
+
+	// Get the current bytes sent
+	currentBytesSent := s.rsession.BytesSent()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesSent - s.prevBytesSent
+	timeDiff := currentTime.Sub(s.lastUpdateTime).Seconds()
+
+	// Update the previous bytes sent and last update time
+	s.prevBytesSent = currentBytesSent
+	s.lastUpdateTime = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if (timeDiff) > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
+	return 0
+}
+
+// BitrateReceived returns received bitrate.
+func (s *session) BitrateReceived() uint64 {
+
+	// Get the current bytes received
+
+	currentBytesReceived := s.rsession.BytesReceived()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesReceived - s.prevBytesReceived
+	timeDiff := currentTime.Sub(s.lastUpdateReceived).Seconds()
+
+	// Update the previous bytes received and last update time
+	s.prevBytesReceived = currentBytesReceived
+	s.lastUpdateReceived = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if timeDiff > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
+	return 0
+}
+
 func (s *session) apiItem() *defs.APIRTSPSession {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -397,7 +458,9 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			v := s.transport.String()
 			return &v
 		}(),
-		BytesReceived: s.rsession.BytesReceived(),
-		BytesSent:     s.rsession.BytesSent(),
+		BytesReceived:   s.rsession.BytesReceived(),
+		BytesSent:       s.rsession.BytesSent(),
+		BitrateSent:     s.BitrateSent(),
+		BitrateReceived: s.BitrateReceived(),
 	}
 }

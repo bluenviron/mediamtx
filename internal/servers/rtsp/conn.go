@@ -42,6 +42,14 @@ type conn struct {
 	onDisconnectHook func()
 	authNonce        string
 	authFailures     int
+
+	// Fields for tracking bitrate
+	prevBytesSent  uint64
+	lastUpdateTime time.Time
+
+	// Fields for tracking bitrate received
+	prevBytesReceived  uint64
+	lastUpdateReceived time.Time
 }
 
 func (c *conn) initialize() {
@@ -204,12 +212,66 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 	}, authErr
 }
 
+// BitrateSent returns sent bitrate.
+func (co *conn) BitrateSent() uint64 {
+
+	// Get the current bytes sent
+	currentBytesSent := co.rconn.BytesSent()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesSent - co.prevBytesSent
+	timeDiff := currentTime.Sub(co.lastUpdateTime).Seconds()
+
+	// Update the previous bytes sent and last update time
+	co.prevBytesSent = currentBytesSent
+	co.lastUpdateTime = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if (timeDiff) > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
+	return 0
+}
+
+// BitrateReceived returns received bitrate.
+func (co *conn) BitrateReceived() uint64 {
+
+	// Get the current bytes received
+	currentBytesReceived := co.rconn.BytesReceived()
+	currentTime := time.Now()
+
+	// Calculate the difference in bytes and time
+	bytesDiff := currentBytesReceived - co.prevBytesReceived
+	timeDiff := currentTime.Sub(co.lastUpdateReceived).Seconds()
+
+	// Update the previous bytes received and last update time
+	co.prevBytesReceived = currentBytesReceived
+	co.lastUpdateReceived = currentTime
+
+	// Calculate the bitrate in bits per second (bps)
+	if timeDiff > 0 {
+		bytesDiffFloat := float64(bytesDiff * 8)
+		timeDiffFloat := float64(timeDiff)
+
+		return uint64(bytesDiffFloat / timeDiffFloat)
+	}
+
+	return 0
+}
+
 func (c *conn) apiItem() *defs.APIRTSPConn {
 	return &defs.APIRTSPConn{
-		ID:            c.uuid,
-		Created:       c.created,
-		RemoteAddr:    c.remoteAddr().String(),
-		BytesReceived: c.rconn.BytesReceived(),
-		BytesSent:     c.rconn.BytesSent(),
+		ID:              c.uuid,
+		Created:         c.created,
+		RemoteAddr:      c.remoteAddr().String(),
+		BytesReceived:   c.rconn.BytesReceived(),
+		BytesSent:       c.rconn.BytesSent(),
+		BitrateReceived: c.BitrateReceived(),
+		BitrateSent:     c.BitrateSent(),
 	}
 }

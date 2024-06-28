@@ -21,6 +21,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/gstpipe"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/metrics"
 	"github.com/bluenviron/mediamtx/internal/playback"
@@ -96,6 +97,7 @@ type Core struct {
 	playbackServer  *playback.Server
 	pathManager     *pathManager
 	rtspServer      *rtsp.Server
+	gstPipeServer   *gstpipe.StatServer
 	rtspsServer     *rtsp.Server
 	rtmpServer      *rtmp.Server
 	rtmpsServer     *rtmp.Server
@@ -426,6 +428,24 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
+	if p.conf.GstPipe &&
+		p.gstPipeServer == nil {
+
+		i := &gstpipe.StatServer{
+			PathConf: p.conf.Paths,
+			Parent:   p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.gstPipeServer = i
+
+		if p.metrics != nil {
+			p.metrics.SetGstPipeServer(p.gstPipeServer)
+		}
+	}
+
 	if p.conf.RTSP &&
 		(p.conf.Encryption == conf.EncryptionStrict ||
 			p.conf.Encryption == conf.EncryptionOptional) &&
@@ -638,6 +658,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthManager:    p.authManager,
 			PathManager:    p.pathManager,
 			RTSPServer:     p.rtspServer,
+			GstStatsServer: p.gstPipeServer,
 			RTSPSServer:    p.rtspsServer,
 			RTMPServer:     p.rtmpServer,
 			RTMPSServer:    p.rtmpsServer,
@@ -678,6 +699,13 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods)
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
+	}
+
+	closeGstPipeServer := newConf == nil ||
+		newConf.GstPipe != p.conf.GstPipe ||
+		closeLogger
+	if !closeGstPipeServer && p.gstPipeServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.gstPipeServer.ReloadPathNames(newConf.Paths)
 	}
 
 	closeMetrics := newConf == nil ||
@@ -919,6 +947,12 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 		p.webRTCServer.Close()
 		p.webRTCServer = nil
+	}
+
+	if closeGstPipeServer && p.gstPipeServer != nil {
+		if p.gstPipeServer != nil {
+			p.metrics.SetGstPipeServer(nil)
+		}
 	}
 
 	if closeHLSServer && p.hlsServer != nil {

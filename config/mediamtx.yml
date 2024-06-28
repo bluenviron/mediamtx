@@ -6,7 +6,7 @@
 ###############################################
 # Global settings -> General
 # Verbosity of the program; available values are "error", "warn", "info", "debug".
-logLevel: warn
+logLevel: debug
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
 # If "file" is in logDestinations, this is the file which will receive the logs.
@@ -22,6 +22,9 @@ writeQueueSize: 8192
 # Maximum size of outgoing UDP packets.
 # This can be decreased to avoid fragmentation on networks with a low UDP MTU.
 udpMaxPayloadSize: 1472
+
+# Enable the GstPipeStats server.
+gstpipe: yes
 
 # Enable Prometheus-compatible metrics.
 metrics: yes
@@ -636,3 +639,4 @@ pathDefaults:
 paths:
   PI-01:
   PI-02:
+  PI-03:
