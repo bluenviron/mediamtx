@@ -826,6 +826,9 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 func (pa *path) executeRemovePublisher() {
 	if pa.stream != nil {
 		pa.setNotReady()
+		if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
+			pa.onDemandPublisherStop("publisher removed")
+		}
 	}
 
 	pa.source = nil
