@@ -14,7 +14,9 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/framebuffer_allocator.h>
+#include <libcamera/orientation.h>
 #include <libcamera/property_ids.h>
+#include <libcamera/transform.h>
 #include <linux/videodev2.h>
 
 #include "camera.h"
@@ -26,6 +28,7 @@ using libcamera::ColorSpace;
 using libcamera::ControlList;
 using libcamera::FrameBufferAllocator;
 using libcamera::FrameBuffer;
+using libcamera::Orientation;
 using libcamera::PixelFormat;
 using libcamera::Rectangle;
 using libcamera::Request;
@@ -199,12 +202,12 @@ bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_
         raw_stream_conf.bufferCount = video_stream_conf.bufferCount;
     }
 
-    conf->transform = Transform::Identity;
+    conf->orientation = Orientation::Rotate0;
     if (params->h_flip) {
-        conf->transform = Transform::HFlip * conf->transform;
+        conf->orientation = conf->orientation * Transform::HFlip;
     }
     if (params->v_flip) {
-        conf->transform = Transform::VFlip * conf->transform;
+        conf->orientation = conf->orientation * Transform::VFlip;
     }
 
     CameraConfiguration::Status vstatus = conf->validate();
