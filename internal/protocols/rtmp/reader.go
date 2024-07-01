@@ -182,7 +182,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 	}
 
 	if !hasVideo && !hasAudio {
-		return nil, nil, fmt.Errorf("metadata doesn't contain any track")
+		return nil, nil, nil
 	}
 
 	firstReceived := false
@@ -523,7 +523,9 @@ func (r *Reader) readTracks() (format.Format, format.Format, error) {
 						return nil, nil, err
 					}
 
-					return videoTrack, audioTrack, nil
+					if videoTrack != nil || audioTrack != nil {
+						return videoTrack, audioTrack, nil
+					}
 				}
 			}
 		}
