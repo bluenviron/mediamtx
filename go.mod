@@ -28,9 +28,9 @@ require (
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/crypto v0.24.0
+	golang.org/x/crypto v0.25.0
 	golang.org/x/sys v0.22.0
-	golang.org/x/term v0.21.0
+	golang.org/x/term v0.22.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
