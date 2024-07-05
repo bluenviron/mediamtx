@@ -27,24 +27,11 @@ func (l *listener) run() {
 
 func (l *listener) runInner() error {
 	for {
-		var sconn *conn
-		conn, _, err := l.ln.Accept(func(req srt.ConnRequest) srt.ConnType {
-			sconn = l.parent.newConnRequest(req)
-			if sconn == nil {
-				return srt.REJECT
-			}
-
-			// currently it's the same to return SUBSCRIBE or PUBLISH
-			return srt.SUBSCRIBE
-		})
+		req, err := l.ln.Accept2()
 		if err != nil {
 			return err
 		}
 
-		if conn == nil {
-			continue
-		}
-
-		sconn.setConn(conn)
+		l.parent.newConnRequest(req)
 	}
 }

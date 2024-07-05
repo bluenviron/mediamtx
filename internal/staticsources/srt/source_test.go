@@ -20,16 +20,15 @@ func TestSource(t *testing.T) {
 	defer ln.Close()
 
 	go func() {
-		conn, _, err := ln.Accept(func(req srt.ConnRequest) srt.ConnType {
-			require.Equal(t, "sidname", req.StreamId())
-			err := req.SetPassphrase("ttest1234567")
-			if err != nil {
-				return srt.REJECT
-			}
-			return srt.SUBSCRIBE
-		})
+		req, err := ln.Accept2()
 		require.NoError(t, err)
-		require.NotNil(t, conn)
+
+		require.Equal(t, "sidname", req.StreamId())
+		err = req.SetPassphrase("ttest1234567")
+		require.NoError(t, err)
+
+		conn, err := req.Accept()
+		require.NoError(t, err)
 		defer conn.Close()
 
 		track := &mpegts.Track{
