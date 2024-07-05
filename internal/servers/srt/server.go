@@ -26,11 +26,6 @@ func srtMaxPayloadSize(u int) int {
 	return ((u - 16) / 188) * 188 // 16 = SRT header, 188 = MPEG-TS packet
 }
 
-type srtNewConnReq struct {
-	connReq srt.ConnRequest
-	res     chan *conn
-}
-
 type serverAPIConnsListRes struct {
 	data *defs.APISRTConnList
 	err  error
@@ -90,7 +85,7 @@ type Server struct {
 	conns     map[*conn]struct{}
 
 	// in
-	chNewConnRequest chan srtNewConnReq
+	chNewConnRequest chan srt.ConnRequest
 	chAcceptErr      chan error
 	chCloseConn      chan *conn
 	chAPIConnsList   chan serverAPIConnsListReq
@@ -113,7 +108,7 @@ func (s *Server) Initialize() error {
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 
 	s.conns = make(map[*conn]struct{})
-	s.chNewConnRequest = make(chan srtNewConnReq)
+	s.chNewConnRequest = make(chan srt.ConnRequest)
 	s.chAcceptErr = make(chan error)
 	s.chCloseConn = make(chan *conn)
 	s.chAPIConnsList = make(chan serverAPIConnsListReq)
@@ -165,7 +160,7 @@ outer:
 				writeTimeout:        s.WriteTimeout,
 				writeQueueSize:      s.WriteQueueSize,
 				udpMaxPayloadSize:   s.UDPMaxPayloadSize,
-				connReq:             req.connReq,
+				connReq:             req,
 				runOnConnect:        s.RunOnConnect,
 				runOnConnectRestart: s.RunOnConnectRestart,
 				runOnDisconnect:     s.RunOnDisconnect,
@@ -176,7 +171,6 @@ outer:
 			}
 			c.initialize()
 			s.conns[c] = struct{}{}
-			req.res <- c
 
 		case c := <-s.chCloseConn:
 			delete(s.conns, c)
@@ -236,20 +230,11 @@ func (s *Server) findConnByUUID(uuid uuid.UUID) *conn {
 }
 
 // newConnRequest is called by srtListener.
-func (s *Server) newConnRequest(connReq srt.ConnRequest) *conn {
-	req := srtNewConnReq{
-		connReq: connReq,
-		res:     make(chan *conn),
-	}
-
+func (s *Server) newConnRequest(connReq srt.ConnRequest) {
 	select {
-	case s.chNewConnRequest <- req:
-		c := <-req.res
-
-		return c.new(req)
-
+	case s.chNewConnRequest <- connReq:
 	case <-s.ctx.Done():
-		return nil
+		connReq.Reject(srt.REJ_CLOSE)
 	}
 }
 
