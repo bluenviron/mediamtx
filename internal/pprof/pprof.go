@@ -83,6 +83,15 @@ func (pp *PPROF) onRequest(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", pp.AllowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
+	// preflight requests
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization")
+		ctx.Writer.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	err := pp.AuthManager.Authenticate(&auth.Request{

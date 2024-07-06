@@ -109,6 +109,15 @@ func (s *Server) safeFindPathConf(name string) (*conf.Path, error) {
 func (s *Server) middlewareOrigin(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.AllowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	// preflight requests
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization")
+		ctx.AbortWithStatus(http.StatusNoContent)
+		return
+	}
 }
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {

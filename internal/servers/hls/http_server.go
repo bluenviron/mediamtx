@@ -102,9 +102,11 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	switch ctx.Request.Method {
 	case http.MethodOptions:
-		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
-		ctx.Writer.WriteHeader(http.StatusNoContent)
+		if ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
+			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
+			ctx.Writer.WriteHeader(http.StatusNoContent)
+		}
 		return
 
 	case http.MethodGet:
