@@ -74,6 +74,43 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 	require.Equal(t, map[string]interface{}{"error": msg}, resErr)
 }
 
+func TestPreflightRequest(t *testing.T) {
+	api := API{
+		Address:     "localhost:9997",
+		AllowOrigin: "*",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		AuthManager: test.NilAuthManager,
+		Parent:      &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest(http.MethodOptions, "http://localhost:9997", nil)
+	require.NoError(t, err)
+
+	req.Header.Add("Access-Control-Request-Method", "GET")
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "true", res.Header.Get("Access-Control-Allow-Credentials"))
+	require.Equal(t, "OPTIONS, GET, POST, PATCH, DELETE", res.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Authorization, Content-Type", res.Header.Get("Access-Control-Allow-Headers"))
+	require.Equal(t, byts, []byte{})
+}
+
 func TestConfigAuth(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 

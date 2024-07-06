@@ -3,6 +3,7 @@ package webrtc
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -102,7 +103,7 @@ func initializeTestServer(t *testing.T) *Server {
 		Encryption:            false,
 		ServerKey:             "",
 		ServerCert:            "",
-		AllowOrigin:           "",
+		AllowOrigin:           "*",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
 		WriteQueueSize:        512,
@@ -146,7 +147,7 @@ func TestServerStaticPages(t *testing.T) {
 	}
 }
 
-func TestServerOptionsPreflight(t *testing.T) {
+func TestPreflightRequest(t *testing.T) {
 	s := initializeTestServer(t)
 	defer s.Close()
 
@@ -154,11 +155,10 @@ func TestServerOptionsPreflight(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	// preflight requests must always work, without authentication
-	req, err := http.NewRequest(http.MethodOptions, "http://localhost:8886/teststream/whip", nil)
+	req, err := http.NewRequest(http.MethodOptions, "http://localhost:8886", nil)
 	require.NoError(t, err)
 
-	req.Header.Set("Access-Control-Request-Method", "OPTIONS")
+	req.Header.Add("Access-Control-Request-Method", "GET")
 
 	res, err := hc.Do(req)
 	require.NoError(t, err)
@@ -166,8 +166,14 @@ func TestServerOptionsPreflight(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
-	_, ok := res.Header["Link"]
-	require.Equal(t, false, ok)
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "true", res.Header.Get("Access-Control-Allow-Credentials"))
+	require.Equal(t, "OPTIONS, GET, POST, PATCH, DELETE", res.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Authorization, Content-Type, If-Match", res.Header.Get("Access-Control-Allow-Headers"))
+	require.Equal(t, byts, []byte{})
 }
 
 func TestServerOptionsICEServer(t *testing.T) {

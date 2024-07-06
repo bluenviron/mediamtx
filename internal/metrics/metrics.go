@@ -107,6 +107,15 @@ func (m *Metrics) onRequest(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", m.AllowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
+	// preflight requests
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization")
+		ctx.Writer.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	if ctx.Request.URL.Path != "/metrics" || ctx.Request.Method != http.MethodGet {
 		return
 	}

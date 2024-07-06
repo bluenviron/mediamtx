@@ -251,6 +251,15 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 func (a *API) middlewareOrigin(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", a.AllowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	// preflight requests
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		ctx.AbortWithStatus(http.StatusNoContent)
+		return
+	}
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
