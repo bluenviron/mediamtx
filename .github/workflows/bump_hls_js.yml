@@ -29,16 +29,16 @@ jobs:
 
     - id: check_repo
       run: >
-        echo "clean=$(git status --porcelain)" >> "$GITHUB_OUTPUT"
+        test -n "$(git status --porcelain)" && echo "update=1" >> "$GITHUB_OUTPUT" || echo "update=0" >> "$GITHUB_OUTPUT"
 
-    - if: ${{ steps.check_repo.outputs.clean != '' }}
+    - if: ${{ steps.check_repo.outputs.update == '1' }}
       run: >
         git reset ${GITHUB_REF_NAME}
         && git add .
         && git commit -m "bump hls.js to ${VERSION}"
         && git push --set-upstream origin deps/hlsjs --force
 
-    - if: ${{ steps.check_repo.outputs.clean != '' }}
+    - if: ${{ steps.check_repo.outputs.update == '1' }}
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
