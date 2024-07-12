@@ -51,7 +51,7 @@ export DOCKERFILE_DOCKERHUB_FFMPEG_RPI
 dockerhub:
 	$(eval VERSION := $(shell git describe --tags | tr -d v))
 
-	docker login -u $(DOCKER_USER) -p $(DOCKER_PASSWORD)
+	docker login -u $(DOCKERHUB_USERNAME) -p $(DOCKERHUB_TOKEN)
 
 	rm -rf tmp
 	mkdir -p tmp tmp/binaries/linux/arm tmp/rpi_base/linux/arm
@@ -79,28 +79,28 @@ dockerhub:
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG_RPI" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg-rpi \
+	-t $(DOCKER_REPOSITORY):mediamtx-ffmpeg-rpi \
 	-t $(DOCKER_REPOSITORY):latest-ffmpeg-rpi \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION)-rpi \
+	-t $(DOCKER_REPOSITORY):mediamtx-rpi \
 	-t $(DOCKER_REPOSITORY):latest-rpi \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg \
+	-t $(DOCKER_REPOSITORY):mediamtx-ffmpeg \
 	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION) \
+	-t $(DOCKER_REPOSITORY):mediamtx \
 	-t $(DOCKER_REPOSITORY):latest \
 	--push
 
