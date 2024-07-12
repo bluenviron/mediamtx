@@ -69,7 +69,7 @@ const loadStream = () => {
 	// but don't support fMP4s.
 	if (Hls.isSupported()) {
 		const hls = new Hls({
-			maxLiveSyncPlaybackRate: 1.5,
+			maxLiveSyncPlaybackRate: 1.0,
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
