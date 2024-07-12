@@ -1,4 +1,4 @@
-DOCKER_REPOSITORY = bluenviron/mediamtx
+DOCKER_REPOSITORY = therysin/mediamtx
 
 define DOCKERFILE_DOCKERHUB
 FROM scratch
