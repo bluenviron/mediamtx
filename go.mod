@@ -11,7 +11,7 @@ require (
 	github.com/bluenviron/gohlslib v1.4.0
 	github.com/bluenviron/gortsplib/v4 v4.10.2
 	github.com/bluenviron/mediacommon v1.12.1
-	github.com/datarhei/gosrt v0.0.0-20240708145230-390712a1b3f7
+	github.com/datarhei/gosrt v0.6.1-0.20240708145230-390712a1b3f7
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
