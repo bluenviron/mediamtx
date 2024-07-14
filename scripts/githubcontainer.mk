@@ -17,7 +17,7 @@ ENTRYPOINT [ "/mediamtx" ]
 endef
 export DOCKERFILE_DOCKERHUB_FFMPEG
 
-dockerhub:
+githubcontainer:
 	$(eval VERSION := $(shell git describe --tags | tr -d v))
 
 	docker login ghcr.io -u $(G_username) -p $(G_password)
