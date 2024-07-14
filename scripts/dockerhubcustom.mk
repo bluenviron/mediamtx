@@ -37,13 +37,13 @@ dockerhub:
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
+	-t $(DOCKER_REPOSITORY):latest-ffmpeg-c \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):latest \
+	-t $(DOCKER_REPOSITORY):latest-c \
 	--push
 
 	docker buildx rm builder
