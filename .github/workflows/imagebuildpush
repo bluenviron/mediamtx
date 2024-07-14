@@ -31,7 +31,7 @@ jobs:
         name: binaries
         path: binaries
 
-    - run: make dockerhubcustom
+    - run: make githubcontainer
       env:
         G_username: ${{ github.actor }}
         G_password: ${{ secrets.GITHUB_TOKEN }}
