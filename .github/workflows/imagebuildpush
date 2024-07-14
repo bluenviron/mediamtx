@@ -1,0 +1,37 @@
+
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  binaries:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - run: make binaries
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: binaries
+
+
+  dockerhub:
+    needs: binaries
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: binaries
+        path: binaries
+
+    - run: make customdockerhub
+      env:
+        DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
