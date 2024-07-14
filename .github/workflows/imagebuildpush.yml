@@ -18,7 +18,7 @@ jobs:
         path: binaries
 
 
-  dockerhub:
+  ghcr:
     needs: binaries
     runs-on: ubuntu-22.04
 
