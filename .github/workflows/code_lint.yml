@@ -1,11 +1,8 @@
 name: code_lint
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
+  workflow_dispatch:
+  
 jobs:
   golangci_lint:
     runs-on: ubuntu-22.04
