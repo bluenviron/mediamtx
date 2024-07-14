@@ -1,6 +1,5 @@
 
-name: release
-
+name: githubpush
 on:
   workflow_dispatch:
 
