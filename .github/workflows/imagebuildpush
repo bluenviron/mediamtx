@@ -33,5 +33,5 @@ jobs:
 
     - run: make dockerhubcustom
       env:
-        DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        G_username: ${{ github.actor }}
+        G_password: ${{ secrets.GITHUB_TOKEN }}
