@@ -1,4 +1,4 @@
-DOCKER_REPOSITORY = therysin/mediamtx
+GITHUB_REPOSITORY = ghcr.io/therysin/mediamtx
 
 define DOCKERFILE_DOCKERHUB
 FROM scratch
@@ -20,7 +20,7 @@ export DOCKERFILE_DOCKERHUB_FFMPEG
 dockerhub:
 	$(eval VERSION := $(shell git describe --tags | tr -d v))
 
-	docker login -u $(DOCKER_USER) -p $(DOCKER_PASSWORD)
+	docker login ghcr.io -u $(G_username) -p $(G_password)
 
 	rm -rf tmp
 	mkdir -p tmp tmp/binaries/linux/arm tmp/rpi_base/linux/arm
@@ -37,13 +37,13 @@ dockerhub:
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):latest-ffmpeg-c \
+	-t $(GITHUB_REPOSITORY):latest-ffmpeg-c \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):latest-c \
+	-t $(GITHUB_REPOSITORY):latest-c \
 	--push
 
 	docker buildx rm builder
