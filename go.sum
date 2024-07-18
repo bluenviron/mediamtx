@@ -37,8 +37,8 @@ github.com/cloudwego/base64x v0.1.4/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJ
 github.com/cloudwego/iasm v0.2.0 h1:1KNIy1I1H9hNNFEEH3DVnI4UujN+1zjpuk6gwHLTssg=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
-github.com/datarhei/gosrt v0.6.1-0.20240708145230-390712a1b3f7 h1:Tyvgum9NHQi/iDoYUQhuxjUnu/s4tJXNdYCeUZma5Z0=
-github.com/datarhei/gosrt v0.6.1-0.20240708145230-390712a1b3f7/go.mod h1:wTDoyog1z4au8Fd/QJBQAndzvccuxjqUL/qMm0EyJxE=
+github.com/datarhei/gosrt v0.7.0 h1:1/IY66HVVgqGA9zkmL5l6jUFuI8t/76WkuamSkJqHqs=
+github.com/datarhei/gosrt v0.7.0/go.mod h1:wTDoyog1z4au8Fd/QJBQAndzvccuxjqUL/qMm0EyJxE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
