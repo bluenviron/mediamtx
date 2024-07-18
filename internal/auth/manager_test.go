@@ -351,8 +351,9 @@ func TestAuthJWT(t *testing.T) {
 	require.NoError(t, err)
 
 	m := Manager{
-		Method:  conf.AuthMethodJWT,
-		JWTJWKS: "http://localhost:4567/jwks",
+		Method:      conf.AuthMethodJWT,
+		JWTJWKS:     "http://localhost:4567/jwks",
+		JWTClaimKey: "mediamtx_permissions",
 	}
 
 	err = m.Authenticate(&Request{

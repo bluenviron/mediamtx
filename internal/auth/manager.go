@@ -97,11 +97,6 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
-type customClaims struct {
-	jwt.RegisteredClaims
-	MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
-}
-
 // Manager is the authentication manager.
 type Manager struct {
 	Method          conf.AuthMethod
@@ -109,6 +104,7 @@ type Manager struct {
 	HTTPAddress     string
 	HTTPExclude     []conf.AuthInternalUserPermission
 	JWTJWKS         string
+	JWTClaimKey     string
 	ReadTimeout     time.Duration
 	RTSPAuthMethods []auth.ValidateMethod
 
@@ -269,13 +265,24 @@ func (m *Manager) authenticateJWT(req *Request) error {
 		return fmt.Errorf("JWT not provided")
 	}
 
-	var cc customClaims
-	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
+	token, err := jwt.Parse(v["jwt"][0], keyfunc)
 	if err != nil {
 		return err
 	}
+	var MediaMTXPermissions []conf.AuthInternalUserPermission
+	claims := token.Claims.(jwt.MapClaims)
+	for _, permission := range claims[m.JWTClaimKey].([]interface{}) {
+		var MediaMTXPermission conf.AuthInternalUserPermission
+		MediaMTXPermission.Action = conf.AuthAction(permission.(map[string]interface{})["action"].(string))
+		if permission.(map[string]interface{})["path"] != nil {
+			MediaMTXPermission.Path = permission.(map[string]interface{})["path"].(string)
+		} else {
+			MediaMTXPermission.Path = ""
+		}
+		MediaMTXPermissions = append(MediaMTXPermissions, MediaMTXPermission)
+	}
 
-	if !matchesPermission(cc.MediaMTXPermissions, req) {
+	if !matchesPermission(MediaMTXPermissions, req) {
 		return fmt.Errorf("user doesn't have permission to perform action")
 	}
 

@@ -106,7 +106,9 @@ authHTTPExclude:
 
 # JWT-based authentication.
 # Users have to login through an external identity server and obtain a JWT.
-# This JWT must contain the claim "mediamtx_permissions" with permissions,
+# This JWT must contain a claim with permissions, the default claim key is
+# "mediamtx_permissions", but can be reassigned if your IdP insists on some
+# given pattern for claim keys.
 # for instance:
 # {
 #  ...
@@ -121,6 +123,7 @@ authHTTPExclude:
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:
+authJWTClaimKey: mediamtx_permissions
 
 ###############################################
 # Global settings -> Control API

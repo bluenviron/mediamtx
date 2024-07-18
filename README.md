@@ -1147,7 +1147,7 @@ If the URL returns a status code that begins with `20` (i.e. `200`), authenticat
 ```json
 {
   "user": "",
-  "password": "",
+  "password": ""
 }
 ```
 
@@ -1171,9 +1171,10 @@ Authentication can be delegated to an external identity server, that is capable 
 ```yml
 authMethod: jwt
 authJWTJWKS: http://my_identity_server/jwks_endpoint
+authJWTClaimKey: mediamtx_permissions
 ```
 
-The JWT is expected to contain the `mediamtx_permissions` scope, with a list of permissions in the same format as the one of user permissions:
+The JWT is expected to contain a claim, with a list of permissions in the same format as the one of user permissions.  By default the key for this claim is `mediamtx_permissions`, however if required then it is possible to set this key to some other valid JSON string using `authJWTClaimKey`:
 
 ```json
 {
@@ -1216,7 +1217,7 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
 
    * Name: `mediamtx_permissions`
    * User Attribute: `mediamtx_permissions`
-   * Token Claim Name: `mediamtx_permissions`
+   * Token Claim Name: `mediamtx_permissions` (or key set in `authJWTClaimKey`)
    * Claim JSON Type: `JSON`
    * Multivalued: `On`
 

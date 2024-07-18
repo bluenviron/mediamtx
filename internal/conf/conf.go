@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -177,6 +178,7 @@ type Conf struct {
 	ExternalAuthenticationURL *string                     `json:"externalAuthenticationURL,omitempty"` // deprecated
 	AuthHTTPExclude           AuthInternalUserPermissions `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                      `json:"authJWTJWKS"`
+	AuthJWTClaimKey           string                      `json:"authJWTClaimKey"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -323,6 +325,7 @@ func (conf *Conf) setDefaults() {
 			Action: AuthActionPprof,
 		},
 	}
+	conf.AuthJWTClaimKey = "mediamtx_permissions"
 
 	// Control API
 	conf.APIAddress = ":9997"
@@ -561,6 +564,12 @@ func (conf *Conf) Validate() error {
 	case AuthMethodJWT:
 		if conf.AuthJWTJWKS == "" {
 			return fmt.Errorf("'authJWTJWKS' is empty")
+		}
+		if conf.AuthJWTClaimKey == "" {
+			return fmt.Errorf("'authJWTClaimKey' is empty")
+		}
+		if conf.AuthJWTClaimKey != "" && !regexp.MustCompile(`^[a-zA-Z-_1-90]+$`).MatchString(conf.AuthJWTClaimKey) {
+			return fmt.Errorf("'authJWTClaimKey' must be a valid json key")
 		}
 	}
 
