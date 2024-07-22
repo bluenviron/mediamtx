@@ -269,9 +269,11 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	if err != nil {
 		return err
 	}
-	var MediaMTXPermissions []conf.AuthInternalUserPermission
-	claims := token.Claims.(jwt.MapClaims)
-	for _, permission := range claims[m.JWTClaimKey].([]interface{}) {
+
+	claims := token.Claims.(jwt.MapClaims)[m.JWTClaimKey].([]interface{})
+	MediaMTXPermissions := make([]conf.AuthInternalUserPermission, 0, len(claims))
+
+	for _, permission := range claims {
 		var MediaMTXPermission conf.AuthInternalUserPermission
 		MediaMTXPermission.Action = conf.AuthAction(permission.(map[string]interface{})["action"].(string))
 		if permission.(map[string]interface{})["path"] != nil {
