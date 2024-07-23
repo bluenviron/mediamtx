@@ -106,8 +106,7 @@
 					lowLatencyMode: true,
 					maxLiveSyncPlaybackRate: 1.0,
 				        liveSyncDurationCount: 1,
-            				liveMaxLatencyDurationCount: 3,
-           			        liveBackBufferLength: 0,
+            				liveMaxLatencyDurationCount: 2,
 				});
 
 				hls.on(Hls.Events.ERROR, (evt, data) => {
@@ -134,12 +133,6 @@
 					setMessage('');
 					video.play();
 				});
-				
-				hls.on(Hls.Events.LEVEL_LOADED, function() {
-			            if (hls.liveSyncPosition) {
-			                video.currentTime = hls.liveSyncPosition;
-			            }
-			        });//jump to live position when video is loaded
 
 				hls.attachMedia(video);
 			} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
