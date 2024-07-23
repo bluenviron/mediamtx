@@ -103,11 +103,11 @@
 			// but don't support fMP4s.
 			if (Hls.isSupported()) {
 				const hls = new Hls({
+					lowLatencyMode: true,
 					maxLiveSyncPlaybackRate: 1.0,
 				        liveSyncDurationCount: 1,
             				liveMaxLatencyDurationCount: 3,
            			        liveBackBufferLength: 0,
-            				lowLatencyMode: true,
 				});
 
 				hls.on(Hls.Events.ERROR, (evt, data) => {
@@ -134,6 +134,12 @@
 					setMessage('');
 					video.play();
 				});
+				
+				hls.on(Hls.Events.LEVEL_LOADED, function() {
+			            if (hls.liveSyncPosition) {
+			                video.currentTime = hls.liveSyncPosition;
+			            }
+			        });//jump to live position when video is loaded
 
 				hls.attachMedia(video);
 			} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
