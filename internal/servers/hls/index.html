@@ -104,6 +104,11 @@
 			if (Hls.isSupported()) {
 				const hls = new Hls({
 					maxLiveSyncPlaybackRate: 1.0,
+				        liveSyncDurationCount: 1,
+            				liveMaxLatencyDurationCount: 2,
+            				liveDurationInfinity: true,
+           			        liveBackBufferLength: 0,
+            				lowLatencyMode: true,
 				});
 
 				hls.on(Hls.Events.ERROR, (evt, data) => {
