@@ -54,7 +54,7 @@ func (s *formatFMP4Segment) close() error {
 	}
 
 	if s.fi != nil {
-		s.f.a.agent.Log(logger.Debug, "closing segment %s", s.path)
+		s.f.ai.Log(logger.Debug, "closing segment %s", s.path)
 		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
@@ -62,7 +62,7 @@ func (s *formatFMP4Segment) close() error {
 
 		if err2 == nil {
 			duration := s.lastDTS - s.startDTS
-			s.f.a.agent.OnSegmentComplete(s.path, duration)
+			s.f.ai.agent.OnSegmentComplete(s.path, duration)
 		}
 	}
 
@@ -80,7 +80,7 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample) error 
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
-	} else if s.curPart.duration() >= s.f.a.agent.PartDuration {
+	} else if s.curPart.duration() >= s.f.ai.agent.PartDuration {
 		err := s.curPart.close()
 		s.curPart = nil
 

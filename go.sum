@@ -22,8 +22,8 @@ github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYh
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
 github.com/bluenviron/gohlslib v1.4.0 h1:3a9W1x8eqlxJUKt1sJCunPGtti5ALIY2ik4GU0RVe7E=
 github.com/bluenviron/gohlslib v1.4.0/go.mod h1:q5ZElzNw5GRbV1VEI45qkcPbKBco6BP58QEY5HyFsmo=
-github.com/bluenviron/gortsplib/v4 v4.10.2 h1:O7HPRG8Pv4zUbyYD0HYH4Ufu1Hg9FJGTlizx6a09hL0=
-github.com/bluenviron/gortsplib/v4 v4.10.2/go.mod h1:re/L/vYh2wLPElQNAYah+bRFHJs0aRkM1MLX3WJ3N6M=
+github.com/bluenviron/gortsplib/v4 v4.10.3-0.20240801095652-e2d1e6dab418 h1:j+qo+yB1S1KiTOKSN4ABPbJ9rNdzoT6AoH9F/+k1QjE=
+github.com/bluenviron/gortsplib/v4 v4.10.3-0.20240801095652-e2d1e6dab418/go.mod h1:FE/oUV476F/paP+D2YAV2LvXDgpZef4lN5uAKAuVAsQ=
 github.com/bluenviron/mediacommon v1.12.1 h1:sgDJaKV6OXrPCSO0KPp9zi/pwNWtKHenn5/dvjtY+Tg=
 github.com/bluenviron/mediacommon v1.12.1/go.mod h1:HDyW2CzjvhYJXtdxstdFPio3G0qSocPhqkhUt/qffec=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
