@@ -40,7 +40,7 @@ func (d *dynamicWriter) setTarget(w io.Writer) {
 }
 
 type formatMPEGTS struct {
-	a *agentInstance
+	ai *agentInstance
 
 	dw             *dynamicWriter
 	bw             *bufio.Writer
@@ -63,7 +63,7 @@ func (f *formatMPEGTS) initialize() {
 		return track
 	}
 
-	for _, media := range f.a.agent.Stream.Desc().Medias {
+	for _, media := range f.ai.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *rtspformat.H265: //nolint:dupl
@@ -71,7 +71,7 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H265)
 					if tunit.AU == nil {
 						return nil
@@ -107,7 +107,7 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H264)
 					if tunit.AU == nil {
 						return nil
@@ -144,7 +144,7 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
@@ -176,7 +176,7 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
@@ -207,7 +207,7 @@ func (f *formatMPEGTS) initialize() {
 					ChannelCount: forma.ChannelCount,
 				})
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
 					if tunit.Packets == nil {
 						return nil
@@ -225,31 +225,36 @@ func (f *formatMPEGTS) initialize() {
 				})
 
 			case *rtspformat.MPEG4Audio:
-				track := addTrack(forma, &mpegts.CodecMPEG4Audio{
-					Config: *forma.GetConfig(),
-				})
+				co := forma.GetConfig()
+				if co == nil {
+					f.ai.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
+				} else {
+					track := addTrack(forma, &mpegts.CodecMPEG4Audio{
+						Config: *co,
+					})
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4Audio)
-					if tunit.AUs == nil {
-						return nil
-					}
+					f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+						if tunit.AUs == nil {
+							return nil
+						}
 
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						false,
-						true,
-						func() error {
-							return f.mw.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.AUs)
-						},
-					)
-				})
+						return f.write(
+							tunit.PTS,
+							tunit.NTP,
+							false,
+							true,
+							func() error {
+								return f.mw.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.AUs)
+							},
+						)
+					})
+				}
 
 			case *rtspformat.MPEG1Audio:
 				track := addTrack(forma, &mpegts.CodecMPEG1Audio{})
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
 						return nil
@@ -271,7 +276,7 @@ func (f *formatMPEGTS) initialize() {
 
 				sampleRate := time.Duration(forma.SampleRate)
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AC3)
 					if tunit.Frames == nil {
 						return nil
@@ -305,7 +310,7 @@ func (f *formatMPEGTS) initialize() {
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
-	f.a.agent.Log(logger.Info, "recording %s",
+	f.ai.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(formats))
 }
 
@@ -336,7 +341,7 @@ func (f *formatMPEGTS) write(
 		f.currentSegment.initialize()
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-f.currentSegment.startDTS) >= f.a.agent.SegmentDuration:
+		(dts-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
 		f.currentSegment.lastDTS = dts
 		err := f.currentSegment.close()
 		if err != nil {
@@ -350,7 +355,7 @@ func (f *formatMPEGTS) write(
 		}
 		f.currentSegment.initialize()
 
-	case (dts - f.currentSegment.lastFlush) >= f.a.agent.PartDuration:
+	case (dts - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err
