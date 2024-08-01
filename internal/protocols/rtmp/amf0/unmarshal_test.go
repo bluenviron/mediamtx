@@ -322,6 +322,9 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, b []byte) {
-		Unmarshal(b) //nolint:errcheck
+		what, err := Unmarshal(b)
+		if err == nil {
+			Marshal(what) //nolint:errcheck
+		}
 	})
 }
