@@ -270,14 +270,20 @@ func TestReaderAcknowledge(t *testing.T) {
 
 func FuzzReader(f *testing.F) {
 	f.Fuzz(func(_ *testing.T, b []byte) {
-		br := bytecounter.NewReader(bytes.NewReader(b))
-		r := NewReader(br, br, func(_ uint32) error {
+		bcr := bytecounter.NewReader(bytes.NewReader(b))
+		r := NewReader(bcr, bcr, func(_ uint32) error {
 			return nil
 		})
 
+		var buf bytes.Buffer
+		bcw := bytecounter.NewWriter(&buf)
+		w := NewWriter(bcw, bcw, true)
+
 		for {
-			_, err := r.Read()
-			if err != nil {
+			msg, err := r.Read()
+			if err == nil {
+				w.Write(msg) //nolint:errcheck
+			} else {
 				break
 			}
 		}

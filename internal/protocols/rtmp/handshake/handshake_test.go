@@ -38,6 +38,7 @@ func TestHandshake(t *testing.T) {
 
 			clientInKey, clientOutKey, err := DoClient(rw, ca == "encrypted", true)
 			require.NoError(t, err)
+
 			<-done
 
 			if ca == "encrypted" {
