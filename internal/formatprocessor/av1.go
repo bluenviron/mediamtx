@@ -13,6 +13,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+// AV1-related parameters
+var (
+	AV1DefaultSequenceHeader = []byte{
+		8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
+	}
+)
+
 type formatProcessorAV1 struct {
 	udpMaxPayloadSize int
 	format            *format.AV1
