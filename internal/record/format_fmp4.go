@@ -20,8 +20,8 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -100,7 +100,7 @@ func jpegExtractSize(image []byte) (int, int, error) {
 }
 
 type formatFMP4 struct {
-	a *agentInstance
+	ai *agentInstance
 
 	tracks             []*formatFMP4Track
 	hasVideo           bool
@@ -140,20 +140,18 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	for _, media := range f.a.agent.Stream.Desc().Medias {
+	for _, media := range f.ai.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *rtspformat.AV1:
 				codec := &fmp4.CodecAV1{
-					SequenceHeader: []byte{
-						8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
-					},
+					SequenceHeader: formatprocessor.AV1DefaultSequenceHeader,
 				}
 				track := addTrack(forma, codec)
 
 				firstReceived := false
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AV1)
 					if tunit.TU == nil {
 						return nil
@@ -211,7 +209,7 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.VP9)
 					if tunit.Frame == nil {
 						return nil
@@ -278,26 +276,9 @@ func (f *formatFMP4) initialize() {
 				vps, sps, pps := forma.SafeParams()
 
 				if vps == nil || sps == nil || pps == nil {
-					vps = []byte{
-						0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x02, 0x20,
-						0x00, 0x00, 0x03, 0x00, 0xb0, 0x00, 0x00, 0x03,
-						0x00, 0x00, 0x03, 0x00, 0x7b, 0x18, 0xb0, 0x24,
-					}
-
-					sps = []byte{
-						0x42, 0x01, 0x01, 0x02, 0x20, 0x00, 0x00, 0x03,
-						0x00, 0xb0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
-						0x00, 0x7b, 0xa0, 0x07, 0x82, 0x00, 0x88, 0x7d,
-						0xb6, 0x71, 0x8b, 0x92, 0x44, 0x80, 0x53, 0x88,
-						0x88, 0x92, 0xcf, 0x24, 0xa6, 0x92, 0x72, 0xc9,
-						0x12, 0x49, 0x22, 0xdc, 0x91, 0xaa, 0x48, 0xfc,
-						0xa2, 0x23, 0xff, 0x00, 0x01, 0x00, 0x01, 0x6a,
-						0x02, 0x02, 0x02, 0x01,
-					}
-
-					pps = []byte{
-						0x44, 0x01, 0xc0, 0x25, 0x2f, 0x05, 0x32, 0x40,
-					}
+					vps = formatprocessor.H265DefaultVPS
+					sps = formatprocessor.H265DefaultSPS
+					pps = formatprocessor.H265DefaultPPS
 				}
 
 				codec := &fmp4.CodecH265{
@@ -309,7 +290,7 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H265)
 					if tunit.AU == nil {
 						return nil
@@ -375,8 +356,8 @@ func (f *formatFMP4) initialize() {
 				sps, pps := forma.SafeParams()
 
 				if sps == nil || pps == nil {
-					sps = test.FormatH264.SPS
-					pps = test.FormatH264.PPS
+					sps = formatprocessor.H264DefaultSPS
+					pps = formatprocessor.H264DefaultPPS
 				}
 
 				codec := &fmp4.CodecH264{
@@ -387,7 +368,7 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H264)
 					if tunit.AU == nil {
 						return nil
@@ -446,14 +427,7 @@ func (f *formatFMP4) initialize() {
 				config := forma.SafeParams()
 
 				if config == nil {
-					config = []byte{
-						0x00, 0x00, 0x01, 0xb0, 0x01, 0x00, 0x00, 0x01,
-						0xb5, 0x89, 0x13, 0x00, 0x00, 0x01, 0x00, 0x00,
-						0x00, 0x01, 0x20, 0x00, 0xc4, 0x8d, 0x88, 0x00,
-						0xf5, 0x3c, 0x04, 0x87, 0x14, 0x63, 0x00, 0x00,
-						0x01, 0xb2, 0x4c, 0x61, 0x76, 0x63, 0x35, 0x38,
-						0x2e, 0x31, 0x33, 0x34, 0x2e, 0x31, 0x30, 0x30,
-					}
+					config = formatprocessor.MPEG4VideoDefaultConfig
 				}
 
 				codec := &fmp4.CodecMPEG4Video{
@@ -464,7 +438,7 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
@@ -506,18 +480,14 @@ func (f *formatFMP4) initialize() {
 
 			case *rtspformat.MPEG1Video:
 				codec := &fmp4.CodecMPEG1Video{
-					Config: []byte{
-						0x00, 0x00, 0x01, 0xb3, 0x78, 0x04, 0x38, 0x35,
-						0xff, 0xff, 0xe0, 0x18, 0x00, 0x00, 0x01, 0xb5,
-						0x14, 0x4a, 0x00, 0x01, 0x00, 0x00,
-					},
+					Config: formatprocessor.MPEG1VideoDefaultConfig,
 				}
 				track := addTrack(forma, codec)
 
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
@@ -566,7 +536,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MJPEG)
 					if tunit.Frame == nil {
 						return nil
@@ -598,7 +568,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
 					if tunit.Packets == nil {
 						return nil
@@ -625,37 +595,42 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.MPEG4Audio:
-				codec := &fmp4.CodecMPEG4Audio{
-					Config: *forma.GetConfig(),
-				}
-				track := addTrack(forma, codec)
-
-				sampleRate := time.Duration(forma.ClockRate())
-
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4Audio)
-					if tunit.AUs == nil {
-						return nil
+				co := forma.GetConfig()
+				if co == nil {
+					f.ai.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
+				} else {
+					codec := &fmp4.CodecMPEG4Audio{
+						Config: *co,
 					}
+					track := addTrack(forma, codec)
 
-					for i, au := range tunit.AUs {
-						dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
-							time.Second / sampleRate
+					sampleRate := time.Duration(forma.ClockRate())
 
-						err := track.write(&sample{
-							PartSample: &fmp4.PartSample{
-								Payload: au,
-							},
-							dts: tunit.PTS + dt,
-							ntp: tunit.NTP.Add(dt),
-						})
-						if err != nil {
-							return err
+					f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+						if tunit.AUs == nil {
+							return nil
 						}
-					}
 
-					return nil
-				})
+						for i, au := range tunit.AUs {
+							dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
+								time.Second / sampleRate
+
+							err := track.write(&sample{
+								PartSample: &fmp4.PartSample{
+									Payload: au,
+								},
+								dts: tunit.PTS + dt,
+								ntp: tunit.NTP.Add(dt),
+							})
+							if err != nil {
+								return err
+							}
+						}
+
+						return nil
+					})
+				}
 
 			case *rtspformat.MPEG1Audio:
 				codec := &fmp4.CodecMPEG1Audio{
@@ -666,7 +641,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
 						return nil
@@ -721,7 +696,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AC3)
 					if tunit.Frames == nil {
 						return nil
@@ -783,7 +758,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.G711)
 					if tunit.Samples == nil {
 						return nil
@@ -814,7 +789,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.LPCM)
 					if tunit.Samples == nil {
 						return nil
@@ -832,7 +807,7 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	f.a.agent.Log(logger.Info, "recording %s",
+	f.ai.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(formats))
 }
 

@@ -297,9 +297,18 @@ func FuzzReader(f *testing.F) {
 		0x01, 0x00, 0x00, 0x00, 0x88, 0x68, 0x76, 0x63,
 		0x31, 0x01, 0x02, 0x03,
 	})
+
 	f.Fuzz(func(_ *testing.T, b []byte) {
-		bc := bytecounter.NewReader(bytes.NewReader(b))
-		r := NewReader(bc, bc, nil)
-		r.Read() //nolint:errcheck
+		bcr := bytecounter.NewReader(bytes.NewReader(b))
+		r := NewReader(bcr, bcr, nil)
+
+		var buf bytes.Buffer
+		bcw := bytecounter.NewWriter(&buf)
+		w := NewWriter(bcw, bcw, true)
+
+		msg, err := r.Read()
+		if err == nil {
+			w.Write(msg) //nolint:errcheck
+		}
 	})
 }

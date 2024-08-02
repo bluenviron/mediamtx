@@ -236,28 +236,33 @@ func (mi *muxerInstance) createAudioTrack() *gohlslib.Track {
 	audioMedia = mi.stream.Desc().FindFormat(&audioFormatMPEG4Audio)
 
 	if audioMedia != nil {
-		mi.stream.AddReader(mi.writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4Audio)
+		co := audioFormatMPEG4Audio.GetConfig()
+		if co == nil {
+			mi.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
+		} else {
+			mi.stream.AddReader(mi.writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
+				tunit := u.(*unit.MPEG4Audio)
 
-			if tunit.AUs == nil {
+				if tunit.AUs == nil {
+					return nil
+				}
+
+				err := mi.hmuxer.WriteMPEG4Audio(
+					tunit.NTP,
+					tunit.PTS,
+					tunit.AUs)
+				if err != nil {
+					return fmt.Errorf("muxer error: %w", err)
+				}
+
 				return nil
+			})
+
+			return &gohlslib.Track{
+				Codec: &codecs.MPEG4Audio{
+					Config: *co,
+				},
 			}
-
-			err := mi.hmuxer.WriteMPEG4Audio(
-				tunit.NTP,
-				tunit.PTS,
-				tunit.AUs)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		return &gohlslib.Track{
-			Codec: &codecs.MPEG4Audio{
-				Config: *audioFormatMPEG4Audio.GetConfig(),
-			},
 		}
 	}
 

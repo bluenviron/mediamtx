@@ -29,7 +29,7 @@ func (s *formatMPEGTSSegment) close() error {
 	err := s.f.bw.Flush()
 
 	if s.fi != nil {
-		s.f.a.agent.Log(logger.Debug, "closing segment %s", s.path)
+		s.f.ai.Log(logger.Debug, "closing segment %s", s.path)
 		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
@@ -37,7 +37,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 		if err2 == nil {
 			duration := s.lastDTS - s.startDTS
-			s.f.a.agent.OnSegmentComplete(s.path, duration)
+			s.f.ai.agent.OnSegmentComplete(s.path, duration)
 		}
 	}
 
@@ -46,8 +46,8 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = Path{Start: s.startNTP}.Encode(s.f.a.pathFormat)
-		s.f.a.agent.Log(logger.Debug, "creating segment %s", s.path)
+		s.path = Path{Start: s.startNTP}.Encode(s.f.ai.pathFormat)
+		s.f.ai.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)
 		if err != nil {
@@ -59,7 +59,7 @@ func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 			return 0, err
 		}
 
-		s.f.a.agent.OnSegmentCreate(s.path)
+		s.f.ai.agent.OnSegmentCreate(s.path)
 
 		s.fi = fi
 	}

@@ -183,8 +183,13 @@ func FromStream(
 				})
 
 			case *format.MPEG4Audio:
+				co := forma.GetConfig()
+				if co == nil {
+					return fmt.Errorf("MPEG-4 audio tracks without explicit configuration are not supported")
+				}
+
 				track := addTrack(&mcmpegts.CodecMPEG4Audio{
-					Config: *forma.GetConfig(),
+					Config: *co,
 				})
 
 				stream.AddReader(writer, medi, forma, func(u unit.Unit) error {

@@ -28,55 +28,60 @@ type agentInstance struct {
 	done      chan struct{}
 }
 
-func (a *agentInstance) initialize() {
-	a.pathFormat = a.agent.PathFormat
+// Log implements logger.Writer.
+func (ai *agentInstance) Log(level logger.Level, format string, args ...interface{}) {
+	ai.agent.Log(level, format, args...)
+}
 
-	a.pathFormat = PathAddExtension(
-		strings.ReplaceAll(a.pathFormat, "%path", a.agent.PathName),
-		a.agent.Format,
+func (ai *agentInstance) initialize() {
+	ai.pathFormat = ai.agent.PathFormat
+
+	ai.pathFormat = PathAddExtension(
+		strings.ReplaceAll(ai.pathFormat, "%path", ai.agent.PathName),
+		ai.agent.Format,
 	)
 
-	a.terminate = make(chan struct{})
-	a.done = make(chan struct{})
+	ai.terminate = make(chan struct{})
+	ai.done = make(chan struct{})
 
-	a.writer = asyncwriter.New(a.agent.WriteQueueSize, a.agent)
+	ai.writer = asyncwriter.New(ai.agent.WriteQueueSize, ai.agent)
 
-	switch a.agent.Format {
+	switch ai.agent.Format {
 	case conf.RecordFormatMPEGTS:
-		a.format = &formatMPEGTS{
-			a: a,
+		ai.format = &formatMPEGTS{
+			ai: ai,
 		}
-		a.format.initialize()
+		ai.format.initialize()
 
 	default:
-		a.format = &formatFMP4{
-			a: a,
+		ai.format = &formatFMP4{
+			ai: ai,
 		}
-		a.format.initialize()
+		ai.format.initialize()
 	}
 
-	go a.run()
+	go ai.run()
 }
 
-func (a *agentInstance) close() {
-	close(a.terminate)
-	<-a.done
+func (ai *agentInstance) close() {
+	close(ai.terminate)
+	<-ai.done
 }
 
-func (a *agentInstance) run() {
-	defer close(a.done)
+func (ai *agentInstance) run() {
+	defer close(ai.done)
 
-	a.writer.Start()
+	ai.writer.Start()
 
 	select {
-	case err := <-a.writer.Error():
-		a.agent.Log(logger.Error, err.Error())
-		a.agent.Stream.RemoveReader(a.writer)
+	case err := <-ai.writer.Error():
+		ai.Log(logger.Error, err.Error())
+		ai.agent.Stream.RemoveReader(ai.writer)
 
-	case <-a.terminate:
-		a.agent.Stream.RemoveReader(a.writer)
-		a.writer.Stop()
+	case <-ai.terminate:
+		ai.agent.Stream.RemoveReader(ai.writer)
+		ai.writer.Stop()
 	}
 
-	a.format.close()
+	ai.format.close()
 }
