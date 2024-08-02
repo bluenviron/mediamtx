@@ -1,5 +1,5 @@
 lint:
-	touch internal/servers/hls/hls.min.js
+	go generate ./...
 	docker run --rm -v $(PWD):/app -w /app \
 	$(LINT_IMAGE) \
 	golangci-lint run -v
