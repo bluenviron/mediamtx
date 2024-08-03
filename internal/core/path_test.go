@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -112,16 +111,7 @@ func TestPathRunOnDemand(t *testing.T) {
 	err := os.WriteFile(srcFile,
 		[]byte(strings.ReplaceAll(runOnDemandSampleScript, "ON_DEMAND_FILE", onDemand)), 0o644)
 	require.NoError(t, err)
-
-	execFile := filepath.Join(os.TempDir(), "ondemand_cmd")
-	cmd := exec.Command("go", "build", "-o", execFile, srcFile)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	require.NoError(t, err)
-	defer os.Remove(execFile)
-
-	os.Remove(srcFile)
+	defer os.Remove(srcFile)
 
 	for _, ca := range []string{"describe", "setup", "describe and setup"} {
 		t.Run(ca, func(t *testing.T) {
@@ -133,9 +123,9 @@ func TestPathRunOnDemand(t *testing.T) {
 				"webrtc: no\n"+
 				"paths:\n"+
 				"  '~^(on)demand$':\n"+
-				"    runOnDemand: %s\n"+
+				"    runOnDemand: go run %s\n"+
 				"    runOnDemandCloseAfter: 1s\n"+
-				"    runOnUnDemand: touch %s\n", execFile, onUnDemand))
+				"    runOnUnDemand: touch %s\n", srcFile, onUnDemand))
 			require.Equal(t, true, ok)
 			defer p1.Close()
 
