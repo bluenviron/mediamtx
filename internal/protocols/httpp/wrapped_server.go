@@ -96,7 +96,7 @@ func (s *WrappedServer) Close() {
 	ctxCancel()
 	s.inner.Shutdown(ctx)
 	s.ln.Close() // in case Shutdown() is called before Serve()
-	if s.Encryption {
+	if s.loader != nil {
 		s.loader.Close()
 	}
 }

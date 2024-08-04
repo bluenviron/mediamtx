@@ -158,7 +158,7 @@ func (s *Server) Close() {
 	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
-	if s.IsTLS {
+	if s.loader != nil {
 		s.loader.Close()
 	}
 }
