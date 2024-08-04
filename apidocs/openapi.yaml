@@ -462,6 +462,8 @@ components:
       properties:
         pageCount:
           type: integer
+        itemCount:
+          type: integer
         items:
           type: array
           items:
@@ -501,6 +503,8 @@ components:
       type: object
       properties:
         pageCount:
+          type: integer
+        itemCount:
           type: integer
         items:
           type: array
@@ -562,16 +566,12 @@ components:
       properties:
         pageCount:
           type: integer
+        itemCount:
+          type: integer
         items:
           type: array
           items:
             $ref: '#/components/schemas/HLSMuxer'
-
-    RecordingSegment:
-      type: object
-      properties:
-        start:
-          type: string
 
     Recording:
       type: object
@@ -588,10 +588,18 @@ components:
       properties:
         pageCount:
           type: integer
+        itemCount:
+          type: integer
         items:
           type: array
           items:
             $ref: '#/components/schemas/Recording'
+
+    RecordingSegment:
+      type: object
+      properties:
+        start:
+          type: string
 
     RTMPConn:
       type: object
@@ -621,6 +629,8 @@ components:
       properties:
         pageCount:
           type: integer
+        itemCount:
+          type: integer
         items:
           type: array
           items:
@@ -646,6 +656,8 @@ components:
       type: object
       properties:
         pageCount:
+          type: integer
+        itemCount:
           type: integer
         items:
           type: array
@@ -683,6 +695,8 @@ components:
       properties:
         pageCount:
           type: integer
+        itemCount:
+          type: integer
         items:
           type: array
           items:
@@ -712,6 +726,9 @@ components:
           type: integer
           format: int64
           description: The total number of received DATA packets, including retransmitted packets
+        packetsReceivedBelated:
+          type: integer
+          format: int64
         packetsSentUnique:
           type: integer
           format: int64
@@ -784,6 +801,9 @@ components:
           type: integer
           format: int64
           description: Same as packetsReceived, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        bytesReceivedBelated:
+          type: integer
+          format: int64
         bytesSentUnique:
           type: integer
           format: int64
@@ -909,11 +929,12 @@ components:
           format: float64
           description: Percentage of retransmitted data vs. received data
 
-
     SRTConnList:
       type: object
       properties:
         pageCount:
+          type: integer
+        itemCount:
           type: integer
         items:
           type: array
@@ -953,6 +974,8 @@ components:
       type: object
       properties:
         pageCount:
+          type: integer
+        itemCount:
           type: integer
         items:
           type: array
