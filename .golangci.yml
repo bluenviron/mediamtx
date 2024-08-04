@@ -14,9 +14,11 @@ linters:
   - misspell
   - nilerr
   - prealloc
+  - predeclared
   - revive
   - usestdlibvars
   - unconvert
+  - tenv
   - tparallel
   - wastedassign
   - whitespace
