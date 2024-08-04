@@ -33,9 +33,7 @@ jobs:
       with:
         go-version: "1.22"
 
-    - run: |
-        go mod tidy
-        git diff --exit-code
+    - run: make lint-mod-tidy
 
   api_docs:
     runs-on: ubuntu-22.04
@@ -43,4 +41,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - run: make apidocs-lint
+    - run: make lint-apidocs
