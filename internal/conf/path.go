@@ -220,7 +220,6 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 
 	// Hooks
-	pconf.RunOnDemandRestart = true
 	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
 }

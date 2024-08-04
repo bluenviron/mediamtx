@@ -615,7 +615,7 @@ pathDefaults:
   #   a regular expression.
   runOnDemand:
   # Restart the command if it exits.
-  runOnDemandRestart: yes
+  runOnDemandRestart: no
   # Readers will be put on hold until the runOnDemand command starts publishing
   # or until this amount of time has passed.
   runOnDemandStartTimeout: 10s
