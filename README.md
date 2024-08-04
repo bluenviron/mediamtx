@@ -1428,6 +1428,7 @@ Edit `mediamtx.yml` and replace everything inside section `paths` with the follo
 paths:
   ondemand:
     runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnDemandRestart: yes
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
@@ -1587,6 +1588,8 @@ pathDefaults:
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnDemand: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
+  # Restart the command if it exits.
+  runOnDemandRestart: no
 ```
 
 `runOnUnDemand` allows to run a command when there are no readers anymore:
