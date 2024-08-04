@@ -21,6 +21,30 @@ components:
         error:
           type: string
 
+    AuthInternalUser:
+      type: object
+      properties:
+        user:
+          type: string
+        pass:
+          type: string
+        ips:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthInternalUserPermission'
+
+    AuthInternalUserPermission:
+      type: object
+      properties:
+        action:
+          type: string
+        path:
+          type: string
+
     GlobalConf:
       type: object
       properties:
@@ -41,13 +65,27 @@ components:
           type: integer
         udpMaxPayloadSize:
           type: integer
-        externalAuthenticationURL:
-          type: string
         runOnConnect:
           type: string
         runOnConnectRestart:
           type: boolean
         runOnDisconnect:
+          type: string
+
+        # Authentication
+        authMethod:
+          type: string
+        authInternalUsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthInternalUser'
+        authHTTPAddress:
+          type: string
+        authHTTPExclude:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthInternalUserPermission'
+        authJWTJWKS:
           type: string
 
         # Control API
@@ -294,24 +332,6 @@ components:
           type: string
         recordDeleteAfter:
           type: string
-
-        # Authentication
-        publishUser:
-          type: string
-        publishPass:
-          type: string
-        publishIPs:
-          type: array
-          items:
-            type: string
-        readUser:
-          type: string
-        readPass:
-          type: string
-        readIPs:
-          type: array
-          items:
-            type: string
 
         # Publisher source
         overridePublisher:
