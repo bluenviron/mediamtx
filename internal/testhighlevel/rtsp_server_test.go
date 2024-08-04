@@ -1,7 +1,7 @@
 //go:build enable_highlevel_tests
 // +build enable_highlevel_tests
 
-package highleveltests
+package testhighlevel
 
 import (
 	"os"
