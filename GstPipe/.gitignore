@@ -1,0 +1,54 @@
+# .gitignore file for C# .NET projects
+
+# Ignore build and publish folders
+bin/
+obj/
+out/
+# Adding this too...
+x64/
+
+# Ignore user-specific files
+.vs/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# Ignore Visual Studio Code files
+.vscode/
+
+# Ignore dependency folders
+node_modules/
+packages/
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.temp
+*.pid
+*.gz
+
+# Ignore compiled DLLs
+*.dll
+# But do not ignore these specific DLLs
+!zlib1.dll
+!libcurl.dll
+
+# Ignore compiled EXEs
+*.exe
+# But do not ignore this specific EXE
+!pipeme.exe
+
+# Ignore NuGet packages
+*.nupkg
+*.snupkg
+
+# Ignore application settings
+appsettings.json
+appsettings.*.json
+
+# Ignore other temporary and system files
+~$*
+*.swp
+*.DS_Store
+*.directory

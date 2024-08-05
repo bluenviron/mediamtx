@@ -163,7 +163,7 @@ playbackServerKey: server.key
 # Path to the server certificate.
 playbackServerCert: server.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-playbackAllowOrigin: '*'
+playbackAllowOrigin: "*"
 # List of IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -248,7 +248,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
-hlsAllowOrigin: '*'
+hlsAllowOrigin: "*"
 # List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -631,12 +631,20 @@ pathDefaults:
 # Path settings
 
 # Settings in "paths" are applied to specific paths, and the map key
-# is the name of the path. 
+# is the name of the path.
 # Any setting in "pathDefaults" can be overridden here.
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
-  PI-01:
   PI-02:
+    # Replace gst-launch-1.0 with "./pipeme" for stats/prometheus integration
+    runOnDemand: gst-launch-1.0 rtspsrc location=rtsp://172.25.25.102:554/axis-media/media.amp name=src latency=0 drop-on-latency=true udp-buffer-size=10242888 ! queue2 ! rtph264depay ! h264parse ! queue2 ! rtspclientsink name=sink location=rtsp://localhost:$RTSP_PORT/$MTX_PATH
   PI-03:
+    runOnDemand: gst-launch-1.0 rtspsrc location=rtsp://172.25.25.103:554/axis-media/media.amp name=src user-id=root user-pw=pass latency=0 drop-on-latency=true udp-buffer-size=10242888 ! rtph264depay ! h264parse ! queue2 ! rtspclientsink name=sink location=rtsp://localhost:$RTSP_PORT/$MTX_PATH
+
+  PI-04:
+    runOnDemand: gst-launch-1.0 rtspsrc location=rtsp://172.25.25.104:554/VideoInput/1/h264/1 name=src latency=10 drop-on-latency=true udp-buffer-size=10242888 ! queue2 ! rtph264depay ! h264parse ! queue2 ! rtspclientsink name=sink location=rtsp://localhost:$RTSP_PORT/$MTX_PATH
+
+  PI-41:
+    runOnDemand: gst-launch-1.0 rtspsrc location=rtsp://172.25.25.141:554/video1 name=src user-id=admin user-pw=piscada3138 latency=10 drop-on-latency=true udp-buffer-size=10242888 ! queue2 ! rtph264depay ! h264parse ! queue2 ! rtspclientsink name=sink location=rtsp://localhost:$RTSP_PORT/$MTX_PATH

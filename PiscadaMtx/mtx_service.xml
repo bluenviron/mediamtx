@@ -1,0 +1,11 @@
+<service>
+	<id>mtx</id>
+	<name>mtx</name>
+	<description>Piscada MTX</description>
+	<executable>%BASE%\mediamtx.exe</executable>
+	<logpath>%BASE%/logs</logpath>
+	<log mode="roll-by-time">
+		<pattern>yyyy_MM_dd</pattern>
+		<autoRollAtTime>00:00:00</autoRollAtTime>
+	</log>
+</service>

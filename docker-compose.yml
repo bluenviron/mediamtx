@@ -5,6 +5,11 @@ services:
   mtx:
     image: piscada/mtx:alpha
     stdin_open: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+      - SYS_ADMIN
     labels:
       service.name: "mtx"
     tty: true
