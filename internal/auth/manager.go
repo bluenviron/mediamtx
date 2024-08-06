@@ -251,7 +251,7 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 }
 
 func (m *Manager) authenticateJWT(req *Request) error {
-	keyfunc, err := m.pullJWTJWKS()
+	tokenKeyfunc, err := m.pullJWTJWKS()
 	if err != nil {
 		return err
 	}
@@ -265,23 +265,28 @@ func (m *Manager) authenticateJWT(req *Request) error {
 		return fmt.Errorf("JWT not provided")
 	}
 
-	token, err := jwt.Parse(v["jwt"][0], keyfunc)
+	token, err := jwt.Parse(v["jwt"][0], tokenKeyfunc)
 	if err != nil {
 		return err
 	}
 
-	claims := token.Claims.(jwt.MapClaims)[m.JWTClaimKey].([]interface{})
-	MediaMTXPermissions := make([]conf.AuthInternalUserPermission, 0, len(claims))
+	tokenClaimsMap := token.Claims.(jwt.MapClaims)[m.JWTClaimKey]
+	if tokenClaimsMap == nil {
+		return fmt.Errorf("JWT is missing the claim at " + m.JWTClaimKey)
+	}
 
-	for _, permission := range claims {
-		var MediaMTXPermission conf.AuthInternalUserPermission
-		MediaMTXPermission.Action = conf.AuthAction(permission.(map[string]interface{})["action"].(string))
-		if permission.(map[string]interface{})["path"] != nil {
-			MediaMTXPermission.Path = permission.(map[string]interface{})["path"].(string)
-		} else {
-			MediaMTXPermission.Path = ""
-		}
-		MediaMTXPermissions = append(MediaMTXPermissions, MediaMTXPermission)
+	tokenClaimsJSON, err := json.Marshal(tokenClaimsMap)
+	if err != nil {
+		return err
+	}
+	if len(tokenClaimsJSON) == 0 {
+		return fmt.Errorf("JWT claim at " + m.JWTClaimKey + " is empty")
+	}
+
+	MediaMTXPermissions := make([]conf.AuthInternalUserPermission, 0, len(tokenClaimsJSON))
+	err = json.Unmarshal(tokenClaimsJSON, &MediaMTXPermissions)
+	if err != nil {
+		return err
 	}
 
 	if !matchesPermission(MediaMTXPermissions, req) {
