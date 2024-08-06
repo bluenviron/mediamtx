@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -89,6 +90,7 @@ type Server struct {
 	mutex     sync.RWMutex
 	conns     map[*gortsplib.ServerConn]*conn
 	sessions  map[*gortsplib.ServerSession]*session
+	loader    *certloader.CertLoader
 }
 
 // Initialize initializes the server.
@@ -118,12 +120,13 @@ func (s *Server) Initialize() error {
 	}
 
 	if s.IsTLS {
-		cert, err := tls.LoadX509KeyPair(s.ServerCert, s.ServerKey)
+		var err error
+		s.loader, err = certloader.New(s.ServerCert, s.ServerKey, s.Parent)
 		if err != nil {
 			return err
 		}
 
-		s.srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
 	}
 
 	err := s.srv.Start()
@@ -155,6 +158,9 @@ func (s *Server) Close() {
 	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
+	if s.loader != nil {
+		s.loader.Close()
+	}
 }
 
 func (s *Server) run() {
