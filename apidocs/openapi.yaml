@@ -41,13 +41,66 @@ components:
           type: integer
         udpMaxPayloadSize:
           type: integer
-        externalAuthenticationURL:
-          type: string
         runOnConnect:
           type: string
         runOnConnectRestart:
           type: boolean
         runOnDisconnect:
+          type: string
+
+        # Authentication
+        authMethod:
+          type: string
+          enum:
+            - "internal"
+            - "http"
+            - "jwt"
+        authInternalUsers:
+          type: object
+          properties:
+            user:
+              type: string
+            pass:
+              type: string
+            ips:
+              type: array
+              items:
+                type: string
+            permissions:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - "read"
+                      - "publish"
+                      - "playback"
+                      - "api"
+                      - "metrics"
+                      - "pprof"
+                  path:
+                    type: string
+        authHTTPAddress:
+          type: string
+        authHTTPExclude:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                enum:
+                  - "read"
+                  - "publish"
+                  - "playback"
+                  - "api"
+                  - "metrics"
+                  - "pprof"
+        authJWTJWKS:
+          type: string
+        authJWTClaimKey:
           type: string
 
         # Control API
