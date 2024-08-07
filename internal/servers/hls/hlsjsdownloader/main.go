@@ -44,6 +44,8 @@ func do() error {
 	if err != nil {
 		return err
 	}
+
+	hashBuf = []byte(strings.TrimSpace(string(hashBuf)))
 	hash := make([]byte, hex.DecodedLen(len(hashBuf)))
 
 	if _, err = hex.Decode(hash, bytes.TrimSpace(hashBuf)); err != nil {
