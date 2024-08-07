@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
@@ -23,6 +25,7 @@ func (d listEntryDuration) MarshalJSON() ([]byte, error) {
 type listEntry struct {
 	Start    time.Time         `json:"start"`
 	Duration listEntryDuration `json:"duration"`
+	Endpoint string            `json:"endpoint"`
 }
 
 func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*Segment) ([]listEntry, error) {
@@ -106,11 +109,19 @@ func (p *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	out, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
 	if err != nil {
 		p.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, out)
+	for i := range entries {
+		v := url.Values{}
+		v.Add("path", pathName)
+		v.Add("start", entries[i].Start.Format(time.RFC3339Nano))
+		v.Add("duration", strconv.FormatFloat(time.Duration(entries[i].Duration).Seconds(), 'f', -1, 64))
+		entries[i].Endpoint = "/get?" + v.Encode()
+	}
+
+	ctx.JSON(http.StatusOK, entries)
 }
