@@ -97,11 +97,6 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
-type customClaims struct {
-	jwt.RegisteredClaims
-	MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
-}
-
 // Manager is the authentication manager.
 type Manager struct {
 	Method          conf.AuthMethod
@@ -109,6 +104,7 @@ type Manager struct {
 	HTTPAddress     string
 	HTTPExclude     []conf.AuthInternalUserPermission
 	JWTJWKS         string
+	JWTClaimKey     string
 	ReadTimeout     time.Duration
 	RTSPAuthMethods []auth.ValidateMethod
 
@@ -255,7 +251,7 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 }
 
 func (m *Manager) authenticateJWT(req *Request) error {
-	keyfunc, err := m.pullJWTJWKS()
+	tokenKeyfunc, err := m.pullJWTJWKS()
 	if err != nil {
 		return err
 	}
@@ -269,13 +265,31 @@ func (m *Manager) authenticateJWT(req *Request) error {
 		return fmt.Errorf("JWT not provided")
 	}
 
-	var cc customClaims
-	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
+	token, err := jwt.Parse(v["jwt"][0], tokenKeyfunc)
 	if err != nil {
 		return err
 	}
 
-	if !matchesPermission(cc.MediaMTXPermissions, req) {
+	tokenClaimsMap := token.Claims.(jwt.MapClaims)[m.JWTClaimKey]
+	if tokenClaimsMap == nil {
+		return fmt.Errorf("JWT is missing the claim at " + m.JWTClaimKey)
+	}
+
+	tokenClaimsJSON, err := json.Marshal(tokenClaimsMap)
+	if err != nil {
+		return err
+	}
+	if len(tokenClaimsJSON) == 0 {
+		return fmt.Errorf("JWT claim at " + m.JWTClaimKey + " is empty")
+	}
+
+	MediaMTXPermissions := make([]conf.AuthInternalUserPermission, 0, len(tokenClaimsJSON))
+	err = json.Unmarshal(tokenClaimsJSON, &MediaMTXPermissions)
+	if err != nil {
+		return err
+	}
+
+	if !matchesPermission(MediaMTXPermissions, req) {
 		return fmt.Errorf("user doesn't have permission to perform action")
 	}
 

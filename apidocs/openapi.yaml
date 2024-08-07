@@ -87,6 +87,8 @@ components:
             $ref: '#/components/schemas/AuthInternalUserPermission'
         authJWTJWKS:
           type: string
+        authJWTClaimKey:
+          type: string
 
         # Control API
         api:
