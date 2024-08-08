@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -36,8 +37,9 @@ type WrappedServer struct {
 	Handler     http.Handler
 	Parent      logger.Writer
 
-	ln    net.Listener
-	inner *http.Server
+	ln     net.Listener
+	inner  *http.Server
+	loader *certloader.CertLoader
 }
 
 // Initialize initializes a WrappedServer.
@@ -47,13 +49,15 @@ func (s *WrappedServer) Initialize() error {
 		if s.ServerCert == "" {
 			return fmt.Errorf("server cert is missing")
 		}
-		crt, err := tls.LoadX509KeyPair(s.ServerCert, s.ServerKey)
+
+		var err error
+		s.loader, err = certloader.New(s.ServerCert, s.ServerKey, s.Parent)
 		if err != nil {
 			return err
 		}
 
 		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{crt},
+			GetCertificate: s.loader.GetCertificate(),
 		}
 	}
 
@@ -92,4 +96,7 @@ func (s *WrappedServer) Close() {
 	ctxCancel()
 	s.inner.Shutdown(ctx)
 	s.ln.Close() // in case Shutdown() is called before Serve()
+	if s.loader != nil {
+		s.loader.Close()
+	}
 }

@@ -1124,7 +1124,7 @@ Authentication can be delegated to an external HTTP server:
 
 ```yml
 authMethod: http
-externalAuthenticationURL: http://myauthserver/auth
+authHTTPAddress: http://myauthserver/auth
 ```
 
 Each time a user needs to be authenticated, the specified URL will be requested with the POST method and this payload:

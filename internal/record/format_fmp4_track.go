@@ -42,7 +42,7 @@ func (t *formatFMP4Track) write(sample *sample) error {
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.a.agent.SegmentDuration {
+		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.ai.agent.SegmentDuration {
 		t.f.currentSegment.lastDTS = t.nextSample.dts
 		err := t.f.currentSegment.close()
 		if err != nil {

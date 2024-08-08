@@ -1,5 +1,5 @@
 BASE_IMAGE = golang:1.22-alpine3.19
-LINT_IMAGE = golangci/golangci-lint:v1.56.2
+LINT_IMAGE = golangci/golangci-lint:v1.59.1
 NODE_IMAGE = node:20-alpine3.19
 ALPINE_IMAGE = alpine:3.19
 RPI32_IMAGE = balenalib/raspberry-pi:bullseye-run-20230712
@@ -20,8 +20,7 @@ help:
 	@echo "  lint             run linters"
 	@echo "  bench NAME=n     run bench environment"
 	@echo "  run              run app"
-	@echo "  apidocs-lint     run api docs linters"
-	@echo "  apidocs-gen      generate api docs HTML"
+	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"
 	@echo "  dockerhub        build and push images to Docker Hub"
 	@echo "  dockerhub-legacy build and push images to Docker Hub (legacy)"
