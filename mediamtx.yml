@@ -44,7 +44,7 @@ runOnDisconnect:
 # * internal: users are stored in the configuration file
 # * http: an external HTTP URL is contacted to perform authentication
 # * jwt: an external identity server provides authentication through JWTs
-authMethod: internal
+authMethod: jwt
 
 # Internal authentication.
 # list of users.
@@ -120,7 +120,11 @@ authHTTPExclude:
 # Users are expected to pass the JWT in the Authorization header or as a query parameter.
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
-authJWTJWKS:
+authJWTJWKS: https://localhost:7211/.well-known/openid-configuration/jwks
+# Actions to exclude from JWT-based authentication.
+# Format is the same as the one of user permissions.
+authJWTExclude:
+- action: publish
 
 ###############################################
 # Global settings -> Control API
