@@ -45,10 +45,10 @@ func do() error {
 		return err
 	}
 
-	hashBuf = []byte(strings.TrimSpace(string(hashBuf)))
-	hash := make([]byte, hex.DecodedLen(len(hashBuf)))
+	str := strings.TrimSpace(string(hashBuf))
 
-	if _, err = hex.Decode(hash, bytes.TrimSpace(hashBuf)); err != nil {
+	hash, err := hex.DecodeString(str)
+	if err != nil {
 		return err
 	}
 
