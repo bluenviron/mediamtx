@@ -472,7 +472,7 @@ The resulting stream will be available in path `/cam`.
 
 _MediaMTX_ natively supports the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are a couple of requirements:
 
-1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64 bit operative systems are supported.
+1. The server must run on a Raspberry Pi, with Raspberry Pi OS Bullseye as operative system. Both 32 bit and 64 bit architectures are supported.
 
 2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
