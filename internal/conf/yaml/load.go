@@ -44,8 +44,11 @@ func convertKeys(i interface{}) (interface{}, error) {
 // Load loads the configuration from Yaml.
 func Load(buf []byte, dest interface{}) error {
 	// load YAML into a generic map
+	// from documentation:
+	// "UnmarshalStrict is like Unmarshal except that any fields that are found in the data
+	// that do not have corresponding struct members, or mapping keys that are duplicates, will result in an error."
 	var temp interface{}
-	err := yaml.Unmarshal(buf, &temp)
+	err := yaml.UnmarshalStrict(buf, &temp)
 	if err != nil {
 		return err
 	}
