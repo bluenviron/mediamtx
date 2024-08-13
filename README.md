@@ -544,19 +544,20 @@ default:CARD=U0x46d0x809
     Default Audio Device
 ```
 
-Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then use GStreamer inside `runOnReady` to read the video stream, add audio and publish the new stream to another path:
+Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then create a new path that takes the video stream from the camera and audio from the microphone:
 
 ```yml
 paths:
   cam:
     source: rpiCamera
-    runOnReady: >
+
+  cam_with_audio:
+    runOnInit: >
       gst-launch-1.0
       rtspclientsink name=s location=rtsp://localhost:$RTSP_PORT/cam_with_audio
-      rtspsrc location=rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH latency=0 ! rtph264depay ! s.
+      rtspsrc location=rtsp://127.0.0.1:$RTSP_PORT/cam latency=0 ! rtph264depay ! s.
       alsasrc device=default:CARD=U0x46d0x809 ! opusenc bitrate=16000 ! s.
-    runOnReadyRestart: yes
-  cam_with_audio:
+    runOnInitRestart: yes
 ```
 
 The resulting stream will be available in path `/cam_with_audio`.
