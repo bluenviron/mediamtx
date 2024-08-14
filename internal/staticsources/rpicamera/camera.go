@@ -1,11 +1,10 @@
-//go:build rpicamera
-// +build rpicamera
+//go:build (linux && arm) || (linux && arm64)
+// +build linux,arm linux,arm64
 
 package rpicamera
 
 import (
 	"debug/elf"
-	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,11 +18,8 @@ import (
 )
 
 const (
-	tempPathPrefix = "/dev/shm/rtspss-embeddedexe-"
+	tempPathPrefix = "/dev/shm/mediamtx-rpicamera-"
 )
-
-//go:embed exe/exe
-var exeContent []byte
 
 func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
 	tempPath := tempPathPrefix + strconv.FormatInt(time.Now().UnixNano(), 10)
@@ -111,9 +107,8 @@ func checkLibraries64Bit() error {
 	return nil
 }
 
-// RPICamera is a RPI Camera reader.
-type RPICamera struct {
-	Params Params
+type camera struct {
+	Params params
 	OnData func(time.Duration, [][]byte)
 
 	cmd       *exec.Cmd
@@ -124,8 +119,7 @@ type RPICamera struct {
 	readerDone chan error
 }
 
-// Initialize initializes a RPICamera.
-func (c *RPICamera) Initialize() error {
+func (c *camera) initialize() error {
 	if runtime.GOARCH == "arm" {
 		err := checkLibraries64Bit()
 		if err != nil {
@@ -150,7 +144,7 @@ func (c *RPICamera) Initialize() error {
 		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeVideo.writeFD), 10),
 	}
 
-	c.cmd, err = startEmbeddedExe(exeContent, env)
+	c.cmd, err = startEmbeddedExe(component, env)
 	if err != nil {
 		c.pipeConf.close()
 		c.pipeVideo.close()
@@ -194,7 +188,7 @@ func (c *RPICamera) Initialize() error {
 	return nil
 }
 
-func (c *RPICamera) Close() {
+func (c *camera) close() {
 	c.pipeConf.write([]byte{'e'})
 	<-c.waitDone
 	c.pipeConf.close()
@@ -202,11 +196,11 @@ func (c *RPICamera) Close() {
 	<-c.readerDone
 }
 
-func (c *RPICamera) ReloadParams(params Params) {
+func (c *camera) reloadParams(params params) {
 	c.pipeConf.write(append([]byte{'c'}, params.serialize()...))
 }
 
-func (c *RPICamera) readReady() error {
+func (c *camera) readReady() error {
 	buf, err := c.pipeVideo.read()
 	if err != nil {
 		return err
@@ -224,7 +218,7 @@ func (c *RPICamera) readReady() error {
 	}
 }
 
-func (c *RPICamera) readData() error {
+func (c *camera) readData() error {
 	for {
 		buf, err := c.pipeVideo.read()
 		if err != nil {

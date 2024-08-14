@@ -144,7 +144,6 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [Encryption](#encryption-1)
 * [Compile from source](#compile-from-source)
   * [Standard](#standard)
-  * [Raspberry Pi](#raspberry-pi)
   * [OpenWrt](#openwrt-1)
   * [Cross compile](#cross-compile)
   * [Compile for all supported platforms](#compile-for-all-supported-platforms)
@@ -2043,25 +2042,6 @@ git clone https://github.com/bluenviron/mediamtx
 cd mediamtx
 go generate ./...
 CGO_ENABLED=0 go build .
-```
-
-The command will produce the `mediamtx` binary.
-
-### Raspberry Pi
-
-The server can be compiled with native support for the Raspberry Pi Camera. Compilation must be performed on a Raspberry Pi, with the following dependencies:
-
-* Go &ge; 1.22
-* `libcamera-dev`
-* `libfreetype-dev`
-* `xxd`
-
-Download the repository, open a terminal in it and run:
-
-```sh
-make -C internal/protocols/rpicamera/exe -j$(nproc)
-go generate ./...
-go build -tags rpicamera .
 ```
 
 The command will produce the `mediamtx` binary.
