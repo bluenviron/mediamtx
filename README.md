@@ -471,20 +471,20 @@ The resulting stream will be available in path `/cam`.
 
 _MediaMTX_ natively supports the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are a couple of requirements:
 
-1. The server must run on a Raspberry Pi, with Raspberry Pi OS Bullseye as operative system. Both 32 bit and 64 bit architectures are supported.
+1. The server must run on a Raspberry Pi, with one of the following operating systems:
 
-2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
+   * Raspberry Pi OS Bookworm
+   * Raspberry Pi OS Bullseye
+
+   Both 32 bit and 64 bit architectures are supported.
+
+2. If you are using Raspberry Pi OS Bullseye, make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
 If you want to run the standard (non-Docker) version of the server:
 
-1. Make sure that the following packages are installed:
+1. Download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
 
-   * `libcamera0` (&ge; 0.0.5)
-   * `libfreetype6`
-
-2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
-
-3. edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+2. Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
    ```yml
    paths:
@@ -494,7 +494,7 @@ If you want to run the standard (non-Docker) version of the server:
 
 The resulting stream will be available in path `/cam`.
 
-If you want to run the server inside Docker, you need to use the `latest-rpi` image (that already contains required libraries) and launch the container with some additional flags:
+If you want to run the server inside Docker, you need to use the `latest-rpi` image and launch the container with some additional flags:
 
 ```sh
 docker run --rm -it \
@@ -506,7 +506,7 @@ docker run --rm -it \
 bluenviron/mediamtx:latest-rpi
 ```
 
-Be aware that the Docker image is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a standard `libcamera` included.
+Be aware that the server is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](#compile-from-source).
 
 Camera settings can be changed by using the `rpiCamera*` parameters:
 

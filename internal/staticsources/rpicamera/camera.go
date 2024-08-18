@@ -4,108 +4,15 @@
 package rpicamera
 
 import (
-	"debug/elf"
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
+	"path/filepath"
 	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 )
-
-const (
-	tempPathPrefix = "/dev/shm/mediamtx-rpicamera-"
-)
-
-func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
-	tempPath := tempPathPrefix + strconv.FormatInt(time.Now().UnixNano(), 10)
-
-	err := os.WriteFile(tempPath, content, 0o755)
-	if err != nil {
-		return nil, err
-	}
-
-	cmd := exec.Command(tempPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = env
-
-	err = cmd.Start()
-	os.Remove(tempPath)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return cmd, nil
-}
-
-func findLibrary(name string) (string, error) {
-	byts, err := exec.Command("ldconfig", "-p").Output()
-	if err == nil {
-		for _, line := range strings.Split(string(byts), "\n") {
-			f := strings.Split(line, " => ")
-			if len(f) == 2 && strings.Contains(f[1], name+".so") {
-				return f[1], nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("library '%s' not found", name)
-}
-
-func check64bit(fpath string) error {
-	f, err := os.Open(fpath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	ef, err := elf.NewFile(f)
-	if err != nil {
-		return err
-	}
-	defer ef.Close()
-
-	if ef.FileHeader.Class == elf.ELFCLASS64 {
-		return fmt.Errorf("libcamera is 64-bit, you need the 64-bit server version")
-	}
-
-	return nil
-}
-
-var (
-	mutex   sync.Mutex
-	checked bool
-)
-
-func checkLibraries64Bit() error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	if checked {
-		return nil
-	}
-
-	for _, name := range []string{"libcamera", "libcamera-base"} {
-		lib, err := findLibrary(name)
-		if err != nil {
-			return err
-		}
-
-		err = check64bit(lib)
-		if err != nil {
-			return err
-		}
-	}
-
-	checked = true
-	return nil
-}
 
 type camera struct {
 	Params params
@@ -120,34 +27,41 @@ type camera struct {
 }
 
 func (c *camera) initialize() error {
-	if runtime.GOARCH == "arm" {
-		err := checkLibraries64Bit()
-		if err != nil {
-			return err
-		}
+	err := dumpComponent()
+	if err != nil {
+		return err
 	}
 
-	var err error
 	c.pipeConf, err = newPipe()
 	if err != nil {
+		freeComponent()
 		return err
 	}
 
 	c.pipeVideo, err = newPipe()
 	if err != nil {
 		c.pipeConf.close()
+		freeComponent()
 		return err
 	}
 
 	env := []string{
 		"PIPE_CONF_FD=" + strconv.FormatInt(int64(c.pipeConf.readFD), 10),
 		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeVideo.writeFD), 10),
+		"LD_LIBRARY_PATH=" + dumpPath,
 	}
 
-	c.cmd, err = startEmbeddedExe(component, env)
+	c.cmd = exec.Command(filepath.Join(dumpPath, "exe"))
+	c.cmd.Stdout = os.Stdout
+	c.cmd.Stderr = os.Stderr
+	c.cmd.Env = env
+	c.cmd.Dir = dumpPath
+
+	err = c.cmd.Start()
 	if err != nil {
 		c.pipeConf.close()
 		c.pipeVideo.close()
+		freeComponent()
 		return err
 	}
 
@@ -164,11 +78,12 @@ func (c *camera) initialize() error {
 	}()
 
 	select {
-	case <-c.waitDone:
+	case err := <-c.waitDone:
 		c.pipeConf.close()
 		c.pipeVideo.close()
 		<-c.readerDone
-		return fmt.Errorf("process exited unexpectedly")
+		freeComponent()
+		return fmt.Errorf("process exited unexpectedly: %v", err)
 
 	case err := <-c.readerDone:
 		if err != nil {
@@ -176,6 +91,7 @@ func (c *camera) initialize() error {
 			<-c.waitDone
 			c.pipeConf.close()
 			c.pipeVideo.close()
+			freeComponent()
 			return err
 		}
 	}
@@ -194,6 +110,7 @@ func (c *camera) close() {
 	c.pipeConf.close()
 	c.pipeVideo.close()
 	<-c.readerDone
+	freeComponent()
 }
 
 func (c *camera) reloadParams(params params) {
