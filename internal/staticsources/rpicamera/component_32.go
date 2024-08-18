@@ -4,8 +4,8 @@
 package rpicamera
 
 import (
-	_ "embed"
+	"embed"
 )
 
-//go:embed mtxrpicam_32
-var component []byte
+//go:embed mtxrpicam_32/*
+var component embed.FS
