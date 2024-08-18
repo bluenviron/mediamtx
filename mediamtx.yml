@@ -582,6 +582,8 @@ pathDefaults:
   # Specifies the autofocus window, in the form x,y,width,height where the coordinates
   # are given as a proportion of the entire image.
   rpiCameraAfWindow:
+  # Manual flicker correction period, in microseconds.
+  rpiCameraFlickerPeriod: 0
   # enables printing text on each frame.
   rpiCameraTextOverlayEnable: false
   # text that is printed on each frame.

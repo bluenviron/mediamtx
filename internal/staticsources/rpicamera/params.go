@@ -34,6 +34,7 @@ type params struct {
 	AfSpeed           string
 	LensPosition      float64
 	AfWindow          string
+	FlickerPeriod     int
 	TextOverlayEnable bool
 	TextOverlay       string
 }

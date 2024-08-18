@@ -59,6 +59,7 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 		AfSpeed:           cnf.RPICameraAfSpeed,
 		LensPosition:      cnf.RPICameraLensPosition,
 		AfWindow:          cnf.RPICameraAfWindow,
+		FlickerPeriod:     cnf.RPICameraFlickerPeriod,
 		TextOverlayEnable: cnf.RPICameraTextOverlayEnable,
 		TextOverlay:       cnf.RPICameraTextOverlay,
 	}
