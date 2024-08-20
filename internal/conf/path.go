@@ -130,9 +130,9 @@ type Path struct {
 	SourceRedirect string `json:"sourceRedirect"`
 
 	// Raspberry Pi Camera source
-	RPICameraCamID             int       `json:"rpiCameraCamID"`
-	RPICameraWidth             int       `json:"rpiCameraWidth"`
-	RPICameraHeight            int       `json:"rpiCameraHeight"`
+	RPICameraCamID             uint      `json:"rpiCameraCamID"`
+	RPICameraWidth             uint      `json:"rpiCameraWidth"`
+	RPICameraHeight            uint      `json:"rpiCameraHeight"`
 	RPICameraHFlip             bool      `json:"rpiCameraHFlip"`
 	RPICameraVFlip             bool      `json:"rpiCameraVFlip"`
 	RPICameraBrightness        float64   `json:"rpiCameraBrightness"`
@@ -143,7 +143,7 @@ type Path struct {
 	RPICameraAWB               string    `json:"rpiCameraAWB"`
 	RPICameraAWBGains          []float64 `json:"rpiCameraAWBGains"`
 	RPICameraDenoise           string    `json:"rpiCameraDenoise"`
-	RPICameraShutter           int       `json:"rpiCameraShutter"`
+	RPICameraShutter           uint      `json:"rpiCameraShutter"`
 	RPICameraMetering          string    `json:"rpiCameraMetering"`
 	RPICameraGain              float64   `json:"rpiCameraGain"`
 	RPICameraEV                float64   `json:"rpiCameraEV"`
@@ -157,12 +157,12 @@ type Path struct {
 	RPICameraAfSpeed           string    `json:"rpiCameraAfSpeed"`
 	RPICameraLensPosition      float64   `json:"rpiCameraLensPosition"`
 	RPICameraAfWindow          string    `json:"rpiCameraAfWindow"`
-	RPICameraFlickerPeriod     int       `json:"rpiCameraFlickerPeriod"`
+	RPICameraFlickerPeriod     uint      `json:"rpiCameraFlickerPeriod"`
 	RPICameraTextOverlayEnable bool      `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string    `json:"rpiCameraTextOverlay"`
 	RPICameraCodec             string    `json:"rpiCameraCodec"`
-	RPICameraIDRPeriod         int       `json:"rpiCameraIDRPeriod"`
-	RPICameraBitrate           int       `json:"rpiCameraBitrate"`
+	RPICameraIDRPeriod         uint      `json:"rpiCameraIDRPeriod"`
+	RPICameraBitrate           uint      `json:"rpiCameraBitrate"`
 	RPICameraProfile           string    `json:"rpiCameraProfile"`
 	RPICameraLevel             string    `json:"rpiCameraLevel"`
 

@@ -21,8 +21,8 @@ func (p params) serialize() []byte {
 		f := rv.Field(i)
 
 		switch f.Kind() {
-		case reflect.Int:
-			entry += strconv.FormatInt(f.Int(), 10)
+		case reflect.Uint:
+			entry += strconv.FormatUint(f.Uint(), 10)
 
 		case reflect.Float64:
 			entry += strconv.FormatFloat(f.Float(), 'f', -1, 64)
