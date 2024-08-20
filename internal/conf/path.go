@@ -161,6 +161,7 @@ type Path struct {
 	RPICameraAfSpeed           string    `json:"rpiCameraAfSpeed"`
 	RPICameraLensPosition      float64   `json:"rpiCameraLensPosition"`
 	RPICameraAfWindow          string    `json:"rpiCameraAfWindow"`
+	RPICameraFlickerPeriod     int       `json:"rpiCameraFlickerPeriod"`
 	RPICameraTextOverlayEnable bool      `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string    `json:"rpiCameraTextOverlay"`
 

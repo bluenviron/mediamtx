@@ -259,6 +259,12 @@ func TestConfErrors(t *testing.T) {
 		err  string
 	}{
 		{
+			"duplicate parameter",
+			"paths:\n" +
+				"paths:\n",
+			"yaml: unmarshal errors:\n  line 2: key \"paths\" already set in map",
+		},
+		{
 			"non existent parameter 1",
 			`invalid: param`,
 			"json: unknown field \"invalid\"",

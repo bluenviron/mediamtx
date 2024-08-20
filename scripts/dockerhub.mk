@@ -19,13 +19,11 @@ export DOCKERFILE_DOCKERHUB_FFMPEG
 
 define DOCKERFILE_DOCKERHUB_RPI_BASE_32
 FROM $(RPI32_IMAGE)
-RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 && rm -rf /var/lib/apt/lists/*
 endef
 export DOCKERFILE_DOCKERHUB_RPI_BASE_32
 
 define DOCKERFILE_DOCKERHUB_RPI_BASE_64
 FROM $(RPI64_IMAGE)
-RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 && rm -rf /var/lib/apt/lists/*
 endef
 export DOCKERFILE_DOCKERHUB_RPI_BASE_64
 
