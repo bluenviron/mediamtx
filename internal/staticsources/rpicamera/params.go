@@ -2,9 +2,9 @@ package rpicamera
 
 type params struct {
 	LogLevel          string
-	CameraID          int
-	Width             int
-	Height            int
+	CameraID          uint
+	Width             uint
+	Height            uint
 	HFlip             bool
 	VFlip             bool
 	Brightness        float64
@@ -16,7 +16,7 @@ type params struct {
 	AWBGainRed        float64
 	AWBGainBlue       float64
 	Denoise           string
-	Shutter           int
+	Shutter           uint
 	Metering          string
 	Gain              float64
 	EV                float64
@@ -30,12 +30,12 @@ type params struct {
 	AfSpeed           string
 	LensPosition      float64
 	AfWindow          string
-	FlickerPeriod     int
+	FlickerPeriod     uint
 	TextOverlayEnable bool
 	TextOverlay       string
 	Codec             string
-	IDRPeriod         int
-	Bitrate           int
+	IDRPeriod         uint
+	Bitrate           uint
 	Profile           string
 	Level             string
 }

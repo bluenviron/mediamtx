@@ -72,7 +72,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 		}
 		return nil
 
-	case reflect.TypeOf(uint64(0)):
+	case reflect.TypeOf(uint(0)):
 		if ev, ok := env[prefix]; ok {
 			if prv.IsNil() {
 				prv.Set(reflect.New(rt))
