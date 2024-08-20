@@ -402,14 +402,6 @@ components:
           type: string
         rpiCameraFPS:
           type: number
-        rpiCameraIDRPeriod:
-          type: integer
-        rpiCameraBitrate:
-          type: integer
-        rpiCameraProfile:
-          type: string
-        rpiCameraLevel:
-          type: string
         rpiCameraAfMode:
           type: string
         rpiCameraAfRange:
@@ -425,6 +417,16 @@ components:
         rpiCameraTextOverlayEnable:
           type: boolean
         rpiCameraTextOverlay:
+          type: string
+        rpiCameraCodec:
+          type: string
+        rpiCameraIDRPeriod:
+          type: integer
+        rpiCameraBitrate:
+          type: integer
+        rpiCameraProfile:
+          type: string
+        rpiCameraLevel:
           type: string
 
         # Hooks

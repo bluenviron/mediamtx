@@ -152,10 +152,6 @@ type Path struct {
 	RPICameraTuningFile        string    `json:"rpiCameraTuningFile"`
 	RPICameraMode              string    `json:"rpiCameraMode"`
 	RPICameraFPS               float64   `json:"rpiCameraFPS"`
-	RPICameraIDRPeriod         int       `json:"rpiCameraIDRPeriod"`
-	RPICameraBitrate           int       `json:"rpiCameraBitrate"`
-	RPICameraProfile           string    `json:"rpiCameraProfile"`
-	RPICameraLevel             string    `json:"rpiCameraLevel"`
 	RPICameraAfMode            string    `json:"rpiCameraAfMode"`
 	RPICameraAfRange           string    `json:"rpiCameraAfRange"`
 	RPICameraAfSpeed           string    `json:"rpiCameraAfSpeed"`
@@ -164,6 +160,11 @@ type Path struct {
 	RPICameraFlickerPeriod     int       `json:"rpiCameraFlickerPeriod"`
 	RPICameraTextOverlayEnable bool      `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string    `json:"rpiCameraTextOverlay"`
+	RPICameraCodec             string    `json:"rpiCameraCodec"`
+	RPICameraIDRPeriod         int       `json:"rpiCameraIDRPeriod"`
+	RPICameraBitrate           int       `json:"rpiCameraBitrate"`
+	RPICameraProfile           string    `json:"rpiCameraProfile"`
+	RPICameraLevel             string    `json:"rpiCameraLevel"`
 
 	// Hooks
 	RunOnInit                  string         `json:"runOnInit"`
@@ -211,14 +212,15 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraDenoise = "off"
 	pconf.RPICameraMetering = "centre"
 	pconf.RPICameraFPS = 30
-	pconf.RPICameraIDRPeriod = 60
-	pconf.RPICameraBitrate = 1000000
-	pconf.RPICameraProfile = "main"
-	pconf.RPICameraLevel = "4.1"
 	pconf.RPICameraAfMode = "continuous"
 	pconf.RPICameraAfRange = "normal"
 	pconf.RPICameraAfSpeed = "normal"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
+	pconf.RPICameraCodec = "auto"
+	pconf.RPICameraIDRPeriod = 60
+	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraProfile = "main"
+	pconf.RPICameraLevel = "4.1"
 
 	// Hooks
 	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
@@ -549,6 +551,11 @@ func (pconf *Path) validate(
 	case "normal", "fast":
 	default:
 		return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
+	}
+	switch pconf.RPICameraCodec {
+	case "auto", "hardwareH264", "softwareH264":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraCodec' value")
 	}
 
 	// Hooks

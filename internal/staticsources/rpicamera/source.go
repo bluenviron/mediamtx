@@ -50,10 +50,6 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 		TuningFile:        cnf.RPICameraTuningFile,
 		Mode:              cnf.RPICameraMode,
 		FPS:               cnf.RPICameraFPS,
-		IDRPeriod:         cnf.RPICameraIDRPeriod,
-		Bitrate:           cnf.RPICameraBitrate,
-		Profile:           cnf.RPICameraProfile,
-		Level:             cnf.RPICameraLevel,
 		AfMode:            cnf.RPICameraAfMode,
 		AfRange:           cnf.RPICameraAfRange,
 		AfSpeed:           cnf.RPICameraAfSpeed,
@@ -62,6 +58,11 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 		FlickerPeriod:     cnf.RPICameraFlickerPeriod,
 		TextOverlayEnable: cnf.RPICameraTextOverlayEnable,
 		TextOverlay:       cnf.RPICameraTextOverlay,
+		Codec:             cnf.RPICameraCodec,
+		IDRPeriod:         cnf.RPICameraIDRPeriod,
+		Bitrate:           cnf.RPICameraBitrate,
+		Profile:           cnf.RPICameraProfile,
+		Level:             cnf.RPICameraLevel,
 	}
 }
 
