@@ -25,10 +25,6 @@ type params struct {
 	TuningFile        string
 	Mode              string
 	FPS               float64
-	IDRPeriod         int
-	Bitrate           int
-	Profile           string
-	Level             string
 	AfMode            string
 	AfRange           string
 	AfSpeed           string
@@ -37,4 +33,9 @@ type params struct {
 	FlickerPeriod     int
 	TextOverlayEnable bool
 	TextOverlay       string
+	Codec             string
+	IDRPeriod         int
+	Bitrate           int
+	Profile           string
+	Level             string
 }
