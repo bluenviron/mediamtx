@@ -84,7 +84,7 @@ func dumpComponent() error {
 		return err
 	}
 
-	err = os.Chmod(filepath.Join(dumpPath, "exe"), 0o755)
+	err = os.Chmod(filepath.Join(dumpPath, "mtxrpicam"), 0o755)
 	if err != nil {
 		os.RemoveAll(dumpPath)
 		return err
