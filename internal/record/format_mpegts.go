@@ -224,6 +224,26 @@ func (f *formatMPEGTS) initialize() {
 					)
 				})
 
+			case *rtspformat.KLV:
+				codec := forma.KLVCodec
+				track := addTrack(forma, codec)
+
+				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.KLV)
+					if tunit.Packets == nil {
+						return nil
+					}
+
+					return f.write(
+						tunit.PTS,
+						tunit.NTP,
+						false,
+						true,
+						func() error {
+							return f.mw.WriteKLV(track, durationGoToMPEGTS(tunit.PTS), tunit.Packets)
+						},
+					)
+				})
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
 				if co == nil {
