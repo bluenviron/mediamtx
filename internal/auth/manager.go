@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -118,6 +119,12 @@ func (c *customClaims) UnmarshalJSON(b []byte) error {
 	rawPermissions, ok := claimMap[c.permissionsKey]
 	if !ok {
 		return fmt.Errorf("claim '%s' not found inside JWT", c.permissionsKey)
+	}
+
+	switch rawPermissions[0] {
+	case '"':
+		s, _ := strconv.Unquote(string(rawPermissions))
+		rawPermissions = []byte(s)
 	}
 
 	err = json.Unmarshal(rawPermissions, &c.permissions)
@@ -295,9 +302,9 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	if len(v["jwt"]) != 1 {
 		return fmt.Errorf("JWT not provided")
 	}
-
-	var cc customClaims
-	cc.permissionsKey = m.JWTClaimKey
+	cc := customClaims{permissionsKey: m.JWTClaimKey}
+	//var cc customClaims
+	//cc.permissionsKey = m.JWTClaimKey
 	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
 	if err != nil {
 		return err
