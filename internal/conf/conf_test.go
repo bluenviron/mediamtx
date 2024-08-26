@@ -357,6 +357,13 @@ func TestConfErrors(t *testing.T) {
 			`record path './recordings/%path/%Y-%m-%d_%H-%M-%S' is missing one of the` +
 				` mandatory elements for the playback server to work: %Y %m %d %H %M %S %f`,
 		},
+		{
+			"jwt claim key empty",
+			"authMethod: jwt\n" +
+				"authJWTJWKS: https://not-real.com\n" +
+				"authJWTClaimKey: \"\"",
+			"'authJWTClaimKey' is empty",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
