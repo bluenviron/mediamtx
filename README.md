@@ -2134,7 +2134,7 @@ All the code in this repository is released under the [MIT License](LICENSE). Co
 |[RTSP / RTP / RTCP specifications](https://github.com/bluenviron/gortsplib#specifications)|RTSP|
 |[HLS specifications](https://github.com/bluenviron/gohlslib#specifications)|HLS|
 |[RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)|RTMP|
-|[Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)|RTMP|
+|[Enhanced RTMP v1](https://veovera.org/docs/enhanced/enhanced-rtmp-v1.pdf)|RTMP|
 |[Action Message Format](https://rtmp.veriskope.com/pdf/amf0-file-format-specification.pdf)|RTMP|
 |[WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)|WebRTC|
 |[WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)|WebRTC|
