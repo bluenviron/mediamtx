@@ -121,6 +121,8 @@ authHTTPExclude:
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:
+# name of the claim that contains permissions.
+authJWTClaimKey: mediamtx_permissions
 
 ###############################################
 # Global settings -> Control API
