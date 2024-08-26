@@ -302,9 +302,9 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	if len(v["jwt"]) != 1 {
 		return fmt.Errorf("JWT not provided")
 	}
-	cc := customClaims{permissionsKey: m.JWTClaimKey}
-	//var cc customClaims
-	//cc.permissionsKey = m.JWTClaimKey
+
+	var cc customClaims
+	cc.permissionsKey = m.JWTClaimKey
 	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
 	if err != nil {
 		return err
