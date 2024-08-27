@@ -19,17 +19,17 @@ func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
 		pageCount++
 	}
 
-	min := page * itemsPerPage
-	if min > itemsLen {
-		min = itemsLen
+	minVal := page * itemsPerPage
+	if minVal > itemsLen {
+		minVal = itemsLen
 	}
 
-	max := (page + 1) * itemsPerPage
-	if max > itemsLen {
-		max = itemsLen
+	maxVal := (page + 1) * itemsPerPage
+	if maxVal > itemsLen {
+		maxVal = itemsLen
 	}
 
-	ritems.Set(ritems.Slice(min, max))
+	ritems.Set(ritems.Slice(minVal, maxVal))
 
 	return pageCount
 }

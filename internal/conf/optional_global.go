@@ -23,7 +23,7 @@ var optionalGlobalValuesType = func() reflect.Type {
 
 			typ := f.Type
 			if typ.Kind() != reflect.Pointer {
-				typ = reflect.PtrTo(typ)
+				typ = reflect.PointerTo(typ)
 			}
 
 			fields = append(fields, reflect.StructField{
