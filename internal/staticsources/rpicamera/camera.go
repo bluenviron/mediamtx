@@ -51,7 +51,7 @@ func (c *camera) initialize() error {
 		"LD_LIBRARY_PATH=" + dumpPath,
 	}
 
-	c.cmd = exec.Command(filepath.Join(dumpPath, "mtxrpicam"))
+	c.cmd = exec.Command(filepath.Join(dumpPath, executableName))
 	c.cmd.Stdout = os.Stdout
 	c.cmd.Stderr = os.Stderr
 	c.cmd.Env = env
