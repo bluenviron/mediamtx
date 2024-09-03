@@ -231,7 +231,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 	}
 
 	for {
-		err := r.Read()
+		err = r.Read()
 		if err != nil {
 			return err
 		}
@@ -318,7 +318,7 @@ func (c *conn) runRead(streamID *streamID) error {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err := <-writer.Error():
+	case err = <-writer.Error():
 		return err
 	}
 }
