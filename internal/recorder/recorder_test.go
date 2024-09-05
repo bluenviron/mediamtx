@@ -1,4 +1,4 @@
-package record
+package recorder
 
 import (
 	"os"
@@ -19,7 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func TestAgent(t *testing.T) {
+func TestRecorder(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
@@ -156,7 +156,7 @@ func TestAgent(t *testing.T) {
 
 			n := 0
 
-			w := &Agent{
+			w := &Recorder{
 				WriteQueueSize:  1024,
 				PathFormat:      recordPath,
 				Format:          f,
@@ -197,11 +197,11 @@ func TestAgent(t *testing.T) {
 
 			writeToStream(stream,
 				50*time.Second,
-				time.Date(2008, 0o5, 20, 22, 15, 25, 0, time.UTC))
+				time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC))
 
 			writeToStream(stream,
 				52*time.Second,
-				time.Date(2008, 0o5, 20, 22, 16, 25, 0, time.UTC))
+				time.Date(2008, 5, 20, 22, 16, 25, 0, time.UTC))
 
 			// simulate a write error
 			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
@@ -295,7 +295,7 @@ func TestAgent(t *testing.T) {
 
 			writeToStream(stream,
 				300*time.Second,
-				time.Date(2010, 0o5, 20, 22, 15, 25, 0, time.UTC))
+				time.Date(2010, 5, 20, 22, 15, 25, 0, time.UTC))
 
 			time.Sleep(50 * time.Millisecond)
 
@@ -310,7 +310,7 @@ func TestAgent(t *testing.T) {
 	}
 }
 
-func TestAgentFMP4NegativeDTS(t *testing.T) {
+func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
@@ -350,7 +350,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
-	w := &Agent{
+	w := &Recorder{
 		WriteQueueSize:  1024,
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
@@ -366,7 +366,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 			Base: unit.Base{
 				PTS: -50*time.Millisecond + (time.Duration(i) * 200 * time.Millisecond),
-				NTP: time.Date(2008, 0o5, 20, 22, 15, 25, 0, time.UTC),
+				NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 			},
 			AU: [][]byte{
 				test.FormatH264.SPS,

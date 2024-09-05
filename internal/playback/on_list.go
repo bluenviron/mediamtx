@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,7 +29,10 @@ type listEntry struct {
 	URL      string            `json:"url"`
 }
 
-func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*Segment) ([]listEntry, error) {
+func computeDurationAndConcatenate(
+	recordFormat conf.RecordFormat,
+	segments []*recordstore.Segment,
+) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
 		out := []listEntry{}
 		var prevInit *fmp4.Init
@@ -99,9 +103,9 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	segments, err := FindSegments(pathConf, pathName)
+	segments, err := recordstore.FindSegments(pathConf, pathName)
 	if err != nil {
-		if errors.Is(err, errNoSegmentsFound) {
+		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
 		} else {
 			s.writeError(ctx, http.StatusBadRequest, err)

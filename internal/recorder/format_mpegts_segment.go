@@ -1,4 +1,4 @@
-package record
+package recorder
 
 import (
 	"os"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 type formatMPEGTSSegment struct {
@@ -46,7 +47,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = Path{Start: s.startNTP}.Encode(s.f.ai.pathFormat)
+		s.path = recordstore.Path{Start: s.startNTP}.Encode(s.f.ai.pathFormat)
 		s.f.ai.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)

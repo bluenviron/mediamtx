@@ -1,4 +1,4 @@
-package record
+package recordstore
 
 import (
 	"regexp"
@@ -23,7 +23,7 @@ func leadingZeros(v int, size int) string {
 	return out2 + out
 }
 
-// PathAddExtension adds the file extension to path.
+// PathAddExtension adds the file extension to the path.
 func PathAddExtension(path string, format conf.RecordFormat) string {
 	switch format {
 	case conf.RecordFormatMPEGTS:

@@ -32,6 +32,7 @@ func TestOnList(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
+				Name:       "mypath",
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
@@ -106,6 +107,7 @@ func TestOnListDifferentInit(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
+				Name:       "mypath",
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
