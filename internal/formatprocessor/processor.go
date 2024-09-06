@@ -55,6 +55,9 @@ func New(
 	case *format.Opus:
 		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
+	case *format.KLV:
+		return newKLV(udpMaxPayloadSize, forma, generateRTPPackets)
+
 	case *format.MPEG4Audio:
 		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
