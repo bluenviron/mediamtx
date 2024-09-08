@@ -26,6 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func uint16Ptr(v uint16) *uint16 {
+	return &v
+}
+
 func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
 }
@@ -296,11 +300,19 @@ func TestServerPublish(t *testing.T) {
 		Log:        test.NilLogger,
 	}
 
-	tracks, err := wc.Publish(context.Background(), test.FormatH264, nil)
+	track := &webrtc.OutgoingTrack{
+		Caps: pwebrtc.RTPCodecCapability{
+			MimeType:    pwebrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+	}
+
+	err = wc.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
 	require.NoError(t, err)
 	defer checkClose(t, wc.Close)
 
-	err = tracks[0].WriteRTP(&rtp.Packet{
+	err = track.WriteRTP(&rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
 			Marker:         true,
@@ -337,7 +349,7 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
-	err = tracks[0].WriteRTP(&rtp.Packet{
+	err = track.WriteRTP(&rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
 			Marker:         true,

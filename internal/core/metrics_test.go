@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
+	pwebrtc "github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
@@ -177,11 +178,19 @@ webrtc_sessions_bytes_sent 0
 				Log:        test.NilLogger,
 			}
 
-			tracks, err := s.Publish(context.Background(), test.MediaH264.Formats[0], nil)
+			track := &webrtc.OutgoingTrack{
+				Caps: pwebrtc.RTPCodecCapability{
+					MimeType:    pwebrtc.MimeTypeH264,
+					ClockRate:   90000,
+					SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+				},
+			}
+
+			err = s.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
 			require.NoError(t, err)
 			defer checkClose(t, s.Close)
 
-			err = tracks[0].WriteRTP(&rtp.Packet{
+			err = track.WriteRTP(&rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
 					Marker:         true,

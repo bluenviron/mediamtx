@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // Source is a WebRTC static source.
@@ -54,13 +53,18 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		Log: s,
 	}
 
-	tracks, err := client.Read(params.Context)
+	_, err = client.Read(params.Context)
 	if err != nil {
 		return err
 	}
 	defer client.Close() //nolint:errcheck
 
-	medias := webrtc.TracksToMedias(tracks)
+	var stream *stream.Stream
+
+	medias, err := webrtc.ToStream(client.PeerConnection(), &stream)
+	if err != nil {
+		return err
+	}
 
 	rres := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 		Desc:               &description.Session{Medias: medias},
@@ -70,23 +74,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return rres.Err
 	}
 
+	stream = rres.Stream
+
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
-
-	timeDecoder := rtptime.NewGlobalDecoder()
-
-	for i, track := range tracks {
-		medi := medias[i]
-		ctrack := tracks[i]
-
-		track.OnPacketRTP = func(pkt *rtp.Packet) {
-			pts, ok := timeDecoder.Decode(ctrack, pkt)
-			if !ok {
-				return
-			}
-
-			rres.Stream.WriteRTPPacket(medi, medi.Formats[0], pkt, time.Now(), pts)
-		}
-	}
 
 	client.StartReading()
 

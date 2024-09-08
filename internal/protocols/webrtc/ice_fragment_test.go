@@ -11,10 +11,6 @@ func stringPtr(v string) *string {
 	return &v
 }
 
-func uint16Ptr(v uint16) *uint16 {
-	return &v
-}
-
 var iceFragmentCases = []struct {
 	name       string
 	offer      string

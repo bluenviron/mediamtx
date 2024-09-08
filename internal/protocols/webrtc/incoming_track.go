@@ -1,12 +1,8 @@
 package webrtc
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
@@ -237,128 +233,10 @@ type IncomingTrack struct {
 	receiver  *webrtc.RTPReceiver
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
-
-	typ    description.MediaType
-	format format.Format
 }
 
-func (t *IncomingTrack) initialize() error {
+func (t *IncomingTrack) initialize() {
 	t.OnPacketRTP = func(p *rtp.Packet) {}
-
-	switch strings.ToLower(t.track.Codec().MimeType) {
-	case strings.ToLower(webrtc.MimeTypeAV1):
-		t.typ = description.MediaTypeVideo
-		t.format = &format.AV1{
-			PayloadTyp: uint8(t.track.PayloadType()),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeVP9):
-		t.typ = description.MediaTypeVideo
-		t.format = &format.VP9{
-			PayloadTyp: uint8(t.track.PayloadType()),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeVP8):
-		t.typ = description.MediaTypeVideo
-		t.format = &format.VP8{
-			PayloadTyp: uint8(t.track.PayloadType()),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeH265):
-		t.typ = description.MediaTypeVideo
-		t.format = &format.H265{
-			PayloadTyp: uint8(t.track.PayloadType()),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeH264):
-		t.typ = description.MediaTypeVideo
-		t.format = &format.H264{
-			PayloadTyp:        uint8(t.track.PayloadType()),
-			PacketizationMode: 1,
-		}
-
-	case strings.ToLower(mimeTypeMultiopus):
-		t.typ = description.MediaTypeAudio
-		t.format = &format.Opus{
-			PayloadTyp:   uint8(t.track.PayloadType()),
-			ChannelCount: int(t.track.Codec().Channels),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeOpus):
-		t.typ = description.MediaTypeAudio
-		t.format = &format.Opus{
-			PayloadTyp: uint8(t.track.PayloadType()),
-			ChannelCount: func() int {
-				if strings.Contains(t.track.Codec().SDPFmtpLine, "stereo=1") {
-					return 2
-				}
-				return 1
-			}(),
-		}
-
-	case strings.ToLower(webrtc.MimeTypeG722):
-		t.typ = description.MediaTypeAudio
-		t.format = &format.G722{}
-
-	case strings.ToLower(webrtc.MimeTypePCMU):
-		t.typ = description.MediaTypeAudio
-
-		channels := t.track.Codec().Channels
-		if channels == 0 {
-			channels = 1
-		}
-
-		payloadType := uint8(0)
-		if channels > 1 {
-			payloadType = 118
-		}
-
-		t.format = &format.G711{
-			PayloadTyp:   payloadType,
-			MULaw:        true,
-			SampleRate:   8000,
-			ChannelCount: int(channels),
-		}
-
-	case strings.ToLower(webrtc.MimeTypePCMA):
-		t.typ = description.MediaTypeAudio
-
-		channels := t.track.Codec().Channels
-		if channels == 0 {
-			channels = 1
-		}
-
-		payloadType := uint8(8)
-		if channels > 1 {
-			payloadType = 119
-		}
-
-		t.format = &format.G711{
-			PayloadTyp:   payloadType,
-			MULaw:        false,
-			SampleRate:   8000,
-			ChannelCount: int(channels),
-		}
-
-	case strings.ToLower(mimeTypeL16):
-		t.typ = description.MediaTypeAudio
-		t.format = &format.LPCM{
-			PayloadTyp:   uint8(t.track.PayloadType()),
-			BitDepth:     16,
-			SampleRate:   int(t.track.Codec().ClockRate),
-			ChannelCount: int(t.track.Codec().Channels),
-		}
-
-	default:
-		return fmt.Errorf("unsupported codec: %+v", t.track.Codec().RTPCodecCapability)
-	}
-
-	return nil
-}
-
-// Format returns the track format.
-func (t *IncomingTrack) Format() format.Format {
-	return t.format
 }
 
 // ClockRate returns the clock rate. Needed by rtptime.GlobalDecoder

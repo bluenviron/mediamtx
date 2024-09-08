@@ -132,13 +132,8 @@ func (co *PeerConnection) Start() error {
 		audioSetupped := false
 
 		for _, tr := range co.OutgoingTracks {
-			params, err := tr.codecParameters()
-			if err != nil {
-				return err
-			}
-
 			var codecType webrtc.RTPCodecType
-			if tr.isVideo() {
+			if tr.IsVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
 				videoSetupped = true
 			} else {
@@ -146,7 +141,10 @@ func (co *PeerConnection) Start() error {
 				audioSetupped = true
 			}
 
-			err = mediaEngine.RegisterCodec(params, codecType)
+			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+				RTPCodecCapability: tr.Caps,
+				PayloadType:        96,
+			}, codecType)
 			if err != nil {
 				return err
 			}
@@ -422,10 +420,7 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 				writeRTCP: co.wr.WriteRTCP,
 				log:       co.Log,
 			}
-			err := t.initialize()
-			if err != nil {
-				return nil, err
-			}
+			t.initialize()
 			co.incomingTracks = append(co.incomingTracks, t)
 
 			if len(co.incomingTracks) >= maxTrackCount {

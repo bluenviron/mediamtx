@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
@@ -36,21 +35,11 @@ type WHIPClient struct {
 // Publish publishes tracks.
 func (c *WHIPClient) Publish(
 	ctx context.Context,
-	videoTrack format.Format,
-	audioTrack format.Format,
-) ([]*OutgoingTrack, error) {
+	OutgoingTracks []*OutgoingTrack,
+) error {
 	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	var outgoingTracks []*OutgoingTrack
-
-	if videoTrack != nil {
-		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: videoTrack})
-	}
-	if audioTrack != nil {
-		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: audioTrack})
+		return err
 	}
 
 	c.pc = &PeerConnection{
@@ -60,37 +49,37 @@ func (c *WHIPClient) Publish(
 		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            true,
-		OutgoingTracks:     outgoingTracks,
+		OutgoingTracks:     OutgoingTracks,
 		Log:                c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	offer, err := c.pc.CreatePartialOffer()
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	res, err := c.postOffer(ctx, offer)
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	c.URL, err = c.URL.Parse(res.Location)
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	t := time.NewTimer(webrtcHandshakeTimeout)
@@ -104,7 +93,7 @@ outer:
 			if err != nil {
 				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()
-				return nil, err
+				return err
 			}
 
 		case <-c.pc.GatheringDone():
@@ -115,11 +104,11 @@ outer:
 		case <-t.C:
 			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
-			return nil, fmt.Errorf("deadline exceeded while waiting connection")
+			return fmt.Errorf("deadline exceeded while waiting connection")
 		}
 	}
 
-	return outgoingTracks, nil
+	return nil
 }
 
 // Read reads tracks.
@@ -217,6 +206,11 @@ outer:
 	}
 
 	return tracks, nil
+}
+
+// PeerConnection returns the underlying peer connection.
+func (c *WHIPClient) PeerConnection() *PeerConnection {
+	return c.pc
 }
 
 // StartReading starts reading all incoming tracks.
