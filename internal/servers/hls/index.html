@@ -63,11 +63,18 @@ const setMessage = (str) => {
 	message.innerText = str;
 };
 
+const isIOS = () => (
+	/iPad|iPhone|iPod/.test(navigator.platform)
+	|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
+
 const loadStream = () => {
-	// always prefer hls.js over native HLS.
-	// this is because some Android versions support native HLS
+	// Prefer hls.js over native HLS.
+	// This is because some Android versions support native HLS
 	// but don't support fMP4s.
-	if (Hls.isSupported()) {
+	// Skip iPad iOS >= 13 and iPhone iOS >= 17,
+	// which support hls.js but don't support well maxLiveSyncPlaybackRate.
+	if (Hls.isSupported() && !isIOS()) {
 		const hls = new Hls({
 			maxLiveSyncPlaybackRate: 1.5,
 		});
