@@ -20,7 +20,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -184,7 +184,7 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bo
 	ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
 	ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
 	ctx.Writer.Header().Set("Access-Control-Expose-Headers", "Link")
-	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
+	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
@@ -239,7 +239,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	ctx.Writer.Header().Set("ETag", "*")
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
+	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Writer.Header().Set("Location", sessionLocation(publish, pathName, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)
 	ctx.Writer.Write(res.answer)
@@ -263,7 +263,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 		return
 	}
 
-	candidates, err := webrtc.ICEFragmentUnmarshal(byts)
+	candidates, err := whip.ICEFragmentUnmarshal(byts)
 	if err != nil {
 		writeError(ctx, http.StatusBadRequest, err)
 		return

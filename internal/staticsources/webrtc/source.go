@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -44,7 +45,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 	defer tr.CloseIdleConnections()
 
-	client := webrtc.WHIPClient{
+	client := whip.Client{
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,

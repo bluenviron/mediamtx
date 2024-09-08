@@ -1,3 +1,4 @@
+// Package webrtc contains WebRTC utilities.
 package webrtc
 
 import (
@@ -133,7 +134,7 @@ func (co *PeerConnection) Start() error {
 
 		for _, tr := range co.OutgoingTracks {
 			var codecType webrtc.RTPCodecType
-			if tr.IsVideo() {
+			if tr.isVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
 				videoSetupped = true
 			} else {

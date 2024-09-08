@@ -26,8 +26,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-type setupStreamFunc func(*webrtc.OutgoingTrack) error
-
 func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	return &pwebrtc.SessionDescription{
 		Type: pwebrtc.SDPTypeOffer,
@@ -286,6 +284,7 @@ func (s *session) runRead() (int, error) {
 	}
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
+	defer stream.RemoveReader(writer)
 
 	pc := &webrtc.PeerConnection{
 		ICEServers:            iceServers,
@@ -330,8 +329,6 @@ func (s *session) runRead() (int, error) {
 	s.mutex.Lock()
 	s.pc = pc
 	s.mutex.Unlock()
-
-	defer stream.RemoveReader(writer)
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		path.Name(), defs.FormatsInfo(stream.FormatsForReader(writer)))

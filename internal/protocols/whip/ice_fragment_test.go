@@ -1,4 +1,4 @@
-package webrtc
+package whip
 
 import (
 	"testing"
@@ -6,6 +6,10 @@ import (
 	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 )
+
+func uint16Ptr(v uint16) *uint16 {
+	return &v
+}
 
 func stringPtr(v string) *string {
 	return &v

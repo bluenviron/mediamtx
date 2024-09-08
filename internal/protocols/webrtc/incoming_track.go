@@ -236,7 +236,7 @@ type IncomingTrack struct {
 }
 
 func (t *IncomingTrack) initialize() {
-	t.OnPacketRTP = func(p *rtp.Packet) {}
+	t.OnPacketRTP = func(*rtp.Packet) {}
 }
 
 // ClockRate returns the clock rate. Needed by rtptime.GlobalDecoder

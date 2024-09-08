@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -232,7 +233,7 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
-	iceServers, err := webrtc.LinkHeaderUnmarshal(res.Header["Link"])
+	iceServers, err := whip.LinkHeaderUnmarshal(res.Header["Link"])
 	require.NoError(t, err)
 
 	require.Equal(t, []pwebrtc.ICEServer{{
@@ -294,7 +295,7 @@ func TestServerPublish(t *testing.T) {
 	su, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whip?param=value")
 	require.NoError(t, err)
 
-	wc := &webrtc.WHIPClient{
+	wc := &whip.Client{
 		HTTPClient: hc,
 		URL:        su,
 		Log:        test.NilLogger,
@@ -577,7 +578,7 @@ func TestServerRead(t *testing.T) {
 			defer tr.CloseIdleConnections()
 			hc := &http.Client{Transport: tr}
 
-			wc := &webrtc.WHIPClient{
+			wc := &whip.Client{
 				HTTPClient: hc,
 				URL:        u,
 				Log:        test.NilLogger,
@@ -870,7 +871,7 @@ func TestServerPatchNotFound(t *testing.T) {
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
-	frag, err := webrtc.ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{{
+	frag, err := whip.ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{{
 		Candidate:     "mycandidate",
 		SDPMLineIndex: uint16Ptr(0),
 	}})

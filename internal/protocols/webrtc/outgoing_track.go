@@ -23,13 +23,13 @@ type OutgoingTrack struct {
 	track *webrtc.TrackLocalStaticRTP
 }
 
-func (t *OutgoingTrack) IsVideo() bool {
+func (t *OutgoingTrack) isVideo() bool {
 	return strings.Split(t.Caps.MimeType, "/")[0] == "video"
 }
 
 func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	var trackID string
-	if t.IsVideo() {
+	if t.isVideo() {
 		trackID = "video"
 	} else {
 		trackID = "audio"

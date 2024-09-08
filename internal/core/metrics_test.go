@@ -23,6 +23,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -172,7 +173,7 @@ webrtc_sessions_bytes_sent 0
 			defer tr.CloseIdleConnections()
 			hc2 := &http.Client{Transport: tr}
 
-			s := &webrtc.WHIPClient{
+			s := &whip.Client{
 				HTTPClient: hc2,
 				URL:        su,
 				Log:        test.NilLogger,

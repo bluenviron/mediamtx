@@ -18,7 +18,7 @@ func ToStream(
 	tracks []*gohlslib.Track,
 	stream **stream.Stream,
 ) ([]*description.Media, error) {
-	var medias []*description.Media
+	var medias []*description.Media //nolint:prealloc
 
 	for _, track := range tracks {
 		var medi *description.Media

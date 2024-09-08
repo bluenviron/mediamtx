@@ -285,7 +285,6 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
-
 	defer stream.RemoveReader(writer)
 
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))

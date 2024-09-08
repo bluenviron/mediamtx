@@ -188,7 +188,6 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
-
 	defer stream.RemoveReader(writer)
 
 	err = rtmp.FromStream(stream, writer, conn, c.nconn, time.Duration(c.writeTimeout))

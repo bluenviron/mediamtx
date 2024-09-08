@@ -26,6 +26,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -521,7 +522,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 					require.NoError(t, err2)
 				}()
 
-				c := &webrtc.WHIPClient{
+				c := &whip.Client{
 					HTTPClient: hc,
 					URL:        u,
 					Log:        test.NilLogger,
@@ -994,7 +995,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err := url.Parse("http://localhost:8889/mypath/whip")
 				require.NoError(t, err)
 
-				c := &webrtc.WHIPClient{
+				c := &whip.Client{
 					HTTPClient: hc,
 					URL:        u,
 					Log:        test.NilLogger,

@@ -112,7 +112,7 @@ func ToStream(pc *PeerConnection, stream **stream.Stream) ([]*description.Media,
 				}(),
 				MULaw:        false,
 				SampleRate:   8000,
-				ChannelCount: int(channels),
+				ChannelCount: channels,
 			}
 
 		case strings.ToLower(mimeTypeL16):

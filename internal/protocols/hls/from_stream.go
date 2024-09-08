@@ -1,3 +1,4 @@
+// Package hls contains HLS utilities.
 package hls
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+// ErrNoSupportedCodecs is returned by FromStream when there are no supported codecs.
 var ErrNoSupportedCodecs = errors.New(
 	"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
 
