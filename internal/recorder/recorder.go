@@ -1,4 +1,5 @@
-package record
+// Package recorder contains the recorder.
+package recorder
 
 import (
 	"time"
@@ -14,8 +15,8 @@ type OnSegmentCreateFunc = func(path string)
 // OnSegmentCompleteFunc is the prototype of the function passed as OnSegmentComplete
 type OnSegmentCompleteFunc = func(path string, duration time.Duration)
 
-// Agent writes recordings to disk.
-type Agent struct {
+// Recorder writes recordings to disk.
+type Recorder struct {
 	WriteQueueSize    int
 	PathFormat        string
 	Format            conf.RecordFormat
@@ -35,8 +36,8 @@ type Agent struct {
 	done      chan struct{}
 }
 
-// Initialize initializes Agent.
-func (w *Agent) Initialize() {
+// Initialize initializes Recorder.
+func (w *Recorder) Initialize() {
 	if w.OnSegmentCreate == nil {
 		w.OnSegmentCreate = func(string) {
 		}
@@ -61,18 +62,18 @@ func (w *Agent) Initialize() {
 }
 
 // Log implements logger.Writer.
-func (w *Agent) Log(level logger.Level, format string, args ...interface{}) {
-	w.Parent.Log(level, "[record] "+format, args...)
+func (w *Recorder) Log(level logger.Level, format string, args ...interface{}) {
+	w.Parent.Log(level, "[recorder] "+format, args...)
 }
 
 // Close closes the agent.
-func (w *Agent) Close() {
+func (w *Recorder) Close() {
 	w.Log(logger.Info, "recording stopped")
 	close(w.terminate)
 	<-w.done
 }
 
-func (w *Agent) run() {
+func (w *Recorder) run() {
 	defer close(w.done)
 
 	for {

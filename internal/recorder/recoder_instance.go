@@ -1,4 +1,4 @@
-package record
+package recorder
 
 import (
 	"strings"
@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 type sample struct {
@@ -18,7 +19,7 @@ type sample struct {
 }
 
 type agentInstance struct {
-	agent *Agent
+	agent *Recorder
 
 	pathFormat string
 	writer     *asyncwriter.Writer
@@ -36,7 +37,7 @@ func (ai *agentInstance) Log(level logger.Level, format string, args ...interfac
 func (ai *agentInstance) initialize() {
 	ai.pathFormat = ai.agent.PathFormat
 
-	ai.pathFormat = PathAddExtension(
+	ai.pathFormat = recordstore.PathAddExtension(
 		strings.ReplaceAll(ai.pathFormat, "%path", ai.agent.PathName),
 		ai.agent.Format,
 	)

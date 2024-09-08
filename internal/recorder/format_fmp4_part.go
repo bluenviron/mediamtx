@@ -1,4 +1,4 @@
-package record
+package recorder
 
 import (
 	"io"
@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 func writePart(
@@ -54,7 +55,7 @@ func (p *formatFMP4Part) initialize() {
 
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
-		p.s.path = Path{Start: p.s.startNTP}.Encode(p.s.f.ai.pathFormat)
+		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ai.pathFormat)
 		p.s.f.ai.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)

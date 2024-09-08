@@ -16,8 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var errNoSegmentsFound = errors.New("no recording segments found")
-
 type serverAuthManager interface {
 	Authenticate(req *auth.Request) error
 }
@@ -102,7 +100,7 @@ func (s *Server) safeFindPathConf(name string) (*conf.Path, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	_, pathConf, _, err := conf.FindPathConf(s.PathConfs, name)
+	pathConf, _, err := conf.FindPathConf(s.PathConfs, name)
 	return pathConf, err
 }
 

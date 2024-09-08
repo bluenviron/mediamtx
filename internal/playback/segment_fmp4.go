@@ -10,6 +10,7 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 const (
@@ -466,7 +467,7 @@ func segmentFMP4SeekAndMuxParts(
 	}
 
 	if !atLeastOnePartWritten {
-		return 0, errNoSegmentsFound
+		return 0, recordstore.ErrNoSegmentsFound
 	}
 
 	return maxMuxerDTS, nil

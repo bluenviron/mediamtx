@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"time"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/metrics"
 	"github.com/bluenviron/mediamtx/internal/playback"
 	"github.com/bluenviron/mediamtx/internal/pprof"
-	"github.com/bluenviron/mediamtx/internal/record"
+	"github.com/bluenviron/mediamtx/internal/recordcleaner"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
@@ -44,38 +43,6 @@ var defaultConfPaths = []string{
 	"/etc/mediamtx/mediamtx.yml",
 }
 
-func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
-	out := make(map[record.CleanerEntry]struct{})
-
-	for _, pa := range paths {
-		if pa.Record && pa.RecordDeleteAfter != 0 {
-			entry := record.CleanerEntry{
-				Path:        pa.RecordPath,
-				Format:      pa.RecordFormat,
-				DeleteAfter: time.Duration(pa.RecordDeleteAfter),
-			}
-			out[entry] = struct{}{}
-		}
-	}
-
-	out2 := make([]record.CleanerEntry, len(out))
-	i := 0
-
-	for v := range out {
-		out2[i] = v
-		i++
-	}
-
-	sort.Slice(out2, func(i, j int) bool {
-		if out2[i].Path != out2[j].Path {
-			return out2[i].Path < out2[j].Path
-		}
-		return out2[i].DeleteAfter < out2[j].DeleteAfter
-	})
-
-	return out2
-}
-
 var cli struct {
 	Version  bool   `help:"print version"`
 	Confpath string `arg:"" default:""`
@@ -92,7 +59,7 @@ type Core struct {
 	authManager     *auth.Manager
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
-	recordCleaner   *record.Cleaner
+	recordCleaner   *recordcleaner.Cleaner
 	playbackServer  *playback.Server
 	pathManager     *pathManager
 	rtspServer      *rtsp.Server
@@ -333,12 +300,10 @@ func (p *Core) createResources(initial bool) error {
 		p.pprof = i
 	}
 
-	cleanerEntries := gatherCleanerEntries(p.conf.Paths)
-	if len(cleanerEntries) != 0 &&
-		p.recordCleaner == nil {
-		p.recordCleaner = &record.Cleaner{
-			Entries: cleanerEntries,
-			Parent:  p,
+	if p.recordCleaner == nil {
+		p.recordCleaner = &recordcleaner.Cleaner{
+			PathConfs: p.conf.Paths,
+			Parent:    p,
 		}
 		p.recordCleaner.Initialize()
 	}
@@ -707,8 +672,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
-		!reflect.DeepEqual(gatherCleanerEntries(newConf.Paths), gatherCleanerEntries(p.conf.Paths)) ||
 		closeLogger
+	if !closeRecorderCleaner && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.recordCleaner.ReloadPathConfs(newConf.Paths)
+	}
 
 	closePlaybackServer := newConf == nil ||
 		newConf.Playback != p.conf.Playback ||
