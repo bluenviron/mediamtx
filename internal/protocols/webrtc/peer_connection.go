@@ -89,9 +89,9 @@ type PeerConnection struct {
 	done              chan struct{}
 	gatheringDone     chan struct{}
 	incomingTrack     chan trackRecvPair
-
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	ctx               context.Context
+	ctxCancel         context.CancelFunc
+	incomingTracks    []*IncomingTrack
 }
 
 // Start starts the peer connection.
@@ -404,28 +404,32 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 
 	maxTrackCount := len(sdp.MediaDescriptions)
 
-	var tracks []*IncomingTrack
-
 	t := time.NewTimer(time.Duration(co.TrackGatherTimeout))
 	defer t.Stop()
 
 	for {
 		select {
 		case <-t.C:
-			if len(tracks) != 0 {
-				return tracks, nil
+			if len(co.incomingTracks) != 0 {
+				return co.incomingTracks, nil
 			}
 			return nil, fmt.Errorf("deadline exceeded while waiting tracks")
 
 		case pair := <-co.incomingTrack:
-			track, err := newIncomingTrack(pair.track, pair.receiver, co.wr.WriteRTCP, co.Log)
+			t := &IncomingTrack{
+				track:     pair.track,
+				receiver:  pair.receiver,
+				writeRTCP: co.wr.WriteRTCP,
+				log:       co.Log,
+			}
+			err := t.initialize()
 			if err != nil {
 				return nil, err
 			}
-			tracks = append(tracks, track)
+			co.incomingTracks = append(co.incomingTracks, t)
 
-			if len(tracks) >= maxTrackCount {
-				return tracks, nil
+			if len(co.incomingTracks) >= maxTrackCount {
+				return co.incomingTracks, nil
 			}
 
 		case <-co.Disconnected():
@@ -477,6 +481,13 @@ func (co *PeerConnection) LocalCandidate() string {
 	}
 
 	return ""
+}
+
+// StartReading starts reading all incoming tracks.
+func (co *PeerConnection) StartReading() {
+	for _, track := range co.incomingTracks {
+		track.start()
+	}
 }
 
 // RemoteCandidate returns the remote candidate.

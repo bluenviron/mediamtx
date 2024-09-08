@@ -219,6 +219,11 @@ outer:
 	return tracks, nil
 }
 
+// StartReading starts reading all incoming tracks.
+func (c *WHIPClient) StartReading() {
+	c.pc.StartReading()
+}
+
 // Close closes the client.
 func (c *WHIPClient) Close() error {
 	err := c.deleteSession(context.Background())

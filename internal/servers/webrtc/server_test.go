@@ -602,9 +602,20 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer checkClose(t, wc.Close)
 
-			pkt, err := tracks[0].ReadRTP()
-			require.NoError(t, err)
-			require.Equal(t, ca.outRTPPayload, pkt.Payload)
+			done := make(chan struct{})
+
+			tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
+				select {
+				case <-done:
+				default:
+					require.Equal(t, ca.outRTPPayload, pkt.Payload)
+					close(done)
+				}
+			}
+
+			wc.StartReading()
+
+			<-done
 		})
 	}
 }

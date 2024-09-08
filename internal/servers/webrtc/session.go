@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
+	"github.com/pion/rtp"
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v3"
 
@@ -591,27 +592,21 @@ func (s *session) runPublish() (int, error) {
 
 	timeDecoder := rtptime.NewGlobalDecoder()
 
-	for i, media := range medias {
-		ci := i
-		cmedia := media
-		trackWrapper := &webrtc.TrackWrapper{ClockRat: cmedia.Formats[0].ClockRate()}
+	for i, track := range tracks {
+		medi := medias[i]
+		ctrack := tracks[i]
 
-		go func() {
-			for {
-				pkt, err := tracks[ci].ReadRTP()
-				if err != nil {
-					return
-				}
-
-				pts, ok := timeDecoder.Decode(trackWrapper, pkt)
-				if !ok {
-					continue
-				}
-
-				stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
+		track.OnPacketRTP = func(pkt *rtp.Packet) {
+			pts, ok := timeDecoder.Decode(ctrack, pkt)
+			if !ok {
+				return
 			}
-		}()
+
+			stream.WriteRTPPacket(medi, medi.Formats[0], pkt, time.Now(), pts)
+		}
 	}
+
+	pc.StartReading()
 
 	select {
 	case <-pc.Disconnected():

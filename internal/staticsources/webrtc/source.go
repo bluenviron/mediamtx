@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
+	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -73,27 +74,21 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	timeDecoder := rtptime.NewGlobalDecoder()
 
-	for i, media := range medias {
-		ci := i
-		cmedia := media
-		trackWrapper := &webrtc.TrackWrapper{ClockRat: cmedia.Formats[0].ClockRate()}
+	for i, track := range tracks {
+		medi := medias[i]
+		ctrack := tracks[i]
 
-		go func() {
-			for {
-				pkt, err := tracks[ci].ReadRTP()
-				if err != nil {
-					return
-				}
-
-				pts, ok := timeDecoder.Decode(trackWrapper, pkt)
-				if !ok {
-					continue
-				}
-
-				rres.Stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
+		track.OnPacketRTP = func(pkt *rtp.Packet) {
+			pts, ok := timeDecoder.Decode(ctrack, pkt)
+			if !ok {
+				return
 			}
-		}()
+
+			rres.Stream.WriteRTPPacket(medi, medi.Formats[0], pkt, time.Now(), pts)
+		}
 	}
+
+	client.StartReading()
 
 	return client.Wait(params.Context)
 }
