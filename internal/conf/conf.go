@@ -495,6 +495,12 @@ func (conf Conf) Clone() *Conf {
 func (conf *Conf) Validate() error {
 	// General
 
+	if conf.ReadTimeout <= 0 {
+		return fmt.Errorf("'readTimeout' must be greater than zero")
+	}
+	if conf.WriteTimeout <= 0 {
+		return fmt.Errorf("'writeTimeout' must be greater than zero")
+	}
 	if conf.ReadBufferCount != nil {
 		conf.WriteQueueSize = *conf.ReadBufferCount
 	}
@@ -506,6 +512,7 @@ func (conf *Conf) Validate() error {
 	}
 
 	// Authentication
+
 	if conf.ExternalAuthenticationURL != nil {
 		conf.AuthMethod = AuthMethodHTTP
 		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
@@ -658,6 +665,7 @@ func (conf *Conf) Validate() error {
 	}
 
 	// Record (deprecated)
+
 	if conf.Record != nil {
 		conf.PathDefaults.Record = *conf.Record
 	}
