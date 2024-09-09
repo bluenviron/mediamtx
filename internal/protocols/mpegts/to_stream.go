@@ -17,7 +17,7 @@ import (
 var ErrNoTracks = errors.New("no supported tracks found (supported are H265, H264," +
 	" MPEG-4 Video, MPEG-1/2 Video, Opus, MPEG-4 Audio, MPEG-1 Audio, AC-3")
 
-// ToStream converts a MPEG-TS stream to a server stream.
+// ToStream maps a MPEG-TS stream to a MediaMTX stream.
 func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
 

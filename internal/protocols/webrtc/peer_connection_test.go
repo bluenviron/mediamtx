@@ -422,7 +422,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 	}
 }
 
-// test that an audio codec is present regardless of the fact that an audio track is not.
+// test that an audio codec is present regardless of the fact that an audio track is.
 func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	pc1 := &PeerConnection{
 		HandshakeTimeout:   conf.StringDuration(10 * time.Second),

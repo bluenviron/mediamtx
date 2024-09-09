@@ -11,10 +11,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -26,11 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-var errNoSupportedCodecs = errors.New(
-	"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 	// remove leading and trailing slashes inserted by OBS and some other clients
@@ -199,20 +191,9 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 
 	defer stream.RemoveReader(writer)
 
-	var w *rtmp.Writer
-
-	videoFormat := c.setupVideo(
-		&w,
-		stream,
-		writer)
-
-	audioFormat := c.setupAudio(
-		&w,
-		stream,
-		writer)
-
-	if videoFormat == nil && audioFormat == nil {
-		return errNoSupportedCodecs
+	err = rtmp.FromStream(stream, writer, conn, c.nconn, time.Duration(c.writeTimeout))
+	if err != nil {
+		return err
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
@@ -228,11 +209,6 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	})
 	defer onUnreadHook()
 
-	w, err = rtmp.NewWriter(conn, videoFormat, audioFormat)
-	if err != nil {
-		return err
-	}
-
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
@@ -246,148 +222,6 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	case err := <-writer.Error():
 		return err
 	}
-}
-
-func (c *conn) setupVideo(
-	w **rtmp.Writer,
-	stream *stream.Stream,
-	writer *asyncwriter.Writer,
-) format.Format {
-	var videoFormatH264 *format.H264
-	videoMedia := stream.Desc().FindFormat(&videoFormatH264)
-
-	if videoFormatH264 != nil {
-		var videoDTSExtractor *h264.DTSExtractor
-
-		stream.AddReader(writer, videoMedia, videoFormatH264, func(u unit.Unit) error {
-			tunit := u.(*unit.H264)
-
-			if tunit.AU == nil {
-				return nil
-			}
-
-			idrPresent := false
-			nonIDRPresent := false
-
-			for _, nalu := range tunit.AU {
-				typ := h264.NALUType(nalu[0] & 0x1F)
-				switch typ {
-				case h264.NALUTypeIDR:
-					idrPresent = true
-
-				case h264.NALUTypeNonIDR:
-					nonIDRPresent = true
-				}
-			}
-
-			var dts time.Duration
-
-			// wait until we receive an IDR
-			if videoDTSExtractor == nil {
-				if !idrPresent {
-					return nil
-				}
-
-				videoDTSExtractor = h264.NewDTSExtractor()
-
-				var err error
-				dts, err = videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
-				if err != nil {
-					return err
-				}
-			} else {
-				if !idrPresent && !nonIDRPresent {
-					return nil
-				}
-
-				var err error
-				dts, err = videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
-				if err != nil {
-					return err
-				}
-			}
-
-			c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-			return (*w).WriteH264(tunit.PTS, dts, idrPresent, tunit.AU)
-		})
-
-		return videoFormatH264
-	}
-
-	return nil
-}
-
-func (c *conn) setupAudio(
-	w **rtmp.Writer,
-	stream *stream.Stream,
-	writer *asyncwriter.Writer,
-) format.Format {
-	var audioFormatMPEG4Audio *format.MPEG4Audio
-	audioMedia := stream.Desc().FindFormat(&audioFormatMPEG4Audio)
-
-	if audioMedia != nil {
-		stream.AddReader(writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4Audio)
-
-			if tunit.AUs == nil {
-				return nil
-			}
-
-			for i, au := range tunit.AUs {
-				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err := (*w).WriteMPEG4Audio(
-					tunit.PTS+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioFormatMPEG4Audio.ClockRate()),
-					au,
-				)
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-
-		return audioFormatMPEG4Audio
-	}
-
-	var audioFormatMPEG1 *format.MPEG1Audio
-	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG1)
-
-	if audioMedia != nil {
-		stream.AddReader(writer, audioMedia, audioFormatMPEG1, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG1Audio)
-
-			pts := tunit.PTS
-
-			for _, frame := range tunit.Frames {
-				var h mpeg1audio.FrameHeader
-				err := h.Unmarshal(frame)
-				if err != nil {
-					return err
-				}
-
-				if !(!h.MPEG2 && h.Layer == 3) {
-					return fmt.Errorf("RTMP only supports MPEG-1 layer 3 audio")
-				}
-
-				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err = (*w).WriteMPEG1Audio(pts, &h, frame)
-				if err != nil {
-					return err
-				}
-
-				pts += time.Duration(h.SampleCount()) *
-					time.Second / time.Duration(h.SampleRate)
-			}
-
-			return nil
-		})
-
-		return audioFormatMPEG1
-	}
-
-	return nil
 }
 
 func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
@@ -428,123 +262,12 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 	if err != nil {
 		return err
 	}
-	videoFormat, audioFormat := r.Tracks()
 
-	var medias []*description.Media
 	var stream *stream.Stream
 
-	if videoFormat != nil {
-		videoMedia := &description.Media{
-			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{videoFormat},
-		}
-		medias = append(medias, videoMedia)
-
-		switch videoFormat.(type) {
-		case *format.AV1:
-			r.OnDataAV1(func(pts time.Duration, tu [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &unit.AV1{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					TU: tu,
-				})
-			})
-
-		case *format.VP9:
-			r.OnDataVP9(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &unit.VP9{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					Frame: frame,
-				})
-			})
-
-		case *format.H265:
-			r.OnDataH265(func(pts time.Duration, au [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &unit.H265{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					AU: au,
-				})
-			})
-
-		case *format.H264:
-			r.OnDataH264(func(pts time.Duration, au [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &unit.H264{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					AU: au,
-				})
-			})
-
-		default:
-			return fmt.Errorf("unsupported video codec: %T", videoFormat)
-		}
-	}
-
-	if audioFormat != nil { //nolint:dupl
-		audioMedia := &description.Media{
-			Type:    description.MediaTypeAudio,
-			Formats: []format.Format{audioFormat},
-		}
-		medias = append(medias, audioMedia)
-
-		switch audioFormat.(type) {
-		case *format.MPEG4Audio:
-			r.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4Audio{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					AUs: [][]byte{au},
-				})
-			})
-
-		case *format.MPEG1Audio:
-			r.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG1Audio{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					Frames: [][]byte{frame},
-				})
-			})
-
-		case *format.G711:
-			r.OnDataG711(func(pts time.Duration, samples []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.G711{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					Samples: samples,
-				})
-			})
-
-		case *format.LPCM:
-			r.OnDataLPCM(func(pts time.Duration, samples []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.LPCM{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: pts,
-					},
-					Samples: samples,
-				})
-			})
-
-		default:
-			return fmt.Errorf("unsupported audio codec: %T", audioFormat)
-		}
+	medias, err := rtmp.ToStream(r, &stream)
+	if err != nil {
+		return err
 	}
 
 	stream, err = path.StartPublisher(defs.PathStartPublisherReq{
