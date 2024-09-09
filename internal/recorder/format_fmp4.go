@@ -111,6 +111,7 @@ type formatFMP4 struct {
 func (f *formatFMP4) initialize() {
 	nextID := 1
 	var formats []rtspformat.Format
+	var skippedFormats []rtspformat.Format
 
 	addTrack := func(format rtspformat.Format, codec fmp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
@@ -803,8 +804,20 @@ func (f *formatFMP4) initialize() {
 						ntp: tunit.NTP,
 					})
 				})
+
+			default:
+				skippedFormats = append(skippedFormats, forma)
 			}
 		}
+	}
+
+	if len(formats) == 0 {
+		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
+		return
+	}
+
+	for _, forma := range skippedFormats {
+		f.ai.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
 	}
 
 	f.ai.Log(logger.Info, "recording %s",

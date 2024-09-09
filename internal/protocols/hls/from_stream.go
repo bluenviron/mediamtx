@@ -16,13 +16,13 @@ import (
 
 // ErrNoSupportedCodecs is returned by FromStream when there are no supported codecs.
 var ErrNoSupportedCodecs = errors.New(
-	"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
+	"the stream doesn't contain any supported codec, which are currently AV1, VP9, H265, H264, Opus, MPEG-4 Audio")
 
 func setupVideoTrack(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 	muxer *gohlslib.Muxer,
-) *gohlslib.Track {
+) format.Format {
 	var videoFormatAV1 *format.AV1
 	videoMedia := stream.Desc().FindFormat(&videoFormatAV1)
 
@@ -42,9 +42,10 @@ func setupVideoTrack(
 			return nil
 		})
 
-		return &gohlslib.Track{
+		muxer.VideoTrack = &gohlslib.Track{
 			Codec: &codecs.AV1{},
 		}
+		return videoFormatAV1
 	}
 
 	var videoFormatVP9 *format.VP9
@@ -66,9 +67,10 @@ func setupVideoTrack(
 			return nil
 		})
 
-		return &gohlslib.Track{
+		muxer.VideoTrack = &gohlslib.Track{
 			Codec: &codecs.VP9{},
 		}
+		return videoFormatVP9
 	}
 
 	var videoFormatH265 *format.H265
@@ -92,13 +94,14 @@ func setupVideoTrack(
 
 		vps, sps, pps := videoFormatH265.SafeParams()
 
-		return &gohlslib.Track{
+		muxer.VideoTrack = &gohlslib.Track{
 			Codec: &codecs.H265{
 				VPS: vps,
 				SPS: sps,
 				PPS: pps,
 			},
 		}
+		return videoFormatH265
 	}
 
 	var videoFormatH264 *format.H264
@@ -122,12 +125,13 @@ func setupVideoTrack(
 
 		sps, pps := videoFormatH264.SafeParams()
 
-		return &gohlslib.Track{
+		muxer.VideoTrack = &gohlslib.Track{
 			Codec: &codecs.H264{
 				SPS: sps,
 				PPS: pps,
 			},
 		}
+		return videoFormatH264
 	}
 
 	return nil
@@ -138,11 +142,11 @@ func setupAudioTrack(
 	writer *asyncwriter.Writer,
 	muxer *gohlslib.Muxer,
 	l logger.Writer,
-) *gohlslib.Track {
+) format.Format {
 	var audioFormatOpus *format.Opus
 	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
 
-	if audioMedia != nil {
+	if audioFormatOpus != nil {
 		stream.AddReader(writer, audioMedia, audioFormatOpus, func(u unit.Unit) error {
 			tunit := u.(*unit.Opus)
 
@@ -157,17 +161,18 @@ func setupAudioTrack(
 			return nil
 		})
 
-		return &gohlslib.Track{
+		muxer.AudioTrack = &gohlslib.Track{
 			Codec: &codecs.Opus{
 				ChannelCount: audioFormatOpus.ChannelCount,
 			},
 		}
+		return audioFormatOpus
 	}
 
 	var audioFormatMPEG4Audio *format.MPEG4Audio
 	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4Audio)
 
-	if audioMedia != nil {
+	if audioFormatMPEG4Audio != nil {
 		co := audioFormatMPEG4Audio.GetConfig()
 		if co == nil {
 			l.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
@@ -190,11 +195,12 @@ func setupAudioTrack(
 				return nil
 			})
 
-			return &gohlslib.Track{
+			muxer.AudioTrack = &gohlslib.Track{
 				Codec: &codecs.MPEG4Audio{
 					Config: *co,
 				},
 			}
+			return audioFormatMPEG4Audio
 		}
 	}
 
@@ -208,25 +214,30 @@ func FromStream(
 	muxer *gohlslib.Muxer,
 	l logger.Writer,
 ) error {
-	videoTrack := setupVideoTrack(
+	videoFormat := setupVideoTrack(
 		stream,
 		writer,
 		muxer,
 	)
 
-	audioTrack := setupAudioTrack(
+	audioFormat := setupAudioTrack(
 		stream,
 		writer,
 		muxer,
 		l,
 	)
 
-	if videoTrack == nil && audioTrack == nil {
+	if videoFormat == nil && audioFormat == nil {
 		return ErrNoSupportedCodecs
 	}
 
-	muxer.VideoTrack = videoTrack
-	muxer.AudioTrack = audioTrack
+	for _, media := range stream.Desc().Medias {
+		for _, forma := range media.Formats {
+			if forma != videoFormat && forma != audioFormat {
+				l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+			}
+		}
+	}
 
 	return nil
 }

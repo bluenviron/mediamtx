@@ -11,11 +11,12 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-var errNoSupportedCodecs = errors.New(
+var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 
 func setupVideo(
@@ -171,6 +172,7 @@ func FromStream(
 	conn *Conn,
 	nconn net.Conn,
 	writeTimeout time.Duration,
+	l logger.Writer,
 ) error {
 	var w *Writer
 
@@ -191,13 +193,24 @@ func FromStream(
 	)
 
 	if videoFormat == nil && audioFormat == nil {
-		return errNoSupportedCodecs
+		return errNoSupportedCodecsFrom
 	}
+
+	fmt.Println(videoFormat, audioFormat)
+	fmt.Println(videoFormat == nil, audioFormat == nil)
 
 	var err error
 	w, err = NewWriter(conn, videoFormat, audioFormat)
 	if err != nil {
 		return err
+	}
+
+	for _, media := range stream.Desc().Medias {
+		for _, forma := range media.Formats {
+			if forma != videoFormat && forma != audioFormat {
+				l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+			}
+		}
 	}
 
 	return nil

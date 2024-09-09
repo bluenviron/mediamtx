@@ -8,9 +8,10 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.3.3
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v1.2.1
+	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib v1.4.0
 	github.com/bluenviron/gortsplib/v4 v4.10.4
-	github.com/bluenviron/mediacommon v1.12.3
+	github.com/bluenviron/mediacommon v1.12.4-0.20240909171423-2f5c038aff08
 	github.com/datarhei/gosrt v0.7.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.0
@@ -36,7 +37,6 @@ require (
 
 require (
 	github.com/asticode/go-astikit v0.30.0 // indirect
-	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect

@@ -1,6 +1,7 @@
-package webrtc
+package rtmp
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -18,7 +21,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H265{}},
+			Formats: []format.Format{&format.VP8{}},
 		}}},
 		true,
 		test.NilLogger,
@@ -31,7 +34,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		t.Error("should not happen")
 	})
 
-	err = FromStream(stream, writer, nil, l)
+	err = FromStream(stream, writer, nil, nil, 0, l)
 	require.Equal(t, errNoSupportedCodecsFrom, err)
 }
 
@@ -41,11 +44,15 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		&description.Session{Medias: []*description.Media{
 			{
 				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP8{}},
+			},
+			{
+				Type:    description.MediaTypeVideo,
 				Formats: []format.Format{&format.H264{}},
 			},
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{}},
+				Formats: []format.Format{&format.H264{}},
 			},
 		}},
 		true,
@@ -59,46 +66,20 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 		require.Equal(t, logger.Warn, l)
-		if n == 0 {
-			require.Equal(t, "skipping track with codec H265", fmt.Sprintf(format, args...))
+		switch n {
+		case 0:
+			require.Equal(t, "skipping track with codec VP8", fmt.Sprintf(format, args...))
+		case 1:
+			require.Equal(t, "skipping track with codec H264", fmt.Sprintf(format, args...))
 		}
 		n++
 	})
 
-	pc := &PeerConnection{}
+	var buf bytes.Buffer
+	bc := bytecounter.NewReadWriter(&buf)
+	conn := &Conn{mrw: message.NewReadWriter(&buf, bc, false)}
 
-	err = FromStream(stream, writer, pc, l)
+	err = FromStream(stream, writer, conn, nil, 0, l)
 	require.NoError(t, err)
-	require.Equal(t, 1, n)
-}
-
-func TestFromStream(t *testing.T) {
-	for _, ca := range toFromStreamCases {
-		if ca.in == nil {
-			continue
-		}
-		t.Run(ca.name, func(t *testing.T) {
-			stream, err := stream.New(
-				1460,
-				&description.Session{
-					Medias: []*description.Media{{
-						Formats: []format.Format{ca.in},
-					}},
-				},
-				false,
-				test.NilLogger,
-			)
-			require.NoError(t, err)
-			defer stream.Close()
-
-			writer := asyncwriter.New(0, nil)
-
-			pc := &PeerConnection{}
-
-			err = FromStream(stream, writer, pc, nil)
-			require.NoError(t, err)
-
-			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
-		})
-	}
+	require.Equal(t, 2, n)
 }

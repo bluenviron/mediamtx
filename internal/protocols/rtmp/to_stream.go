@@ -1,7 +1,7 @@
 package rtmp
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -9,6 +9,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+var errNoSupportedCodecsTo = errors.New(
+	"the stream doesn't contain any supported codec, which are currently " +
+		"AV1, VP9, H265, H264, MPEG-4 Audio, MPEG-1/2 Audio, G711, LPCM")
 
 // ToStream maps a RTMP stream to a MediaMTX stream.
 func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
@@ -69,7 +73,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 			})
 
 		default:
-			return nil, fmt.Errorf("unsupported video codec: %T", videoFormat)
+			panic("should not happen")
 		}
 	}
 
@@ -126,8 +130,12 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 			})
 
 		default:
-			return nil, fmt.Errorf("unsupported audio codec: %T", audioFormat)
+			panic("should not happen")
 		}
+	}
+
+	if len(medias) == 0 {
+		return nil, errNoSupportedCodecsTo
 	}
 
 	return medias, nil

@@ -299,7 +299,7 @@ func (s *session) runRead() (int, error) {
 		Log:                   s,
 	}
 
-	err = webrtc.FromStream(stream, writer, pc)
+	err = webrtc.FromStream(stream, writer, pc, s)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}

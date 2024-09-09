@@ -1,4 +1,4 @@
-package webrtc
+package mpegts
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H265{}},
+			Formats: []format.Format{&format.VP8{}},
 		}}},
 		true,
 		test.NilLogger,
@@ -31,8 +31,8 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		t.Error("should not happen")
 	})
 
-	err = FromStream(stream, writer, nil, l)
-	require.Equal(t, errNoSupportedCodecsFrom, err)
+	err = FromStream(stream, writer, nil, nil, 0, l)
+	require.Equal(t, errNoSupportedCodecs, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
@@ -41,11 +41,11 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		&description.Session{Medias: []*description.Media{
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{}},
+				Formats: []format.Format{&format.H265{}},
 			},
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{}},
+				Formats: []format.Format{&format.VP8{}},
 			},
 		}},
 		true,
@@ -60,45 +60,12 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 		require.Equal(t, logger.Warn, l)
 		if n == 0 {
-			require.Equal(t, "skipping track with codec H265", fmt.Sprintf(format, args...))
+			require.Equal(t, "skipping track with codec VP8", fmt.Sprintf(format, args...))
 		}
 		n++
 	})
 
-	pc := &PeerConnection{}
-
-	err = FromStream(stream, writer, pc, l)
+	err = FromStream(stream, writer, nil, nil, 0, l)
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
-}
-
-func TestFromStream(t *testing.T) {
-	for _, ca := range toFromStreamCases {
-		if ca.in == nil {
-			continue
-		}
-		t.Run(ca.name, func(t *testing.T) {
-			stream, err := stream.New(
-				1460,
-				&description.Session{
-					Medias: []*description.Media{{
-						Formats: []format.Format{ca.in},
-					}},
-				},
-				false,
-				test.NilLogger,
-			)
-			require.NoError(t, err)
-			defer stream.Close()
-
-			writer := asyncwriter.New(0, nil)
-
-			pc := &PeerConnection{}
-
-			err = FromStream(stream, writer, pc, nil)
-			require.NoError(t, err)
-
-			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
-		})
-	}
 }

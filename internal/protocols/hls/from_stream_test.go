@@ -1,9 +1,10 @@
-package webrtc
+package hls
 
 import (
 	"fmt"
 	"testing"
 
+	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -18,7 +19,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H265{}},
+			Formats: []format.Format{&format.VP8{}},
 		}}},
 		true,
 		test.NilLogger,
@@ -32,7 +33,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	})
 
 	err = FromStream(stream, writer, nil, l)
-	require.Equal(t, errNoSupportedCodecsFrom, err)
+	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
@@ -41,11 +42,15 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		&description.Session{Medias: []*description.Media{
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{}},
+				Formats: []format.Format{&format.VP9{}},
 			},
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{}},
+				Formats: []format.Format{&format.VP8{}},
+			},
+			{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG1Audio{}},
 			},
 		}},
 		true,
@@ -55,50 +60,22 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	writer := asyncwriter.New(0, nil)
 
+	m := &gohlslib.Muxer{}
+
 	n := 0
 
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 		require.Equal(t, logger.Warn, l)
-		if n == 0 {
-			require.Equal(t, "skipping track with codec H265", fmt.Sprintf(format, args...))
+		switch n {
+		case 0:
+			require.Equal(t, "skipping track with codec VP8", fmt.Sprintf(format, args...))
+		case 1:
+			require.Equal(t, "skipping track with codec MPEG-1/2 Audio", fmt.Sprintf(format, args...))
 		}
 		n++
 	})
 
-	pc := &PeerConnection{}
-
-	err = FromStream(stream, writer, pc, l)
+	err = FromStream(stream, writer, m, l)
 	require.NoError(t, err)
-	require.Equal(t, 1, n)
-}
-
-func TestFromStream(t *testing.T) {
-	for _, ca := range toFromStreamCases {
-		if ca.in == nil {
-			continue
-		}
-		t.Run(ca.name, func(t *testing.T) {
-			stream, err := stream.New(
-				1460,
-				&description.Session{
-					Medias: []*description.Media{{
-						Formats: []format.Format{ca.in},
-					}},
-				},
-				false,
-				test.NilLogger,
-			)
-			require.NoError(t, err)
-			defer stream.Close()
-
-			writer := asyncwriter.New(0, nil)
-
-			pc := &PeerConnection{}
-
-			err = FromStream(stream, writer, pc, nil)
-			require.NoError(t, err)
-
-			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
-		})
-	}
+	require.Equal(t, 2, n)
 }

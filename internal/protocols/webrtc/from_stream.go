@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/webrtc/v3"
@@ -23,7 +24,7 @@ const (
 	webrtcPayloadMaxSize = 1188 // 1200 - 12 (RTP header)
 )
 
-var errNoSupportedCodecs = errors.New(
+var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711, LPCM")
 
 func uint16Ptr(v uint16) *uint16 {
@@ -520,6 +521,7 @@ func FromStream(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 	pc *PeerConnection,
+	l logger.Writer,
 ) error {
 	videoFormat, err := setupVideoTrack(stream, writer, pc)
 	if err != nil {
@@ -532,7 +534,15 @@ func FromStream(
 	}
 
 	if videoFormat == nil && audioFormat == nil {
-		return errNoSupportedCodecs
+		return errNoSupportedCodecsFrom
+	}
+
+	for _, media := range stream.Desc().Medias {
+		for _, forma := range media.Formats {
+			if forma != videoFormat && forma != audioFormat {
+				l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+			}
+		}
 	}
 
 	return nil

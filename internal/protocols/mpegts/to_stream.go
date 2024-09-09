@@ -9,17 +9,23 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// ErrNoTracks is returned when there are no supported tracks.
-var ErrNoTracks = errors.New("no supported tracks found (supported are H265, H264," +
-	" MPEG-4 Video, MPEG-1/2 Video, Opus, MPEG-4 Audio, MPEG-1 Audio, AC-3")
+var errNoSupportedCodecs = errors.New(
+	"the stream doesn't contain any supported codec, which are currently " +
+		"H265, H264, MPEG-4 Video, MPEG-1/2 Video, Opus, MPEG-4 Audio, MPEG-1 Audio, AC-3")
 
 // ToStream maps a MPEG-TS stream to a MediaMTX stream.
-func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, error) {
+func ToStream(
+	r *mpegts.Reader,
+	stream **stream.Stream,
+	l logger.Writer,
+) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
+	var unsupportedTracks []int
 
 	var td *mpegts.TimeDecoder
 	decodeTime := func(t int64) time.Duration {
@@ -29,7 +35,7 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 		return td.Decode(t)
 	}
 
-	for _, track := range r.Tracks() { //nolint:dupl
+	for i, track := range r.Tracks() { //nolint:dupl
 		var medi *description.Media
 
 		switch codec := track.Codec.(type) {
@@ -190,6 +196,7 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 			})
 
 		default:
+			unsupportedTracks = append(unsupportedTracks, i+1)
 			continue
 		}
 
@@ -197,7 +204,11 @@ func ToStream(r *mpegts.Reader, stream **stream.Stream) ([]*description.Media, e
 	}
 
 	if len(medias) == 0 {
-		return nil, ErrNoTracks
+		return nil, errNoSupportedCodecs
+	}
+
+	for _, id := range unsupportedTracks {
+		l.Log(logger.Warn, "skipping track %d due to unsupported codec", id)
 	}
 
 	return medias, nil
