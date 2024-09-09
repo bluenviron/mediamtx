@@ -1,4 +1,4 @@
-package webrtc
+package whip
 
 import (
 	"testing"
@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func stringPtr(v string) *string {
+func uint16Ptr(v uint16) *uint16 {
 	return &v
 }
 
-func uint16Ptr(v uint16) *uint16 {
+func stringPtr(v string) *string {
 	return &v
 }
 

@@ -24,7 +24,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -394,7 +394,7 @@ func TestPathRunOnRead(t *testing.T) {
 					u, err := url.Parse("http://localhost:8889/test/whep?query=value")
 					require.NoError(t, err)
 
-					c := &webrtc.WHIPClient{
+					c := &whip.Client{
 						HTTPClient: hc,
 						URL:        u,
 						Log:        test.NilLogger,

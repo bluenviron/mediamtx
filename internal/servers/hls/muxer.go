@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 )
 
 const (
@@ -154,7 +155,7 @@ func (m *muxer) runInner() error {
 	}
 	err = mi.initialize()
 	if err != nil {
-		if m.remoteAddr != "" || errors.Is(err, errNoSupportedCodecs) {
+		if m.remoteAddr != "" || errors.Is(err, hls.ErrNoSupportedCodecs) {
 			return err
 		}
 

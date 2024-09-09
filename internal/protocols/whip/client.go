@@ -1,4 +1,5 @@
-package webrtc
+// Package whip contains a WHIP/WHEP client.
+package whip
 
 import (
 	"bytes"
@@ -9,51 +10,41 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 const (
-	webrtcHandshakeTimeout   = 10 * time.Second
-	webrtcTrackGatherTimeout = 2 * time.Second
+	handshakeTimeout   = 10 * time.Second
+	trackGatherTimeout = 2 * time.Second
 )
 
-// WHIPClient is a WHIP client.
-type WHIPClient struct {
+// Client is a WHIP client.
+type Client struct {
 	HTTPClient *http.Client
 	URL        *url.URL
 	Log        logger.Writer
 
-	pc               *PeerConnection
+	pc               *webrtc.PeerConnection
 	patchIsSupported bool
 }
 
 // Publish publishes tracks.
-func (c *WHIPClient) Publish(
+func (c *Client) Publish(
 	ctx context.Context,
-	videoTrack format.Format,
-	audioTrack format.Format,
-) ([]*OutgoingTrack, error) {
+	outgoingTracks []*webrtc.OutgoingTrack,
+) error {
 	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var outgoingTracks []*OutgoingTrack
-
-	if videoTrack != nil {
-		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: videoTrack})
-	}
-	if audioTrack != nil {
-		outgoingTracks = append(outgoingTracks, &OutgoingTrack{Format: audioTrack})
-	}
-
-	c.pc = &PeerConnection{
+	c.pc = &webrtc.PeerConnection{
 		ICEServers:         iceServers,
 		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
 		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
@@ -65,35 +56,35 @@ func (c *WHIPClient) Publish(
 	}
 	err = c.pc.Start()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	offer, err := c.pc.CreatePartialOffer()
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	res, err := c.postOffer(ctx, offer)
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	c.URL, err = c.URL.Parse(res.Location)
 	if err != nil {
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
-	t := time.NewTimer(webrtcHandshakeTimeout)
+	t := time.NewTimer(handshakeTimeout)
 	defer t.Stop()
 
 outer:
@@ -104,7 +95,7 @@ outer:
 			if err != nil {
 				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()
-				return nil, err
+				return err
 			}
 
 		case <-c.pc.GatheringDone():
@@ -115,21 +106,21 @@ outer:
 		case <-t.C:
 			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
-			return nil, fmt.Errorf("deadline exceeded while waiting connection")
+			return fmt.Errorf("deadline exceeded while waiting connection")
 		}
 	}
 
-	return outgoingTracks, nil
+	return nil
 }
 
 // Read reads tracks.
-func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
+func (c *Client) Read(ctx context.Context) ([]*webrtc.IncomingTrack, error) {
 	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	c.pc = &PeerConnection{
+	c.pc = &webrtc.PeerConnection{
 		ICEServers:         iceServers,
 		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
 		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
@@ -169,7 +160,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	err = TracksAreValid(sdp.MediaDescriptions)
+	err = webrtc.TracksAreValid(sdp.MediaDescriptions)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
@@ -183,7 +174,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	t := time.NewTimer(webrtcHandshakeTimeout)
+	t := time.NewTimer(handshakeTimeout)
 	defer t.Stop()
 
 outer:
@@ -219,15 +210,25 @@ outer:
 	return tracks, nil
 }
 
+// PeerConnection returns the underlying peer connection.
+func (c *Client) PeerConnection() *webrtc.PeerConnection {
+	return c.pc
+}
+
+// StartReading starts reading all incoming tracks.
+func (c *Client) StartReading() {
+	c.pc.StartReading()
+}
+
 // Close closes the client.
-func (c *WHIPClient) Close() error {
+func (c *Client) Close() error {
 	err := c.deleteSession(context.Background())
 	c.pc.Close()
 	return err
 }
 
 // Wait waits for client errors.
-func (c *WHIPClient) Wait(ctx context.Context) error {
+func (c *Client) Wait(ctx context.Context) error {
 	select {
 	case <-c.pc.Disconnected():
 		return fmt.Errorf("peer connection closed")
@@ -237,9 +238,9 @@ func (c *WHIPClient) Wait(ctx context.Context) error {
 	}
 }
 
-func (c *WHIPClient) optionsICEServers(
+func (c *Client) optionsICEServers(
 	ctx context.Context,
-) ([]webrtc.ICEServer, error) {
+) ([]pwebrtc.ICEServer, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, c.URL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -259,14 +260,14 @@ func (c *WHIPClient) optionsICEServers(
 }
 
 type whipPostOfferResponse struct {
-	Answer   *webrtc.SessionDescription
+	Answer   *pwebrtc.SessionDescription
 	Location string
 	ETag     string
 }
 
-func (c *WHIPClient) postOffer(
+func (c *Client) postOffer(
 	ctx context.Context,
-	offer *webrtc.SessionDescription,
+	offer *pwebrtc.SessionDescription,
 ) (*whipPostOfferResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL.String(), bytes.NewReader([]byte(offer.SDP)))
 	if err != nil {
@@ -304,8 +305,8 @@ func (c *WHIPClient) postOffer(
 		return nil, err
 	}
 
-	answer := &webrtc.SessionDescription{
-		Type: webrtc.SDPTypeAnswer,
+	answer := &pwebrtc.SessionDescription{
+		Type: pwebrtc.SDPTypeAnswer,
 		SDP:  string(sdp),
 	}
 
@@ -316,17 +317,17 @@ func (c *WHIPClient) postOffer(
 	}, nil
 }
 
-func (c *WHIPClient) patchCandidate(
+func (c *Client) patchCandidate(
 	ctx context.Context,
-	offer *webrtc.SessionDescription,
+	offer *pwebrtc.SessionDescription,
 	etag string,
-	candidate *webrtc.ICECandidateInit,
+	candidate *pwebrtc.ICECandidateInit,
 ) error {
 	if !c.patchIsSupported {
 		return nil
 	}
 
-	frag, err := ICEFragmentMarshal(offer.SDP, []*webrtc.ICECandidateInit{candidate})
+	frag, err := ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{candidate})
 	if err != nil {
 		return err
 	}
@@ -352,7 +353,7 @@ func (c *WHIPClient) patchCandidate(
 	return nil
 }
 
-func (c *WHIPClient) deleteSession(
+func (c *Client) deleteSession(
 	ctx context.Context,
 ) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.URL.String(), nil)

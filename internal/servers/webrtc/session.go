@@ -2,7 +2,6 @@ package webrtc
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -12,14 +11,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
-	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
 	"github.com/pion/sdp/v3"
@@ -33,358 +24,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-var errNoSupportedCodecs = errors.New(
-	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711, LPCM")
-
-type setupStreamFunc func(*webrtc.OutgoingTrack) error
-
-func uint16Ptr(v uint16) *uint16 {
-	return &v
-}
-
-func randUint32() (uint32, error) {
-	var b [4]byte
-	_, err := rand.Read(b[:])
-	if err != nil {
-		return 0, err
-	}
-	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]), nil
-}
-
-func findVideoTrack(
-	stream *stream.Stream,
-	writer *asyncwriter.Writer,
-) (format.Format, setupStreamFunc) {
-	var av1Format *format.AV1
-	media := stream.Desc().FindFormat(&av1Format)
-
-	if av1Format != nil {
-		return av1Format, func(track *webrtc.OutgoingTrack) error {
-			encoder := &rtpav1.Encoder{
-				PayloadType:    105,
-				PayloadMaxSize: webrtcPayloadMaxSize,
-			}
-			err := encoder.Init()
-			if err != nil {
-				return err
-			}
-
-			stream.AddReader(writer, media, av1Format, func(u unit.Unit) error {
-				tunit := u.(*unit.AV1)
-
-				if tunit.TU == nil {
-					return nil
-				}
-
-				packets, err := encoder.Encode(tunit.TU)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-
-			return nil
-		}
-	}
-
-	var vp9Format *format.VP9
-	media = stream.Desc().FindFormat(&vp9Format)
-
-	if vp9Format != nil {
-		return vp9Format, func(track *webrtc.OutgoingTrack) error {
-			encoder := &rtpvp9.Encoder{
-				PayloadType:      96,
-				PayloadMaxSize:   webrtcPayloadMaxSize,
-				InitialPictureID: uint16Ptr(8445),
-			}
-			err := encoder.Init()
-			if err != nil {
-				return err
-			}
-
-			stream.AddReader(writer, media, vp9Format, func(u unit.Unit) error {
-				tunit := u.(*unit.VP9)
-
-				if tunit.Frame == nil {
-					return nil
-				}
-
-				packets, err := encoder.Encode(tunit.Frame)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-
-			return nil
-		}
-	}
-
-	var vp8Format *format.VP8
-	media = stream.Desc().FindFormat(&vp8Format)
-
-	if vp8Format != nil {
-		return vp8Format, func(track *webrtc.OutgoingTrack) error {
-			encoder := &rtpvp8.Encoder{
-				PayloadType:    96,
-				PayloadMaxSize: webrtcPayloadMaxSize,
-			}
-			err := encoder.Init()
-			if err != nil {
-				return err
-			}
-
-			stream.AddReader(writer, media, vp8Format, func(u unit.Unit) error {
-				tunit := u.(*unit.VP8)
-
-				if tunit.Frame == nil {
-					return nil
-				}
-
-				packets, err := encoder.Encode(tunit.Frame)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-
-			return nil
-		}
-	}
-
-	var h264Format *format.H264
-	media = stream.Desc().FindFormat(&h264Format)
-
-	if h264Format != nil {
-		return h264Format, func(track *webrtc.OutgoingTrack) error {
-			encoder := &rtph264.Encoder{
-				PayloadType:    96,
-				PayloadMaxSize: webrtcPayloadMaxSize,
-			}
-			err := encoder.Init()
-			if err != nil {
-				return err
-			}
-
-			firstReceived := false
-			var lastPTS time.Duration
-
-			stream.AddReader(writer, media, h264Format, func(u unit.Unit) error {
-				tunit := u.(*unit.H264)
-
-				if tunit.AU == nil {
-					return nil
-				}
-
-				if !firstReceived {
-					firstReceived = true
-				} else if tunit.PTS < lastPTS {
-					return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
-				}
-				lastPTS = tunit.PTS
-
-				packets, err := encoder.Encode(tunit.AU)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-
-			return nil
-		}
-	}
-
-	return nil, nil
-}
-
-func findAudioTrack(
-	stream *stream.Stream,
-	writer *asyncwriter.Writer,
-) (format.Format, setupStreamFunc) {
-	var opusFormat *format.Opus
-	media := stream.Desc().FindFormat(&opusFormat)
-
-	if opusFormat != nil {
-		return opusFormat, func(track *webrtc.OutgoingTrack) error {
-			stream.AddReader(writer, media, opusFormat, func(u unit.Unit) error {
-				for _, pkt := range u.GetRTPPackets() {
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-			return nil
-		}
-	}
-
-	var g722Format *format.G722
-	media = stream.Desc().FindFormat(&g722Format)
-
-	if g722Format != nil {
-		return g722Format, func(track *webrtc.OutgoingTrack) error {
-			stream.AddReader(writer, media, g722Format, func(u unit.Unit) error {
-				for _, pkt := range u.GetRTPPackets() {
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-			return nil
-		}
-	}
-
-	var g711Format *format.G711
-	media = stream.Desc().FindFormat(&g711Format)
-
-	if g711Format != nil {
-		return g711Format, func(track *webrtc.OutgoingTrack) error {
-			if g711Format.SampleRate == 8000 {
-				curTimestamp, err := randUint32()
-				if err != nil {
-					return err
-				}
-
-				stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
-					for _, pkt := range u.GetRTPPackets() {
-						// recompute timestamp from scratch.
-						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-						pkt.Timestamp = curTimestamp
-						curTimestamp += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
-
-						track.WriteRTP(pkt) //nolint:errcheck
-					}
-
-					return nil
-				})
-			} else {
-				encoder := &rtplpcm.Encoder{
-					PayloadType:    96,
-					PayloadMaxSize: webrtcPayloadMaxSize,
-					BitDepth:       16,
-					ChannelCount:   g711Format.ChannelCount,
-				}
-				err := encoder.Init()
-				if err != nil {
-					return err
-				}
-
-				curTimestamp, err := randUint32()
-				if err != nil {
-					return err
-				}
-
-				stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
-					tunit := u.(*unit.G711)
-
-					if tunit.Samples == nil {
-						return nil
-					}
-
-					var lpcmSamples []byte
-					if g711Format.MULaw {
-						lpcmSamples = g711.DecodeMulaw(tunit.Samples)
-					} else {
-						lpcmSamples = g711.DecodeAlaw(tunit.Samples)
-					}
-
-					packets, err := encoder.Encode(lpcmSamples)
-					if err != nil {
-						return nil //nolint:nilerr
-					}
-
-					for _, pkt := range packets {
-						// recompute timestamp from scratch.
-						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-						pkt.Timestamp = curTimestamp
-						curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
-
-						track.WriteRTP(pkt) //nolint:errcheck
-					}
-
-					return nil
-				})
-			}
-			return nil
-		}
-	}
-
-	var lpcmFormat *format.LPCM
-	media = stream.Desc().FindFormat(&lpcmFormat)
-
-	if lpcmFormat != nil {
-		return lpcmFormat, func(track *webrtc.OutgoingTrack) error {
-			encoder := &rtplpcm.Encoder{
-				PayloadType:    96,
-				BitDepth:       16,
-				ChannelCount:   lpcmFormat.ChannelCount,
-				PayloadMaxSize: webrtcPayloadMaxSize,
-			}
-			err := encoder.Init()
-			if err != nil {
-				return err
-			}
-
-			curTimestamp, err := randUint32()
-			if err != nil {
-				return err
-			}
-
-			stream.AddReader(writer, media, lpcmFormat, func(u unit.Unit) error {
-				tunit := u.(*unit.LPCM)
-
-				if tunit.Samples == nil {
-					return nil
-				}
-
-				packets, err := encoder.Encode(tunit.Samples)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					// recompute timestamp from scratch.
-					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-					pkt.Timestamp = curTimestamp
-					curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
-
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
-			return nil
-		}
-	}
-
-	return nil, nil
-}
 
 func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	return &pwebrtc.SessionDescription{
@@ -573,14 +213,19 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	tracks, err := pc.GatherIncomingTracks(s.ctx)
+	_, err = pc.GatherIncomingTracks(s.ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	medias := webrtc.TracksToMedias(tracks)
+	var stream *stream.Stream
 
-	stream, err := path.StartPublisher(defs.PathStartPublisherReq{
+	medias, err := webrtc.ToStream(pc, &stream)
+	if err != nil {
+		return 0, err
+	}
+
+	stream, err = path.StartPublisher(defs.PathStartPublisherReq{
 		Author:             s,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: false,
@@ -589,29 +234,7 @@ func (s *session) runPublish() (int, error) {
 		return 0, err
 	}
 
-	timeDecoder := rtptime.NewGlobalDecoder()
-
-	for i, media := range medias {
-		ci := i
-		cmedia := media
-		trackWrapper := &webrtc.TrackWrapper{ClockRat: cmedia.Formats[0].ClockRate()}
-
-		go func() {
-			for {
-				pkt, err := tracks[ci].ReadRTP()
-				if err != nil {
-					return
-				}
-
-				pts, ok := timeDecoder.Decode(trackWrapper, pkt)
-				if !ok {
-					continue
-				}
-
-				stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
-			}
-		}()
-	}
+	pc.StartReading()
 
 	select {
 	case <-pc.Disconnected():
@@ -661,22 +284,7 @@ func (s *session) runRead() (int, error) {
 	}
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
-
-	videoTrack, videoSetup := findVideoTrack(stream, writer)
-	audioTrack, audioSetup := findAudioTrack(stream, writer)
-
-	if videoTrack == nil && audioTrack == nil {
-		return http.StatusBadRequest, errNoSupportedCodecs
-	}
-
-	var outgoingTracks []*webrtc.OutgoingTrack
-
-	if videoTrack != nil {
-		outgoingTracks = append(outgoingTracks, &webrtc.OutgoingTrack{Format: videoTrack})
-	}
-	if audioTrack != nil {
-		outgoingTracks = append(outgoingTracks, &webrtc.OutgoingTrack{Format: audioTrack})
-	}
+	defer stream.RemoveReader(writer)
 
 	pc := &webrtc.PeerConnection{
 		ICEServers:            iceServers,
@@ -688,9 +296,14 @@ func (s *session) runRead() (int, error) {
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		Publish:               true,
-		OutgoingTracks:        outgoingTracks,
 		Log:                   s,
 	}
+
+	err = webrtc.FromStream(stream, writer, pc)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
 	err = pc.Start()
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -716,25 +329,6 @@ func (s *session) runRead() (int, error) {
 	s.mutex.Lock()
 	s.pc = pc
 	s.mutex.Unlock()
-
-	defer stream.RemoveReader(writer)
-
-	n := 0
-
-	if videoTrack != nil {
-		err := videoSetup(outgoingTracks[n])
-		if err != nil {
-			return 0, err
-		}
-		n++
-	}
-
-	if audioTrack != nil {
-		err := audioSetup(outgoingTracks[n])
-		if err != nil {
-			return 0, err
-		}
-	}
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		path.Name(), defs.FormatsInfo(stream.FormatsForReader(writer)))
