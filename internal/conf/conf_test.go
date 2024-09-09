@@ -271,6 +271,16 @@ func TestConfErrors(t *testing.T) {
 			"json: unknown field \"invalid\"",
 		},
 		{
+			"invalid readTimeout",
+			"readTimeout: 0s\n",
+			"'readTimeout' must be greater than zero",
+		},
+		{
+			"invalid writeTimeout",
+			"writeTimeout: 0s\n",
+			"'writeTimeout' must be greater than zero",
+		},
+		{
 			"invalid writeQueueSize",
 			"writeQueueSize: 1001\n",
 			"'writeQueueSize' must be a power of two",
