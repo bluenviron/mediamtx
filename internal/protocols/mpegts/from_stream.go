@@ -21,7 +21,7 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
-// FromStream links a server stream to a MPEG-TS writer.
+// FromStream maps a MediaMTX stream to a MPEG-TS writer.
 func FromStream(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
