@@ -7,7 +7,7 @@ require (
 	github.com/MicahParks/jwkset v0.5.18
 	github.com/MicahParks/keyfunc/v3 v3.3.3
 	github.com/abema/go-mp4 v1.2.0
-	github.com/alecthomas/kong v1.1.0
+	github.com/alecthomas/kong v1.2.0
 	github.com/bluenviron/gohlslib v1.4.0
 	github.com/bluenviron/gortsplib/v4 v4.10.4
 	github.com/bluenviron/mediacommon v1.12.3
