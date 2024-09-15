@@ -1,7 +1,6 @@
 package hls
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bluenviron/gohlslib"
@@ -144,10 +143,14 @@ func ToStream(
 			})
 
 		default:
-			return nil, fmt.Errorf("unsupported track: %T", track.Codec)
+			panic("should not happen")
 		}
 
 		medias = append(medias, medi)
+	}
+
+	if len(medias) == 0 {
+		return nil, ErrNoSupportedCodecs
 	}
 
 	return medias, nil

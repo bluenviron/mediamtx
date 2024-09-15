@@ -190,7 +190,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	writer := asyncwriter.New(c.writeQueueSize, c)
 	defer stream.RemoveReader(writer)
 
-	err = rtmp.FromStream(stream, writer, conn, c.nconn, time.Duration(c.writeTimeout))
+	err = rtmp.FromStream(stream, writer, conn, c.nconn, time.Duration(c.writeTimeout), c)
 	if err != nil {
 		return err
 	}

@@ -52,6 +52,7 @@ type formatMPEGTS struct {
 func (f *formatMPEGTS) initialize() {
 	var tracks []*mpegts.Track
 	var formats []rtspformat.Format
+	var skippedFormats []rtspformat.Format
 
 	addTrack := func(format rtspformat.Format, codec mpegts.Codec) *mpegts.Track {
 		track := &mpegts.Track{
@@ -302,8 +303,20 @@ func (f *formatMPEGTS) initialize() {
 						},
 					)
 				})
+
+			default:
+				skippedFormats = append(skippedFormats, forma)
 			}
 		}
+	}
+
+	if len(tracks) == 0 {
+		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
+		return
+	}
+
+	for _, forma := range skippedFormats {
+		f.ai.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
 	}
 
 	f.dw = &dynamicWriter{}

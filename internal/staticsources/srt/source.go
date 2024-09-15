@@ -82,7 +82,7 @@ func (s *Source) runReader(sconn srt.Conn) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegts.ToStream(r, &stream)
+	medias, err := mpegts.ToStream(r, &stream, s)
 	if err != nil {
 		return err
 	}

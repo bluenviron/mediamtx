@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,8 +14,15 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+var errNoSupportedCodecsTo = errors.New(
+	"the stream doesn't contain any supported codec, which are currently " +
+		"AV1, VP9, VP8, H265, H264, Opus, G722, G711, LPCM")
+
 // ToStream maps a WebRTC connection to a MediaMTX stream.
-func ToStream(pc *PeerConnection, stream **stream.Stream) ([]*description.Media, error) {
+func ToStream(
+	pc *PeerConnection,
+	stream **stream.Stream,
+) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
 	timeDecoder := rtptime.NewGlobalDecoder()
 
@@ -143,6 +151,10 @@ func ToStream(pc *PeerConnection, stream **stream.Stream) ([]*description.Media,
 		}
 
 		medias = append(medias, medi)
+	}
+
+	if len(medias) == 0 {
+		return nil, errNoSupportedCodecsTo
 	}
 
 	return medias, nil

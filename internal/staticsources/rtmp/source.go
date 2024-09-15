@@ -4,6 +4,7 @@ package rtmp
 import (
 	"context"
 	ctls "crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
@@ -104,6 +105,10 @@ func (s *Source) runReader(u *url.URL, nconn net.Conn) error {
 	medias, err := rtmp.ToStream(r, &stream)
 	if err != nil {
 		return err
+	}
+
+	if len(medias) == 0 {
+		return fmt.Errorf("no supported tracks found")
 	}
 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
