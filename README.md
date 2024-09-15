@@ -145,6 +145,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 * [Compile from source](#compile-from-source)
   * [Standard](#standard)
   * [OpenWrt](#openwrt-1)
+  * [Custom libcamera](#custom-libcamera)
   * [Cross compile](#cross-compile)
   * [Compile for all supported platforms](#compile-for-all-supported-platforms)
 * [License](#license)
@@ -506,7 +507,7 @@ docker run --rm -it \
 bluenviron/mediamtx:latest-rpi
 ```
 
-Be aware that the server is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](#compile-from-source).
+Be aware that the server is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](#custom-libcamera).
 
 Camera settings can be changed by using the `rpiCamera*` parameters:
 
@@ -2071,6 +2072,10 @@ The command will produce the `mediamtx` binary.
 
 If the OpenWrt device doesn't have enough resources to compile, you can [cross compile](#cross-compile) from another machine.
 
+### Custom libcamera
+
+If you need to use a custom or external libcamera when interacting with the Raspberry Pi Camera, you have to compile [mediamtx-rpicamera](https://github.com/bluenviron/mediamtx-rpicamera) before compiling the server. Instructions are present in the `mediamtx-rpicamera` repository.
+
 ### Cross compile
 
 Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
@@ -2148,6 +2153,7 @@ All the code in this repository is released under the [MIT License](LICENSE). Co
 * [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
 * [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
 * [mediacommon (codecs and formats library used internally)](https://github.com/bluenviron/mediacommon)
+* [mediamtx-rpicamera (Raspberry Pi Camera component)](https://github.com/bluenviron/mediamtx-rpicamera)
 * [datarhei/gosrt (SRT library used internally)](https://github.com/datarhei/gosrt)
 * [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
 * [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)
