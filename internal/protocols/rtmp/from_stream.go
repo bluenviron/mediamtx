@@ -196,9 +196,6 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
-	fmt.Println(videoFormat, audioFormat)
-	fmt.Println(videoFormat == nil, audioFormat == nil)
-
 	var err error
 	w, err = NewWriter(conn, videoFormat, audioFormat)
 	if err != nil {
