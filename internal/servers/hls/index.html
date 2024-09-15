@@ -104,6 +104,12 @@ const loadStream = () => {
 			video.play();
 		});
 
+		// when the video is resumed after a manual or forced pause
+		// (i.e. when the window is minimized), restore live streaming.
+		video.onplay = () => {
+			video.currentTime = hls.liveSyncPosition;
+		};
+
 		hls.attachMedia(video);
 
 	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
