@@ -160,6 +160,7 @@ func TestPathRunOnDemand(t *testing.T) {
 					err = desc.Unmarshal(res.Body)
 					require.NoError(t, err)
 					control, _ = desc.MediaDescriptions[0].Attribute("control")
+					control = "rtsp://localhost:8554/ondemand?param=value/" + control
 				} else {
 					control = "rtsp://localhost:8554/ondemand?param=value/"
 				}
@@ -167,6 +168,8 @@ func TestPathRunOnDemand(t *testing.T) {
 				if ca == "setup" || ca == "describe and setup" {
 					u, err := base.ParseURL(control)
 					require.NoError(t, err)
+
+					fmt.Println("U", u)
 
 					byts, _ := base.Request{
 						Method: base.Setup,
