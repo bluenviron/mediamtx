@@ -169,8 +169,6 @@ func TestPathRunOnDemand(t *testing.T) {
 					u, err := base.ParseURL(control)
 					require.NoError(t, err)
 
-					fmt.Println("U", u)
-
 					byts, _ := base.Request{
 						Method: base.Setup,
 						URL:    u,
