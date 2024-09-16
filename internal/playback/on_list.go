@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,9 +26,13 @@ func (d listEntryDuration) MarshalJSON() ([]byte, error) {
 type listEntry struct {
 	Start    time.Time         `json:"start"`
 	Duration listEntryDuration `json:"duration"`
+	URL      string            `json:"url"`
 }
 
-func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*Segment) ([]listEntry, error) {
+func computeDurationAndConcatenate(
+	recordFormat conf.RecordFormat,
+	segments []*recordstore.Segment,
+) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
 		out := []listEntry{}
 		var prevInit *fmp4.Init
@@ -83,34 +90,55 @@ func computeDurationAndConcatenate(recordFormat conf.RecordFormat, segments []*S
 	return nil, fmt.Errorf("MPEG-TS format is not supported yet")
 }
 
-func (p *Server) onList(ctx *gin.Context) {
+func (s *Server) onList(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 
-	if !p.doAuth(ctx, pathName) {
+	if !s.doAuth(ctx, pathName) {
 		return
 	}
 
-	pathConf, err := p.safeFindPathConf(pathName)
+	pathConf, err := s.safeFindPathConf(pathName)
 	if err != nil {
-		p.writeError(ctx, http.StatusBadRequest, err)
+		s.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	segments, err := FindSegments(pathConf, pathName)
+	segments, err := recordstore.FindSegments(pathConf, pathName)
 	if err != nil {
-		if errors.Is(err, errNoSegmentsFound) {
-			p.writeError(ctx, http.StatusNotFound, err)
+		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
+			s.writeError(ctx, http.StatusNotFound, err)
 		} else {
-			p.writeError(ctx, http.StatusBadRequest, err)
+			s.writeError(ctx, http.StatusBadRequest, err)
 		}
 		return
 	}
 
-	out, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
 	if err != nil {
-		p.writeError(ctx, http.StatusInternalServerError, err)
+		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, out)
+	var scheme string
+	if s.Encryption {
+		scheme = "https"
+	} else {
+		scheme = "http"
+	}
+
+	for i := range entries {
+		v := url.Values{}
+		v.Add("path", pathName)
+		v.Add("start", entries[i].Start.Format(time.RFC3339Nano))
+		v.Add("duration", strconv.FormatFloat(time.Duration(entries[i].Duration).Seconds(), 'f', -1, 64))
+		u := &url.URL{
+			Scheme:   scheme,
+			Host:     ctx.Request.Host,
+			Path:     "/get",
+			RawQuery: v.Encode(),
+		}
+		entries[i].URL = u.String()
+	}
+
+	ctx.JSON(http.StatusOK, entries)
 }

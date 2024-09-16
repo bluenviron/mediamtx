@@ -99,7 +99,33 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 
 type customClaims struct {
 	jwt.RegisteredClaims
-	MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
+	permissionsKey string
+	permissions    []conf.AuthInternalUserPermission
+}
+
+func (c *customClaims) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, &c.RegisteredClaims)
+	if err != nil {
+		return err
+	}
+
+	var claimMap map[string]json.RawMessage
+	err = json.Unmarshal(b, &claimMap)
+	if err != nil {
+		return err
+	}
+
+	rawPermissions, ok := claimMap[c.permissionsKey]
+	if !ok {
+		return fmt.Errorf("claim '%s' not found inside JWT", c.permissionsKey)
+	}
+
+	err = json.Unmarshal(rawPermissions, &c.permissions)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Manager is the authentication manager.
@@ -109,6 +135,7 @@ type Manager struct {
 	HTTPAddress     string
 	HTTPExclude     []conf.AuthInternalUserPermission
 	JWTJWKS         string
+	JWTClaimKey     string
 	ReadTimeout     time.Duration
 	RTSPAuthMethods []auth.ValidateMethod
 
@@ -270,12 +297,13 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	}
 
 	var cc customClaims
+	cc.permissionsKey = m.JWTClaimKey
 	_, err = jwt.ParseWithClaims(v["jwt"][0], &cc, keyfunc)
 	if err != nil {
 		return err
 	}
 
-	if !matchesPermission(cc.MediaMTXPermissions, req) {
+	if !matchesPermission(cc.permissions, req) {
 		return fmt.Errorf("user doesn't have permission to perform action")
 	}
 

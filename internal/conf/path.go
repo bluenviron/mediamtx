@@ -46,15 +46,15 @@ func srtCheckPassphrase(passphrase string) error {
 }
 
 // FindPathConf returns the configuration corresponding to the given path name.
-func FindPathConf(pathConfs map[string]*Path, name string) (string, *Path, []string, error) {
+func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, error) {
 	err := isValidPathName(name)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+		return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
 	}
 
 	// normal path
 	if pathConf, ok := pathConfs[name]; ok {
-		return name, pathConf, nil, nil
+		return pathConf, nil, nil
 	}
 
 	// regular expression-based path
@@ -62,22 +62,22 @@ func FindPathConf(pathConfs map[string]*Path, name string) (string, *Path, []str
 		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
-				return pathConfName, pathConf, m, nil
+				return pathConf, m, nil
 			}
 		}
 	}
 
-	// all_others
+	// process all_others after every other entry
 	for pathConfName, pathConf := range pathConfs {
 		if pathConfName == "all" || pathConfName == "all_others" {
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
-				return pathConfName, pathConf, m, nil
+				return pathConf, m, nil
 			}
 		}
 	}
 
-	return "", nil, nil, fmt.Errorf("path '%s' is not configured", name)
+	return nil, nil, fmt.Errorf("path '%s' is not configured", name)
 }
 
 // Path is a path configuration.
@@ -130,9 +130,9 @@ type Path struct {
 	SourceRedirect string `json:"sourceRedirect"`
 
 	// Raspberry Pi Camera source
-	RPICameraCamID             int       `json:"rpiCameraCamID"`
-	RPICameraWidth             int       `json:"rpiCameraWidth"`
-	RPICameraHeight            int       `json:"rpiCameraHeight"`
+	RPICameraCamID             uint      `json:"rpiCameraCamID"`
+	RPICameraWidth             uint      `json:"rpiCameraWidth"`
+	RPICameraHeight            uint      `json:"rpiCameraHeight"`
 	RPICameraHFlip             bool      `json:"rpiCameraHFlip"`
 	RPICameraVFlip             bool      `json:"rpiCameraVFlip"`
 	RPICameraBrightness        float64   `json:"rpiCameraBrightness"`
@@ -143,7 +143,7 @@ type Path struct {
 	RPICameraAWB               string    `json:"rpiCameraAWB"`
 	RPICameraAWBGains          []float64 `json:"rpiCameraAWBGains"`
 	RPICameraDenoise           string    `json:"rpiCameraDenoise"`
-	RPICameraShutter           int       `json:"rpiCameraShutter"`
+	RPICameraShutter           uint      `json:"rpiCameraShutter"`
 	RPICameraMetering          string    `json:"rpiCameraMetering"`
 	RPICameraGain              float64   `json:"rpiCameraGain"`
 	RPICameraEV                float64   `json:"rpiCameraEV"`
@@ -152,17 +152,19 @@ type Path struct {
 	RPICameraTuningFile        string    `json:"rpiCameraTuningFile"`
 	RPICameraMode              string    `json:"rpiCameraMode"`
 	RPICameraFPS               float64   `json:"rpiCameraFPS"`
-	RPICameraIDRPeriod         int       `json:"rpiCameraIDRPeriod"`
-	RPICameraBitrate           int       `json:"rpiCameraBitrate"`
-	RPICameraProfile           string    `json:"rpiCameraProfile"`
-	RPICameraLevel             string    `json:"rpiCameraLevel"`
 	RPICameraAfMode            string    `json:"rpiCameraAfMode"`
 	RPICameraAfRange           string    `json:"rpiCameraAfRange"`
 	RPICameraAfSpeed           string    `json:"rpiCameraAfSpeed"`
 	RPICameraLensPosition      float64   `json:"rpiCameraLensPosition"`
 	RPICameraAfWindow          string    `json:"rpiCameraAfWindow"`
+	RPICameraFlickerPeriod     uint      `json:"rpiCameraFlickerPeriod"`
 	RPICameraTextOverlayEnable bool      `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string    `json:"rpiCameraTextOverlay"`
+	RPICameraCodec             string    `json:"rpiCameraCodec"`
+	RPICameraIDRPeriod         uint      `json:"rpiCameraIDRPeriod"`
+	RPICameraBitrate           uint      `json:"rpiCameraBitrate"`
+	RPICameraProfile           string    `json:"rpiCameraProfile"`
+	RPICameraLevel             string    `json:"rpiCameraLevel"`
 
 	// Hooks
 	RunOnInit                  string         `json:"runOnInit"`
@@ -210,14 +212,15 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraDenoise = "off"
 	pconf.RPICameraMetering = "centre"
 	pconf.RPICameraFPS = 30
-	pconf.RPICameraIDRPeriod = 60
-	pconf.RPICameraBitrate = 1000000
-	pconf.RPICameraProfile = "main"
-	pconf.RPICameraLevel = "4.1"
 	pconf.RPICameraAfMode = "continuous"
 	pconf.RPICameraAfRange = "normal"
 	pconf.RPICameraAfSpeed = "normal"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
+	pconf.RPICameraCodec = "auto"
+	pconf.RPICameraIDRPeriod = 60
+	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraProfile = "main"
+	pconf.RPICameraLevel = "4.1"
 
 	// Hooks
 	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
@@ -548,6 +551,11 @@ func (pconf *Path) validate(
 	case "normal", "fast":
 	default:
 		return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
+	}
+	switch pconf.RPICameraCodec {
+	case "auto", "hardwareH264", "softwareH264":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraCodec' value")
 	}
 
 	// Hooks

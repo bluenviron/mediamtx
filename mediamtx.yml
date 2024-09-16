@@ -121,6 +121,8 @@ authHTTPExclude:
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:
+# name of the claim that contains permissions.
+authJWTClaimKey: mediamtx_permissions
 
 ###############################################
 # Global settings -> Control API
@@ -508,62 +510,54 @@ pathDefaults:
 
   # ID of the camera
   rpiCameraCamID: 0
-  # width of frames
+  # Width of frames
   rpiCameraWidth: 1920
-  # height of frames
+  # Height of frames
   rpiCameraHeight: 1080
-  # flip horizontally
+  # Flip horizontally
   rpiCameraHFlip: false
-  # flip vertically
+  # Flip vertically
   rpiCameraVFlip: false
-  # brightness [-1, 1]
+  # Brightness [-1, 1]
   rpiCameraBrightness: 0
-  # contrast [0, 16]
+  # Contrast [0, 16]
   rpiCameraContrast: 1
-  # saturation [0, 16]
+  # Saturation [0, 16]
   rpiCameraSaturation: 1
-  # sharpness [0, 16]
+  # Sharpness [0, 16]
   rpiCameraSharpness: 1
-  # exposure mode.
+  # Exposure mode.
   # values: normal, short, long, custom
   rpiCameraExposure: normal
-  # auto-white-balance mode.
+  # Auto-white-balance mode.
   # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom
   rpiCameraAWB: auto
-  # auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
+  # Auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
   # format: [red,blue]
   rpiCameraAWBGains: [0, 0]
-  # denoise operating mode.
+  # Denoise operating mode.
   # values: off, cdn_off, cdn_fast, cdn_hq
   rpiCameraDenoise: "off"
-  # fixed shutter speed, in microseconds.
+  # Fixed shutter speed, in microseconds.
   rpiCameraShutter: 0
-  # metering mode of the AEC/AGC algorithm.
+  # Metering mode of the AEC/AGC algorithm.
   # values: centre, spot, matrix, custom
   rpiCameraMetering: centre
-  # fixed gain
+  # Fixed gain
   rpiCameraGain: 0
   # EV compensation of the image [-10, 10]
   rpiCameraEV: 0
   # Region of interest, in format x,y,width,height
   rpiCameraROI:
-  # whether to enable HDR on Raspberry Camera 3.
+  # Whether to enable HDR on Raspberry Camera 3.
   rpiCameraHDR: false
-  # tuning file
+  # Tuning file
   rpiCameraTuningFile:
-  # sensor mode, in format [width]:[height]:[bit-depth]:[packing]
+  # Sensor mode, in format [width]:[height]:[bit-depth]:[packing]
   # bit-depth and packing are optional.
   rpiCameraMode:
   # frames per second
   rpiCameraFPS: 30
-  # period between IDR frames
-  rpiCameraIDRPeriod: 60
-  # bitrate
-  rpiCameraBitrate: 1000000
-  # H264 profile
-  rpiCameraProfile: main
-  # H264 level
-  rpiCameraLevel: '4.1'
   # Autofocus mode
   # values: auto, manual, continuous
   rpiCameraAfMode: continuous
@@ -582,11 +576,23 @@ pathDefaults:
   # Specifies the autofocus window, in the form x,y,width,height where the coordinates
   # are given as a proportion of the entire image.
   rpiCameraAfWindow:
-  # enables printing text on each frame.
+  # Manual flicker correction period, in microseconds.
+  rpiCameraFlickerPeriod: 0
+  # Enables printing text on each frame.
   rpiCameraTextOverlayEnable: false
-  # text that is printed on each frame.
+  # Text that is printed on each frame.
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
+  # Codec. Available values: auto, hardwareH264, softwareH264
+  rpiCameraCodec: auto
+  # Period between IDR frames
+  rpiCameraIDRPeriod: 60
+  # Bitrate
+  rpiCameraBitrate: 1000000
+  # H264 profile
+  rpiCameraProfile: main
+  # H264 level
+  rpiCameraLevel: '4.1'
 
   ###############################################
   # Default path settings -> Hooks

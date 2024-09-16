@@ -87,6 +87,8 @@ components:
             $ref: '#/components/schemas/AuthInternalUserPermission'
         authJWTJWKS:
           type: string
+        authJWTClaimKey:
+          type: string
 
         # Control API
         api:
@@ -402,14 +404,6 @@ components:
           type: string
         rpiCameraFPS:
           type: number
-        rpiCameraIDRPeriod:
-          type: integer
-        rpiCameraBitrate:
-          type: integer
-        rpiCameraProfile:
-          type: string
-        rpiCameraLevel:
-          type: string
         rpiCameraAfMode:
           type: string
         rpiCameraAfRange:
@@ -420,9 +414,21 @@ components:
           type: number
         rpiCameraAfWindow:
           type: string
+        rpiCameraFlickerPeriod:
+          type: integer
         rpiCameraTextOverlayEnable:
           type: boolean
         rpiCameraTextOverlay:
+          type: string
+        rpiCameraCodec:
+          type: string
+        rpiCameraIDRPeriod:
+          type: integer
+        rpiCameraBitrate:
+          type: integer
+        rpiCameraProfile:
+          type: string
+        rpiCameraLevel:
           type: string
 
         # Hooks

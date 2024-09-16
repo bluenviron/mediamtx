@@ -24,6 +24,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RPICameraSaturation = newPathConf.RPICameraSaturation
 	clone.RPICameraSharpness = newPathConf.RPICameraSharpness
 	clone.RPICameraExposure = newPathConf.RPICameraExposure
+	clone.RPICameraFlickerPeriod = newPathConf.RPICameraFlickerPeriod
 	clone.RPICameraAWB = newPathConf.RPICameraAWB
 	clone.RPICameraAWBGains = newPathConf.RPICameraAWBGains
 	clone.RPICameraDenoise = newPathConf.RPICameraDenoise
@@ -99,9 +100,9 @@ func (pm *pathManager) initialize() {
 	pm.chAPIPathsList = make(chan pathAPIPathsListReq)
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 
-	for pathConfName, pathConf := range pm.pathConfs {
+	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
-			pm.createPath(pathConfName, pathConf, pathConfName, nil)
+			pm.createPath(pathConf, pathConf.Name, nil)
 		}
 	}
 
@@ -201,7 +202,7 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 	// add new paths
 	for pathConfName, pathConf := range pm.pathConfs {
 		if _, ok := pm.paths[pathConfName]; !ok && pathConf.Regexp == nil {
-			pm.createPath(pathConfName, pathConf, pathConfName, nil)
+			pm.createPath(pathConf, pathConfName, nil)
 		}
 	}
 }
@@ -230,7 +231,7 @@ func (pm *pathManager) doPathNotReady(pa *path) {
 }
 
 func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
-	_, pathConf, _, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, _, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
 	if err != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err}
 		return
@@ -246,7 +247,7 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 }
 
 func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
-	pathConfName, pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
 	if err != nil {
 		req.Res <- defs.PathDescribeRes{Err: err}
 		return
@@ -260,14 +261,14 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 
 	// create path if it doesn't exist
 	if _, ok := pm.paths[req.AccessRequest.Name]; !ok {
-		pm.createPath(pathConfName, pathConf, req.AccessRequest.Name, pathMatches)
+		pm.createPath(pathConf, req.AccessRequest.Name, pathMatches)
 	}
 
 	req.Res <- defs.PathDescribeRes{Path: pm.paths[req.AccessRequest.Name]}
 }
 
 func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
-	pathConfName, pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
 	if err != nil {
 		req.Res <- defs.PathAddReaderRes{Err: err}
 		return
@@ -283,14 +284,14 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 
 	// create path if it doesn't exist
 	if _, ok := pm.paths[req.AccessRequest.Name]; !ok {
-		pm.createPath(pathConfName, pathConf, req.AccessRequest.Name, pathMatches)
+		pm.createPath(pathConf, req.AccessRequest.Name, pathMatches)
 	}
 
 	req.Res <- defs.PathAddReaderRes{Path: pm.paths[req.AccessRequest.Name]}
 }
 
 func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
-	pathConfName, pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
 	if err != nil {
 		req.Res <- defs.PathAddPublisherRes{Err: err}
 		return
@@ -306,7 +307,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	// create path if it doesn't exist
 	if _, ok := pm.paths[req.AccessRequest.Name]; !ok {
-		pm.createPath(pathConfName, pathConf, req.AccessRequest.Name, pathMatches)
+		pm.createPath(pathConf, req.AccessRequest.Name, pathMatches)
 	}
 
 	req.Res <- defs.PathAddPublisherRes{Path: pm.paths[req.AccessRequest.Name]}
@@ -333,7 +334,6 @@ func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 }
 
 func (pm *pathManager) createPath(
-	pathConfName string,
 	pathConf *conf.Path,
 	name string,
 	matches []string,
@@ -346,7 +346,6 @@ func (pm *pathManager) createPath(
 		writeTimeout:      pm.writeTimeout,
 		writeQueueSize:    pm.writeQueueSize,
 		udpMaxPayloadSize: pm.udpMaxPayloadSize,
-		confName:          pathConfName,
 		conf:              pathConf,
 		name:              name,
 		matches:           matches,
@@ -358,16 +357,16 @@ func (pm *pathManager) createPath(
 
 	pm.paths[name] = pa
 
-	if _, ok := pm.pathsByConf[pathConfName]; !ok {
-		pm.pathsByConf[pathConfName] = make(map[*path]struct{})
+	if _, ok := pm.pathsByConf[pathConf.Name]; !ok {
+		pm.pathsByConf[pathConf.Name] = make(map[*path]struct{})
 	}
-	pm.pathsByConf[pathConfName][pa] = struct{}{}
+	pm.pathsByConf[pathConf.Name][pa] = struct{}{}
 }
 
 func (pm *pathManager) removePath(pa *path) {
-	delete(pm.pathsByConf[pa.confName], pa)
-	if len(pm.pathsByConf[pa.confName]) == 0 {
-		delete(pm.pathsByConf, pa.confName)
+	delete(pm.pathsByConf[pa.conf.Name], pa)
+	if len(pm.pathsByConf[pa.conf.Name]) == 0 {
+		delete(pm.pathsByConf, pa.conf.Name)
 	}
 	delete(pm.paths, pa.name)
 }

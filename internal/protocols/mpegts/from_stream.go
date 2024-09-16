@@ -13,6 +13,7 @@ import (
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -21,16 +22,18 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
-// FromStream links a server stream to a MPEG-TS writer.
+// FromStream maps a MediaMTX stream to a MPEG-TS writer.
 func FromStream(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 	bw *bufio.Writer,
 	sconn srt.Conn,
 	writeTimeout time.Duration,
+	l logger.Writer,
 ) error {
 	var w *mcmpegts.Writer
 	var tracks []*mcmpegts.Track
+	var skippedFormats []format.Format
 
 	addTrack := func(codec mcmpegts.Codec) *mcmpegts.Track {
 		track := &mcmpegts.Track{
@@ -246,12 +249,19 @@ func FromStream(
 					}
 					return bw.Flush()
 				})
+
+			default:
+				skippedFormats = append(skippedFormats, forma)
 			}
 		}
 	}
 
 	if len(tracks) == 0 {
-		return ErrNoTracks
+		return errNoSupportedCodecs
+	}
+
+	for _, forma := range skippedFormats {
+		l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
 	}
 
 	w = mcmpegts.NewWriter(bw, tracks)
