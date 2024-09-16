@@ -37,13 +37,13 @@ githubcontainer:
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(GITHUB_REPOSITORY):latest-ffmpeg-c-2 \
+	-t $(GITHUB_REPOSITORY):latest-ffmpeg-c-3 \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(GITHUB_REPOSITORY):latest-c-2 \
+	-t $(GITHUB_REPOSITORY):latest-c-3 \
 	--push
 
 	docker buildx rm builder
