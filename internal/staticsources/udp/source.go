@@ -119,7 +119,7 @@ func (s *Source) runReader(pc net.PacketConn) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegts.ToStream(r, &stream)
+	medias, err := mpegts.ToStream(r, &stream, s)
 	if err != nil {
 		return err
 	}

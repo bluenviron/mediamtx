@@ -32,6 +32,7 @@ func TestOnList(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
+				Name:       "mypath",
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
@@ -78,10 +79,14 @@ func TestOnList(t *testing.T) {
 		map[string]interface{}{
 			"duration": float64(65),
 			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+			"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
+				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 		map[string]interface{}{
 			"duration": float64(3),
 			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+			"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
+				url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
 }
@@ -102,6 +107,7 @@ func TestOnListDifferentInit(t *testing.T) {
 		ReadTimeout: conf.StringDuration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
+				Name:       "mypath",
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
@@ -136,10 +142,14 @@ func TestOnListDifferentInit(t *testing.T) {
 		map[string]interface{}{
 			"duration": float64(62),
 			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+			"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
+				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 		map[string]interface{}{
 			"duration": float64(1),
 			"start":    time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+			"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
+				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
 }

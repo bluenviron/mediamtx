@@ -4,13 +4,14 @@ go 1.22
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
-	github.com/MicahParks/jwkset v0.5.18
-	github.com/MicahParks/keyfunc/v3 v3.3.3
+	github.com/MicahParks/jwkset v0.5.19
+	github.com/MicahParks/keyfunc/v3 v3.3.5
 	github.com/abema/go-mp4 v1.2.0
-	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong v1.2.1
+	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib v1.4.0
-	github.com/bluenviron/gortsplib/v4 v4.10.3
-	github.com/bluenviron/mediacommon v1.12.2
+	github.com/bluenviron/gortsplib/v4 v4.10.6
+	github.com/bluenviron/mediacommon v1.12.4
 	github.com/datarhei/gosrt v0.7.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.0
@@ -19,7 +20,7 @@ require (
 	github.com/gookit/color v1.5.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/matthewhartstonge/argon2 v1.0.0
+	github.com/matthewhartstonge/argon2 v1.0.1
 	github.com/pion/ice/v2 v2.3.24
 	github.com/pion/interceptor v0.1.30
 	github.com/pion/logging v0.2.2
@@ -28,15 +29,14 @@ require (
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/crypto v0.25.0
-	golang.org/x/sys v0.23.0
-	golang.org/x/term v0.23.0
+	golang.org/x/crypto v0.27.0
+	golang.org/x/sys v0.25.0
+	golang.org/x/term v0.24.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/asticode/go-astikit v0.30.0 // indirect
-	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
@@ -70,8 +70,8 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/net v0.29.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

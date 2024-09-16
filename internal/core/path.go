@@ -17,7 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/record"
+	"github.com/bluenviron/mediamtx/internal/recorder"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -71,7 +71,6 @@ type path struct {
 	writeTimeout      conf.StringDuration
 	writeQueueSize    int
 	udpMaxPayloadSize int
-	confName          string
 	conf              *conf.Path
 	name              string
 	matches           []string
@@ -85,7 +84,7 @@ type path struct {
 	source                         defs.Source
 	publisherQuery                 string
 	stream                         *stream.Stream
-	recordAgent                    *record.Agent
+	recorder                       *recorder.Recorder
 	readyTime                      time.Time
 	onUnDemandHook                 func(string)
 	onNotReadyHook                 func()
@@ -368,12 +367,12 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	}
 
 	if pa.conf.Record {
-		if pa.stream != nil && pa.recordAgent == nil {
+		if pa.stream != nil && pa.recorder == nil {
 			pa.startRecording()
 		}
-	} else if pa.recordAgent != nil {
-		pa.recordAgent.Close()
-		pa.recordAgent = nil
+	} else if pa.recorder != nil {
+		pa.recorder.Close()
+		pa.recorder = nil
 	}
 }
 
@@ -572,7 +571,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
 			Name:     pa.name,
-			ConfName: pa.confName,
+			ConfName: pa.conf.Name,
 			Source: func() *defs.APIPathSourceOrReader {
 				if pa.source == nil {
 					return nil
@@ -765,9 +764,9 @@ func (pa *path) setNotReady() {
 
 	pa.onNotReadyHook()
 
-	if pa.recordAgent != nil {
-		pa.recordAgent.Close()
-		pa.recordAgent = nil
+	if pa.recorder != nil {
+		pa.recorder.Close()
+		pa.recorder = nil
 	}
 
 	if pa.stream != nil {
@@ -777,7 +776,7 @@ func (pa *path) setNotReady() {
 }
 
 func (pa *path) startRecording() {
-	pa.recordAgent = &record.Agent{
+	pa.recorder = &recorder.Recorder{
 		WriteQueueSize:  pa.writeQueueSize,
 		PathFormat:      pa.conf.RecordPath,
 		Format:          pa.conf.RecordFormat,
@@ -816,7 +815,7 @@ func (pa *path) startRecording() {
 		},
 		Parent: pa,
 	}
-	pa.recordAgent.Initialize()
+	pa.recorder.Initialize()
 }
 
 func (pa *path) executeRemoveReader(r defs.Reader) {

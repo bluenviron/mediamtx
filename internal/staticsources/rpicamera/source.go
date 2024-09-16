@@ -10,13 +10,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/rpicamera"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) rpicamera.Params {
-	return rpicamera.Params{
+func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
+	return params{
 		LogLevel: func() string {
 			switch logLevel {
 			case conf.LogLevel(logger.Debug):
@@ -51,17 +50,19 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) rpicamera.Params {
 		TuningFile:        cnf.RPICameraTuningFile,
 		Mode:              cnf.RPICameraMode,
 		FPS:               cnf.RPICameraFPS,
-		IDRPeriod:         cnf.RPICameraIDRPeriod,
-		Bitrate:           cnf.RPICameraBitrate,
-		Profile:           cnf.RPICameraProfile,
-		Level:             cnf.RPICameraLevel,
 		AfMode:            cnf.RPICameraAfMode,
 		AfRange:           cnf.RPICameraAfRange,
 		AfSpeed:           cnf.RPICameraAfSpeed,
 		LensPosition:      cnf.RPICameraLensPosition,
 		AfWindow:          cnf.RPICameraAfWindow,
+		FlickerPeriod:     cnf.RPICameraFlickerPeriod,
 		TextOverlayEnable: cnf.RPICameraTextOverlayEnable,
 		TextOverlay:       cnf.RPICameraTextOverlay,
+		Codec:             cnf.RPICameraCodec,
+		IDRPeriod:         cnf.RPICameraIDRPeriod,
+		Bitrate:           cnf.RPICameraBitrate,
+		Profile:           cnf.RPICameraProfile,
+		Level:             cnf.RPICameraLevel,
 	}
 }
 
@@ -110,15 +111,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		})
 	}
 
-	cam := &rpicamera.RPICamera{
+	cam := &camera{
 		Params: paramsFromConf(s.LogLevel, params.Conf),
 		OnData: onData,
 	}
-	err := cam.Initialize()
+	err := cam.initialize()
 	if err != nil {
 		return err
 	}
-	defer cam.Close()
+	defer cam.close()
 
 	defer func() {
 		if stream != nil {
@@ -129,7 +130,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	for {
 		select {
 		case cnf := <-params.ReloadConf:
-			cam.ReloadParams(paramsFromConf(s.LogLevel, cnf))
+			cam.reloadParams(paramsFromConf(s.LogLevel, cnf))
 
 		case <-params.Context.Done():
 			return nil

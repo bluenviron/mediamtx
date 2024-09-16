@@ -69,14 +69,15 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraDenoise:           "off",
 			RPICameraMetering:          "centre",
 			RPICameraFPS:               30,
-			RPICameraIDRPeriod:         60,
-			RPICameraBitrate:           1000000,
-			RPICameraProfile:           "main",
-			RPICameraLevel:             "4.1",
 			RPICameraAfMode:            "continuous",
 			RPICameraAfRange:           "normal",
 			RPICameraAfSpeed:           "normal",
 			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
+			RPICameraCodec:             "auto",
+			RPICameraIDRPeriod:         60,
+			RPICameraBitrate:           1000000,
+			RPICameraProfile:           "main",
+			RPICameraLevel:             "4.1",
 			RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
 			RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
 		}, pa)
@@ -259,9 +260,25 @@ func TestConfErrors(t *testing.T) {
 		err  string
 	}{
 		{
+			"duplicate parameter",
+			"paths:\n" +
+				"paths:\n",
+			"yaml: unmarshal errors:\n  line 2: key \"paths\" already set in map",
+		},
+		{
 			"non existent parameter 1",
 			`invalid: param`,
 			"json: unknown field \"invalid\"",
+		},
+		{
+			"invalid readTimeout",
+			"readTimeout: 0s\n",
+			"'readTimeout' must be greater than zero",
+		},
+		{
+			"invalid writeTimeout",
+			"writeTimeout: 0s\n",
+			"'writeTimeout' must be greater than zero",
 		},
 		{
 			"invalid writeQueueSize",
@@ -349,6 +366,13 @@ func TestConfErrors(t *testing.T) {
 				"    recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S",
 			`record path './recordings/%path/%Y-%m-%d_%H-%M-%S' is missing one of the` +
 				` mandatory elements for the playback server to work: %Y %m %d %H %M %S %f`,
+		},
+		{
+			"jwt claim key empty",
+			"authMethod: jwt\n" +
+				"authJWTJWKS: https://not-real.com\n" +
+				"authJWTClaimKey: \"\"",
+			"'authJWTClaimKey' is empty",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

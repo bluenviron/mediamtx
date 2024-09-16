@@ -31,7 +31,6 @@ import (
 
 const (
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
-	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 )
 
 // ErrSessionNotFound is returned when a session is not found.

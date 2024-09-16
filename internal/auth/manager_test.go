@@ -327,7 +327,7 @@ func TestAuthJWT(t *testing.T) {
 
 	type customClaims struct {
 		jwt.RegisteredClaims
-		MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
+		MediaMTXPermissions []conf.AuthInternalUserPermission `json:"my_permission_key"`
 	}
 
 	claims := customClaims{
@@ -351,8 +351,9 @@ func TestAuthJWT(t *testing.T) {
 	require.NoError(t, err)
 
 	m := Manager{
-		Method:  conf.AuthMethodJWT,
-		JWTJWKS: "http://localhost:4567/jwks",
+		Method:      conf.AuthMethodJWT,
+		JWTJWKS:     "http://localhost:4567/jwks",
+		JWTClaimKey: "my_permission_key",
 	}
 
 	err = m.Authenticate(&Request{

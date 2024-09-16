@@ -595,6 +595,7 @@ func TestRecordingsList(t *testing.T) {
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
 		"paths:\n"+
+		"  mypath1:\n"+
 		"  all_others:\n")
 
 	api := API{

@@ -216,7 +216,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegts.ToStream(r, &stream)
+	medias, err := mpegts.ToStream(r, &stream, c)
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 	}
 
 	for {
-		err := r.Read()
+		err = r.Read()
 		if err != nil {
 			return err
 		}
@@ -285,12 +285,11 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
-
 	defer stream.RemoveReader(writer)
 
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))
 
-	err = mpegts.FromStream(stream, writer, bw, sconn, time.Duration(c.writeTimeout))
+	err = mpegts.FromStream(stream, writer, bw, sconn, time.Duration(c.writeTimeout), c)
 	if err != nil {
 		return err
 	}
@@ -318,7 +317,7 @@ func (c *conn) runRead(streamID *streamID) error {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err := <-writer.Error():
+	case err = <-writer.Error():
 		return err
 	}
 }

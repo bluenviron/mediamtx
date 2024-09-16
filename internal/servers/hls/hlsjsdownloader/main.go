@@ -20,7 +20,6 @@ func do() error {
 	if err != nil {
 		return err
 	}
-
 	version := strings.TrimSpace(string(buf))
 
 	log.Printf("downloading hls.js version %s...", version)
@@ -40,13 +39,14 @@ func do() error {
 		return err
 	}
 
-	hashBuf, err := os.ReadFile("./hlsjsdownloader/HASH")
+	buf, err = os.ReadFile("./hlsjsdownloader/HASH")
 	if err != nil {
 		return err
 	}
-	hash := make([]byte, hex.DecodedLen(len(hashBuf)))
+	str := strings.TrimSpace(string(buf))
 
-	if _, err = hex.Decode(hash, bytes.TrimSpace(hashBuf)); err != nil {
+	hash, err := hex.DecodeString(str)
+	if err != nil {
 		return err
 	}
 
