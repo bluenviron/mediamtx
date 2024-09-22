@@ -3,7 +3,7 @@ package hls
 import (
 	"testing"
 
-	"github.com/bluenviron/gohlslib"
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/stretchr/testify/require"
 )
 

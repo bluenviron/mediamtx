@@ -9,7 +9,7 @@ require (
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v1.2.1
 	github.com/asticode/go-astits v1.13.0
-	github.com/bluenviron/gohlslib v1.4.0
+	github.com/bluenviron/gohlslib/v2 v2.0.0-20241003172246-076f27fbe0f8
 	github.com/bluenviron/gortsplib/v4 v4.10.6
 	github.com/bluenviron/mediacommon v1.12.4
 	github.com/datarhei/gosrt v0.7.0

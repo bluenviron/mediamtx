@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bluenviron/gohlslib"
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -42,12 +42,15 @@ func (mi *muxerInstance) initialize() error {
 	}
 
 	mi.hmuxer = &gohlslib.Muxer{
-		Variant:         gohlslib.MuxerVariant(mi.variant),
-		SegmentCount:    mi.segmentCount,
-		SegmentDuration: time.Duration(mi.segmentDuration),
-		PartDuration:    time.Duration(mi.partDuration),
-		SegmentMaxSize:  uint64(mi.segmentMaxSize),
-		Directory:       muxerDirectory,
+		Variant:            gohlslib.MuxerVariant(mi.variant),
+		SegmentCount:       mi.segmentCount,
+		SegmentMinDuration: time.Duration(mi.segmentDuration),
+		PartMinDuration:    time.Duration(mi.partDuration),
+		SegmentMaxSize:     uint64(mi.segmentMaxSize),
+		Directory:          muxerDirectory,
+		OnEncodeError: func(err error) {
+			mi.Log(logger.Warn, err.Error())
+		},
 	}
 
 	err := hls.FromStream(mi.stream, mi.writer, mi.hmuxer, mi)
