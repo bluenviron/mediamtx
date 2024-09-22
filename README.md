@@ -1230,12 +1230,12 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
 
 7. Open tab _Client scopes_, _Add client scope_, Select `mediamtx`, Add, Default
 
-8. Open page _Users_, _Create user_, Username `testuser`, Tab credentials, _Set password_, pick a password, Save
+8. Open page _Users_, _Add user_, Username `testuser`, Tab credentials, _Set password_, pick a password, Save
 
 9. Open tab _Attributes_, _Add an attribute_
 
    * Key: `mediamtx_permissions`
-   * Value: `{"action":"publish", "paths": "all"}`
+   * Value: `{"action":"publish", "path": ""}`
 
    You can add as many attributes with key `mediamtx_permissions` as you want, each with a single permission in it
 
