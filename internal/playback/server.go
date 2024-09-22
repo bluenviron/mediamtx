@@ -2,7 +2,6 @@
 package playback
 
 import (
-	"errors"
 	"net"
 	"net/http"
 	"sync"
@@ -119,27 +118,21 @@ func (s *Server) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
 	err := s.AuthManager.Authenticate(&auth.Request{
-		User:   user,
-		Pass:   pass,
-		Query:  ctx.Request.URL.RawQuery,
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionPlayback,
-		Path:   pathName,
+		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:      conf.AuthActionPlayback,
+		Path:        pathName,
+		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
-		if !hasCredentials {
+		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return false
 		}
 
-		var terr auth.Error
-		errors.As(err, &terr)
-
-		s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
+		s.Log(logger.Info, "connection %v failed to authenticate: %v",
+			httpp.RemoteAddr(ctx), err.(*auth.Error).Message) //nolint:errorlint
 
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)

@@ -284,17 +284,13 @@ func (a *API) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
 	err := a.AuthManager.Authenticate(&auth.Request{
-		User:   user,
-		Pass:   pass,
-		Query:  ctx.Request.URL.RawQuery,
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionAPI,
+		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:      conf.AuthActionAPI,
+		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
-		if !hasCredentials {
+		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return

@@ -133,14 +133,12 @@ type webRTCNewSessionRes struct {
 }
 
 type webRTCNewSessionReq struct {
-	pathName   string
-	remoteAddr string
-	query      string
-	user       string
-	pass       string
-	offer      []byte
-	publish    bool
-	res        chan webRTCNewSessionRes
+	pathName    string
+	remoteAddr  string
+	offer       []byte
+	publish     bool
+	httpRequest *http.Request
+	res         chan webRTCNewSessionRes
 }
 
 type webRTCAddSessionCandidatesRes struct {

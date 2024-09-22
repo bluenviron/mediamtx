@@ -106,8 +106,6 @@ func TestServerNotFound(t *testing.T) {
 			pm := &dummyPathManager{
 				findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					require.Equal(t, "myuser", req.AccessRequest.User)
-					require.Equal(t, "mypass", req.AccessRequest.Pass)
 					return &conf.Path{}, nil
 				},
 				addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -181,8 +179,6 @@ func TestServerRead(t *testing.T) {
 		pm := &dummyPathManager{
 			findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "mystream", req.AccessRequest.Name)
-				require.Equal(t, "myuser", req.AccessRequest.User)
-				require.Equal(t, "mypass", req.AccessRequest.Pass)
 				return &conf.Path{}, nil
 			},
 			addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -277,8 +273,6 @@ func TestServerRead(t *testing.T) {
 		pm := &dummyPathManager{
 			findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "mystream", req.AccessRequest.Name)
-				require.Equal(t, "myuser", req.AccessRequest.User)
-				require.Equal(t, "mypass", req.AccessRequest.Pass)
 				return &conf.Path{}, nil
 			},
 			addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -372,8 +366,7 @@ func TestServerReadAuthorizationHeader(t *testing.T) {
 	require.NoError(t, err)
 
 	pm := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "jwt=testing", req.AccessRequest.Query)
+		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 		addReader: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {

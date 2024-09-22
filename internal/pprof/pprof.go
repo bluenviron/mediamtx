@@ -92,17 +92,13 @@ func (pp *PPROF) onRequest(ctx *gin.Context) {
 		return
 	}
 
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
 	err := pp.AuthManager.Authenticate(&auth.Request{
-		User:   user,
-		Pass:   pass,
-		Query:  ctx.Request.URL.RawQuery,
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionMetrics,
+		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:      conf.AuthActionMetrics,
+		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
-		if !hasCredentials {
+		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return

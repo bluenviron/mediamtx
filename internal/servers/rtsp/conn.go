@@ -139,7 +139,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	})
 
 	if res.Err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(res.Err, &terr) {
 			res, err := c.handleAuthError(terr)
 			return res, nil, err

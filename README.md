@@ -1188,7 +1188,7 @@ The JWT is expected to contain a claim, with a list of permissions in the same f
 }
 ```
 
-Clients are expected to pass the JWT in the Authorization header (in case of HLS and WebRTC) or in query parameters (in case of all other protocols), for instance:
+Clients are expected to pass the JWT in the Authorization header (in case of HLS, WebRTC and all web-based features) or in query parameters (in case of all other protocols), for instance:
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?jwt=MY_JWT

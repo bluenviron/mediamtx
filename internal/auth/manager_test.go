@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -186,6 +187,37 @@ func TestAuthInternalRTSPDigest(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAuthInternalCredentialsInBearer(t *testing.T) {
+	m := Manager{
+		Method: conf.AuthMethodInternal,
+		InternalUsers: []conf.AuthInternalUser{
+			{
+				User: "myuser",
+				Pass: "mypass",
+				IPs:  conf.IPNetworks{mustParseCIDR("127.1.1.1/32")},
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+					Path:   "mypath",
+				}},
+			},
+		},
+		HTTPAddress:     "",
+		RTSPAuthMethods: []auth.ValidateMethod{auth.ValidateMethodDigestMD5},
+	}
+
+	err := m.Authenticate(&Request{
+		IP:       net.ParseIP("127.1.1.1"),
+		Action:   conf.AuthActionPublish,
+		Path:     "mypath",
+		Protocol: ProtocolRTSP,
+		HTTPRequest: &http.Request{
+			Header: http.Header{"Authorization": []string{"Bearer myuser:mypass"}},
+			URL:    &url.URL{},
+		},
+	})
+	require.NoError(t, err)
+}
+
 func TestAuthHTTP(t *testing.T) {
 	for _, outcome := range []string{"ok", "fail"} {
 		t.Run(outcome, func(t *testing.T) {
@@ -292,78 +324,93 @@ func TestAuthJWT(t *testing.T) {
 	// taken from
 	// https://github.com/MicahParks/jwkset/blob/master/examples/http_server/main.go
 
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
-	require.NoError(t, err)
+	for _, ca := range []string{"query", "auth header"} {
+		t.Run(ca, func(t *testing.T) {
+			key, err := rsa.GenerateKey(rand.Reader, 1024)
+			require.NoError(t, err)
 
-	jwk, err := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
-		Metadata: jwkset.JWKMetadataOptions{
-			KID: "test-key-id",
-		},
-	})
-	require.NoError(t, err)
+			jwk, err := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+				Metadata: jwkset.JWKMetadataOptions{
+					KID: "test-key-id",
+				},
+			})
+			require.NoError(t, err)
 
-	jwkSet := jwkset.NewMemoryStorage()
-	err = jwkSet.KeyWrite(context.Background(), jwk)
-	require.NoError(t, err)
+			jwkSet := jwkset.NewMemoryStorage()
+			err = jwkSet.KeyWrite(context.Background(), jwk)
+			require.NoError(t, err)
 
-	httpServ := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			response, err2 := jwkSet.JSONPublic(r.Context())
-			if err2 != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
+			httpServ := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					response, err2 := jwkSet.JSONPublic(r.Context())
+					if err2 != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write(response)
+				}),
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write(response)
-		}),
+			ln, err := net.Listen("tcp", "localhost:4567")
+			require.NoError(t, err)
+
+			go httpServ.Serve(ln)
+			defer httpServ.Shutdown(context.Background())
+
+			type customClaims struct {
+				jwt.RegisteredClaims
+				MediaMTXPermissions []conf.AuthInternalUserPermission `json:"my_permission_key"`
+			}
+
+			claims := customClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "test",
+					Subject:   "somebody",
+					ID:        "1",
+				},
+				MediaMTXPermissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+					Path:   "mypath",
+				}},
+			}
+
+			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+			token.Header[jwkset.HeaderKID] = "test-key-id"
+			ss, err := token.SignedString(key)
+			require.NoError(t, err)
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     "http://localhost:4567/jwks",
+				JWTClaimKey: "my_permission_key",
+			}
+
+			if ca == "query" {
+				err = m.Authenticate(&Request{
+					IP:       net.ParseIP("127.0.0.1"),
+					Action:   conf.AuthActionPublish,
+					Path:     "mypath",
+					Protocol: ProtocolRTSP,
+					Query:    "param=value&jwt=" + ss,
+				})
+			} else {
+				err = m.Authenticate(&Request{
+					IP:       net.ParseIP("127.0.0.1"),
+					Action:   conf.AuthActionPublish,
+					Path:     "mypath",
+					Protocol: ProtocolWebRTC,
+					HTTPRequest: &http.Request{
+						Header: http.Header{"Authorization": []string{"Bearer " + ss}},
+						URL:    &url.URL{},
+					},
+				})
+			}
+			require.NoError(t, err)
+		})
 	}
-
-	ln, err := net.Listen("tcp", "localhost:4567")
-	require.NoError(t, err)
-
-	go httpServ.Serve(ln)
-	defer httpServ.Shutdown(context.Background())
-
-	type customClaims struct {
-		jwt.RegisteredClaims
-		MediaMTXPermissions []conf.AuthInternalUserPermission `json:"my_permission_key"`
-	}
-
-	claims := customClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "test",
-			Subject:   "somebody",
-			ID:        "1",
-		},
-		MediaMTXPermissions: []conf.AuthInternalUserPermission{{
-			Action: conf.AuthActionPublish,
-			Path:   "mypath",
-		}},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	token.Header[jwkset.HeaderKID] = "test-key-id"
-	ss, err := token.SignedString(key)
-	require.NoError(t, err)
-
-	m := Manager{
-		Method:      conf.AuthMethodJWT,
-		JWTJWKS:     "http://localhost:4567/jwks",
-		JWTClaimKey: "my_permission_key",
-	}
-
-	err = m.Authenticate(&Request{
-		User:     "",
-		Pass:     "",
-		IP:       net.ParseIP("127.0.0.1"),
-		Action:   conf.AuthActionPublish,
-		Path:     "mypath",
-		Protocol: ProtocolRTSP,
-		Query:    "param=value&jwt=" + ss,
-	})
-	require.NoError(t, err)
 }
