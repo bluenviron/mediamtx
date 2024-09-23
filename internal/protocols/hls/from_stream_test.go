@@ -68,9 +68,9 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		require.Equal(t, logger.Warn, l)
 		switch n {
 		case 0:
-			require.Equal(t, "skipping track with codec VP8", fmt.Sprintf(format, args...))
+			require.Equal(t, "skipping track 2 (VP8)", fmt.Sprintf(format, args...))
 		case 1:
-			require.Equal(t, "skipping track with codec MPEG-1/2 Audio", fmt.Sprintf(format, args...))
+			require.Equal(t, "skipping track 3 (MPEG-1/2 Audio)", fmt.Sprintf(format, args...))
 		}
 		n++
 	})

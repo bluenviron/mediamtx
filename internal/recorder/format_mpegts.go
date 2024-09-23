@@ -51,8 +51,8 @@ type formatMPEGTS struct {
 
 func (f *formatMPEGTS) initialize() {
 	var tracks []*mpegts.Track
-	var formats []rtspformat.Format
-	var skippedFormats []rtspformat.Format
+	var setuppedFormats []rtspformat.Format
+	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
 
 	addTrack := func(format rtspformat.Format, codec mpegts.Codec) *mpegts.Track {
 		track := &mpegts.Track{
@@ -60,7 +60,8 @@ func (f *formatMPEGTS) initialize() {
 		}
 
 		tracks = append(tracks, track)
-		formats = append(formats, format)
+		setuppedFormats = append(setuppedFormats, format)
+		setuppedFormatsMap[format] = struct{}{}
 		return track
 	}
 
@@ -303,20 +304,23 @@ func (f *formatMPEGTS) initialize() {
 						},
 					)
 				})
-
-			default:
-				skippedFormats = append(skippedFormats, forma)
 			}
 		}
 	}
 
-	if len(tracks) == 0 {
+	if len(setuppedFormats) == 0 {
 		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return
 	}
 
-	for _, forma := range skippedFormats {
-		f.ai.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+	n := 1
+	for _, medi := range f.ai.agent.Stream.Desc().Medias {
+		for _, forma := range medi.Formats {
+			if _, ok := setuppedFormatsMap[forma]; !ok {
+				f.ai.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+			}
+			n++
+		}
 	}
 
 	f.dw = &dynamicWriter{}
@@ -324,7 +328,7 @@ func (f *formatMPEGTS) initialize() {
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
 	f.ai.Log(logger.Info, "recording %s",
-		defs.FormatsInfo(formats))
+		defs.FormatsInfo(setuppedFormats))
 }
 
 func (f *formatMPEGTS) close() {

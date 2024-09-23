@@ -208,7 +208,7 @@ func ToStream(
 	}
 
 	for _, id := range unsupportedTracks {
-		l.Log(logger.Warn, "skipping track %d due to unsupported codec", id)
+		l.Log(logger.Warn, "skipping track %d (unsupported codec)", id)
 	}
 
 	return medias, nil

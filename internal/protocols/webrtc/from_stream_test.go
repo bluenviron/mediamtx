@@ -60,7 +60,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 		require.Equal(t, logger.Warn, l)
 		if n == 0 {
-			require.Equal(t, "skipping track with codec H265", fmt.Sprintf(format, args...))
+			require.Equal(t, "skipping track 2 (H265)", fmt.Sprintf(format, args...))
 		}
 		n++
 	})
