@@ -33,13 +33,14 @@ func FromStream(
 ) error {
 	var w *mcmpegts.Writer
 	var tracks []*mcmpegts.Track
-	var skippedFormats []format.Format
+	setuppedFormats := make(map[format.Format]struct{})
 
-	addTrack := func(codec mcmpegts.Codec) *mcmpegts.Track {
+	addTrack := func(forma format.Format, codec mcmpegts.Codec) *mcmpegts.Track {
 		track := &mcmpegts.Track{
 			Codec: codec,
 		}
 		tracks = append(tracks, track)
+		setuppedFormats[forma] = struct{}{}
 		return track
 	}
 
@@ -47,7 +48,7 @@ func FromStream(
 		for _, forma := range medi.Formats {
 			switch forma := forma.(type) {
 			case *format.H265: //nolint:dupl
-				track := addTrack(&mcmpegts.CodecH265{})
+				track := addTrack(forma, &mcmpegts.CodecH265{})
 
 				var dtsExtractor *h265.DTSExtractor
 
@@ -80,7 +81,7 @@ func FromStream(
 				})
 
 			case *format.H264: //nolint:dupl
-				track := addTrack(&mcmpegts.CodecH264{})
+				track := addTrack(forma, &mcmpegts.CodecH264{})
 
 				var dtsExtractor *h264.DTSExtractor
 
@@ -113,7 +114,7 @@ func FromStream(
 				})
 
 			case *format.MPEG4Video:
-				track := addTrack(&mcmpegts.CodecMPEG4Video{})
+				track := addTrack(forma, &mcmpegts.CodecMPEG4Video{})
 
 				firstReceived := false
 				var lastPTS time.Duration
@@ -140,7 +141,7 @@ func FromStream(
 				})
 
 			case *format.MPEG1Video:
-				track := addTrack(&mcmpegts.CodecMPEG1Video{})
+				track := addTrack(forma, &mcmpegts.CodecMPEG1Video{})
 
 				firstReceived := false
 				var lastPTS time.Duration
@@ -167,7 +168,7 @@ func FromStream(
 				})
 
 			case *format.Opus:
-				track := addTrack(&mcmpegts.CodecOpus{
+				track := addTrack(forma, &mcmpegts.CodecOpus{
 					ChannelCount: forma.ChannelCount,
 				})
 
@@ -191,7 +192,7 @@ func FromStream(
 					return fmt.Errorf("MPEG-4 audio tracks without explicit configuration are not supported")
 				}
 
-				track := addTrack(&mcmpegts.CodecMPEG4Audio{
+				track := addTrack(forma, &mcmpegts.CodecMPEG4Audio{
 					Config: *co,
 				})
 
@@ -210,7 +211,7 @@ func FromStream(
 				})
 
 			case *format.MPEG1Audio:
-				track := addTrack(&mcmpegts.CodecMPEG1Audio{})
+				track := addTrack(forma, &mcmpegts.CodecMPEG1Audio{})
 
 				stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
@@ -227,7 +228,7 @@ func FromStream(
 				})
 
 			case *format.AC3:
-				track := addTrack(&mcmpegts.CodecAC3{})
+				track := addTrack(forma, &mcmpegts.CodecAC3{})
 
 				sampleRate := time.Duration(forma.SampleRate)
 
@@ -249,9 +250,6 @@ func FromStream(
 					}
 					return bw.Flush()
 				})
-
-			default:
-				skippedFormats = append(skippedFormats, forma)
 			}
 		}
 	}
@@ -260,8 +258,14 @@ func FromStream(
 		return errNoSupportedCodecs
 	}
 
-	for _, forma := range skippedFormats {
-		l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+	n := 1
+	for _, medi := range stream.Desc().Medias {
+		for _, forma := range medi.Formats {
+			if _, ok := setuppedFormats[forma]; !ok {
+				l.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+			}
+			n++
+		}
 	}
 
 	w = mcmpegts.NewWriter(bw, tracks)

@@ -110,8 +110,8 @@ type formatFMP4 struct {
 
 func (f *formatFMP4) initialize() {
 	nextID := 1
-	var formats []rtspformat.Format
-	var skippedFormats []rtspformat.Format
+	var setuppedFormats []rtspformat.Format
+	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
 
 	addTrack := func(format rtspformat.Format, codec fmp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
@@ -127,7 +127,8 @@ func (f *formatFMP4) initialize() {
 		}
 
 		f.tracks = append(f.tracks, track)
-		formats = append(formats, format)
+		setuppedFormats = append(setuppedFormats, format)
+		setuppedFormatsMap[format] = struct{}{}
 		return track
 	}
 
@@ -597,9 +598,7 @@ func (f *formatFMP4) initialize() {
 
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
-				if co == nil {
-					f.ai.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
-				} else {
+				if co != nil {
 					codec := &fmp4.CodecMPEG4Audio{
 						Config: *co,
 					}
@@ -804,24 +803,27 @@ func (f *formatFMP4) initialize() {
 						ntp: tunit.NTP,
 					})
 				})
-
-			default:
-				skippedFormats = append(skippedFormats, forma)
 			}
 		}
 	}
 
-	if len(formats) == 0 {
+	if len(setuppedFormats) == 0 {
 		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return
 	}
 
-	for _, forma := range skippedFormats {
-		f.ai.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+	n := 1
+	for _, medi := range f.ai.agent.Stream.Desc().Medias {
+		for _, forma := range medi.Formats {
+			if _, ok := setuppedFormatsMap[forma]; !ok {
+				f.ai.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+			}
+			n++
+		}
 	}
 
 	f.ai.Log(logger.Info, "recording %s",
-		defs.FormatsInfo(formats))
+		defs.FormatsInfo(setuppedFormats))
 }
 
 func (f *formatFMP4) close() {

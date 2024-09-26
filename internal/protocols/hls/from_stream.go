@@ -141,7 +141,6 @@ func setupAudioTrack(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 	muxer *gohlslib.Muxer,
-	l logger.Writer,
 ) format.Format {
 	var audioFormatOpus *format.Opus
 	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
@@ -174,9 +173,7 @@ func setupAudioTrack(
 
 	if audioFormatMPEG4Audio != nil {
 		co := audioFormatMPEG4Audio.GetConfig()
-		if co == nil {
-			l.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
-		} else {
+		if co != nil {
 			stream.AddReader(writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
 				tunit := u.(*unit.MPEG4Audio)
 
@@ -224,18 +221,19 @@ func FromStream(
 		stream,
 		writer,
 		muxer,
-		l,
 	)
 
 	if videoFormat == nil && audioFormat == nil {
 		return ErrNoSupportedCodecs
 	}
 
+	n := 1
 	for _, media := range stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			if forma != videoFormat && forma != audioFormat {
-				l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+				l.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
+			n++
 		}
 	}
 

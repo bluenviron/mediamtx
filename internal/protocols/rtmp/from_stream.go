@@ -202,11 +202,13 @@ func FromStream(
 		return err
 	}
 
+	n := 1
 	for _, media := range stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			if forma != videoFormat && forma != audioFormat {
-				l.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+				l.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
+			n++
 		}
 	}
 
