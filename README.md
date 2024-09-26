@@ -447,7 +447,7 @@ If the OS is Linux-based, edit `mediamtx.yml` and replace everything inside sect
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -pix_fmt yuv420p -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
     runOnInitRestart: yes
 ```
 
@@ -456,7 +456,7 @@ If the OS is Windows:
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
     runOnInitRestart: yes
 ```
 
@@ -714,7 +714,7 @@ The resulting stream will be available in path `/proxied`.
 
 The server supports ingesting UDP/MPEG-TS packets (i.e. MPEG-TS packets sent with UDP). Packets can be unicast, broadcast or multicast. For instance, you can generate a multicast UDP/MPEG-TS stream with GStreamer:
 
-```
+```sh
 gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
 videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
@@ -722,9 +722,9 @@ audiotestsrc ! audioconvert ! avenc_aac ! mux.
 
 or FFmpeg:
 
-```
+```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
 -f mpegts udp://238.0.0.1:1234?pkt_size=1316
 ```
 
@@ -943,7 +943,7 @@ If you want to support most browsers, you can to re-encode the stream by using t
 
 ```sh
 ffmpeg -i rtsp://original-source \
--pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
 -c:a aac -b:a 160k \
 -f rtsp rtsp://localhost:8554/mystream
 ```
@@ -998,7 +998,7 @@ To decrease the latency, you can:
   * otherwise, the stream must be re-encoded. It's possible to tune the IDR frame interval by using ffmpeg's -g option:
 
     ```sh
-    ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    ffmpeg -i rtsp://original-stream -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
     ```
 
 ## Other features
@@ -1283,7 +1283,7 @@ paths:
   original:
     runOnReady: >
       ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
-        -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k
+        -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k
         -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
     runOnReadyRestart: yes
 ```
