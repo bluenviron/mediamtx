@@ -1895,10 +1895,9 @@ docker run --rm -it \
 bluenviron/mediamtx
 ```
 
-If you still have problems, maybe the UDP protocol is blocked by a firewall. Enable the local TCP listener:
+If you still have problems, the UDP protocol might be blocked by a firewall. Enable the TCP protocol by enabling the local TCP listener:
 
 ```yml
-# any port of choice
 webrtcLocalTCPAddress: :8189
 ```
 
@@ -1907,15 +1906,15 @@ If there's a NAT / container between server and clients, it must be configured t
 If you still have problems, enable a STUN server:
 
 ```yml
-# STUN servers allows to obtain and share the public IP of the server.
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 ```
 
-If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like coturn, that must be configured externally. The server address and credentials must be set in the configuration file:
+When a STUN server is in use, connections can be established with the "UDP hole punching" method, that uses a random UDP port that does not need to be open.
+
+If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 
 ```yml
-# TURN/TURNS servers forces all traffic through them.
 webrtcICEServers2:
 - url: turn:host:port
   username: user
