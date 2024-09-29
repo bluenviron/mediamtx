@@ -268,6 +268,14 @@ func (co *PeerConnection) Start() error {
 
 		switch state {
 		case webrtc.PeerConnectionStateConnected:
+			// for some reasons, PeerConnectionStateConnected can arrive twice.
+			// https://github.com/bluenviron/mediamtx/issues/3813
+			select {
+			case <-co.connected:
+				return
+			default:
+			}
+
 			co.Log.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
 				co.LocalCandidate(), co.RemoteCandidate())
 
