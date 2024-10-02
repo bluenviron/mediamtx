@@ -3,12 +3,14 @@ package recorder
 import (
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
@@ -40,6 +42,8 @@ type formatFMP4Segment struct {
 	fi      *os.File
 	curPart *formatFMP4Part
 	lastDTS time.Duration
+
+	tsFi *os.File
 }
 
 func (s *formatFMP4Segment) initialize() {
@@ -64,6 +68,10 @@ func (s *formatFMP4Segment) close() error {
 			duration := s.lastDTS - s.startDTS
 			s.f.ai.agent.OnSegmentComplete(s.path, duration)
 		}
+	}
+
+	if s.tsFi != nil {
+		s.tsFi.Close()
 	}
 
 	return err
@@ -95,6 +103,17 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample) error 
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
+	}
+
+	if s.tsFi == nil {
+		path := recordstore.Path{Start: s.startNTP}.Encode(s.f.ai.pathFormat)
+		path = strings.Replace(path, ".mp4", ".csv", 1)
+		fi, err := os.Create(path)
+		if err != nil {
+			s.tsFi = fi
+		}
+	} else {
+		s.tsFi.WriteString(sample.ntp.Format("2006-01-02T15:04:05.000000Z,\n"))
 	}
 
 	return s.curPart.write(track, sample)
