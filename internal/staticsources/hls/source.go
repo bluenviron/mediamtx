@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bluenviron/gohlslib"
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bluenviron/gohlslib"
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -32,7 +32,9 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		t.Error("should not happen")
 	})
 
-	err = FromStream(stream, writer, nil, l)
+	m := &gohlslib.Muxer{}
+
+	err = FromStream(stream, writer, m, l)
 	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 

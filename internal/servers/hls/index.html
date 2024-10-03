@@ -36,12 +36,41 @@ html, body {
 	box-sizing: border-box;
 	text-shadow: 0 0 5px black;
 }
+#lang-icon {
+	display: none;
+	position: absolute;
+	top: 20px;
+	right: 20px;
+	width: 30px;
+	height: 30px;
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0iI2ZmZiIgeG1sbnM6dj0iaHR0cHM6Ly92ZWN0YS5pby9uYW5vIj48cGF0aCBkPSJNMzguNSAzMy45bC0xLjktMS42YzIuNS0yLjkgMy44LTYuMyAzLjgtOS45IDAtMy4xLTEtNi4xLTIuOS04LjhsMi4xLTEuNWMyLjIgMy4xIDMuNCA2LjYgMy40IDEwLjItLjEgNC4zLTEuNiA4LjMtNC41IDExLjZ6TTUuNiAyMy4yaC0zYy0uNSAwLTEgLjUtMSAxLjF2MTAuNWMwIC42LjQgMS4xIDEgMS4xaDNjLjIgMCAuMyAwIC40LjFsMTMuOCA3LjhjLjYuNCAxLjQtLjIgMS40LTFWMTYuM2MwLS44LS44LTEuMy0xLjQtMUw2LjEgMjMuMWMtLjIuMS0uMy4xLS41LjF6bTIxLTE2LjlMMTIuOCAxNGMtLjEuMS0uMy4xLS40LjFoLTNjLS41IDAtMSAuNS0xIDEuMVYyMGwxMi4yLTYuOGExLjM2IDEuMzYgMCAwIDEgMS41IDBjLjUuMy44LjguOCAxLjV2MTcuOWwzLjcgMi4xYy42LjQgMS40LS4yIDEuNC0xVjcuMmMuMS0uOC0uNy0xLjMtMS40LS45em0xNi41IDMwLjJsLTEuOS0xLjZjMy4xLTMuNyA0LjctOCA0LjctMTIuNSAwLTQtMS4zLTcuOC0zLjctMTEuMmwyLjEtMS41YzIuNyAzLjggNC4yIDguMiA0LjIgMTIuNy0uMiA1LjEtMiA5LjktNS40IDE0LjF6TTM1IDMxLjFsLTItMS42YzEuNy0yLjEgMi42LTQuNiAyLjYtNy4yIDAtMi40LS44LTQuNy0yLjItNi43bDItMS41YzEuOCAyLjUgMi43IDUuMyAyLjcgOC4yIDAgMy4yLTEuMSA2LjItMy4xIDguOHoiLz48L3N2Zz4=");
+	background-size: 80%;
+	background-position: center;
+	background-repeat: no-repeat;
+	cursor: pointer;
+}
+#lang-list {
+	display: none;
+	position: absolute;
+	top: 100%;
+	right: 0;
+	background: rgb(190, 190, 190);
+	color: black;
+}
+#lang-icon:hover #lang-list {
+	display: block;
+}
+#lang-list div {
+	border-bottom: 1px solid black;
+	padding: 5px 15px;
+}
 </style>
 </head>
 <body>
 
 <video id="video"></video>
 <div id="message"></div>
+<div id="lang-icon"><div id="lang-list"></div></div>
 
 <script src="hls.min.js"></script>
 
@@ -51,6 +80,8 @@ const retryPause = 2000;
 
 const video = document.getElementById('video');
 const message = document.getElementById('message');
+const langIcon = document.getElementById('lang-icon');
+const langList = document.getElementById('lang-list');
 
 let defaultControls = false;
 
@@ -83,8 +114,11 @@ const loadStream = () => {
 			if (data.fatal) {
 				hls.destroy();
 
+				langIcon.style.display = 'none';
+				langList.innerHTML = '';
+
 				if (data.details === 'manifestIncompatibleCodecsError') {
-					setMessage('stream makes use of codecs which are incompatible with this browser or operative system');
+					setMessage('stream makes use of codecs which are not compatible with this browser or operative system');
 				} else if (data.response && data.response.code === 404) {
 					setMessage('stream not found, retrying in some seconds');
 				} else {
@@ -99,7 +133,19 @@ const loadStream = () => {
 			hls.loadSource('index.m3u8' + window.location.search);
 		});
 
-		hls.on(Hls.Events.MANIFEST_PARSED, () => {
+		hls.on(Hls.Events.MANIFEST_LOADED, () => {
+			if (hls.audioTracks.length > 1) {
+				for (const track of hls.audioTracks) {
+					const div = document.createElement('DIV');
+					div.innerText = track.name;
+					div.addEventListener('click', () => {
+						hls.audioTrack = track.id;
+					});
+					langList.appendChild(div);
+				}
+				langIcon.style.display = 'block';
+			}
+
 			setMessage('');
 			video.play();
 		});
