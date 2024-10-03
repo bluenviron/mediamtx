@@ -79,7 +79,7 @@ func (t *formatProcessorVP8) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.VP8{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

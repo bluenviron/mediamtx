@@ -88,7 +88,7 @@ func (t *formatProcessorMPEG1Video) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.MPEG1Video{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

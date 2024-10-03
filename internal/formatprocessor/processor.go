@@ -21,7 +21,7 @@ type Processor interface {
 		ntp time.Time,
 		pts time.Duration,
 		hasNonRTSPReaders bool,
-	) (Unit, error)
+	) (unit.Unit, error)
 }
 
 // New allocates a Processor.

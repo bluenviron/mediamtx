@@ -86,7 +86,7 @@ func (t *formatProcessorOpus) ProcessRTPPacket(
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.Opus{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

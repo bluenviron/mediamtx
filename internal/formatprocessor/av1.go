@@ -86,7 +86,7 @@ func (t *formatProcessorAV1) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.AV1{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
