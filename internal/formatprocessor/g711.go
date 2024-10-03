@@ -80,7 +80,7 @@ func (t *formatProcessorG711) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.G711{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

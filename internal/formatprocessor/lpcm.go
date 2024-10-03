@@ -80,7 +80,7 @@ func (t *formatProcessorLPCM) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.LPCM{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

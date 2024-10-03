@@ -37,7 +37,7 @@ func (t *formatProcessorGeneric) ProcessRTPPacket(
 	ntp time.Time,
 	pts time.Duration,
 	_ bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.Generic{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

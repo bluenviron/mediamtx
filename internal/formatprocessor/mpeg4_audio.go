@@ -82,7 +82,7 @@ func (t *formatProcessorMPEG4Audio) ProcessRTPPacket( //nolint:dupl
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.MPEG4Audio{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
