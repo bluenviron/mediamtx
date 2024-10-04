@@ -13,7 +13,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -42,7 +41,7 @@ func randUint32() (uint32, error) {
 
 func setupVideoTrack(
 	stream *stream.Stream,
-	writer *asyncwriter.Writer,
+	reader stream.Reader,
 	pc *PeerConnection,
 ) (format.Format, error) {
 	var av1Format *format.AV1
@@ -66,25 +65,29 @@ func setupVideoTrack(
 			return nil, err
 		}
 
-		stream.AddReader(writer, media, av1Format, func(u unit.Unit) error {
-			tunit := u.(*unit.AV1)
+		stream.AddReader(
+			reader,
+			media,
+			av1Format,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.AV1)
 
-			if tunit.TU == nil {
+				if tunit.TU == nil {
+					return nil
+				}
+
+				packets, err := encoder.Encode(tunit.TU)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
 				return nil
-			}
-
-			packets, err := encoder.Encode(tunit.TU)
-			if err != nil {
-				return nil //nolint:nilerr
-			}
-
-			for _, pkt := range packets {
-				pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
-
-			return nil
-		})
+			})
 
 		return av1Format, nil
 	}
@@ -112,25 +115,29 @@ func setupVideoTrack(
 			return nil, err
 		}
 
-		stream.AddReader(writer, media, vp9Format, func(u unit.Unit) error {
-			tunit := u.(*unit.VP9)
+		stream.AddReader(
+			reader,
+			media,
+			vp9Format,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.VP9)
 
-			if tunit.Frame == nil {
+				if tunit.Frame == nil {
+					return nil
+				}
+
+				packets, err := encoder.Encode(tunit.Frame)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
 				return nil
-			}
-
-			packets, err := encoder.Encode(tunit.Frame)
-			if err != nil {
-				return nil //nolint:nilerr
-			}
-
-			for _, pkt := range packets {
-				pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
-
-			return nil
-		})
+			})
 
 		return vp9Format, nil
 	}
@@ -156,25 +163,29 @@ func setupVideoTrack(
 			return nil, err
 		}
 
-		stream.AddReader(writer, media, vp8Format, func(u unit.Unit) error {
-			tunit := u.(*unit.VP8)
+		stream.AddReader(
+			reader,
+			media,
+			vp8Format,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.VP8)
 
-			if tunit.Frame == nil {
+				if tunit.Frame == nil {
+					return nil
+				}
+
+				packets, err := encoder.Encode(tunit.Frame)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
 				return nil
-			}
-
-			packets, err := encoder.Encode(tunit.Frame)
-			if err != nil {
-				return nil //nolint:nilerr
-			}
-
-			for _, pkt := range packets {
-				pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
-
-			return nil
-		})
+			})
 
 		return vp8Format, nil
 	}
@@ -204,32 +215,36 @@ func setupVideoTrack(
 		firstReceived := false
 		var lastPTS time.Duration
 
-		stream.AddReader(writer, media, h264Format, func(u unit.Unit) error {
-			tunit := u.(*unit.H264)
+		stream.AddReader(
+			reader,
+			media,
+			h264Format,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.H264)
 
-			if tunit.AU == nil {
+				if tunit.AU == nil {
+					return nil
+				}
+
+				if !firstReceived {
+					firstReceived = true
+				} else if tunit.PTS < lastPTS {
+					return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
+				}
+				lastPTS = tunit.PTS
+
+				packets, err := encoder.Encode(tunit.AU)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
 				return nil
-			}
-
-			if !firstReceived {
-				firstReceived = true
-			} else if tunit.PTS < lastPTS {
-				return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
-			}
-			lastPTS = tunit.PTS
-
-			packets, err := encoder.Encode(tunit.AU)
-			if err != nil {
-				return nil //nolint:nilerr
-			}
-
-			for _, pkt := range packets {
-				pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
-
-			return nil
-		})
+			})
 
 		return h264Format, nil
 	}
@@ -239,7 +254,7 @@ func setupVideoTrack(
 
 func setupAudioTrack(
 	stream *stream.Stream,
-	writer *asyncwriter.Writer,
+	reader stream.Reader,
 	pc *PeerConnection,
 ) (format.Format, error) {
 	var opusFormat *format.Opus
@@ -280,13 +295,17 @@ func setupAudioTrack(
 		}
 		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
-		stream.AddReader(writer, media, opusFormat, func(u unit.Unit) error {
-			for _, pkt := range u.GetRTPPackets() {
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
+		stream.AddReader(
+			reader,
+			media,
+			opusFormat,
+			func(u unit.Unit) error {
+				for _, pkt := range u.GetRTPPackets() {
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
 
-			return nil
-		})
+				return nil
+			})
 
 		return opusFormat, nil
 	}
@@ -303,13 +322,17 @@ func setupAudioTrack(
 		}
 		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
-		stream.AddReader(writer, media, g722Format, func(u unit.Unit) error {
-			for _, pkt := range u.GetRTPPackets() {
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
+		stream.AddReader(
+			reader,
+			media,
+			g722Format,
+			func(u unit.Unit) error {
+				for _, pkt := range u.GetRTPPackets() {
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
 
-			return nil
-		})
+				return nil
+			})
 
 		return g722Format, nil
 	}
@@ -378,18 +401,22 @@ func setupAudioTrack(
 				return nil, err
 			}
 
-			stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
-				for _, pkt := range u.GetRTPPackets() {
-					// recompute timestamp from scratch.
-					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-					pkt.Timestamp = curTimestamp
-					curTimestamp += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
+			stream.AddReader(
+				reader,
+				media,
+				g711Format,
+				func(u unit.Unit) error {
+					for _, pkt := range u.GetRTPPackets() {
+						// recompute timestamp from scratch.
+						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+						pkt.Timestamp = curTimestamp
+						curTimestamp += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
 
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
+						track.WriteRTP(pkt) //nolint:errcheck
+					}
 
-				return nil
-			})
+					return nil
+				})
 		} else {
 			encoder := &rtplpcm.Encoder{
 				PayloadType:    96,
@@ -407,36 +434,40 @@ func setupAudioTrack(
 				return nil, err
 			}
 
-			stream.AddReader(writer, media, g711Format, func(u unit.Unit) error {
-				tunit := u.(*unit.G711)
+			stream.AddReader(
+				reader,
+				media,
+				g711Format,
+				func(u unit.Unit) error {
+					tunit := u.(*unit.G711)
 
-				if tunit.Samples == nil {
+					if tunit.Samples == nil {
+						return nil
+					}
+
+					var lpcmSamples []byte
+					if g711Format.MULaw {
+						lpcmSamples = g711.DecodeMulaw(tunit.Samples)
+					} else {
+						lpcmSamples = g711.DecodeAlaw(tunit.Samples)
+					}
+
+					packets, err := encoder.Encode(lpcmSamples)
+					if err != nil {
+						return nil //nolint:nilerr
+					}
+
+					for _, pkt := range packets {
+						// recompute timestamp from scratch.
+						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+						pkt.Timestamp = curTimestamp
+						curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
+
+						track.WriteRTP(pkt) //nolint:errcheck
+					}
+
 					return nil
-				}
-
-				var lpcmSamples []byte
-				if g711Format.MULaw {
-					lpcmSamples = g711.DecodeMulaw(tunit.Samples)
-				} else {
-					lpcmSamples = g711.DecodeAlaw(tunit.Samples)
-				}
-
-				packets, err := encoder.Encode(lpcmSamples)
-				if err != nil {
-					return nil //nolint:nilerr
-				}
-
-				for _, pkt := range packets {
-					// recompute timestamp from scratch.
-					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-					pkt.Timestamp = curTimestamp
-					curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
-
-					track.WriteRTP(pkt) //nolint:errcheck
-				}
-
-				return nil
-			})
+				})
 		}
 
 		return g711Format, nil
@@ -486,29 +517,33 @@ func setupAudioTrack(
 			return nil, err
 		}
 
-		stream.AddReader(writer, media, lpcmFormat, func(u unit.Unit) error {
-			tunit := u.(*unit.LPCM)
+		stream.AddReader(
+			reader,
+			media,
+			lpcmFormat,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.LPCM)
 
-			if tunit.Samples == nil {
+				if tunit.Samples == nil {
+					return nil
+				}
+
+				packets, err := encoder.Encode(tunit.Samples)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					// recompute timestamp from scratch.
+					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+					pkt.Timestamp = curTimestamp
+					curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
+
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
 				return nil
-			}
-
-			packets, err := encoder.Encode(tunit.Samples)
-			if err != nil {
-				return nil //nolint:nilerr
-			}
-
-			for _, pkt := range packets {
-				// recompute timestamp from scratch.
-				// Chrome requires a precise timestamp that FFmpeg doesn't provide.
-				pkt.Timestamp = curTimestamp
-				curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
-
-				track.WriteRTP(pkt) //nolint:errcheck
-			}
-
-			return nil
-		})
+			})
 
 		return lpcmFormat, nil
 	}
@@ -519,16 +554,15 @@ func setupAudioTrack(
 // FromStream maps a MediaMTX stream to a WebRTC connection
 func FromStream(
 	stream *stream.Stream,
-	writer *asyncwriter.Writer,
+	reader stream.Reader,
 	pc *PeerConnection,
-	l logger.Writer,
 ) error {
-	videoFormat, err := setupVideoTrack(stream, writer, pc)
+	videoFormat, err := setupVideoTrack(stream, reader, pc)
 	if err != nil {
 		return err
 	}
 
-	audioFormat, err := setupAudioTrack(stream, writer, pc)
+	audioFormat, err := setupAudioTrack(stream, reader, pc)
 	if err != nil {
 		return err
 	}
@@ -541,7 +575,7 @@ func FromStream(
 	for _, media := range stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			if forma != videoFormat && forma != audioFormat {
-				l.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++
 		}

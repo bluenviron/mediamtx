@@ -54,7 +54,6 @@ type muxer struct {
 	partDuration    conf.StringDuration
 	segmentMaxSize  conf.StringSize
 	directory       string
-	writeQueueSize  int
 	closeAfter      conf.StringDuration
 	wg              *sync.WaitGroup
 	pathName        string
@@ -147,7 +146,6 @@ func (m *muxer) runInner() error {
 		partDuration:    m.partDuration,
 		segmentMaxSize:  m.segmentMaxSize,
 		directory:       m.directory,
-		writeQueueSize:  m.writeQueueSize,
 		pathName:        m.pathName,
 		stream:          stream,
 		bytesSent:       m.bytesSent,
@@ -205,7 +203,6 @@ func (m *muxer) runInner() error {
 				partDuration:    m.partDuration,
 				segmentMaxSize:  m.segmentMaxSize,
 				directory:       m.directory,
-				writeQueueSize:  m.writeQueueSize,
 				pathName:        m.pathName,
 				stream:          stream,
 				bytesSent:       m.bytesSent,

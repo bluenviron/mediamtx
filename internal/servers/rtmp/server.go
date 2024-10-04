@@ -66,7 +66,6 @@ type Server struct {
 	Address             string
 	ReadTimeout         conf.StringDuration
 	WriteTimeout        conf.StringDuration
-	WriteQueueSize      int
 	IsTLS               bool
 	ServerCert          string
 	ServerKey           string
@@ -178,7 +177,6 @@ outer:
 				rtspAddress:         s.RTSPAddress,
 				readTimeout:         s.ReadTimeout,
 				writeTimeout:        s.WriteTimeout,
-				writeQueueSize:      s.WriteQueueSize,
 				runOnConnect:        s.RunOnConnect,
 				runOnConnectRestart: s.RunOnConnectRestart,
 				runOnDisconnect:     s.RunOnDisconnect,

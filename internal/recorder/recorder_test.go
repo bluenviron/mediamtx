@@ -125,6 +125,7 @@ func TestRecorder(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {
 			stream, err := stream.New(
+				512,
 				1460,
 				desc,
 				true,
@@ -159,7 +160,6 @@ func TestRecorder(t *testing.T) {
 			n := 0
 
 			w := &Recorder{
-				WriteQueueSize:  1024,
 				PathFormat:      recordPath,
 				Format:          f,
 				PartDuration:    100 * time.Millisecond,
@@ -338,6 +338,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	}}
 
 	stream, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -353,7 +354,6 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
 	w := &Recorder{
-		WriteQueueSize:  1024,
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
@@ -425,6 +425,7 @@ func TestRecorderSkipTracks(t *testing.T) {
 			}}
 
 			stream, err := stream.New(
+				512,
 				1460,
 				desc,
 				true,
@@ -457,7 +458,6 @@ func TestRecorderSkipTracks(t *testing.T) {
 			}
 
 			w := &Recorder{
-				WriteQueueSize:  1024,
 				PathFormat:      recordPath,
 				Format:          fo,
 				PartDuration:    100 * time.Millisecond,

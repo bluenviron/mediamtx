@@ -100,7 +100,7 @@ func jpegExtractSize(image []byte) (int, int, error) {
 }
 
 type formatFMP4 struct {
-	ai *agentInstance
+	ai *recorderInstance
 
 	tracks             []*formatFMP4Track
 	hasVideo           bool
@@ -153,50 +153,54 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.AV1)
-					if tunit.TU == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.AV1)
+						if tunit.TU == nil {
+							return nil
+						}
 
-					randomAccess := false
+						randomAccess := false
 
-					for _, obu := range tunit.TU {
-						var h av1.OBUHeader
-						err := h.Unmarshal(obu)
+						for _, obu := range tunit.TU {
+							var h av1.OBUHeader
+							err := h.Unmarshal(obu)
+							if err != nil {
+								return err
+							}
+
+							if h.Type == av1.OBUTypeSequenceHeader {
+								if !bytes.Equal(codec.SequenceHeader, obu) {
+									codec.SequenceHeader = obu
+									updateCodecs()
+								}
+								randomAccess = true
+							}
+						}
+
+						if !firstReceived {
+							if !randomAccess {
+								return nil
+							}
+							firstReceived = true
+						}
+
+						sampl, err := fmp4.NewPartSampleAV1(
+							randomAccess,
+							tunit.TU)
 						if err != nil {
 							return err
 						}
 
-						if h.Type == av1.OBUTypeSequenceHeader {
-							if !bytes.Equal(codec.SequenceHeader, obu) {
-								codec.SequenceHeader = obu
-								updateCodecs()
-							}
-							randomAccess = true
-						}
-					}
-
-					if !firstReceived {
-						if !randomAccess {
-							return nil
-						}
-						firstReceived = true
-					}
-
-					sampl, err := fmp4.NewPartSampleAV1(
-						randomAccess,
-						tunit.TU)
-					if err != nil {
-						return err
-					}
-
-					return track.write(&sample{
-						PartSample: sampl,
-						dts:        tunit.PTS,
-						ntp:        tunit.NTP,
+						return track.write(&sample{
+							PartSample: sampl,
+							dts:        tunit.PTS,
+							ntp:        tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.VP9:
 				codec := &fmp4.CodecVP9{
@@ -211,65 +215,69 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.VP9)
-					if tunit.Frame == nil {
-						return nil
-					}
-
-					var h vp9.Header
-					err := h.Unmarshal(tunit.Frame)
-					if err != nil {
-						return err
-					}
-
-					randomAccess := false
-
-					if !h.NonKeyFrame {
-						randomAccess = true
-
-						if w := h.Width(); codec.Width != w {
-							codec.Width = w
-							updateCodecs()
-						}
-						if h := h.Width(); codec.Height != h {
-							codec.Height = h
-							updateCodecs()
-						}
-						if codec.Profile != h.Profile {
-							codec.Profile = h.Profile
-							updateCodecs()
-						}
-						if codec.BitDepth != h.ColorConfig.BitDepth {
-							codec.BitDepth = h.ColorConfig.BitDepth
-							updateCodecs()
-						}
-						if c := h.ChromaSubsampling(); codec.ChromaSubsampling != c {
-							codec.ChromaSubsampling = c
-							updateCodecs()
-						}
-						if codec.ColorRange != h.ColorConfig.ColorRange {
-							codec.ColorRange = h.ColorConfig.ColorRange
-							updateCodecs()
-						}
-					}
-
-					if !firstReceived {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.VP9)
+						if tunit.Frame == nil {
 							return nil
 						}
-						firstReceived = true
-					}
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							IsNonSyncSample: !randomAccess,
-							Payload:         tunit.Frame,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						var h vp9.Header
+						err := h.Unmarshal(tunit.Frame)
+						if err != nil {
+							return err
+						}
+
+						randomAccess := false
+
+						if !h.NonKeyFrame {
+							randomAccess = true
+
+							if w := h.Width(); codec.Width != w {
+								codec.Width = w
+								updateCodecs()
+							}
+							if h := h.Width(); codec.Height != h {
+								codec.Height = h
+								updateCodecs()
+							}
+							if codec.Profile != h.Profile {
+								codec.Profile = h.Profile
+								updateCodecs()
+							}
+							if codec.BitDepth != h.ColorConfig.BitDepth {
+								codec.BitDepth = h.ColorConfig.BitDepth
+								updateCodecs()
+							}
+							if c := h.ChromaSubsampling(); codec.ChromaSubsampling != c {
+								codec.ChromaSubsampling = c
+								updateCodecs()
+							}
+							if codec.ColorRange != h.ColorConfig.ColorRange {
+								codec.ColorRange = h.ColorConfig.ColorRange
+								updateCodecs()
+							}
+						}
+
+						if !firstReceived {
+							if !randomAccess {
+								return nil
+							}
+							firstReceived = true
+						}
+
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								IsNonSyncSample: !randomAccess,
+								Payload:         tunit.Frame,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.VP8:
 				// TODO
@@ -292,67 +300,71 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.H265)
-					if tunit.AU == nil {
-						return nil
-					}
-
-					randomAccess := false
-
-					for _, nalu := range tunit.AU {
-						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-						switch typ {
-						case h265.NALUType_VPS_NUT:
-							if !bytes.Equal(codec.VPS, nalu) {
-								codec.VPS = nalu
-								updateCodecs()
-							}
-
-						case h265.NALUType_SPS_NUT:
-							if !bytes.Equal(codec.SPS, nalu) {
-								codec.SPS = nalu
-								updateCodecs()
-							}
-
-						case h265.NALUType_PPS_NUT:
-							if !bytes.Equal(codec.PPS, nalu) {
-								codec.PPS = nalu
-								updateCodecs()
-							}
-
-						case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-							randomAccess = true
-						}
-					}
-
-					if dtsExtractor == nil {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.H265)
+						if tunit.AU == nil {
 							return nil
 						}
-						dtsExtractor = h265.NewDTSExtractor()
-					}
 
-					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
+						randomAccess := false
 
-					sampl, err := fmp4.NewPartSampleH26x(
-						int32(durationGoToMp4(tunit.PTS-dts, 90000)),
-						randomAccess,
-						tunit.AU)
-					if err != nil {
-						return err
-					}
+						for _, nalu := range tunit.AU {
+							typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
-					return track.write(&sample{
-						PartSample: sampl,
-						dts:        dts,
-						ntp:        tunit.NTP,
+							switch typ {
+							case h265.NALUType_VPS_NUT:
+								if !bytes.Equal(codec.VPS, nalu) {
+									codec.VPS = nalu
+									updateCodecs()
+								}
+
+							case h265.NALUType_SPS_NUT:
+								if !bytes.Equal(codec.SPS, nalu) {
+									codec.SPS = nalu
+									updateCodecs()
+								}
+
+							case h265.NALUType_PPS_NUT:
+								if !bytes.Equal(codec.PPS, nalu) {
+									codec.PPS = nalu
+									updateCodecs()
+								}
+
+							case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
+								randomAccess = true
+							}
+						}
+
+						if dtsExtractor == nil {
+							if !randomAccess {
+								return nil
+							}
+							dtsExtractor = h265.NewDTSExtractor()
+						}
+
+						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						if err != nil {
+							return err
+						}
+
+						sampl, err := fmp4.NewPartSampleH26x(
+							int32(durationGoToMp4(tunit.PTS-dts, 90000)),
+							randomAccess,
+							tunit.AU)
+						if err != nil {
+							return err
+						}
+
+						return track.write(&sample{
+							PartSample: sampl,
+							dts:        dts,
+							ntp:        tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.H264:
 				sps, pps := forma.SafeParams()
@@ -370,60 +382,64 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.H264)
-					if tunit.AU == nil {
-						return nil
-					}
-
-					randomAccess := false
-
-					for _, nalu := range tunit.AU {
-						typ := h264.NALUType(nalu[0] & 0x1F)
-						switch typ {
-						case h264.NALUTypeSPS:
-							if !bytes.Equal(codec.SPS, nalu) {
-								codec.SPS = nalu
-								updateCodecs()
-							}
-
-						case h264.NALUTypePPS:
-							if !bytes.Equal(codec.PPS, nalu) {
-								codec.PPS = nalu
-								updateCodecs()
-							}
-
-						case h264.NALUTypeIDR:
-							randomAccess = true
-						}
-					}
-
-					if dtsExtractor == nil {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.H264)
+						if tunit.AU == nil {
 							return nil
 						}
-						dtsExtractor = h264.NewDTSExtractor()
-					}
 
-					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
+						randomAccess := false
 
-					sampl, err := fmp4.NewPartSampleH26x(
-						int32(durationGoToMp4(tunit.PTS-dts, 90000)),
-						randomAccess,
-						tunit.AU)
-					if err != nil {
-						return err
-					}
+						for _, nalu := range tunit.AU {
+							typ := h264.NALUType(nalu[0] & 0x1F)
+							switch typ {
+							case h264.NALUTypeSPS:
+								if !bytes.Equal(codec.SPS, nalu) {
+									codec.SPS = nalu
+									updateCodecs()
+								}
 
-					return track.write(&sample{
-						PartSample: sampl,
-						dts:        dts,
-						ntp:        tunit.NTP,
+							case h264.NALUTypePPS:
+								if !bytes.Equal(codec.PPS, nalu) {
+									codec.PPS = nalu
+									updateCodecs()
+								}
+
+							case h264.NALUTypeIDR:
+								randomAccess = true
+							}
+						}
+
+						if dtsExtractor == nil {
+							if !randomAccess {
+								return nil
+							}
+							dtsExtractor = h264.NewDTSExtractor()
+						}
+
+						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						if err != nil {
+							return err
+						}
+
+						sampl, err := fmp4.NewPartSampleH26x(
+							int32(durationGoToMp4(tunit.PTS-dts, 90000)),
+							randomAccess,
+							tunit.AU)
+						if err != nil {
+							return err
+						}
+
+						return track.write(&sample{
+							PartSample: sampl,
+							dts:        dts,
+							ntp:        tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.MPEG4Video:
 				config := forma.SafeParams()
@@ -440,45 +456,49 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4Video)
-					if tunit.Frame == nil {
-						return nil
-					}
-
-					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
-
-					if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
-						end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
-						if end >= 0 {
-							config := tunit.Frame[:end+4]
-
-							if !bytes.Equal(codec.Config, config) {
-								codec.Config = config
-								updateCodecs()
-							}
-						}
-					}
-
-					if !firstReceived {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Video)
+						if tunit.Frame == nil {
 							return nil
 						}
-						firstReceived = true
-					} else if tunit.PTS < lastPTS {
-						return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
-					}
-					lastPTS = tunit.PTS
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload:         tunit.Frame,
-							IsNonSyncSample: !randomAccess,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+
+						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
+							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+							if end >= 0 {
+								config := tunit.Frame[:end+4]
+
+								if !bytes.Equal(codec.Config, config) {
+									codec.Config = config
+									updateCodecs()
+								}
+							}
+						}
+
+						if !firstReceived {
+							if !randomAccess {
+								return nil
+							}
+							firstReceived = true
+						} else if tunit.PTS < lastPTS {
+							return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
+						}
+						lastPTS = tunit.PTS
+
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload:         tunit.Frame,
+								IsNonSyncSample: !randomAccess,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.MPEG1Video:
 				codec := &fmp4.CodecMPEG1Video{
@@ -489,45 +509,49 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG1Video)
-					if tunit.Frame == nil {
-						return nil
-					}
-
-					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
-
-					if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, 0xB3}) {
-						end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, 0xB8})
-						if end >= 0 {
-							config := tunit.Frame[:end+4]
-
-							if !bytes.Equal(codec.Config, config) {
-								codec.Config = config
-								updateCodecs()
-							}
-						}
-					}
-
-					if !firstReceived {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG1Video)
+						if tunit.Frame == nil {
 							return nil
 						}
-						firstReceived = true
-					} else if tunit.PTS < lastPTS {
-						return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
-					}
-					lastPTS = tunit.PTS
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload:         tunit.Frame,
-							IsNonSyncSample: !randomAccess,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
+
+						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, 0xB3}) {
+							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, 0xB8})
+							if end >= 0 {
+								config := tunit.Frame[:end+4]
+
+								if !bytes.Equal(codec.Config, config) {
+									codec.Config = config
+									updateCodecs()
+								}
+							}
+						}
+
+						if !firstReceived {
+							if !randomAccess {
+								return nil
+							}
+							firstReceived = true
+						} else if tunit.PTS < lastPTS {
+							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+						}
+						lastPTS = tunit.PTS
+
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload:         tunit.Frame,
+								IsNonSyncSample: !randomAccess,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.MJPEG:
 				codec := &fmp4.CodecMJPEG{
@@ -538,31 +562,35 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MJPEG)
-					if tunit.Frame == nil {
-						return nil
-					}
-
-					if !parsed {
-						parsed = true
-						width, height, err := jpegExtractSize(tunit.Frame)
-						if err != nil {
-							return err
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MJPEG)
+						if tunit.Frame == nil {
+							return nil
 						}
-						codec.Width = width
-						codec.Height = height
-						updateCodecs()
-					}
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload: tunit.Frame,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						if !parsed {
+							parsed = true
+							width, height, err := jpegExtractSize(tunit.Frame)
+							if err != nil {
+								return err
+							}
+							codec.Width = width
+							codec.Height = height
+							updateCodecs()
+						}
+
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload: tunit.Frame,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.Opus:
 				codec := &fmp4.CodecOpus{
@@ -570,31 +598,35 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.Opus)
-					if tunit.Packets == nil {
-						return nil
-					}
-
-					var dt time.Duration
-
-					for _, packet := range tunit.Packets {
-						err := track.write(&sample{
-							PartSample: &fmp4.PartSample{
-								Payload: packet,
-							},
-							dts: tunit.PTS + dt,
-							ntp: tunit.NTP.Add(dt),
-						})
-						if err != nil {
-							return err
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.Opus)
+						if tunit.Packets == nil {
+							return nil
 						}
 
-						dt += opus.PacketDuration(packet)
-					}
+						var dt time.Duration
 
-					return nil
-				})
+						for _, packet := range tunit.Packets {
+							err := track.write(&sample{
+								PartSample: &fmp4.PartSample{
+									Payload: packet,
+								},
+								dts: tunit.PTS + dt,
+								ntp: tunit.NTP.Add(dt),
+							})
+							if err != nil {
+								return err
+							}
+
+							dt += opus.PacketDuration(packet)
+						}
+
+						return nil
+					})
 
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
@@ -606,30 +638,34 @@ func (f *formatFMP4) initialize() {
 
 					sampleRate := time.Duration(forma.ClockRate())
 
-					f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-						if tunit.AUs == nil {
-							return nil
-						}
-
-						for i, au := range tunit.AUs {
-							dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
-								time.Second / sampleRate
-
-							err := track.write(&sample{
-								PartSample: &fmp4.PartSample{
-									Payload: au,
-								},
-								dts: tunit.PTS + dt,
-								ntp: tunit.NTP.Add(dt),
-							})
-							if err != nil {
-								return err
+					f.ai.agent.Stream.AddReader(
+						f.ai,
+						media,
+						forma,
+						func(u unit.Unit) error {
+							tunit := u.(*unit.MPEG4Audio)
+							if tunit.AUs == nil {
+								return nil
 							}
-						}
 
-						return nil
-					})
+							for i, au := range tunit.AUs {
+								dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
+									time.Second / sampleRate
+
+								err := track.write(&sample{
+									PartSample: &fmp4.PartSample{
+										Payload: au,
+									},
+									dts: tunit.PTS + dt,
+									ntp: tunit.NTP.Add(dt),
+								})
+								if err != nil {
+									return err
+								}
+							}
+
+							return nil
+						})
 				}
 
 			case *rtspformat.MPEG1Audio:
@@ -641,45 +677,49 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG1Audio)
-					if tunit.Frames == nil {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG1Audio)
+						if tunit.Frames == nil {
+							return nil
+						}
+
+						var dt time.Duration
+
+						for _, frame := range tunit.Frames {
+							var h mpeg1audio.FrameHeader
+							err := h.Unmarshal(frame)
+							if err != nil {
+								return err
+							}
+
+							if !parsed {
+								parsed = true
+								codec.SampleRate = h.SampleRate
+								codec.ChannelCount = mpeg1audioChannelCount(h.ChannelMode)
+								updateCodecs()
+							}
+
+							err = track.write(&sample{
+								PartSample: &fmp4.PartSample{
+									Payload: frame,
+								},
+								dts: tunit.PTS + tunit.PTS,
+								ntp: tunit.NTP,
+							})
+							if err != nil {
+								return err
+							}
+
+							dt += time.Duration(h.SampleCount()) *
+								time.Second / time.Duration(h.SampleRate)
+						}
+
 						return nil
-					}
-
-					var dt time.Duration
-
-					for _, frame := range tunit.Frames {
-						var h mpeg1audio.FrameHeader
-						err := h.Unmarshal(frame)
-						if err != nil {
-							return err
-						}
-
-						if !parsed {
-							parsed = true
-							codec.SampleRate = h.SampleRate
-							codec.ChannelCount = mpeg1audioChannelCount(h.ChannelMode)
-							updateCodecs()
-						}
-
-						err = track.write(&sample{
-							PartSample: &fmp4.PartSample{
-								Payload: frame,
-							},
-							dts: tunit.PTS + tunit.PTS,
-							ntp: tunit.NTP,
-						})
-						if err != nil {
-							return err
-						}
-
-						dt += time.Duration(h.SampleCount()) *
-							time.Second / time.Duration(h.SampleRate)
-					}
-
-					return nil
-				})
+					})
 
 			case *rtspformat.AC3:
 				codec := &fmp4.CodecAC3{
@@ -696,55 +736,59 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.AC3)
-					if tunit.Frames == nil {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.AC3)
+						if tunit.Frames == nil {
+							return nil
+						}
+
+						for i, frame := range tunit.Frames {
+							var syncInfo ac3.SyncInfo
+							err := syncInfo.Unmarshal(frame)
+							if err != nil {
+								return fmt.Errorf("invalid AC-3 frame: %w", err)
+							}
+
+							var bsi ac3.BSI
+							err = bsi.Unmarshal(frame[5:])
+							if err != nil {
+								return fmt.Errorf("invalid AC-3 frame: %w", err)
+							}
+
+							if !parsed {
+								parsed = true
+								codec.SampleRate = syncInfo.SampleRate()
+								codec.ChannelCount = bsi.ChannelCount()
+								codec.Fscod = syncInfo.Fscod
+								codec.Bsid = bsi.Bsid
+								codec.Bsmod = bsi.Bsmod
+								codec.Acmod = bsi.Acmod
+								codec.LfeOn = bsi.LfeOn
+								codec.BitRateCode = syncInfo.Frmsizecod >> 1
+								updateCodecs()
+							}
+
+							dt := time.Duration(i) * time.Duration(ac3.SamplesPerFrame) *
+								time.Second / time.Duration(codec.SampleRate)
+
+							err = track.write(&sample{
+								PartSample: &fmp4.PartSample{
+									Payload: frame,
+								},
+								dts: tunit.PTS + dt,
+								ntp: tunit.NTP.Add(dt),
+							})
+							if err != nil {
+								return err
+							}
+						}
+
 						return nil
-					}
-
-					for i, frame := range tunit.Frames {
-						var syncInfo ac3.SyncInfo
-						err := syncInfo.Unmarshal(frame)
-						if err != nil {
-							return fmt.Errorf("invalid AC-3 frame: %w", err)
-						}
-
-						var bsi ac3.BSI
-						err = bsi.Unmarshal(frame[5:])
-						if err != nil {
-							return fmt.Errorf("invalid AC-3 frame: %w", err)
-						}
-
-						if !parsed {
-							parsed = true
-							codec.SampleRate = syncInfo.SampleRate()
-							codec.ChannelCount = bsi.ChannelCount()
-							codec.Fscod = syncInfo.Fscod
-							codec.Bsid = bsi.Bsid
-							codec.Bsmod = bsi.Bsmod
-							codec.Acmod = bsi.Acmod
-							codec.LfeOn = bsi.LfeOn
-							codec.BitRateCode = syncInfo.Frmsizecod >> 1
-							updateCodecs()
-						}
-
-						dt := time.Duration(i) * time.Duration(ac3.SamplesPerFrame) *
-							time.Second / time.Duration(codec.SampleRate)
-
-						err = track.write(&sample{
-							PartSample: &fmp4.PartSample{
-								Payload: frame,
-							},
-							dts: tunit.PTS + dt,
-							ntp: tunit.NTP.Add(dt),
-						})
-						if err != nil {
-							return err
-						}
-					}
-
-					return nil
-				})
+					})
 
 			case *rtspformat.G722:
 				// TODO
@@ -758,27 +802,31 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.G711)
-					if tunit.Samples == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.G711)
+						if tunit.Samples == nil {
+							return nil
+						}
 
-					var out []byte
-					if forma.MULaw {
-						out = g711.DecodeMulaw(tunit.Samples)
-					} else {
-						out = g711.DecodeAlaw(tunit.Samples)
-					}
+						var out []byte
+						if forma.MULaw {
+							out = g711.DecodeMulaw(tunit.Samples)
+						} else {
+							out = g711.DecodeAlaw(tunit.Samples)
+						}
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload: out,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload: out,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 
 			case *rtspformat.LPCM:
 				codec := &fmp4.CodecLPCM{
@@ -789,20 +837,24 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.LPCM)
-					if tunit.Samples == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.LPCM)
+						if tunit.Samples == nil {
+							return nil
+						}
 
-					return track.write(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload: tunit.Samples,
-						},
-						dts: tunit.PTS,
-						ntp: tunit.NTP,
+						return track.write(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload: tunit.Samples,
+							},
+							dts: tunit.PTS,
+							ntp: tunit.NTP,
+						})
 					})
-				})
 			}
 		}
 	}

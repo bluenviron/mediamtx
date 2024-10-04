@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -55,6 +54,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	var err error
 	p.stream, err = stream.New(
+		512,
 		1460,
 		req.Desc,
 		true,
@@ -111,7 +111,6 @@ func initializeTestServer(t *testing.T) *Server {
 		AllowOrigin:           "*",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -198,7 +197,6 @@ func TestServerOptionsICEServer(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -271,7 +269,6 @@ func TestServerPublish(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -328,11 +325,12 @@ func TestServerPublish(t *testing.T) {
 
 	<-path.streamCreated
 
-	aw := asyncwriter.New(512, test.NilLogger)
+	reader := test.NilLogger
 
 	recv := make(chan struct{})
 
-	path.stream.AddReader(aw,
+	path.stream.AddReader(
+		reader,
 		path.stream.Desc().Medias[0],
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
@@ -363,9 +361,10 @@ func TestServerPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	aw.Start()
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	<-recv
-	aw.Stop()
 }
 
 func TestServerRead(t *testing.T) {
@@ -522,6 +521,7 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			str, err := stream.New(
+				512,
 				1460,
 				desc,
 				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
@@ -554,7 +554,6 @@ func TestServerRead(t *testing.T) {
 				AllowOrigin:           "",
 				TrustedProxies:        conf.IPNetworks{},
 				ReadTimeout:           conf.StringDuration(10 * time.Second),
-				WriteQueueSize:        512,
 				LocalUDPAddress:       "127.0.0.1:8887",
 				LocalTCPAddress:       "127.0.0.1:8887",
 				IPsFromInterfaces:     true,
@@ -637,6 +636,7 @@ func TestServerReadAuthorizationBearerJWT(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	str, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -665,7 +665,6 @@ func TestServerReadAuthorizationBearerJWT(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -714,6 +713,7 @@ func TestServerReadAuthorizationUserPass(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	str, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -744,7 +744,6 @@ func TestServerReadAuthorizationUserPass(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -809,7 +808,6 @@ func TestServerReadNotFound(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,

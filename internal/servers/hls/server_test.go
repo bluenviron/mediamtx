@@ -131,7 +131,6 @@ func TestServerNotFound(t *testing.T) {
 				TrustedProxies:  conf.IPNetworks{},
 				Directory:       "",
 				ReadTimeout:     conf.StringDuration(10 * time.Second),
-				WriteQueueSize:  512,
 				PathManager:     pm,
 				Parent:          test.NilLogger,
 			}
@@ -171,6 +170,7 @@ func TestServerRead(t *testing.T) {
 		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 		str, err := stream.New(
+			512,
 			1460,
 			desc,
 			true,
@@ -206,7 +206,6 @@ func TestServerRead(t *testing.T) {
 			TrustedProxies:  conf.IPNetworks{},
 			Directory:       "",
 			ReadTimeout:     conf.StringDuration(10 * time.Second),
-			WriteQueueSize:  512,
 			PathManager:     pm,
 			Parent:          test.NilLogger,
 		}
@@ -241,6 +240,7 @@ func TestServerRead(t *testing.T) {
 
 		err = c.Start()
 		require.NoError(t, err)
+
 		defer func() { <-c.Wait() }()
 		defer c.Close()
 
@@ -266,6 +266,7 @@ func TestServerRead(t *testing.T) {
 		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 		str, err := stream.New(
+			512,
 			1460,
 			desc,
 			true,
@@ -301,7 +302,6 @@ func TestServerRead(t *testing.T) {
 			TrustedProxies:  conf.IPNetworks{},
 			Directory:       "",
 			ReadTimeout:     conf.StringDuration(10 * time.Second),
-			WriteQueueSize:  512,
 			PathManager:     pm,
 			Parent:          test.NilLogger,
 		}
@@ -363,6 +363,7 @@ func TestServerReadAuthorizationHeader(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	str, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -395,7 +396,6 @@ func TestServerReadAuthorizationHeader(t *testing.T) {
 		TrustedProxies:  conf.IPNetworks{},
 		Directory:       "",
 		ReadTimeout:     conf.StringDuration(10 * time.Second),
-		WriteQueueSize:  512,
 		PathManager:     pm,
 		Parent:          test.NilLogger,
 	}
@@ -463,6 +463,7 @@ func TestDirectory(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	str, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -491,7 +492,6 @@ func TestDirectory(t *testing.T) {
 		TrustedProxies:  conf.IPNetworks{},
 		Directory:       filepath.Join(dir, "mydir"),
 		ReadTimeout:     conf.StringDuration(10 * time.Second),
-		WriteQueueSize:  512,
 		PathManager:     pm,
 		Parent:          test.NilLogger,
 	}

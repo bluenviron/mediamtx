@@ -7,7 +7,6 @@ import (
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -16,6 +15,7 @@ import (
 
 func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	stream, err := stream.New(
+		512,
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
@@ -26,20 +26,19 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	writer := asyncwriter.New(0, nil)
-
 	l := test.Logger(func(logger.Level, string, ...interface{}) {
 		t.Error("should not happen")
 	})
 
 	m := &gohlslib.Muxer{}
 
-	err = FromStream(stream, writer, m, l)
+	err = FromStream(stream, l, m)
 	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	stream, err := stream.New(
+		512,
 		1460,
 		&description.Session{Medias: []*description.Media{
 			{
@@ -60,8 +59,6 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	writer := asyncwriter.New(0, nil)
-
 	m := &gohlslib.Muxer{}
 
 	n := 0
@@ -77,7 +74,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		n++
 	})
 
-	err = FromStream(stream, writer, m, l)
+	err = FromStream(stream, l, m)
 	require.NoError(t, err)
 	require.Equal(t, 2, n)
 }
