@@ -16,7 +16,6 @@ import (
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v3"
 
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -35,7 +34,6 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 
 type session struct {
 	parentCtx             context.Context
-	writeQueueSize        int
 	ipsFromInterfaces     bool
 	ipsFromInterfacesList []string
 	additionalHosts       []string
@@ -73,6 +71,7 @@ func (s *session) initialize() {
 	s.Log(logger.Info, "created by %s", s.req.remoteAddr)
 
 	s.wg.Add(1)
+
 	go s.run()
 }
 
@@ -283,9 +282,6 @@ func (s *session) runRead() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	writer := asyncwriter.New(s.writeQueueSize, s)
-	defer stream.RemoveReader(writer)
-
 	pc := &webrtc.PeerConnection{
 		ICEServers:            iceServers,
 		HandshakeTimeout:      s.parent.HandshakeTimeout,
@@ -299,13 +295,14 @@ func (s *session) runRead() (int, error) {
 		Log:                   s,
 	}
 
-	err = webrtc.FromStream(stream, writer, pc, s)
+	err = webrtc.FromStream(stream, s, pc)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
 	err = pc.Start()
 	if err != nil {
+		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
 	}
 	defer pc.Close()
@@ -314,6 +311,7 @@ func (s *session) runRead() (int, error) {
 
 	answer, err := pc.CreateFullAnswer(s.ctx, offer)
 	if err != nil {
+		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
 	}
 
@@ -323,6 +321,7 @@ func (s *session) runRead() (int, error) {
 
 	err = pc.WaitUntilConnected(s.ctx)
 	if err != nil {
+		stream.RemoveReader(s)
 		return 0, err
 	}
 
@@ -331,7 +330,7 @@ func (s *session) runRead() (int, error) {
 	s.mutex.Unlock()
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(stream.FormatsForReader(writer)))
+		path.Name(), defs.FormatsInfo(stream.ReaderFormats(s)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,
@@ -343,14 +342,14 @@ func (s *session) runRead() (int, error) {
 	})
 	defer onUnreadHook()
 
-	writer.Start()
-	defer writer.Stop()
+	stream.StartReader(s)
+	defer stream.RemoveReader(s)
 
 	select {
 	case <-pc.Disconnected():
 		return 0, fmt.Errorf("peer connection closed")
 
-	case err := <-writer.Error():
+	case err := <-stream.ReaderError(s):
 		return 0, err
 
 	case <-s.ctx.Done():

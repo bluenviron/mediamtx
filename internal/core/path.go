@@ -711,6 +711,7 @@ func (pa *path) onDemandPublisherStop(reason string) {
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
 	var err error
 	pa.stream, err = stream.New(
+		pa.writeQueueSize,
 		pa.udpMaxPayloadSize,
 		desc,
 		allocateEncoder,
@@ -777,7 +778,6 @@ func (pa *path) setNotReady() {
 
 func (pa *path) startRecording() {
 	pa.recorder = &recorder.Recorder{
-		WriteQueueSize:  pa.writeQueueSize,
 		PathFormat:      pa.conf.RecordPath,
 		Format:          pa.conf.RecordFormat,
 		PartDuration:    time.Duration(pa.conf.RecordPartDuration),

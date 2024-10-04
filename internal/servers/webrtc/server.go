@@ -184,7 +184,6 @@ type Server struct {
 	AllowOrigin           string
 	TrustedProxies        conf.IPNetworks
 	ReadTimeout           conf.StringDuration
-	WriteQueueSize        int
 	LocalUDPAddress       string
 	LocalTCPAddress       string
 	IPsFromInterfaces     bool
@@ -312,7 +311,6 @@ outer:
 		case req := <-s.chNewSession:
 			sx := &session{
 				parentCtx:             s.ctx,
-				writeQueueSize:        s.WriteQueueSize,
 				ipsFromInterfaces:     s.IPsFromInterfaces,
 				ipsFromInterfacesList: s.IPsFromInterfacesList,
 				additionalHosts:       s.AdditionalHosts,

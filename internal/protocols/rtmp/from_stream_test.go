@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
@@ -18,6 +17,7 @@ import (
 
 func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	stream, err := stream.New(
+		512,
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
@@ -28,18 +28,17 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	writer := asyncwriter.New(0, nil)
-
 	l := test.Logger(func(logger.Level, string, ...interface{}) {
 		t.Error("should not happen")
 	})
 
-	err = FromStream(stream, writer, nil, nil, 0, l)
+	err = FromStream(stream, l, nil, nil, 0)
 	require.Equal(t, errNoSupportedCodecsFrom, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	stream, err := stream.New(
+		512,
 		1460,
 		&description.Session{Medias: []*description.Media{
 			{
@@ -60,8 +59,6 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	writer := asyncwriter.New(0, nil)
-
 	n := 0
 
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
@@ -79,7 +76,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	bc := bytecounter.NewReadWriter(&buf)
 	conn := &Conn{mrw: message.NewReadWriter(&buf, bc, false)}
 
-	err = FromStream(stream, writer, conn, nil, 0, l)
+	err = FromStream(stream, l, conn, nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, n)
 }
