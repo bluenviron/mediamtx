@@ -76,5 +76,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	err = FromStream(stream, l, m)
 	require.NoError(t, err)
+	defer stream.RemoveReader(l)
+
 	require.Equal(t, 2, n)
 }

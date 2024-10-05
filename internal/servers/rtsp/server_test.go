@@ -150,6 +150,9 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	err = source.WritePacketRTP(media0, &rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
@@ -162,9 +165,6 @@ func TestServerPublish(t *testing.T) {
 		Payload: []byte{5, 2, 3, 4},
 	})
 	require.NoError(t, err)
-
-	path.stream.StartReader(reader)
-	defer path.stream.RemoveReader(reader)
 
 	<-recv
 }

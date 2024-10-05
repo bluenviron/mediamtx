@@ -163,13 +163,13 @@ func TestServerPublish(t *testing.T) {
 					return nil
 				})
 
+			path.stream.StartReader(reader)
+			defer path.stream.RemoveReader(reader)
+
 			err = w.WriteH264(0, 0, true, [][]byte{
 				{5, 2, 3, 4},
 			})
 			require.NoError(t, err)
-
-			path.stream.StartReader(reader)
-			defer path.stream.RemoveReader(reader)
 
 			<-recv
 		})
@@ -249,6 +249,8 @@ func TestServerRead(t *testing.T) {
 
 			videoTrack, _ := r.Tracks()
 			require.Equal(t, test.FormatH264, videoTrack)
+
+			stream.WaitRunningReader()
 
 			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 				Base: unit.Base{

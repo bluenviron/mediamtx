@@ -156,6 +156,9 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	err = w.WriteH264(track, 0, 0, true, [][]byte{
 		{5, 2},
 	})
@@ -163,9 +166,6 @@ func TestServerPublish(t *testing.T) {
 
 	err = bw.Flush()
 	require.NoError(t, err)
-
-	path.stream.StartReader(reader)
-	defer path.stream.RemoveReader(reader)
 
 	<-recv
 }
@@ -218,6 +218,8 @@ func TestServerRead(t *testing.T) {
 	reader, err := srt.Dial("srt", address, srtConf)
 	require.NoError(t, err)
 	defer reader.Close()
+
+	stream.WaitRunningReader()
 
 	stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{

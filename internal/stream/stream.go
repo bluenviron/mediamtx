@@ -36,6 +36,8 @@ type Stream struct {
 	rtspStream    *gortsplib.ServerStream
 	rtspsStream   *gortsplib.ServerStream
 	streamReaders map[Reader]*streamReader
+
+	readerRunning chan struct{}
 }
 
 // New allocates a Stream.
@@ -55,6 +57,7 @@ func New(
 
 	s.streamMedias = make(map[*description.Media]*streamMedia)
 	s.streamReaders = make(map[Reader]*streamReader)
+	s.readerRunning = make(chan struct{})
 
 	for _, media := range desc.Medias {
 		var err error
@@ -180,6 +183,12 @@ func (s *Stream) StartReader(reader Reader) {
 			sf.startReader(sr)
 		}
 	}
+
+	select {
+	case <-s.readerRunning:
+	default:
+		close(s.readerRunning)
+	}
 }
 
 // ReaderError returns whenever there's an error.
@@ -207,6 +216,11 @@ func (s *Stream) ReaderFormats(reader Reader) []format.Format {
 	}
 
 	return formats
+}
+
+// WaitRunningReader waits for a running reader.
+func (s *Stream) WaitRunningReader() {
+	<-s.readerRunning
 }
 
 // WriteUnit writes a Unit.
