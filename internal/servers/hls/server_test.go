@@ -305,7 +305,7 @@ func TestServerRead(t *testing.T) {
 
 		s.PathReady(&dummyPath{})
 
-		time.Sleep(100 * time.Millisecond)
+		str.WaitRunningReader()
 
 		for i := 0; i < 4; i++ {
 			str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
@@ -398,7 +398,7 @@ func TestServerReadAuthorizationHeader(t *testing.T) {
 
 	s.PathReady(&dummyPath{})
 
-	time.Sleep(100 * time.Millisecond)
+	str.WaitRunningReader()
 
 	for i := 0; i < 4; i++ {
 		str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{

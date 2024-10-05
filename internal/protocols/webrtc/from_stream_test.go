@@ -66,6 +66,8 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	err = FromStream(stream, l, pc)
 	require.NoError(t, err)
+	defer stream.RemoveReader(l)
+
 	require.Equal(t, 1, n)
 }
 
@@ -93,6 +95,7 @@ func TestFromStream(t *testing.T) {
 
 			err = FromStream(stream, nil, pc)
 			require.NoError(t, err)
+			defer stream.RemoveReader(nil)
 
 			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
 		})

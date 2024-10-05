@@ -340,6 +340,9 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	err = track.WriteRTP(&rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
@@ -352,9 +355,6 @@ func TestServerPublish(t *testing.T) {
 		Payload: []byte{1},
 	})
 	require.NoError(t, err)
-
-	path.stream.StartReader(reader)
-	defer path.stream.RemoveReader(reader)
 
 	<-recv
 }
@@ -572,29 +572,20 @@ func TestServerRead(t *testing.T) {
 			}
 
 			writerDone := make(chan struct{})
-			defer func() { <-writerDone }()
-
-			writerTerminate := make(chan struct{})
-			defer close(writerTerminate)
 
 			go func() {
 				defer close(writerDone)
-				for {
-					select {
-					case <-time.After(100 * time.Millisecond):
-					case <-writerTerminate:
-						return
-					}
 
-					r := reflect.New(reflect.TypeOf(ca.unit).Elem())
-					r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
+				str.WaitRunningReader()
 
-					if g, ok := r.Interface().(*unit.Generic); ok {
-						clone := *g.RTPPackets[0]
-						str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
-					} else {
-						str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
-					}
+				r := reflect.New(reflect.TypeOf(ca.unit).Elem())
+				r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
+
+				if g, ok := r.Interface().(*unit.Generic); ok {
+					clone := *g.RTPPackets[0]
+					str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+				} else {
+					str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
 				}
 			}()
 
@@ -615,6 +606,7 @@ func TestServerRead(t *testing.T) {
 
 			wc.StartReading()
 
+			<-writerDone
 			<-done
 		})
 	}
