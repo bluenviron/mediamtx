@@ -66,14 +66,14 @@ type dummyPathManager struct {
 
 func (pm *dummyPathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
 	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, auth.Error{}
+		return nil, &auth.Error{}
 	}
 	return pm.path, nil
 }
 
 func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, nil, auth.Error{}
+		return nil, nil, &auth.Error{}
 	}
 	return pm.path, pm.path.stream, nil
 }

@@ -31,6 +31,17 @@ const (
 	jwtRefreshPeriod = 60 * 60 * time.Second
 )
 
+func addJWTFromAuthorization(rawQuery string, auth string) string {
+	jwt := strings.TrimPrefix(auth, "Bearer ")
+	if rawQuery != "" {
+		if v, err := url.ParseQuery(rawQuery); err == nil && v.Get("jwt") == "" {
+			v.Set("jwt", jwt)
+			return v.Encode()
+		}
+	}
+	return url.Values{"jwt": []string{jwt}}.Encode()
+}
+
 // Protocol is a protocol.
 type Protocol string
 
@@ -51,21 +62,27 @@ type Request struct {
 	Action conf.AuthAction
 
 	// only for ActionPublish, ActionRead, ActionPlayback
-	Path        string
-	Protocol    Protocol
-	ID          *uuid.UUID
-	Query       string
+	Path     string
+	Protocol Protocol
+	ID       *uuid.UUID
+	Query    string
+
+	// RTSP only
 	RTSPRequest *base.Request
 	RTSPNonce   string
+
+	// HTTP only
+	HTTPRequest *http.Request
 }
 
 // Error is a authentication error.
 type Error struct {
-	Message string
+	Message        string
+	AskCredentials bool
 }
 
 // Error implements the error interface.
-func (e Error) Error() string {
+func (e *Error) Error() string {
 	return "authentication failed: " + e.Message
 }
 
@@ -154,15 +171,6 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 
 // Authenticate authenticates a request.
 func (m *Manager) Authenticate(req *Request) error {
-	err := m.authenticateInner(req)
-	if err != nil {
-		return Error{Message: err.Error()}
-	}
-	return nil
-}
-
-func (m *Manager) authenticateInner(req *Request) error {
-	// if this is a RTSP request, fill username and password
 	var rtspAuthHeader headers.Authorization
 
 	if req.RTSPRequest != nil {
@@ -175,18 +183,42 @@ func (m *Manager) authenticateInner(req *Request) error {
 				req.User = rtspAuthHeader.Username
 			}
 		}
+	} else if req.HTTPRequest != nil {
+		req.User, req.Pass, _ = req.HTTPRequest.BasicAuth()
+		req.Query = req.HTTPRequest.URL.RawQuery
+
+		if h := req.HTTPRequest.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			// support passing username and password through Authorization header
+			if parts := strings.Split(strings.TrimPrefix(h, "Bearer "), ":"); len(parts) == 2 {
+				req.User = parts[0]
+				req.Pass = parts[1]
+			} else {
+				req.Query = addJWTFromAuthorization(req.Query, h)
+			}
+		}
 	}
+
+	var err error
 
 	switch m.Method {
 	case conf.AuthMethodInternal:
-		return m.authenticateInternal(req, &rtspAuthHeader)
+		err = m.authenticateInternal(req, &rtspAuthHeader)
 
 	case conf.AuthMethodHTTP:
-		return m.authenticateHTTP(req)
+		err = m.authenticateHTTP(req)
 
 	default:
-		return m.authenticateJWT(req)
+		err = m.authenticateJWT(req)
 	}
+
+	if err != nil {
+		return &Error{
+			Message:        err.Error(),
+			AskCredentials: (req.User == "" && req.Pass == ""),
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) authenticateInternal(req *Request, rtspAuthHeader *headers.Authorization) error {

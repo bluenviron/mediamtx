@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/url"
 	gopath "path"
 	"strings"
 	"time"
@@ -35,17 +34,6 @@ func mergePathAndQuery(path string, rawQuery string) string {
 		res += "?" + rawQuery
 	}
 	return res
-}
-
-func addJWTFromAuthorization(rawQuery string, auth string) string {
-	jwt := strings.TrimPrefix(auth, "Bearer ")
-	if rawQuery != "" {
-		if v, err := url.ParseQuery(rawQuery); err == nil && v.Get("jwt") == "" {
-			v.Set("jwt", jwt)
-			return v.Encode()
-		}
-	}
-	return url.Values{"jwt": []string{jwt}}.Encode()
 }
 
 type httpServer struct {
@@ -157,28 +145,19 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		return
 	}
 
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
-	q := ctx.Request.URL.RawQuery
-	if h := ctx.Request.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
-		q = addJWTFromAuthorization(q, h)
-	}
-
 	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
-			Name:    dir,
-			Query:   q,
-			Publish: false,
-			IP:      net.ParseIP(ctx.ClientIP()),
-			User:    user,
-			Pass:    pass,
-			Proto:   auth.ProtocolHLS,
+			Name:        dir,
+			Publish:     false,
+			IP:          net.ParseIP(ctx.ClientIP()),
+			Proto:       auth.ProtocolHLS,
+			HTTPRequest: ctx.Request,
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
-			if !hasCredentials {
+			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return

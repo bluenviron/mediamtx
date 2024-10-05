@@ -129,25 +129,15 @@ func (s *session) runPublish() (int, error) {
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:    s.req.pathName,
-			Query:   s.req.query,
-			Publish: true,
-			IP:      net.ParseIP(ip),
-			User:    s.req.user,
-			Pass:    s.req.pass,
-			Proto:   auth.ProtocolWebRTC,
-			ID:      &s.uuid,
+			Name:        s.req.pathName,
+			Publish:     true,
+			IP:          net.ParseIP(ip),
+			Proto:       auth.ProtocolWebRTC,
+			ID:          &s.uuid,
+			HTTPRequest: s.req.httpRequest,
 		},
 	})
 	if err != nil {
-		var terr auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to mitigate brute force attacks
-			<-time.After(auth.PauseAfterError)
-
-			return http.StatusUnauthorized, err
-		}
-
 		return http.StatusBadRequest, err
 	}
 
@@ -250,23 +240,14 @@ func (s *session) runRead() (int, error) {
 	path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:  s.req.pathName,
-			Query: s.req.query,
-			IP:    net.ParseIP(ip),
-			User:  s.req.user,
-			Pass:  s.req.pass,
-			Proto: auth.ProtocolWebRTC,
-			ID:    &s.uuid,
+			Name:        s.req.pathName,
+			IP:          net.ParseIP(ip),
+			Proto:       auth.ProtocolWebRTC,
+			ID:          &s.uuid,
+			HTTPRequest: s.req.httpRequest,
 		},
 	})
 	if err != nil {
-		var terr1 auth.Error
-		if errors.As(err, &terr1) {
-			// wait some seconds to mitigate brute force attacks
-			<-time.After(auth.PauseAfterError)
-			return http.StatusUnauthorized, err
-		}
-
 		var terr2 defs.PathNoOnePublishingError
 		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
@@ -338,7 +319,7 @@ func (s *session) runRead() (int, error) {
 		Conf:            path.SafeConf(),
 		ExternalCmdEnv:  path.ExternalCmdEnv(),
 		Reader:          s.APIReaderDescribe(),
-		Query:           s.req.query,
+		Query:           s.req.httpRequest.URL.RawQuery,
 	})
 	defer onUnreadHook()
 
@@ -451,7 +432,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			return defs.APIWebRTCSessionStateRead
 		}(),
 		Path:          s.req.pathName,
-		Query:         s.req.query,
+		Query:         s.req.httpRequest.URL.RawQuery,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}
