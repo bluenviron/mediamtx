@@ -18,7 +18,6 @@ help:
 	@echo "  test32           run tests on a 32-bit system"
 	@echo "  test-highlevel   run high-level tests"
 	@echo "  lint             run linters"
-	@echo "  bench NAME=n     run bench environment"
 	@echo "  run              run app"
 	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"
