@@ -24,7 +24,6 @@ import (
 //go:embed index.html
 var hlsIndex []byte
 
-//nolint:typecheck
 //go:embed hls.min.js
 var hlsMinJS []byte
 
