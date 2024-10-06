@@ -22,7 +22,7 @@ Live streams can be published to the server with:
 |--------|--------|------------|------------|
 |[SRT clients](#srt-clients)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[SRT cameras and servers](#srt-cameras-and-servers)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
-|[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H265, H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC clients](#webrtc-clients)|WHIP|AV1, VP9, VP8, H265, H264|Opus, G722, G711 (PCMA, PCMU)|
 |[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, H265, H264|Opus, G722, G711 (PCMA, PCMU)|
 |[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
@@ -32,17 +32,21 @@ Live streams can be published to the server with:
 |[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
-And can be read from the server with:
+Instructions are provided for publishing through these protocols by using [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [OpenCV](#opencv), [Unity](#unity), [Web browsers](#web-browsers).
+
+Live streams can be read from the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
 |[SRT](#srt)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
-|[WebRTC](#webrtc)|Browser-based, WHEP|AV1, VP9, VP8, H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC](#webrtc)|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711 (PCMA, PCMU)|
 |[RTSP](#rtsp)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC)|
 
-And can be recorded and played back with:
+Instructions are provided for reading through these protocols by using [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1), [VLC](#vlc), [Unity](#unity-1), [Web browsers](#web-browsers-1).
+
+Live streams be recorded and played back with:
 
 |format|video codecs|audio codecs|
 |------|------------|------------|
@@ -83,6 +87,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [GStreamer](#gstreamer)
     * [OBS Studio](#obs-studio)
     * [OpenCV](#opencv)
+    * [Unity](#unity)
     * [Web browsers](#web-browsers)
   * [By device](#by-device)
     * [Generic webcam](#generic-webcam)
@@ -103,6 +108,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [FFmpeg](#ffmpeg-1)
     * [GStreamer](#gstreamer-1)
     * [VLC](#vlc)
+    * [Unity](#unity-1)
     * [Web browsers](#web-browsers-1)
   * [By protocol](#by-protocol-1)
     * [SRT](#srt)
@@ -347,7 +353,7 @@ The resulting stream will be available in path `/mystream`.
 
 #### OpenCV
 
-OpenCV can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with GStreamer support, by following this procedure:
+Software which uses the OpenCV library can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with GStreamer support, by following this procedure:
 
 ```sh
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
@@ -367,7 +373,7 @@ python3 -c 'import cv2; print(cv2.getBuildInformation())'
 
 Check that the output contains `GStreamer: YES`.
 
-Videos can be published with `VideoWriter`:
+Videos can be published with `cv2.VideoWriter`:
 
 ```python
 from datetime import datetime
@@ -420,6 +426,117 @@ while True:
 
 The resulting stream will be available in path `/mystream`.
 
+#### Unity
+
+Software written with the Unity Engine can publish a stream to the server by using the [WebRTC protocol](#webrtc).
+
+Create a new Unity project or open an existing open.
+
+Open _Window -> Package Manager_, click on the plus sign, _Add Package by name..._ and insert `com.unity.webrtc`. Wait for the package to be installed.
+
+In the _Project_ window, under `Assets`, create a new C# Script called `WebRTCPublisher.cs` with this content:
+
+```cs
+using System.Collections;
+using UnityEngine;
+using Unity.WebRTC;
+using UnityEngine.Networking;
+
+public class WebRTCPublisher : MonoBehaviour
+{
+    public string url = "http://localhost:8889/unity/whip";
+    public int videoWidth = 1280;
+    public int videoHeight = 720;
+
+    private RTCPeerConnection pc;
+    private MediaStream videoStream;
+
+    void Start()
+    {
+        pc = new RTCPeerConnection();
+        Camera sourceCamera = gameObject.GetComponent<Camera>();
+        videoStream = sourceCamera.CaptureStream(videoWidth, videoHeight);
+        foreach (var track in videoStream.GetTracks())
+        {
+            pc.AddTrack(track);
+        }
+
+        StartCoroutine(WebRTC.Update());
+        StartCoroutine(createOffer());
+    }
+
+    private IEnumerator createOffer()
+    {
+        var op = pc.CreateOffer();
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("CreateOffer() failed");
+            yield break;
+        }
+
+        yield return setLocalDescription(op.Desc);
+    }
+
+    private IEnumerator setLocalDescription(RTCSessionDescription offer)
+    {
+        var op = pc.SetLocalDescription(ref offer);
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("SetLocalDescription() failed");
+            yield break;
+        }
+
+        yield return postOffer(offer);
+    }
+
+    private IEnumerator postOffer(RTCSessionDescription offer)
+    {
+        var content = new System.Net.Http.StringContent(offer.sdp);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/sdp");
+        var client = new System.Net.Http.HttpClient();
+
+        var task = System.Threading.Tasks.Task.Run(async () => {
+            var res = await client.PostAsync(new System.UriBuilder(url).Uri, content);
+            res.EnsureSuccessStatusCode();
+            return await res.Content.ReadAsStringAsync();
+        });
+        yield return new WaitUntil(() => task.IsCompleted);
+        if (task.Exception != null) {
+            Debug.LogError(task.Exception);
+            yield break;
+        }
+
+        yield return setRemoteDescription(task.Result);
+    }
+
+    private IEnumerator setRemoteDescription(string answer)
+    {
+        RTCSessionDescription desc = new RTCSessionDescription();
+        desc.type = RTCSdpType.Answer;
+        desc.sdp = answer;
+        var op = pc.SetRemoteDescription(ref desc);
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("SetRemoteDescription() failed");
+            yield break;
+        }
+
+        yield break;
+    }
+
+    void OnDestroy()
+    {
+        pc?.Close();
+        pc?.Dispose();
+        videoStream?.Dispose();
+    }
+}
+```
+
+In the _Hierarchy_ window, find or create a scene and a camera, then add the `WebRTCPublisher.cs` script as component of the camera, by dragging it inside the _Inspector_ window. then Press the _Play_ button at the top of the page.
+
+The resulting stream will be available in path `/unity`.
+
 #### Web browsers
 
 Web browsers can publish a stream to the server by using the [WebRTC protocol](#webrtc). Start the server and open the web page:
@@ -442,7 +559,7 @@ For more advanced setups, you can create and serve a custom web page by starting
 
 #### Generic webcam
 
-If the OS is Linux-based, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+If the operating system is Linux-based, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
@@ -451,7 +568,7 @@ paths:
     runOnInitRestart: yes
 ```
 
-If the OS is Windows:
+If the operating system is Windows:
 
 ```yml
 paths:
@@ -470,7 +587,7 @@ The resulting stream will be available in path `/cam`.
 
 #### Raspberry Pi Cameras
 
-_MediaMTX_ natively supports the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are a couple of requirements:
+_MediaMTX_ natively supports most of the Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are a couple of requirements:
 
 1. The server must run on a Raspberry Pi, with one of the following operating systems:
 
@@ -617,7 +734,7 @@ Regarding authentication, read [Authenticating with WHIP/WHEP](#authenticating-w
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues).
 
-Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
+Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Unity](#unity) and [Web browsers](#web-browsers).
 
 #### WebRTC servers
 
@@ -813,6 +930,138 @@ snap install vlc
 
 At the moment VLC doesn't support reading encrypted RTSP streams. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a local _MediaMTX_ instance to decrypt streams before reading them.
 
+#### Unity
+
+Software written with the Unity Engine can read a stream from the server by using the [WebRTC protocol](#webrtc).
+
+Create a new Unity project or open an existing open.
+
+Open _Window -> Package Manager_, click on the plus sign, _Add Package by name..._ and insert `com.unity.webrtc`. Wait for the package to be installed.
+
+In the _Project_ window, under `Assets`, create a new C# Script called `WebRTCReader.cs` with this content:
+
+```cs
+using System.Collections;
+using UnityEngine;
+using Unity.WebRTC;
+
+public class WebRTCReader : MonoBehaviour
+{
+    public string url = "http://localhost:8889/stream/whep";
+
+    private RTCPeerConnection pc;
+    private MediaStream receiveStream;
+
+    void Start()
+    {
+        UnityEngine.UI.RawImage rawImage = gameObject.GetComponentInChildren<UnityEngine.UI.RawImage>();
+        AudioSource audioSource = gameObject.GetComponentInChildren<AudioSource>();
+        pc = new RTCPeerConnection();
+        receiveStream = new MediaStream();
+
+        pc.OnTrack = e =>
+        {
+            receiveStream.AddTrack(e.Track);
+        };
+
+        receiveStream.OnAddTrack = e =>
+        {
+            if (e.Track is VideoStreamTrack videoTrack)
+            {
+                videoTrack.OnVideoReceived += (tex) =>
+                {
+                    rawImage.texture = tex;
+                };
+            }
+            else if (e.Track is AudioStreamTrack audioTrack)
+            {
+                audioSource.SetTrack(audioTrack);
+                audioSource.loop = true;
+                audioSource.Play();
+            }
+        };
+
+        RTCRtpTransceiverInit init = new RTCRtpTransceiverInit();
+        init.direction = RTCRtpTransceiverDirection.RecvOnly;
+        pc.AddTransceiver(TrackKind.Audio, init);
+        pc.AddTransceiver(TrackKind.Video, init);
+
+        StartCoroutine(WebRTC.Update());
+        StartCoroutine(createOffer());
+    }
+
+    private IEnumerator createOffer()
+    {
+        var op = pc.CreateOffer();
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("CreateOffer() failed");
+            yield break;
+        }
+
+        yield return setLocalDescription(op.Desc);
+    }
+
+    private IEnumerator setLocalDescription(RTCSessionDescription offer)
+    {
+        var op = pc.SetLocalDescription(ref offer);
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("SetLocalDescription() failed");
+            yield break;
+        }
+
+        yield return postOffer(offer);
+    }
+
+    private IEnumerator postOffer(RTCSessionDescription offer)
+    {
+        var content = new System.Net.Http.StringContent(offer.sdp);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/sdp");
+        var client = new System.Net.Http.HttpClient();
+
+        var task = System.Threading.Tasks.Task.Run(async () => {
+            var res = await client.PostAsync(new System.UriBuilder(url).Uri, content);
+            res.EnsureSuccessStatusCode();
+            return await res.Content.ReadAsStringAsync();
+        });
+        yield return new WaitUntil(() => task.IsCompleted);
+        if (task.Exception != null) {
+            Debug.LogError(task.Exception);
+            yield break;
+        }
+
+        yield return setRemoteDescription(task.Result);
+    }
+
+    private IEnumerator setRemoteDescription(string answer)
+    {
+        RTCSessionDescription desc = new RTCSessionDescription();
+        desc.type = RTCSdpType.Answer;
+        desc.sdp = answer;
+        var op = pc.SetRemoteDescription(ref desc);
+        yield return op;
+        if (op.IsError) {
+            Debug.LogError("SetRemoteDescription() failed");
+            yield break;
+        }
+
+        yield break;
+    }
+
+    void OnDestroy()
+    {
+        pc?.Close();
+        pc?.Dispose();
+        receiveStream?.Dispose();
+    }
+}
+```
+
+Edit the `url` variable according to your needs.
+
+In the _Hierarchy_ window, find or create a scene. Inside the scene, add a _Canvas_. Inside the Canvas, add a _Raw Image_ and an _Audio Source_. Then add the `WebRTCReader.cs` script as component of the canvas, by dragging it inside the _Inspector_ window. then Press the _Play_ button at the top of the page.
+
 #### Web browsers
 
 Web browsers can read a stream from the server in multiple ways (WebRTC or HLS).
@@ -885,7 +1134,7 @@ Regarding authentication, read [Authenticating with WHIP/WHEP](#authenticating-w
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues).
 
-Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [web browsers](#web-browsers-1).
+Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1), [Unity](#unity-1) and [web browsers](#web-browsers-1).
 
 #### RTSP
 
