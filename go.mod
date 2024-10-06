@@ -99,6 +99,6 @@ require (
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 
-replace github.com/pion/ice/v2 => github.com/aler9/ice/v2 v2.0.0-20240608212222-2eebc68350c9
+replace github.com/pion/ice/v2 => github.com/aler9/ice/v2 v2.0.0-20241006110309-c973995af023
 
 replace github.com/pion/webrtc/v3 => github.com/aler9/webrtc/v3 v3.0.0-20240610104456-eaec24056d06
