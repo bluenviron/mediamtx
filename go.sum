@@ -33,8 +33,8 @@ github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYh
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
 github.com/bluenviron/gohlslib/v2 v2.0.0 h1:qAKT1ksqJT1Cc3xRseYPSiN51vqeSY1HDMnmUgQ6e0g=
 github.com/bluenviron/gohlslib/v2 v2.0.0/go.mod h1:EoDeIps+MwLfm8o9m5N5YI1XgYXGeFne2Oz1kN9hudk=
-github.com/bluenviron/gortsplib/v4 v4.10.7-0.20241007135843-2ca0bffa20a2 h1:oR8bRYadOQmb2wxBZau96zTsHocd+5vrQaM7B+sjRrk=
-github.com/bluenviron/gortsplib/v4 v4.10.7-0.20241007135843-2ca0bffa20a2/go.mod h1:QN1e+ueF5aa8LNQUaBUBbNWUEUUidl3toldYp7rZuhU=
+github.com/bluenviron/gortsplib/v4 v4.11.0 h1:YPhXtxZS5M6yaMWmPSXt5wmOQr8CA2m2CHcdC+hisu4=
+github.com/bluenviron/gortsplib/v4 v4.11.0/go.mod h1:ssggvDYcUCozVQUonQ9NJSjg7rI8zYeRmDt3sL1yqSo=
 github.com/bluenviron/mediacommon v1.13.0 h1:axejqONTDkhBxAN1q+L0nEJn/VtARmE97CF3J1Bt414=
 github.com/bluenviron/mediacommon v1.13.0/go.mod h1:HDyW2CzjvhYJXtdxstdFPio3G0qSocPhqkhUt/qffec=
 github.com/bwesterb/go-ristretto v1.2.3/go.mod h1:fUIoIZaG73pV5biE2Blr2xEzDoMj7NFEuV9ekS419A0=

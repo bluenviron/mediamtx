@@ -10,7 +10,7 @@ require (
 	github.com/alecthomas/kong v1.2.1
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.0.0
-	github.com/bluenviron/gortsplib/v4 v4.10.7-0.20241007135843-2ca0bffa20a2
+	github.com/bluenviron/gortsplib/v4 v4.11.0
 	github.com/bluenviron/mediacommon v1.13.0
 	github.com/datarhei/gosrt v0.7.0
 	github.com/fsnotify/fsnotify v1.7.0
