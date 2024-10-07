@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -23,6 +24,7 @@ func setupVideoTrack(
 	reader stream.Reader,
 	muxer *gohlslib.Muxer,
 	setuppedFormats map[format.Format]struct{},
+	timeDecoder *rtptime.GlobalDecoder2,
 ) {
 	addTrack := func(
 		media *description.Media,
@@ -39,7 +41,10 @@ func setupVideoTrack(
 	videoMedia := strea.Desc().FindFormat(&videoFormatAV1)
 
 	if videoFormatAV1 != nil {
-		track := &gohlslib.Track{Codec: &codecs.AV1{}}
+		track := &gohlslib.Track{
+			Codec:     &codecs.AV1{},
+			ClockRate: videoFormatAV1.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -52,7 +57,16 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteAV1(track, tunit.NTP, tunit.PTS, tunit.TU)
+				pts, ok := timeDecoder.Decode(videoFormatAV1, tunit.RTPPackets[0])
+				if !ok {
+					return nil
+				}
+
+				err := muxer.WriteAV1(
+					track,
+					tunit.NTP,
+					pts,
+					tunit.TU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -67,7 +81,10 @@ func setupVideoTrack(
 	videoMedia = strea.Desc().FindFormat(&videoFormatVP9)
 
 	if videoFormatVP9 != nil {
-		track := &gohlslib.Track{Codec: &codecs.VP9{}}
+		track := &gohlslib.Track{
+			Codec:     &codecs.VP9{},
+			ClockRate: videoFormatVP9.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -80,7 +97,16 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteVP9(track, tunit.NTP, tunit.PTS, tunit.Frame)
+				pts, ok := timeDecoder.Decode(videoFormatVP9, tunit.RTPPackets[0])
+				if !ok {
+					return nil
+				}
+
+				err := muxer.WriteVP9(
+					track,
+					tunit.NTP,
+					pts,
+					tunit.Frame)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -96,11 +122,14 @@ func setupVideoTrack(
 
 	if videoFormatH265 != nil {
 		vps, sps, pps := videoFormatH265.SafeParams()
-		track := &gohlslib.Track{Codec: &codecs.H265{
-			VPS: vps,
-			SPS: sps,
-			PPS: pps,
-		}}
+		track := &gohlslib.Track{
+			Codec: &codecs.H265{
+				VPS: vps,
+				SPS: sps,
+				PPS: pps,
+			},
+			ClockRate: videoFormatH265.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -113,7 +142,16 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteH265(track, tunit.NTP, tunit.PTS, tunit.AU)
+				pts, ok := timeDecoder.Decode(videoFormatH265, tunit.RTPPackets[0])
+				if !ok {
+					return nil
+				}
+
+				err := muxer.WriteH265(
+					track,
+					tunit.NTP,
+					pts,
+					tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -129,10 +167,13 @@ func setupVideoTrack(
 
 	if videoFormatH264 != nil {
 		sps, pps := videoFormatH264.SafeParams()
-		track := &gohlslib.Track{Codec: &codecs.H264{
-			SPS: sps,
-			PPS: pps,
-		}}
+		track := &gohlslib.Track{
+			Codec: &codecs.H264{
+				SPS: sps,
+				PPS: pps,
+			},
+			ClockRate: videoFormatH264.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -145,7 +186,16 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteH264(track, tunit.NTP, tunit.PTS, tunit.AU)
+				pts, ok := timeDecoder.Decode(videoFormatH264, tunit.RTPPackets[0])
+				if !ok {
+					return nil
+				}
+
+				err := muxer.WriteH264(
+					track,
+					tunit.NTP,
+					pts,
+					tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -162,6 +212,7 @@ func setupAudioTracks(
 	reader stream.Reader,
 	muxer *gohlslib.Muxer,
 	setuppedFormats map[format.Format]struct{},
+	timeDecoder *rtptime.GlobalDecoder2,
 ) {
 	addTrack := func(
 		medi *description.Media,
@@ -176,11 +227,16 @@ func setupAudioTracks(
 
 	for _, media := range strea.Desc().Medias {
 		for _, forma := range media.Formats {
+			cformat := forma
+
 			switch forma := forma.(type) {
 			case *format.Opus:
-				track := &gohlslib.Track{Codec: &codecs.Opus{
-					ChannelCount: forma.ChannelCount,
-				}}
+				track := &gohlslib.Track{
+					Codec: &codecs.Opus{
+						ChannelCount: forma.ChannelCount,
+					},
+					ClockRate: forma.ClockRate(),
+				}
 
 				addTrack(
 					media,
@@ -189,10 +245,15 @@ func setupAudioTracks(
 					func(u unit.Unit) error {
 						tunit := u.(*unit.Opus)
 
+						pts, ok := timeDecoder.Decode(cformat, tunit.RTPPackets[0])
+						if !ok {
+							return nil
+						}
+
 						err := muxer.WriteOpus(
 							track,
 							tunit.NTP,
-							tunit.PTS,
+							pts,
 							tunit.Packets)
 						if err != nil {
 							return fmt.Errorf("muxer error: %w", err)
@@ -204,9 +265,12 @@ func setupAudioTracks(
 			case *format.MPEG4Audio:
 				co := forma.GetConfig()
 				if co != nil {
-					track := &gohlslib.Track{Codec: &codecs.MPEG4Audio{
-						Config: *co,
-					}}
+					track := &gohlslib.Track{
+						Codec: &codecs.MPEG4Audio{
+							Config: *co,
+						},
+						ClockRate: forma.ClockRate(),
+					}
 
 					addTrack(
 						media,
@@ -219,10 +283,15 @@ func setupAudioTracks(
 								return nil
 							}
 
+							pts, ok := timeDecoder.Decode(cformat, tunit.RTPPackets[0])
+							if !ok {
+								return nil
+							}
+
 							err := muxer.WriteMPEG4Audio(
 								track,
 								tunit.NTP,
-								tunit.PTS,
+								pts,
 								tunit.AUs)
 							if err != nil {
 								return fmt.Errorf("muxer error: %w", err)
@@ -244,11 +313,14 @@ func FromStream(
 ) error {
 	setuppedFormats := make(map[format.Format]struct{})
 
+	timeDecoder := rtptime.NewGlobalDecoder2()
+
 	setupVideoTrack(
 		stream,
 		reader,
 		muxer,
 		setuppedFormats,
+		timeDecoder,
 	)
 
 	setupAudioTracks(
@@ -256,6 +328,7 @@ func FromStream(
 		reader,
 		muxer,
 		setuppedFormats,
+		timeDecoder,
 	)
 
 	if len(muxer.Tracks) == 0 {

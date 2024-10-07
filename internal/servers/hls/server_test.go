@@ -217,12 +217,13 @@ func TestServerRead(t *testing.T) {
 
 		c.OnTracks = func(tracks []*gohlslib.Track) error {
 			require.Equal(t, []*gohlslib.Track{{
-				Codec: &codecs.H264{},
+				Codec:     &codecs.H264{},
+				ClockRate: 90000,
 			}}, tracks)
 
-			c.OnDataH26x(tracks[0], func(pts, dts time.Duration, au [][]byte) {
-				require.Equal(t, time.Duration(0), pts)
-				require.Equal(t, time.Duration(0), dts)
+			c.OnDataH26x(tracks[0], func(pts, dts int64, au [][]byte) {
+				require.Equal(t, int64(0), pts)
+				require.Equal(t, int64(0), dts)
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
@@ -327,12 +328,13 @@ func TestServerRead(t *testing.T) {
 
 		c.OnTracks = func(tracks []*gohlslib.Track) error {
 			require.Equal(t, []*gohlslib.Track{{
-				Codec: &codecs.H264{},
+				Codec:     &codecs.H264{},
+				ClockRate: 90000,
 			}}, tracks)
 
-			c.OnDataH26x(tracks[0], func(pts, dts time.Duration, au [][]byte) {
-				require.Equal(t, time.Duration(0), pts)
-				require.Equal(t, time.Duration(0), dts)
+			c.OnDataH26x(tracks[0], func(pts, dts int64, au [][]byte) {
+				require.Equal(t, int64(0), pts)
+				require.Equal(t, int64(0), dts)
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,

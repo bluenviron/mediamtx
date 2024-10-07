@@ -11,6 +11,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func timestampToDuration(d int64, clockRate int) time.Duration {
+	return multiplyAndDivide2(time.Duration(d), time.Second, time.Duration(clockRate))
+}
+
 // ToStream maps a HLS stream to a MediaMTX stream.
 func ToStream(
 	c *gohlslib.Client,
@@ -21,6 +31,7 @@ func ToStream(
 
 	for _, track := range tracks {
 		var medi *description.Media
+		clockRate := track.ClockRate
 
 		switch tcodec := track.Codec.(type) {
 		case *codecs.AV1:
@@ -31,11 +42,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
+			c.OnDataAV1(track, func(pts int64, tu [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.AV1{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					TU: tu,
 				})
@@ -49,11 +60,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataVP9(track, func(pts time.Duration, frame []byte) {
+			c.OnDataVP9(track, func(pts int64, frame []byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.VP9{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					Frame: frame,
 				})
@@ -70,11 +81,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataH26x(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
+			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					AU: au,
 				})
@@ -91,11 +102,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataH26x(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
+			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					AU: au,
 				})
@@ -113,11 +124,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataMPEG4Audio(track, func(pts time.Duration, aus [][]byte) {
+			c.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					AUs: aus,
 				})
@@ -132,11 +143,11 @@ func ToStream(
 				}},
 			}
 
-			c.OnDataOpus(track, func(pts time.Duration, packets [][]byte) {
+			c.OnDataOpus(track, func(pts int64, packets [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: timestampToDuration(pts, clockRate),
 					},
 					Packets: packets,
 				})
