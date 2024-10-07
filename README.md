@@ -1708,6 +1708,13 @@ WantedBy=multi-user.target
 EOF
 ```
 
+If SELinux is enabled (for instance in case of RedHat, Rocky, CentOS++), add correct security context:
+
+```sh
+semanage fcontext -a -t bin_t /usr/local/bin/mediamtx
+restorecon -Fv /usr/local/bin/mediamtx
+```
+
 Enable and start the service:
 
 ```sh
