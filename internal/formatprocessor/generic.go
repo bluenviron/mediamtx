@@ -35,7 +35,7 @@ func (t *formatProcessorGeneric) ProcessUnit(_ unit.Unit) error {
 func (t *formatProcessorGeneric) ProcessRTPPacket(
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	_ bool,
 ) (unit.Unit, error) {
 	u := &unit.Generic{

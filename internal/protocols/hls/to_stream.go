@@ -11,14 +11,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
+func multiplyAndDivide(v, m, d int64) int64 {
 	secs := v / d
 	dec := v % d
 	return (secs*m + dec*m/d)
-}
-
-func timestampToDuration(d int64, clockRate int) time.Duration {
-	return multiplyAndDivide2(time.Duration(d), time.Second, time.Duration(clockRate))
 }
 
 // ToStream maps a HLS stream to a MediaMTX stream.
@@ -46,7 +42,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.AV1{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					TU: tu,
 				})
@@ -64,30 +60,9 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.VP9{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					Frame: frame,
-				})
-			})
-
-		case *codecs.H264:
-			medi = &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{
-					PayloadTyp:        96,
-					PacketizationMode: 1,
-					SPS:               tcodec.SPS,
-					PPS:               tcodec.PPS,
-				}},
-			}
-
-			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
-					},
-					AU: au,
 				})
 			})
 
@@ -106,9 +81,49 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					AU: au,
+				})
+			})
+
+		case *codecs.H264:
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+					SPS:               tcodec.SPS,
+					PPS:               tcodec.PPS,
+				}},
+			}
+
+			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
+				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+					},
+					AU: au,
+				})
+			})
+
+		case *codecs.Opus:
+			medi = &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
+					PayloadTyp:   96,
+					ChannelCount: tcodec.ChannelCount,
+				}},
+			}
+
+			c.OnDataOpus(track, func(pts int64, packets [][]byte) {
+				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
+					},
+					Packets: packets,
 				})
 			})
 
@@ -128,28 +143,9 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
+						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
 					},
 					AUs: aus,
-				})
-			})
-
-		case *codecs.Opus:
-			medi = &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.Opus{
-					PayloadTyp:   96,
-					ChannelCount: tcodec.ChannelCount,
-				}},
-			}
-
-			c.OnDataOpus(track, func(pts int64, packets [][]byte) {
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: timestampToDuration(pts, clockRate),
-					},
-					Packets: packets,
 				})
 			})
 

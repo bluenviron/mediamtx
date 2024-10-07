@@ -23,8 +23,20 @@ const (
 	mpegtsMaxBufferSize = 64 * 1024
 )
 
-func durationGoToMPEGTS(v time.Duration) int64 {
-	return int64(v.Seconds() * 90000)
+func multiplyAndDivide(v, m, d int64) int64 {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func timestampToDuration(t int64, clockRate int) time.Duration {
+	return multiplyAndDivide2(time.Duration(t), time.Second, time.Duration(clockRate))
 }
 
 type dynamicWriter struct {
@@ -67,11 +79,13 @@ func (f *formatMPEGTS) initialize() {
 
 	for _, media := range f.ai.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
+			clockRate := forma.ClockRate()
+
 			switch forma := forma.(type) {
 			case *rtspformat.H265: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH265{})
 
-				var dtsExtractor *h265.DTSExtractor
+				var dtsExtractor *h265.DTSExtractor2
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -89,7 +103,7 @@ func (f *formatMPEGTS) initialize() {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor()
+							dtsExtractor = h265.NewDTSExtractor2()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -98,12 +112,17 @@ func (f *formatMPEGTS) initialize() {
 						}
 
 						return f.write(
-							dts,
+							timestampToDuration(dts, clockRate),
 							tunit.NTP,
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH265(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+								return f.mw.WriteH265(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									dts,
+									randomAccess,
+									tunit.AU)
 							},
 						)
 					})
@@ -111,7 +130,7 @@ func (f *formatMPEGTS) initialize() {
 			case *rtspformat.H264: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH264{})
 
-				var dtsExtractor *h264.DTSExtractor
+				var dtsExtractor *h264.DTSExtractor2
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -129,7 +148,7 @@ func (f *formatMPEGTS) initialize() {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor()
+							dtsExtractor = h264.NewDTSExtractor2()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -138,12 +157,17 @@ func (f *formatMPEGTS) initialize() {
 						}
 
 						return f.write(
-							dts,
+							timestampToDuration(dts, clockRate),
 							tunit.NTP,
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH264(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+								return f.mw.WriteH264(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									dts,
+									randomAccess,
+									tunit.AU)
 							},
 						)
 					})
@@ -152,7 +176,7 @@ func (f *formatMPEGTS) initialize() {
 				track := addTrack(forma, &mpegts.CodecMPEG4Video{})
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -174,12 +198,15 @@ func (f *formatMPEGTS) initialize() {
 						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 
 						return f.write(
-							tunit.PTS,
+							timestampToDuration(tunit.PTS, clockRate),
 							tunit.NTP,
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteMPEG4Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
+								return f.mw.WriteMPEG4Video(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frame)
 							},
 						)
 					})
@@ -188,7 +215,7 @@ func (f *formatMPEGTS) initialize() {
 				track := addTrack(forma, &mpegts.CodecMPEG1Video{})
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -210,12 +237,15 @@ func (f *formatMPEGTS) initialize() {
 						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
 
 						return f.write(
-							tunit.PTS,
+							timestampToDuration(tunit.PTS, clockRate),
 							tunit.NTP,
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteMPEG1Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
+								return f.mw.WriteMPEG1Video(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frame)
 							},
 						)
 					})
@@ -236,12 +266,15 @@ func (f *formatMPEGTS) initialize() {
 						}
 
 						return f.write(
-							tunit.PTS,
+							timestampToDuration(tunit.PTS, clockRate),
 							tunit.NTP,
 							false,
 							true,
 							func() error {
-								return f.mw.WriteOpus(track, durationGoToMPEGTS(tunit.PTS), tunit.Packets)
+								return f.mw.WriteOpus(
+									track,
+									multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+									tunit.Packets)
 							},
 						)
 					})
@@ -266,12 +299,15 @@ func (f *formatMPEGTS) initialize() {
 							}
 
 							return f.write(
-								tunit.PTS,
+								timestampToDuration(tunit.PTS, clockRate),
 								tunit.NTP,
 								false,
 								true,
 								func() error {
-									return f.mw.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.AUs)
+									return f.mw.WriteMPEG4Audio(
+										track,
+										multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+										tunit.AUs)
 								},
 							)
 						})
@@ -291,20 +327,21 @@ func (f *formatMPEGTS) initialize() {
 						}
 
 						return f.write(
-							tunit.PTS,
+							timestampToDuration(tunit.PTS, clockRate),
 							tunit.NTP,
 							false,
 							true,
 							func() error {
-								return f.mw.WriteMPEG1Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.Frames)
+								return f.mw.WriteMPEG1Audio(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frames)
 							},
 						)
 					})
 
 			case *rtspformat.AC3:
 				track := addTrack(forma, &mpegts.CodecAC3{})
-
-				sampleRate := time.Duration(forma.SampleRate)
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -317,16 +354,18 @@ func (f *formatMPEGTS) initialize() {
 						}
 
 						return f.write(
-							tunit.PTS,
+							timestampToDuration(tunit.PTS, clockRate),
 							tunit.NTP,
 							false,
 							true,
 							func() error {
 								for i, frame := range tunit.Frames {
-									framePTS := tunit.PTS + time.Duration(i)*ac3.SamplesPerFrame*
-										time.Second/sampleRate
+									framePTS := tunit.PTS + int64(i)*ac3.SamplesPerFrame
 
-									err := f.mw.WriteAC3(track, durationGoToMPEGTS(framePTS), frame)
+									err := f.mw.WriteAC3(
+										track,
+										multiplyAndDivide(framePTS, 90000, int64(clockRate)),
+										frame)
 									if err != nil {
 										return err
 									}
@@ -370,7 +409,7 @@ func (f *formatMPEGTS) close() {
 }
 
 func (f *formatMPEGTS) write(
-	dts time.Duration,
+	dtsDuration time.Duration,
 	ntp time.Time,
 	isVideo bool,
 	randomAccess bool,
@@ -384,14 +423,14 @@ func (f *formatMPEGTS) write(
 	case f.currentSegment == nil:
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dts,
+			startDTS: dtsDuration,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
-		f.currentSegment.lastDTS = dts
+		(dtsDuration-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
+		f.currentSegment.lastDTS = dtsDuration
 		err := f.currentSegment.close()
 		if err != nil {
 			return err
@@ -399,21 +438,21 @@ func (f *formatMPEGTS) write(
 
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dts,
+			startDTS: dtsDuration,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 
-	case (dts - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
+	case (dtsDuration - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err
 		}
 
-		f.currentSegment.lastFlush = dts
+		f.currentSegment.lastFlush = dtsDuration
 	}
 
-	f.currentSegment.lastDTS = dts
+	f.currentSegment.lastDTS = dtsDuration
 
 	return writeCB()
 }

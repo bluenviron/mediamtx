@@ -16,5 +16,5 @@ type Unit interface {
 	GetNTP() time.Time
 
 	// returns the PTS of the unit.
-	GetPTS() time.Duration
+	GetPTS() int64
 }

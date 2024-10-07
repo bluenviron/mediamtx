@@ -247,7 +247,7 @@ func TestServerRead(t *testing.T) {
 				str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
-						PTS: time.Duration(i) * time.Second,
+						PTS: int64(i) * 90000,
 					},
 					AU: [][]byte{
 						{5, 1}, // IDR
@@ -312,7 +312,7 @@ func TestServerRead(t *testing.T) {
 			str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 				Base: unit.Base{
 					NTP: time.Time{},
-					PTS: time.Duration(i) * time.Second,
+					PTS: int64(i) * 90000,
 				},
 				AU: [][]byte{
 					{5, 1}, // IDR

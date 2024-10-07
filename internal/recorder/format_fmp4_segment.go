@@ -69,14 +69,14 @@ func (s *formatFMP4Segment) close() error {
 	return err
 }
 
-func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample) error {
-	s.lastDTS = sample.dts
+func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dtsDuration time.Duration) error {
+	s.lastDTS = dtsDuration
 
 	if s.curPart == nil {
 		s.curPart = &formatFMP4Part{
 			s:              s,
 			sequenceNumber: s.f.nextSequenceNumber,
-			startDTS:       sample.dts,
+			startDTS:       dtsDuration,
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
@@ -91,11 +91,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample) error 
 		s.curPart = &formatFMP4Part{
 			s:              s,
 			sequenceNumber: s.f.nextSequenceNumber,
-			startDTS:       sample.dts,
+			startDTS:       dtsDuration,
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
 	}
 
-	return s.curPart.write(track, sample)
+	return s.curPart.write(track, sample, dtsDuration)
 }

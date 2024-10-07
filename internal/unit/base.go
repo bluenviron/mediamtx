@@ -10,7 +10,7 @@ import (
 type Base struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
-	PTS        time.Duration
+	PTS        int64
 }
 
 // GetRTPPackets implements Unit.
@@ -24,6 +24,6 @@ func (u *Base) GetNTP() time.Time {
 }
 
 // GetPTS implements Unit.
-func (u *Base) GetPTS() time.Duration {
+func (u *Base) GetPTS() int64 {
 	return u.PTS
 }
