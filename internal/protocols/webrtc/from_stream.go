@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
@@ -213,7 +212,7 @@ func setupVideoTrack(
 		}
 
 		firstReceived := false
-		var lastPTS time.Duration
+		var lastPTS int64
 
 		stream.AddReader(
 			reader,

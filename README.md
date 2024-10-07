@@ -32,8 +32,6 @@ Live streams can be published to the server with:
 |[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
-Instructions are provided for publishing through these protocols by using [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [OpenCV](#opencv), [Unity](#unity), [Web browsers](#web-browsers).
-
 Live streams can be read from the server with:
 
 |protocol|variants|video codecs|audio codecs|
@@ -43,8 +41,6 @@ Live streams can be read from the server with:
 |[RTSP](#rtsp)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC)|
-
-Instructions are provided for reading through these protocols by using [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1), [VLC](#vlc), [Unity](#unity-1), [Web browsers](#web-browsers-1).
 
 Live streams be recorded and played back with:
 

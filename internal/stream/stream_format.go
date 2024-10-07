@@ -76,7 +76,7 @@ func (sf *streamFormat) writeRTPPacket(
 	medi *description.Media,
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 ) {
 	hasNonRTSPReaders := len(sf.pausedReaders) > 0 || len(sf.runningReaders) > 0
 

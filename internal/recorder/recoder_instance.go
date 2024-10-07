@@ -13,7 +13,7 @@ import (
 
 type sample struct {
 	*fmp4.PartSample
-	dts time.Duration
+	dts int64
 	ntp time.Time
 }
 

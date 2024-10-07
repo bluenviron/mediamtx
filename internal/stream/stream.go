@@ -240,7 +240,7 @@ func (s *Stream) WriteRTPPacket(
 	forma format.Format,
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 ) {
 	sm := s.streamMedias[medi]
 	sf := sm.formats[forma]

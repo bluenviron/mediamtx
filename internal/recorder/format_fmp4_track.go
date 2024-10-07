@@ -21,29 +21,33 @@ func (t *formatFMP4Track) write(sample *sample) error {
 	if sample == nil {
 		return nil
 	}
-	sample.Duration = uint32(durationGoToMp4(t.nextSample.dts-sample.dts, t.initTrack.TimeScale))
+	sample.Duration = uint32(t.nextSample.dts - sample.dts)
+
+	dtsDuration := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
 
 	if t.f.currentSegment == nil {
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
-			startDTS: sample.dts,
+			startDTS: dtsDuration,
 			startNTP: sample.ntp,
 		}
 		t.f.currentSegment.initialize()
 		// BaseTime is negative, this is not supported by fMP4. Reject the sample silently.
-	} else if (sample.dts - t.f.currentSegment.startDTS) < 0 {
+	} else if (dtsDuration - t.f.currentSegment.startDTS) < 0 {
 		return nil
 	}
 
-	err := t.f.currentSegment.write(t, sample)
+	err := t.f.currentSegment.write(t, sample, dtsDuration)
 	if err != nil {
 		return err
 	}
 
+	nextDTSDuration := timestampToDuration(t.nextSample.dts, int(t.initTrack.TimeScale))
+
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.ai.agent.SegmentDuration {
-		t.f.currentSegment.lastDTS = t.nextSample.dts
+		(nextDTSDuration-t.f.currentSegment.startDTS) >= t.f.ai.agent.SegmentDuration {
+		t.f.currentSegment.lastDTS = nextDTSDuration
 		err := t.f.currentSegment.close()
 		if err != nil {
 			return err
@@ -51,7 +55,7 @@ func (t *formatFMP4Track) write(sample *sample) error {
 
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
-			startDTS: t.nextSample.dts,
+			startDTS: nextDTSDuration,
 			startNTP: t.nextSample.ntp,
 		}
 		t.f.currentSegment.initialize()

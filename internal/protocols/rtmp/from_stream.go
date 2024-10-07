@@ -18,6 +18,16 @@ import (
 var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 
+func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func timestampToDuration(t int64, clockRate int) time.Duration {
+	return multiplyAndDivide2(time.Duration(t), time.Second, time.Duration(clockRate))
+}
+
 func setupVideo(
 	strea *stream.Stream,
 	reader stream.Reader,
@@ -29,7 +39,7 @@ func setupVideo(
 	videoMedia := strea.Desc().FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
-		var videoDTSExtractor *h264.DTSExtractor
+		var videoDTSExtractor *h264.DTSExtractor2
 
 		strea.AddReader(
 			reader,
@@ -56,35 +66,28 @@ func setupVideo(
 					}
 				}
 
-				var dts time.Duration
-
 				// wait until we receive an IDR
 				if videoDTSExtractor == nil {
 					if !idrPresent {
 						return nil
 					}
 
-					videoDTSExtractor = h264.NewDTSExtractor()
+					videoDTSExtractor = h264.NewDTSExtractor2()
+				} else if !idrPresent && !nonIDRPresent {
+					return nil
+				}
 
-					var err error
-					dts, err = videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
-				} else {
-					if !idrPresent && !nonIDRPresent {
-						return nil
-					}
-
-					var err error
-					dts, err = videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
+				dts, err := videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
+				if err != nil {
+					return err
 				}
 
 				nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				return (*w).WriteH264(tunit.PTS, dts, idrPresent, tunit.AU)
+				return (*w).WriteH264(
+					timestampToDuration(tunit.PTS, videoFormatH264.ClockRate()),
+					timestampToDuration(dts, videoFormatH264.ClockRate()),
+					idrPresent,
+					tunit.AU)
 			})
 
 		return videoFormatH264
@@ -116,10 +119,11 @@ func setupAudio(
 				}
 
 				for i, au := range tunit.AUs {
+					pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+
 					nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 					err := (*w).WriteMPEG4Audio(
-						tunit.PTS+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-							time.Second/time.Duration(audioFormatMPEG4Audio.ClockRate()),
+						timestampToDuration(pts, audioFormatMPEG4Audio.ClockRate()),
 						au,
 					)
 					if err != nil {
@@ -158,13 +162,16 @@ func setupAudio(
 					}
 
 					nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					err = (*w).WriteMPEG1Audio(pts, &h, frame)
+					err = (*w).WriteMPEG1Audio(
+						timestampToDuration(pts, audioFormatMPEG1.ClockRate()),
+						&h,
+						frame)
 					if err != nil {
 						return err
 					}
 
-					pts += time.Duration(h.SampleCount()) *
-						time.Second / time.Duration(h.SampleRate)
+					pts += int64(h.SampleCount()) *
+						int64(audioFormatMPEG1.ClockRate()) / int64(h.SampleRate)
 				}
 
 				return nil

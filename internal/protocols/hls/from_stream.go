@@ -39,7 +39,10 @@ func setupVideoTrack(
 	videoMedia := strea.Desc().FindFormat(&videoFormatAV1)
 
 	if videoFormatAV1 != nil {
-		track := &gohlslib.Track{Codec: &codecs.AV1{}}
+		track := &gohlslib.Track{
+			Codec:     &codecs.AV1{},
+			ClockRate: videoFormatAV1.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -52,7 +55,11 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteAV1(track, tunit.NTP, tunit.PTS, tunit.TU)
+				err := muxer.WriteAV1(
+					track,
+					tunit.NTP,
+					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					tunit.TU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -67,7 +74,10 @@ func setupVideoTrack(
 	videoMedia = strea.Desc().FindFormat(&videoFormatVP9)
 
 	if videoFormatVP9 != nil {
-		track := &gohlslib.Track{Codec: &codecs.VP9{}}
+		track := &gohlslib.Track{
+			Codec:     &codecs.VP9{},
+			ClockRate: videoFormatVP9.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -80,7 +90,11 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteVP9(track, tunit.NTP, tunit.PTS, tunit.Frame)
+				err := muxer.WriteVP9(
+					track,
+					tunit.NTP,
+					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					tunit.Frame)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -96,11 +110,14 @@ func setupVideoTrack(
 
 	if videoFormatH265 != nil {
 		vps, sps, pps := videoFormatH265.SafeParams()
-		track := &gohlslib.Track{Codec: &codecs.H265{
-			VPS: vps,
-			SPS: sps,
-			PPS: pps,
-		}}
+		track := &gohlslib.Track{
+			Codec: &codecs.H265{
+				VPS: vps,
+				SPS: sps,
+				PPS: pps,
+			},
+			ClockRate: videoFormatH265.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -113,7 +130,11 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteH265(track, tunit.NTP, tunit.PTS, tunit.AU)
+				err := muxer.WriteH265(
+					track,
+					tunit.NTP,
+					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -129,10 +150,13 @@ func setupVideoTrack(
 
 	if videoFormatH264 != nil {
 		sps, pps := videoFormatH264.SafeParams()
-		track := &gohlslib.Track{Codec: &codecs.H264{
-			SPS: sps,
-			PPS: pps,
-		}}
+		track := &gohlslib.Track{
+			Codec: &codecs.H264{
+				SPS: sps,
+				PPS: pps,
+			},
+			ClockRate: videoFormatH264.ClockRate(),
+		}
 
 		addTrack(
 			videoMedia,
@@ -145,7 +169,11 @@ func setupVideoTrack(
 					return nil
 				}
 
-				err := muxer.WriteH264(track, tunit.NTP, tunit.PTS, tunit.AU)
+				err := muxer.WriteH264(
+					track,
+					tunit.NTP,
+					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -178,9 +206,12 @@ func setupAudioTracks(
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.Opus:
-				track := &gohlslib.Track{Codec: &codecs.Opus{
-					ChannelCount: forma.ChannelCount,
-				}}
+				track := &gohlslib.Track{
+					Codec: &codecs.Opus{
+						ChannelCount: forma.ChannelCount,
+					},
+					ClockRate: forma.ClockRate(),
+				}
 
 				addTrack(
 					media,
@@ -192,7 +223,7 @@ func setupAudioTracks(
 						err := muxer.WriteOpus(
 							track,
 							tunit.NTP,
-							tunit.PTS,
+							tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
 							tunit.Packets)
 						if err != nil {
 							return fmt.Errorf("muxer error: %w", err)
@@ -204,9 +235,12 @@ func setupAudioTracks(
 			case *format.MPEG4Audio:
 				co := forma.GetConfig()
 				if co != nil {
-					track := &gohlslib.Track{Codec: &codecs.MPEG4Audio{
-						Config: *co,
-					}}
+					track := &gohlslib.Track{
+						Codec: &codecs.MPEG4Audio{
+							Config: *co,
+						},
+						ClockRate: forma.ClockRate(),
+					}
 
 					addTrack(
 						media,
@@ -222,7 +256,7 @@ func setupAudioTracks(
 							err := muxer.WriteMPEG4Audio(
 								track,
 								tunit.NTP,
-								tunit.PTS,
+								tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
 								tunit.AUs)
 							if err != nil {
 								return fmt.Errorf("muxer error: %w", err)

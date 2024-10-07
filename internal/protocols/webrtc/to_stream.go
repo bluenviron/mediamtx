@@ -24,7 +24,7 @@ func ToStream(
 	stream **stream.Stream,
 ) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
-	timeDecoder := rtptime.NewGlobalDecoder()
+	timeDecoder := rtptime.NewGlobalDecoder2()
 
 	for _, track := range pc.incomingTracks {
 		var typ description.MediaType

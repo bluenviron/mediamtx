@@ -25,13 +25,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func durationGoToMp4(v time.Duration, timeScale uint32) uint64 {
-	timeScale64 := uint64(timeScale)
-	secs := v / time.Second
-	dec := v % time.Second
-	return uint64(secs)*timeScale64 + uint64(dec)*timeScale64/uint64(time.Second)
-}
-
 func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
 	switch cm {
 	case mpeg1audio.ChannelModeStereo,
@@ -144,6 +137,8 @@ func (f *formatFMP4) initialize() {
 
 	for _, media := range f.ai.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
+			clockRate := forma.ClockRate()
+
 			switch forma := forma.(type) {
 			case *rtspformat.AV1:
 				codec := &fmp4.CodecAV1{
@@ -298,7 +293,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				var dtsExtractor *h265.DTSExtractor
+				var dtsExtractor *h265.DTSExtractor2
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -343,7 +338,7 @@ func (f *formatFMP4) initialize() {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor()
+							dtsExtractor = h265.NewDTSExtractor2()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -352,7 +347,7 @@ func (f *formatFMP4) initialize() {
 						}
 
 						sampl, err := fmp4.NewPartSampleH26x(
-							int32(durationGoToMp4(tunit.PTS-dts, 90000)),
+							int32(tunit.PTS-dts),
 							randomAccess,
 							tunit.AU)
 						if err != nil {
@@ -380,7 +375,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				var dtsExtractor *h264.DTSExtractor
+				var dtsExtractor *h264.DTSExtractor2
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -418,7 +413,7 @@ func (f *formatFMP4) initialize() {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor()
+							dtsExtractor = h264.NewDTSExtractor2()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -427,7 +422,7 @@ func (f *formatFMP4) initialize() {
 						}
 
 						sampl, err := fmp4.NewPartSampleH26x(
-							int32(durationGoToMp4(tunit.PTS-dts, 90000)),
+							int32(tunit.PTS-dts),
 							randomAccess,
 							tunit.AU)
 						if err != nil {
@@ -454,7 +449,7 @@ func (f *formatFMP4) initialize() {
 				track := addTrack(forma, codec)
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -507,7 +502,7 @@ func (f *formatFMP4) initialize() {
 				track := addTrack(forma, codec)
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
 				f.ai.agent.Stream.AddReader(
 					f.ai,
@@ -608,21 +603,21 @@ func (f *formatFMP4) initialize() {
 							return nil
 						}
 
-						var dt time.Duration
+						pts := tunit.PTS
 
 						for _, packet := range tunit.Packets {
 							err := track.write(&sample{
 								PartSample: &fmp4.PartSample{
 									Payload: packet,
 								},
-								dts: tunit.PTS + dt,
-								ntp: tunit.NTP.Add(dt),
+								dts: pts,
+								ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
 							})
 							if err != nil {
 								return err
 							}
 
-							dt += opus.PacketDuration(packet)
+							pts += int64(opus.PacketDuration(packet)) * int64(clockRate) / int64(time.Second)
 						}
 
 						return nil
@@ -636,8 +631,6 @@ func (f *formatFMP4) initialize() {
 					}
 					track := addTrack(forma, codec)
 
-					sampleRate := time.Duration(forma.ClockRate())
-
 					f.ai.agent.Stream.AddReader(
 						f.ai,
 						media,
@@ -649,15 +642,14 @@ func (f *formatFMP4) initialize() {
 							}
 
 							for i, au := range tunit.AUs {
-								dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
-									time.Second / sampleRate
+								pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
 
 								err := track.write(&sample{
 									PartSample: &fmp4.PartSample{
 										Payload: au,
 									},
-									dts: tunit.PTS + dt,
-									ntp: tunit.NTP.Add(dt),
+									dts: pts,
+									ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
 								})
 								if err != nil {
 									return err
@@ -772,15 +764,14 @@ func (f *formatFMP4) initialize() {
 								updateCodecs()
 							}
 
-							dt := time.Duration(i) * time.Duration(ac3.SamplesPerFrame) *
-								time.Second / time.Duration(codec.SampleRate)
+							pts := tunit.PTS + int64(i)*ac3.SamplesPerFrame
 
 							err = track.write(&sample{
 								PartSample: &fmp4.PartSample{
 									Payload: frame,
 								},
-								dts: tunit.PTS + dt,
-								ntp: tunit.NTP.Add(dt),
+								dts: pts,
+								ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
 							})
 							if err != nil {
 								return err
@@ -881,8 +872,9 @@ func (f *formatFMP4) initialize() {
 func (f *formatFMP4) close() {
 	if f.currentSegment != nil {
 		for _, track := range f.tracks {
-			if track.nextSample != nil && track.nextSample.dts > f.currentSegment.lastDTS {
-				f.currentSegment.lastDTS = track.nextSample.dts
+			if track.nextSample != nil &&
+				timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale)) > f.currentSegment.lastDTS {
+				f.currentSegment.lastDTS = timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale))
 			}
 		}
 

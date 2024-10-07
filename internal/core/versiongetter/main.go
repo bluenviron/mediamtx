@@ -34,7 +34,6 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 		}
 		return nil
 	})
-
 	if err != nil {
 		return "", err
 	}

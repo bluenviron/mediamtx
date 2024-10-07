@@ -19,7 +19,7 @@ type Processor interface {
 	ProcessRTPPacket(
 		pkt *rtp.Packet,
 		ntp time.Time,
-		pts time.Duration,
+		pts int64,
 		hasNonRTSPReaders bool,
 	) (unit.Unit, error)
 }

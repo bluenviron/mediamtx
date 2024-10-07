@@ -292,7 +292,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 			cforma := forma
 
 			s.rsession.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				pts, ok := s.rsession.PacketPTS(cmedi, pkt)
+				pts, ok := s.rsession.PacketPTS2(cmedi, pkt)
 				if !ok {
 					return
 				}
