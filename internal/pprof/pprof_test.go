@@ -46,3 +46,33 @@ func TestPreflightRequest(t *testing.T) {
 	require.Equal(t, "Authorization", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
 }
+
+func TestPprof(t *testing.T) {
+	s := &PPROF{
+		Address:     "127.0.0.1:9999",
+		AllowOrigin: "*",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9999/debug/pprof/heap", nil)
+	require.NoError(t, err)
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.NotEmpty(t, byts)
+}

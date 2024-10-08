@@ -1071,7 +1071,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				} `json:"items"`
 			}
 			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out2)
-			require.Equal(t, 0, len(out2.Items))
+			require.Empty(t, out2.Items)
 		})
 	}
 }
