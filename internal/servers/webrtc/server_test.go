@@ -763,5 +763,5 @@ func TestICEServerClientOnly(t *testing.T) {
 	require.Equal(t, len(s.ICEServers), len(clientICEServers))
 	serverICEServers, err := s.generateICEServers(false)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(serverICEServers))
+	require.Empty(t, serverICEServers)
 }

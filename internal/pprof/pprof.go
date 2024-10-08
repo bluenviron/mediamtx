@@ -6,15 +6,14 @@ import (
 	"net/http"
 	"time"
 
-	// start pprof
-	_ "net/http/pprof"
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
-	"github.com/gin-gonic/gin"
 )
 
 type pprofAuthManager interface {
@@ -48,7 +47,7 @@ func (pp *PPROF) Initialize() error {
 	router.Use(pp.middlewareOrigin)
 	router.Use(pp.middlewareAuth)
 
-	router.Use(pp.onRequest)
+	pprof.Register(router)
 
 	network, address := restrictnetwork.Restrict("tcp", pp.Address)
 
@@ -100,7 +99,7 @@ func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
 func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionMetrics,
+		Action:      conf.AuthActionPprof,
 		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
@@ -116,8 +115,4 @@ func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-}
-
-func (pp *PPROF) onRequest(ctx *gin.Context) {
-	http.DefaultServeMux.ServeHTTP(ctx.Writer, ctx.Request)
 }
