@@ -100,7 +100,7 @@ func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
 func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionMetrics,
+		Action:      conf.AuthActionPprof,
 		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
