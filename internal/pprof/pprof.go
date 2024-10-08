@@ -37,18 +37,22 @@ type PPROF struct {
 	AuthManager    pprofAuthManager
 	Parent         pprofParent
 
-	httpServer *httpp.WrappedServer
+	httpServer *httpp.Server
 }
 
 // Initialize initializes PPROF.
 func (pp *PPROF) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-	router.NoRoute(pp.onRequest)
+
+	router.Use(pp.middlewareOrigin)
+	router.Use(pp.middlewareAuth)
+
+	router.Use(pp.onRequest)
 
 	network, address := restrictnetwork.Restrict("tcp", pp.Address)
 
-	pp.httpServer = &httpp.WrappedServer{
+	pp.httpServer = &httpp.Server{
 		Network:     network,
 		Address:     address,
 		ReadTimeout: time.Duration(pp.ReadTimeout),
@@ -79,19 +83,21 @@ func (pp *PPROF) Log(level logger.Level, format string, args ...interface{}) {
 	pp.Parent.Log(level, "[pprof] "+format, args...)
 }
 
-func (pp *PPROF) onRequest(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Access-Control-Allow-Origin", pp.AllowOrigin)
-	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", pp.AllowOrigin)
+	ctx.Header("Access-Control-Allow-Credentials", "true")
 
 	// preflight requests
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
-		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization")
-		ctx.Writer.WriteHeader(http.StatusNoContent)
+		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Header("Access-Control-Allow-Headers", "Authorization")
+		ctx.AbortWithStatus(http.StatusNoContent)
 		return
 	}
+}
 
+func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 	err := pp.AuthManager.Authenticate(&auth.Request{
 		IP:          net.ParseIP(ctx.ClientIP()),
 		Action:      conf.AuthActionMetrics,
@@ -99,17 +105,19 @@ func (pp *PPROF) onRequest(ctx *gin.Context) {
 	})
 	if err != nil {
 		if err.(*auth.Error).AskCredentials { //nolint:errorlint
-			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+}
 
+func (pp *PPROF) onRequest(ctx *gin.Context) {
 	http.DefaultServeMux.ServeHTTP(ctx.Writer, ctx.Request)
 }

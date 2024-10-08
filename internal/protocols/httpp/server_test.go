@@ -12,7 +12,7 @@ import (
 )
 
 func TestFilterEmptyPath(t *testing.T) {
-	s := &WrappedServer{
+	s := &Server{
 		Network:     "tcp",
 		Address:     "localhost:4555",
 		ReadTimeout: 10 * time.Second,

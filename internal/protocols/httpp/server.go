@@ -20,14 +20,14 @@ func (nilWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// WrappedServer is a wrapper around http.Server that provides:
+// Server is a wrapper around http.Server that provides:
 // - net.Listener allocation and closure
 // - TLS allocation
 // - exit on panic
 // - logging
 // - server header
 // - filtering of invalid requests
-type WrappedServer struct {
+type Server struct {
 	Network     string
 	Address     string
 	ReadTimeout time.Duration
@@ -42,8 +42,8 @@ type WrappedServer struct {
 	loader *certloader.CertLoader
 }
 
-// Initialize initializes a WrappedServer.
-func (s *WrappedServer) Initialize() error {
+// Initialize initializes a Server.
+func (s *Server) Initialize() error {
 	var tlsConfig *tls.Config
 	if s.Encryption {
 		if s.ServerCert == "" {
@@ -91,7 +91,7 @@ func (s *WrappedServer) Initialize() error {
 }
 
 // Close closes all resources and waits for all routines to return.
-func (s *WrappedServer) Close() {
+func (s *Server) Close() {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	ctxCancel()
 	s.inner.Shutdown(ctx)
