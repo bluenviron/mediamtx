@@ -105,7 +105,7 @@ func New(args []string) (*Core, bool) {
 	parser.FatalIfErrorf(err)
 
 	if cli.Version {
-		fmt.Println(version)
+		fmt.Println(string(version))
 		os.Exit(0)
 	}
 
