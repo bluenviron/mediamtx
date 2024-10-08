@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -15,12 +16,12 @@ import (
 func gitDescribeTags(repo *git.Repository) (string, error) {
 	head, err := repo.Head()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get HEAD: %w", err)
 	}
 
 	tagIterator, err := repo.Tags()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get tags: %w", err)
 	}
 	defer tagIterator.Close()
 
@@ -35,12 +36,12 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to iterate tags: %w", err)
 	}
 
 	cIter, err := repo.Log(&git.LogOptions{From: head.Hash()})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get log: %w", err)
 	}
 
 	i := 0
@@ -48,7 +49,7 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 	for {
 		commit, err := cIter.Next()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get next commit: %w", err)
 		}
 
 		if str, ok := tags[commit.Hash]; ok {
@@ -70,22 +71,22 @@ func do() error {
 
 	repo, err := git.PlainOpen("../..")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open repository: %w", err)
 	}
 
 	version, err := gitDescribeTags(repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get version: %w", err)
 	}
 
 	wt, err := repo.Worktree()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get worktree: %w", err)
 	}
 
 	status, err := wt.Status()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get status: %w", err)
 	}
 
 	if !status.IsClean() {
@@ -94,7 +95,7 @@ func do() error {
 
 	err = os.WriteFile("VERSION", []byte(version), 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write version file: %w", err)
 	}
 
 	log.Printf("ok (%s)", version)
