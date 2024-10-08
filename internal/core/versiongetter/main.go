@@ -8,8 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 )
 
 // Golang version of git describe --tags
@@ -69,7 +72,17 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 func do() error {
 	log.Println("getting mediamtx version...")
 
-	repo, err := git.PlainOpen("../..")
+	// [git.PlainOpen] uses a ChrootOS that limits filesystem access to the .git directory only.
+	//
+	// Unfortunately, this can cause issues with package build environments such as Arch Linux's,
+	// where .git/objects/info/alternates points to a directory outside of the .git directory.
+	//
+	// To work around this, specify an AlternatesFS that allows access to the entire filesystem.
+	fs := osfs.New("../../.git", osfs.WithBoundOS())
+	storer := filesystem.NewStorageWithOptions(fs, cache.NewObjectLRUDefault(), filesystem.Options{
+		AlternatesFS: osfs.New("/", osfs.WithBoundOS()),
+	})
+	repo, err := git.Open(storer, fs)
 	if err != nil {
 		return fmt.Errorf("failed to open repository: %w", err)
 	}
