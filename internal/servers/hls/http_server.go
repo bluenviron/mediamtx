@@ -46,17 +46,20 @@ type httpServer struct {
 	pathManager    serverPathManager
 	parent         *Server
 
-	inner *httpp.WrappedServer
+	inner *httpp.Server
 }
 
 func (s *httpServer) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
-	router.NoRoute(s.onRequest)
+
+	router.Use(s.middlewareOrigin)
+
+	router.Use(s.onRequest)
 
 	network, address := restrictnetwork.Restrict("tcp", s.address)
 
-	s.inner = &httpp.WrappedServer{
+	s.inner = &httpp.Server{
 		Network:     network,
 		Address:     address,
 		ReadTimeout: time.Duration(s.readTimeout),
@@ -83,22 +86,22 @@ func (s *httpServer) close() {
 	s.inner.Close()
 }
 
-func (s *httpServer) onRequest(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.allowOrigin)
-	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+func (s *httpServer) middlewareOrigin(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", s.allowOrigin)
+	ctx.Header("Access-Control-Allow-Credentials", "true")
 
-	switch ctx.Request.Method {
-	case http.MethodOptions:
-		if ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
-			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
-			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
-			ctx.Writer.WriteHeader(http.StatusNoContent)
-		}
+	// preflight requests
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Header("Access-Control-Allow-Headers", "Authorization, Range")
+		ctx.AbortWithStatus(http.StatusNoContent)
 		return
+	}
+}
 
-	case http.MethodGet:
-
-	default:
+func (s *httpServer) onRequest(ctx *gin.Context) {
+	if ctx.Request.Method != http.MethodGet {
 		return
 	}
 
@@ -110,8 +113,8 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	switch {
 	case strings.HasSuffix(pa, "/hls.min.js"):
-		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
-		ctx.Writer.Header().Set("Content-Type", "application/javascript")
+		ctx.Header("Cache-Control", "max-age=3600")
+		ctx.Header("Content-Type", "application/javascript")
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(hlsMinJS)
 		return
@@ -133,7 +136,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		dir, fname = pa, ""
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Writer.Header().Set("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
+			ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
 			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 			return
 		}
@@ -177,8 +180,8 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	switch fname {
 	case "":
-		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
-		ctx.Writer.Header().Set("Content-Type", "text/html")
+		ctx.Header("Cache-Control", "max-age=3600")
+		ctx.Header("Content-Type", "text/html")
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(hlsIndex)
 
