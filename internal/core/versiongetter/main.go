@@ -69,9 +69,7 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 	}
 }
 
-func do() error {
-	log.Println("getting mediamtx version...")
-
+func tagFromGit() error {
 	// [git.PlainOpen] uses a ChrootOS that limits filesystem access to the .git directory only.
 	//
 	// Unfortunately, this can cause issues with package build environments such as Arch Linux's,
@@ -112,6 +110,21 @@ func do() error {
 	}
 
 	log.Printf("ok (%s)", version)
+	return nil
+}
+
+func do() error {
+	log.Println("getting mediamtx version...")
+
+	err := tagFromGit()
+	if err != nil {
+		log.Println("WARN: cannot get tag from .git folder, using v0.0.0 as version")
+		err = os.WriteFile("VERSION", []byte("v0.0.0"), 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to write version file: %w", err)
+		}
+	}
+
 	return nil
 }
 
