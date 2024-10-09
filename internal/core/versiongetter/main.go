@@ -2,25 +2,29 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 )
 
 // Golang version of git describe --tags
 func gitDescribeTags(repo *git.Repository) (string, error) {
 	head, err := repo.Head()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get HEAD: %w", err)
 	}
 
 	tagIterator, err := repo.Tags()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get tags: %w", err)
 	}
 	defer tagIterator.Close()
 
@@ -35,12 +39,12 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to iterate tags: %w", err)
 	}
 
 	cIter, err := repo.Log(&git.LogOptions{From: head.Hash()})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get log: %w", err)
 	}
 
 	i := 0
@@ -48,7 +52,7 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 	for {
 		commit, err := cIter.Next()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get next commit: %w", err)
 		}
 
 		if str, ok := tags[commit.Hash]; ok {
@@ -68,24 +72,34 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 func do() error {
 	log.Println("getting mediamtx version...")
 
-	repo, err := git.PlainOpen("../..")
+	// [git.PlainOpen] uses a ChrootOS that limits filesystem access to the .git directory only.
+	//
+	// Unfortunately, this can cause issues with package build environments such as Arch Linux's,
+	// where .git/objects/info/alternates points to a directory outside of the .git directory.
+	//
+	// To work around this, specify an AlternatesFS that allows access to the entire filesystem.
+	fs := osfs.New("../../.git", osfs.WithBoundOS())
+	storer := filesystem.NewStorageWithOptions(fs, cache.NewObjectLRUDefault(), filesystem.Options{
+		AlternatesFS: osfs.New("/", osfs.WithBoundOS()),
+	})
+	repo, err := git.Open(storer, fs)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open repository: %w", err)
 	}
 
 	version, err := gitDescribeTags(repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get version: %w", err)
 	}
 
 	wt, err := repo.Worktree()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get worktree: %w", err)
 	}
 
 	status, err := wt.Status()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get status: %w", err)
 	}
 
 	if !status.IsClean() {
@@ -94,7 +108,7 @@ func do() error {
 
 	err = os.WriteFile("VERSION", []byte(version), 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write version file: %w", err)
 	}
 
 	log.Printf("ok (%s)", version)
