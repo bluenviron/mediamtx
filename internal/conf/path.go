@@ -218,7 +218,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 	pconf.RPICameraCodec = "auto"
 	pconf.RPICameraIDRPeriod = 60
-	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraBitrate = 5000000
 	pconf.RPICameraProfile = "main"
 	pconf.RPICameraLevel = "4.1"
 

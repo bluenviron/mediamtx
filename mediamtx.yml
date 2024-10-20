@@ -588,7 +588,7 @@ pathDefaults:
   # Period between IDR frames
   rpiCameraIDRPeriod: 60
   # Bitrate
-  rpiCameraBitrate: 1000000
+  rpiCameraBitrate: 5000000
   # H264 profile
   rpiCameraProfile: main
   # H264 level

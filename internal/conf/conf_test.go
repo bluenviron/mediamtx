@@ -75,7 +75,7 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
 			RPICameraCodec:             "auto",
 			RPICameraIDRPeriod:         60,
-			RPICameraBitrate:           1000000,
+			RPICameraBitrate:           5000000,
 			RPICameraProfile:           "main",
 			RPICameraLevel:             "4.1",
 			RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
