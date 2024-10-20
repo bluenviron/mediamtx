@@ -23,19 +23,19 @@ jobs:
         script: |
           const fs = require('fs').promises;
 
-          // get last tag
-          let curTag = null;
+          // get last release
+          let curRelease = null;
           for (let i = 1; i < 20; i++) {
-            const tags = await github.rest.repos.listTags({
+            const releases = await github.rest.repos.listReleases({
               owner: 'bluenviron',
               repo: 'mediamtx-rpicamera',
               page: i,
             });
-            for (const tag of tags.data) {
-              curTag = tag;
+            for (const release of releases.data) {
+              curRelease = release;
               break;
             }
-            if (curTag !== null) {
+            if (curRelease !== null) {
               break;
             }
           }
@@ -44,7 +44,7 @@ jobs:
           await fs.writeFile('internal/staticsources/rpicamera/mtxrpicamdownloader/VERSION', curRelease['tag_name'] + '\n', 'utf-8');
 
           // make version available to next steps
-          core.exportVariable('VERSION', curTag.name);
+          core.exportVariable('VERSION', curRelease.name);
 
     - id: check_repo
       run: >
