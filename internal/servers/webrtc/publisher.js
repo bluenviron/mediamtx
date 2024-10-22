@@ -372,7 +372,7 @@
         return;
       }
 
-      if (this.pc.iceConnectionState === 'disconnected') {
+      if (this.pc.iceConnectionState === 'failed') {
         this.handleError('peer connection closed');
       } else if (this.pc.iceConnectionState === 'connected') {
         if (this.conf.onConnected !== undefined) {

@@ -226,7 +226,7 @@ func (s *session) runPublish() (int, error) {
 	pc.StartReading()
 
 	select {
-	case <-pc.Disconnected():
+	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
 
 	case <-s.ctx.Done():
@@ -327,7 +327,7 @@ func (s *session) runRead() (int, error) {
 	defer stream.RemoveReader(s)
 
 	select {
-	case <-pc.Disconnected():
+	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
 
 	case err := <-stream.ReaderError(s):

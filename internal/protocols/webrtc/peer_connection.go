@@ -86,7 +86,7 @@ type PeerConnection struct {
 	stateChangeMutex  sync.Mutex
 	newLocalCandidate chan *webrtc.ICECandidateInit
 	connected         chan struct{}
-	disconnected      chan struct{}
+	failed            chan struct{}
 	done              chan struct{}
 	gatheringDone     chan struct{}
 	incomingTrack     chan trackRecvPair
@@ -214,7 +214,7 @@ func (co *PeerConnection) Start() error {
 
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
 	co.connected = make(chan struct{})
-	co.disconnected = make(chan struct{})
+	co.failed = make(chan struct{})
 	co.done = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
 	co.incomingTrack = make(chan trackRecvPair)
@@ -268,8 +268,8 @@ func (co *PeerConnection) Start() error {
 
 		switch state {
 		case webrtc.PeerConnectionStateConnected:
-			// for some reasons, PeerConnectionStateConnected can arrive twice.
-			// https://github.com/bluenviron/mediamtx/issues/3813
+			// PeerConnectionStateConnected can arrive twice, since state can
+			// switch from "disconnected" to "connected".
 			select {
 			case <-co.connected:
 				return
@@ -281,8 +281,8 @@ func (co *PeerConnection) Start() error {
 
 			close(co.connected)
 
-		case webrtc.PeerConnectionStateDisconnected:
-			close(co.disconnected)
+		case webrtc.PeerConnectionStateFailed:
+			close(co.failed)
 
 		case webrtc.PeerConnectionStateClosed:
 			close(co.done)
@@ -436,7 +436,7 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 				return co.incomingTracks, nil
 			}
 
-		case <-co.Disconnected():
+		case <-co.Failed():
 			return nil, fmt.Errorf("peer connection closed")
 
 		case <-ctx.Done():
@@ -450,9 +450,9 @@ func (co *PeerConnection) Connected() <-chan struct{} {
 	return co.connected
 }
 
-// Disconnected returns when disconnected.
-func (co *PeerConnection) Disconnected() <-chan struct{} {
-	return co.disconnected
+// Failed returns when failed.
+func (co *PeerConnection) Failed() <-chan struct{} {
+	return co.failed
 }
 
 // NewLocalCandidate returns when there's a new local candidate.
