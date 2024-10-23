@@ -486,7 +486,7 @@ const onConnectionState = () => {
 		return;
 	}
 
-	if (pc.iceConnectionState === 'disconnected') {
+	if (pc.iceConnectionState === 'failed') {
 		onError('peer connection closed');
 	}
 };
