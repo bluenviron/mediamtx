@@ -26,8 +26,14 @@ import (
 //go:embed publish_index.html
 var publishIndex []byte
 
+//go:embed publisher.js
+var publisherJS []byte
+
 //go:embed read_index.html
 var readIndex []byte
+
+//go:embed reader.js
+var readerJS []byte
 
 var (
 	reWHIPWHEPNoID   = regexp.MustCompile("^/(.+?)/(whip|whep)$")
@@ -323,6 +329,22 @@ func (s *httpServer) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (s *httpServer) onRequest(ctx *gin.Context) {
+	if strings.HasSuffix(ctx.Request.URL.Path, "/publisher.js") {
+		ctx.Header("Cache-Control", "max-age=3600")
+		ctx.Header("Content-Type", "application/javascript")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(publisherJS)
+		return
+	}
+
+	if strings.HasSuffix(ctx.Request.URL.Path, "/reader.js") {
+		ctx.Header("Cache-Control", "max-age=3600")
+		ctx.Header("Content-Type", "application/javascript")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(readerJS)
+		return
+	}
+
 	// WHIP/WHEP, outside session
 	if m := reWHIPWHEPNoID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
