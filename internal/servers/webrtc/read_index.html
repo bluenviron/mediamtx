@@ -376,7 +376,7 @@ const onError = (err) => {
 };
 
 const sendLocalCandidates = (candidates) => {
-	fetch(sessionUrl + window.location.search, {
+	fetch(sessionUrl, {
 		method: 'PATCH',
 		headers: {
 			'Content-Type': 'application/trickle-ice-sdpfrag',

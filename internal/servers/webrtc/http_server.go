@@ -48,14 +48,21 @@ func writeError(ctx *gin.Context, statusCode int, err error) {
 	})
 }
 
-func sessionLocation(publish bool, path string, secret uuid.UUID) string {
+func sessionLocation(publish bool, path string, rawQuery string, secret uuid.UUID) string {
 	ret := "/" + path + "/"
+
 	if publish {
 		ret += "whip"
 	} else {
 		ret += "whep"
 	}
+
 	ret += "/" + secret.String()
+
+	if rawQuery != "" {
+		ret += "?" + rawQuery
+	}
+
 	return ret
 }
 
@@ -216,7 +223,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	ctx.Header("ID", res.sx.uuid.String())
 	ctx.Header("Accept-Patch", "application/trickle-ice-sdpfrag")
 	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
-	ctx.Header("Location", sessionLocation(publish, pathName, res.sx.secret))
+	ctx.Header("Location", sessionLocation(publish, pathName, ctx.Request.URL.RawQuery, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)
 	ctx.Writer.Write(res.answer)
 }
