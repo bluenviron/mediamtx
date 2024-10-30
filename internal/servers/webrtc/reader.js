@@ -402,7 +402,7 @@
             throw new Error(`bad status code ${res.status}`);
           }
 
-          this.sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
+          this.sessionUrl = new URL(res.headers.get('location'), this.conf.url).toString();
 
           return res.text();
         });
