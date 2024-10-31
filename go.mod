@@ -13,7 +13,7 @@ require (
 	github.com/bluenviron/gortsplib/v4 v4.11.1
 	github.com/bluenviron/mediacommon v1.13.1
 	github.com/datarhei/gosrt v0.7.0
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-billy/v5 v5.6.0
