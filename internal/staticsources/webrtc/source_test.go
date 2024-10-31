@@ -81,7 +81,7 @@ func TestSource(t *testing.T) {
 				w.Write([]byte(answer.SDP))
 
 				go func() {
-					err3 := pc.WaitUntilConnected(context.Background())
+					err3 := pc.WaitUntilReady(context.Background())
 					require.NoError(t, err3)
 
 					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
