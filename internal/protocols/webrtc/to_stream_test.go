@@ -375,16 +375,16 @@ func TestToStream(t *testing.T) {
 						err2 := pc2.AddRemoteCandidate(cnd)
 						require.NoError(t, err2)
 
-					case <-pc1.Connected():
+					case <-pc1.Ready():
 						return
 					}
 				}
 			}()
 
-			err = pc1.WaitUntilConnected(context.Background())
+			err = pc1.WaitUntilReady(context.Background())
 			require.NoError(t, err)
 
-			err = pc2.WaitUntilConnected(context.Background())
+			err = pc2.WaitUntilReady(context.Background())
 			require.NoError(t, err)
 
 			err = pc1.OutgoingTracks[0].WriteRTP(&rtp.Packet{

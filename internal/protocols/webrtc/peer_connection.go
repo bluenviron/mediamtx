@@ -85,7 +85,7 @@ type PeerConnection struct {
 	wr                *webrtc.PeerConnection
 	stateChangeMutex  sync.Mutex
 	newLocalCandidate chan *webrtc.ICECandidateInit
-	connected         chan struct{}
+	ready             chan struct{}
 	failed            chan struct{}
 	done              chan struct{}
 	gatheringDone     chan struct{}
@@ -213,7 +213,7 @@ func (co *PeerConnection) Start() error {
 	}
 
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
-	co.connected = make(chan struct{})
+	co.ready = make(chan struct{})
 	co.failed = make(chan struct{})
 	co.done = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
@@ -270,8 +270,9 @@ func (co *PeerConnection) Start() error {
 		case webrtc.PeerConnectionStateConnected:
 			// PeerConnectionStateConnected can arrive twice, since state can
 			// switch from "disconnected" to "connected".
+			// contrarily, we're interested into emitting "ready" once.
 			select {
-			case <-co.connected:
+			case <-co.ready:
 				return
 			default:
 			}
@@ -279,7 +280,7 @@ func (co *PeerConnection) Start() error {
 			co.Log.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
 				co.LocalCandidate(), co.RemoteCandidate())
 
-			close(co.connected)
+			close(co.ready)
 
 		case webrtc.PeerConnectionStateFailed:
 			close(co.failed)
@@ -294,7 +295,7 @@ func (co *PeerConnection) Start() error {
 			v := i.ToJSON()
 			select {
 			case co.newLocalCandidate <- &v:
-			case <-co.connected:
+			case <-co.ready:
 			case <-co.ctx.Done():
 			}
 		} else {
@@ -380,8 +381,8 @@ func (co *PeerConnection) waitGatheringDone(ctx context.Context) error {
 	}
 }
 
-// WaitUntilConnected waits until connection is established.
-func (co *PeerConnection) WaitUntilConnected(
+// WaitUntilReady waits until connection is established.
+func (co *PeerConnection) WaitUntilReady(
 	ctx context.Context,
 ) error {
 	t := time.NewTimer(time.Duration(co.HandshakeTimeout))
@@ -393,7 +394,7 @@ outer:
 		case <-t.C:
 			return fmt.Errorf("deadline exceeded while waiting connection")
 
-		case <-co.connected:
+		case <-co.ready:
 			break outer
 
 		case <-ctx.Done():
@@ -445,9 +446,9 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 	}
 }
 
-// Connected returns when connected.
-func (co *PeerConnection) Connected() <-chan struct{} {
-	return co.connected
+// Ready returns when ready.
+func (co *PeerConnection) Ready() <-chan struct{} {
+	return co.ready
 }
 
 // Failed returns when failed.

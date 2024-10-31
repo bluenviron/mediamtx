@@ -193,7 +193,7 @@ func (s *session) runPublish() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected(s.ctx)
+	err = pc.WaitUntilReady(s.ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -300,7 +300,7 @@ func (s *session) runRead() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected(s.ctx)
+	err = pc.WaitUntilReady(s.ctx)
 	if err != nil {
 		stream.RemoveReader(s)
 		return 0, err
