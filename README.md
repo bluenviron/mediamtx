@@ -1260,7 +1260,7 @@ There are 3 ways to change the configuration:
    * available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
 
      ```
-     docker run --rm -it --network=host -v $PWD/mediamtx.yml:/mediamtx.yml bluenviron/mediamtx
+     docker run --rm -it --network=host -v "${PWD}/mediamtx.yml:/mediamtx.yml" bluenviron/mediamtx
      ```
 
    The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.

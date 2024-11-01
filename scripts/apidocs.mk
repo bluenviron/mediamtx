@@ -6,5 +6,5 @@ export DOCKERFILE_APIDOCS_GEN
 
 apidocs:
 	echo "$$DOCKERFILE_APIDOCS_GEN" | docker build . -f - -t temp
-	docker run --rm -v $(PWD)/apidocs:/s -w /s temp \
+	docker run --rm -v "$(PWD)/apidocs:/s" -w /s temp \
 	sh -c "redoc-cli bundle openapi.yaml"
