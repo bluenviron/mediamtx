@@ -1,5 +1,4 @@
 //go:build enable_highlevel_tests
-// +build enable_highlevel_tests
 
 package testhighlevel
 
