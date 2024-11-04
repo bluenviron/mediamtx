@@ -87,10 +87,10 @@ func writeTime(buf *bytes.Buffer, t time.Time, useColor bool) {
 	intbuf.WriteByte(' ')
 
 	// time
-	hour, min, sec := t.Clock()
+	hour, minute, sec := t.Clock()
 	intbuf.Write(itoa(hour, 2))
 	intbuf.WriteByte(':')
-	intbuf.Write(itoa(min, 2))
+	intbuf.Write(itoa(minute, 2))
 	intbuf.WriteByte(':')
 	intbuf.Write(itoa(sec, 2))
 	intbuf.WriteByte(' ')

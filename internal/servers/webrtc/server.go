@@ -65,14 +65,14 @@ func randInt63n(n int64) (int64, error) {
 		return r & (n - 1), nil
 	}
 
-	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
+	maxVal := int64((1 << 63) - 1 - (1<<63)%uint64(n))
 
 	v, err := randInt63()
 	if err != nil {
 		return 0, err
 	}
 
-	for v > max {
+	for v > maxVal {
 		v, err = randInt63()
 		if err != nil {
 			return 0, err
