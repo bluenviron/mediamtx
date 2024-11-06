@@ -5,7 +5,7 @@ endef
 export DOCKERFILE_APIDOCS_LINT
 
 lint-golangci:
-	docker run --rm -v $(PWD):/app -w /app \
+	docker run --rm -v "$(PWD):/app" -w /app \
 	$(LINT_IMAGE) \
 	golangci-lint run -v
 
@@ -15,7 +15,7 @@ lint-mod-tidy:
 
 lint-apidocs:
 	echo "$$DOCKERFILE_APIDOCS_LINT" | docker build . -f - -t temp
-	docker run --rm -v $(PWD)/apidocs:/s -w /s temp \
+	docker run --rm -v "$(PWD)/apidocs:/s" -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
 lint: lint-golangci lint-mod-tidy lint-apidocs
