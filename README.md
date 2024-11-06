@@ -1260,7 +1260,7 @@ There are 3 ways to change the configuration:
    * available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
 
      ```
-     docker run --rm -it --network=host -v $PWD/mediamtx.yml:/mediamtx.yml bluenviron/mediamtx
+     docker run --rm -it --network=host -v "$PWD/mediamtx.yml:/mediamtx.yml:ro" bluenviron/mediamtx
      ```
 
    The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
@@ -2290,7 +2290,7 @@ Be aware that RTMPS is currently unsupported by all major players. However, you 
 
 ### Standard
 
-Install git and Go &ge; 1.22. Clone the repository, enter into the folder and start the building process:
+Install git and Go &ge; 1.23. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx
@@ -2331,7 +2331,7 @@ If you need to use a custom or external libcamera when interacting with the Rasp
 
 Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
 
-On the machine you want to use to compile, install git and Go &ge; 1.22. Clone the repository, enter into the folder and start the building process:
+On the machine you want to use to compile, install git and Go &ge; 1.23. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx

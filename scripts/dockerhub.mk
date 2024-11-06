@@ -60,7 +60,7 @@ dockerhub:
 	cp binaries/*linux_arm64v8.tar.gz tmp/binaries/linux/arm64.tar.gz
 
 	docker buildx rm builder 2>/dev/null || true
-	rm -rf $$HOME/.docker/manifests/*
+	rm -rf "$$HOME/.docker/manifests"/*
 	docker buildx create --name=builder --use
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
@@ -103,4 +103,4 @@ dockerhub:
 	--push
 
 	docker buildx rm builder
-	rm -rf $$HOME/.docker/manifests/*
+	rm -rf "$$HOME/.docker/manifests"/*

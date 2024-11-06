@@ -1,19 +1,19 @@
 module github.com/bluenviron/mediamtx
 
-go 1.22
+go 1.23
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/MicahParks/jwkset v0.5.20
 	github.com/MicahParks/keyfunc/v3 v3.3.5
 	github.com/abema/go-mp4 v1.2.0
-	github.com/alecthomas/kong v1.2.1
+	github.com/alecthomas/kong v1.3.0
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.0.0
 	github.com/bluenviron/gortsplib/v4 v4.11.1
 	github.com/bluenviron/mediacommon v1.13.1
 	github.com/datarhei/gosrt v0.7.0
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-billy/v5 v5.6.0

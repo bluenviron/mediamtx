@@ -1,5 +1,4 @@
 //go:build (linux && arm) || (linux && arm64)
-// +build linux,arm linux,arm64
 
 package rpicamera
 
