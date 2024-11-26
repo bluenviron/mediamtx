@@ -44,13 +44,21 @@ func closeProcessGroup(h windows.Handle) error {
 }
 
 func addProcessToGroup(h windows.Handle, p *os.Process) error {
-	type process struct {
-		Pid    int
-		Handle uintptr
-	}
 
-	return windows.AssignProcessToJobObject(h,
-		windows.Handle((*process)(unsafe.Pointer(p)).Handle))
+	// Combine the required access rights
+	access := uint32(windows.PROCESS_SET_QUOTA | windows.PROCESS_TERMINATE)
+
+	processHandle, err := windows.OpenProcess(access, false, uint32(p.Pid))
+	if err != nil {
+		return fmt.Errorf("failed to open process: %v", err)
+	}
+	defer windows.CloseHandle(processHandle)
+
+	err = windows.AssignProcessToJobObject(h, processHandle)
+	if err != nil {
+		return fmt.Errorf("failed to assign process to job object: %v", err)
+	}
+	return nil
 }
 
 func (e *Cmd) runOSSpecific(env []string) error {
