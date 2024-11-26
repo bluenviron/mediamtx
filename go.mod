@@ -31,7 +31,7 @@ require (
 	github.com/pion/rtp v1.8.9
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.29.0
 	golang.org/x/sys v0.27.0
 	golang.org/x/term v0.26.0
