@@ -1,94 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width">
-	<meta name="apple-mobile-web-app-capable" content="yes" />
-	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-	<title>Therysin Live</title>
-	<link rel="icon" href="https://fonts.gstatic.com/s/i/materialicons/play_circle/v1/48px.svg">
-	<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&family=Poppins:wght@300;400&display=swap" rel="stylesheet">
-	<style>
-		body {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-			background-color: rgb(26, 26, 26);
-			height: 100vh;
-		}
-
-		html {
-			scroll-behavior: smooth;
-		}
-
-		.container {
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: center;
-			height: 100%;
-		}
-
-		.header {
-			margin: 0px;
-			padding: 0px;
-
-		}
-
-		h1 {
-			margin: 0.3rem;
-			font-family: 'Dancing Script', cursive;
-			font-weight: 300;
-			color: white;
-		}
-
-		.video {
-			height: 95%;
-			width: 100%;
-		}
-
-		#message {
-			position: absolute;
-			left: 0;
-			top: 0;
-			width: 100%;
-			height: 100%;
-			display: flex;
-			align-items: center;
-			text-align: center;
-			justify-content: center;
-			font-family: 'Dancing Script';
-			font-size: 2rem;
-			font-weight: 300;
-			color: #873c3c;
-			pointer-events: none;
-			padding: 20px;
-			box-sizing: border-box;
-		}
-	</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	font-family: 'Arial', sans-serif;
+}
+#video {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgb(30, 30, 30);
+}
+#message {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	text-align: center;
+	justify-content: center;
+	font-size: 16px;
+	font-weight: bold;
+	color: white;
+	pointer-events: none;
+	padding: 20px;
+	box-sizing: border-box;
+	text-shadow: 0 0 5px black;
+}
+#lang-icon {
+	display: none;
+	position: absolute;
+	top: 20px;
+	right: 20px;
+	width: 30px;
+	height: 30px;
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0iI2ZmZiIgeG1sbnM6dj0iaHR0cHM6Ly92ZWN0YS5pby9uYW5vIj48cGF0aCBkPSJNMzguNSAzMy45bC0xLjktMS42YzIuNS0yLjkgMy44LTYuMyAzLjgtOS45IDAtMy4xLTEtNi4xLTIuOS04LjhsMi4xLTEuNWMyLjIgMy4xIDMuNCA2LjYgMy40IDEwLjItLjEgNC4zLTEuNiA4LjMtNC41IDExLjZ6TTUuNiAyMy4yaC0zYy0uNSAwLTEgLjUtMSAxLjF2MTAuNWMwIC42LjQgMS4xIDEgMS4xaDNjLjIgMCAuMyAwIC40LjFsMTMuOCA3LjhjLjYuNCAxLjQtLjIgMS40LTFWMTYuM2MwLS44LS44LTEuMy0xLjQtMUw2LjEgMjMuMWMtLjIuMS0uMy4xLS41LjF6bTIxLTE2LjlMMTIuOCAxNGMtLjEuMS0uMy4xLS40LjFoLTNjLS41IDAtMSAuNS0xIDEuMVYyMGwxMi4yLTYuOGExLjM2IDEuMzYgMCAwIDEgMS41IDBjLjUuMy44LjguOCAxLjV2MTcuOWwzLjcgMi4xYy42LjQgMS40LS4yIDEuNC0xVjcuMmMuMS0uOC0uNy0xLjMtMS40LS45em0xNi41IDMwLjJsLTEuOS0xLjZjMy4xLTMuNyA0LjctOCA0LjctMTIuNSAwLTQtMS4zLTcuOC0zLjctMTEuMmwyLjEtMS41YzIuNyAzLjggNC4yIDguMiA0LjIgMTIuNy0uMiA1LjEtMiA5LjktNS40IDE0LjF6TTM1IDMxLjFsLTItMS42YzEuNy0yLjEgMi42LTQuNiAyLjYtNy4yIDAtMi40LS44LTQuNy0yLjItNi43bDItMS41YzEuOCAyLjUgMi43IDUuMyAyLjcgOC4yIDAgMy4yLTEuMSA2LjItMy4xIDguOHoiLz48L3N2Zz4=");
+	background-size: 80%;
+	background-position: center;
+	background-repeat: no-repeat;
+	cursor: pointer;
+}
+#lang-list {
+	display: none;
+	position: absolute;
+	top: 100%;
+	right: 0;
+	background: rgb(190, 190, 190);
+	color: black;
+}
+#lang-icon:hover #lang-list {
+	display: block;
+}
+#lang-list div {
+	border-bottom: 1px solid black;
+	padding: 5px 15px;
+}
+</style>
 </head>
-
 <body>
-	<div class="container">
-		<header class="header">
-			<nav>
-				<h1>Therysin</h1>
-			</nav>
-		</header>
-		<video id="video" class="video"></video>
-	</div>
 
 <video id="video"></video>
 <div id="message"></div>
 <div id="lang-icon"><div id="lang-list"></div></div>
 
-	<script src="hls.min.js"></script>
+<script src="hls.min.js"></script>
 
-	<script>
-		const retryPause = 2000;
+<script>
 
-		const video = document.getElementById('video');
-		const message = document.getElementById('message');
+const retryPause = 2000;
 
 const video = document.getElementById('video');
 const message = document.getElementById('message');
@@ -168,82 +156,48 @@ const loadStream = () => {
 			video.currentTime = hls.liveSyncPosition;
 		};
 
-		const loadStream = () => {
-			// always prefer hls.js over native HLS.
-			// this is because some Android versions support native HLS
-			// but don't support fMP4s.
-			if (Hls.isSupported()) {
-				const hls = new Hls({
-					lowLatencyMode: true,
-					maxLiveSyncPlaybackRate: 1.0,
-				        liveSyncDurationCount: 1,
-            				liveMaxLatencyDurationCount: 2,
-				});
+		hls.attachMedia(video);
 
-				hls.on(Hls.Events.ERROR, (evt, data) => {
-					if (data.fatal) {
-						hls.destroy();
+	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+		// since it's not possible to detect timeout errors in iOS,
+		// wait for the playlist to be available before starting the stream
+		fetch('index.m3u8')
+			.then(() => {
+				video.src = 'index.m3u8';
+				video.play();
+			});
+	}
+};
 
-						if (data.details === 'manifestIncompatibleCodecsError') {
-							setMessage('Stream makes use of codecs which are incompatible with this browser or operative system');
-						} else if (data.response && data.response.code === 404) {
-							setMessage('Offline');
-						} else {
-							setMessage(data.error + ', retrying');
-						}
+const parseBoolString = (str, defaultVal) => {
+	str = (str || '');
 
-						setTimeout(() => loadStream(video), retryPause);
-					}
-				});
+	if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
+		return true;
+	}
+	if (['0', 'no', 'false'].includes(str.toLowerCase())) {
+		return false;
+	}
+	return defaultVal;
+};
 
-				hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-					hls.loadSource('index.m3u8' + window.location.search);
-				});
+const loadAttributesFromQuery = () => {
+	const params = new URLSearchParams(window.location.search);
+	video.controls = parseBoolString(params.get('controls'), true);
+	video.muted = parseBoolString(params.get('muted'), true);
+	video.autoplay = parseBoolString(params.get('autoplay'), true);
+	video.playsInline = parseBoolString(params.get('playsinline'), true);
+	defaultControls = video.controls;
+};
 
-				hls.on(Hls.Events.MANIFEST_PARSED, () => {
-					setMessage('');
-					video.play();
-				});
+const init = () => {
+	loadAttributesFromQuery();
+	loadStream();
+};
 
-				hls.attachMedia(video);
-			} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-				// since it's not possible to detect timeout errors in iOS,
-				// wait for the playlist to be available before starting the stream
-				fetch('index.m3u8')
-					.then(() => {
-						video.src = 'index.m3u8';
-						video.play();
-					});
-			}
-		};
+window.addEventListener('DOMContentLoaded', init);
 
-		const parseBoolString = (str, defaultVal) => {
-			str = (str || '');
+</script>
 
-			if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
-				return true;
-			}
-			if (['0', 'no', 'false'].includes(str.toLowerCase())) {
-				return false;
-			}
-			return defaultVal;
-		};
-
-		const loadAttributesFromQuery = () => {
-			const params = new URLSearchParams(window.location.search);
-			video.controls = parseBoolString(params.get('controls'), true);
-			video.muted = parseBoolString(params.get('muted'), true);
-			video.autoplay = parseBoolString(params.get('autoplay'), true);
-			video.playsInline = parseBoolString(params.get('playsinline'), true);
-			defaultControls = video.controls;
-		};
-
-		const init = () => {
-			loadAttributesFromQuery();
-			loadStream();
-		};
-
-		window.addEventListener('DOMContentLoaded', init);
-	</script>
 </body>
 </html>
