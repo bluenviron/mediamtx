@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -36,20 +35,8 @@ func TestOnList(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		AuthManager: &test.AuthManager{
-			Func: func(req *auth.Request) error {
-				require.Equal(t, &auth.Request{
-					User:   "myuser",
-					Pass:   "mypass",
-					IP:     req.IP,
-					Action: "playback",
-					Query:  "path=mypath",
-					Path:   "mypath",
-				}, req)
-				return nil
-			},
-		},
-		Parent: test.NilLogger,
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)

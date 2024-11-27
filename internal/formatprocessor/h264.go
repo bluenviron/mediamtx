@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 
@@ -85,9 +84,9 @@ func rtpH264ExtractParams(payload []byte) ([]byte, []byte) {
 type formatProcessorH264 struct {
 	udpMaxPayloadSize int
 	format            *format.H264
-	timeEncoder       *rtptime.Encoder
 	encoder           *rtph264.Encoder
 	decoder           *rtph264.Decoder
+	randomStart       uint32
 }
 
 func newH264(
@@ -106,10 +105,7 @@ func newH264(
 			return nil, err
 		}
 
-		t.timeEncoder = &rtptime.Encoder{
-			ClockRate: forma.ClockRate(),
-		}
-		err = t.timeEncoder.Initialize()
+		t.randomStart, err = randUint32()
 		if err != nil {
 			return nil, err
 		}
@@ -246,9 +242,8 @@ func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
 		}
 		u.RTPPackets = pkts
 
-		ts := t.timeEncoder.Encode(u.PTS)
 		for _, pkt := range u.RTPPackets {
-			pkt.Timestamp += ts
+			pkt.Timestamp += t.randomStart + uint32(u.PTS)
 		}
 	}
 
@@ -258,9 +253,9 @@ func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
 func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.H264{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

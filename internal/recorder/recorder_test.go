@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -68,9 +70,9 @@ func TestRecorder(t *testing.T) {
 		},
 	}}
 
-	writeToStream := func(stream *stream.Stream, startDTS time.Duration, startNTP time.Time) {
+	writeToStream := func(stream *stream.Stream, startDTS int64, startNTP time.Time) {
 		for i := 0; i < 2; i++ {
-			pts := startDTS + time.Duration(i)*100*time.Millisecond
+			pts := startDTS + int64(i)*100*90000/1000
 			ntp := startNTP.Add(time.Duration(i*60) * time.Second)
 
 			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
@@ -99,21 +101,21 @@ func TestRecorder(t *testing.T) {
 
 			stream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
 				Base: unit.Base{
-					PTS: pts,
+					PTS: pts * int64(desc.Medias[2].Formats[0].ClockRate()) / 90000,
 				},
 				AUs: [][]byte{{1, 2, 3, 4}},
 			})
 
 			stream.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
 				Base: unit.Base{
-					PTS: pts,
+					PTS: pts * int64(desc.Medias[3].Formats[0].ClockRate()) / 90000,
 				},
 				Samples: []byte{1, 2, 3, 4},
 			})
 
 			stream.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.LPCM{
 				Base: unit.Base{
-					PTS: pts,
+					PTS: pts * int64(desc.Medias[4].Formats[0].ClockRate()) / 90000,
 				},
 				Samples: []byte{1, 2, 3, 4},
 			})
@@ -123,6 +125,7 @@ func TestRecorder(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {
 			stream, err := stream.New(
+				512,
 				1460,
 				desc,
 				true,
@@ -157,7 +160,6 @@ func TestRecorder(t *testing.T) {
 			n := 0
 
 			w := &Recorder{
-				WriteQueueSize:  1024,
 				PathFormat:      recordPath,
 				Format:          f,
 				PartDuration:    100 * time.Millisecond,
@@ -196,11 +198,11 @@ func TestRecorder(t *testing.T) {
 			w.Initialize()
 
 			writeToStream(stream,
-				50*time.Second,
+				50*90000,
 				time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC))
 
 			writeToStream(stream,
-				52*time.Second,
+				52*90000,
 				time.Date(2008, 5, 20, 22, 16, 25, 0, time.UTC))
 
 			// simulate a write error
@@ -294,7 +296,7 @@ func TestRecorder(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 
 			writeToStream(stream,
-				300*time.Second,
+				300*90000,
 				time.Date(2010, 5, 20, 22, 15, 25, 0, time.UTC))
 
 			time.Sleep(50 * time.Millisecond)
@@ -336,6 +338,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	}}
 
 	stream, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -351,7 +354,6 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
 	w := &Recorder{
-		WriteQueueSize:  1024,
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
@@ -365,7 +367,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 			Base: unit.Base{
-				PTS: -50*time.Millisecond + (time.Duration(i) * 200 * time.Millisecond),
+				PTS: -50*90000/1000 + (int64(i) * 200 * 90000 / 1000),
 				NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 			},
 			AU: [][]byte{
@@ -377,7 +379,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 
 		stream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{
 			Base: unit.Base{
-				PTS: -100*time.Millisecond + (time.Duration(i) * 200 * time.Millisecond),
+				PTS: -100*44100/1000 + (int64(i) * 200 * 44100 / 1000),
 			},
 			AUs: [][]byte{{1, 2, 3, 4}},
 		})
@@ -406,4 +408,68 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	}
 
 	require.Equal(t, true, found)
+}
+
+func TestRecorderSkipTracks(t *testing.T) {
+	for _, ca := range []string{"fmp4", "mpegts"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{
+				{
+					Type:    description.MediaTypeVideo,
+					Formats: []rtspformat.Format{&rtspformat.H264{}},
+				},
+				{
+					Type:    description.MediaTypeVideo,
+					Formats: []rtspformat.Format{&rtspformat.VP8{}},
+				},
+			}}
+
+			stream, err := stream.New(
+				512,
+				1460,
+				desc,
+				true,
+				test.NilLogger,
+			)
+			require.NoError(t, err)
+			defer stream.Close()
+
+			dir, err := os.MkdirTemp("", "mediamtx-agent")
+			require.NoError(t, err)
+			defer os.RemoveAll(dir)
+
+			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+			n := 0
+
+			l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+				if n == 0 {
+					require.Equal(t, logger.Warn, l)
+					require.Equal(t, "[recorder] skipping track 2 (VP8)", fmt.Sprintf(format, args...))
+				}
+				n++
+			})
+
+			var fo conf.RecordFormat
+			if ca == "fmp4" {
+				fo = conf.RecordFormatFMP4
+			} else {
+				fo = conf.RecordFormatMPEGTS
+			}
+
+			w := &Recorder{
+				PathFormat:      recordPath,
+				Format:          fo,
+				PartDuration:    100 * time.Millisecond,
+				SegmentDuration: 1 * time.Second,
+				PathName:        "mypath",
+				Stream:          stream,
+				Parent:          l,
+			}
+			w.Initialize()
+			defer w.Close()
+
+			require.Equal(t, 2, n)
+		})
+	}
 }

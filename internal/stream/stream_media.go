@@ -21,11 +21,17 @@ func newStreamMedia(udpMaxPayloadSize int,
 	}
 
 	for _, forma := range medi.Formats {
-		var err error
-		sm.formats[forma], err = newStreamFormat(udpMaxPayloadSize, forma, generateRTPPackets, decodeErrLogger)
+		sf := &streamFormat{
+			udpMaxPayloadSize:  udpMaxPayloadSize,
+			format:             forma,
+			generateRTPPackets: generateRTPPackets,
+			decodeErrLogger:    decodeErrLogger,
+		}
+		err := sf.initialize()
 		if err != nil {
 			return nil, err
 		}
+		sm.formats[forma] = sf
 	}
 
 	return sm, nil

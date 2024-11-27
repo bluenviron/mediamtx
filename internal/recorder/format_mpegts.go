@@ -23,8 +23,20 @@ const (
 	mpegtsMaxBufferSize = 64 * 1024
 )
 
-func durationGoToMPEGTS(v time.Duration) int64 {
-	return int64(v.Seconds() * 90000)
+func multiplyAndDivide(v, m, d int64) int64 {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func timestampToDuration(t int64, clockRate int) time.Duration {
+	return multiplyAndDivide2(time.Duration(t), time.Second, time.Duration(clockRate))
 }
 
 type dynamicWriter struct {
@@ -40,7 +52,7 @@ func (d *dynamicWriter) setTarget(w io.Writer) {
 }
 
 type formatMPEGTS struct {
-	ai *agentInstance
+	ai *recorderInstance
 
 	dw             *dynamicWriter
 	bw             *bufio.Writer
@@ -51,8 +63,8 @@ type formatMPEGTS struct {
 
 func (f *formatMPEGTS) initialize() {
 	var tracks []*mpegts.Track
-	var formats []rtspformat.Format
-	var skippedFormats []rtspformat.Format
+	var setuppedFormats []rtspformat.Format
+	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
 
 	addTrack := func(format rtspformat.Format, codec mpegts.Codec) *mpegts.Track {
 		track := &mpegts.Track{
@@ -60,170 +72,212 @@ func (f *formatMPEGTS) initialize() {
 		}
 
 		tracks = append(tracks, track)
-		formats = append(formats, format)
+		setuppedFormats = append(setuppedFormats, format)
+		setuppedFormatsMap[format] = struct{}{}
 		return track
 	}
 
 	for _, media := range f.ai.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
+			clockRate := forma.ClockRate()
+
 			switch forma := forma.(type) {
 			case *rtspformat.H265: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH265{})
 
-				var dtsExtractor *h265.DTSExtractor
+				var dtsExtractor *h265.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.H265)
-					if tunit.AU == nil {
-						return nil
-					}
-
-					randomAccess := h265.IsRandomAccess(tunit.AU)
-
-					if dtsExtractor == nil {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.H265)
+						if tunit.AU == nil {
 							return nil
 						}
-						dtsExtractor = h265.NewDTSExtractor()
-					}
 
-					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
+						randomAccess := h265.IsRandomAccess(tunit.AU)
 
-					return f.write(
-						dts,
-						tunit.NTP,
-						true,
-						randomAccess,
-						func() error {
-							return f.mw.WriteH265(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
-						},
-					)
-				})
+						if dtsExtractor == nil {
+							if !randomAccess {
+								return nil
+							}
+							dtsExtractor = h265.NewDTSExtractor2()
+						}
+
+						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						if err != nil {
+							return err
+						}
+
+						return f.write(
+							timestampToDuration(dts, clockRate),
+							tunit.NTP,
+							true,
+							randomAccess,
+							func() error {
+								return f.mw.WriteH265(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									dts,
+									randomAccess,
+									tunit.AU)
+							},
+						)
+					})
 
 			case *rtspformat.H264: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH264{})
 
-				var dtsExtractor *h264.DTSExtractor
+				var dtsExtractor *h264.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.H264)
-					if tunit.AU == nil {
-						return nil
-					}
-
-					randomAccess := h264.IDRPresent(tunit.AU)
-
-					if dtsExtractor == nil {
-						if !randomAccess {
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.H264)
+						if tunit.AU == nil {
 							return nil
 						}
-						dtsExtractor = h264.NewDTSExtractor()
-					}
 
-					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
-					if err != nil {
-						return err
-					}
+						randomAccess := h264.IDRPresent(tunit.AU)
 
-					return f.write(
-						dts,
-						tunit.NTP,
-						true,
-						randomAccess,
-						func() error {
-							return f.mw.WriteH264(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
-						},
-					)
-				})
+						if dtsExtractor == nil {
+							if !randomAccess {
+								return nil
+							}
+							dtsExtractor = h264.NewDTSExtractor2()
+						}
+
+						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						if err != nil {
+							return err
+						}
+
+						return f.write(
+							timestampToDuration(dts, clockRate),
+							tunit.NTP,
+							true,
+							randomAccess,
+							func() error {
+								return f.mw.WriteH264(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									dts,
+									randomAccess,
+									tunit.AU)
+							},
+						)
+					})
 
 			case *rtspformat.MPEG4Video:
 				track := addTrack(forma, &mpegts.CodecMPEG4Video{})
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4Video)
-					if tunit.Frame == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Video)
+						if tunit.Frame == nil {
+							return nil
+						}
 
-					if !firstReceived {
-						firstReceived = true
-					} else if tunit.PTS < lastPTS {
-						return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
-					}
-					lastPTS = tunit.PTS
+						if !firstReceived {
+							firstReceived = true
+						} else if tunit.PTS < lastPTS {
+							return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
+						}
+						lastPTS = tunit.PTS
 
-					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						true,
-						randomAccess,
-						func() error {
-							return f.mw.WriteMPEG4Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
-						},
-					)
-				})
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							true,
+							randomAccess,
+							func() error {
+								return f.mw.WriteMPEG4Video(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frame)
+							},
+						)
+					})
 
 			case *rtspformat.MPEG1Video:
 				track := addTrack(forma, &mpegts.CodecMPEG1Video{})
 
 				firstReceived := false
-				var lastPTS time.Duration
+				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG1Video)
-					if tunit.Frame == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG1Video)
+						if tunit.Frame == nil {
+							return nil
+						}
 
-					if !firstReceived {
-						firstReceived = true
-					} else if tunit.PTS < lastPTS {
-						return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
-					}
-					lastPTS = tunit.PTS
+						if !firstReceived {
+							firstReceived = true
+						} else if tunit.PTS < lastPTS {
+							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+						}
+						lastPTS = tunit.PTS
 
-					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
+						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
 
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						true,
-						randomAccess,
-						func() error {
-							return f.mw.WriteMPEG1Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
-						},
-					)
-				})
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							true,
+							randomAccess,
+							func() error {
+								return f.mw.WriteMPEG1Video(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frame)
+							},
+						)
+					})
 
 			case *rtspformat.Opus:
 				track := addTrack(forma, &mpegts.CodecOpus{
 					ChannelCount: forma.ChannelCount,
 				})
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.Opus)
-					if tunit.Packets == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.Opus)
+						if tunit.Packets == nil {
+							return nil
+						}
 
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						false,
-						true,
-						func() error {
-							return f.mw.WriteOpus(track, durationGoToMPEGTS(tunit.PTS), tunit.Packets)
-						},
-					)
-				})
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							false,
+							true,
+							func() error {
+								return f.mw.WriteOpus(
+									track,
+									multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+									tunit.Packets)
+							},
+						)
+					})
 
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
@@ -234,89 +288,110 @@ func (f *formatMPEGTS) initialize() {
 						Config: *co,
 					})
 
-					f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-						if tunit.AUs == nil {
-							return nil
-						}
+					f.ai.agent.Stream.AddReader(
+						f.ai,
+						media,
+						forma,
+						func(u unit.Unit) error {
+							tunit := u.(*unit.MPEG4Audio)
+							if tunit.AUs == nil {
+								return nil
+							}
 
-						return f.write(
-							tunit.PTS,
-							tunit.NTP,
-							false,
-							true,
-							func() error {
-								return f.mw.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.AUs)
-							},
-						)
-					})
+							return f.write(
+								timestampToDuration(tunit.PTS, clockRate),
+								tunit.NTP,
+								false,
+								true,
+								func() error {
+									return f.mw.WriteMPEG4Audio(
+										track,
+										multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+										tunit.AUs)
+								},
+							)
+						})
 				}
 
 			case *rtspformat.MPEG1Audio:
 				track := addTrack(forma, &mpegts.CodecMPEG1Audio{})
 
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG1Audio)
-					if tunit.Frames == nil {
-						return nil
-					}
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG1Audio)
+						if tunit.Frames == nil {
+							return nil
+						}
 
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						false,
-						true,
-						func() error {
-							return f.mw.WriteMPEG1Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.Frames)
-						},
-					)
-				})
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							false,
+							true,
+							func() error {
+								return f.mw.WriteMPEG1Audio(
+									track,
+									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									tunit.Frames)
+							},
+						)
+					})
 
 			case *rtspformat.AC3:
 				track := addTrack(forma, &mpegts.CodecAC3{})
 
-				sampleRate := time.Duration(forma.SampleRate)
-
-				f.ai.agent.Stream.AddReader(f.ai.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.AC3)
-					if tunit.Frames == nil {
-						return nil
-					}
-
-					return f.write(
-						tunit.PTS,
-						tunit.NTP,
-						false,
-						true,
-						func() error {
-							for i, frame := range tunit.Frames {
-								framePTS := tunit.PTS + time.Duration(i)*ac3.SamplesPerFrame*
-									time.Second/sampleRate
-
-								err := f.mw.WriteAC3(track, durationGoToMPEGTS(framePTS), frame)
-								if err != nil {
-									return err
-								}
-							}
-
+				f.ai.agent.Stream.AddReader(
+					f.ai,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.AC3)
+						if tunit.Frames == nil {
 							return nil
-						},
-					)
-				})
+						}
 
-			default:
-				skippedFormats = append(skippedFormats, forma)
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							false,
+							true,
+							func() error {
+								for i, frame := range tunit.Frames {
+									framePTS := tunit.PTS + int64(i)*ac3.SamplesPerFrame
+
+									err := f.mw.WriteAC3(
+										track,
+										multiplyAndDivide(framePTS, 90000, int64(clockRate)),
+										frame)
+									if err != nil {
+										return err
+									}
+								}
+
+								return nil
+							},
+						)
+					})
 			}
 		}
 	}
 
-	if len(tracks) == 0 {
+	if len(setuppedFormats) == 0 {
 		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return
 	}
 
-	for _, forma := range skippedFormats {
-		f.ai.Log(logger.Warn, "skipping track with codec %s", forma.Codec())
+	n := 1
+	for _, medi := range f.ai.agent.Stream.Desc().Medias {
+		for _, forma := range medi.Formats {
+			if _, ok := setuppedFormatsMap[forma]; !ok {
+				f.ai.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+			}
+			n++
+		}
 	}
 
 	f.dw = &dynamicWriter{}
@@ -324,7 +399,7 @@ func (f *formatMPEGTS) initialize() {
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
 	f.ai.Log(logger.Info, "recording %s",
-		defs.FormatsInfo(formats))
+		defs.FormatsInfo(setuppedFormats))
 }
 
 func (f *formatMPEGTS) close() {
@@ -334,7 +409,7 @@ func (f *formatMPEGTS) close() {
 }
 
 func (f *formatMPEGTS) write(
-	dts time.Duration,
+	dtsDuration time.Duration,
 	ntp time.Time,
 	isVideo bool,
 	randomAccess bool,
@@ -348,14 +423,14 @@ func (f *formatMPEGTS) write(
 	case f.currentSegment == nil:
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dts,
+			startDTS: dtsDuration,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
-		f.currentSegment.lastDTS = dts
+		(dtsDuration-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
+		f.currentSegment.lastDTS = dtsDuration
 		err := f.currentSegment.close()
 		if err != nil {
 			return err
@@ -363,21 +438,21 @@ func (f *formatMPEGTS) write(
 
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dts,
+			startDTS: dtsDuration,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 
-	case (dts - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
+	case (dtsDuration - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err
 		}
 
-		f.currentSegment.lastFlush = dts
+		f.currentSegment.lastFlush = dtsDuration
 	}
 
-	f.currentSegment.lastDTS = dts
+	f.currentSegment.lastDTS = dtsDuration
 
 	return writeCB()
 }

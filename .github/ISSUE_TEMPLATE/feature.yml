@@ -1,0 +1,15 @@
+name: Feature request
+description: Share ideas for new features
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please create a request FOR EACH feature. Do not report multiple features in a single request, otherwise they'll probably never get all implemented.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the feature
+    validations:
+      required: true

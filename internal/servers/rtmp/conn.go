@@ -13,7 +13,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/google/uuid"
 
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -45,7 +44,6 @@ type conn struct {
 	rtspAddress         string
 	readTimeout         conf.StringDuration
 	writeTimeout        conf.StringDuration
-	writeQueueSize      int
 	runOnConnect        string
 	runOnConnectRestart bool
 	runOnDisconnect     string
@@ -170,7 +168,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)
@@ -187,16 +185,13 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.query = rawQuery
 	c.mutex.Unlock()
 
-	writer := asyncwriter.New(c.writeQueueSize, c)
-	defer stream.RemoveReader(writer)
-
-	err = rtmp.FromStream(stream, writer, conn, c.nconn, time.Duration(c.writeTimeout), c)
+	err = rtmp.FromStream(stream, c, conn, c.nconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(stream.FormatsForReader(writer)))
+		path.Name(), defs.FormatsInfo(stream.ReaderFormats(c)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
@@ -211,14 +206,14 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
-	writer.Start()
-	defer writer.Stop()
+	stream.StartReader(c)
+	defer stream.RemoveReader(c)
 
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err := <-writer.Error():
+	case err := <-stream.ReaderError(c):
 		return err
 	}
 }
@@ -240,7 +235,7 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)

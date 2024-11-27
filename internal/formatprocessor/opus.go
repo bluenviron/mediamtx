@@ -6,7 +6,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpsimpleaudio"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
 	"github.com/pion/rtp"
 
@@ -16,9 +15,9 @@ import (
 type formatProcessorOpus struct {
 	udpMaxPayloadSize int
 	format            *format.Opus
-	timeEncoder       *rtptime.Encoder
 	encoder           *rtpsimpleaudio.Encoder
 	decoder           *rtpsimpleaudio.Decoder
+	randomStart       uint32
 }
 
 func newOpus(
@@ -37,10 +36,7 @@ func newOpus(
 			return nil, err
 		}
 
-		t.timeEncoder = &rtptime.Encoder{
-			ClockRate: forma.ClockRate(),
-		}
-		err = t.timeEncoder.Initialize()
+		t.randomStart, err = randUint32()
 		if err != nil {
 			return nil, err
 		}
@@ -69,11 +65,10 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 			return err
 		}
 
-		ts := t.timeEncoder.Encode(pts)
-		pkt.Timestamp += ts
+		pkt.Timestamp += t.randomStart + uint32(pts)
 
 		rtpPackets = append(rtpPackets, pkt)
-		pts += opus.PacketDuration(packet)
+		pts += int64(opus.PacketDuration(packet)) * int64(t.format.ClockRate()) / int64(time.Second)
 	}
 
 	u.RTPPackets = rtpPackets
@@ -84,9 +79,9 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 func (t *formatProcessorOpus) ProcessRTPPacket(
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.Opus{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

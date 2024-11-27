@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1video"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -25,9 +24,9 @@ var (
 type formatProcessorMPEG1Video struct {
 	udpMaxPayloadSize int
 	format            *format.MPEG1Video
-	timeEncoder       *rtptime.Encoder
 	encoder           *rtpmpeg1video.Encoder
 	decoder           *rtpmpeg1video.Decoder
+	randomStart       uint32
 }
 
 func newMPEG1Video(
@@ -46,10 +45,7 @@ func newMPEG1Video(
 			return nil, err
 		}
 
-		t.timeEncoder = &rtptime.Encoder{
-			ClockRate: forma.ClockRate(),
-		}
-		err = t.timeEncoder.Initialize()
+		t.randomStart, err = randUint32()
 		if err != nil {
 			return nil, err
 		}
@@ -75,9 +71,8 @@ func (t *formatProcessorMPEG1Video) ProcessUnit(uu unit.Unit) error { //nolint:d
 	}
 	u.RTPPackets = pkts
 
-	ts := t.timeEncoder.Encode(u.PTS)
 	for _, pkt := range u.RTPPackets {
-		pkt.Timestamp += ts
+		pkt.Timestamp += t.randomStart + uint32(u.PTS)
 	}
 
 	return nil
@@ -86,9 +81,9 @@ func (t *formatProcessorMPEG1Video) ProcessUnit(uu unit.Unit) error { //nolint:d
 func (t *formatProcessorMPEG1Video) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.MPEG1Video{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

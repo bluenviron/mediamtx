@@ -78,7 +78,9 @@
 		<video id="video" class="video"></video>
 	</div>
 
-	<div id="message"></div>
+<video id="video"></video>
+<div id="message"></div>
+<div id="lang-icon"><div id="lang-list"></div></div>
 
 	<script src="hls.min.js"></script>
 
@@ -88,15 +90,82 @@
 		const video = document.getElementById('video');
 		const message = document.getElementById('message');
 
-		let defaultControls = false;
+const video = document.getElementById('video');
+const message = document.getElementById('message');
+const langIcon = document.getElementById('lang-icon');
+const langList = document.getElementById('lang-list');
 
-		const setMessage = (str) => {
-			if (str !== '') {
-				video.controls = false;
-			} else {
-				video.controls = defaultControls;
+let defaultControls = false;
+
+const setMessage = (str) => {
+	if (str !== '') {
+		video.controls = false;
+	} else {
+		video.controls = defaultControls;
+	}
+	message.innerText = str;
+};
+
+const isIOS = () => (
+	/iPad|iPhone|iPod/.test(navigator.platform)
+	|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
+
+const loadStream = () => {
+	// Prefer hls.js over native HLS.
+	// This is because some Android versions support native HLS
+	// but don't support fMP4s.
+	// Skip iPad iOS >= 13 and iPhone iOS >= 17,
+	// which support hls.js but don't support well maxLiveSyncPlaybackRate.
+	if (Hls.isSupported() && !isIOS()) {
+		const hls = new Hls({
+			maxLiveSyncPlaybackRate: 1.5,
+		});
+
+		hls.on(Hls.Events.ERROR, (evt, data) => {
+			if (data.fatal) {
+				hls.destroy();
+
+				langIcon.style.display = 'none';
+				langList.innerHTML = '';
+
+				if (data.details === 'manifestIncompatibleCodecsError') {
+					setMessage('stream makes use of codecs which are not compatible with this browser or operative system');
+				} else if (data.response && data.response.code === 404) {
+					setMessage('stream not found, retrying in some seconds');
+				} else {
+					setMessage(data.error + ', retrying in some seconds');
+				}
+
+				setTimeout(() => loadStream(video), retryPause);
 			}
-			message.innerText = str;
+		});
+
+		hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+			hls.loadSource('index.m3u8' + window.location.search);
+		});
+
+		hls.on(Hls.Events.MANIFEST_LOADED, () => {
+			if (hls.audioTracks.length > 1) {
+				for (const track of hls.audioTracks) {
+					const div = document.createElement('DIV');
+					div.innerText = track.name;
+					div.addEventListener('click', () => {
+						hls.audioTrack = track.id;
+					});
+					langList.appendChild(div);
+				}
+				langIcon.style.display = 'block';
+			}
+
+			setMessage('');
+			video.play();
+		});
+
+		// when the video is resumed after a manual or forced pause
+		// (i.e. when the window is minimized), restore live streaming.
+		video.onplay = () => {
+			video.currentTime = hls.liveSyncPosition;
 		};
 
 		const loadStream = () => {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -39,6 +38,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	var err error
 	p.stream, err = stream.New(
+		512,
 		1460,
 		req.Desc,
 		true,
@@ -66,14 +66,14 @@ type dummyPathManager struct {
 
 func (pm *dummyPathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
 	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, auth.Error{}
+		return nil, &auth.Error{}
 	}
 	return pm.path, nil
 }
 
 func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, nil, auth.Error{}
+		return nil, nil, &auth.Error{}
 	}
 	return pm.path, pm.path.stream, nil
 }
@@ -93,7 +93,6 @@ func TestServerPublish(t *testing.T) {
 		RTSPAddress:         "",
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
-		WriteQueueSize:      512,
 		UDPMaxPayloadSize:   1472,
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
@@ -139,11 +138,12 @@ func TestServerPublish(t *testing.T) {
 
 	<-path.streamCreated
 
-	aw := asyncwriter.New(512, test.NilLogger)
+	reader := test.NilLogger
 
 	recv := make(chan struct{})
 
-	path.stream.AddReader(aw,
+	path.stream.AddReader(
+		reader,
 		path.stream.Desc().Medias[0],
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
@@ -156,6 +156,9 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	err = w.WriteH264(track, 0, 0, true, [][]byte{
 		{5, 2},
 	})
@@ -164,9 +167,7 @@ func TestServerPublish(t *testing.T) {
 	err = bw.Flush()
 	require.NoError(t, err)
 
-	aw.Start()
 	<-recv
-	aw.Stop()
 }
 
 func TestServerRead(t *testing.T) {
@@ -176,6 +177,7 @@ func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	stream, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,
@@ -192,7 +194,6 @@ func TestServerRead(t *testing.T) {
 		RTSPAddress:         "",
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
-		WriteQueueSize:      512,
 		UDPMaxPayloadSize:   1472,
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
@@ -217,6 +218,8 @@ func TestServerRead(t *testing.T) {
 	reader, err := srt.Dial("srt", address, srtConf)
 	require.NoError(t, err)
 	defer reader.Close()
+
+	stream.WaitRunningReader()
 
 	stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{

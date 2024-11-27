@@ -52,7 +52,7 @@ type Metrics struct {
 	AuthManager    metricsAuthManager
 	Parent         metricsParent
 
-	httpServer   *httpp.WrappedServer
+	httpServer   *httpp.Server
 	mutex        sync.Mutex
 	pathManager  api.PathManager
 	rtspServer   api.RTSPServer
@@ -68,11 +68,15 @@ type Metrics struct {
 func (m *Metrics) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(m.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-	router.NoRoute(m.onRequest)
+
+	router.Use(m.middlewareOrigin)
+	router.Use(m.middlewareAuth)
+
+	router.GET("/metrics", m.onMetrics)
 
 	network, address := restrictnetwork.Restrict("tcp", m.Address)
 
-	m.httpServer = &httpp.WrappedServer{
+	m.httpServer = &httpp.Server{
 		Network:     network,
 		Address:     address,
 		ReadTimeout: time.Duration(m.ReadTimeout),
@@ -103,34 +107,28 @@ func (m *Metrics) Log(level logger.Level, format string, args ...interface{}) {
 	m.Parent.Log(level, "[metrics] "+format, args...)
 }
 
-func (m *Metrics) onRequest(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Access-Control-Allow-Origin", m.AllowOrigin)
-	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+func (m *Metrics) middlewareOrigin(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", m.AllowOrigin)
+	ctx.Header("Access-Control-Allow-Credentials", "true")
 
 	// preflight requests
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
-		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization")
-		ctx.Writer.WriteHeader(http.StatusNoContent)
+		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
+		ctx.Header("Access-Control-Allow-Headers", "Authorization")
+		ctx.AbortWithStatus(http.StatusNoContent)
 		return
 	}
+}
 
-	if ctx.Request.URL.Path != "/metrics" || ctx.Request.Method != http.MethodGet {
-		return
-	}
-
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
+func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 	err := m.AuthManager.Authenticate(&auth.Request{
-		User:   user,
-		Pass:   pass,
-		Query:  ctx.Request.URL.RawQuery,
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionMetrics,
+		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:      conf.AuthActionMetrics,
+		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
-		if !hasCredentials {
+		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -139,10 +137,12 @@ func (m *Metrics) onRequest(ctx *gin.Context) {
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+}
 
+func (m *Metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
 	data, err := m.pathManager.APIPathsList()

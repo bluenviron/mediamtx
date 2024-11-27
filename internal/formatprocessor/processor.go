@@ -19,9 +19,9 @@ type Processor interface {
 	ProcessRTPPacket(
 		pkt *rtp.Packet,
 		ntp time.Time,
-		pts time.Duration,
+		pts int64,
 		hasNonRTSPReaders bool,
-	) (Unit, error)
+	) (unit.Unit, error)
 }
 
 // New allocates a Processor.

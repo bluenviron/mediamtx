@@ -218,7 +218,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 	pconf.RPICameraCodec = "auto"
 	pconf.RPICameraIDRPeriod = 60
-	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraBitrate = 5000000
 	pconf.RPICameraProfile = "main"
 	pconf.RPICameraLevel = "4.1"
 
@@ -578,17 +578,7 @@ func (pconf *Path) Equal(other *Path) bool {
 
 // HasStaticSource checks whether the path has a static source.
 func (pconf Path) HasStaticSource() bool {
-	return strings.HasPrefix(pconf.Source, "rtsp://") ||
-		strings.HasPrefix(pconf.Source, "rtsps://") ||
-		strings.HasPrefix(pconf.Source, "rtmp://") ||
-		strings.HasPrefix(pconf.Source, "rtmps://") ||
-		strings.HasPrefix(pconf.Source, "http://") ||
-		strings.HasPrefix(pconf.Source, "https://") ||
-		strings.HasPrefix(pconf.Source, "udp://") ||
-		strings.HasPrefix(pconf.Source, "srt://") ||
-		strings.HasPrefix(pconf.Source, "whep://") ||
-		strings.HasPrefix(pconf.Source, "wheps://") ||
-		pconf.Source == "rpiCamera"
+	return pconf.Source != "publisher" && pconf.Source != "redirect"
 }
 
 // HasOnDemandStaticSource checks whether the path has a on demand static source.

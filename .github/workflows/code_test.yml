@@ -9,6 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - run: make test
 
@@ -21,6 +23,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - run: make test32
 
@@ -29,9 +33,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - uses: actions/setup-go@v3
       with:
-        go-version: "1.22"
+        go-version: "1.23"
 
     - run: make test-highlevel-nodocker

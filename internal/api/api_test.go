@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -109,40 +108,6 @@ func TestPreflightRequest(t *testing.T) {
 	require.Equal(t, "OPTIONS, GET, POST, PATCH, DELETE", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Content-Type", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
-}
-
-func TestConfigAuth(t *testing.T) {
-	cnf := tempConf(t, "api: yes\n")
-
-	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: &test.AuthManager{
-			Func: func(req *auth.Request) error {
-				require.Equal(t, &auth.Request{
-					User:   "myuser",
-					Pass:   "mypass",
-					IP:     req.IP,
-					Action: "api",
-					Query:  "key=val",
-				}, req)
-				return nil
-			},
-		},
-		Parent: &testParent{},
-	}
-	err := api.Initialize()
-	require.NoError(t, err)
-	defer api.Close()
-
-	tr := &http.Transport{}
-	defer tr.CloseIdleConnections()
-	hc := &http.Client{Transport: tr}
-
-	var out map[string]interface{}
-	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/global/get?key=val", nil, &out)
-	require.Equal(t, true, out["api"])
 }
 
 func TestConfigGlobalGet(t *testing.T) {

@@ -78,7 +78,7 @@ func TestPathAutoDeletion(t *testing.T) {
 			data, err := p.pathManager.APIPathsList()
 			require.NoError(t, err)
 
-			require.Equal(t, 0, len(data.Items))
+			require.Empty(t, data.Items)
 		})
 	}
 }

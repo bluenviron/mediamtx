@@ -5,8 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bluenviron/gohlslib"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -22,19 +21,15 @@ type muxerInstance struct {
 	partDuration    conf.StringDuration
 	segmentMaxSize  conf.StringSize
 	directory       string
-	writeQueueSize  int
 	pathName        string
 	stream          *stream.Stream
 	bytesSent       *uint64
 	parent          logger.Writer
 
-	writer *asyncwriter.Writer
 	hmuxer *gohlslib.Muxer
 }
 
 func (mi *muxerInstance) initialize() error {
-	mi.writer = asyncwriter.New(mi.writeQueueSize, mi)
-
 	var muxerDirectory string
 	if mi.directory != "" {
 		muxerDirectory = filepath.Join(mi.directory, mi.pathName)
@@ -42,30 +37,32 @@ func (mi *muxerInstance) initialize() error {
 	}
 
 	mi.hmuxer = &gohlslib.Muxer{
-		Variant:         gohlslib.MuxerVariant(mi.variant),
-		SegmentCount:    mi.segmentCount,
-		SegmentDuration: time.Duration(mi.segmentDuration),
-		PartDuration:    time.Duration(mi.partDuration),
-		SegmentMaxSize:  uint64(mi.segmentMaxSize),
-		Directory:       muxerDirectory,
+		Variant:            gohlslib.MuxerVariant(mi.variant),
+		SegmentCount:       mi.segmentCount,
+		SegmentMinDuration: time.Duration(mi.segmentDuration),
+		PartMinDuration:    time.Duration(mi.partDuration),
+		SegmentMaxSize:     uint64(mi.segmentMaxSize),
+		Directory:          muxerDirectory,
+		OnEncodeError: func(err error) {
+			mi.Log(logger.Warn, err.Error())
+		},
 	}
 
-	err := hls.FromStream(mi.stream, mi.writer, mi.hmuxer, mi)
+	err := hls.FromStream(mi.stream, mi, mi.hmuxer)
 	if err != nil {
-		mi.stream.RemoveReader(mi.writer)
 		return err
 	}
 
 	err = mi.hmuxer.Start()
 	if err != nil {
-		mi.stream.RemoveReader(mi.writer)
+		mi.stream.RemoveReader(mi)
 		return err
 	}
 
 	mi.Log(logger.Info, "is converting into HLS, %s",
-		defs.FormatsInfo(mi.stream.FormatsForReader(mi.writer)))
+		defs.FormatsInfo(mi.stream.ReaderFormats(mi)))
 
-	mi.writer.Start()
+	mi.stream.StartReader(mi)
 
 	return nil
 }
@@ -76,16 +73,15 @@ func (mi *muxerInstance) Log(level logger.Level, format string, args ...interfac
 }
 
 func (mi *muxerInstance) close() {
-	mi.writer.Stop()
+	mi.stream.RemoveReader(mi)
 	mi.hmuxer.Close()
-	mi.stream.RemoveReader(mi.writer)
 	if mi.hmuxer.Directory != "" {
 		os.Remove(mi.hmuxer.Directory)
 	}
 }
 
 func (mi *muxerInstance) errorChan() chan error {
-	return mi.writer.Error()
+	return mi.stream.ReaderError(mi)
 }
 
 func (mi *muxerInstance) handleRequest(ctx *gin.Context) {

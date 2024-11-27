@@ -3,6 +3,7 @@ package defs
 import (
 	"fmt"
 	"net"
+	"net/http"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -35,7 +36,7 @@ type Path interface {
 	RemoveReader(req PathRemoveReaderReq)
 }
 
-// PathAccessRequest is an access request.
+// PathAccessRequest is a path access request.
 type PathAccessRequest struct {
 	Name     string
 	Query    string
@@ -43,13 +44,18 @@ type PathAccessRequest struct {
 	SkipAuth bool
 
 	// only if skipAuth = false
-	IP          net.IP
-	User        string
-	Pass        string
-	Proto       auth.Protocol
-	ID          *uuid.UUID
+	User  string
+	Pass  string
+	IP    net.IP
+	Proto auth.Protocol
+	ID    *uuid.UUID
+
+	// RTSP only
 	RTSPRequest *base.Request
 	RTSPNonce   string
+
+	// HTTP only
+	HTTPRequest *http.Request
 }
 
 // ToAuthRequest converts a path access request into an authentication request.
@@ -70,6 +76,7 @@ func (r *PathAccessRequest) ToAuthRequest() *auth.Request {
 		Query:       r.Query,
 		RTSPRequest: r.RTSPRequest,
 		RTSPNonce:   r.RTSPNonce,
+		HTTPRequest: r.HTTPRequest,
 	}
 }
 

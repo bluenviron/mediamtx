@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4audio"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -16,9 +15,9 @@ import (
 type formatProcessorMPEG4Audio struct {
 	udpMaxPayloadSize int
 	format            *format.MPEG4Audio
-	timeEncoder       *rtptime.Encoder
 	encoder           *rtpmpeg4audio.Encoder
 	decoder           *rtpmpeg4audio.Decoder
+	randomStart       uint32
 }
 
 func newMPEG4Audio(
@@ -37,10 +36,7 @@ func newMPEG4Audio(
 			return nil, err
 		}
 
-		t.timeEncoder = &rtptime.Encoder{
-			ClockRate: forma.ClockRate(),
-		}
-		err = t.timeEncoder.Initialize()
+		t.randomStart, err = randUint32()
 		if err != nil {
 			return nil, err
 		}
@@ -69,9 +65,8 @@ func (t *formatProcessorMPEG4Audio) ProcessUnit(uu unit.Unit) error { //nolint:d
 	}
 	u.RTPPackets = pkts
 
-	ts := t.timeEncoder.Encode(u.PTS)
 	for _, pkt := range u.RTPPackets {
-		pkt.Timestamp += ts
+		pkt.Timestamp += t.randomStart + uint32(u.PTS)
 	}
 
 	return nil
@@ -80,9 +75,9 @@ func (t *formatProcessorMPEG4Audio) ProcessUnit(uu unit.Unit) error { //nolint:d
 func (t *formatProcessorMPEG4Audio) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.MPEG4Audio{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

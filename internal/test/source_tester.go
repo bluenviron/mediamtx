@@ -4,7 +4,6 @@ package test
 import (
 	"context"
 
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -17,7 +16,7 @@ type SourceTester struct {
 	ctx       context.Context
 	ctxCancel func()
 	stream    *stream.Stream
-	writer    *asyncwriter.Writer
+	reader    stream.Reader
 
 	Unit chan unit.Unit
 	done chan struct{}
@@ -55,8 +54,7 @@ func NewSourceTester(
 // Close closes the tester.
 func (t *SourceTester) Close() {
 	t.ctxCancel()
-	t.writer.Stop()
-	t.stream.Close()
+	t.stream.RemoveReader(t.reader)
 	<-t.done
 }
 
@@ -67,20 +65,22 @@ func (t *SourceTester) Log(_ logger.Level, _ string, _ ...interface{}) {
 // SetReady implements StaticSourceParent.
 func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
 	t.stream, _ = stream.New(
+		512,
 		1460,
 		req.Desc,
 		req.GenerateRTPPackets,
 		t,
 	)
 
-	t.writer = asyncwriter.New(2048, t)
+	t.reader = NilLogger
 
-	t.stream.AddReader(t.writer, req.Desc.Medias[0], req.Desc.Medias[0].Formats[0], func(u unit.Unit) error {
+	t.stream.AddReader(t.reader, req.Desc.Medias[0], req.Desc.Medias[0].Formats[0], func(u unit.Unit) error {
 		t.Unit <- u
 		close(t.Unit)
 		return nil
 	})
-	t.writer.Start()
+
+	t.stream.StartReader(t.reader)
 
 	return defs.PathSourceStaticSetReadyRes{
 		Stream: t.stream,

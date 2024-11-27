@@ -100,7 +100,7 @@ outer:
 
 		case <-c.pc.GatheringDone():
 
-		case <-c.pc.Connected():
+		case <-c.pc.Ready():
 			break outer
 
 		case <-t.C:
@@ -190,7 +190,7 @@ outer:
 
 		case <-c.pc.GatheringDone():
 
-		case <-c.pc.Connected():
+		case <-c.pc.Ready():
 			break outer
 
 		case <-t.C:
@@ -230,7 +230,7 @@ func (c *Client) Close() error {
 // Wait waits for client errors.
 func (c *Client) Wait(ctx context.Context) error {
 	select {
-	case <-c.pc.Disconnected():
+	case <-c.pc.Failed():
 		return fmt.Errorf("peer connection closed")
 
 	case <-ctx.Done():

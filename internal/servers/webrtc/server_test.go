@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -55,6 +54,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	var err error
 	p.stream, err = stream.New(
+		512,
 		1460,
 		req.Desc,
 		true,
@@ -96,9 +96,7 @@ func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *st
 
 func initializeTestServer(t *testing.T) *Server {
 	pm := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
+		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 	}
@@ -111,7 +109,6 @@ func initializeTestServer(t *testing.T) *Server {
 		AllowOrigin:           "*",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -183,9 +180,7 @@ func TestPreflightRequest(t *testing.T) {
 
 func TestServerOptionsICEServer(t *testing.T) {
 	pathManager := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
+		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 	}
@@ -198,7 +193,6 @@ func TestServerOptionsICEServer(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -251,14 +245,10 @@ func TestServerPublish(t *testing.T) {
 	pathManager := &dummyPathManager{
 		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
 			return &conf.Path{}, nil
 		},
 		addPublisher: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
 			return path, nil
 		},
 	}
@@ -271,7 +261,6 @@ func TestServerPublish(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -328,11 +317,12 @@ func TestServerPublish(t *testing.T) {
 
 	<-path.streamCreated
 
-	aw := asyncwriter.New(512, test.NilLogger)
+	reader := test.NilLogger
 
 	recv := make(chan struct{})
 
-	path.stream.AddReader(aw,
+	path.stream.AddReader(
+		reader,
 		path.stream.Desc().Medias[0],
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
@@ -350,6 +340,9 @@ func TestServerPublish(t *testing.T) {
 			return nil
 		})
 
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
+
 	err = track.WriteRTP(&rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
@@ -363,9 +356,7 @@ func TestServerPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	aw.Start()
 	<-recv
-	aw.Stop()
 }
 
 func TestServerRead(t *testing.T) {
@@ -522,6 +513,7 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			str, err := stream.New(
+				512,
 				1460,
 				desc,
 				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
@@ -534,14 +526,10 @@ func TestServerRead(t *testing.T) {
 			pathManager := &dummyPathManager{
 				findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
-					require.Equal(t, "myuser", req.AccessRequest.User)
-					require.Equal(t, "mypass", req.AccessRequest.Pass)
 					return &conf.Path{}, nil
 				},
 				addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
-					require.Equal(t, "myuser", req.AccessRequest.User)
-					require.Equal(t, "mypass", req.AccessRequest.Pass)
 					return path, str, nil
 				},
 			}
@@ -554,7 +542,6 @@ func TestServerRead(t *testing.T) {
 				AllowOrigin:           "",
 				TrustedProxies:        conf.IPNetworks{},
 				ReadTimeout:           conf.StringDuration(10 * time.Second),
-				WriteQueueSize:        512,
 				LocalUDPAddress:       "127.0.0.1:8887",
 				LocalTCPAddress:       "127.0.0.1:8887",
 				IPsFromInterfaces:     true,
@@ -585,29 +572,20 @@ func TestServerRead(t *testing.T) {
 			}
 
 			writerDone := make(chan struct{})
-			defer func() { <-writerDone }()
-
-			writerTerminate := make(chan struct{})
-			defer close(writerTerminate)
 
 			go func() {
 				defer close(writerDone)
-				for {
-					select {
-					case <-time.After(100 * time.Millisecond):
-					case <-writerTerminate:
-						return
-					}
 
-					r := reflect.New(reflect.TypeOf(ca.unit).Elem())
-					r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
+				str.WaitRunningReader()
 
-					if g, ok := r.Interface().(*unit.Generic); ok {
-						clone := *g.RTPPackets[0]
-						str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
-					} else {
-						str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
-					}
+				r := reflect.New(reflect.TypeOf(ca.unit).Elem())
+				r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
+
+				if g, ok := r.Interface().(*unit.Generic); ok {
+					clone := *g.RTPPackets[0]
+					str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+				} else {
+					str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
 				}
 			}()
 
@@ -628,172 +606,15 @@ func TestServerRead(t *testing.T) {
 
 			wc.StartReading()
 
+			<-writerDone
 			<-done
 		})
 	}
 }
 
-func TestServerReadAuthorizationBearerJWT(t *testing.T) {
-	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
-
-	str, err := stream.New(
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-	)
-	require.NoError(t, err)
-
-	path := &dummyPath{stream: str}
-
-	pm := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "jwt=testing", req.AccessRequest.Query)
-			return &conf.Path{}, nil
-		},
-		addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			require.Equal(t, "jwt=testing", req.AccessRequest.Query)
-			return path, str, nil
-		},
-	}
-
-	s := &Server{
-		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
-		TrustedProxies:        conf.IPNetworks{},
-		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
-		LocalUDPAddress:       "127.0.0.1:8887",
-		LocalTCPAddress:       "127.0.0.1:8887",
-		IPsFromInterfaces:     true,
-		IPsFromInterfacesList: []string{},
-		AdditionalHosts:       []string{},
-		ICEServers:            []conf.WebRTCICEServer{},
-		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
-		ExternalCmdPool:       nil,
-		PathManager:           pm,
-		Parent:                test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	tr := &http.Transport{}
-	defer tr.CloseIdleConnections()
-	hc := &http.Client{Transport: tr}
-
-	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
-	require.NoError(t, err)
-	defer pc.Close() //nolint:errcheck
-
-	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
-	require.NoError(t, err)
-
-	offer, err := pc.CreateOffer(nil)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest(http.MethodPost,
-		"http://localhost:8886/teststream/whep", bytes.NewReader([]byte(offer.SDP)))
-	require.NoError(t, err)
-
-	req.Header.Set("Content-Type", "application/sdp")
-	req.Header.Set("Authorization", "Bearer testing")
-
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusCreated, res.StatusCode)
-}
-
-func TestServerReadAuthorizationUserPass(t *testing.T) {
-	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
-
-	str, err := stream.New(
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-	)
-	require.NoError(t, err)
-
-	path := &dummyPath{stream: str}
-
-	pm := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
-			return &conf.Path{}, nil
-		},
-		addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
-			return path, str, nil
-		},
-	}
-
-	s := &Server{
-		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
-		TrustedProxies:        conf.IPNetworks{},
-		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
-		LocalUDPAddress:       "127.0.0.1:8887",
-		LocalTCPAddress:       "127.0.0.1:8887",
-		IPsFromInterfaces:     true,
-		IPsFromInterfacesList: []string{},
-		AdditionalHosts:       []string{},
-		ICEServers:            []conf.WebRTCICEServer{},
-		HandshakeTimeout:      conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout:    conf.StringDuration(2 * time.Second),
-		ExternalCmdPool:       nil,
-		PathManager:           pm,
-		Parent:                test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	tr := &http.Transport{}
-	defer tr.CloseIdleConnections()
-	hc := &http.Client{Transport: tr}
-
-	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
-	require.NoError(t, err)
-	defer pc.Close() //nolint:errcheck
-
-	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
-	require.NoError(t, err)
-
-	offer, err := pc.CreateOffer(nil)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest(http.MethodPost,
-		"http://localhost:8886/teststream/whep", bytes.NewReader([]byte(offer.SDP)))
-	require.NoError(t, err)
-
-	req.Header.Set("Content-Type", "application/sdp")
-	req.Header.Set("Authorization", "Bearer myuser:mypass")
-
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusCreated, res.StatusCode)
-}
-
 func TestServerReadNotFound(t *testing.T) {
 	pm := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
+		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 		addReader: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -809,7 +630,6 @@ func TestServerReadNotFound(t *testing.T) {
 		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
-		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -943,5 +763,5 @@ func TestICEServerClientOnly(t *testing.T) {
 	require.Equal(t, len(s.ICEServers), len(clientICEServers))
 	serverICEServers, err := s.generateICEServers(false)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(serverICEServers))
+	require.Empty(t, serverICEServers)
 }

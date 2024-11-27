@@ -11,21 +11,48 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
     - run: >
         git config user.name mediamtx-bot
         && git config user.email bot@mediamtx
         && ((git checkout deps/hlsjs && git rebase ${GITHUB_REF_NAME}) || git checkout -b deps/hlsjs)
 
-    - run: |
-        set -e
-        VERSION=$(curl -s https://api.github.com/repos/video-dev/hls.js/releases?per_page=1 | grep tag_name | sed 's/\s\+"tag_name": "\(.\+\)",/\1/')
-        HASH=$(curl -sL https://github.com/video-dev/hls.js/releases/download/$VERSION/release.zip -o- | sha256sum | cut -f1 -d ' ')
-        echo $VERSION > internal/servers/hls/hlsjsdownloader/VERSION
-        echo $HASH > internal/servers/hls/hlsjsdownloader/HASH
-        echo VERSION=$VERSION >> $GITHUB_ENV
+    - uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { createHash } = require('crypto');
+          const fs = require('fs').promises;
+
+          // get last release
+          let curRelease = null;
+          for (let i = 1; i < 20; i++) {
+            const releases = await github.rest.repos.listReleases({
+              owner: 'video-dev',
+              repo: 'hls.js',
+              page: i,
+            });
+            for (const release of releases.data) {
+              if (!release.prerelease) {
+                curRelease = release;
+                break;
+              }
+            }
+            if (curRelease !== null) {
+              break;
+            }
+          }
+
+          // compute checksum
+          const content = await github.request(`https://github.com/video-dev/hls.js/releases/download/${curRelease['tag_name']}/release.zip`);
+          const hash = createHash('sha256').update(Buffer.from(content.data)).digest('hex');
+
+          // write version and checksum to disk
+          await fs.writeFile('internal/servers/hls/hlsjsdownloader/VERSION', curRelease['tag_name'] + '\n', 'utf-8');
+          await fs.writeFile('internal/servers/hls/hlsjsdownloader/HASH', hash + '\n', 'utf-8');
+
+          // make version available to next steps
+          core.exportVariable('VERSION', curRelease['tag_name']);
 
     - id: check_repo
       run: >

@@ -6,7 +6,6 @@ import (
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
@@ -14,15 +13,14 @@ import (
 
 type sample struct {
 	*fmp4.PartSample
-	dts time.Duration
+	dts int64
 	ntp time.Time
 }
 
-type agentInstance struct {
+type recorderInstance struct {
 	agent *Recorder
 
 	pathFormat string
-	writer     *asyncwriter.Writer
 	format     format
 
 	terminate chan struct{}
@@ -30,11 +28,11 @@ type agentInstance struct {
 }
 
 // Log implements logger.Writer.
-func (ai *agentInstance) Log(level logger.Level, format string, args ...interface{}) {
+func (ai *recorderInstance) Log(level logger.Level, format string, args ...interface{}) {
 	ai.agent.Log(level, format, args...)
 }
 
-func (ai *agentInstance) initialize() {
+func (ai *recorderInstance) initialize() {
 	ai.pathFormat = ai.agent.PathFormat
 
 	ai.pathFormat = recordstore.PathAddExtension(
@@ -44,8 +42,6 @@ func (ai *agentInstance) initialize() {
 
 	ai.terminate = make(chan struct{})
 	ai.done = make(chan struct{})
-
-	ai.writer = asyncwriter.New(ai.agent.WriteQueueSize, ai.agent)
 
 	switch ai.agent.Format {
 	case conf.RecordFormatMPEGTS:
@@ -61,28 +57,27 @@ func (ai *agentInstance) initialize() {
 		ai.format.initialize()
 	}
 
+	ai.agent.Stream.StartReader(ai)
+
 	go ai.run()
 }
 
-func (ai *agentInstance) close() {
+func (ai *recorderInstance) close() {
 	close(ai.terminate)
 	<-ai.done
 }
 
-func (ai *agentInstance) run() {
+func (ai *recorderInstance) run() {
 	defer close(ai.done)
 
-	ai.writer.Start()
-
 	select {
-	case err := <-ai.writer.Error():
+	case err := <-ai.agent.Stream.ReaderError(ai):
 		ai.Log(logger.Error, err.Error())
-		ai.agent.Stream.RemoveReader(ai.writer)
 
 	case <-ai.terminate:
-		ai.agent.Stream.RemoveReader(ai.writer)
-		ai.writer.Stop()
 	}
+
+	ai.agent.Stream.RemoveReader(ai)
 
 	ai.format.close()
 }

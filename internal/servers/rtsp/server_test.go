@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -40,6 +39,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	var err error
 	p.stream, err = stream.New(
+		512,
 		1460,
 		req.Desc,
 		true,
@@ -132,11 +132,12 @@ func TestServerPublish(t *testing.T) {
 
 	<-path.streamCreated
 
-	aw := asyncwriter.New(512, test.NilLogger)
+	reader := test.NilLogger
 
 	recv := make(chan struct{})
 
-	path.stream.AddReader(aw,
+	path.stream.AddReader(
+		reader,
 		path.stream.Desc().Medias[0],
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
@@ -148,6 +149,9 @@ func TestServerPublish(t *testing.T) {
 			close(recv)
 			return nil
 		})
+
+	path.stream.StartReader(reader)
+	defer path.stream.RemoveReader(reader)
 
 	err = source.WritePacketRTP(media0, &rtp.Packet{
 		Header: rtp.Header{
@@ -162,15 +166,14 @@ func TestServerPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	aw.Start()
 	<-recv
-	aw.Stop()
 }
 
 func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	stream, err := stream.New(
+		512,
 		1460,
 		desc,
 		true,

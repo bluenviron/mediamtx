@@ -8,7 +8,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -23,37 +22,43 @@ func unitSize(u unit.Unit) uint64 {
 }
 
 type streamFormat struct {
-	decodeErrLogger logger.Writer
-	proc            formatprocessor.Processor
-	readers         map[*asyncwriter.Writer]ReadFunc
+	udpMaxPayloadSize  int
+	format             format.Format
+	generateRTPPackets bool
+	decodeErrLogger    logger.Writer
+
+	proc           formatprocessor.Processor
+	pausedReaders  map[*streamReader]ReadFunc
+	runningReaders map[*streamReader]ReadFunc
 }
 
-func newStreamFormat(
-	udpMaxPayloadSize int,
-	forma format.Format,
-	generateRTPPackets bool,
-	decodeErrLogger logger.Writer,
-) (*streamFormat, error) {
-	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)
+func (sf *streamFormat) initialize() error {
+	sf.pausedReaders = make(map[*streamReader]ReadFunc)
+	sf.runningReaders = make(map[*streamReader]ReadFunc)
+
+	var err error
+	sf.proc, err = formatprocessor.New(sf.udpMaxPayloadSize, sf.format, sf.generateRTPPackets)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	sf := &streamFormat{
-		decodeErrLogger: decodeErrLogger,
-		proc:            proc,
-		readers:         make(map[*asyncwriter.Writer]ReadFunc),
+	return nil
+}
+
+func (sf *streamFormat) addReader(sr *streamReader, cb ReadFunc) {
+	sf.pausedReaders[sr] = cb
+}
+
+func (sf *streamFormat) removeReader(sr *streamReader) {
+	delete(sf.pausedReaders, sr)
+	delete(sf.runningReaders, sr)
+}
+
+func (sf *streamFormat) startReader(sr *streamReader) {
+	if cb, ok := sf.pausedReaders[sr]; ok {
+		delete(sf.pausedReaders, sr)
+		sf.runningReaders[sr] = cb
 	}
-
-	return sf, nil
-}
-
-func (sf *streamFormat) addReader(r *asyncwriter.Writer, cb ReadFunc) {
-	sf.readers[r] = cb
-}
-
-func (sf *streamFormat) removeReader(r *asyncwriter.Writer) {
-	delete(sf.readers, r)
 }
 
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Unit) {
@@ -71,9 +76,9 @@ func (sf *streamFormat) writeRTPPacket(
 	medi *description.Media,
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 ) {
-	hasNonRTSPReaders := len(sf.readers) > 0
+	hasNonRTSPReaders := len(sf.pausedReaders) > 0 || len(sf.runningReaders) > 0
 
 	u, err := sf.proc.ProcessRTPPacket(pkt, ntp, pts, hasNonRTSPReaders)
 	if err != nil {
@@ -101,9 +106,9 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 		}
 	}
 
-	for writer, cb := range sf.readers {
+	for sr, cb := range sf.runningReaders {
 		ccb := cb
-		writer.Push(func() error {
+		sr.push(func() error {
 			atomic.AddUint64(s.bytesSent, size)
 			return ccb(u)
 		})

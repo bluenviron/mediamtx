@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        To increase the chance of your bug getting fixed, open an issue FOR EACH bug. Do not report multiple problems in a single issue, otherwise they'll probably never get all fixed.
+
+  - type: input
+    id: version
+    attributes:
+      label: Which version are you using?
+      description: MediaMTX version or commit
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Which operating system are you using?
+      multiple: true
+      options:
+        - Linux amd64 standard
+        - Linux amd64 Docker
+        - Linux arm64 standard
+        - Linux arm64 Docker
+        - Linux arm7 standard
+        - Linux arm7 Docker
+        - Linux arm6 standard
+        - Linux arm6 Docker
+        - Windows amd64 standard
+        - Windows amd64 Docker (WSL backend)
+        - macOS amd64 standard
+        - macOS amd64 Docker
+        - Other (please describe)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe how to replicate the issue
+      description: |
+        The maintainers must be able to REPLICATE your issue to solve it - therefore, describe in a very detailed way how to replicate it.
+      value: |
+        1. start the server
+        2. publish with ...
+        3. read with ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server logs
+      description: |
+        Server logs are sometimes useful to identify the issue. If you think this is the case, set the parameter 'logLevel' to 'debug' and attach the server logs.
+      placeholder: Paste or drag the log file here
+      # render: shell
+
+  - type: textarea
+    id: network
+    attributes:
+      label: Network dump
+      description: |
+        If the bug arises when using MediaMTX with external hardware or software, the most helpful content you can provide is a dump of the data exchanged between the server and the target (network dump).
+
+        That can be generated in this way:
+          1. Download wireshark (https://www.wireshark.org/)
+          2. Start capturing on the interface used for exchanging packets
+            * If the server and the external hardware or software are both installed on your pc, the interface is probably "loopback", otherwise it's the one of your network card.
+          3. Start the server and replicate the issue
+          4. Stop capturing, save the result in .pcap format
+          5. Attach
+      placeholder: Attach the pcap file by dragging it here

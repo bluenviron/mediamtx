@@ -1,7 +1,7 @@
-BASE_IMAGE = golang:1.22-alpine3.19
-LINT_IMAGE = golangci/golangci-lint:v1.59.1
-NODE_IMAGE = node:20-alpine3.19
-ALPINE_IMAGE = alpine:3.19
+BASE_IMAGE = golang:1.23-alpine3.20
+LINT_IMAGE = golangci/golangci-lint:v1.61.0
+NODE_IMAGE = node:20-alpine3.20
+ALPINE_IMAGE = alpine:3.20
 RPI32_IMAGE = balenalib/raspberry-pi:bullseye-run-20240508
 RPI64_IMAGE = balenalib/raspberrypi3-64:bullseye-run-20240429
 
@@ -18,7 +18,6 @@ help:
 	@echo "  test32           run tests on a 32-bit system"
 	@echo "  test-highlevel   run high-level tests"
 	@echo "  lint             run linters"
-	@echo "  bench NAME=n     run bench environment"
 	@echo "  run              run app"
 	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"

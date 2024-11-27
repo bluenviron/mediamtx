@@ -14,6 +14,16 @@ var errNoSupportedCodecsTo = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
 		"AV1, VP9, H265, H264, MPEG-4 Audio, MPEG-1/2 Audio, G711, LPCM")
 
+func multiplyAndDivide(v, m, d int64) int64 {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func durationToTimestamp(d time.Duration, clockRate int) int64 {
+	return multiplyAndDivide(int64(d), int64(clockRate), int64(time.Second))
+}
+
 // ToStream maps a RTMP stream to a MediaMTX stream.
 func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 	videoFormat, audioFormat := r.Tracks()
@@ -33,7 +43,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, videoFormat, &unit.AV1{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, videoFormat.ClockRate()),
 					},
 					TU: tu,
 				})
@@ -44,7 +54,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, videoFormat, &unit.VP9{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, videoFormat.ClockRate()),
 					},
 					Frame: frame,
 				})
@@ -55,7 +65,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, videoFormat, &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, videoFormat.ClockRate()),
 					},
 					AU: au,
 				})
@@ -66,7 +76,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, videoFormat, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, videoFormat.ClockRate()),
 					},
 					AU: au,
 				})
@@ -90,7 +100,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, audioFormat, &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, audioFormat.ClockRate()),
 					},
 					AUs: [][]byte{au},
 				})
@@ -101,7 +111,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, audioFormat, &unit.MPEG1Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, audioFormat.ClockRate()),
 					},
 					Frames: [][]byte{frame},
 				})
@@ -112,7 +122,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, audioFormat, &unit.G711{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, audioFormat.ClockRate()),
 					},
 					Samples: samples,
 				})
@@ -123,7 +133,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 				(*stream).WriteUnit(medi, audioFormat, &unit.LPCM{
 					Base: unit.Base{
 						NTP: time.Now(),
-						PTS: pts,
+						PTS: durationToTimestamp(pts, audioFormat.ClockRate()),
 					},
 					Samples: samples,
 				})

@@ -149,7 +149,7 @@ type API struct {
 	SRTServer      SRTServer
 	Parent         apiParent
 
-	httpServer *httpp.WrappedServer
+	httpServer *httpp.Server
 	mutex      sync.RWMutex
 }
 
@@ -158,77 +158,79 @@ func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	router.NoRoute(a.middlewareOrigin, a.middlewareAuth)
-	group := router.Group("/", a.middlewareOrigin, a.middlewareAuth)
+	router.Use(a.middlewareOrigin)
+	router.Use(a.middlewareAuth)
 
-	group.GET("/v3/config/global/get", a.onConfigGlobalGet)
-	group.PATCH("/v3/config/global/patch", a.onConfigGlobalPatch)
+	group := router.Group("/v3")
 
-	group.GET("/v3/config/pathdefaults/get", a.onConfigPathDefaultsGet)
-	group.PATCH("/v3/config/pathdefaults/patch", a.onConfigPathDefaultsPatch)
+	group.GET("/config/global/get", a.onConfigGlobalGet)
+	group.PATCH("/config/global/patch", a.onConfigGlobalPatch)
 
-	group.GET("/v3/config/paths/list", a.onConfigPathsList)
-	group.GET("/v3/config/paths/get/*name", a.onConfigPathsGet)
-	group.POST("/v3/config/paths/add/*name", a.onConfigPathsAdd)
-	group.PATCH("/v3/config/paths/patch/*name", a.onConfigPathsPatch)
-	group.POST("/v3/config/paths/replace/*name", a.onConfigPathsReplace)
-	group.DELETE("/v3/config/paths/delete/*name", a.onConfigPathsDelete)
+	group.GET("/config/pathdefaults/get", a.onConfigPathDefaultsGet)
+	group.PATCH("/config/pathdefaults/patch", a.onConfigPathDefaultsPatch)
 
-	group.GET("/v3/paths/list", a.onPathsList)
-	group.GET("/v3/paths/get/*name", a.onPathsGet)
+	group.GET("/config/paths/list", a.onConfigPathsList)
+	group.GET("/config/paths/get/*name", a.onConfigPathsGet)
+	group.POST("/config/paths/add/*name", a.onConfigPathsAdd)
+	group.PATCH("/config/paths/patch/*name", a.onConfigPathsPatch)
+	group.POST("/config/paths/replace/*name", a.onConfigPathsReplace)
+	group.DELETE("/config/paths/delete/*name", a.onConfigPathsDelete)
+
+	group.GET("/paths/list", a.onPathsList)
+	group.GET("/paths/get/*name", a.onPathsGet)
 
 	if !interfaceIsEmpty(a.HLSServer) {
-		group.GET("/v3/hlsmuxers/list", a.onHLSMuxersList)
-		group.GET("/v3/hlsmuxers/get/*name", a.onHLSMuxersGet)
+		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
+		group.GET("/hlsmuxers/get/*name", a.onHLSMuxersGet)
 	}
 
 	if !interfaceIsEmpty(a.RTSPServer) {
-		group.GET("/v3/rtspconns/list", a.onRTSPConnsList)
-		group.GET("/v3/rtspconns/get/:id", a.onRTSPConnsGet)
-		group.GET("/v3/rtspsessions/list", a.onRTSPSessionsList)
-		group.GET("/v3/rtspsessions/get/:id", a.onRTSPSessionsGet)
-		group.POST("/v3/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+		group.GET("/rtspconns/list", a.onRTSPConnsList)
+		group.GET("/rtspconns/get/:id", a.onRTSPConnsGet)
+		group.GET("/rtspsessions/list", a.onRTSPSessionsList)
+		group.GET("/rtspsessions/get/:id", a.onRTSPSessionsGet)
+		group.POST("/rtspsessions/kick/:id", a.onRTSPSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTSPSServer) {
-		group.GET("/v3/rtspsconns/list", a.onRTSPSConnsList)
-		group.GET("/v3/rtspsconns/get/:id", a.onRTSPSConnsGet)
-		group.GET("/v3/rtspssessions/list", a.onRTSPSSessionsList)
-		group.GET("/v3/rtspssessions/get/:id", a.onRTSPSSessionsGet)
-		group.POST("/v3/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
+		group.GET("/rtspsconns/list", a.onRTSPSConnsList)
+		group.GET("/rtspsconns/get/:id", a.onRTSPSConnsGet)
+		group.GET("/rtspssessions/list", a.onRTSPSSessionsList)
+		group.GET("/rtspssessions/get/:id", a.onRTSPSSessionsGet)
+		group.POST("/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTMPServer) {
-		group.GET("/v3/rtmpconns/list", a.onRTMPConnsList)
-		group.GET("/v3/rtmpconns/get/:id", a.onRTMPConnsGet)
-		group.POST("/v3/rtmpconns/kick/:id", a.onRTMPConnsKick)
+		group.GET("/rtmpconns/list", a.onRTMPConnsList)
+		group.GET("/rtmpconns/get/:id", a.onRTMPConnsGet)
+		group.POST("/rtmpconns/kick/:id", a.onRTMPConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTMPSServer) {
-		group.GET("/v3/rtmpsconns/list", a.onRTMPSConnsList)
-		group.GET("/v3/rtmpsconns/get/:id", a.onRTMPSConnsGet)
-		group.POST("/v3/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
+		group.GET("/rtmpsconns/list", a.onRTMPSConnsList)
+		group.GET("/rtmpsconns/get/:id", a.onRTMPSConnsGet)
+		group.POST("/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.WebRTCServer) {
-		group.GET("/v3/webrtcsessions/list", a.onWebRTCSessionsList)
-		group.GET("/v3/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
-		group.POST("/v3/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
+		group.GET("/webrtcsessions/list", a.onWebRTCSessionsList)
+		group.GET("/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
+		group.POST("/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.SRTServer) {
-		group.GET("/v3/srtconns/list", a.onSRTConnsList)
-		group.GET("/v3/srtconns/get/:id", a.onSRTConnsGet)
-		group.POST("/v3/srtconns/kick/:id", a.onSRTConnsKick)
+		group.GET("/srtconns/list", a.onSRTConnsList)
+		group.GET("/srtconns/get/:id", a.onSRTConnsGet)
+		group.POST("/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
-	group.GET("/v3/recordings/list", a.onRecordingsList)
-	group.GET("/v3/recordings/get/*name", a.onRecordingsGet)
-	group.DELETE("/v3/recordings/deletesegment", a.onRecordingDeleteSegment)
+	group.GET("/recordings/list", a.onRecordingsList)
+	group.GET("/recordings/get/*name", a.onRecordingsGet)
+	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
 
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
-	a.httpServer = &httpp.WrappedServer{
+	a.httpServer = &httpp.Server{
 		Network:     network,
 		Address:     address,
 		ReadTimeout: time.Duration(a.ReadTimeout),
@@ -270,31 +272,27 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 }
 
 func (a *API) middlewareOrigin(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Access-Control-Allow-Origin", a.AllowOrigin)
-	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+	ctx.Header("Access-Control-Allow-Origin", a.AllowOrigin)
+	ctx.Header("Access-Control-Allow-Credentials", "true")
 
 	// preflight requests
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
-		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
+		ctx.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		ctx.AbortWithStatus(http.StatusNoContent)
 		return
 	}
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
 	err := a.AuthManager.Authenticate(&auth.Request{
-		User:   user,
-		Pass:   pass,
-		Query:  ctx.Request.URL.RawQuery,
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionAPI,
+		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:      conf.AuthActionAPI,
+		HTTPRequest: ctx.Request,
 	})
 	if err != nil {
-		if !hasCredentials {
+		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return

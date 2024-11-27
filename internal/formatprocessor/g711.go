@@ -6,7 +6,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -15,9 +14,9 @@ import (
 type formatProcessorG711 struct {
 	udpMaxPayloadSize int
 	format            *format.G711
-	timeEncoder       *rtptime.Encoder
 	encoder           *rtplpcm.Encoder
 	decoder           *rtplpcm.Decoder
+	randomStart       uint32
 }
 
 func newG711(
@@ -36,10 +35,7 @@ func newG711(
 			return nil, err
 		}
 
-		t.timeEncoder = &rtptime.Encoder{
-			ClockRate: forma.ClockRate(),
-		}
-		err = t.timeEncoder.Initialize()
+		t.randomStart, err = randUint32()
 		if err != nil {
 			return nil, err
 		}
@@ -67,9 +63,8 @@ func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	}
 	u.RTPPackets = pkts
 
-	ts := t.timeEncoder.Encode(u.PTS)
 	for _, pkt := range u.RTPPackets {
-		pkt.Timestamp += ts
+		pkt.Timestamp += t.randomStart + uint32(u.PTS)
 	}
 
 	return nil
@@ -78,9 +73,9 @@ func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 func (t *formatProcessorG711) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
-	pts time.Duration,
+	pts int64,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.G711{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
