@@ -52,7 +52,7 @@ func (d *dynamicWriter) setTarget(w io.Writer) {
 }
 
 type formatMPEGTS struct {
-	ai *recorderInstance
+	ri *recorderInstance
 
 	dw             *dynamicWriter
 	bw             *bufio.Writer
@@ -61,7 +61,7 @@ type formatMPEGTS struct {
 	currentSegment *formatMPEGTSSegment
 }
 
-func (f *formatMPEGTS) initialize() {
+func (f *formatMPEGTS) initialize() bool {
 	var tracks []*mpegts.Track
 	var setuppedFormats []rtspformat.Format
 	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
@@ -77,7 +77,7 @@ func (f *formatMPEGTS) initialize() {
 		return track
 	}
 
-	for _, media := range f.ai.agent.Stream.Desc().Medias {
+	for _, media := range f.ri.rec.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -87,8 +87,8 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -132,8 +132,8 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -178,8 +178,8 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -217,8 +217,8 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -255,8 +255,8 @@ func (f *formatMPEGTS) initialize() {
 					ChannelCount: forma.ChannelCount,
 				})
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -282,14 +282,14 @@ func (f *formatMPEGTS) initialize() {
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
 				if co == nil {
-					f.ai.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
+					f.ri.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
 				} else {
 					track := addTrack(forma, &mpegts.CodecMPEG4Audio{
 						Config: *co,
 					})
 
-					f.ai.agent.Stream.AddReader(
-						f.ai,
+					f.ri.rec.Stream.AddReader(
+						f.ri,
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -316,8 +316,8 @@ func (f *formatMPEGTS) initialize() {
 			case *rtspformat.MPEG1Audio:
 				track := addTrack(forma, &mpegts.CodecMPEG1Audio{})
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -343,8 +343,8 @@ func (f *formatMPEGTS) initialize() {
 			case *rtspformat.AC3:
 				track := addTrack(forma, &mpegts.CodecAC3{})
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -380,15 +380,15 @@ func (f *formatMPEGTS) initialize() {
 	}
 
 	if len(setuppedFormats) == 0 {
-		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
-		return
+		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
+		return false
 	}
 
 	n := 1
-	for _, medi := range f.ai.agent.Stream.Desc().Medias {
+	for _, medi := range f.ri.rec.Stream.Desc().Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormatsMap[forma]; !ok {
-				f.ai.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++
 		}
@@ -398,8 +398,10 @@ func (f *formatMPEGTS) initialize() {
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
-	f.ai.Log(logger.Info, "recording %s",
+	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))
+
+	return true
 }
 
 func (f *formatMPEGTS) close() {
@@ -429,7 +431,7 @@ func (f *formatMPEGTS) write(
 		f.currentSegment.initialize()
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dtsDuration-f.currentSegment.startDTS) >= f.ai.agent.SegmentDuration:
+		(dtsDuration-f.currentSegment.startDTS) >= f.ri.rec.SegmentDuration:
 		f.currentSegment.lastDTS = dtsDuration
 		err := f.currentSegment.close()
 		if err != nil {
@@ -443,7 +445,7 @@ func (f *formatMPEGTS) write(
 		}
 		f.currentSegment.initialize()
 
-	case (dtsDuration - f.currentSegment.lastFlush) >= f.ai.agent.PartDuration:
+	case (dtsDuration - f.currentSegment.lastFlush) >= f.ri.rec.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err

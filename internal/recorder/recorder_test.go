@@ -410,7 +410,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	require.Equal(t, true, found)
 }
 
-func TestRecorderSkipTracks(t *testing.T) {
+func TestRecorderSkipTracksPartial(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{
@@ -470,6 +470,66 @@ func TestRecorderSkipTracks(t *testing.T) {
 			defer w.Close()
 
 			require.Equal(t, 2, n)
+		})
+	}
+}
+
+func TestRecorderSkipTracksFull(t *testing.T) {
+	for _, ca := range []string{"fmp4", "mpegts"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{
+				{
+					Type:    description.MediaTypeVideo,
+					Formats: []rtspformat.Format{&rtspformat.VP8{}},
+				},
+			}}
+
+			stream, err := stream.New(
+				512,
+				1460,
+				desc,
+				true,
+				test.NilLogger,
+			)
+			require.NoError(t, err)
+			defer stream.Close()
+
+			dir, err := os.MkdirTemp("", "mediamtx-agent")
+			require.NoError(t, err)
+			defer os.RemoveAll(dir)
+
+			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+			n := 0
+
+			l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+				if n == 0 {
+					require.Equal(t, logger.Warn, l)
+					require.Equal(t, "[recorder] no supported tracks found, skipping recording", fmt.Sprintf(format, args...))
+				}
+				n++
+			})
+
+			var fo conf.RecordFormat
+			if ca == "fmp4" {
+				fo = conf.RecordFormatFMP4
+			} else {
+				fo = conf.RecordFormatMPEGTS
+			}
+
+			w := &Recorder{
+				PathFormat:      recordPath,
+				Format:          fo,
+				PartDuration:    100 * time.Millisecond,
+				SegmentDuration: 1 * time.Second,
+				PathName:        "mypath",
+				Stream:          stream,
+				Parent:          l,
+			}
+			w.Initialize()
+			defer w.Close()
+
+			require.Equal(t, 1, n)
 		})
 	}
 }
