@@ -22,6 +22,6 @@ func (c *camera) close() {
 func (c *camera) reloadParams(_ params) {
 }
 
-func (c *camera) error() chan error {
+func (c *camera) wait() error {
 	return nil
 }
