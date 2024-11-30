@@ -135,6 +135,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
+		case err := <-cam.error():
+			return err
+
 		case cnf := <-params.ReloadConf:
 			cam.reloadParams(paramsFromConf(s.LogLevel, cnf))
 
