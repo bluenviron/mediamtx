@@ -18,7 +18,7 @@ type sample struct {
 }
 
 type recorderInstance struct {
-	agent *Recorder
+	rec *Recorder
 
 	pathFormat string
 	format     format
@@ -28,56 +28,56 @@ type recorderInstance struct {
 }
 
 // Log implements logger.Writer.
-func (ai *recorderInstance) Log(level logger.Level, format string, args ...interface{}) {
-	ai.agent.Log(level, format, args...)
+func (ri *recorderInstance) Log(level logger.Level, format string, args ...interface{}) {
+	ri.rec.Log(level, format, args...)
 }
 
-func (ai *recorderInstance) initialize() {
-	ai.pathFormat = ai.agent.PathFormat
+func (ri *recorderInstance) initialize() {
+	ri.pathFormat = ri.rec.PathFormat
 
-	ai.pathFormat = recordstore.PathAddExtension(
-		strings.ReplaceAll(ai.pathFormat, "%path", ai.agent.PathName),
-		ai.agent.Format,
+	ri.pathFormat = recordstore.PathAddExtension(
+		strings.ReplaceAll(ri.pathFormat, "%path", ri.rec.PathName),
+		ri.rec.Format,
 	)
 
-	ai.terminate = make(chan struct{})
-	ai.done = make(chan struct{})
+	ri.terminate = make(chan struct{})
+	ri.done = make(chan struct{})
 
-	switch ai.agent.Format {
+	switch ri.rec.Format {
 	case conf.RecordFormatMPEGTS:
-		ai.format = &formatMPEGTS{
-			ai: ai,
+		ri.format = &formatMPEGTS{
+			ri: ri,
 		}
-		ai.format.initialize()
+		ri.format.initialize()
 
 	default:
-		ai.format = &formatFMP4{
-			ai: ai,
+		ri.format = &formatFMP4{
+			ri: ri,
 		}
-		ai.format.initialize()
+		ri.format.initialize()
 	}
 
-	ai.agent.Stream.StartReader(ai)
+	ri.rec.Stream.StartReader(ri)
 
-	go ai.run()
+	go ri.run()
 }
 
-func (ai *recorderInstance) close() {
-	close(ai.terminate)
-	<-ai.done
+func (ri *recorderInstance) close() {
+	close(ri.terminate)
+	<-ri.done
 }
 
-func (ai *recorderInstance) run() {
-	defer close(ai.done)
+func (ri *recorderInstance) run() {
+	defer close(ri.done)
 
 	select {
-	case err := <-ai.agent.Stream.ReaderError(ai):
-		ai.Log(logger.Error, err.Error())
+	case err := <-ri.rec.Stream.ReaderError(ri):
+		ri.Log(logger.Error, err.Error())
 
-	case <-ai.terminate:
+	case <-ri.terminate:
 	}
 
-	ai.agent.Stream.RemoveReader(ai)
+	ri.rec.Stream.RemoveReader(ri)
 
-	ai.format.close()
+	ri.format.close()
 }

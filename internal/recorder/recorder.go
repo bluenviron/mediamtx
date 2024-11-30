@@ -36,63 +36,63 @@ type Recorder struct {
 }
 
 // Initialize initializes Recorder.
-func (w *Recorder) Initialize() {
-	if w.OnSegmentCreate == nil {
-		w.OnSegmentCreate = func(string) {
+func (r *Recorder) Initialize() {
+	if r.OnSegmentCreate == nil {
+		r.OnSegmentCreate = func(string) {
 		}
 	}
-	if w.OnSegmentComplete == nil {
-		w.OnSegmentComplete = func(string, time.Duration) {
+	if r.OnSegmentComplete == nil {
+		r.OnSegmentComplete = func(string, time.Duration) {
 		}
 	}
-	if w.restartPause == 0 {
-		w.restartPause = 2 * time.Second
+	if r.restartPause == 0 {
+		r.restartPause = 2 * time.Second
 	}
 
-	w.terminate = make(chan struct{})
-	w.done = make(chan struct{})
+	r.terminate = make(chan struct{})
+	r.done = make(chan struct{})
 
-	w.currentInstance = &recorderInstance{
-		agent: w,
+	r.currentInstance = &recorderInstance{
+		rec: r,
 	}
-	w.currentInstance.initialize()
+	r.currentInstance.initialize()
 
-	go w.run()
+	go r.run()
 }
 
 // Log implements logger.Writer.
-func (w *Recorder) Log(level logger.Level, format string, args ...interface{}) {
-	w.Parent.Log(level, "[recorder] "+format, args...)
+func (r *Recorder) Log(level logger.Level, format string, args ...interface{}) {
+	r.Parent.Log(level, "[recorder] "+format, args...)
 }
 
 // Close closes the agent.
-func (w *Recorder) Close() {
-	w.Log(logger.Info, "recording stopped")
-	close(w.terminate)
-	<-w.done
+func (r *Recorder) Close() {
+	r.Log(logger.Info, "recording stopped")
+	close(r.terminate)
+	<-r.done
 }
 
-func (w *Recorder) run() {
-	defer close(w.done)
+func (r *Recorder) run() {
+	defer close(r.done)
 
 	for {
 		select {
-		case <-w.currentInstance.done:
-			w.currentInstance.close()
-		case <-w.terminate:
-			w.currentInstance.close()
+		case <-r.currentInstance.done:
+			r.currentInstance.close()
+		case <-r.terminate:
+			r.currentInstance.close()
 			return
 		}
 
 		select {
-		case <-time.After(w.restartPause):
-		case <-w.terminate:
+		case <-time.After(r.restartPause):
+		case <-r.terminate:
 			return
 		}
 
-		w.currentInstance = &recorderInstance{
-			agent: w,
+		r.currentInstance = &recorderInstance{
+			rec: r,
 		}
-		w.currentInstance.initialize()
+		r.currentInstance.initialize()
 	}
 }

@@ -93,7 +93,7 @@ func jpegExtractSize(image []byte) (int, int, error) {
 }
 
 type formatFMP4 struct {
-	ai *recorderInstance
+	ri *recorderInstance
 
 	tracks             []*formatFMP4Track
 	hasVideo           bool
@@ -135,7 +135,7 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	for _, media := range f.ai.agent.Stream.Desc().Medias {
+	for _, media := range f.ri.rec.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -148,8 +148,8 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -210,8 +210,8 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -295,8 +295,8 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -377,8 +377,8 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor2
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -451,8 +451,8 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -504,8 +504,8 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -557,8 +557,8 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -593,8 +593,8 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -631,8 +631,8 @@ func (f *formatFMP4) initialize() {
 					}
 					track := addTrack(forma, codec)
 
-					f.ai.agent.Stream.AddReader(
-						f.ai,
+					f.ri.rec.Stream.AddReader(
+						f.ri,
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -669,8 +669,8 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -728,8 +728,8 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -793,8 +793,8 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -828,8 +828,8 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(forma, codec)
 
-				f.ai.agent.Stream.AddReader(
-					f.ai,
+				f.ri.rec.Stream.AddReader(
+					f.ri,
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -851,21 +851,21 @@ func (f *formatFMP4) initialize() {
 	}
 
 	if len(setuppedFormats) == 0 {
-		f.ai.Log(logger.Warn, "no supported tracks found, skipping recording")
+		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return
 	}
 
 	n := 1
-	for _, medi := range f.ai.agent.Stream.Desc().Medias {
+	for _, medi := range f.ri.rec.Stream.Desc().Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormatsMap[forma]; !ok {
-				f.ai.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++
 		}
 	}
 
-	f.ai.Log(logger.Info, "recording %s",
+	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))
 }
 
