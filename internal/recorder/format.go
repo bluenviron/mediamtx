@@ -1,6 +1,6 @@
 package recorder
 
 type format interface {
-	initialize()
+	initialize() bool
 	close()
 }

@@ -101,7 +101,7 @@ type formatFMP4 struct {
 	nextSequenceNumber uint32
 }
 
-func (f *formatFMP4) initialize() {
+func (f *formatFMP4) initialize() bool {
 	nextID := 1
 	var setuppedFormats []rtspformat.Format
 	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
@@ -852,7 +852,7 @@ func (f *formatFMP4) initialize() {
 
 	if len(setuppedFormats) == 0 {
 		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
-		return
+		return false
 	}
 
 	n := 1
@@ -867,6 +867,8 @@ func (f *formatFMP4) initialize() {
 
 	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))
+
+	return true
 }
 
 func (f *formatFMP4) close() {

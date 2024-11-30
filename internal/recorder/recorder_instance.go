@@ -22,6 +22,7 @@ type recorderInstance struct {
 
 	pathFormat string
 	format     format
+	skip       bool
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -48,16 +49,20 @@ func (ri *recorderInstance) initialize() {
 		ri.format = &formatMPEGTS{
 			ri: ri,
 		}
-		ri.format.initialize()
+		ok := ri.format.initialize()
+		ri.skip = !ok
 
 	default:
 		ri.format = &formatFMP4{
 			ri: ri,
 		}
-		ri.format.initialize()
+		ok := ri.format.initialize()
+		ri.skip = !ok
 	}
 
-	ri.rec.Stream.StartReader(ri)
+	if !ri.skip {
+		ri.rec.Stream.StartReader(ri)
+	}
 
 	go ri.run()
 }
@@ -70,14 +75,18 @@ func (ri *recorderInstance) close() {
 func (ri *recorderInstance) run() {
 	defer close(ri.done)
 
-	select {
-	case err := <-ri.rec.Stream.ReaderError(ri):
-		ri.Log(logger.Error, err.Error())
+	if !ri.skip {
+		select {
+		case err := <-ri.rec.Stream.ReaderError(ri):
+			ri.Log(logger.Error, err.Error())
 
-	case <-ri.terminate:
+		case <-ri.terminate:
+		}
+
+		ri.rec.Stream.RemoveReader(ri)
+	} else {
+		<-ri.terminate
 	}
-
-	ri.rec.Stream.RemoveReader(ri)
 
 	ri.format.close()
 }

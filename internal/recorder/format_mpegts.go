@@ -61,7 +61,7 @@ type formatMPEGTS struct {
 	currentSegment *formatMPEGTSSegment
 }
 
-func (f *formatMPEGTS) initialize() {
+func (f *formatMPEGTS) initialize() bool {
 	var tracks []*mpegts.Track
 	var setuppedFormats []rtspformat.Format
 	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
@@ -381,7 +381,7 @@ func (f *formatMPEGTS) initialize() {
 
 	if len(setuppedFormats) == 0 {
 		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
-		return
+		return false
 	}
 
 	n := 1
@@ -400,6 +400,8 @@ func (f *formatMPEGTS) initialize() {
 
 	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))
+
+	return true
 }
 
 func (f *formatMPEGTS) close() {
