@@ -72,10 +72,13 @@ var toFromStreamCases = []struct {
 	},
 	{
 		"h265",
-		nil,
+		&format.H265{
+			PayloadTyp: 96,
+		},
 		webrtc.RTPCodecCapability{
-			MimeType:  "video/H265",
-			ClockRate: 90000,
+			MimeType:    "video/H265",
+			ClockRate:   90000,
+			SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
 		},
 		&format.H265{
 			PayloadTyp: 96,

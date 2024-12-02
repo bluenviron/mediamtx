@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph265"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
@@ -23,7 +24,8 @@ const (
 )
 
 var errNoSupportedCodecsFrom = errors.New(
-	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711, LPCM")
+	"the stream doesn't contain any supported codec, which are currently " +
+		"AV1, VP9, VP8, H265, H264, Opus, G722, G711, LPCM")
 
 func uint16Ptr(v uint16) *uint16 {
 	return &v
@@ -189,10 +191,69 @@ func setupVideoTrack(
 		return vp8Format, nil
 	}
 
+	var h265Format *format.H265
+	media = stream.Desc().FindFormat(&h265Format)
+
+	if h265Format != nil { //nolint:dupl
+		track := &OutgoingTrack{
+			Caps: webrtc.RTPCodecCapability{
+				MimeType:    webrtc.MimeTypeH265,
+				ClockRate:   90000,
+				SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
+			},
+		}
+		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
+
+		encoder := &rtph265.Encoder{
+			PayloadType:    96,
+			PayloadMaxSize: webrtcPayloadMaxSize,
+		}
+		err := encoder.Init()
+		if err != nil {
+			return nil, err
+		}
+
+		firstReceived := false
+		var lastPTS int64
+
+		stream.AddReader(
+			reader,
+			media,
+			h265Format,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.H265)
+
+				if tunit.AU == nil {
+					return nil
+				}
+
+				if !firstReceived {
+					firstReceived = true
+				} else if tunit.PTS < lastPTS {
+					return fmt.Errorf("WebRTC doesn't support H265 streams with B-frames")
+				}
+				lastPTS = tunit.PTS
+
+				packets, err := encoder.Encode(tunit.AU)
+				if err != nil {
+					return nil //nolint:nilerr
+				}
+
+				for _, pkt := range packets {
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+					track.WriteRTP(pkt) //nolint:errcheck
+				}
+
+				return nil
+			})
+
+		return h265Format, nil
+	}
+
 	var h264Format *format.H264
 	media = stream.Desc().FindFormat(&h264Format)
 
-	if h264Format != nil {
+	if h264Format != nil { //nolint:dupl
 		track := &OutgoingTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeH264,
