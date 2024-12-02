@@ -18,7 +18,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		1460,
 		&description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H265{}},
+			Formats: []format.Format{&format.MJPEG{}},
 		}}},
 		true,
 		test.NilLogger,
@@ -44,7 +44,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 			},
 			{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{}},
+				Formats: []format.Format{&format.MJPEG{}},
 			},
 		}},
 		true,
@@ -57,7 +57,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 		require.Equal(t, logger.Warn, l)
 		if n == 0 {
-			require.Equal(t, "skipping track 2 (H265)", fmt.Sprintf(format, args...))
+			require.Equal(t, "skipping track 2 (M-JPEG)", fmt.Sprintf(format, args...))
 		}
 		n++
 	})
@@ -73,9 +73,6 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 func TestFromStream(t *testing.T) {
 	for _, ca := range toFromStreamCases {
-		if ca.in == nil {
-			continue
-		}
 		t.Run(ca.name, func(t *testing.T) {
 			stream, err := stream.New(
 				512,

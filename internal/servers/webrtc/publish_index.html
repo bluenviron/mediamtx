@@ -312,7 +312,7 @@ const populateCodecs = () => {
     .then((desc) => {
       const sdp = desc.sdp.toLowerCase();
 
-      for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000']) {
+      for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000', 'h265/90000']) {
         if (sdp.includes(codec)) {
           const opt = document.createElement('option');
           opt.value = codec;
