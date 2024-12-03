@@ -22,13 +22,13 @@ Live streams can be published to the server with:
 |--------|--------|------------|------------|
 |[SRT clients](#srt-clients)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[SRT cameras and servers](#srt-cameras-and-servers)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
-|[WebRTC clients](#webrtc-clients)|WHIP|AV1, VP9, VP8, [H265](#supported-codecs), H264|Opus, G722, G711 (PCMA, PCMU)|
-|[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, [H265](#supported-codecs), H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC clients](#webrtc-clients)|WHIP|AV1, VP9, VP8, [H265](#supported-browsers), H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, [H265](#supported-browsers), H264|Opus, G722, G711 (PCMA, PCMU)|
 |[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G711 (PCMA, PCMU), LPCM|
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G711 (PCMA, PCMU), LPCM|
-|[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-codecs-1), H264|Opus, MPEG-4 Audio (AAC)|
+|[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
 |[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
@@ -37,10 +37,10 @@ Live streams can be read from the server with:
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
 |[SRT](#srt)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
-|[WebRTC](#webrtc)|WHEP|AV1, VP9, VP8, [H265](#supported-codecs), H264|Opus, G722, G711 (PCMA, PCMU)|
+|[WebRTC](#webrtc)|WHEP|AV1, VP9, VP8, [H265](#supported-browsers), H264|Opus, G722, G711 (PCMA, PCMU)|
 |[RTSP](#rtsp)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
-|[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-codecs-1), H264|Opus, MPEG-4 Audio (AAC)|
+|[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
 
 Live streams be recorded and played back with:
 
@@ -138,9 +138,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [WebRTC-specific features](#webrtc-specific-features)
     * [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep)
     * [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues)
-    * [Supported-codecs](#supported-codecs)
+    * [Supported browsers](#supported-browsers)
   * [HLS-specific features](#hls-specific-features)
-    * [Supported codecs](#supported-codecs-1)
+    * [Supported browsers](#supported-browsers-1)
   * [RTSP-specific features](#rtsp-specific-features)
     * [Transport protocols](#transport-protocols)
     * [Encryption](#encryption)
@@ -2186,7 +2186,7 @@ webrtcICEServers2:
   clientOnly: true
 ```
 
-#### Supported codecs
+#### Supported browsers
 
 The server can ingest and broadcast with WebRTC a wide variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can publish and read all codecs due to internal limitations that cannot be overcome by this or any other server.
 
@@ -2214,7 +2214,7 @@ ffmpeg -i rtsp://original-source \
 
 ### HLS-specific features
 
-#### Supported codecs
+#### Supported browsers
 
 The server can produce HLS streams with a variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can read all codecs due to internal limitations that cannot be overcome by this or any other server.
 
