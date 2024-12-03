@@ -12,7 +12,7 @@ require (
 	github.com/bluenviron/gohlslib/v2 v2.0.0
 	github.com/bluenviron/gortsplib/v4 v4.11.2
 	github.com/bluenviron/mediacommon v1.13.1
-	github.com/datarhei/gosrt v0.7.0
+	github.com/datarhei/gosrt v0.8.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gin-contrib/pprof v1.5.1
 	github.com/gin-gonic/gin v1.10.0
