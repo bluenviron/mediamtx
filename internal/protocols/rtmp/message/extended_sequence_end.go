@@ -12,7 +12,7 @@ type ExtendedSequenceEnd struct {
 }
 
 func (m *ExtendedSequenceEnd) unmarshal(raw *rawmessage.Message) error {
-	if len(raw.Body) != 5 {
+	if len(raw.Body) < 5 {
 		return fmt.Errorf("invalid body size")
 	}
 

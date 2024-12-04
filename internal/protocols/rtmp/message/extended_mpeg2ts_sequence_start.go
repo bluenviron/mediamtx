@@ -12,7 +12,7 @@ type ExtendedMPEG2TSSequenceStart struct {
 }
 
 func (m *ExtendedMPEG2TSSequenceStart) unmarshal(raw *rawmessage.Message) error {
-	if len(raw.Body) != 5 {
+	if len(raw.Body) < 5 {
 		return fmt.Errorf("invalid body size")
 	}
 
