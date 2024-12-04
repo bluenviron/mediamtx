@@ -12,9 +12,6 @@ type Object []ObjectEntry
 // ECMAArray is an AMF0 ECMA Array.
 type ECMAArray Object
 
-// StrictArray is an AMF0 Strict Array.
-type StrictArray []interface{}
-
 // Get returns the value corresponding to key.
 func (o Object) Get(key string) (interface{}, bool) {
 	for _, item := range o {
