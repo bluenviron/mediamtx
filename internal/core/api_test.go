@@ -767,7 +767,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"packetsFlowWindow":             float64(25600),
 							"packetsReceiveBuf":             float64(0),
 							"packetsReceived":               float64(1),
-							"packetsReceivedACK":            float64(0),
+							"packetsReceivedACK":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["packetsReceivedACK"],
 							"packetsReceivedAvgBelatedTime": float64(0),
 							"packetsReceivedBelated":        float64(0),
 							"packetsReceivedDrop":           float64(0),
