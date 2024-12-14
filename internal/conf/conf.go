@@ -708,8 +708,10 @@ func (conf *Conf) Validate() error {
 
 		pconf := newPath(&conf.PathDefaults, optional)
 		conf.Paths[name] = pconf
+	}
 
-		err := pconf.validate(conf, name, deprecatedCredentialsMode)
+	for _, name := range sortedKeys(conf.OptionalPaths) {
+		err := conf.Paths[name].validate(conf, name, deprecatedCredentialsMode)
 		if err != nil {
 			return err
 		}
