@@ -328,7 +328,7 @@ func TestConfErrors(t *testing.T) {
 				"    source: rpiCamera\n" +
 				"  cam2:\n" +
 				"    source: rpiCamera\n",
-			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam2' and 'cam1'",
+			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam1' and 'cam2'",
 		},
 		{
 			"invalid srt publish passphrase",
