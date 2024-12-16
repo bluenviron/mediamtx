@@ -27,7 +27,7 @@ require (
 	github.com/pion/ice/v2 v2.3.24
 	github.com/pion/interceptor v0.1.37
 	github.com/pion/logging v0.2.2
-	github.com/pion/rtcp v1.2.14
+	github.com/pion/rtcp v1.2.15
 	github.com/pion/rtp v1.8.9
 	github.com/pion/sdp/v3 v3.0.9
 	github.com/pion/webrtc/v3 v3.2.22
