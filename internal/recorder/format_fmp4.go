@@ -611,7 +611,7 @@ func (f *formatFMP4) initialize() bool {
 									Payload: packet,
 								},
 								dts: pts,
-								ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
+								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
@@ -649,7 +649,7 @@ func (f *formatFMP4) initialize() bool {
 										Payload: au,
 									},
 									dts: pts,
-									ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
+									ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
 								})
 								if err != nil {
 									return err
@@ -771,7 +771,7 @@ func (f *formatFMP4) initialize() bool {
 									Payload: frame,
 								},
 								dts: pts,
-								ntp: tunit.NTP.Add(timestampToDuration(pts, clockRate)),
+								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
