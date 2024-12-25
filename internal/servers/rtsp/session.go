@@ -31,7 +31,7 @@ type session struct {
 	rserver         *gortsplib.Server
 	externalCmdPool *externalcmd.Pool
 	pathManager     serverPathManager
-	parent          *Server
+	parent          logger.Writer
 
 	uuid            uuid.UUID
 	created         time.Time

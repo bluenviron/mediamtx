@@ -337,6 +337,13 @@ func (s *Server) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession, *s
 	return nil, nil
 }
 
+func (s *Server) findSessionByRSession(rsession *gortsplib.ServerSession) *session {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.sessions[rsession]
+}
+
 // APIConnsList is called by api and metrics.
 func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	select {
