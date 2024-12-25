@@ -23,6 +23,11 @@ const (
 	rtspAuthRealm = "IPCAM"
 )
 
+type connParent interface {
+	logger.Writer
+	findSessionByRSession(rsession *gortsplib.ServerSession) *session
+}
+
 type conn struct {
 	isTLS               bool
 	rtspAddress         string
@@ -35,7 +40,7 @@ type conn struct {
 	pathManager         serverPathManager
 	rconn               *gortsplib.ServerConn
 	rserver             *gortsplib.Server
-	parent              *Server
+	parent              connParent
 
 	uuid             uuid.UUID
 	created          time.Time
@@ -216,5 +221,12 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 		RemoteAddr:    c.remoteAddr().String(),
 		BytesReceived: stats.BytesReceived,
 		BytesSent:     stats.BytesSent,
+		Session: func() *uuid.UUID {
+			sx := c.parent.findSessionByRSession(c.rconn.Session())
+			if sx != nil {
+				return &sx.uuid
+			}
+			return nil
+		}(),
 	}
 }

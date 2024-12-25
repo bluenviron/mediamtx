@@ -657,6 +657,9 @@ components:
         bytesSent:
           type: integer
           format: int64
+        session:
+          type: string
+          nullable: true
 
     RTSPConnList:
       type: object

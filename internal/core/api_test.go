@@ -602,6 +602,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
 							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
 							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
 						},
 					},
 				}, out1)
@@ -644,6 +645,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
 							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
 							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
 						},
 					},
 				}, out1)

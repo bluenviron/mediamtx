@@ -92,11 +92,12 @@ type APIRTMPConnList struct {
 
 // APIRTSPConn is a RTSP connection.
 type APIRTSPConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID            uuid.UUID  `json:"id"`
+	Created       time.Time  `json:"created"`
+	RemoteAddr    string     `json:"remoteAddr"`
+	BytesReceived uint64     `json:"bytesReceived"`
+	BytesSent     uint64     `json:"bytesSent"`
+	Session       *uuid.UUID `json:"session"`
 }
 
 // APIRTSPConnsList is a list of RTSP connections.
