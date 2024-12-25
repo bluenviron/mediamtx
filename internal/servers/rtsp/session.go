@@ -372,6 +372,11 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	stats := s.rsession.Stats()
+	if stats == nil {
+		stats = &gortsplib.StatsSession{}
+	}
+
 	return &defs.APIRTSPSession{
 		ID:         s.uuid,
 		Created:    s.created,
@@ -397,7 +402,15 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			v := s.transport.String()
 			return &v
 		}(),
-		BytesReceived: s.rsession.BytesReceived(),
-		BytesSent:     s.rsession.BytesSent(),
+		BytesReceived:       stats.BytesReceived,
+		BytesSent:           stats.BytesSent,
+		RTPPacketsReceived:  stats.RTPPacketsReceived,
+		RTPPacketsSent:      stats.RTPPacketsSent,
+		RTPPacketsLost:      stats.RTPPacketsLost,
+		RTPPacketsInError:   stats.RTPPacketsInError,
+		RTPPacketsJitter:    stats.RTPPacketsJitter,
+		RTCPPacketsReceived: stats.RTCPPacketsReceived,
+		RTCPPacketsSent:     stats.RTCPPacketsSent,
+		RTCPPacketsInError:  stats.RTCPPacketsInError,
 	}
 }

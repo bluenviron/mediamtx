@@ -10,7 +10,7 @@ require (
 	github.com/alecthomas/kong v1.6.0
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.1.0
-	github.com/bluenviron/gortsplib/v4 v4.11.2
+	github.com/bluenviron/gortsplib/v4 v4.12.1-0.20241225143216-4d3d6bc108f3
 	github.com/bluenviron/mediacommon v1.13.2
 	github.com/datarhei/gosrt v0.8.0
 	github.com/fsnotify/fsnotify v1.8.0
@@ -88,7 +88,7 @@ require (
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	golang.org/x/arch v0.12.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
