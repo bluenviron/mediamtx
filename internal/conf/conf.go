@@ -414,7 +414,7 @@ func (conf *Conf) setDefaults() {
 }
 
 // Load loads a Conf.
-func Load(fpath string, defaultConfPaths []string) (*Conf, string, error) {
+func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, string, error) {
 	conf := &Conf{}
 
 	fpath, err := conf.loadFromFile(fpath, defaultConfPaths)
@@ -432,7 +432,7 @@ func Load(fpath string, defaultConfPaths []string) (*Conf, string, error) {
 		return nil, "", err
 	}
 
-	err = conf.Validate()
+	err = conf.Validate(l)
 	if err != nil {
 		return nil, "", err
 	}
@@ -495,8 +495,17 @@ func (conf Conf) Clone() *Conf {
 	return &dest
 }
 
+type nilLogger struct{}
+
+func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
+}
+
 // Validate checks the configuration for errors.
-func (conf *Conf) Validate() error {
+func (conf *Conf) Validate(l logger.Writer) error {
+	if l == nil {
+		l = &nilLogger{}
+	}
+
 	// General
 
 	if conf.ReadTimeout <= 0 {
@@ -506,6 +515,7 @@ func (conf *Conf) Validate() error {
 		return fmt.Errorf("'writeTimeout' must be greater than zero")
 	}
 	if conf.ReadBufferCount != nil {
+		l.Log(logger.Warn, "parameter 'readBufferCount' is deprecated and has been replaced with 'writeQueueSize'")
 		conf.WriteQueueSize = *conf.ReadBufferCount
 	}
 	if (conf.WriteQueueSize & (conf.WriteQueueSize - 1)) != 0 {
@@ -518,6 +528,8 @@ func (conf *Conf) Validate() error {
 	// Authentication
 
 	if conf.ExternalAuthenticationURL != nil {
+		l.Log(logger.Warn, "parameter 'externalAuthenticationURL' is deprecated "+
+			"and has been replaced with 'authMethod' and 'authHTTPAddress'")
 		conf.AuthMethod = AuthMethodHTTP
 		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
 	}
@@ -533,6 +545,10 @@ func (conf *Conf) Validate() error {
 	}
 	deprecatedCredentialsMode := false
 	if anyPathHasDeprecatedCredentials(conf.PathDefaults, conf.OptionalPaths) {
+		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
+			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
+			"These have been replaced by 'authInternalUsers'")
+
 		if conf.AuthInternalUsers != nil && !reflect.DeepEqual(conf.AuthInternalUsers, defaultAuthInternalUsers) {
 			return fmt.Errorf("authInternalUsers and legacy credentials " +
 				"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
@@ -583,12 +599,15 @@ func (conf *Conf) Validate() error {
 	// RTSP
 
 	if conf.RTSPDisable != nil {
+		l.Log(logger.Warn, "parameter 'rtspDisabled' is deprecated and has been replaced with 'rtsp'")
 		conf.RTSP = !*conf.RTSPDisable
 	}
 	if conf.Protocols != nil {
+		l.Log(logger.Warn, "parameter 'protocols' is deprecated and has been replaced with 'rtspTransports'")
 		conf.RTSPTransports = *conf.Protocols
 	}
 	if conf.Encryption != nil {
+		l.Log(logger.Warn, "parameter 'encryption' is deprecated and has been replaced with 'rtspEncryption'")
 		conf.RTSPEncryption = *conf.Encryption
 	}
 	if conf.RTSPEncryption == EncryptionStrict {
@@ -600,6 +619,7 @@ func (conf *Conf) Validate() error {
 		}
 	}
 	if conf.AuthMethods != nil {
+		l.Log(logger.Warn, "parameter 'authMethods' is deprecated and has been replaced with 'rtspAuthMethods'")
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
 	if contains(conf.RTSPAuthMethods, auth.ValidateMethodDigestMD5) {
@@ -613,39 +633,53 @@ func (conf *Conf) Validate() error {
 		}
 	}
 	if conf.ServerCert != nil {
+		l.Log(logger.Warn, "parameter 'serverCert' is deprecated and has been replaced with 'rtspServerCert'")
 		conf.RTSPServerCert = *conf.ServerCert
 	}
 	if conf.ServerKey != nil {
+		l.Log(logger.Warn, "parameter 'serverKey' is deprecated and has been replaced with 'rtspServerKey'")
 		conf.RTSPServerKey = *conf.ServerKey
 	}
 
 	// RTMP
 
 	if conf.RTMPDisable != nil {
+		l.Log(logger.Warn, "parameter 'rtmpDisabled' is deprecated and has been replaced with 'rtmp'")
 		conf.RTMP = !*conf.RTMPDisable
 	}
 
 	// HLS
 
 	if conf.HLSDisable != nil {
+		l.Log(logger.Warn, "parameter 'hlsDisable' is deprecated and has been replaced with 'hls'")
 		conf.HLS = !*conf.HLSDisable
 	}
 
 	// WebRTC
 
 	if conf.WebRTCDisable != nil {
+		l.Log(logger.Warn, "parameter 'webrtcDisable' is deprecated and has been replaced with 'webrtc'")
 		conf.WebRTC = !*conf.WebRTCDisable
 	}
 	if conf.WebRTCICEUDPMuxAddress != nil {
+		l.Log(logger.Warn, "parameter 'webrtcICEUDPMuxAdderss' is deprecated "+
+			"and has been replaced with 'webrtcLocalUDPAddress'")
 		conf.WebRTCLocalUDPAddress = *conf.WebRTCICEUDPMuxAddress
 	}
 	if conf.WebRTCICETCPMuxAddress != nil {
+		l.Log(logger.Warn, "parameter 'webrtcICETCPMuxAddress' is deprecated "+
+			"and has been replaced with 'webrtcLocalTCPAddress'")
 		conf.WebRTCLocalTCPAddress = *conf.WebRTCICETCPMuxAddress
 	}
 	if conf.WebRTCICEHostNAT1To1IPs != nil {
+		l.Log(logger.Warn, "parameter 'webrtcICEHostNAT1To1IPs' is deprecated "+
+			"and has been replaced with 'webrtcAdditionalHosts'")
 		conf.WebRTCAdditionalHosts = *conf.WebRTCICEHostNAT1To1IPs
 	}
 	if conf.WebRTCICEServers != nil {
+		l.Log(logger.Warn, "parameter 'webrtcICEServers' is deprecated "+
+			"and has been replaced with 'webrtcICEServers2'")
+
 		for _, server := range *conf.WebRTCICEServers {
 			parts := strings.Split(server, ":")
 			if len(parts) == 5 {
@@ -683,21 +717,33 @@ func (conf *Conf) Validate() error {
 	// Record (deprecated)
 
 	if conf.Record != nil {
+		l.Log(logger.Warn, "parameter 'record' is deprecated "+
+			"and has been replaced with 'pathDefaults.record'")
 		conf.PathDefaults.Record = *conf.Record
 	}
 	if conf.RecordPath != nil {
+		l.Log(logger.Warn, "parameter 'recordPath' is deprecated "+
+			"and has been replaced with 'pathDefaults.recordPath'")
 		conf.PathDefaults.RecordPath = *conf.RecordPath
 	}
 	if conf.RecordFormat != nil {
+		l.Log(logger.Warn, "parameter 'recordFormat' is deprecated "+
+			"and has been replaced with 'pathDefaults.recordFormat'")
 		conf.PathDefaults.RecordFormat = *conf.RecordFormat
 	}
 	if conf.RecordPartDuration != nil {
+		l.Log(logger.Warn, "parameter 'recordPartDuration' is deprecated "+
+			"and has been replaced with 'pathDefaults.recordPartDuration'")
 		conf.PathDefaults.RecordPartDuration = *conf.RecordPartDuration
 	}
 	if conf.RecordSegmentDuration != nil {
+		l.Log(logger.Warn, "parameter 'recordSegmentDuration' is deprecated "+
+			"and has been replaced with 'pathDefaults.recordSegmentDuration'")
 		conf.PathDefaults.RecordSegmentDuration = *conf.RecordSegmentDuration
 	}
 	if conf.RecordDeleteAfter != nil {
+		l.Log(logger.Warn, "parameter 'recordDeleteAfter' is deprecated "+
+			"and has been replaced with 'pathDefaults.recordDeleteAfter'")
 		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
 	}
 
@@ -727,7 +773,7 @@ func (conf *Conf) Validate() error {
 	}
 
 	for _, name := range sortedKeys(conf.OptionalPaths) {
-		err := conf.Paths[name].validate(conf, name, deprecatedCredentialsMode)
+		err := conf.Paths[name].validate(conf, name, deprecatedCredentialsMode, l)
 		if err != nil {
 			return err
 		}

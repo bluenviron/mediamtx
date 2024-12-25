@@ -1,4 +1,8 @@
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Please create a discussion FOR EACH question. Do not ask for multiple questions all at once, otherwise they'll probably never get all answered.
 
   - type: textarea
     attributes:

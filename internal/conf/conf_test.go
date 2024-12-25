@@ -39,7 +39,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		conf, confPath, err := Load(tmpf, nil)
+		conf, confPath, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, tmpf, confPath)
 
@@ -88,7 +88,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf, nil)
+		_, _, err = Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 
@@ -97,7 +97,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf, nil)
+		_, _, err = Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 
@@ -108,7 +108,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf, nil)
+		_, _, err = Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 }
@@ -130,7 +130,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, confPath, err := Load(tmpf, nil)
+	conf, confPath, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
@@ -149,7 +149,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 func TestConfFromEnvOnly(t *testing.T) {
 	t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
-	conf, confPath, err := Load("", nil)
+	conf, confPath, err := Load("", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "", confPath)
 
@@ -182,7 +182,7 @@ func TestConfEncryption(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, confPath, err := Load(tmpf, nil)
+	conf, confPath, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
@@ -202,7 +202,7 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, _, err := Load(tmpf, nil)
+	conf, _, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, AuthInternalUsers{
@@ -380,7 +380,7 @@ func TestConfErrors(t *testing.T) {
 			require.NoError(t, err)
 			defer os.Remove(tmpf)
 
-			_, _, err = Load(tmpf, nil)
+			_, _, err = Load(tmpf, nil, nil)
 			require.EqualError(t, err, ca.err)
 		})
 	}
@@ -388,13 +388,13 @@ func TestConfErrors(t *testing.T) {
 
 func TestSampleConfFile(t *testing.T) {
 	func() {
-		conf1, confPath1, err := Load("../../mediamtx.yml", nil)
+		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
 		conf1.Paths = make(map[string]*Path)
 		conf1.OptionalPaths = nil
 
-		conf2, confPath2, err := Load("", nil)
+		conf2, confPath2, err := Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath2)
 
@@ -402,7 +402,7 @@ func TestSampleConfFile(t *testing.T) {
 	}()
 
 	func() {
-		conf1, confPath1, err := Load("../../mediamtx.yml", nil)
+		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
 
@@ -410,7 +410,7 @@ func TestSampleConfFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		conf2, confPath2, err := Load(tmpf, nil)
+		conf2, confPath2, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, tmpf, confPath2)
 
@@ -429,7 +429,7 @@ func TestConfOverrideDefaultSlices(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, _, err := Load(tmpf, nil)
+	conf, _, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, AuthInternalUsers{
