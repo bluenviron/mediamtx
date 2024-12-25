@@ -213,7 +213,7 @@ webrtc_sessions_bytes_sent 0
 
 		go func() {
 			defer wg.Done()
-			u, err := url.Parse("rtmp://localhost:1936/rtmps_path")
+			u, err := url.Parse("rtmps://localhost:1936/rtmps_path")
 			require.NoError(t, err)
 
 			nconn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})

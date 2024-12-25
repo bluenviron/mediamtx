@@ -60,7 +60,7 @@ func (c *conn) initialize() {
 			if c.isTLS {
 				return "rtspsConn"
 			}
-			return "conn"
+			return "rtspConn"
 		}(),
 		ID: c.uuid.String(),
 	}
