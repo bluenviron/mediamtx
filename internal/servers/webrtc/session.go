@@ -390,7 +390,7 @@ func (s *session) addCandidates(
 // APIReaderDescribe implements reader.
 func (s *session) APIReaderDescribe() defs.APIPathSourceOrReader {
 	return defs.APIPathSourceOrReader{
-		Type: "webrtcSession",
+		Type: "webRTCSession",
 		ID:   s.uuid.String(),
 	}
 }

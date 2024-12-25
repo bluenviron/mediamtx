@@ -508,7 +508,7 @@ func TestPathRunOnRead(t *testing.T) {
 			case "srt":
 				readerType = "srtConn"
 			case "webrtc":
-				readerType = "webrtcSession"
+				readerType = "webRTCSession"
 			}
 
 			byts, err := os.ReadFile(onRead)
