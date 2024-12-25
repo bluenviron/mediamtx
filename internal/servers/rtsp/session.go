@@ -25,7 +25,7 @@ import (
 
 type session struct {
 	isTLS           bool
-	protocols       map[conf.Protocol]struct{}
+	transports      conf.RTSPTransports
 	rsession        *gortsplib.ServerSession
 	rconn           *gortsplib.ServerConn
 	rserver         *gortsplib.Server
@@ -163,7 +163,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 	// we have only to handle the case in which the transport protocol is TCP
 	// and it is disabled.
 	if ctx.Transport == gortsplib.TransportTCP {
-		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportTCP)]; !ok {
+		if _, ok := s.transports[gortsplib.TransportTCP]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
 			}, nil, nil

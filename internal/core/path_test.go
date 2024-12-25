@@ -170,9 +170,9 @@ func TestPathRunOnConnect(t *testing.T) {
 
 			func() {
 				p, ok := newInstance(fmt.Sprintf(
-					"encryption: optional\n"+
-						"serverCert: "+serverCertFpath+"\n"+
-						"serverKey: "+serverKeyFpath+"\n"+
+					"rtspEncryption: optional\n"+
+						"rtspServerCert: "+serverCertFpath+"\n"+
+						"rtspServerKey: "+serverKeyFpath+"\n"+
 						"rtmpEncryption: optional\n"+
 						"rtmpServerCert: "+serverCertFpath+"\n"+
 						"rtmpServerKey: "+serverKeyFpath+"\n"+
@@ -338,9 +338,9 @@ func TestPathRunOnRead(t *testing.T) {
 
 			func() {
 				p, ok := newInstance(fmt.Sprintf(
-					"encryption: optional\n"+
-						"serverCert: "+serverCertFpath+"\n"+
-						"serverKey: "+serverKeyFpath+"\n"+
+					"rtspEncryption: optional\n"+
+						"rtspServerCert: "+serverCertFpath+"\n"+
+						"rtspServerKey: "+serverKeyFpath+"\n"+
 						"rtmpEncryption: optional\n"+
 						"rtmpServerCert: "+serverCertFpath+"\n"+
 						"rtmpServerKey: "+serverKeyFpath+"\n"+

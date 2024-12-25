@@ -227,10 +227,10 @@ rtsp: yes
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
-protocols: [udp, multicast, tcp]
+rtspTransports: [udp, multicast, tcp]
 # Encrypt handshakes and TCP streams with TLS (RTSPS).
 # Available values are "no", "strict", "optional".
-encryption: "no"
+rtspEncryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
 # Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
@@ -249,9 +249,9 @@ multicastRTCPPort: 8003
 # This can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-serverKey: server.key
+rtspServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
-serverCert: server.crt
+rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]

@@ -75,7 +75,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
-	Protocols           map[conf.Protocol]struct{}
+	Transports          conf.RTSPTransports
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -235,7 +235,7 @@ func (s *Server) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
 func (s *Server) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	se := &session{
 		isTLS:           s.IsTLS,
-		protocols:       s.Protocols,
+		transports:      s.Transports,
 		rsession:        ctx.Session,
 		rconn:           ctx.Conn,
 		rserver:         s.srv,

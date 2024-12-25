@@ -57,7 +57,7 @@ func TestCoreErrors(t *testing.T) {
 		},
 		{
 			"rtsps",
-			"encryption: strict\n" +
+			"rtspEncryption: strict\n" +
 				"rtspAddress: invalid\n",
 		},
 		{

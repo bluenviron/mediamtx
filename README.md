@@ -192,7 +192,7 @@ The `--network=host` flag is mandatory for RTSP to work, since Docker can change
 
 ```
 docker run --rm -it \
--e MTX_PROTOCOLS=tcp \
+-e MTX_RTSPTRANSPORTS=tcp \
 -e MTX_WEBRTCADDITIONALHOSTS=192.168.x.x \
 -p 8554:8554 \
 -p 1935:1935 \
@@ -1264,7 +1264,7 @@ There are 3 ways to change the configuration:
    Parameters that have array as value can be overridden by setting a comma-separated list. For example:
 
    ```
-   MTX_PROTOCOLS="tcp,udp"
+   MTX_RTSPTRANSPORTS="tcp,udp"
    ```
 
    Parameters in maps can be overridden by using underscores, in the following way:
@@ -2266,13 +2266,13 @@ openssl genrsa -out server.key 2048
 openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
 
-Edit `mediamtx.yml`, and set the `protocols`, `encryption`, `serverKey` and serverCert parameters:
+Edit `mediamtx.yml` and set the `rtspTransports`, `encryption`, `serverKey` and serverCert parameters:
 
 ```yml
-protocols: [tcp]
-encryption: optional
-serverKey: server.key
-serverCert: server.crt
+rtspTransports: [tcp]
+rtspEncryption: optional
+rtspServerKey: server.key
+rtspServerCert: server.crt
 ```
 
 Streams can be published and read with the `rtsps` scheme and the `8322` port:
@@ -2294,7 +2294,7 @@ In some scenarios, when publishing or reading from the server with RTSP, frames 
 * The stream throughput is too big and the stream can't be transmitted correctly with the UDP transport protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
 
   ```yml
-  protocols: [tcp]
+  rtspTransports: [tcp]
   ```
 
   In case the source is a camera:
@@ -2319,7 +2319,7 @@ openssl genrsa -out server.key 2048
 openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
 
-Edit mediamtx.yml, and set the `rtmpEncryption`, `rtmpServerKey` and `rtmpServerCert` parameters:
+Edit mediamtx.yml and set the `rtmpEncryption`, `rtmpServerKey` and `rtmpServerCert` parameters:
 
 ```yml
 rtmpEncryption: optional

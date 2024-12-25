@@ -9,14 +9,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 )
 
-// Protocol is a RTSP transport.
-type Protocol gortsplib.Transport
-
-// Protocols is the protocols parameter.
-type Protocols map[Protocol]struct{}
+// RTSPTransports is the rtspTransports parameter.
+type RTSPTransports map[gortsplib.Transport]struct{}
 
 // MarshalJSON implements json.Marshaler.
-func (d Protocols) MarshalJSON() ([]byte, error) {
+func (d RTSPTransports) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 	i := 0
 
@@ -24,10 +21,10 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 		var v string
 
 		switch p {
-		case Protocol(gortsplib.TransportUDP):
+		case gortsplib.TransportUDP:
 			v = "udp"
 
-		case Protocol(gortsplib.TransportUDPMulticast):
+		case gortsplib.TransportUDPMulticast:
 			v = "multicast"
 
 		default:
@@ -44,27 +41,27 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (d *Protocols) UnmarshalJSON(b []byte) error {
+func (d *RTSPTransports) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {
 		return err
 	}
 
-	*d = make(Protocols)
+	*d = make(RTSPTransports)
 
 	for _, proto := range in {
 		switch proto {
 		case "udp":
-			(*d)[Protocol(gortsplib.TransportUDP)] = struct{}{}
+			(*d)[gortsplib.TransportUDP] = struct{}{}
 
 		case "multicast":
-			(*d)[Protocol(gortsplib.TransportUDPMulticast)] = struct{}{}
+			(*d)[gortsplib.TransportUDPMulticast] = struct{}{}
 
 		case "tcp":
-			(*d)[Protocol(gortsplib.TransportTCP)] = struct{}{}
+			(*d)[gortsplib.TransportTCP] = struct{}{}
 
 		default:
-			return fmt.Errorf("invalid protocol: %s", proto)
+			return fmt.Errorf("invalid transport: %s", proto)
 		}
 	}
 
@@ -72,7 +69,7 @@ func (d *Protocols) UnmarshalJSON(b []byte) error {
 }
 
 // UnmarshalEnv implements env.Unmarshaler.
-func (d *Protocols) UnmarshalEnv(_ string, v string) error {
+func (d *RTSPTransports) UnmarshalEnv(_ string, v string) error {
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }
