@@ -218,8 +218,10 @@ type Conf struct {
 	// RTSP server
 	RTSP              bool             `json:"rtsp"`
 	RTSPDisable       *bool            `json:"rtspDisable,omitempty"` // deprecated
-	Protocols         Protocols        `json:"protocols"`
-	Encryption        Encryption       `json:"encryption"`
+	Protocols         *RTSPTransports  `json:"protocols,omitempty"`   // deprecated
+	RTSPTransports    RTSPTransports   `json:"rtspTransports"`
+	Encryption        *Encryption      `json:"encryption,omitempty"` // deprecated
+	RTSPEncryption    Encryption       `json:"rtspEncryption"`
 	RTSPAddress       string           `json:"rtspAddress"`
 	RTSPSAddress      string           `json:"rtspsAddress"`
 	RTPAddress        string           `json:"rtpAddress"`
@@ -227,8 +229,10 @@ type Conf struct {
 	MulticastIPRange  string           `json:"multicastIPRange"`
 	MulticastRTPPort  int              `json:"multicastRTPPort"`
 	MulticastRTCPPort int              `json:"multicastRTCPPort"`
-	ServerKey         string           `json:"serverKey"`
-	ServerCert        string           `json:"serverCert"`
+	ServerKey         *string          `json:"serverKey,omitempty"`
+	ServerCert        *string          `json:"serverCert,omitempty"`
+	RTSPServerKey     string           `json:"rtspServerKey"`
+	RTSPServerCert    string           `json:"rtspServerCert"`
 	AuthMethods       *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
 	RTSPAuthMethods   RTSPAuthMethods  `json:"rtspAuthMethods"`
 
@@ -352,10 +356,10 @@ func (conf *Conf) setDefaults() {
 
 	// RTSP server
 	conf.RTSP = true
-	conf.Protocols = Protocols{
-		Protocol(gortsplib.TransportUDP):          {},
-		Protocol(gortsplib.TransportUDPMulticast): {},
-		Protocol(gortsplib.TransportTCP):          {},
+	conf.RTSPTransports = RTSPTransports{
+		gortsplib.TransportUDP:          {},
+		gortsplib.TransportUDPMulticast: {},
+		gortsplib.TransportTCP:          {},
 	}
 	conf.RTSPAddress = ":8554"
 	conf.RTSPSAddress = ":8322"
@@ -364,8 +368,8 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastIPRange = "224.1.0.0/16"
 	conf.MulticastRTPPort = 8002
 	conf.MulticastRTCPPort = 8003
-	conf.ServerKey = "server.key"
-	conf.ServerCert = "server.crt"
+	conf.RTSPServerKey = "server.key"
+	conf.RTSPServerCert = "server.crt"
 	conf.RTSPAuthMethods = RTSPAuthMethods{auth.ValidateMethodBasic}
 
 	// RTMP server
@@ -581,12 +585,18 @@ func (conf *Conf) Validate() error {
 	if conf.RTSPDisable != nil {
 		conf.RTSP = !*conf.RTSPDisable
 	}
-	if conf.Encryption == EncryptionStrict {
-		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
-			return fmt.Errorf("strict encryption can't be used with the UDP transport protocol")
+	if conf.Protocols != nil {
+		conf.RTSPTransports = *conf.Protocols
+	}
+	if conf.Encryption != nil {
+		conf.RTSPEncryption = *conf.Encryption
+	}
+	if conf.RTSPEncryption == EncryptionStrict {
+		if _, ok := conf.RTSPTransports[gortsplib.TransportUDP]; ok {
+			return fmt.Errorf("strict encryption cannot be used with the UDP transport protocol")
 		}
-		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDPMulticast)]; ok {
-			return fmt.Errorf("strict encryption can't be used with the UDP-multicast transport protocol")
+		if _, ok := conf.RTSPTransports[gortsplib.TransportUDPMulticast]; ok {
+			return fmt.Errorf("strict encryption cannot be used with the UDP-multicast transport protocol")
 		}
 	}
 	if conf.AuthMethods != nil {
@@ -601,6 +611,12 @@ func (conf *Conf) Validate() error {
 				return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
 			}
 		}
+	}
+	if conf.ServerCert != nil {
+		conf.RTSPServerCert = *conf.ServerCert
+	}
+	if conf.ServerKey != nil {
+		conf.RTSPServerKey = *conf.ServerKey
 	}
 
 	// RTMP

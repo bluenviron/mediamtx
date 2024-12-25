@@ -165,11 +165,11 @@ components:
         # RTSP server
         rtsp:
           type: boolean
-        protocols:
+        rtspTransports:
           type: array
           items:
             type: string
-        encryption:
+        rtspEncryption:
           type: string
         rtspAddress:
           type: string
@@ -185,9 +185,9 @@ components:
           type: integer
         multicastRTCPPort:
           type: integer
-        serverKey:
+        rtspServerKey:
           type: string
-        serverCert:
+        rtspServerCert:
           type: string
         rtspAuthMethods:
           type: array

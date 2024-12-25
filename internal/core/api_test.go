@@ -151,9 +151,9 @@ func TestAPIPathsList(t *testing.T) {
 		defer os.Remove(serverKeyFpath)
 
 		p, ok := newInstance("api: yes\n" +
-			"encryption: optional\n" +
-			"serverCert: " + serverCertFpath + "\n" +
-			"serverKey: " + serverKeyFpath + "\n" +
+			"rtspEncryption: optional\n" +
+			"rtspServerCert: " + serverCertFpath + "\n" +
+			"rtspServerKey: " + serverKeyFpath + "\n" +
 			"paths:\n" +
 			"  mypath:\n")
 		require.Equal(t, true, ok)
@@ -367,10 +367,10 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			switch ca {
 			case "rtsps conns", "rtsps sessions":
-				conf += "protocols: [tcp]\n" +
-					"encryption: strict\n" +
-					"serverCert: " + serverCertFpath + "\n" +
-					"serverKey: " + serverKeyFpath + "\n"
+				conf += "rtspTransports: [tcp]\n" +
+					"rtspEncryption: strict\n" +
+					"rtspServerCert: " + serverCertFpath + "\n" +
+					"rtspServerKey: " + serverKeyFpath + "\n"
 
 			case "rtmps":
 				conf += "rtmpEncryption: strict\n" +
@@ -860,10 +860,10 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 
 			switch ca {
 			case "rtsps conns", "rtsps sessions":
-				conf += "protocols: [tcp]\n" +
-					"encryption: strict\n" +
-					"serverCert: " + serverCertFpath + "\n" +
-					"serverKey: " + serverKeyFpath + "\n"
+				conf += "rtspTransports: [tcp]\n" +
+					"rtspEncryption: strict\n" +
+					"rtspServerCert: " + serverCertFpath + "\n" +
+					"rtspServerKey: " + serverKeyFpath + "\n"
 
 			case "rtmps":
 				conf += "rtmpEncryption: strict\n" +
@@ -957,10 +957,10 @@ func TestAPIProtocolKick(t *testing.T) {
 			conf := "api: yes\n"
 
 			if ca == "rtsps" {
-				conf += "protocols: [tcp]\n" +
-					"encryption: strict\n" +
-					"serverCert: " + serverCertFpath + "\n" +
-					"serverKey: " + serverKeyFpath + "\n"
+				conf += "rtspTransports: [tcp]\n" +
+					"rtspEncryption: strict\n" +
+					"rtspServerCert: " + serverCertFpath + "\n" +
+					"rtspServerKey: " + serverKeyFpath + "\n"
 			}
 
 			conf += "paths:\n" +
@@ -1114,10 +1114,10 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			conf := "api: yes\n"
 
 			if ca == "rtsps" {
-				conf += "protocols: [tcp]\n" +
-					"encryption: strict\n" +
-					"serverCert: " + serverCertFpath + "\n" +
-					"serverKey: " + serverKeyFpath + "\n"
+				conf += "rtspTransports: [tcp]\n" +
+					"rtspEncryption: strict\n" +
+					"rtspServerCert: " + serverCertFpath + "\n" +
+					"rtspServerKey: " + serverKeyFpath + "\n"
 			}
 
 			conf += "paths:\n" +

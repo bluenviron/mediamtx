@@ -134,7 +134,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
-	require.Equal(t, Protocols{Protocol(gortsplib.TransportTCP): {}}, conf.Protocols)
+	require.Equal(t, RTSPTransports{gortsplib.TransportTCP: {}}, conf.RTSPTransports)
 	require.Equal(t, false, conf.RTMP)
 
 	pa, ok := conf.Paths["cam1"]
@@ -292,15 +292,15 @@ func TestConfErrors(t *testing.T) {
 		},
 		{
 			"invalid strict encryption 1",
-			"encryption: strict\n" +
-				"protocols: [udp]\n",
-			"strict encryption can't be used with the UDP transport protocol",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [udp]\n",
+			"strict encryption cannot be used with the UDP transport protocol",
 		},
 		{
 			"invalid strict encryption 2",
-			"encryption: strict\n" +
-				"protocols: [multicast]\n",
-			"strict encryption can't be used with the UDP-multicast transport protocol",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [multicast]\n",
+			"strict encryption cannot be used with the UDP-multicast transport protocol",
 		},
 		{
 			"invalid ICE server",

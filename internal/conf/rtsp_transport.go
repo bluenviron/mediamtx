@@ -58,7 +58,7 @@ func (d *RTSPTransport) UnmarshalJSON(b []byte) error {
 		d.Transport = nil
 
 	default:
-		return fmt.Errorf("invalid protocol '%s'", in)
+		return fmt.Errorf("invalid transport '%s'", in)
 	}
 
 	return nil

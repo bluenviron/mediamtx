@@ -56,9 +56,9 @@ func TestMetrics(t *testing.T) {
 		"metrics: yes\n" +
 		"webrtcServerCert: " + serverCertFpath + "\n" +
 		"webrtcServerKey: " + serverKeyFpath + "\n" +
-		"encryption: optional\n" +
-		"serverCert: " + serverCertFpath + "\n" +
-		"serverKey: " + serverKeyFpath + "\n" +
+		"rtspEncryption: optional\n" +
+		"rtspServerCert: " + serverCertFpath + "\n" +
+		"rtspServerKey: " + serverKeyFpath + "\n" +
 		"rtmpEncryption: optional\n" +
 		"rtmpServerCert: " + serverCertFpath + "\n" +
 		"rtmpServerKey: " + serverKeyFpath + "\n" +
