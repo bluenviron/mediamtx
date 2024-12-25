@@ -1980,6 +1980,14 @@ rtsp_conns_bytes_sent{id="[id]"} 187
 rtsp_sessions{id="[id]",state="idle"} 1
 rtsp_sessions_bytes_received{id="[id]",state="[state]"} 1234
 rtsp_sessions_bytes_sent{id="[id]",state="[state]"} 187
+rtsp_sessions_rtp_packets_received{id="[id]"} 123
+rtsp_sessions_rtp_packets_sent{id="[id]"} 123
+rtsp_sessions_rtp_packets_lost{id="[id]"} 123
+rtsp_sessions_rtp_packets_in_error{id="[id]"} 123
+rtsp_sessions_rtp_packets_jitter{id="[id]"} 123
+rtsp_sessions_rtcp_packets_received{id="[id]"} 123
+rtsp_sessions_rtcp_packets_sent{id="[id]"} 123
+rtsp_sessions_rtcp_packets_in_error{id="[id]"} 123
 
 # metrics of every RTSPS connection
 rtsps_conns{id="[id]"} 1
@@ -1990,6 +1998,14 @@ rtsps_conns_bytes_sent{id="[id]"} 187
 rtsps_sessions{id="[id]",state="[state]"} 1
 rtsps_sessions_bytes_received{id="[id]",state="[state]"} 1234
 rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
+rtsps_sessions_rtp_packets_received{id="[id]"} 123
+rtsps_sessions_rtp_packets_sent{id="[id]"} 123
+rtsps_sessions_rtp_packets_lost{id="[id]"} 123
+rtsps_sessions_rtp_packets_in_error{id="[id]"} 123
+rtsps_sessions_rtp_packets_jitter{id="[id]"} 123
+rtsps_sessions_rtcp_packets_received{id="[id]"} 123
+rtsps_sessions_rtcp_packets_sent{id="[id]"} 123
+rtsps_sessions_rtcp_packets_in_error{id="[id]"} 123
 
 # metrics of every RTMP connection
 rtmp_conns{id="[id]",state="[state]"} 1

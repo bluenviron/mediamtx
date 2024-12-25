@@ -695,6 +695,30 @@ components:
         bytesSent:
           type: integer
           format: int64
+        rtpPacketsReceived:
+          type: integer
+          format: int64
+        rtpPacketsSent:
+          type: integer
+          format: int64
+        rtpPacketsLost:
+          type: integer
+          format: int64
+        rtpPacketsInError:
+          type: integer
+          format: int64
+        rtpPacketsJitter:
+          type: number
+          format: float64
+        rtcpPacketsReceived:
+          type: integer
+          format: int64
+        rtcpPacketsSent:
+          type: integer
+          format: int64
+        rtcpPacketsInError:
+          type: integer
+          format: int64
 
     RTSPSessionList:
       type: object
