@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
@@ -256,6 +257,7 @@ func (pconf *Path) validate(
 	conf *Conf,
 	name string,
 	deprecatedCredentialsMode bool,
+	l logger.Writer,
 ) error {
 	pconf.Name = name
 
@@ -296,6 +298,8 @@ func (pconf *Path) validate(
 	switch {
 	case pconf.Source == "publisher":
 		if pconf.DisablePublisherOverride != nil {
+			l.Log(logger.Warn, "parameter 'disablePublisherOverride' is deprecated "+
+				"and has been replaced with 'overridePublisher'")
 			pconf.OverridePublisher = !*pconf.DisablePublisherOverride
 		}
 
@@ -314,9 +318,11 @@ func (pconf *Path) validate(
 		}
 
 		if pconf.SourceProtocol != nil {
+			l.Log(logger.Warn, "parameter 'sourceProtocol' is deprecated and has been replaced with 'rtspTransport'")
 			pconf.RTSPTransport = *pconf.SourceProtocol
 		}
 		if pconf.SourceAnyPortEnable != nil {
+			l.Log(logger.Warn, "parameter 'sourceAnyPortEnable' is deprecated and has been replaced with 'rtspAnyPort'")
 			pconf.RTSPAnyPort = *pconf.SourceAnyPortEnable
 		}
 
@@ -463,6 +469,10 @@ func (pconf *Path) validate(
 	}
 
 	// Record
+
+	if pconf.Playback != nil {
+		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
+	}
 
 	if conf.Playback {
 		if !strings.Contains(pconf.RecordPath, "%Y") ||

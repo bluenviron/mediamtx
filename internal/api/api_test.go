@@ -29,7 +29,7 @@ func tempConf(t *testing.T, cnt string) *conf.Conf {
 	require.NoError(t, err)
 	defer os.Remove(fi)
 
-	cnf, _, err := conf.Load(fi, nil)
+	cnf, _, err := conf.Load(fi, nil, nil)
 	require.NoError(t, err)
 
 	return cnf

@@ -118,7 +118,9 @@ func New(args []string) (*Core, bool) {
 		done:           make(chan struct{}),
 	}
 
-	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths)
+	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "")
+
+	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return nil, false
@@ -175,7 +177,7 @@ outer:
 		case <-confChanged:
 			p.Log(logger.Info, "reloading configuration (file changed)")
 
-			newConf, _, err := conf.Load(p.confPath, nil)
+			newConf, _, err := conf.Load(p.confPath, nil, p.logger)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
