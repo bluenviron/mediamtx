@@ -118,16 +118,15 @@ func (c *Cleaner) processPath(now time.Time, pathName string) error {
 		return nil
 	}
 
-	segments, err := recordstore.FindSegments(pathConf, pathName)
+	end := now.Add(-time.Duration(pathConf.RecordDeleteAfter))
+	segments, err := recordstore.FindSegments(pathConf, pathName, nil, &end)
 	if err != nil {
 		return err
 	}
 
 	for _, seg := range segments {
-		if now.Sub(seg.Start) > time.Duration(pathConf.RecordDeleteAfter) {
-			c.Log(logger.Debug, "removing %s", seg.Fpath)
-			os.Remove(seg.Fpath)
-		}
+		c.Log(logger.Debug, "removing %s", seg.Fpath)
+		os.Remove(seg.Fpath)
 	}
 
 	return nil

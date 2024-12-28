@@ -153,7 +153,8 @@ func (s *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	segments, err := recordstore.FindSegmentsInTimespan(pathConf, pathName, start, duration)
+	end := start.Add(duration)
+	segments, err := recordstore.FindSegments(pathConf, pathName, &start, &end)
 	if err != nil {
 		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
