@@ -7,8 +7,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/rawmessage"
 )
 
-// ExtendedCodedFrames is a CodedFrames extended message.
-type ExtendedCodedFrames struct {
+// VideoExCodedFrames is a CodedFrames extended message.
+type VideoExCodedFrames struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
@@ -17,40 +17,46 @@ type ExtendedCodedFrames struct {
 	Payload         []byte
 }
 
-func (m *ExtendedCodedFrames) unmarshal(raw *rawmessage.Message) error {
-	if len(raw.Body) < 8 {
+func (m *VideoExCodedFrames) unmarshal(raw *rawmessage.Message) error {
+	if len(raw.Body) < 5 {
 		return fmt.Errorf("not enough bytes")
 	}
 
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
-	m.FourCC = FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
 
-	if m.FourCC == FourCCHEVC {
+	m.FourCC = FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
+	switch m.FourCC {
+	case FourCCAVC, FourCCHEVC:
+		if len(raw.Body) < 8 {
+			return fmt.Errorf("bnot enough bytes")
+		}
 		m.PTSDelta = time.Duration(uint32(raw.Body[5])<<16|uint32(raw.Body[6])<<8|uint32(raw.Body[7])) * time.Millisecond
 		m.Payload = raw.Body[8:]
-	} else {
+
+	case FourCCAV1, FourCCVP9:
 		m.Payload = raw.Body[5:]
+
+	default:
+		return fmt.Errorf("unsupported fourCC: %v", m.FourCC)
 	}
 
 	return nil
 }
 
-func (m ExtendedCodedFrames) marshalBodySize() int {
-	var l int
-	if m.FourCC == FourCCHEVC {
-		l = 8 + len(m.Payload)
-	} else {
-		l = 5 + len(m.Payload)
+func (m VideoExCodedFrames) marshalBodySize() int {
+	switch m.FourCC {
+	case FourCCAVC, FourCCHEVC:
+		return 8 + len(m.Payload)
 	}
-	return l
+	return 5 + len(m.Payload)
 }
 
-func (m ExtendedCodedFrames) marshal() (*rawmessage.Message, error) {
+func (m VideoExCodedFrames) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
-	body[0] = 0b10000000 | byte(ExtendedTypeCodedFrames)
+	body[0] = 0b10000000 | byte(VideoExTypeCodedFrames)
 	body[1] = uint8(m.FourCC >> 24)
 	body[2] = uint8(m.FourCC >> 16)
 	body[3] = uint8(m.FourCC >> 8)

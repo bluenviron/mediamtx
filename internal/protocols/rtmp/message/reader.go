@@ -62,45 +62,65 @@ func allocateMessage(raw *rawmessage.Message) (Message, error) {
 		return &DataAMF0{}, nil
 
 	case TypeAudio:
+		if len(raw.Body) < 1 {
+			return nil, fmt.Errorf("not enough bytes")
+		}
+
+		if (raw.Body[0] >> 4) == 9 {
+			extendedType := AudioExType(raw.Body[0] & 0x0F)
+
+			switch extendedType {
+			case AudioExTypeSequenceStart:
+				return &AudioExSequenceStart{}, nil
+
+			case AudioExTypeSequenceEnd:
+				return &AudioExSequenceEnd{}, nil
+
+			case AudioExTypeMultichannelConfig:
+				return &AudioExMultichannelConfig{}, nil
+
+			case AudioExTypeCodedFrames:
+				return &AudioExCodedFrames{}, nil
+
+			case AudioExTypeMultitrack:
+				return &AudioExMultitrack{}, nil
+
+			default:
+				return nil, fmt.Errorf("unsupported audio extended type: %v", extendedType)
+			}
+		}
+
 		return &Audio{}, nil
 
 	case TypeVideo:
-		if len(raw.Body) < 5 {
+		if len(raw.Body) < 1 {
 			return nil, fmt.Errorf("not enough bytes")
 		}
 
 		if (raw.Body[0] & 0b10000000) != 0 {
-			fourCC := FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
-
-			switch fourCC {
-			case FourCCAV1, FourCCVP9, FourCCHEVC:
-			default:
-				return nil, fmt.Errorf("invalid fourCC: %v", fourCC)
-			}
-
-			extendedType := ExtendedType(raw.Body[0] & 0x0F)
+			extendedType := VideoExType(raw.Body[0] & 0x0F)
 
 			switch extendedType {
-			case ExtendedTypeSequenceStart:
-				return &ExtendedSequenceStart{}, nil
+			case VideoExTypeSequenceStart:
+				return &VideoExSequenceStart{}, nil
 
-			case ExtendedTypeCodedFrames:
-				return &ExtendedCodedFrames{}, nil
+			case VideoExTypeSequenceEnd:
+				return &VideoExSequenceEnd{}, nil
 
-			case ExtendedTypeSequenceEnd:
-				return &ExtendedSequenceEnd{}, nil
+			case VideoExTypeCodedFrames:
+				return &VideoExCodedFrames{}, nil
 
-			case ExtendedTypeFramesX:
-				return &ExtendedFramesX{}, nil
+			case VideoExTypeFramesX:
+				return &VideoExFramesX{}, nil
 
-			case ExtendedTypeMetadata:
-				return &ExtendedMetadata{}, nil
+			case VideoExTypeMetadata:
+				return &VideoExMetadata{}, nil
 
-			case ExtendedTypeMPEG2TSSequenceStart:
-				return &ExtendedMPEG2TSSequenceStart{}, nil
+			case VideoExTypeMultitrack:
+				return &VideoExMultitrack{}, nil
 
 			default:
-				return nil, fmt.Errorf("invalid extended type: %v", extendedType)
+				return nil, fmt.Errorf("unsupported video extended type: %v", extendedType)
 			}
 		}
 		return &Video{}, nil

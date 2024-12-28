@@ -362,6 +362,37 @@ func TestPathRunOnRead(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
+				writerDone := make(chan struct{})
+				defer func() { <-writerDone }()
+
+				writerTerminate := make(chan struct{})
+				defer close(writerTerminate)
+
+				go func() {
+					defer close(writerDone)
+					i := 0
+					for {
+						select {
+						case <-time.After(100 * time.Millisecond):
+						case <-writerTerminate:
+							return
+						}
+						err2 := source.WritePacketRTP(media0, &rtp.Packet{
+							Header: rtp.Header{
+								Version:        2,
+								Marker:         true,
+								PayloadType:    96,
+								SequenceNumber: uint16(123 + i),
+								Timestamp:      uint32(45343 + i*90000),
+								SSRC:           563423,
+							},
+							Payload: []byte{5},
+						})
+						require.NoError(t, err2)
+						i++
+					}
+				}()
+
 				switch ca {
 				case "rtsp":
 					reader := gortsplib.Client{}
@@ -426,6 +457,23 @@ func TestPathRunOnRead(t *testing.T) {
 					conn, err := rtmp.NewClientConn(nconn, u, false)
 					require.NoError(t, err)
 
+					go func() {
+						for i := uint16(0); i < 3; i++ {
+							err2 := source.WritePacketRTP(media0, &rtp.Packet{
+								Header: rtp.Header{
+									Version:        2,
+									Marker:         true,
+									PayloadType:    96,
+									SequenceNumber: 123 + i,
+									Timestamp:      45343 + uint32(i)*2*90000,
+									SSRC:           563423,
+								},
+								Payload: []byte{5},
+							})
+							require.NoError(t, err2)
+						}
+					}()
+
 					_, err = rtmp.NewReader(conn)
 					require.NoError(t, err)
 
@@ -454,37 +502,6 @@ func TestPathRunOnRead(t *testing.T) {
 						URL:        u,
 						Log:        test.NilLogger,
 					}
-
-					writerDone := make(chan struct{})
-					defer func() { <-writerDone }()
-
-					writerTerminate := make(chan struct{})
-					defer close(writerTerminate)
-
-					go func() {
-						defer close(writerDone)
-						i := uint16(0)
-						for {
-							select {
-							case <-time.After(100 * time.Millisecond):
-							case <-writerTerminate:
-								return
-							}
-							err2 := source.WritePacketRTP(media0, &rtp.Packet{
-								Header: rtp.Header{
-									Version:        2,
-									Marker:         true,
-									PayloadType:    96,
-									SequenceNumber: 123 + i,
-									Timestamp:      45343,
-									SSRC:           563423,
-								},
-								Payload: []byte{5},
-							})
-							require.NoError(t, err2)
-							i++
-						}
-					}()
 
 					_, err = c.Read(context.Background())
 					require.NoError(t, err)

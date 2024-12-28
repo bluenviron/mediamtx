@@ -433,7 +433,10 @@ func TestAPIProtocolListGet(t *testing.T) {
 				conn, err := rtmp.NewClientConn(nconn, u, true)
 				require.NoError(t, err)
 
-				_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
+				w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
+				require.NoError(t, err)
+
+				err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -1006,7 +1009,10 @@ func TestAPIProtocolKick(t *testing.T) {
 				conn, err := rtmp.NewClientConn(nconn, u, true)
 				require.NoError(t, err)
 
-				_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
+				w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
+				require.NoError(t, err)
+
+				err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
 
 			case "webrtc":

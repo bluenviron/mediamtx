@@ -33,10 +33,10 @@ github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYh
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
 github.com/bluenviron/gohlslib/v2 v2.1.0 h1:I0KXXPjnt7QxsR39z97fKe/x1yj22e1NhSqZ5P6FbWE=
 github.com/bluenviron/gohlslib/v2 v2.1.0/go.mod h1:irD+TAdUsb400Gp8v80LKPPC4YumiAieUSO6ICykeWo=
-github.com/bluenviron/gortsplib/v4 v4.12.1-0.20241225145501-66410517c85f h1:x+W67M2KMNCumzQ8XpIFXbVE+quKD/xP5PiaJhKwqTY=
-github.com/bluenviron/gortsplib/v4 v4.12.1-0.20241225145501-66410517c85f/go.mod h1:MwFrCmflxvLTMjgtnPJ2H4SQSB/r9wX8nsR5YPtUs7M=
-github.com/bluenviron/mediacommon v1.13.2 h1:Ssq+59ZtPm5f9iAVVugWNOyl89Vp0G758RMv033lkik=
-github.com/bluenviron/mediacommon v1.13.2/go.mod h1:tffg+sPMErUIe7WMq7ZlYry/rPE6TyENWCrYT5JWcgs=
+github.com/bluenviron/gortsplib/v4 v4.12.1-0.20250101115503-c5485517016a h1:+Pug8A1lj+OEWuJL/54BmMmYNSMl9IyWklwGaeQxn3A=
+github.com/bluenviron/gortsplib/v4 v4.12.1-0.20250101115503-c5485517016a/go.mod h1:MwFrCmflxvLTMjgtnPJ2H4SQSB/r9wX8nsR5YPtUs7M=
+github.com/bluenviron/mediacommon v1.13.3-0.20250101114202-89f364e687ca h1:UIsKAlGy9CH8yW1Kie174+rbOF4V6EAvWZ9EllaObCM=
+github.com/bluenviron/mediacommon v1.13.3-0.20250101114202-89f364e687ca/go.mod h1:RrO01FltoVUlTBGXbOYtmx1ft1oBOpLxfNGsYlaFAO8=
 github.com/bytedance/sonic v1.12.6 h1:/isNmCUF2x3Sh8RAp/4mh4ZGkcFAX/hLrzrK3AvpRzk=
 github.com/bytedance/sonic v1.12.6/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKzMzT9r/rk=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
