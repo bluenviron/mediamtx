@@ -88,23 +88,23 @@ type Path struct {
 	Name   string         `json:"name"` // filled by Check()
 
 	// General
-	Source                     string         `json:"source"`
-	SourceFingerprint          string         `json:"sourceFingerprint"`
-	SourceOnDemand             bool           `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
-	MaxReaders                 int            `json:"maxReaders"`
-	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
-	Fallback                   string         `json:"fallback"`
+	Source                     string   `json:"source"`
+	SourceFingerprint          string   `json:"sourceFingerprint"`
+	SourceOnDemand             bool     `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int      `json:"maxReaders"`
+	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
+	Fallback                   string   `json:"fallback"`
 
 	// Record
-	Record                bool           `json:"record"`
-	Playback              *bool          `json:"playback,omitempty"` // deprecated
-	RecordPath            string         `json:"recordPath"`
-	RecordFormat          RecordFormat   `json:"recordFormat"`
-	RecordPartDuration    StringDuration `json:"recordPartDuration"`
-	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
-	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
+	Record                bool         `json:"record"`
+	Playback              *bool        `json:"playback,omitempty"` // deprecated
+	RecordPath            string       `json:"recordPath"`
+	RecordFormat          RecordFormat `json:"recordFormat"`
+	RecordPartDuration    Duration     `json:"recordPartDuration"`
+	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
+	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty"` // deprecated
@@ -168,35 +168,35 @@ type Path struct {
 	RPICameraLevel             string    `json:"rpiCameraLevel"`
 
 	// Hooks
-	RunOnInit                  string         `json:"runOnInit"`
-	RunOnInitRestart           bool           `json:"runOnInitRestart"`
-	RunOnDemand                string         `json:"runOnDemand"`
-	RunOnDemandRestart         bool           `json:"runOnDemandRestart"`
-	RunOnDemandStartTimeout    StringDuration `json:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter      StringDuration `json:"runOnDemandCloseAfter"`
-	RunOnUnDemand              string         `json:"runOnUnDemand"`
-	RunOnReady                 string         `json:"runOnReady"`
-	RunOnReadyRestart          bool           `json:"runOnReadyRestart"`
-	RunOnNotReady              string         `json:"runOnNotReady"`
-	RunOnRead                  string         `json:"runOnRead"`
-	RunOnReadRestart           bool           `json:"runOnReadRestart"`
-	RunOnUnread                string         `json:"runOnUnread"`
-	RunOnRecordSegmentCreate   string         `json:"runOnRecordSegmentCreate"`
-	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
+	RunOnInit                  string   `json:"runOnInit"`
+	RunOnInitRestart           bool     `json:"runOnInitRestart"`
+	RunOnDemand                string   `json:"runOnDemand"`
+	RunOnDemandRestart         bool     `json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout    Duration `json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter      Duration `json:"runOnDemandCloseAfter"`
+	RunOnUnDemand              string   `json:"runOnUnDemand"`
+	RunOnReady                 string   `json:"runOnReady"`
+	RunOnReadyRestart          bool     `json:"runOnReadyRestart"`
+	RunOnNotReady              string   `json:"runOnNotReady"`
+	RunOnRead                  string   `json:"runOnRead"`
+	RunOnReadRestart           bool     `json:"runOnReadRestart"`
+	RunOnUnread                string   `json:"runOnUnread"`
+	RunOnRecordSegmentCreate   string   `json:"runOnRecordSegmentCreate"`
+	RunOnRecordSegmentComplete string   `json:"runOnRecordSegmentComplete"`
 }
 
 func (pconf *Path) setDefaults() {
 	// General
 	pconf.Source = "publisher"
-	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.SourceOnDemandStartTimeout = 10 * Duration(time.Second)
+	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
 	pconf.RecordFormat = RecordFormatFMP4
-	pconf.RecordPartDuration = StringDuration(1 * time.Second)
-	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
-	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
+	pconf.RecordPartDuration = Duration(1 * time.Second)
+	pconf.RecordSegmentDuration = 3600 * Duration(time.Second)
+	pconf.RecordDeleteAfter = 24 * 3600 * Duration(time.Second)
 
 	// Publisher source
 	pconf.OverridePublisher = true
@@ -224,8 +224,8 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraLevel = "4.1"
 
 	// Hooks
-	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.RunOnDemandStartTimeout = 10 * Duration(time.Second)
+	pconf.RunOnDemandCloseAfter = 10 * Duration(time.Second)
 }
 
 func newPath(defaults *Path, partial *OptionalPath) *Path {

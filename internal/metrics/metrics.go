@@ -48,7 +48,7 @@ type Metrics struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	AuthManager    metricsAuthManager
 	Parent         metricsParent
 

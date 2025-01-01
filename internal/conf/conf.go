@@ -161,8 +161,8 @@ type Conf struct {
 	LogLevel            LogLevel        `json:"logLevel"`
 	LogDestinations     LogDestinations `json:"logDestinations"`
 	LogFile             string          `json:"logFile"`
-	ReadTimeout         StringDuration  `json:"readTimeout"`
-	WriteTimeout        StringDuration  `json:"writeTimeout"`
+	ReadTimeout         Duration        `json:"readTimeout"`
+	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
@@ -246,22 +246,22 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS server
-	HLS                bool           `json:"hls"`
-	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // deprecated
-	HLSAddress         string         `json:"hlsAddress"`
-	HLSEncryption      bool           `json:"hlsEncryption"`
-	HLSServerKey       string         `json:"hlsServerKey"`
-	HLSServerCert      string         `json:"hlsServerCert"`
-	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
-	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant     `json:"hlsVariant"`
-	HLSSegmentCount    int            `json:"hlsSegmentCount"`
-	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
-	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
-	HLSDirectory       string         `json:"hlsDirectory"`
-	HLSMuxerCloseAfter StringDuration `json:"hlsMuxerCloseAfter"`
+	HLS                bool       `json:"hls"`
+	HLSDisable         *bool      `json:"hlsDisable,omitempty"` // deprecated
+	HLSAddress         string     `json:"hlsAddress"`
+	HLSEncryption      bool       `json:"hlsEncryption"`
+	HLSServerKey       string     `json:"hlsServerKey"`
+	HLSServerCert      string     `json:"hlsServerCert"`
+	HLSAllowOrigin     string     `json:"hlsAllowOrigin"`
+	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
+	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
+	HLSVariant         HLSVariant `json:"hlsVariant"`
+	HLSSegmentCount    int        `json:"hlsSegmentCount"`
+	HLSSegmentDuration Duration   `json:"hlsSegmentDuration"`
+	HLSPartDuration    Duration   `json:"hlsPartDuration"`
+	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
+	HLSDirectory       string     `json:"hlsDirectory"`
+	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
 
 	// WebRTC server
 	WebRTC                      bool             `json:"webrtc"`
@@ -278,8 +278,8 @@ type Conf struct {
 	WebRTCIPsFromInterfacesList []string         `json:"webrtcIPsFromInterfacesList"`
 	WebRTCAdditionalHosts       []string         `json:"webrtcAdditionalHosts"`
 	WebRTCICEServers2           WebRTCICEServers `json:"webrtcICEServers2"`
-	WebRTCHandshakeTimeout      StringDuration   `json:"webrtcHandshakeTimeout"`
-	WebRTCTrackGatherTimeout    StringDuration   `json:"webrtcTrackGatherTimeout"`
+	WebRTCHandshakeTimeout      Duration         `json:"webrtcHandshakeTimeout"`
+	WebRTCTrackGatherTimeout    Duration         `json:"webrtcTrackGatherTimeout"`
 	WebRTCICEUDPMuxAddress      *string          `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
 	WebRTCICETCPMuxAddress      *string          `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
 	WebRTCICEHostNAT1To1IPs     *[]string        `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
@@ -290,12 +290,12 @@ type Conf struct {
 	SRTAddress string `json:"srtAddress"`
 
 	// Record (deprecated)
-	Record                *bool           `json:"record,omitempty"`                // deprecated
-	RecordPath            *string         `json:"recordPath,omitempty"`            // deprecated
-	RecordFormat          *RecordFormat   `json:"recordFormat,omitempty"`          // deprecated
-	RecordPartDuration    *StringDuration `json:"recordPartDuration,omitempty"`    // deprecated
-	RecordSegmentDuration *StringDuration `json:"recordSegmentDuration,omitempty"` // deprecated
-	RecordDeleteAfter     *StringDuration `json:"recordDeleteAfter,omitempty"`     // deprecated
+	Record                *bool         `json:"record,omitempty"`                // deprecated
+	RecordPath            *string       `json:"recordPath,omitempty"`            // deprecated
+	RecordFormat          *RecordFormat `json:"recordFormat,omitempty"`          // deprecated
+	RecordPartDuration    *Duration     `json:"recordPartDuration,omitempty"`    // deprecated
+	RecordSegmentDuration *Duration     `json:"recordSegmentDuration,omitempty"` // deprecated
+	RecordDeleteAfter     *Duration     `json:"recordDeleteAfter,omitempty"`     // deprecated
 
 	// Path defaults
 	PathDefaults Path `json:"pathDefaults"`
@@ -310,8 +310,8 @@ func (conf *Conf) setDefaults() {
 	conf.LogLevel = LogLevel(logger.Info)
 	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
 	conf.LogFile = "mediamtx.log"
-	conf.ReadTimeout = 10 * StringDuration(time.Second)
-	conf.WriteTimeout = 10 * StringDuration(time.Second)
+	conf.ReadTimeout = 10 * Duration(time.Second)
+	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512
 	conf.UDPMaxPayloadSize = 1472
 
@@ -387,10 +387,10 @@ func (conf *Conf) setDefaults() {
 	conf.HLSAllowOrigin = "*"
 	conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
 	conf.HLSSegmentCount = 7
-	conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
-	conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
+	conf.HLSSegmentDuration = 1 * Duration(time.Second)
+	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
-	conf.HLSMuxerCloseAfter = 60 * StringDuration(time.Second)
+	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
 
 	// WebRTC server
 	conf.WebRTC = true
@@ -403,8 +403,8 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCIPsFromInterfacesList = []string{}
 	conf.WebRTCAdditionalHosts = []string{}
 	conf.WebRTCICEServers2 = []WebRTCICEServer{}
-	conf.WebRTCHandshakeTimeout = 10 * StringDuration(time.Second)
-	conf.WebRTCTrackGatherTimeout = 2 * StringDuration(time.Second)
+	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
+	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
 
 	// SRT server
 	conf.SRT = true

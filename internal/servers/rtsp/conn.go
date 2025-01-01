@@ -32,7 +32,7 @@ type conn struct {
 	isTLS               bool
 	rtspAddress         string
 	authMethods         []rtspauth.ValidateMethod
-	readTimeout         conf.StringDuration
+	readTimeout         conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
 	runOnDisconnect     string

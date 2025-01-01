@@ -15,7 +15,7 @@ func TestPreflightRequest(t *testing.T) {
 	api := Metrics{
 		Address:     "localhost:9998",
 		AllowOrigin: "*",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		AuthManager: test.NilAuthManager,
 		Parent:      test.NilLogger,
 	}

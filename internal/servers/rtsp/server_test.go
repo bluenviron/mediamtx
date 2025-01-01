@@ -94,8 +94,8 @@ func TestServerPublish(t *testing.T) {
 	s := &Server{
 		Address:             "127.0.0.1:8557",
 		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
-		ReadTimeout:         conf.StringDuration(10 * time.Second),
-		WriteTimeout:        conf.StringDuration(10 * time.Second),
+		ReadTimeout:         conf.Duration(10 * time.Second),
+		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,
 		UseUDP:              false,
 		UseMulticast:        false,
@@ -188,8 +188,8 @@ func TestServerRead(t *testing.T) {
 	s := &Server{
 		Address:             "127.0.0.1:8557",
 		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
-		ReadTimeout:         conf.StringDuration(10 * time.Second),
-		WriteTimeout:        conf.StringDuration(10 * time.Second),
+		ReadTimeout:         conf.Duration(10 * time.Second),
+		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,
 		UseUDP:              false,
 		UseMulticast:        false,

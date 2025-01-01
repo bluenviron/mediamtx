@@ -72,8 +72,8 @@ type PeerConnection struct {
 	ICEServers            []webrtc.ICEServer
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             ice.TCPMux
-	HandshakeTimeout      conf.StringDuration
-	TrackGatherTimeout    conf.StringDuration
+	HandshakeTimeout      conf.Duration
+	TrackGatherTimeout    conf.Duration
 	LocalRandomUDP        bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string

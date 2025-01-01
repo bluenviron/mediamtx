@@ -51,8 +51,8 @@ const (
 type conn struct {
 	parentCtx           context.Context
 	rtspAddress         string
-	readTimeout         conf.StringDuration
-	writeTimeout        conf.StringDuration
+	readTimeout         conf.Duration
+	writeTimeout        conf.Duration
 	udpMaxPayloadSize   int
 	connReq             srt.ConnRequest
 	runOnConnect        string

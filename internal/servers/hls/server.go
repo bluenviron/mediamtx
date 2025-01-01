@@ -69,12 +69,12 @@ type Server struct {
 	AlwaysRemux     bool
 	Variant         conf.HLSVariant
 	SegmentCount    int
-	SegmentDuration conf.StringDuration
-	PartDuration    conf.StringDuration
+	SegmentDuration conf.Duration
+	PartDuration    conf.Duration
 	SegmentMaxSize  conf.StringSize
 	Directory       string
-	ReadTimeout     conf.StringDuration
-	MuxerCloseAfter conf.StringDuration
+	ReadTimeout     conf.Duration
+	MuxerCloseAfter conf.Duration
 	PathManager     serverPathManager
 	Parent          serverParent
 

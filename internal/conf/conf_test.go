@@ -50,11 +50,11 @@ func TestConfFromFile(t *testing.T) {
 		require.Equal(t, &Path{
 			Name:                       "cam1",
 			Source:                     "publisher",
-			SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
-			SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
+			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
+			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:               RecordFormatFMP4,
-			RecordPartDuration:         StringDuration(1 * time.Second),
+			RecordPartDuration:         Duration(1 * time.Second),
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			OverridePublisher:          true,
@@ -78,8 +78,8 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraBitrate:           5000000,
 			RPICameraProfile:           "main",
 			RPICameraLevel:             "4.1",
-			RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
-			RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
+			RunOnDemandStartTimeout:    5 * Duration(time.Second),
+			RunOnDemandCloseAfter:      10 * Duration(time.Second),
 		}, pa)
 	}()
 
