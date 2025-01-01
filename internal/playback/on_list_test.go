@@ -1,7 +1,10 @@
 package playback
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -9,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abema/go-mp4"
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -203,6 +208,150 @@ func TestOnListDifferentInit(t *testing.T) {
 			"start":    time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 			"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
 				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+		},
+	}, out)
+}
+
+func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
+	_, err := f.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	// check and skip ftyp header and content
+
+	buf := make([]byte, 8)
+	_, err = io.ReadFull(f, buf)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(buf[4:], []byte{'f', 't', 'y', 'p'}) {
+		return fmt.Errorf("ftyp box not found")
+	}
+
+	ftypSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+	_, err = f.Seek(int64(ftypSize), io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	// check and skip moov header
+
+	_, err = io.ReadFull(f, buf)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'v'}) {
+		return fmt.Errorf("moov box not found")
+	}
+
+	moovSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+	moovPos, err := f.Seek(8, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+
+	var mvhd mp4.Mvhd
+	_, err = mp4.Unmarshal(f, uint64(moovSize-8), &mvhd, mp4.Context{})
+	if err != nil {
+		return err
+	}
+
+	mvhd.DurationV0 = uint32(d / time.Millisecond)
+
+	_, err = f.Seek(moovPos, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = mp4.Marshal(f, &mvhd, mp4.Context{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TestOnListCachedDuration(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	func() {
+		var f *os.File
+		f, err = os.Create(filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+		require.NoError(t, err)
+		defer f.Close()
+
+		init := fmp4.Init{
+			Tracks: []*fmp4.InitTrack{
+				{
+					ID:        1,
+					TimeScale: 90000,
+					Codec: &fmp4.CodecH264{
+						SPS: test.FormatH264.SPS,
+						PPS: test.FormatH264.PPS,
+					},
+				},
+			},
+		}
+
+		err = init.Marshal(f)
+		require.NoError(t, err)
+
+		err = writeDuration(f, 50*time.Second)
+		require.NoError(t, err)
+	}()
+
+	s := &Server{
+		Address:     "127.0.0.1:9996",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:       "mypath",
+				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	u.RawQuery = v.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var out interface{}
+	err = json.NewDecoder(res.Body).Decode(&out)
+	require.NoError(t, err)
+
+	require.Equal(t, []interface{}{
+		map[string]interface{}{
+			"duration": float64(50),
+			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+			"url": "http://localhost:9996/get?duration=50&path=mypath&start=" +
+				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
 }

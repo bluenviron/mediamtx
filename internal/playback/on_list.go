@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,7 +28,7 @@ type listEntry struct {
 	URL      string            `json:"url"`
 }
 
-func computeDurationAndConcatenate(
+func readDurationAndConcatenate(
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
 ) ([]listEntry, error) {
@@ -45,19 +44,18 @@ func computeDurationAndConcatenate(
 				}
 				defer f.Close()
 
-				init, err := segmentFMP4ReadInit(f)
+				init, duration, err := segmentFMP4ReadHeader(f)
 				if err != nil {
 					return err
 				}
 
-				_, err = f.Seek(0, io.SeekStart)
-				if err != nil {
-					return err
-				}
-
-				maxDuration, err := segmentFMP4ReadDuration(f, init)
-				if err != nil {
-					return err
+				// if duration is not present in the header, compute it
+				// by parsing each part
+				if duration == 0 {
+					duration, err = segmentFMP4ReadDurationFromParts(f, init)
+					if err != nil {
+						return err
+					}
 				}
 
 				if len(out) != 0 && segmentFMP4CanBeConcatenated(
@@ -66,12 +64,12 @@ func computeDurationAndConcatenate(
 					init,
 					seg.Start) {
 					prevStart := out[len(out)-1].Start
-					curEnd := seg.Start.Add(maxDuration)
+					curEnd := seg.Start.Add(duration)
 					out[len(out)-1].Duration = listEntryDuration(curEnd.Sub(prevStart))
 				} else {
 					out = append(out, listEntry{
 						Start:    seg.Start,
-						Duration: listEntryDuration(maxDuration),
+						Duration: listEntryDuration(duration),
 					})
 				}
 
@@ -137,7 +135,7 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := computeDurationAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := readDurationAndConcatenate(pathConf.RecordFormat, segments)
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
