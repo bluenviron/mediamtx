@@ -1578,10 +1578,16 @@ playbackAddress: :9996
 The server provides an endpoint to list recorded timespans:
 
 ```
-http://localhost:9996/list?path=[mypath]
+http://localhost:9996/list?path=[mypath]&start=[start]&end=[end]
 ```
 
-Where [mypath] is the name of a path. The server will return a list of timespans in JSON format:
+Where:
+
+* [mypath] is the name of a path
+* [start] (optional) is the start date in [RFC3339 format](https://www.utctime.net/)
+* [end] (optional) is the end date in [RFC3339 format](https://www.utctime.net/)
+
+The server will return a list of timespans in JSON format:
 
 ```json
 [
@@ -1601,13 +1607,13 @@ Where [mypath] is the name of a path. The server will return a list of timespans
 The server provides an endpoint to download recordings:
 
 ```
-http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&format=[format]
+http://localhost:9996/get?path=[mypath]&start=[start]&duration=[duration]&format=[format]
 ```
 
 Where:
 
 * [mypath] is the path name
-* [start_date] is the start date in [RFC3339 format](https://www.utctime.net/)
+* [start] is the start date in [RFC3339 format](https://www.utctime.net/)
 * [duration] is the maximum duration of the recording in seconds
 * [format] (optional) is the output format of the stream. Available values are "fmp4" (default) and "mp4"
 

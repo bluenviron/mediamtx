@@ -114,7 +114,7 @@ func segmentFMP4ReadInit(r io.ReadSeeker) (*fmp4.Init, error) {
 	return &init, nil
 }
 
-func segmentFMP4ReadMaxDuration(
+func segmentFMP4ReadDuration(
 	r io.ReadSeeker,
 	init *fmp4.Init,
 ) (time.Duration, error) {

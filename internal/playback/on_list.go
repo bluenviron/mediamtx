@@ -55,7 +55,7 @@ func computeDurationAndConcatenate(
 					return err
 				}
 
-				maxDuration, err := segmentFMP4ReadMaxDuration(f, init)
+				maxDuration, err := segmentFMP4ReadDuration(f, init)
 				if err != nil {
 					return err
 				}
@@ -103,7 +103,31 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	segments, err := recordstore.FindSegments(pathConf, pathName)
+	var start *time.Time
+	rawStart := ctx.Query("start")
+	if rawStart != "" {
+		var tmp time.Time
+		tmp, err = time.Parse(time.RFC3339, rawStart)
+		if err != nil {
+			s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid start: %w", err))
+			return
+		}
+		start = &tmp
+	}
+
+	var end *time.Time
+	rawEnd := ctx.Query("end")
+	if rawEnd != "" {
+		var tmp time.Time
+		tmp, err = time.Parse(time.RFC3339, rawEnd)
+		if err != nil {
+			s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid end: %w", err))
+			return
+		}
+		end = &tmp
+	}
+
+	segments, err := recordstore.FindSegments(pathConf, pathName, start, end)
 	if err != nil {
 		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
@@ -117,6 +141,21 @@ func (s *Server) onList(ctx *gin.Context) {
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
+	}
+
+	if start != nil {
+		firstEntry := entries[0]
+		if firstEntry.Start.Before(*start) {
+			entries[0].Duration -= listEntryDuration(start.Sub(firstEntry.Start))
+			entries[0].Start = *start
+		}
+	}
+
+	if end != nil {
+		lastEntry := entries[len(entries)-1]
+		if lastEntry.Start.Add(time.Duration(lastEntry.Duration)).After(*end) {
+			entries[len(entries)-1].Duration = listEntryDuration(end.Sub(lastEntry.Start))
+		}
 	}
 
 	var scheme string
