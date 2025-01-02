@@ -206,8 +206,12 @@ webrtc_sessions_bytes_sent 0
 			conn, err := rtmp.NewClientConn(nconn, u, true)
 			require.NoError(t, err)
 
-			_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
+			w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
 			require.NoError(t, err)
+
+			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			require.NoError(t, err)
+
 			<-terminate
 		}()
 
@@ -223,8 +227,12 @@ webrtc_sessions_bytes_sent 0
 			conn, err := rtmp.NewClientConn(nconn, u, true)
 			require.NoError(t, err)
 
-			_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
+			w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
 			require.NoError(t, err)
+
+			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			require.NoError(t, err)
+
 			<-terminate
 		}()
 
@@ -436,7 +444,7 @@ webrtc_sessions_bytes_sent 0
 		wg.Wait()
 	})
 
-	t.Run("servers deleted", func(t *testing.T) {
+	t.Run("servers disabled", func(t *testing.T) {
 		httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]interface{}{
 			"rtsp":   false,
 			"rtmp":   false,

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -143,6 +144,12 @@ func TestServerPublish(t *testing.T) {
 			w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)
 			require.NoError(t, err)
 
+			err = w.WriteH264(
+				2*time.Second, 2*time.Second, [][]byte{
+					{5, 2, 3, 4},
+				})
+			require.NoError(t, err)
+
 			<-path.streamCreated
 
 			recv := make(chan struct{})
@@ -166,9 +173,10 @@ func TestServerPublish(t *testing.T) {
 			path.stream.StartReader(reader)
 			defer path.stream.RemoveReader(reader)
 
-			err = w.WriteH264(0, 0, true, [][]byte{
-				{5, 2, 3, 4},
-			})
+			err = w.WriteH264(
+				3*time.Second, 3*time.Second, [][]byte{
+					{5, 2, 3, 4},
+				})
 			require.NoError(t, err)
 
 			<-recv
@@ -241,27 +249,49 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer nconn.Close()
 
+			go func() {
+				stream.WaitRunningReader()
+
+				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+					Base: unit.Base{
+						NTP: time.Time{},
+					},
+					AU: [][]byte{
+						{5, 2, 3, 4}, // IDR
+					},
+				})
+
+				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+					Base: unit.Base{
+						NTP: time.Time{},
+						PTS: 2 * 90000,
+					},
+					AU: [][]byte{
+						{5, 2, 3, 4}, // IDR
+					},
+				})
+
+				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+					Base: unit.Base{
+						NTP: time.Time{},
+						PTS: 3 * 90000,
+					},
+					AU: [][]byte{
+						{5, 2, 3, 4}, // IDR
+					},
+				})
+			}()
+
 			conn, err := rtmp.NewClientConn(nconn, u, false)
 			require.NoError(t, err)
 
 			r, err := rtmp.NewReader(conn)
 			require.NoError(t, err)
 
-			videoTrack, _ := r.Tracks()
-			require.Equal(t, test.FormatH264, videoTrack)
+			tracks := r.Tracks()
+			require.Equal(t, []format.Format{test.FormatH264}, tracks)
 
-			stream.WaitRunningReader()
-
-			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-				Base: unit.Base{
-					NTP: time.Time{},
-				},
-				AU: [][]byte{
-					{5, 2, 3, 4}, // IDR
-				},
-			})
-
-			r.OnDataH264(func(_ time.Duration, au [][]byte) {
+			r.OnDataH264(tracks[0].(*format.H264), func(_ time.Duration, au [][]byte) {
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
