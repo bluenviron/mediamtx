@@ -62,8 +62,8 @@ func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 
 // Source is a RTSP static source.
 type Source struct {
-	ReadTimeout    conf.StringDuration
-	WriteTimeout   conf.StringDuration
+	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	WriteQueueSize int
 	Parent         defs.StaticSourceParent
 }

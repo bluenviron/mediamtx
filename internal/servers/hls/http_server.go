@@ -42,7 +42,7 @@ type httpServer struct {
 	serverCert     string
 	allowOrigin    string
 	trustedProxies conf.IPNetworks
-	readTimeout    conf.StringDuration
+	readTimeout    conf.Duration
 	pathManager    serverPathManager
 	parent         *Server
 

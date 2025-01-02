@@ -27,7 +27,7 @@ type Server struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	PathConfs      map[string]*conf.Path
 	AuthManager    serverAuthManager
 	Parent         logger.Writer

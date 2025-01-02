@@ -181,15 +181,15 @@ type Server struct {
 	ServerCert            string
 	AllowOrigin           string
 	TrustedProxies        conf.IPNetworks
-	ReadTimeout           conf.StringDuration
+	ReadTimeout           conf.Duration
 	LocalUDPAddress       string
 	LocalTCPAddress       string
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
 	ICEServers            []conf.WebRTCICEServer
-	HandshakeTimeout      conf.StringDuration
-	TrackGatherTimeout    conf.StringDuration
+	HandshakeTimeout      conf.Duration
+	TrackGatherTimeout    conf.Duration
 	ExternalCmdPool       *externalcmd.Pool
 	PathManager           serverPathManager
 	Parent                serverParent

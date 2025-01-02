@@ -61,8 +61,8 @@ type serverParent interface {
 type Server struct {
 	Address             string
 	AuthMethods         []auth.ValidateMethod
-	ReadTimeout         conf.StringDuration
-	WriteTimeout        conf.StringDuration
+	ReadTimeout         conf.Duration
+	WriteTimeout        conf.Duration
 	WriteQueueSize      int
 	UseUDP              bool
 	UseMulticast        bool

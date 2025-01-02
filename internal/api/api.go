@@ -136,7 +136,7 @@ type API struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    PathManager

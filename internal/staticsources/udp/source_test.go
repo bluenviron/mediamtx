@@ -18,7 +18,7 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ReadTimeout: conf.StringDuration(10 * time.Second),
+				ReadTimeout: conf.Duration(10 * time.Second),
 				Parent:      p,
 			}
 		},

@@ -39,8 +39,8 @@ func TestSource(t *testing.T) {
 		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            true,
-		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
 		OutgoingTracks:     outgoingTracks,
 		Log:                test.NilLogger,
 	}
@@ -125,7 +125,7 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ReadTimeout: conf.StringDuration(10 * time.Second),
+				ReadTimeout: conf.Duration(10 * time.Second),
 				Parent:      p,
 			}
 		},

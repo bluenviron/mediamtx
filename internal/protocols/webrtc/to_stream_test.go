@@ -336,8 +336,8 @@ func TestToStream(t *testing.T) {
 	for _, ca := range toFromStreamCases {
 		t.Run(ca.name, func(t *testing.T) {
 			pc1 := &PeerConnection{
-				HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-				TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+				HandshakeTimeout:   conf.Duration(10 * time.Second),
+				TrackGatherTimeout: conf.Duration(2 * time.Second),
 				LocalRandomUDP:     true,
 				IPsFromInterfaces:  true,
 				Publish:            true,
@@ -351,8 +351,8 @@ func TestToStream(t *testing.T) {
 			defer pc1.Close()
 
 			pc2 := &PeerConnection{
-				HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-				TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+				HandshakeTimeout:   conf.Duration(10 * time.Second),
+				TrackGatherTimeout: conf.Duration(2 * time.Second),
 				LocalRandomUDP:     true,
 				IPsFromInterfaces:  true,
 				Publish:            false,

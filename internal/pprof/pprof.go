@@ -32,7 +32,7 @@ type PPROF struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	AuthManager    pprofAuthManager
 	Parent         pprofParent
 

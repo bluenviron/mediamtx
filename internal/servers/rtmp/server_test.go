@@ -109,8 +109,8 @@ func TestServerPublish(t *testing.T) {
 
 			s := &Server{
 				Address:             "127.0.0.1:1935",
-				ReadTimeout:         conf.StringDuration(10 * time.Second),
-				WriteTimeout:        conf.StringDuration(10 * time.Second),
+				ReadTimeout:         conf.Duration(10 * time.Second),
+				WriteTimeout:        conf.Duration(10 * time.Second),
 				IsTLS:               encrypt == "tls",
 				ServerCert:          serverCertFpath,
 				ServerKey:           serverKeyFpath,
@@ -220,8 +220,8 @@ func TestServerRead(t *testing.T) {
 
 			s := &Server{
 				Address:             "127.0.0.1:1935",
-				ReadTimeout:         conf.StringDuration(10 * time.Second),
-				WriteTimeout:        conf.StringDuration(10 * time.Second),
+				ReadTimeout:         conf.Duration(10 * time.Second),
+				WriteTimeout:        conf.Duration(10 * time.Second),
 				IsTLS:               encrypt == "tls",
 				ServerCert:          serverCertFpath,
 				ServerKey:           serverKeyFpath,

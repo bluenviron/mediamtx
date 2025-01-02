@@ -42,8 +42,8 @@ type conn struct {
 	parentCtx           context.Context
 	isTLS               bool
 	rtspAddress         string
-	readTimeout         conf.StringDuration
-	writeTimeout        conf.StringDuration
+	readTimeout         conf.Duration
+	writeTimeout        conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
 	runOnDisconnect     string

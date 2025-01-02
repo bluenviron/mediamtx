@@ -231,7 +231,7 @@ func TestOnGet(t *testing.T) {
 
 			s := &Server{
 				Address:     "127.0.0.1:9996",
-				ReadTimeout: conf.StringDuration(10 * time.Second),
+				ReadTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
 						Name:       "mypath",
@@ -505,7 +505,7 @@ func TestOnGetDifferentInit(t *testing.T) {
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
 				Name:       "mypath",
@@ -581,7 +581,7 @@ func TestOnGetNTPCompensation(t *testing.T) {
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
 				Name:       "mypath",

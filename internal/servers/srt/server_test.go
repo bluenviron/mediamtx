@@ -91,8 +91,8 @@ func TestServerPublish(t *testing.T) {
 	s := &Server{
 		Address:             "127.0.0.1:8890",
 		RTSPAddress:         "",
-		ReadTimeout:         conf.StringDuration(10 * time.Second),
-		WriteTimeout:        conf.StringDuration(10 * time.Second),
+		ReadTimeout:         conf.Duration(10 * time.Second),
+		WriteTimeout:        conf.Duration(10 * time.Second),
 		UDPMaxPayloadSize:   1472,
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
@@ -192,8 +192,8 @@ func TestServerRead(t *testing.T) {
 	s := &Server{
 		Address:             "127.0.0.1:8890",
 		RTSPAddress:         "",
-		ReadTimeout:         conf.StringDuration(10 * time.Second),
-		WriteTimeout:        conf.StringDuration(10 * time.Second),
+		ReadTimeout:         conf.Duration(10 * time.Second),
+		WriteTimeout:        conf.Duration(10 * time.Second),
 		UDPMaxPayloadSize:   1472,
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
