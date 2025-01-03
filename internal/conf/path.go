@@ -286,9 +286,11 @@ func (pconf *Path) validate(
 		return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
 			" must have 'sourceOnDemand' set to true")
 	}
+
 	if pconf.SRTPublishPassphrase != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
 	}
+
 	if pconf.SourceOnDemand && pconf.Source == "publisher" {
 		return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 	}
@@ -486,6 +488,11 @@ func (pconf *Path) validate(
 				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
 				pconf.RecordPath)
 		}
+	}
+
+	// avoid overflowing DurationV0 of mvhd
+	if pconf.RecordSegmentDuration > Duration(24*time.Hour) {
+		return fmt.Errorf("maximum segment duration is 1 day")
 	}
 
 	// Authentication (deprecated)

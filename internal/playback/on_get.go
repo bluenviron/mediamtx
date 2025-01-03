@@ -57,7 +57,7 @@ func seekAndMux(
 		}
 		defer f.Close()
 
-		firstInit, err = segmentFMP4ReadInit(f)
+		firstInit, _, err = segmentFMP4ReadHeader(f)
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func seekAndMux(
 			defer f.Close()
 
 			var init *fmp4.Init
-			init, err = segmentFMP4ReadInit(f)
+			init, _, err = segmentFMP4ReadHeader(f)
 			if err != nil {
 				return err
 			}
