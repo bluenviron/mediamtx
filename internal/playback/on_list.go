@@ -221,5 +221,5 @@ func (s *Server) onList(ctx *gin.Context) {
 		entries[i].URL = u.String()
 	}
 
-	ctx.JSON(http.StatusOK, entries)
+	ctx.PureJSON(http.StatusOK, entries)
 }
