@@ -228,7 +228,7 @@ func (s *Server) onList(ctx *gin.Context) {
 		var u *url.URL
 		if s.BaseUrl != "" {
 			u, _ = url.Parse(s.BaseUrl)
-			u.JoinPath("get")
+			u = u.JoinPath("get")
 		} else {
 			u = &url.URL{
 				Scheme: scheme,
@@ -240,5 +240,5 @@ func (s *Server) onList(ctx *gin.Context) {
 		entries[i].URL = u.String()
 	}
 
-	ctx.JSON(http.StatusOK, entries)
+	ctx.PureJSON(http.StatusOK, entries)
 }
