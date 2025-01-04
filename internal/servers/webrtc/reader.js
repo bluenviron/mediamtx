@@ -366,7 +366,7 @@
         sdpSemantics: 'unified-plan',
       });
 
-      const direction = 'sendrecv';
+      const direction = 'recvonly';
       this.pc.addTransceiver('video', { direction });
       this.pc.addTransceiver('audio', { direction });
 
