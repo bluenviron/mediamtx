@@ -313,7 +313,7 @@ webrtc_sessions_bytes_sent 0
 			<-terminate
 		}()
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(500*time.Millisecond + 2*time.Second)
 
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
