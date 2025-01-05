@@ -235,15 +235,15 @@ rtspEncryption: "no"
 rtspAddress: :8554
 # Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
 rtspsAddress: :8322
-# Address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTP listener. This is needed only when "udp" is in rtspTransports.
 rtpAddress: :8000
-# Address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTCP listener. This is needed only when "udp" is in rtspTransports.
 rtcpAddress: :8001
-# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in protocols.
+# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in rtspTransports.
 multicastIPRange: 224.1.0.0/16
-# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in rtspTransports.
 multicastRTPPort: 8002
-# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in rtspTransports.
 multicastRTCPPort: 8003
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
