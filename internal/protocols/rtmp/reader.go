@@ -381,11 +381,7 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 			}
 			curTime = msg.DTS
 
-			if msg.Type == message.VideoTypeConfig {
-				if videoTracks[0] != nil {
-					return nil, nil, fmt.Errorf("video track 0 already setupped")
-				}
-
+			if msg.Type == message.VideoTypeConfig && videoTracks[0] == nil {
 				videoTracks[0], err = h264TrackFromConfig(msg.Payload)
 				if err != nil {
 					return nil, nil, err
@@ -442,21 +438,19 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 			}
 			curTime = msg.DTS
 
-			if msg.Codec == message.CodecMPEG4Audio {
-				if msg.AACType == message.AudioAACTypeConfig && len(msg.Payload) != 0 {
-					if audioTracks[0] != nil {
-						return nil, nil, fmt.Errorf("audio track 0 already setupped")
+			if audioTracks[0] == nil && len(msg.Payload) != 0 {
+				if msg.Codec == message.CodecMPEG4Audio {
+					if msg.AACType == message.AudioAACTypeConfig {
+						audioTracks[0], err = mpeg4AudioTrackFromConfig(msg.Payload)
+						if err != nil {
+							return nil, nil, err
+						}
 					}
-
-					audioTracks[0], err = mpeg4AudioTrackFromConfig(msg.Payload)
+				} else {
+					audioTracks[0], err = audioTrackFromData(msg)
 					if err != nil {
 						return nil, nil, err
 					}
-				}
-			} else if audioTracks[0] == nil && len(msg.Payload) != 0 {
-				audioTracks[0], err = audioTrackFromData(msg)
-				if err != nil {
-					return nil, nil, err
 				}
 			}
 

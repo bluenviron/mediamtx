@@ -221,7 +221,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"h264 + aac, issue mediamtx/386 (missing metadata)",
+			"issue mediamtx/386 (missing metadata)",
 			[]format.Format{
 				&format.H264{
 					PayloadTyp:        96,
@@ -278,7 +278,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"h264 + aac, issue mediamtx/3301 (metadata without tracks)",
+			"issue mediamtx/3301 (metadata without tracks)",
 			[]format.Format{
 				&format.H264{
 					PayloadTyp:        96,
@@ -353,7 +353,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"aac, issue mediamtx/386 (missing metadata)",
+			"issue mediamtx/386 (missing metadata)",
 			[]format.Format{
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
@@ -399,7 +399,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"aac, issue mediamtx/3414 (empty audio payload)",
+			"issue mediamtx/3414 (empty audio payload)",
 			[]format.Format{
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
@@ -481,7 +481,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"h265, issue mediamtx/2232 (xsplit broadcaster)",
+			"issue mediamtx/2232 (xsplit broadcaster)",
 			[]format.Format{
 				&format.H265{
 					PayloadTyp: 96,
@@ -669,7 +669,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"h264 + aac, issue mediamtx/2289 (missing videocodecid)",
+			"issue mediamtx/2289 (missing videocodecid)",
 			[]format.Format{
 				&format.H264{
 					PayloadTyp: 96,
@@ -758,7 +758,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"h264, issue mediamtx/2352",
+			"issue mediamtx/2352 (streamlabs)",
 			[]format.Format{
 				&format.H264{
 					PayloadTyp:        96,
@@ -1541,6 +1541,81 @@ func TestReadTracks(t *testing.T) {
 						0xfb, 0x7b, 0x49, 0x68, 0x00, 0x2a, 0xd7, 0x94,
 						0x01, 0x99, 0xce, 0x5e, 0xec, 0x64, 0x63, 0xb9,
 					},
+				},
+			},
+		},
+		{
+			"issue mediamtx/3802 (double video config)",
+			[]format.Format{
+				&format.H264{
+					PayloadTyp:        96,
+					SPS:               test.FormatH264.SPS,
+					PPS:               test.FormatH264.PPS,
+					PacketizationMode: 1,
+				},
+			},
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						amf0.Object{
+							{
+								Key:   "videodatarate",
+								Value: float64(0),
+							},
+							{
+								Key:   "videocodecid",
+								Value: float64(message.CodecH264),
+							},
+							{
+								Key:   "audiodatarate",
+								Value: float64(0),
+							},
+							{
+								Key:   "audiocodecid",
+								Value: float64(0),
+							},
+						},
+					},
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeConfig,
+					Payload: func() []byte {
+						buf, _ := h264conf.Conf{
+							SPS: test.FormatH264.SPS,
+							PPS: test.FormatH264.PPS,
+						}.Marshal()
+						return buf
+					}(),
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeConfig,
+					Payload: func() []byte {
+						buf, _ := h264conf.Conf{
+							SPS: test.FormatH264.SPS,
+							PPS: test.FormatH264.PPS,
+						}.Marshal()
+						return buf
+					}(),
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					DTS:             2 * time.Second,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeAU,
 				},
 			},
 		},
