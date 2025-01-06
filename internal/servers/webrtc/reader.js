@@ -371,7 +371,7 @@
       this.pc.addTransceiver('audio', { direction });
 
       this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-      this.pc.oniceconnectionstatechange = () => this.onConnectionState();
+      this.pc.onconnectionstatechange = () => this.onConnectionState();
       this.pc.ontrack = (evt) => this.onTrack(evt);
 
       return this.pc.createOffer()
@@ -468,7 +468,7 @@
         return;
       }
 
-      if (this.pc.iceConnectionState === 'failed') {
+      if (this.pc.connectionState === 'failed') {
         this.handleError('peer connection closed');
       }
     };

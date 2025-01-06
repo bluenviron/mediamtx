@@ -264,7 +264,7 @@
       });
 
       this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-      this.pc.oniceconnectionstatechange = () => this.onConnectionState();
+      this.pc.onconnectionstatechange = () => this.onConnectionState();
 
       this.conf.stream.getTracks().forEach((track) => {
         this.pc.addTrack(track, this.conf.stream);
@@ -372,9 +372,9 @@
         return;
       }
 
-      if (this.pc.iceConnectionState === 'failed') {
+      if (this.pc.connectionState === 'failed') {
         this.handleError('peer connection closed');
-      } else if (this.pc.iceConnectionState === 'connected') {
+      } else if (this.pc.connectionState === 'connected') {
         if (this.conf.onConnected !== undefined) {
           this.conf.onConnected();
         }
