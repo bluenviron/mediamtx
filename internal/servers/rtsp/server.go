@@ -216,6 +216,10 @@ func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	c := s.conns[ctx.Conn]
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
+	sx := ctx.Conn.Session()
+	if sx != nil {
+		sx.Close()
+	}
 	c.onClose(ctx.Error)
 }
 
