@@ -15,7 +15,7 @@ import (
 
 const (
 	sampleFlagIsNonSyncSample = 1 << 16
-	concatenationTolerance    = 500 * time.Millisecond
+	concatenationTolerance    = 100 * time.Millisecond
 )
 
 var errTerminated = errors.New("terminated")
