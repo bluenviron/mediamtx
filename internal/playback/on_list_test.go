@@ -20,255 +20,160 @@ import (
 )
 
 func TestOnListUnfiltered(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	for _, ca := range []string{
+		"unfiltered",
+		"filtered",
+		"filtered and gap",
+		"different init",
+		"start after duration",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			dir, err := os.MkdirTemp("", "mediamtx-playback")
+			require.NoError(t, err)
+			defer os.RemoveAll(dir)
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
-	require.NoError(t, err)
+			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			require.NoError(t, err)
 
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
+			switch ca {
+			case "unfiltered":
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
 
-	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathConfs: map[string]*conf.Path{
-			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
-			},
-		},
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
+			case "filtered":
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
+
+			case "filtered and gap":
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-24-02-500000.mp4"))
+
+			case "different init":
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+				writeSegment3(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+
+			case "start after duration":
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+			}
+
+			s := &Server{
+				Address:     "127.0.0.1:9996",
+				ReadTimeout: conf.Duration(10 * time.Second),
+				PathConfs: map[string]*conf.Path{
+					"mypath": {
+						Name:       "mypath",
+						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+					},
+				},
+				AuthManager: test.NilAuthManager,
+				Parent:      test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			u, err := url.Parse("http://myuser:mypass@localhost:9996/list?start=")
+			require.NoError(t, err)
+
+			v := url.Values{}
+			v.Set("path", "mypath")
+
+			switch ca {
+			case "filtered":
+				v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
+
+			case "filtered and gap":
+				v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
+
+			case "start after duration":
+				v.Set("start", time.Date(2010, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+			}
+
+			u.RawQuery = v.Encode()
+
+			req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+			require.NoError(t, err)
+
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			if ca == "start after duration" {
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
+				return
+			}
+
+			require.Equal(t, http.StatusOK, res.StatusCode)
+
+			var out interface{}
+			err = json.NewDecoder(res.Body).Decode(&out)
+			require.NoError(t, err)
+
+			switch ca {
+			case "unfiltered":
+				require.Equal(t, []interface{}{
+					map[string]interface{}{
+						"duration": float64(65),
+						"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+					map[string]interface{}{
+						"duration": float64(3),
+						"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
+							url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+				}, out)
+
+			case "filtered":
+				require.Equal(t, []interface{}{
+					map[string]interface{}{
+						"duration": float64(64),
+						"start":    time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=64&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+					map[string]interface{}{
+						"duration": float64(2),
+						"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=2&path=mypath&start=" +
+							url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+				}, out)
+
+			case "filtered and gap":
+				require.Equal(t, []interface{}{
+					map[string]interface{}{
+						"duration": float64(3),
+						"start":    time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+				}, out)
+
+			case "different init":
+				require.Equal(t, []interface{}{
+					map[string]interface{}{
+						"duration": float64(62),
+						"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+					map[string]interface{}{
+						"duration": float64(1),
+						"start":    time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+				}, out)
+			}
+		})
 	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
-	require.NoError(t, err)
-
-	v := url.Values{}
-	v.Set("path", "mypath")
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusOK, res.StatusCode)
-
-	var out interface{}
-	err = json.NewDecoder(res.Body).Decode(&out)
-	require.NoError(t, err)
-
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
-			"duration": float64(65),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-		map[string]interface{}{
-			"duration": float64(3),
-			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
-				url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-	}, out)
-}
-
-func TestOnListFiltered(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
-	require.NoError(t, err)
-
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
-
-	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathConfs: map[string]*conf.Path{
-			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
-			},
-		},
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list?start=")
-	require.NoError(t, err)
-
-	v := url.Values{}
-	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano))
-	v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusOK, res.StatusCode)
-
-	var out interface{}
-	err = json.NewDecoder(res.Body).Decode(&out)
-	require.NoError(t, err)
-
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
-			"duration": float64(64),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=64&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-		map[string]interface{}{
-			"duration": float64(2),
-			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=2&path=mypath&start=" +
-				url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-	}, out)
-}
-
-func TestOnListFilteredAndGap(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
-	require.NoError(t, err)
-
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-24-02-500000.mp4"))
-
-	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathConfs: map[string]*conf.Path{
-			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
-			},
-		},
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list?start=")
-	require.NoError(t, err)
-
-	v := url.Values{}
-	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
-	v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusOK, res.StatusCode)
-
-	var out interface{}
-	err = json.NewDecoder(res.Body).Decode(&out)
-	require.NoError(t, err)
-
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
-			"duration": float64(3),
-			"start":    time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-	}, out)
-}
-
-func TestOnListDifferentInit(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
-	require.NoError(t, err)
-
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment3(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-
-	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathConfs: map[string]*conf.Path{
-			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
-			},
-		},
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
-	require.NoError(t, err)
-
-	v := url.Values{}
-	v.Set("path", "mypath")
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusOK, res.StatusCode)
-
-	var out interface{}
-	err = json.NewDecoder(res.Body).Decode(&out)
-	require.NoError(t, err)
-
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
-			"duration": float64(62),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-		map[string]interface{}{
-			"duration": float64(1),
-			"start":    time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-			"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
-		},
-	}, out)
 }
 
 func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
