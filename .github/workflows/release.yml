@@ -40,7 +40,11 @@ jobs:
 
           const currentRelease = context.ref.split('/')[2];
 
-          let body = `## Security\n\n`
+          let body = `## New major features\n\n`
+            + `TODO\n\n`
+            + `## Fixes and improvements\n\n`
+            + `TODO\n\n`
+            + `## Security\n\n`
             + `Binaries have been produced by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml)`
             + ` without human intervention.\n\n`
             + `SHA256 checksums:\n`;
