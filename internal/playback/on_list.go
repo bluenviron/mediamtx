@@ -187,7 +187,10 @@ func (s *Server) onList(ctx *gin.Context) {
 
 	if start != nil {
 		firstEntry := entries[0]
-		if firstEntry.Start.Before(*start) {
+
+		if firstEntry.Start.Add(time.Duration(firstEntry.Duration)).Before(*start) {
+			entries = entries[1:]
+		} else if firstEntry.Start.Before(*start) {
 			entries[0].Duration -= listEntryDuration(start.Sub(firstEntry.Start))
 			entries[0].Start = *start
 		}
