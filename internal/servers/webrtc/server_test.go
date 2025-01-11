@@ -76,27 +76,9 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
-type dummyPathManager struct {
-	findPathConf func(req defs.PathFindPathConfReq) (*conf.Path, error)
-	addPublisher func(req defs.PathAddPublisherReq) (defs.Path, error)
-	addReader    func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
-}
-
-func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
-	return pm.findPathConf(req)
-}
-
-func (pm *dummyPathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
-	return pm.addPublisher(req)
-}
-
-func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-	return pm.addReader(req)
-}
-
 func initializeTestServer(t *testing.T) *Server {
-	pm := &dummyPathManager{
-		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+	pm := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 	}
@@ -179,8 +161,8 @@ func TestPreflightRequest(t *testing.T) {
 }
 
 func TestServerOptionsICEServer(t *testing.T) {
-	pathManager := &dummyPathManager{
-		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
 	}
@@ -242,13 +224,19 @@ func TestServerPublish(t *testing.T) {
 		streamCreated: make(chan struct{}),
 	}
 
-	pathManager := &dummyPathManager{
-		findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
 			return &conf.Path{}, nil
 		},
-		addPublisher: func(req defs.PathAddPublisherReq) (defs.Path, error) {
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
 			return path, nil
 		},
 	}
@@ -523,13 +511,19 @@ func TestServerRead(t *testing.T) {
 
 			path := &dummyPath{stream: str}
 
-			pathManager := &dummyPathManager{
-				findPathConf: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			pathManager := &test.PathManager{
+				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
 					return &conf.Path{}, nil
 				},
-				addReader: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
 					return path, str, nil
 				},
 			}
@@ -613,11 +607,11 @@ func TestServerRead(t *testing.T) {
 }
 
 func TestServerReadNotFound(t *testing.T) {
-	pm := &dummyPathManager{
-		findPathConf: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+	pm := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
 			return &conf.Path{}, nil
 		},
-		addReader: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 			return nil, nil, defs.PathNoOnePublishingError{}
 		},
 	}

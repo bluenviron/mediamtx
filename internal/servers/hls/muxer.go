@@ -124,8 +124,8 @@ func (m *muxer) runInner() error {
 		Author: m,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     m.pathName,
-			SkipAuth: true,
 			Query:    m.query,
+			SkipAuth: true,
 		},
 	})
 	if err != nil {

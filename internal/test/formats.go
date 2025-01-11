@@ -5,7 +5,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 )
 
-// FormatH264 is a test H264 format.
+// FormatH264 is a dummy H264 format.
 var FormatH264 = &format.H264{
 	PayloadTyp: 96,
 	SPS: []byte{ // 1920x1080 baseline
@@ -17,7 +17,7 @@ var FormatH264 = &format.H264{
 	PacketizationMode: 1,
 }
 
-// FormatH265 is a test H265 format.
+// FormatH265 is a dummy H265 format.
 var FormatH265 = &format.H265{
 	PayloadTyp: 96,
 	VPS: []byte{
@@ -40,7 +40,7 @@ var FormatH265 = &format.H265{
 	},
 }
 
-// FormatMPEG4Audio is a test MPEG-4 audio format.
+// FormatMPEG4Audio is a dummy MPEG-4 audio format.
 var FormatMPEG4Audio = &format.MPEG4Audio{
 	PayloadTyp: 96,
 	Config: &mpeg4audio.Config{

@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	rtspauth "github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -63,37 +64,27 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
-type dummyPathManager struct {
-	path *dummyPath
-}
-
-func (pm *dummyPathManager) Describe(_ defs.PathDescribeReq) defs.PathDescribeRes {
-	return defs.PathDescribeRes{
-		Path:     pm.path,
-		Stream:   pm.path.stream,
-		Redirect: "",
-		Err:      nil,
-	}
-}
-
-func (pm *dummyPathManager) AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, error) {
-	return pm.path, nil
-}
-
-func (pm *dummyPathManager) AddReader(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-	return pm.path, pm.path.stream, nil
-}
-
 func TestServerPublish(t *testing.T) {
 	path := &dummyPath{
 		streamCreated: make(chan struct{}),
 	}
 
-	pathManager := &dummyPathManager{path: path}
+	pathManager := &test.PathManager{
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
+			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
+				return nil, &auth.Error{Message: "", AskCredentials: true}
+			}
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return path, nil
+		},
+	}
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
+		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
 		ReadTimeout:         conf.Duration(10 * time.Second),
 		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,
@@ -172,7 +163,7 @@ func TestServerPublish(t *testing.T) {
 func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-	stream, err := stream.New(
+	str, err := stream.New(
 		512,
 		1460,
 		desc,
@@ -181,13 +172,37 @@ func TestServerRead(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	path := &dummyPath{stream: stream}
+	path := &dummyPath{stream: str}
 
-	pathManager := &dummyPathManager{path: path}
+	pathManager := &test.PathManager{
+		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
+				return defs.PathDescribeRes{Err: &auth.Error{Message: "", AskCredentials: true}}
+			}
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+
+			return defs.PathDescribeRes{
+				Path:     path,
+				Stream:   path.stream,
+				Redirect: "",
+				Err:      nil,
+			}
+		},
+		AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.Equal(t, "myuser", req.AccessRequest.User)
+			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			return path, path.stream, nil
+		},
+	}
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []auth.ValidateMethod{auth.ValidateMethodBasic},
+		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
 		ReadTimeout:         conf.Duration(10 * time.Second),
 		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,
@@ -256,7 +271,7 @@ func TestServerRead(t *testing.T) {
 	_, err = reader.Play(nil)
 	require.NoError(t, err)
 
-	stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+	str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{
 			NTP: time.Time{},
 		},

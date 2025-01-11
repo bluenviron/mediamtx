@@ -111,18 +111,21 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}
 	}
 
+	req := defs.PathAccessRequest{
+		Name:        ctx.Path,
+		Query:       ctx.Query,
+		Publish:     true,
+		IP:          c.ip(),
+		Proto:       auth.ProtocolRTSP,
+		ID:          &c.uuid,
+		RTSPRequest: ctx.Request,
+		RTSPNonce:   c.authNonce,
+	}
+	req.FillFromRTSPRequest(ctx.Request)
+
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        ctx.Path,
-			Query:       ctx.Query,
-			Publish:     true,
-			IP:          c.ip(),
-			Proto:       auth.ProtocolRTSP,
-			ID:          &c.uuid,
-			RTSPRequest: ctx.Request,
-			RTSPNonce:   c.authNonce,
-		},
+		Author:        s,
+		AccessRequest: req,
 	})
 	if err != nil {
 		var terr *auth.Error
@@ -182,17 +185,20 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			}
 		}
 
+		req := defs.PathAccessRequest{
+			Name:        ctx.Path,
+			Query:       ctx.Query,
+			IP:          c.ip(),
+			Proto:       auth.ProtocolRTSP,
+			ID:          &c.uuid,
+			RTSPRequest: ctx.Request,
+			RTSPNonce:   c.authNonce,
+		}
+		req.FillFromRTSPRequest(ctx.Request)
+
 		path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-			Author: s,
-			AccessRequest: defs.PathAccessRequest{
-				Name:        ctx.Path,
-				Query:       ctx.Query,
-				IP:          c.ip(),
-				Proto:       auth.ProtocolRTSP,
-				ID:          &c.uuid,
-				RTSPRequest: ctx.Request,
-				RTSPNonce:   c.authNonce,
-			},
+			Author:        s,
+			AccessRequest: req,
 		})
 		if err != nil {
 			var terr *auth.Error
