@@ -131,16 +131,19 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}
 	}
 
+	req := defs.PathAccessRequest{
+		Name:        ctx.Path,
+		Query:       ctx.Query,
+		IP:          c.ip(),
+		Proto:       auth.ProtocolRTSP,
+		ID:          &c.uuid,
+		RTSPRequest: ctx.Request,
+		RTSPNonce:   c.authNonce,
+	}
+	req.FillFromRTSPRequest(ctx.Request)
+
 	res := c.pathManager.Describe(defs.PathDescribeReq{
-		AccessRequest: defs.PathAccessRequest{
-			Name:        ctx.Path,
-			Query:       ctx.Query,
-			IP:          c.ip(),
-			Proto:       auth.ProtocolRTSP,
-			ID:          &c.uuid,
-			RTSPRequest: ctx.Request,
-			RTSPNonce:   c.authNonce,
-		},
+		AccessRequest: req,
 	})
 
 	if res.Err != nil {

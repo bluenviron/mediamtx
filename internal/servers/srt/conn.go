@@ -141,13 +141,13 @@ func (c *conn) runPublish(streamID *streamID) error {
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
+			Query:   streamID.query,
 			IP:      c.ip(),
 			Publish: true,
 			User:    streamID.user,
 			Pass:    streamID.pass,
 			Proto:   auth.ProtocolSRT,
 			ID:      &c.uuid,
-			Query:   streamID.query,
 		},
 	})
 	if err != nil {
@@ -241,12 +241,12 @@ func (c *conn) runRead(streamID *streamID) error {
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  streamID.path,
+			Query: streamID.query,
 			IP:    c.ip(),
 			User:  streamID.user,
 			Pass:  streamID.pass,
 			Proto: auth.ProtocolSRT,
 			ID:    &c.uuid,
-			Query: streamID.query,
 		},
 	})
 	if err != nil {

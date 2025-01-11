@@ -122,11 +122,13 @@ func (m *Metrics) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (m *Metrics) middlewareAuth(ctx *gin.Context) {
-	err := m.AuthManager.Authenticate(&auth.Request{
-		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionMetrics,
-		HTTPRequest: ctx.Request,
-	})
+	req := &auth.Request{
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionMetrics,
+	}
+	req.FillFromHTTPRequest(ctx.Request)
+
+	err := m.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

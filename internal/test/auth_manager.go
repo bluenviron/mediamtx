@@ -2,7 +2,7 @@ package test
 
 import "github.com/bluenviron/mediamtx/internal/auth"
 
-// AuthManager is a test auth manager.
+// AuthManager is a dummy auth manager.
 type AuthManager struct {
 	fnc func(req *auth.Request) error
 }

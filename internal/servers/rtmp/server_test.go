@@ -10,7 +10,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -63,24 +62,6 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
-type dummyPathManager struct {
-	path *dummyPath
-}
-
-func (pm *dummyPathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
-	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, &auth.Error{}
-	}
-	return pm.path, nil
-}
-
-func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
-		return nil, nil, &auth.Error{}
-	}
-	return pm.path, pm.path.stream, nil
-}
-
 func TestServerPublish(t *testing.T) {
 	for _, encrypt := range []string{
 		"plain",
@@ -105,7 +86,15 @@ func TestServerPublish(t *testing.T) {
 				streamCreated: make(chan struct{}),
 			}
 
-			pathManager := &dummyPathManager{path: path}
+			pathManager := &test.PathManager{
+				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "user=myuser&pass=mypass&param=value", req.AccessRequest.Query)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
+					return path, nil
+				},
+			}
 
 			s := &Server{
 				Address:             "127.0.0.1:1935",
@@ -205,7 +194,7 @@ func TestServerRead(t *testing.T) {
 			}
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-			stream, err := stream.New(
+			str, err := stream.New(
 				512,
 				1460,
 				desc,
@@ -214,9 +203,17 @@ func TestServerRead(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: stream}
+			path := &dummyPath{stream: str}
 
-			pathManager := &dummyPathManager{path: path}
+			pathManager := &test.PathManager{
+				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "user=myuser&pass=mypass&param=value", req.AccessRequest.Query)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
+					return path, path.stream, nil
+				},
+			}
 
 			s := &Server{
 				Address:             "127.0.0.1:1935",
@@ -250,9 +247,9 @@ func TestServerRead(t *testing.T) {
 			defer nconn.Close()
 
 			go func() {
-				stream.WaitRunningReader()
+				str.WaitRunningReader()
 
-				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 					},
@@ -261,7 +258,7 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 
-				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: 2 * 90000,
@@ -271,7 +268,7 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 
-				stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: 3 * 90000,

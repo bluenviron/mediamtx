@@ -97,11 +97,13 @@ func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
-	err := pp.AuthManager.Authenticate(&auth.Request{
-		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionPprof,
-		HTTPRequest: ctx.Request,
-	})
+	req := &auth.Request{
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionPprof,
+	}
+	req.FillFromHTTPRequest(ctx.Request)
+
+	err := pp.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

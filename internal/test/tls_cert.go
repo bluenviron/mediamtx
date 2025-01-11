@@ -1,6 +1,6 @@
 package test
 
-// TLSCertPub is the public key of a test certificate.
+// TLSCertPub is the public key of a dummy certificate.
 var TLSCertPub = []byte(`-----BEGIN CERTIFICATE-----
 MIIDazCCAlOgAwIBAgIUXw1hEC3LFpTsllv7D3ARJyEq7sIwDQYJKoZIhvcNAQEL
 BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
@@ -24,7 +24,7 @@ XQxaORfgM//NzX9LhUPk
 -----END CERTIFICATE-----
 `)
 
-// TLSCertKey is the private key of a test certificate.
+// TLSCertKey is the private key of a dummy certificate.
 var TLSCertKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAxvA8skudfNdBrBsIFq+a4ySuzhNZE0y0jRBCmsfAY8zsoms/
 KwNiRpdlVBKYtlIw6/Qpu53fmCBFbPdSCATm+yxqjmwYdZBhd7uWmcS5LzSRPh6y
@@ -54,7 +54,7 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 -----END RSA PRIVATE KEY-----
 `)
 
-// TLSCertPubAlt is the public key of an alternative test certificate.
+// TLSCertPubAlt is the public key of an alternative dummy certificate.
 var TLSCertPubAlt = []byte(`-----BEGIN CERTIFICATE-----
 MIIDSTCCAjECFEut6ZxIOnbxi3bhrPLfPQZCLReNMA0GCSqGSIb3DQEBCwUAMGEx
 CzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRl
@@ -76,7 +76,7 @@ Qx9nosr5fLwhkx46+B/cotsbI/xPDjLF6RQ1OUpcHwg1HI6czoW4hHn33S0zstCf
 BWt5Q1Mb2tGInbmbUgw3wUu/4nWoY+Mq4DKPlKs=
 -----END CERTIFICATE-----`)
 
-// TLSCertKeyAlt is the private key of an alternative test certificate.
+// TLSCertKeyAlt is the private key of an alternative dummy certificate.
 var TLSCertKeyAlt = []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEoQIBAAKCAQEAs37xvXi1ykkwwaDPnIFf04YjUSNiWOnaUFfKykBUOW5JA1Az
 /tgHvyFspYCy15qM7DMI89T7uNmsJhspgbqORw2yOG8TyTUEfaka0dvjL3w4Jmcc

@@ -126,16 +126,18 @@ func (s *session) runInner2() (int, error) {
 func (s *session) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
+	req := defs.PathAccessRequest{
+		Name:    s.req.pathName,
+		Publish: true,
+		IP:      net.ParseIP(ip),
+		Proto:   auth.ProtocolWebRTC,
+		ID:      &s.uuid,
+	}
+	req.FillFromHTTPRequest(s.req.httpRequest)
+
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			Publish:     true,
-			IP:          net.ParseIP(ip),
-			Proto:       auth.ProtocolWebRTC,
-			ID:          &s.uuid,
-			HTTPRequest: s.req.httpRequest,
-		},
+		Author:        s,
+		AccessRequest: req,
 	})
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -237,15 +239,17 @@ func (s *session) runPublish() (int, error) {
 func (s *session) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
+	req := defs.PathAccessRequest{
+		Name:  s.req.pathName,
+		IP:    net.ParseIP(ip),
+		Proto: auth.ProtocolWebRTC,
+		ID:    &s.uuid,
+	}
+	req.FillFromHTTPRequest(s.req.httpRequest)
+
 	path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			IP:          net.ParseIP(ip),
-			Proto:       auth.ProtocolWebRTC,
-			ID:          &s.uuid,
-			HTTPRequest: s.req.httpRequest,
-		},
+		Author:        s,
+		AccessRequest: req,
 	})
 	if err != nil {
 		var terr2 defs.PathNoOnePublishingError
