@@ -44,7 +44,6 @@ func closeProcessGroup(h windows.Handle) error {
 }
 
 func addProcessToGroup(h windows.Handle, p *os.Process) error {
-
 	// Combine the required access rights
 	access := uint32(windows.PROCESS_SET_QUOTA | windows.PROCESS_TERMINATE)
 
@@ -58,6 +57,7 @@ func addProcessToGroup(h windows.Handle, p *os.Process) error {
 	if err != nil {
 		return fmt.Errorf("failed to assign process to job object: %v", err)
 	}
+
 	return nil
 }
 
