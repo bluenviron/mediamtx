@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/pion/sdp/v3"
-	pwebrtc "github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"

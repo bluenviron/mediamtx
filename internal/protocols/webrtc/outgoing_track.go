@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 var multichannelOpusSDP = map[int]string{

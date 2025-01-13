@@ -22,7 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
-	pwebrtc "github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 )
 
