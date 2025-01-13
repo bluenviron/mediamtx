@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/ice/v2"
+	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
 	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -115,16 +115,18 @@ func (co *PeerConnection) Start() error {
 		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
+	if co.LocalRandomUDP {
+		settingsEngine.SetLocalRandomUDP(true)
+	}
+
 	if co.ICETCPMux != nil {
 		settingsEngine.SetICETCPMux(co.ICETCPMux)
 		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
 	}
 
-	if co.LocalRandomUDP {
-		settingsEngine.SetICEUDPRandom(true)
-	}
-
 	settingsEngine.SetNetworkTypes(networkTypes)
+
+	settingsEngine.SetIncludeLoopbackCandidate(true)
 
 	mediaEngine := &webrtc.MediaEngine{}
 
@@ -234,7 +236,7 @@ func (co *PeerConnection) Start() error {
 			}
 		}
 	} else {
-		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
+		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {
@@ -242,7 +244,7 @@ func (co *PeerConnection) Start() error {
 			return err
 		}
 
-		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RtpTransceiverInit{
+		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {

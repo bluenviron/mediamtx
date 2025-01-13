@@ -21,7 +21,7 @@ import (
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
-	pwebrtc "github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
