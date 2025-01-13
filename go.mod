@@ -29,7 +29,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/rtcp v1.2.15
 	github.com/pion/rtp v1.8.10
-	github.com/pion/sdp/v3 v3.0.9
+	github.com/pion/sdp/v3 v3.0.10
 	github.com/pion/webrtc/v3 v3.2.22
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.32.0
