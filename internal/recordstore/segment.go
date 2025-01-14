@@ -136,7 +136,7 @@ func FindSegments(
 	commonPath := CommonPath(recordPath)
 	var segments []*Segment
 
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
