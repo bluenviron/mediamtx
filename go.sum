@@ -1,7 +1,7 @@
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
-github.com/MicahParks/jwkset v0.7.0 h1:CXWuiYBk5NuTl+N/3UI3UcYNH79yWuKAZWZkc/y+7Ok=
-github.com/MicahParks/jwkset v0.7.0/go.mod h1:fVrj6TmG1aKlJEeceAz7JsXGTXEn72zP1px3us53JrA=
+github.com/MicahParks/jwkset v0.8.0 h1:jHtclI38Gibmu17XMI6+6/UB59srp58pQVxePHRK5o8=
+github.com/MicahParks/jwkset v0.8.0/go.mod h1:fVrj6TmG1aKlJEeceAz7JsXGTXEn72zP1px3us53JrA=
 github.com/MicahParks/keyfunc/v3 v3.3.8 h1:e/LZSz1hIcuHVf/Rzy3a4NkPQd+WG2IZM/cTeFKqTsk=
 github.com/MicahParks/keyfunc/v3 v3.3.8/go.mod h1:xDAde0iTn/PMsJg8F6c1AjMheTT3IXPqCCNulk24eww=
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
