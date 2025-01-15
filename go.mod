@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/MicahParks/jwkset v0.8.0
-	github.com/MicahParks/keyfunc/v3 v3.3.8
+	github.com/MicahParks/keyfunc/v3 v3.3.10
 	github.com/abema/go-mp4 v1.4.1
 	github.com/alecthomas/kong v1.6.1
 	github.com/asticode/go-astits v1.13.0
