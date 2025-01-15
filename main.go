@@ -4,13 +4,12 @@ package main
 import (
 	"os"
 
-	"github.com/bluenviron/mediamtx/internal/core"
+	mediamtx "github.com/bluenviron/mediamtx/pkg"
 )
 
 func main() {
-	s, ok := core.New(os.Args[1:])
+	ok := mediamtx.Main(os.Args[1:])
 	if !ok {
 		os.Exit(1)
 	}
-	s.Wait()
 }
