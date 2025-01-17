@@ -47,7 +47,7 @@ jobs:
             + `## Security\n\n`
             + `Binaries have been produced by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml)`
             + ` without human intervention.\n\n`
-            + `SHA256 checksums:\n`;
+            + `SHA256 checksums:\n\n`;
 
           for (const name of await fs.readdir('./binaries/')) {
             if (name.endsWith('.sha256sum')) {
