@@ -34,7 +34,7 @@ func fixedPathHasSegments(pathConf *conf.Path) bool {
 
 	commonPath := CommonPath(recordPath)
 
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 
 	ret := make(map[string]struct{})
 
-	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
+	filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error { //nolint:errcheck
 		if err != nil {
 			return err
 		}
@@ -136,7 +136,7 @@ func FindSegments(
 	commonPath := CommonPath(recordPath)
 	var segments []*Segment
 
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
