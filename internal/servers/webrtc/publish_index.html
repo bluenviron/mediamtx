@@ -216,6 +216,9 @@ const onPublish = () => {
     if (videoId !== 'none') {
       videoOpts = {
         deviceId: videoId,
+        width: { ideal: videoForm.width.value },
+        height: { ideal: videoForm.height.value },
+        frameRate: { ideal: videoForm.framerate.value },
       };
     }
 
