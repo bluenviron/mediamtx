@@ -169,6 +169,10 @@ func FindSegments(
 	})
 
 	if start != nil {
+		if start.Before(segments[0].Start) {
+			return segments, nil
+		}
+
 		// find the segment that may contain the start of the playback and remove all previous ones
 		found := false
 		for i := 0; i < len(segments)-1; i++ {
