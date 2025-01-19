@@ -19,13 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOnListUnfiltered(t *testing.T) {
+func TestOnList(t *testing.T) {
 	for _, ca := range []string{
 		"unfiltered",
 		"filtered",
 		"filtered and gap",
 		"different init",
 		"start after duration",
+		"start before first",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			dir, err := os.MkdirTemp("", "mediamtx-playback")
@@ -36,12 +37,7 @@ func TestOnListUnfiltered(t *testing.T) {
 			require.NoError(t, err)
 
 			switch ca {
-			case "unfiltered":
-				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
-
-			case "filtered":
+			case "unfiltered", "filtered", "start before first":
 				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
 				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
 				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
@@ -91,6 +87,9 @@ func TestOnListUnfiltered(t *testing.T) {
 
 			case "start after duration":
 				v.Set("start", time.Date(2010, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+
+			case "start before first":
+				v.Set("start", time.Date(2007, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
 			}
 
 			u.RawQuery = v.Encode()
@@ -114,7 +113,7 @@ func TestOnListUnfiltered(t *testing.T) {
 			require.NoError(t, err)
 
 			switch ca {
-			case "unfiltered":
+			case "unfiltered", "start before first":
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
 						"duration": float64(65),

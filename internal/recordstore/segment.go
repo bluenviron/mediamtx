@@ -169,7 +169,6 @@ func FindSegments(
 	})
 
 	if start != nil {
-
 		if start.Before(segments[0].Start) {
 			return segments, nil
 		}
