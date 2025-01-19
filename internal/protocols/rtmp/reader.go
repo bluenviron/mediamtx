@@ -148,7 +148,8 @@ func videoTrackFromSequenceStart(msg *message.VideoExSequenceStart) (format.Form
 	switch msg.FourCC {
 	case message.FourCCAV1:
 		// parse sequence header and metadata contained in ConfigOBUs, but do not use them
-		_, err := av1.BitstreamUnmarshal(msg.AV1Header.ConfigOBUs, false)
+		var tu av1.Bitstream
+		err := tu.Unmarshal(msg.AV1Header.ConfigOBUs)
 		if err != nil {
 			return nil, fmt.Errorf("invalid AV1 configuration: %w", err)
 		}
@@ -538,7 +539,8 @@ func (r *Reader) OnDataAV1(track *format.AV1, cb OnDataAV1Func) {
 	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
 		switch msg := msg.(type) {
 		case *message.VideoExFramesX:
-			tu, err := av1.BitstreamUnmarshal(msg.Payload, true)
+			var tu av1.Bitstream
+			err := tu.Unmarshal(msg.Payload)
 			if err != nil {
 				return fmt.Errorf("unable to decode bitstream: %w", err)
 			}
@@ -546,7 +548,8 @@ func (r *Reader) OnDataAV1(track *format.AV1, cb OnDataAV1Func) {
 			cb(msg.DTS, tu)
 
 		case *message.VideoExCodedFrames:
-			tu, err := av1.BitstreamUnmarshal(msg.Payload, true)
+			var tu av1.Bitstream
+			err := tu.Unmarshal(msg.Payload)
 			if err != nil {
 				return fmt.Errorf("unable to decode bitstream: %w", err)
 			}
