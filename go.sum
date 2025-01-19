@@ -17,8 +17,8 @@ github.com/alecthomas/kong v1.6.1 h1:/7bVimARU3uxPD0hbryPE8qWrS3Oz3kPQoxA/H2NKG8
 github.com/alecthomas/kong v1.6.1/go.mod h1:p2vqieVMeTAnaC83txKtXe8FLke2X07aruPWXyMPQrU=
 github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc=
 github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
-github.com/aler9/ice/v4 v4.0.0-20250119130956-642d7cd2459f h1:1bgnwDe/USxTPKDUCDQzKEKmqRfq4fhChTIPrs82Gfk=
-github.com/aler9/ice/v4 v4.0.0-20250119130956-642d7cd2459f/go.mod h1:VfHy0beAZ5loDT7BmJ2LtMtC4dbawIkkkejHPRZNB3Y=
+github.com/aler9/ice/v4 v4.0.0-20250119142625-d95137564171 h1:to8AqWQ+adybRBy6if+SNLj54hKTd/Zf1OD50tcl36w=
+github.com/aler9/ice/v4 v4.0.0-20250119142625-d95137564171/go.mod h1:VfHy0beAZ5loDT7BmJ2LtMtC4dbawIkkkejHPRZNB3Y=
 github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e h1:SbgXEClD+GZ80nZrwlHt2jLyFufynZOM5kPGEdcEVuA=
 github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e/go.mod h1:HHBeUVBAC+j4ZFnYhovEFStF02Arb1EyD4G7e7HBTJw=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
