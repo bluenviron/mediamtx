@@ -56,7 +56,7 @@ func TracksAreValid(medias []*sdp.MediaDescription) error {
 	}
 
 	if !videoTrack && !audioTrack {
-		return fmt.Errorf("no valid tracks count")
+		return fmt.Errorf("no valid tracks found")
 	}
 
 	return nil
@@ -99,6 +99,8 @@ type PeerConnection struct {
 func (co *PeerConnection) Start() error {
 	settingsEngine := webrtc.SettingEngine{}
 
+	settingsEngine.SetIncludeLoopbackCandidate(true)
+
 	settingsEngine.SetInterfaceFilter(func(iface string) bool {
 		return co.IPsFromInterfaces && (len(co.IPsFromInterfacesList) == 0 ||
 			stringInSlice(iface, co.IPsFromInterfacesList))
@@ -107,26 +109,33 @@ func (co *PeerConnection) Start() error {
 	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)
 
 	var networkTypes []webrtc.NetworkType
+	enableUDP := false
 
-	// always enable UDP in order to support STUN/TURN
-	networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+	// UDP is always needed when there's a STUN/TURN server.
+	if len(co.ICEServers) != 0 {
+		enableUDP = true
+	}
 
 	if co.ICEUDPMux != nil {
+		enableUDP = true
 		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
 	if co.LocalRandomUDP {
+		enableUDP = true
 		settingsEngine.SetLocalRandomUDP(true)
 	}
 
 	if co.ICETCPMux != nil {
-		settingsEngine.SetICETCPMux(co.ICETCPMux)
 		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+		settingsEngine.SetICETCPMux(co.ICETCPMux)
+	}
+
+	if enableUDP {
+		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
 	}
 
 	settingsEngine.SetNetworkTypes(networkTypes)
-
-	settingsEngine.SetIncludeLoopbackCandidate(true)
 
 	mediaEngine := &webrtc.MediaEngine{}
 
