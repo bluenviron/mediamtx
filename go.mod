@@ -24,7 +24,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.1.1
-	github.com/pion/ice/v4 v4.0.3
+	github.com/pion/ice/v4 v4.0.5
 	github.com/pion/interceptor v0.1.37
 	github.com/pion/logging v0.2.2
 	github.com/pion/rtcp v1.2.15
@@ -101,6 +101,6 @@ require (
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 
-replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.0.0-20250113220727-1c0b762897da
+replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.0.0-20250119130956-642d7cd2459f
 
-replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.0.0-20250113221101-1adc4784368c
+replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e

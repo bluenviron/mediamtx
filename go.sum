@@ -17,10 +17,10 @@ github.com/alecthomas/kong v1.6.1 h1:/7bVimARU3uxPD0hbryPE8qWrS3Oz3kPQoxA/H2NKG8
 github.com/alecthomas/kong v1.6.1/go.mod h1:p2vqieVMeTAnaC83txKtXe8FLke2X07aruPWXyMPQrU=
 github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc=
 github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
-github.com/aler9/ice/v4 v4.0.0-20250113220727-1c0b762897da h1:klkpv5sJI9CTIwt523Yz66wucbR19M86E3zM+rt35HQ=
-github.com/aler9/ice/v4 v4.0.0-20250113220727-1c0b762897da/go.mod h1:VfHy0beAZ5loDT7BmJ2LtMtC4dbawIkkkejHPRZNB3Y=
-github.com/aler9/webrtc/v4 v4.0.0-20250113221101-1adc4784368c h1:v9JXD18rXO83z8cCArwe9BugCCHUmLciZXCMDekUDGI=
-github.com/aler9/webrtc/v4 v4.0.0-20250113221101-1adc4784368c/go.mod h1:oFVBBVSHU3vAEwSgnk3BuKCwAUwpDwQhko1EDwyZWbU=
+github.com/aler9/ice/v4 v4.0.0-20250119130956-642d7cd2459f h1:1bgnwDe/USxTPKDUCDQzKEKmqRfq4fhChTIPrs82Gfk=
+github.com/aler9/ice/v4 v4.0.0-20250119130956-642d7cd2459f/go.mod h1:VfHy0beAZ5loDT7BmJ2LtMtC4dbawIkkkejHPRZNB3Y=
+github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e h1:SbgXEClD+GZ80nZrwlHt2jLyFufynZOM5kPGEdcEVuA=
+github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e/go.mod h1:HHBeUVBAC+j4ZFnYhovEFStF02Arb1EyD4G7e7HBTJw=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
