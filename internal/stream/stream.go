@@ -38,6 +38,8 @@ type Stream struct {
 	streamReaders map[Reader]*streamReader
 
 	readerRunning chan struct{}
+
+	CachedUnits []unit.Unit
 }
 
 // New allocates a Stream.
@@ -47,6 +49,7 @@ func New(
 	desc *description.Session,
 	generateRTPPackets bool,
 	decodeErrLogger logger.Writer,
+	gopCache bool,
 ) (*Stream, error) {
 	s := &Stream{
 		writeQueueSize: writeQueueSize,
@@ -61,7 +64,7 @@ func New(
 
 	for _, media := range desc.Medias {
 		var err error
-		s.streamMedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, decodeErrLogger)
+		s.streamMedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, decodeErrLogger, gopCache)
 		if err != nil {
 			return nil, err
 		}
@@ -184,9 +187,29 @@ func (s *Stream) StartReader(reader Reader) {
 
 	sr.start()
 
-	for _, sm := range s.streamMedias {
+	for m, sm := range s.streamMedias {
 		for _, sf := range sm.formats {
 			sf.startReader(sr)
+			if m.Type == "video" {
+				cb := sf.runningReaders[sr]
+				if cb == nil {
+					continue
+				}
+
+				go func() {
+					for i, u := range s.CachedUnits {
+						cb(u)
+						// Wait 100ms for the first frame
+						if i == 0 {
+							time.Sleep(100 * time.Millisecond)
+						}
+						// Limit playback speed, to reduce the chance of packet loss
+						if i%5 == 0 {
+							time.Sleep(15 * time.Millisecond)
+						}
+					}
+				}()
+			}
 		}
 	}
 

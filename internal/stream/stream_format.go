@@ -6,6 +6,8 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
@@ -21,6 +23,16 @@ func unitSize(u unit.Unit) uint64 {
 	return n
 }
 
+func isKeyFrame(u unit.Unit) bool {
+	switch tunit := u.(type) {
+	case *unit.H264:
+		return h264.IDRPresent(tunit.AU)
+	case *unit.H265:
+		return h265.IsRandomAccess(tunit.AU)
+	}
+	return false
+}
+
 type streamFormat struct {
 	udpMaxPayloadSize  int
 	format             format.Format
@@ -30,6 +42,7 @@ type streamFormat struct {
 	proc           formatprocessor.Processor
 	pausedReaders  map[*streamReader]ReadFunc
 	runningReaders map[*streamReader]ReadFunc
+	gopCache       bool
 }
 
 func (sf *streamFormat) initialize() error {
@@ -78,7 +91,7 @@ func (sf *streamFormat) writeRTPPacket(
 	ntp time.Time,
 	pts int64,
 ) {
-	hasNonRTSPReaders := len(sf.pausedReaders) > 0 || len(sf.runningReaders) > 0
+	hasNonRTSPReaders := len(sf.pausedReaders) > 0 || len(sf.runningReaders) > 0 || sf.gopCache
 
 	u, err := sf.proc.ProcessRTPPacket(pkt, ntp, pts, hasNonRTSPReaders)
 	if err != nil {
@@ -93,6 +106,21 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	size := unitSize(u)
 
 	atomic.AddUint64(s.bytesReceived, size)
+
+	if sf.gopCache && medi.Type == description.MediaTypeVideo {
+		if isKeyFrame(u) {
+			// Empty the cache and enable caching
+			s.CachedUnits = []unit.Unit{}
+
+		}
+		if s.CachedUnits != nil {
+			s.CachedUnits = append(s.CachedUnits, u)
+		}
+		l := len(s.CachedUnits)
+		if l > 512 {
+			s.CachedUnits = s.CachedUnits[l-512:]
+		}
+	}
 
 	if s.rtspStream != nil {
 		for _, pkt := range u.GetRTPPackets() {

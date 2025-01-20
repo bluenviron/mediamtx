@@ -347,6 +347,7 @@ func (p *Core) createResources(initial bool) error {
 			pathConfs:         p.conf.Paths,
 			externalCmdPool:   p.externalCmdPool,
 			parent:            p,
+			gopCache:          p.conf.GopCache,
 		}
 		p.pathManager.initialize()
 
