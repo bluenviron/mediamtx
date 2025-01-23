@@ -45,6 +45,7 @@ func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stre
 		req.Desc,
 		true,
 		test.NilLogger,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -169,6 +170,7 @@ func TestServerRead(t *testing.T) {
 		desc,
 		true,
 		test.NilLogger,
+		false,
 	)
 	require.NoError(t, err)
 
