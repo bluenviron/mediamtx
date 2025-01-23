@@ -210,16 +210,18 @@ func (s *Stream) StartReader(reader Reader) {
 				// We must update the PTS of the p-frames to have them played back real quick, but not instantly.
 				// If we do not update the PTS, the client will pause by an amount equal to the time between the p-frames.
 				// This is an issue because we want to send the p-frames as fast as possible.
-				playbackFPS := int64(100)
+				playbackFPS := 100
 				msPerFrame := 1000 / playbackFPS
-				ticksPerMs := int64(90000 / 1000)
-				pts := s.CachedUnits[len(s.CachedUnits)-1].GetPTS() - ticksPerMs*int64(framesWithAU)*msPerFrame
+				ticksPerMs := 90000 / 1000
+				lastTimestamp := s.CachedUnits[len(s.CachedUnits)-1].GetRTPPackets()[0].Timestamp
+				lastPts := s.CachedUnits[len(s.CachedUnits)-1].GetPTS()
+				delta := -ticksPerMs * framesWithAU * msPerFrame
 				start := time.Now()
 				for _, u := range s.CachedUnits {
 					if isEmptyAU(u) {
 						continue
 					}
-					pts += ticksPerMs * msPerFrame
+					delta += ticksPerMs * msPerFrame
 					start = start.Add(time.Millisecond * time.Duration(msPerFrame))
 
 					var clonedU unit.Unit
@@ -230,11 +232,11 @@ func (s *Stream) StartReader(reader Reader) {
 								RTPPackets: []*rtp.Packet{
 									{
 										Header: rtp.Header{
-											Timestamp: uint32(pts),
+											Timestamp: lastTimestamp + uint32(delta),
 										},
 									},
 								},
-								PTS: pts,
+								PTS: lastPts + int64(delta),
 							},
 							AU: tunit.AU,
 						}
@@ -244,11 +246,11 @@ func (s *Stream) StartReader(reader Reader) {
 								RTPPackets: []*rtp.Packet{
 									{
 										Header: rtp.Header{
-											Timestamp: uint32(pts),
+											Timestamp: lastTimestamp + uint32(delta),
 										},
 									},
 								},
-								PTS: pts,
+								PTS: lastPts + int64(delta),
 							},
 							AU: tunit.AU,
 						}
