@@ -17,12 +17,13 @@ type camera struct {
 	Params params
 	OnData func(time.Duration, [][]byte)
 
-	cmd       *exec.Cmd
-	pipeConf  *pipe
-	pipeVideo *pipe
+	cmd      *exec.Cmd
+	pipeOut  *pipe
+	pipeIn   *pipe
+	finalErr error
 
-	waitDone   chan error
-	readerDone chan error
+	terminate chan struct{}
+	done      chan struct{}
 }
 
 func (c *camera) initialize() error {
@@ -31,22 +32,22 @@ func (c *camera) initialize() error {
 		return err
 	}
 
-	c.pipeConf, err = newPipe()
+	c.pipeOut, err = newPipe()
 	if err != nil {
 		freeComponent()
 		return err
 	}
 
-	c.pipeVideo, err = newPipe()
+	c.pipeIn, err = newPipe()
 	if err != nil {
-		c.pipeConf.close()
+		c.pipeOut.close()
 		freeComponent()
 		return err
 	}
 
 	env := []string{
-		"PIPE_CONF_FD=" + strconv.FormatInt(int64(c.pipeConf.readFD), 10),
-		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeVideo.writeFD), 10),
+		"PIPE_CONF_FD=" + strconv.FormatInt(int64(c.pipeOut.readFD), 10),
+		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeIn.writeFD), 10),
 		"LD_LIBRARY_PATH=" + dumpPath,
 	}
 
@@ -58,102 +59,131 @@ func (c *camera) initialize() error {
 
 	err = c.cmd.Start()
 	if err != nil {
-		c.pipeConf.close()
-		c.pipeVideo.close()
+		c.pipeOut.close()
+		c.pipeIn.close()
 		freeComponent()
 		return err
 	}
 
-	c.pipeConf.write(append([]byte{'c'}, c.Params.serialize()...))
+	c.terminate = make(chan struct{})
+	c.done = make(chan struct{})
 
-	c.waitDone = make(chan error)
-	go func() {
-		c.waitDone <- c.cmd.Wait()
-	}()
+	go c.run()
 
-	c.readerDone = make(chan error)
-	go func() {
-		c.readerDone <- c.readReady()
-	}()
-
-	select {
-	case err := <-c.waitDone:
-		c.pipeConf.close()
-		c.pipeVideo.close()
-		<-c.readerDone
-		freeComponent()
-		return fmt.Errorf("process exited unexpectedly: %v", err)
-
-	case err := <-c.readerDone:
-		if err != nil {
-			c.pipeConf.write([]byte{'e'})
-			<-c.waitDone
-			c.pipeConf.close()
-			c.pipeVideo.close()
-			freeComponent()
-			return err
-		}
-	}
-
-	c.readerDone = make(chan error)
-	go func() {
-		c.readerDone <- c.readData()
-	}()
+	c.pipeOut.write(append([]byte{'c'}, c.Params.serialize()...))
 
 	return nil
 }
 
 func (c *camera) close() {
-	c.pipeConf.write([]byte{'e'})
-	<-c.waitDone
-	c.pipeConf.close()
-	c.pipeVideo.close()
-	<-c.readerDone
+	close(c.terminate)
+	<-c.done
 	freeComponent()
 }
 
-func (c *camera) reloadParams(params params) {
-	c.pipeConf.write(append([]byte{'c'}, params.serialize()...))
+func (c *camera) run() {
+	defer close(c.done)
+	c.finalErr = c.runInner()
 }
 
-func (c *camera) readReady() error {
-	buf, err := c.pipeVideo.read()
-	if err != nil {
-		return err
-	}
+func (c *camera) runInner() error {
+	cmdDone := make(chan error)
+	go func() {
+		cmdDone <- c.cmd.Wait()
+	}()
 
-	switch buf[0] {
-	case 'e':
-		return fmt.Errorf(string(buf[1:]))
+	readDone := make(chan error)
+	go func() {
+		readDone <- c.runReader()
+	}()
 
-	case 'r':
-		return nil
-
-	default:
-		return fmt.Errorf("unexpected output from video pipe: '0x%.2x'", buf[0])
-	}
-}
-
-func (c *camera) readData() error {
 	for {
-		buf, err := c.pipeVideo.read()
-		if err != nil {
+		select {
+		case err := <-cmdDone:
+			c.pipeIn.close()
+			c.pipeOut.close()
+
+			<-readDone
+
 			return err
-		}
 
-		if buf[0] != 'b' {
-			return fmt.Errorf("unexpected output from pipe (%c)", buf[0])
-		}
+		case err := <-readDone:
+			c.pipeIn.close()
 
-		tmp := uint64(buf[8])<<56 | uint64(buf[7])<<48 | uint64(buf[6])<<40 | uint64(buf[5])<<32 |
-			uint64(buf[4])<<24 | uint64(buf[3])<<16 | uint64(buf[2])<<8 | uint64(buf[1])
-		dts := time.Duration(tmp) * time.Microsecond
+			c.pipeOut.write([]byte{'e'})
+			c.pipeOut.close()
 
-		nalus, err := h264.AnnexBUnmarshal(buf[9:])
-		if err != nil {
+			<-cmdDone
+
 			return err
-		}
 
-		c.OnData(dts, nalus)
+		case <-c.terminate:
+			c.pipeIn.close()
+			<-readDone
+
+			c.pipeOut.write([]byte{'e'})
+			c.pipeOut.close()
+
+			<-cmdDone
+
+			return fmt.Errorf("terminated")
+		}
 	}
+}
+
+func (c *camera) runReader() error {
+outer:
+	for {
+		buf, err := c.pipeIn.read()
+		if err != nil {
+			return err
+		}
+
+		switch buf[0] {
+		case 'e':
+			return fmt.Errorf(string(buf[1:]))
+
+		case 'r':
+			break outer
+
+		default:
+			return fmt.Errorf("unexpected data from pipe: '0x%.2x'", buf[0])
+		}
+	}
+
+	for {
+		buf, err := c.pipeIn.read()
+		if err != nil {
+			return err
+		}
+
+		switch buf[0] {
+		case 'e':
+			return fmt.Errorf(string(buf[1:]))
+
+		case 'b':
+			tmp := uint64(buf[8])<<56 | uint64(buf[7])<<48 | uint64(buf[6])<<40 | uint64(buf[5])<<32 |
+				uint64(buf[4])<<24 | uint64(buf[3])<<16 | uint64(buf[2])<<8 | uint64(buf[1])
+			dts := time.Duration(tmp) * time.Microsecond
+
+			nalus, err := h264.AnnexBUnmarshal(buf[9:])
+			if err != nil {
+				return err
+			}
+
+			c.OnData(dts, nalus)
+
+		default:
+			return fmt.Errorf("unexpected data from pipe: '0x%.2x'", buf[0])
+		}
+	}
+}
+
+func (c *camera) reloadParams(params params) {
+	c.pipeOut.write(append([]byte{'c'}, params.serialize()...))
+}
+
+func (c *camera) wait() error {
+	<-c.done
+	return c.finalErr
 }

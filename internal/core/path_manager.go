@@ -52,8 +52,8 @@ type pathManager struct {
 	logLevel          conf.LogLevel
 	authManager       *auth.Manager
 	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
+	readTimeout       conf.Duration
+	writeTimeout      conf.Duration
 	writeQueueSize    int
 	udpMaxPayloadSize int
 	pathConfs         map[string]*conf.Path

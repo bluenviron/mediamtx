@@ -27,9 +27,9 @@ udpMaxPayloadSize: 1472
 # Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.
 # The following environment variables are available:
-# * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
+# * RTSP_PORT: RTSP server port
 runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: no
@@ -227,31 +227,31 @@ rtsp: yes
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
-protocols: [udp, multicast, tcp]
+rtspTransports: [udp, multicast, tcp]
 # Encrypt handshakes and TCP streams with TLS (RTSPS).
 # Available values are "no", "strict", "optional".
-encryption: "no"
+rtspEncryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
 # Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
 rtspsAddress: :8322
-# Address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTP listener. This is needed only when "udp" is in rtspTransports.
 rtpAddress: :8000
-# Address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTCP listener. This is needed only when "udp" is in rtspTransports.
 rtcpAddress: :8001
-# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in protocols.
+# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in rtspTransports.
 multicastIPRange: 224.1.0.0/16
-# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in rtspTransports.
 multicastRTPPort: 8002
-# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in rtspTransports.
 multicastRTCPPort: 8003
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-serverKey: server.key
+rtspServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
-serverCert: server.crt
+rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
@@ -469,7 +469,7 @@ pathDefaults:
   recordSegmentDuration: 1h
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
-  recordDeleteAfter: 24h
+  recordDeleteAfter: 1d
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
@@ -547,7 +547,7 @@ pathDefaults:
   rpiCameraGain: 0
   # EV compensation of the image [-10, 10]
   rpiCameraEV: 0
-  # Region of interest, in format x,y,width,height
+  # Region of interest, in format x,y,width,height (all normalized between 0 and 1)
   rpiCameraROI:
   # Whether to enable HDR on Raspberry Camera 3.
   rpiCameraHDR: false
@@ -638,11 +638,11 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher)
+  # * MTX_SOURCE_TYPE: source type
+  # * MTX_SOURCE_ID: source ID
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  # * MTX_SOURCE_TYPE: source type
-  # * MTX_SOURCE_ID: source ID
   runOnReady:
   # Restart the command if it exits.
   runOnReadyRestart: no
@@ -655,11 +655,11 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by reader)
+  # * MTX_READER_TYPE: reader type
+  # * MTX_READER_ID: reader ID
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  # * MTX_READER_TYPE: reader type
-  # * MTX_READER_ID: reader ID
   runOnRead:
   # Restart the command if it exits.
   runOnReadRestart: no
@@ -670,20 +670,20 @@ pathDefaults:
   # Command to run when a recording segment is created.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_SEGMENT_PATH: segment file path
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  # * MTX_SEGMENT_PATH: segment file path
   runOnRecordSegmentCreate:
 
   # Command to run when a recording segment is complete.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_SEGMENT_PATH: segment file path
+  # * MTX_SEGMENT_DURATION: segment duration
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  # * MTX_SEGMENT_PATH: segment file path
-  # * MTX_SEGMENT_DURATION: segment duration
   runOnRecordSegmentComplete:
 
 ###############################################

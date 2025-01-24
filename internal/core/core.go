@@ -118,7 +118,9 @@ func New(args []string) (*Core, bool) {
 		done:           make(chan struct{}),
 	}
 
-	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths)
+	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "")
+
+	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return nil, false
@@ -175,7 +177,7 @@ outer:
 		case <-confChanged:
 			p.Log(logger.Info, "reloading configuration (file changed)")
 
-			newConf, _, err := conf.Load(p.confPath, nil)
+			newConf, _, err := conf.Load(p.confPath, nil, p.logger)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -354,11 +356,11 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.conf.RTSP &&
-		(p.conf.Encryption == conf.EncryptionNo ||
-			p.conf.Encryption == conf.EncryptionOptional) &&
+		(p.conf.RTSPEncryption == conf.EncryptionNo ||
+			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
 		p.rtspServer == nil {
-		_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
-		_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
+		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
@@ -377,7 +379,7 @@ func (p *Core) createResources(initial bool) error {
 			ServerCert:          "",
 			ServerKey:           "",
 			RTSPAddress:         p.conf.RTSPAddress,
-			Protocols:           p.conf.Protocols,
+			Transports:          p.conf.RTSPTransports,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
@@ -397,8 +399,8 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.conf.RTSP &&
-		(p.conf.Encryption == conf.EncryptionStrict ||
-			p.conf.Encryption == conf.EncryptionOptional) &&
+		(p.conf.RTSPEncryption == conf.EncryptionStrict ||
+			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
 		p.rtspsServer == nil {
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
@@ -414,10 +416,10 @@ func (p *Core) createResources(initial bool) error {
 			MulticastRTPPort:    0,
 			MulticastRTCPPort:   0,
 			IsTLS:               true,
-			ServerCert:          p.conf.ServerCert,
-			ServerKey:           p.conf.ServerKey,
+			ServerCert:          p.conf.RTSPServerCert,
+			ServerKey:           p.conf.RTSPServerKey,
 			RTSPAddress:         p.conf.RTSPAddress,
-			Protocols:           p.conf.Protocols,
+			Transports:          p.conf.RTSPTransports,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
@@ -708,20 +710,19 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeRTSPServer := newConf == nil ||
 		newConf.RTSP != p.conf.RTSP ||
-		newConf.Encryption != p.conf.Encryption ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
-		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RTPAddress != p.conf.RTPAddress ||
 		newConf.RTCPAddress != p.conf.RTCPAddress ||
 		newConf.MulticastIPRange != p.conf.MulticastIPRange ||
 		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
 		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
+		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -731,16 +732,16 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeRTSPSServer := newConf == nil ||
 		newConf.RTSP != p.conf.RTSP ||
-		newConf.Encryption != p.conf.Encryption ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
-		newConf.ServerCert != p.conf.ServerCert ||
-		newConf.ServerKey != p.conf.ServerKey ||
+		newConf.RTSPServerCert != p.conf.RTSPServerCert ||
+		newConf.RTSPServerKey != p.conf.RTSPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
+		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||

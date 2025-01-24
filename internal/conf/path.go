@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
@@ -87,23 +88,23 @@ type Path struct {
 	Name   string         `json:"name"` // filled by Check()
 
 	// General
-	Source                     string         `json:"source"`
-	SourceFingerprint          string         `json:"sourceFingerprint"`
-	SourceOnDemand             bool           `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
-	MaxReaders                 int            `json:"maxReaders"`
-	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
-	Fallback                   string         `json:"fallback"`
+	Source                     string   `json:"source"`
+	SourceFingerprint          string   `json:"sourceFingerprint"`
+	SourceOnDemand             bool     `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int      `json:"maxReaders"`
+	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
+	Fallback                   string   `json:"fallback"`
 
 	// Record
-	Record                bool           `json:"record"`
-	Playback              *bool          `json:"playback,omitempty"` // deprecated
-	RecordPath            string         `json:"recordPath"`
-	RecordFormat          RecordFormat   `json:"recordFormat"`
-	RecordPartDuration    StringDuration `json:"recordPartDuration"`
-	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
-	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
+	Record                bool         `json:"record"`
+	Playback              *bool        `json:"playback,omitempty"` // deprecated
+	RecordPath            string       `json:"recordPath"`
+	RecordFormat          RecordFormat `json:"recordFormat"`
+	RecordPartDuration    Duration     `json:"recordPartDuration"`
+	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
+	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty"` // deprecated
@@ -167,35 +168,35 @@ type Path struct {
 	RPICameraLevel             string    `json:"rpiCameraLevel"`
 
 	// Hooks
-	RunOnInit                  string         `json:"runOnInit"`
-	RunOnInitRestart           bool           `json:"runOnInitRestart"`
-	RunOnDemand                string         `json:"runOnDemand"`
-	RunOnDemandRestart         bool           `json:"runOnDemandRestart"`
-	RunOnDemandStartTimeout    StringDuration `json:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter      StringDuration `json:"runOnDemandCloseAfter"`
-	RunOnUnDemand              string         `json:"runOnUnDemand"`
-	RunOnReady                 string         `json:"runOnReady"`
-	RunOnReadyRestart          bool           `json:"runOnReadyRestart"`
-	RunOnNotReady              string         `json:"runOnNotReady"`
-	RunOnRead                  string         `json:"runOnRead"`
-	RunOnReadRestart           bool           `json:"runOnReadRestart"`
-	RunOnUnread                string         `json:"runOnUnread"`
-	RunOnRecordSegmentCreate   string         `json:"runOnRecordSegmentCreate"`
-	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
+	RunOnInit                  string   `json:"runOnInit"`
+	RunOnInitRestart           bool     `json:"runOnInitRestart"`
+	RunOnDemand                string   `json:"runOnDemand"`
+	RunOnDemandRestart         bool     `json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout    Duration `json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter      Duration `json:"runOnDemandCloseAfter"`
+	RunOnUnDemand              string   `json:"runOnUnDemand"`
+	RunOnReady                 string   `json:"runOnReady"`
+	RunOnReadyRestart          bool     `json:"runOnReadyRestart"`
+	RunOnNotReady              string   `json:"runOnNotReady"`
+	RunOnRead                  string   `json:"runOnRead"`
+	RunOnReadRestart           bool     `json:"runOnReadRestart"`
+	RunOnUnread                string   `json:"runOnUnread"`
+	RunOnRecordSegmentCreate   string   `json:"runOnRecordSegmentCreate"`
+	RunOnRecordSegmentComplete string   `json:"runOnRecordSegmentComplete"`
 }
 
 func (pconf *Path) setDefaults() {
 	// General
 	pconf.Source = "publisher"
-	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.SourceOnDemandStartTimeout = 10 * Duration(time.Second)
+	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
 	pconf.RecordFormat = RecordFormatFMP4
-	pconf.RecordPartDuration = StringDuration(1 * time.Second)
-	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
-	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
+	pconf.RecordPartDuration = Duration(1 * time.Second)
+	pconf.RecordSegmentDuration = 3600 * Duration(time.Second)
+	pconf.RecordDeleteAfter = 24 * 3600 * Duration(time.Second)
 
 	// Publisher source
 	pconf.OverridePublisher = true
@@ -223,8 +224,8 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraLevel = "4.1"
 
 	// Hooks
-	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.RunOnDemandStartTimeout = 10 * Duration(time.Second)
+	pconf.RunOnDemandCloseAfter = 10 * Duration(time.Second)
 }
 
 func newPath(defaults *Path, partial *OptionalPath) *Path {
@@ -256,6 +257,7 @@ func (pconf *Path) validate(
 	conf *Conf,
 	name string,
 	deprecatedCredentialsMode bool,
+	l logger.Writer,
 ) error {
 	pconf.Name = name
 
@@ -277,21 +279,53 @@ func (pconf *Path) validate(
 		pconf.Regexp = regexp
 	}
 
-	// General
+	// common configuration errors
 
 	if pconf.Source != "publisher" && pconf.Source != "redirect" &&
 		pconf.Regexp != nil && !pconf.SourceOnDemand {
 		return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
 			" must have 'sourceOnDemand' set to true")
 	}
+
+	if pconf.SRTPublishPassphrase != "" && pconf.Source != "publisher" {
+		return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
+	}
+
+	if pconf.SourceOnDemand && pconf.Source == "publisher" {
+		return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
+	}
+
+	// source-dependent settings
+
 	switch {
 	case pconf.Source == "publisher":
+		if pconf.DisablePublisherOverride != nil {
+			l.Log(logger.Warn, "parameter 'disablePublisherOverride' is deprecated "+
+				"and has been replaced with 'overridePublisher'")
+			pconf.OverridePublisher = !*pconf.DisablePublisherOverride
+		}
+
+		if pconf.SRTPublishPassphrase != "" {
+			err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
+			if err != nil {
+				return fmt.Errorf("invalid 'srtPublishPassphrase': %w", err)
+			}
+		}
 
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://"):
 		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+		}
+
+		if pconf.SourceProtocol != nil {
+			l.Log(logger.Warn, "parameter 'sourceProtocol' is deprecated and has been replaced with 'rtspTransport'")
+			pconf.RTSPTransport = *pconf.SourceProtocol
+		}
+		if pconf.SourceAnyPortEnable != nil {
+			l.Log(logger.Warn, "parameter 'sourceAnyPortEnable' is deprecated and has been replaced with 'rtspAnyPort'")
+			pconf.RTSPAnyPort = *pconf.SourceAnyPortEnable
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
@@ -336,7 +370,6 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -350,23 +383,79 @@ func (pconf *Path) validate(
 		}
 
 	case pconf.Source == "redirect":
+		if pconf.SourceRedirect == "" {
+			return fmt.Errorf("source redirect must be filled")
+		}
+
+		_, err := base.ParseURL(pconf.SourceRedirect)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
+		}
 
 	case pconf.Source == "rpiCamera":
+		for otherName, otherPath := range conf.Paths {
+			if otherPath != pconf && otherPath != nil &&
+				otherPath.Source == "rpiCamera" && otherPath.RPICameraCamID == pconf.RPICameraCamID {
+				return fmt.Errorf("'rpiCamera' with same camera ID %d is used as source in two paths, '%s' and '%s'",
+					pconf.RPICameraCamID, name, otherName)
+			}
+		}
+
+		switch pconf.RPICameraExposure {
+		case "normal", "short", "long", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraExposure' value")
+		}
+		switch pconf.RPICameraAWB {
+		case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAWB' value")
+		}
+		if len(pconf.RPICameraAWBGains) != 2 {
+			return fmt.Errorf("invalid 'rpiCameraAWBGains' value")
+		}
+		switch pconf.RPICameraDenoise {
+		case "off", "cdn_off", "cdn_fast", "cdn_hq":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraDenoise' value")
+		}
+		switch pconf.RPICameraMetering {
+		case "centre", "spot", "matrix", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraMetering' value")
+		}
+		switch pconf.RPICameraAfMode {
+		case "auto", "manual", "continuous":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfMode' value")
+		}
+		switch pconf.RPICameraAfRange {
+		case "normal", "macro", "full":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfRange' value")
+		}
+		switch pconf.RPICameraAfSpeed {
+		case "normal", "fast":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
+		}
+		switch pconf.RPICameraCodec {
+		case "auto", "hardwareH264", "softwareH264":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraCodec' value")
+		}
 
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
-	if pconf.SourceOnDemand {
-		if pconf.Source == "publisher" {
-			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
-		}
-	}
+
 	if pconf.SRTReadPassphrase != "" {
 		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %w", err)
 		}
 	}
+
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
 			err := isValidPathName(pconf.Fallback[1:])
@@ -383,6 +472,10 @@ func (pconf *Path) validate(
 
 	// Record
 
+	if pconf.Playback != nil {
+		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
+	}
+
 	if conf.Playback {
 		if !strings.Contains(pconf.RecordPath, "%Y") ||
 			!strings.Contains(pconf.RecordPath, "%m") ||
@@ -395,6 +488,11 @@ func (pconf *Path) validate(
 				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
 				pconf.RecordPath)
 		}
+	}
+
+	// avoid overflowing DurationV0 of mvhd
+	if pconf.RecordSegmentDuration > Duration(24*time.Hour) {
+		return fmt.Errorf("maximum segment duration is 1 day")
 	}
 
 	// Authentication (deprecated)
@@ -463,99 +561,6 @@ func (pconf *Path) validate(
 				}},
 			})
 		}()
-	}
-
-	// Publisher source
-
-	if pconf.DisablePublisherOverride != nil {
-		pconf.OverridePublisher = !*pconf.DisablePublisherOverride
-	}
-	if pconf.SRTPublishPassphrase != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
-		}
-
-		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
-		if err != nil {
-			return fmt.Errorf("invalid 'srtPublishPassphrase': %w", err)
-		}
-	}
-
-	// RTSP source
-
-	if pconf.SourceProtocol != nil {
-		pconf.RTSPTransport = *pconf.SourceProtocol
-	}
-	if pconf.SourceAnyPortEnable != nil {
-		pconf.RTSPAnyPort = *pconf.SourceAnyPortEnable
-	}
-
-	// Redirect source
-
-	if pconf.Source == "redirect" {
-		if pconf.SourceRedirect == "" {
-			return fmt.Errorf("source redirect must be filled")
-		}
-
-		_, err := base.ParseURL(pconf.SourceRedirect)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
-		}
-	}
-
-	// Raspberry Pi Camera source
-
-	if pconf.Source == "rpiCamera" {
-		for otherName, otherPath := range conf.Paths {
-			if otherPath != pconf && otherPath != nil &&
-				otherPath.Source == "rpiCamera" && otherPath.RPICameraCamID == pconf.RPICameraCamID {
-				return fmt.Errorf("'rpiCamera' with same camera ID %d is used as source in two paths, '%s' and '%s'",
-					pconf.RPICameraCamID, name, otherName)
-			}
-		}
-	}
-	switch pconf.RPICameraExposure {
-	case "normal", "short", "long", "custom":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraExposure' value")
-	}
-	switch pconf.RPICameraAWB {
-	case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraAWB' value")
-	}
-	if len(pconf.RPICameraAWBGains) != 2 {
-		return fmt.Errorf("invalid 'rpiCameraAWBGains' value")
-	}
-	switch pconf.RPICameraDenoise {
-	case "off", "cdn_off", "cdn_fast", "cdn_hq":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraDenoise' value")
-	}
-	switch pconf.RPICameraMetering {
-	case "centre", "spot", "matrix", "custom":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraMetering' value")
-	}
-	switch pconf.RPICameraAfMode {
-	case "auto", "manual", "continuous":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraAfMode' value")
-	}
-	switch pconf.RPICameraAfRange {
-	case "normal", "macro", "full":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraAfRange' value")
-	}
-	switch pconf.RPICameraAfSpeed {
-	case "normal", "fast":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
-	}
-	switch pconf.RPICameraCodec {
-	case "auto", "hardwareH264", "softwareH264":
-	default:
-		return fmt.Errorf("invalid 'rpiCameraCodec' value")
 	}
 
 	// Hooks

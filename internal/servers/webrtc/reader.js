@@ -4,16 +4,16 @@
 
   const supportsNonAdvertisedCodec = (codec, fmtp) => (
     new Promise((resolve) => {
-      const payloadType = 118;
+      const payloadType = 118; // TODO: dynamic
       const pc = new RTCPeerConnection({ iceServers: [] });
-      pc.addTransceiver('audio', { direction: 'recvonly' });
+      const mediaType = 'audio';
+      pc.addTransceiver(mediaType, { direction: 'recvonly' });
       pc.createOffer()
         .then((offer) => {
           if (offer.sdp.includes(' ' + codec)) { // codec is advertised, there's no need to add it manually
-            resolve(false);
-            return;
+            throw new Error('already present');
           }
-          const sections = offer.sdp.split('m=audio');
+          const sections = offer.sdp.split(`m=${mediaType}`);
           const lines = sections[1].split('\r\n');
           lines[0] += ` ${payloadType}`;
           lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} ${codec}`);
@@ -21,7 +21,7 @@
             lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} ${fmtp}`);
           }
           sections[1] = lines.join('\r\n');
-          offer.sdp = sections.join('m=audio');
+          offer.sdp = sections.join(`m=${mediaType}`);
           return pc.setLocalDescription(offer);
         })
         .then(() => {
@@ -32,7 +32,7 @@
             + 's=-\r\n'
             + 't=0 0\r\n'
             + 'a=fingerprint:sha-256 0D:9F:78:15:42:B5:4B:E6:E2:94:3E:5B:37:78:E1:4B:54:59:A3:36:3A:E5:05:EB:27:EE:8F:D2:2D:41:29:25\r\n'
-            + `m=audio 9 UDP/TLS/RTP/SAVPF ${payloadType}` + '\r\n'
+            + `m=${mediaType} 9 UDP/TLS/RTP/SAVPF ${payloadType}` + '\r\n'
             + 'c=IN IP4 0.0.0.0\r\n'
             + 'a=ice-pwd:7c3bf4770007e7432ee4ea4d697db675\r\n'
             + 'a=ice-ufrag:29e036dc\r\n'
@@ -331,7 +331,7 @@
       return Promise.all([
         ['pcma/8000/2'],
         ['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
-        ['L16/48000/2']
+        ['L16/48000/2'],
       ]
         .map((c) => supportsNonAdvertisedCodec(c[0], c[1]).then((r) => (r) ? c[0] : false)))
         .then((c) => c.filter((e) => e !== false))
@@ -366,12 +366,12 @@
         sdpSemantics: 'unified-plan',
       });
 
-      const direction = 'sendrecv';
+      const direction = 'recvonly';
       this.pc.addTransceiver('video', { direction });
       this.pc.addTransceiver('audio', { direction });
 
       this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-      this.pc.oniceconnectionstatechange = () => this.onConnectionState();
+      this.pc.onconnectionstatechange = () => this.onConnectionState();
       this.pc.ontrack = (evt) => this.onTrack(evt);
 
       return this.pc.createOffer()
@@ -468,7 +468,7 @@
         return;
       }
 
-      if (this.pc.iceConnectionState === 'failed') {
+      if (this.pc.connectionState === 'failed') {
         this.handleError('peer connection closed');
       }
     };

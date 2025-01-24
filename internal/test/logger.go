@@ -18,7 +18,7 @@ func (l *testLogger) Log(level logger.Level, format string, args ...interface{})
 	l.cb(level, format, args...)
 }
 
-// Logger returns a test logger.
+// Logger returns a dummy logger.
 func Logger(cb func(logger.Level, string, ...interface{})) logger.Writer {
 	return &testLogger{cb: cb}
 }

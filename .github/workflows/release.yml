@@ -13,6 +13,8 @@ jobs:
     - uses: actions/checkout@v4
 
     - run: make binaries
+      env:
+        CHECKSUM: '1'
 
     - uses: actions/upload-artifact@v4
       with:
@@ -38,11 +40,28 @@ jobs:
 
           const currentRelease = context.ref.split('/')[2];
 
+          let body = `## New major features\n\n`
+            + `TODO\n\n`
+            + `## Fixes and improvements\n\n`
+            + `TODO\n\n`
+            + `## Security\n\n`
+            + `Binaries have been produced by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml)`
+            + ` without human intervention.\n\n`
+            + `SHA256 checksums:\n\n`;
+
+          for (const name of await fs.readdir('./binaries/')) {
+            if (name.endsWith('.sha256sum')) {
+              const parts = (await fs.readFile(`./binaries/${name}`, 'utf-8')).slice(0, -1).split(' ');
+              body += `* ${parts[2]} ${parts[0]}\n`;
+            }
+          }
+
           const res = await github.rest.repos.createRelease({
             owner,
             repo,
             tag_name: currentRelease,
             name: currentRelease,
+            body,
           });
           const release_id = res.data.id;
 

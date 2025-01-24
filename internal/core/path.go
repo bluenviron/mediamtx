@@ -67,8 +67,8 @@ type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
 	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
+	readTimeout       conf.Duration
+	writeTimeout      conf.Duration
 	writeQueueSize    int
 	udpMaxPayloadSize int
 	conf              *conf.Path

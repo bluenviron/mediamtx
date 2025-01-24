@@ -29,7 +29,7 @@ func tempConf(t *testing.T, cnt string) *conf.Conf {
 	require.NoError(t, err)
 	defer os.Remove(fi)
 
-	cnf, _, err := conf.Load(fi, nil)
+	cnf, _, err := conf.Load(fi, nil, nil)
 	require.NoError(t, err)
 
 	return cnf
@@ -77,7 +77,7 @@ func TestPreflightRequest(t *testing.T) {
 	api := API{
 		Address:     "localhost:9997",
 		AllowOrigin: "*",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
 	}
@@ -115,7 +115,7 @@ func TestConfigGlobalGet(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -138,7 +138,7 @@ func TestConfigGlobalPatch(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -174,7 +174,7 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -211,7 +211,7 @@ func TestConfigPathDefaultsGet(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -234,7 +234,7 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -271,7 +271,7 @@ func TestConfigPathsList(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -313,7 +313,7 @@ func TestConfigPathsGet(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -337,7 +337,7 @@ func TestConfigPathsAdd(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -371,7 +371,7 @@ func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -408,7 +408,7 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -448,7 +448,7 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -488,7 +488,7 @@ func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -520,7 +520,7 @@ func TestConfigPathsDelete(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -565,7 +565,7 @@ func TestRecordingsList(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -634,7 +634,7 @@ func TestRecordingsGet(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},
@@ -683,7 +683,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 
 	api := API{
 		Address:     "localhost:9997",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Conf:        cnf,
 		AuthManager: test.NilAuthManager,
 		Parent:      &testParent{},

@@ -86,7 +86,6 @@ func setupVideo(
 				return (*w).WriteH264(
 					timestampToDuration(tunit.PTS, videoFormatH264.ClockRate()),
 					timestampToDuration(dts, videoFormatH264.ClockRate()),
-					idrPresent,
 					tunit.AU)
 			})
 

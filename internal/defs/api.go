@@ -92,11 +92,12 @@ type APIRTMPConnList struct {
 
 // APIRTSPConn is a RTSP connection.
 type APIRTSPConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID            uuid.UUID  `json:"id"`
+	Created       time.Time  `json:"created"`
+	RemoteAddr    string     `json:"remoteAddr"`
+	BytesReceived uint64     `json:"bytesReceived"`
+	BytesSent     uint64     `json:"bytesSent"`
+	Session       *uuid.UUID `json:"session"`
 }
 
 // APIRTSPConnsList is a list of RTSP connections.
@@ -118,15 +119,23 @@ const (
 
 // APIRTSPSession is a RTSP session.
 type APIRTSPSession struct {
-	ID            uuid.UUID           `json:"id"`
-	Created       time.Time           `json:"created"`
-	RemoteAddr    string              `json:"remoteAddr"`
-	State         APIRTSPSessionState `json:"state"`
-	Path          string              `json:"path"`
-	Query         string              `json:"query"`
-	Transport     *string             `json:"transport"`
-	BytesReceived uint64              `json:"bytesReceived"`
-	BytesSent     uint64              `json:"bytesSent"`
+	ID                  uuid.UUID           `json:"id"`
+	Created             time.Time           `json:"created"`
+	RemoteAddr          string              `json:"remoteAddr"`
+	State               APIRTSPSessionState `json:"state"`
+	Path                string              `json:"path"`
+	Query               string              `json:"query"`
+	Transport           *string             `json:"transport"`
+	BytesReceived       uint64              `json:"bytesReceived"`
+	BytesSent           uint64              `json:"bytesSent"`
+	RTPPacketsReceived  uint64              `json:"rtpPacketsReceived"`
+	RTPPacketsSent      uint64              `json:"rtpPacketsSent"`
+	RTPPacketsLost      uint64              `json:"rtpPacketsLost"`
+	RTPPacketsInError   uint64              `json:"rtpPacketsInError"`
+	RTPPacketsJitter    float64             `json:"rtpPacketsJitter"`
+	RTCPPacketsReceived uint64              `json:"rtcpPacketsReceived"`
+	RTCPPacketsSent     uint64              `json:"rtcpPacketsSent"`
+	RTCPPacketsInError  uint64              `json:"rtcpPacketsInError"`
 }
 
 // APIRTSPSessionList is a list of RTSP sessions.

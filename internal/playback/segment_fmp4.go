@@ -60,68 +60,90 @@ func segmentFMP4CanBeConcatenated(
 		!curStart.After(prevEnd.Add(concatenationTolerance))
 }
 
-func segmentFMP4ReadInit(r io.ReadSeeker) (*fmp4.Init, error) {
+func segmentFMP4ReadHeader(r io.ReadSeeker) (*fmp4.Init, time.Duration, error) {
+	// check and skip ftyp
+
 	buf := make([]byte, 8)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	// find ftyp
-
 	if !bytes.Equal(buf[4:], []byte{'f', 't', 'y', 'p'}) {
-		return nil, fmt.Errorf("ftyp box not found")
+		return nil, 0, fmt.Errorf("ftyp box not found")
 	}
 
 	ftypSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
 
 	_, err = r.Seek(int64(ftypSize), io.SeekStart)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	// find moov
+	// check moov
 
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'v'}) {
-		return nil, fmt.Errorf("moov box not found")
+		return nil, 0, fmt.Errorf("moov box not found")
 	}
 
 	moovSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
 
-	_, err = r.Seek(0, io.SeekStart)
+	// skip moov header
+
+	_, err = r.Seek(8, io.SeekCurrent)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	buf = make([]byte, ftypSize+moovSize)
+	// read mvhd
+
+	var mvhd mp4.Mvhd
+	mvhdSize, err := mp4.Unmarshal(r, uint64(moovSize-8), &mvhd, mp4.Context{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	mvhdSize += 8                    // add mvhd header
+	moovSize -= 8 + uint32(mvhdSize) // remove moov header and mvhd
+
+	d := time.Duration(mvhd.DurationV0) * time.Second / time.Duration(mvhd.Timescale)
+
+	// read tracks
+
+	buf = make([]byte, uint64(moovSize))
 
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var init fmp4.Init
 	err = init.Unmarshal(bytes.NewReader(buf))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return &init, nil
+	return &init, d, nil
 }
 
-func segmentFMP4ReadMaxDuration(
+func segmentFMP4ReadDurationFromParts(
 	r io.ReadSeeker,
 	init *fmp4.Init,
 ) (time.Duration, error) {
-	// find and skip ftyp
+	_, err := r.Seek(0, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	// check and skip ftyp
 
 	buf := make([]byte, 8)
-	_, err := io.ReadFull(r, buf)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return 0, err
 	}
@@ -137,7 +159,7 @@ func segmentFMP4ReadMaxDuration(
 		return 0, err
 	}
 
-	// find and skip moov
+	// check and skip moov
 
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
@@ -232,17 +254,19 @@ func segmentFMP4ReadMaxDuration(
 
 	// foreach traf
 
+outer:
 	for {
 		_, err := io.ReadFull(r, buf)
 		if err != nil {
 			return 0, err
 		}
 
-		if !bytes.Equal(buf[4:], []byte{'t', 'r', 'a', 'f'}) {
-			if bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}) {
-				break
-			}
-			return 0, fmt.Errorf("traf box not found")
+		switch {
+		case bytes.Equal(buf[4:], []byte{'t', 'r', 'a', 'f'}):
+		case bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}):
+			break outer
+		default:
+			return 0, fmt.Errorf("unexpected box %x", buf[4:8])
 		}
 
 		// parse tfhd

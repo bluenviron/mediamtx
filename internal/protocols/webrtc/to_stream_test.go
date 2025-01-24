@@ -10,7 +10,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,10 +72,13 @@ var toFromStreamCases = []struct {
 	},
 	{
 		"h265",
-		nil,
+		&format.H265{
+			PayloadTyp: 96,
+		},
 		webrtc.RTPCodecCapability{
-			MimeType:  "video/H265",
-			ClockRate: 90000,
+			MimeType:    "video/H265",
+			ClockRate:   90000,
+			SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
 		},
 		&format.H265{
 			PayloadTyp: 96,
@@ -333,8 +336,8 @@ func TestToStream(t *testing.T) {
 	for _, ca := range toFromStreamCases {
 		t.Run(ca.name, func(t *testing.T) {
 			pc1 := &PeerConnection{
-				HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-				TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+				HandshakeTimeout:   conf.Duration(10 * time.Second),
+				TrackGatherTimeout: conf.Duration(2 * time.Second),
 				LocalRandomUDP:     true,
 				IPsFromInterfaces:  true,
 				Publish:            true,
@@ -348,8 +351,8 @@ func TestToStream(t *testing.T) {
 			defer pc1.Close()
 
 			pc2 := &PeerConnection{
-				HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-				TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+				HandshakeTimeout:   conf.Duration(10 * time.Second),
+				TrackGatherTimeout: conf.Duration(2 * time.Second),
 				LocalRandomUDP:     true,
 				IPsFromInterfaces:  true,
 				Publish:            false,

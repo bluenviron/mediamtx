@@ -21,8 +21,8 @@ import (
 
 // Source is a RTMP static source.
 type Source struct {
-	ReadTimeout  conf.StringDuration
-	WriteTimeout conf.StringDuration
+	ReadTimeout  conf.Duration
+	WriteTimeout conf.Duration
 	Parent       defs.StaticSourceParent
 }
 

@@ -57,9 +57,6 @@ func (s *streamID) unmarshal(raw string) error {
 				default:
 					return fmt.Errorf("unsupported mode '%s'", value)
 				}
-
-			default:
-				return fmt.Errorf("unsupported key '%s'", key)
 			}
 		}
 	} else {

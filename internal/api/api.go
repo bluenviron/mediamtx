@@ -64,7 +64,7 @@ func recordingsOfPath(
 		Name: pathName,
 	}
 
-	segments, _ := recordstore.FindSegments(pathConf, pathName)
+	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
 
 	ret.Segments = make([]*defs.APIRecordingSegment, len(segments))
 
@@ -136,7 +136,7 @@ type API struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    PathManager
@@ -286,11 +286,13 @@ func (a *API) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
-	err := a.AuthManager.Authenticate(&auth.Request{
-		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionAPI,
-		HTTPRequest: ctx.Request,
-	})
+	req := &auth.Request{
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionAPI,
+	}
+	req.FillFromHTTPRequest(ctx.Request)
+
+	err := a.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
@@ -329,7 +331,7 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 
 	newConf.PatchGlobal(&c)
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -367,7 +369,7 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 
 	newConf.PatchPathDefaults(&p)
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -448,7 +450,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -489,7 +491,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -530,7 +532,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -564,7 +566,7 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	err = newConf.Validate()
+	err = newConf.Validate(nil)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

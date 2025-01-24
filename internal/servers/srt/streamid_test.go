@@ -50,6 +50,14 @@ func TestStreamIDUnmarshal(t *testing.T) {
 				pass: "mypass",
 			},
 		},
+		{
+			"issue 3701",
+			"#!::bmd_uuid=0e1df79f-77e6-465c-b099-29a616e964f7,bmd_name=rdt-wp-003,r=test3,m=publish",
+			streamID{
+				mode: streamIDModePublish,
+				path: "test3",
+			},
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			var sid streamID

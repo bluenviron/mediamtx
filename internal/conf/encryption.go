@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Encryption is the encryption parameter.
+// Encryption is the rtspEncryption / rtmpEncryption parameter.
 type Encryption int
 
 // values.

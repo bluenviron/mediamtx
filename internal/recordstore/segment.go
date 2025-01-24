@@ -34,7 +34,7 @@ func fixedPathHasSegments(pathConf *conf.Path) bool {
 
 	commonPath := CommonPath(recordPath)
 
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 
 	ret := make(map[string]struct{})
 
-	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
+	filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error { //nolint:errcheck
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 	return ret
 }
 
-// FindAllPathsWithSegments returns all paths that do have segments.
+// FindAllPathsWithSegments returns all paths that have at least one segment.
 func FindAllPathsWithSegments(pathConfs map[string]*conf.Path) []string {
 	pathNames := make(map[string]struct{})
 
@@ -117,9 +117,12 @@ func FindAllPathsWithSegments(pathConfs map[string]*conf.Path) []string {
 }
 
 // FindSegments returns all segments of a path.
+// Segments can be filtered by start date and end date.
 func FindSegments(
 	pathConf *conf.Path,
 	pathName string,
+	start *time.Time,
+	end *time.Time,
 ) ([]*Segment, error) {
 	recordPath := PathAddExtension(
 		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
@@ -133,60 +136,7 @@ func FindSegments(
 	commonPath := CommonPath(recordPath)
 	var segments []*Segment
 
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			var pa Path
-			ok := pa.Decode(recordPath, fpath)
-			if ok {
-				segments = append(segments, &Segment{
-					Fpath: fpath,
-					Start: pa.Start,
-				})
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if segments == nil {
-		return nil, ErrNoSegmentsFound
-	}
-
-	sort.Slice(segments, func(i, j int) bool {
-		return segments[i].Start.Before(segments[j].Start)
-	})
-
-	return segments, nil
-}
-
-// FindSegmentsInTimespan returns all segments in a certain timestamp.
-func FindSegmentsInTimespan(
-	pathConf *conf.Path,
-	pathName string,
-	start time.Time,
-	duration time.Duration,
-) ([]*Segment, error) {
-	recordPath := PathAddExtension(
-		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
-		pathConf.RecordFormat,
-	)
-
-	// we have to convert to absolute paths
-	// otherwise, recordPath and fpath inside Walk() won't have common elements
-	recordPath, _ = filepath.Abs(recordPath)
-
-	commonPath := CommonPath(recordPath)
-	end := start.Add(duration)
-	var segments []*Segment
-
-	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -196,7 +146,7 @@ func FindSegmentsInTimespan(
 			ok := pa.Decode(recordPath, fpath)
 
 			// gather all segments that starts before the end of the playback
-			if ok && !end.Before(pa.Start) {
+			if ok && (end == nil || !end.Before(pa.Start)) {
 				segments = append(segments, &Segment{
 					Fpath: fpath,
 					Start: pa.Start,
@@ -218,21 +168,27 @@ func FindSegmentsInTimespan(
 		return segments[i].Start.Before(segments[j].Start)
 	})
 
-	// find the segment that may contain the start of the playback and remove all previous ones
-	found := false
-	for i := 0; i < len(segments)-1; i++ {
-		if !start.Before(segments[i].Start) && start.Before(segments[i+1].Start) {
-			segments = segments[i:]
-			found = true
-			break
+	if start != nil {
+		if start.Before(segments[0].Start) {
+			return segments, nil
 		}
-	}
 
-	// otherwise, keep the last segment only and check if it may contain the start of the playback
-	if !found {
-		segments = segments[len(segments)-1:]
-		if segments[len(segments)-1].Start.After(start) {
-			return nil, ErrNoSegmentsFound
+		// find the segment that may contain the start of the playback and remove all previous ones
+		found := false
+		for i := 0; i < len(segments)-1; i++ {
+			if !start.Before(segments[i].Start) && start.Before(segments[i+1].Start) {
+				segments = segments[i:]
+				found = true
+				break
+			}
+		}
+
+		// otherwise, keep the last segment only and check if it may contain the start of the playback
+		if !found {
+			segments = segments[len(segments)-1:]
+			if segments[len(segments)-1].Start.After(*start) {
+				return nil, ErrNoSegmentsFound
+			}
 		}
 	}
 

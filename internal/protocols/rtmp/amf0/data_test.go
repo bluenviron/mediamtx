@@ -9,7 +9,7 @@ import (
 var cases = []struct {
 	name string
 	enc  []byte
-	dec  []interface{}
+	dec  Data
 }{
 	{
 		"on metadata",
@@ -316,6 +316,16 @@ func TestUnmarshal(t *testing.T) {
 	}
 }
 
+func TestMarshal(t *testing.T) {
+	for _, ca := range cases {
+		t.Run(ca.name, func(t *testing.T) {
+			enc, err := ca.dec.Marshal()
+			require.NoError(t, err)
+			require.Equal(t, ca.enc, enc)
+		})
+	}
+}
+
 func FuzzUnmarshal(f *testing.F) {
 	for _, ca := range cases {
 		f.Add(ca.enc)
@@ -324,7 +334,7 @@ func FuzzUnmarshal(f *testing.F) {
 	f.Fuzz(func(_ *testing.T, b []byte) {
 		what, err := Unmarshal(b)
 		if err == nil {
-			Marshal(what) //nolint:errcheck
+			what.Marshal() //nolint:errcheck
 		}
 	})
 }

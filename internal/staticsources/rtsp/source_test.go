@@ -138,8 +138,8 @@ func TestSource(t *testing.T) {
 				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:    conf.StringDuration(10 * time.Second),
-							WriteTimeout:   conf.StringDuration(10 * time.Second),
+							ReadTimeout:    conf.Duration(10 * time.Second),
+							WriteTimeout:   conf.Duration(10 * time.Second),
 							WriteQueueSize: 2048,
 							Parent:         p,
 						}
@@ -153,8 +153,8 @@ func TestSource(t *testing.T) {
 				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:    conf.StringDuration(10 * time.Second),
-							WriteTimeout:   conf.StringDuration(10 * time.Second),
+							ReadTimeout:    conf.Duration(10 * time.Second),
+							WriteTimeout:   conf.Duration(10 * time.Second),
 							WriteQueueSize: 2048,
 							Parent:         p,
 						}
@@ -241,8 +241,8 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ReadTimeout:    conf.StringDuration(10 * time.Second),
-				WriteTimeout:   conf.StringDuration(10 * time.Second),
+				ReadTimeout:    conf.Duration(10 * time.Second),
+				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 2048,
 				Parent:         p,
 			}
@@ -338,8 +338,8 @@ func TestRTSPSourceRange(t *testing.T) {
 			te := test.NewSourceTester(
 				func(p defs.StaticSourceParent) defs.StaticSource {
 					return &Source{
-						ReadTimeout:    conf.StringDuration(10 * time.Second),
-						WriteTimeout:   conf.StringDuration(10 * time.Second),
+						ReadTimeout:    conf.Duration(10 * time.Second),
+						WriteTimeout:   conf.Duration(10 * time.Second),
 						WriteQueueSize: 2048,
 						Parent:         p,
 					}

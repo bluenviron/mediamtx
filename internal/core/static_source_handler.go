@@ -45,8 +45,8 @@ type staticSourceHandlerParent interface {
 type staticSourceHandler struct {
 	conf           *conf.Path
 	logLevel       conf.LogLevel
-	readTimeout    conf.StringDuration
-	writeTimeout   conf.StringDuration
+	readTimeout    conf.Duration
+	writeTimeout   conf.Duration
 	writeQueueSize int
 	matches        []string
 	parent         staticSourceHandlerParent

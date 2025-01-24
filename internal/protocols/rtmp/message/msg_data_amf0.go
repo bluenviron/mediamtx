@@ -9,24 +9,24 @@ import (
 type DataAMF0 struct {
 	ChunkStreamID   byte
 	MessageStreamID uint32
-	Payload         []interface{}
+	Payload         amf0.Data
 }
 
 func (m *DataAMF0) unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.MessageStreamID = raw.MessageStreamID
 
-	payload, err := amf0.Unmarshal(raw.Body)
+	var err error
+	m.Payload, err = amf0.Unmarshal(raw.Body)
 	if err != nil {
 		return err
 	}
-	m.Payload = payload
 
 	return nil
 }
 
 func (m DataAMF0) marshal() (*rawmessage.Message, error) {
-	body, err := amf0.Marshal(m.Payload)
+	body, err := m.Payload.Marshal()
 	if err != nil {
 		return nil, err
 	}
