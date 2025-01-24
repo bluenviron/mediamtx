@@ -82,11 +82,10 @@ func FromStream(
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err = (*w).WriteH265(
+						err = (*w).WriteH2652(
 							track,
 							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
-							randomAccess,
 							tunit.AU)
 						if err != nil {
 							return err
@@ -124,11 +123,10 @@ func FromStream(
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err = (*w).WriteH264(
+						err = (*w).WriteH2642(
 							track,
 							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
-							idrPresent,
 							tunit.AU)
 						if err != nil {
 							return err
