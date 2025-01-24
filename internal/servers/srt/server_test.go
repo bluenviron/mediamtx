@@ -115,7 +115,7 @@ func TestServerPublish(t *testing.T) {
 	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 	require.NoError(t, err)
 
-	err = w.WriteH264(track, 0, 0, true, [][]byte{
+	err = w.WriteH2642(track, 0, 0, [][]byte{
 		test.FormatH264.SPS,
 		test.FormatH264.PPS,
 		{0x05, 1}, // IDR
@@ -148,7 +148,7 @@ func TestServerPublish(t *testing.T) {
 	path.stream.StartReader(reader)
 	defer path.stream.RemoveReader(reader)
 
-	err = w.WriteH264(track, 0, 0, true, [][]byte{
+	err = w.WriteH2642(track, 0, 0, [][]byte{
 		{5, 2},
 	})
 	require.NoError(t, err)

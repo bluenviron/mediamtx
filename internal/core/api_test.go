@@ -551,7 +551,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 				require.NoError(t, err)
 
-				err = w.WriteH264(track, 0, 0, true, [][]byte{{1}})
+				err = w.WriteH2642(track, 0, 0, [][]byte{{1}})
 				require.NoError(t, err)
 
 				err = bw.Flush()
@@ -1055,7 +1055,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 				require.NoError(t, err)
 
-				err = w.WriteH264(track, 0, 0, true, [][]byte{{1}})
+				err = w.WriteH2642(track, 0, 0, [][]byte{{1}})
 				require.NoError(t, err)
 
 				err = bw.Flush()
