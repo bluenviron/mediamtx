@@ -23,11 +23,16 @@ const (
 	rtspAuthRealm = "IPCAM"
 )
 
+type connParent interface {
+	logger.Writer
+	findSessionByRSession(rsession *gortsplib.ServerSession) *session
+}
+
 type conn struct {
 	isTLS               bool
 	rtspAddress         string
 	authMethods         []rtspauth.ValidateMethod
-	readTimeout         conf.StringDuration
+	readTimeout         conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
 	runOnDisconnect     string
@@ -35,7 +40,7 @@ type conn struct {
 	pathManager         serverPathManager
 	rconn               *gortsplib.ServerConn
 	rserver             *gortsplib.Server
-	parent              *Server
+	parent              connParent
 
 	uuid             uuid.UUID
 	created          time.Time
@@ -55,7 +60,7 @@ func (c *conn) initialize() {
 			if c.isTLS {
 				return "rtspsConn"
 			}
-			return "conn"
+			return "rtspConn"
 		}(),
 		ID: c.uuid.String(),
 	}
@@ -126,16 +131,19 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}
 	}
 
+	req := defs.PathAccessRequest{
+		Name:        ctx.Path,
+		Query:       ctx.Query,
+		IP:          c.ip(),
+		Proto:       auth.ProtocolRTSP,
+		ID:          &c.uuid,
+		RTSPRequest: ctx.Request,
+		RTSPNonce:   c.authNonce,
+	}
+	req.FillFromRTSPRequest(ctx.Request)
+
 	res := c.pathManager.Describe(defs.PathDescribeReq{
-		AccessRequest: defs.PathAccessRequest{
-			Name:        ctx.Path,
-			Query:       ctx.Query,
-			IP:          c.ip(),
-			Proto:       auth.ProtocolRTSP,
-			ID:          &c.uuid,
-			RTSPRequest: ctx.Request,
-			RTSPNonce:   c.authNonce,
-		},
+		AccessRequest: req,
 	})
 
 	if res.Err != nil {
@@ -205,11 +213,23 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 }
 
 func (c *conn) apiItem() *defs.APIRTSPConn {
+	stats := c.rconn.Stats()
+	if stats == nil {
+		stats = &gortsplib.StatsConn{}
+	}
+
 	return &defs.APIRTSPConn{
 		ID:            c.uuid,
 		Created:       c.created,
 		RemoteAddr:    c.remoteAddr().String(),
-		BytesReceived: c.rconn.BytesReceived(),
-		BytesSent:     c.rconn.BytesSent(),
+		BytesReceived: stats.BytesReceived,
+		BytesSent:     stats.BytesSent,
+		Session: func() *uuid.UUID {
+			sx := c.parent.findSessionByRSession(c.rconn.Session())
+			if sx != nil {
+				return &sx.uuid
+			}
+			return nil
+		}(),
 	}
 }

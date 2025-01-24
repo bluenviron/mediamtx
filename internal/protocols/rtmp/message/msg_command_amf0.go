@@ -13,7 +13,7 @@ type CommandAMF0 struct {
 	MessageStreamID uint32
 	Name            string
 	CommandID       int
-	Arguments       []interface{}
+	Arguments       amf0.Data
 }
 
 func (m *CommandAMF0) unmarshal(raw *rawmessage.Message) error {
@@ -47,12 +47,12 @@ func (m *CommandAMF0) unmarshal(raw *rawmessage.Message) error {
 }
 
 func (m CommandAMF0) marshal() (*rawmessage.Message, error) {
-	data := append([]interface{}{
+	data := append(amf0.Data{
 		m.Name,
 		float64(m.CommandID),
 	}, m.Arguments...)
 
-	body, err := amf0.Marshal(data)
+	body, err := data.Marshal()
 	if err != nil {
 		return nil, err
 	}

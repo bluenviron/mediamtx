@@ -27,7 +27,7 @@ type Server struct {
 	ServerCert     string
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.StringDuration
+	ReadTimeout    conf.Duration
 	PathConfs      map[string]*conf.Path
 	AuthManager    serverAuthManager
 	Parent         logger.Writer
@@ -117,12 +117,14 @@ func (s *Server) middlewareOrigin(ctx *gin.Context) {
 }
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
-	err := s.AuthManager.Authenticate(&auth.Request{
-		IP:          net.ParseIP(ctx.ClientIP()),
-		Action:      conf.AuthActionPlayback,
-		Path:        pathName,
-		HTTPRequest: ctx.Request,
-	})
+	req := &auth.Request{
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionPlayback,
+		Path:   pathName,
+	}
+	req.FillFromHTTPRequest(ctx.Request)
+
+	err := s.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.(*auth.Error).AskCredentials { //nolint:errorlint
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

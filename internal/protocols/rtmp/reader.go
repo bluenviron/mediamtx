@@ -1,25 +1,25 @@
 package rtmp
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 )
 
 const (
-	analyzePeriod = 1 * time.Second
+	analyzePeriod = 2 * time.Second
 )
 
 // OnDataAV1Func is the prototype of the callback passed to OnDataAV1().
@@ -31,84 +31,23 @@ type OnDataVP9Func func(pts time.Duration, frame []byte)
 // OnDataH26xFunc is the prototype of the callback passed to OnDataH26x().
 type OnDataH26xFunc func(pts time.Duration, au [][]byte)
 
+// OnDataOpusFunc is the prototype of the callback passed to OnDataOpus().
+type OnDataOpusFunc func(pts time.Duration, packet []byte)
+
 // OnDataMPEG4AudioFunc is the prototype of the callback passed to OnDataMPEG4Audio().
 type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
 
 // OnDataMPEG1AudioFunc is the prototype of the callback passed to OnDataMPEG1Audio().
 type OnDataMPEG1AudioFunc func(pts time.Duration, frame []byte)
 
+// OnDataAC3Func is the prototype of the callback passed to OnDataAC3().
+type OnDataAC3Func func(pts time.Duration, frame []byte)
+
 // OnDataG711Func is the prototype of the callback passed to OnDataG711().
 type OnDataG711Func func(pts time.Duration, samples []byte)
 
 // OnDataLPCMFunc is the prototype of the callback passed to OnDataLPCM().
 type OnDataLPCMFunc func(pts time.Duration, samples []byte)
-
-func hasVideo(md amf0.Object) (bool, error) {
-	v, ok := md.Get("videocodecid")
-	if !ok {
-		// some Dahua cameras send width and height without videocodecid
-		if v2, ok := md.Get("width"); ok {
-			if vf, ok := v2.(float64); ok && vf != 0 {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
-	switch vt := v.(type) {
-	case float64:
-		switch vt {
-		case 0:
-			return false, nil
-
-		case message.CodecH264, float64(message.FourCCAV1),
-			float64(message.FourCCVP9), float64(message.FourCCHEVC):
-			return true, nil
-		}
-
-	case string:
-		if vt == "avc1" || vt == "hvc1" || vt == "av01" {
-			return true, nil
-		}
-	}
-
-	return false, fmt.Errorf("unsupported video codec: %v", v)
-}
-
-func hasAudio(md amf0.Object, audioTrack *format.Format) (bool, error) {
-	v, ok := md.Get("audiocodecid")
-	if !ok {
-		return false, nil
-	}
-
-	switch vt := v.(type) {
-	case float64:
-		switch vt {
-		case 0:
-			return false, nil
-
-		case message.CodecMPEG4Audio, message.CodecLPCM:
-			return true, nil
-
-		case message.CodecMPEG1Audio:
-			*audioTrack = &format.MPEG1Audio{}
-			return true, nil
-
-		case message.CodecPCMA:
-			return true, nil
-
-		case message.CodecPCMU:
-			return true, nil
-		}
-
-	case string:
-		if vt == "mp4a" {
-			return true, nil
-		}
-	}
-
-	return false, fmt.Errorf("unsupported audio codec: %v", v)
-}
 
 func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	for _, entry := range array {
@@ -120,7 +59,7 @@ func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	return nil
 }
 
-func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
+func h264TrackFromConfig(data []byte) (*format.H264, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
@@ -135,7 +74,7 @@ func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
 	}, nil
 }
 
-func trackFromAACDecoderConfig(data []byte) (format.Format, error) {
+func mpeg4AudioTrackFromConfig(data []byte) (*format.MPEG4Audio, error) {
 	var mpegConf mpeg4audio.Config
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
@@ -151,323 +90,193 @@ func trackFromAACDecoderConfig(data []byte) (format.Format, error) {
 	}, nil
 }
 
-func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, format.Format, error) {
-	if len(payload) != 1 {
-		return nil, nil, fmt.Errorf("invalid metadata")
-	}
+func audioTrackFromData(msg *message.Audio) (format.Format, error) {
+	switch {
+	case msg.Codec == message.CodecMPEG1Audio:
+		return &format.MPEG1Audio{}, nil
 
-	var md amf0.Object
-	switch pl := payload[0].(type) {
-	case amf0.Object:
-		md = pl
+	case msg.Codec == message.CodecPCMA:
+		return &format.G711{
+			PayloadTyp: 8,
+			MULaw:      false,
+			SampleRate: 8000,
+			ChannelCount: func() int {
+				if msg.IsStereo {
+					return 2
+				}
+				return 1
+			}(),
+		}, nil
 
-	case amf0.ECMAArray:
-		md = amf0.Object(pl)
+	case msg.Codec == message.CodecPCMU:
+		return &format.G711{
+			PayloadTyp: 0,
+			MULaw:      true,
+			SampleRate: 8000,
+			ChannelCount: func() int {
+				if msg.IsStereo {
+					return 2
+				}
+				return 1
+			}(),
+		}, nil
+
+	case msg.Codec == message.CodecLPCM:
+		return &format.LPCM{
+			PayloadTyp: 96,
+			BitDepth: func() int {
+				if msg.Depth == message.Depth16 {
+					return 16
+				}
+				return 8
+			}(),
+			SampleRate: audioRateRTMPToInt(msg.Rate),
+			ChannelCount: func() int {
+				if msg.IsStereo {
+					return 2
+				}
+				return 1
+			}(),
+		}, nil
 
 	default:
-		return nil, nil, fmt.Errorf("invalid metadata")
-	}
-
-	var videoTrack format.Format
-	var audioTrack format.Format
-
-	hasVideo, err := hasVideo(md)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	hasAudio, err := hasAudio(md, &audioTrack)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if !hasVideo && !hasAudio {
-		return nil, nil, nil
-	}
-
-	firstReceived := false
-	var startTime time.Duration
-
-	for {
-		if (!hasVideo || videoTrack != nil) &&
-			(!hasAudio || audioTrack != nil) {
-			return videoTrack, audioTrack, nil
-		}
-
-		msg, err := conn.Read()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		switch msg := msg.(type) {
-		case *message.Video:
-			if !hasVideo {
-				return nil, nil, fmt.Errorf("unexpected video packet")
-			}
-
-			if !firstReceived {
-				firstReceived = true
-				startTime = msg.DTS
-			}
-
-			if videoTrack == nil {
-				if msg.Type == message.VideoTypeConfig {
-					videoTrack, err = trackFromH264DecoderConfig(msg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					// format used by OBS < 29.1 to publish H265
-				} else if msg.Type == message.VideoTypeAU && msg.IsKeyFrame {
-					var nalus [][]byte
-					nalus, err = h264.AVCCUnmarshal(msg.Payload)
-					if err != nil {
-						if errors.Is(err, h264.ErrAVCCNoNALUs) {
-							continue
-						}
-						return nil, nil, err
-					}
-
-					var vps []byte
-					var sps []byte
-					var pps []byte
-
-					for _, nalu := range nalus {
-						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-						switch typ {
-						case h265.NALUType_VPS_NUT:
-							vps = nalu
-
-						case h265.NALUType_SPS_NUT:
-							sps = nalu
-
-						case h265.NALUType_PPS_NUT:
-							pps = nalu
-						}
-					}
-
-					if vps != nil && sps != nil && pps != nil {
-						videoTrack = &format.H265{
-							PayloadTyp: 96,
-							VPS:        vps,
-							SPS:        sps,
-							PPS:        pps,
-						}
-					}
-				}
-			}
-
-			// video was found, but audio was not
-			if videoTrack != nil && (msg.DTS-startTime) >= analyzePeriod {
-				return videoTrack, nil, nil
-			}
-
-		case *message.ExtendedSequenceStart:
-			if !hasVideo {
-				return nil, nil, fmt.Errorf("unexpected video packet")
-			}
-
-			if videoTrack == nil {
-				switch msg.FourCC {
-				case message.FourCCHEVC:
-					var hvcc mp4.HvcC
-					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &hvcc, mp4.Context{})
-					if err != nil {
-						return nil, nil, fmt.Errorf("invalid H265 configuration: %w", err)
-					}
-
-					vps := h265FindNALU(hvcc.NaluArrays, h265.NALUType_VPS_NUT)
-					sps := h265FindNALU(hvcc.NaluArrays, h265.NALUType_SPS_NUT)
-					pps := h265FindNALU(hvcc.NaluArrays, h265.NALUType_PPS_NUT)
-					if vps == nil || sps == nil || pps == nil {
-						return nil, nil, fmt.Errorf("H265 parameters are missing")
-					}
-
-					videoTrack = &format.H265{
-						PayloadTyp: 96,
-						VPS:        vps,
-						SPS:        sps,
-						PPS:        pps,
-					}
-
-				case message.FourCCAV1:
-					var av1c mp4.Av1C
-					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &av1c, mp4.Context{})
-					if err != nil {
-						return nil, nil, fmt.Errorf("invalid AV1 configuration: %w", err)
-					}
-
-					// parse sequence header and metadata contained in ConfigOBUs, but do not use them
-					_, err = av1.BitstreamUnmarshal(av1c.ConfigOBUs, false)
-					if err != nil {
-						return nil, nil, fmt.Errorf("invalid AV1 configuration: %w", err)
-					}
-
-					videoTrack = &format.AV1{
-						PayloadTyp: 96,
-					}
-
-				default: // VP9
-					var vpcc mp4.VpcC
-					_, err = mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &vpcc, mp4.Context{})
-					if err != nil {
-						return nil, nil, fmt.Errorf("invalid VP9 configuration: %w", err)
-					}
-
-					videoTrack = &format.VP9{
-						PayloadTyp: 96,
-					}
-				}
-			}
-
-		case *message.Audio:
-			if !hasAudio {
-				return nil, nil, fmt.Errorf("unexpected audio packet")
-			}
-
-			if audioTrack == nil {
-				if len(msg.Payload) == 0 {
-					continue
-				}
-				switch {
-				case msg.Codec == message.CodecMPEG4Audio &&
-					msg.AACType == message.AudioAACTypeConfig:
-					audioTrack, err = trackFromAACDecoderConfig(msg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-				case msg.Codec == message.CodecPCMA:
-					audioTrack = &format.G711{
-						PayloadTyp: 8,
-						MULaw:      false,
-						SampleRate: 8000,
-						ChannelCount: func() int {
-							if msg.IsStereo {
-								return 2
-							}
-							return 1
-						}(),
-					}
-
-				case msg.Codec == message.CodecPCMU:
-					audioTrack = &format.G711{
-						PayloadTyp: 0,
-						MULaw:      true,
-						SampleRate: 8000,
-						ChannelCount: func() int {
-							if msg.IsStereo {
-								return 2
-							}
-							return 1
-						}(),
-					}
-
-				case msg.Codec == message.CodecLPCM:
-					audioTrack = &format.LPCM{
-						PayloadTyp: 96,
-						BitDepth: func() int {
-							if msg.Depth == message.Depth16 {
-								return 16
-							}
-							return 8
-						}(),
-						SampleRate: audioRateRTMPToInt(msg.Rate),
-						ChannelCount: func() int {
-							if msg.IsStereo {
-								return 2
-							}
-							return 1
-						}(),
-					}
-				}
-			}
-		}
+		panic("should not happen")
 	}
 }
 
-func tracksFromMessages(conn *Conn, msg message.Message) (format.Format, format.Format, error) {
-	firstReceived := false
-	var startTime time.Duration
-	var videoTrack format.Format
-	var audioTrack format.Format
-
-outer:
-	for {
-		switch msg := msg.(type) {
-		case *message.Video:
-			if !firstReceived {
-				firstReceived = true
-				startTime = msg.DTS
-			}
-
-			if msg.Type == message.VideoTypeConfig {
-				if videoTrack == nil {
-					var err error
-					videoTrack, err = trackFromH264DecoderConfig(msg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					// stop the analysis if both tracks are found
-					if videoTrack != nil && audioTrack != nil {
-						return videoTrack, audioTrack, nil
-					}
-				}
-			}
-
-			if (msg.DTS - startTime) >= analyzePeriod {
-				break outer
-			}
-
-		case *message.Audio:
-			if !firstReceived {
-				firstReceived = true
-				startTime = msg.DTS
-			}
-
-			if msg.AACType == message.AudioAACTypeConfig {
-				if audioTrack == nil {
-					var err error
-					audioTrack, err = trackFromAACDecoderConfig(msg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					// stop the analysis if both tracks are found
-					if videoTrack != nil && audioTrack != nil {
-						return videoTrack, audioTrack, nil
-					}
-				}
-			}
-
-			if (msg.DTS - startTime) >= analyzePeriod {
-				break outer
-			}
-		}
-
-		var err error
-		msg, err = conn.Read()
+func videoTrackFromSequenceStart(msg *message.VideoExSequenceStart) (format.Format, error) {
+	switch msg.FourCC {
+	case message.FourCCAV1:
+		// parse sequence header and metadata contained in ConfigOBUs, but do not use them
+		var tu av1.Bitstream
+		err := tu.Unmarshal(msg.AV1Header.ConfigOBUs)
 		if err != nil {
-			return nil, nil, err
+			return nil, fmt.Errorf("invalid AV1 configuration: %w", err)
+		}
+
+		return &format.AV1{
+			PayloadTyp: 96,
+		}, nil
+
+	case message.FourCCVP9:
+		return &format.VP9{
+			PayloadTyp: 96,
+		}, nil
+
+	case message.FourCCHEVC:
+		vps := h265FindNALU(msg.HEVCHeader.NaluArrays, h265.NALUType_VPS_NUT)
+		sps := h265FindNALU(msg.HEVCHeader.NaluArrays, h265.NALUType_SPS_NUT)
+		pps := h265FindNALU(msg.HEVCHeader.NaluArrays, h265.NALUType_PPS_NUT)
+		if vps == nil || sps == nil || pps == nil {
+			return nil, fmt.Errorf("H265 parameters are missing")
+		}
+
+		return &format.H265{
+			PayloadTyp: 96,
+			VPS:        vps,
+			SPS:        sps,
+			PPS:        pps,
+		}, nil
+
+	case message.FourCCAVC:
+		if len(msg.AVCHeader.SequenceParameterSets) != 1 || len(msg.AVCHeader.PictureParameterSets) != 1 {
+			return nil, fmt.Errorf("H264 parameters are missing")
+		}
+
+		return &format.H264{
+			PayloadTyp:        96,
+			SPS:               msg.AVCHeader.SequenceParameterSets[0].NALUnit,
+			PPS:               msg.AVCHeader.PictureParameterSets[0].NALUnit,
+			PacketizationMode: 1,
+		}, nil
+
+	default:
+		panic("should not happen")
+	}
+}
+
+func audioTrackFromExtendedMessages(
+	sequenceStart *message.AudioExSequenceStart,
+	frames *message.AudioExCodedFrames,
+) (format.Format, error) {
+	if frames.FourCC != message.FourCCMP3 {
+		if sequenceStart == nil {
+			return nil, fmt.Errorf("sequence start not received")
+		}
+		if sequenceStart.FourCC != frames.FourCC {
+			return nil, fmt.Errorf("AudioExSequenceStart FourCC and AudioExCodedFrames are different")
 		}
 	}
 
-	if videoTrack == nil && audioTrack == nil {
-		return nil, nil, fmt.Errorf("no supported tracks found")
-	}
+	switch frames.FourCC {
+	case message.FourCCOpus:
+		if len(frames.Payload) < 1 {
+			return nil, fmt.Errorf("invalid Opus frame")
+		}
 
-	return videoTrack, audioTrack, nil
+		return &format.Opus{
+			PayloadTyp:   96,
+			ChannelCount: int(sequenceStart.OpusHeader.ChannelCount),
+		}, nil
+
+	case message.FourCCAC3:
+		if len(frames.Payload) < 6 {
+			return nil, fmt.Errorf("invalid AC-3 frame")
+		}
+
+		var syncInfo ac3.SyncInfo
+		err := syncInfo.Unmarshal(frames.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("invalid AC-3 frame: %w", err)
+		}
+
+		var bsi ac3.BSI
+		err = bsi.Unmarshal(frames.Payload[5:])
+		if err != nil {
+			return nil, fmt.Errorf("invalid AC-3 frame: %w", err)
+		}
+
+		return &format.AC3{
+			PayloadTyp:   96,
+			SampleRate:   syncInfo.SampleRate(),
+			ChannelCount: bsi.ChannelCount(),
+		}, nil
+
+	case message.FourCCMP4A:
+		return &format.MPEG4Audio{
+			PayloadTyp:       96,
+			Config:           sequenceStart.AACHeader,
+			SizeLength:       13,
+			IndexLength:      3,
+			IndexDeltaLength: 3,
+		}, nil
+
+	case message.FourCCMP3:
+		return &format.MPEG1Audio{}, nil
+
+	default:
+		panic("should not happen")
+	}
+}
+
+func sortedKeys(m map[uint8]format.Format) []int {
+	ret := make([]int, len(m))
+	i := 0
+	for k := range m {
+		ret[i] = int(k)
+		i++
+	}
+	sort.Ints(ret)
+	return ret
 }
 
 // Reader is a wrapper around Conn that provides utilities to demux incoming data.
 type Reader struct {
 	conn        *Conn
-	videoTrack  format.Format
-	audioTrack  format.Format
-	onDataVideo func(message.Message) error
-	onDataAudio func(*message.Audio) error
+	videoTracks map[uint8]format.Format
+	audioTracks map[uint8]format.Format
+	onVideoData map[uint8]func(message.Message) error
+	onAudioData map[uint8]func(message.Message) error
 }
 
 // NewReader allocates a Reader.
@@ -477,109 +286,299 @@ func NewReader(conn *Conn) (*Reader, error) {
 	}
 
 	var err error
-	r.videoTrack, r.audioTrack, err = r.readTracks()
+	r.videoTracks, r.audioTracks, err = r.readTracks()
 	if err != nil {
 		return nil, err
 	}
 
+	r.onVideoData = make(map[uint8]func(message.Message) error)
+	r.onAudioData = make(map[uint8]func(message.Message) error)
+
 	return r, nil
 }
 
-func (r *Reader) readTracks() (format.Format, format.Format, error) {
+func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format, error) {
+	firstReceived := false
+	var startTime time.Duration
+	var curTime time.Duration
+
+	videoTracks := make(map[uint8]format.Format)
+	audioTracks := make(map[uint8]format.Format)
+
+	handleVideoSequenceStart := func(trackID uint8, msg *message.VideoExSequenceStart) error {
+		if videoTracks[trackID] != nil {
+			return fmt.Errorf("video track %d already setupped", trackID)
+		}
+
+		var err error
+		videoTracks[trackID], err = videoTrackFromSequenceStart(msg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	handleVideoExCodedFrames := func(_ uint8, msg *message.VideoExCodedFrames) error {
+		if !firstReceived {
+			firstReceived = true
+			startTime = msg.DTS
+		}
+		curTime = msg.DTS
+		return nil
+	}
+
+	handleVideoExFramesX := func(_ uint8, msg *message.VideoExFramesX) error {
+		if !firstReceived {
+			firstReceived = true
+			startTime = msg.DTS
+		}
+		curTime = msg.DTS
+		return nil
+	}
+
+	audioSequenceStarts := make(map[uint8]*message.AudioExSequenceStart)
+
+	handleAudioSequenceStart := func(trackID uint8, msg *message.AudioExSequenceStart) error {
+		if audioSequenceStarts[trackID] != nil {
+			return fmt.Errorf("audio track %d already setupped", trackID)
+		}
+
+		audioSequenceStarts[trackID] = msg
+		return nil
+	}
+
+	handleAudioCodedFrames := func(trackID uint8, msg *message.AudioExCodedFrames) error {
+		if !firstReceived {
+			firstReceived = true
+			startTime = msg.DTS
+		}
+		curTime = msg.DTS
+
+		if audioTracks[trackID] != nil {
+			return nil
+		}
+
+		var err error
+		audioTracks[trackID], err = audioTrackFromExtendedMessages(audioSequenceStarts[trackID], msg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	for {
 		msg, err := r.conn.Read()
 		if err != nil {
 			return nil, nil, err
 		}
 
-		// skip play start and data start
-		if cmd, ok := msg.(*message.CommandAMF0); ok && cmd.Name == "onStatus" {
-			continue
-		}
-
-		// skip RtmpSampleAccess
-		if data, ok := msg.(*message.DataAMF0); ok && len(data.Payload) >= 1 {
-			if s, ok := data.Payload[0].(string); ok && s == "|RtmpSampleAccess" {
-				continue
+		switch msg := msg.(type) {
+		case *message.Video:
+			if !firstReceived {
+				firstReceived = true
+				startTime = msg.DTS
 			}
-		}
+			curTime = msg.DTS
 
-		// skip SetChunkSize
-		if _, ok := msg.(*message.SetChunkSize); ok {
-			continue
-		}
-
-		if data, ok := msg.(*message.DataAMF0); ok && len(data.Payload) >= 1 {
-			payload := data.Payload
-
-			if s, ok := payload[0].(string); ok && s == "@setDataFrame" {
-				payload = payload[1:]
+			if msg.Type == message.VideoTypeConfig && videoTracks[0] == nil {
+				videoTracks[0], err = h264TrackFromConfig(msg.Payload)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 
-			if len(payload) >= 1 {
-				if s, ok := payload[0].(string); ok && s == "onMetaData" {
-					videoTrack, audioTrack, err := tracksFromMetadata(r.conn, payload[1:])
+		case *message.VideoExSequenceStart:
+			err = handleVideoSequenceStart(0, msg)
+			if err != nil {
+				return nil, nil, err
+			}
+
+		case *message.VideoExCodedFrames:
+			err = handleVideoExCodedFrames(0, msg)
+			if err != nil {
+				return nil, nil, err
+			}
+
+		case *message.VideoExFramesX:
+			err = handleVideoExFramesX(0, msg)
+			if err != nil {
+				return nil, nil, err
+			}
+
+		case *message.VideoExMultitrack:
+			if _, ok := videoTracks[msg.TrackID]; !ok {
+				videoTracks[msg.TrackID] = nil
+			}
+
+			switch wmsg := msg.Wrapped.(type) {
+			case *message.VideoExSequenceStart:
+				err = handleVideoSequenceStart(msg.TrackID, wmsg)
+				if err != nil {
+					return nil, nil, err
+				}
+
+			case *message.VideoExCodedFrames:
+				err = handleVideoExCodedFrames(msg.TrackID, wmsg)
+				if err != nil {
+					return nil, nil, err
+				}
+
+			case *message.VideoExFramesX:
+				err = handleVideoExFramesX(msg.TrackID, wmsg)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+
+		case *message.Audio:
+			if !firstReceived {
+				firstReceived = true
+				startTime = msg.DTS
+			}
+			curTime = msg.DTS
+
+			if audioTracks[0] == nil && len(msg.Payload) != 0 {
+				if msg.Codec == message.CodecMPEG4Audio {
+					if msg.AACType == message.AudioAACTypeConfig {
+						audioTracks[0], err = mpeg4AudioTrackFromConfig(msg.Payload)
+						if err != nil {
+							return nil, nil, err
+						}
+					}
+				} else {
+					audioTracks[0], err = audioTrackFromData(msg)
 					if err != nil {
 						return nil, nil, err
 					}
+				}
+			}
 
-					if videoTrack != nil || audioTrack != nil {
-						return videoTrack, audioTrack, nil
-					}
+		case *message.AudioExSequenceStart:
+			err := handleAudioSequenceStart(0, msg)
+			if err != nil {
+				return nil, nil, err
+			}
+
+		case *message.AudioExCodedFrames:
+			err := handleAudioCodedFrames(0, msg)
+			if err != nil {
+				return nil, nil, err
+			}
+
+		case *message.AudioExMultitrack:
+			if _, ok := audioTracks[msg.TrackID]; !ok {
+				audioTracks[msg.TrackID] = nil
+			}
+
+			switch wmsg := msg.Wrapped.(type) {
+			case *message.AudioExSequenceStart:
+				err := handleAudioSequenceStart(msg.TrackID, wmsg)
+				if err != nil {
+					return nil, nil, err
+				}
+
+			case *message.AudioExCodedFrames:
+				err := handleAudioCodedFrames(msg.TrackID, wmsg)
+				if err != nil {
+					return nil, nil, err
 				}
 			}
 		}
 
-		return tracksFromMessages(r.conn, msg)
+		if (curTime - startTime) >= analyzePeriod {
+			break
+		}
 	}
+
+	if len(videoTracks) == 0 && len(audioTracks) == 0 {
+		return nil, nil, fmt.Errorf("no tracks found")
+	}
+
+	return videoTracks, audioTracks, nil
 }
 
 // Tracks returns detected tracks
-func (r *Reader) Tracks() (format.Format, format.Format) {
-	return r.videoTrack, r.audioTrack
+func (r *Reader) Tracks() []format.Format {
+	ret := make([]format.Format, len(r.videoTracks)+len(r.audioTracks))
+	i := 0
+
+	for _, k := range sortedKeys(r.videoTracks) {
+		ret[i] = r.videoTracks[uint8(k)]
+		i++
+	}
+	for _, k := range sortedKeys(r.audioTracks) {
+		ret[i] = r.audioTracks[uint8(k)]
+		i++
+	}
+
+	return ret
+}
+
+func (r *Reader) videoTrackID(t format.Format) uint8 {
+	for id, track := range r.videoTracks {
+		if track == t {
+			return id
+		}
+	}
+	return 255
+}
+
+func (r *Reader) audioTrackID(t format.Format) uint8 {
+	for id, track := range r.audioTracks {
+		if track == t {
+			return id
+		}
+	}
+	return 255
 }
 
 // OnDataAV1 sets a callback that is called when AV1 data is received.
-func (r *Reader) OnDataAV1(cb OnDataAV1Func) {
-	r.onDataVideo = func(msg message.Message) error {
-		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
-			tu, err := av1.BitstreamUnmarshal(msg.Payload, true)
+func (r *Reader) OnDataAV1(track *format.AV1, cb OnDataAV1Func) {
+	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.VideoExFramesX:
+			var tu av1.Bitstream
+			err := tu.Unmarshal(msg.Payload)
 			if err != nil {
 				return fmt.Errorf("unable to decode bitstream: %w", err)
 			}
 
 			cb(msg.DTS, tu)
+
+		case *message.VideoExCodedFrames:
+			var tu av1.Bitstream
+			err := tu.Unmarshal(msg.Payload)
+			if err != nil {
+				return fmt.Errorf("unable to decode bitstream: %w", err)
+			}
+
+			cb(msg.DTS+msg.PTSDelta, tu)
 		}
 		return nil
 	}
 }
 
 // OnDataVP9 sets a callback that is called when VP9 data is received.
-func (r *Reader) OnDataVP9(cb OnDataVP9Func) {
-	r.onDataVideo = func(msg message.Message) error {
-		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
+func (r *Reader) OnDataVP9(track *format.VP9, cb OnDataVP9Func) {
+	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.VideoExFramesX:
 			cb(msg.DTS, msg.Payload)
+
+		case *message.VideoExCodedFrames:
+			cb(msg.DTS+msg.PTSDelta, msg.Payload)
 		}
 		return nil
 	}
 }
 
 // OnDataH265 sets a callback that is called when H265 data is received.
-func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
-	r.onDataVideo = func(msg message.Message) error {
+func (r *Reader) OnDataH265(track *format.H265, cb OnDataH26xFunc) {
+	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
 		switch msg := msg.(type) {
-		case *message.Video:
-			au, err := h264.AVCCUnmarshal(msg.Payload)
-			if err != nil {
-				if errors.Is(err, h264.ErrAVCCNoNALUs) {
-					return nil
-				}
-				return fmt.Errorf("unable to decode AVCC: %w", err)
-			}
-
-			cb(msg.DTS+msg.PTSDelta, au)
-
-		case *message.ExtendedFramesX:
+		case *message.VideoExFramesX:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
@@ -590,7 +589,7 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 
 			cb(msg.DTS, au)
 
-		case *message.ExtendedCodedFrames:
+		case *message.VideoExCodedFrames:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
@@ -601,15 +600,15 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 
 			cb(msg.DTS+msg.PTSDelta, au)
 		}
-
 		return nil
 	}
 }
 
 // OnDataH264 sets a callback that is called when H264 data is received.
-func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
-	r.onDataVideo = func(msg message.Message) error {
-		if msg, ok := msg.(*message.Video); ok {
+func (r *Reader) OnDataH264(track *format.H264, cb OnDataH26xFunc) {
+	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.Video:
 			switch msg.Type {
 			case message.VideoTypeConfig:
 				var conf h264conf.Conf
@@ -636,16 +635,55 @@ func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
 
 				cb(msg.DTS+msg.PTSDelta, au)
 			}
-		}
 
+			return nil
+
+		case *message.VideoExFramesX:
+			au, err := h264.AVCCUnmarshal(msg.Payload)
+			if err != nil {
+				if errors.Is(err, h264.ErrAVCCNoNALUs) {
+					return nil
+				}
+				return fmt.Errorf("unable to decode AVCC: %w", err)
+			}
+
+			cb(msg.DTS, au)
+
+		case *message.VideoExCodedFrames:
+			au, err := h264.AVCCUnmarshal(msg.Payload)
+			if err != nil {
+				if errors.Is(err, h264.ErrAVCCNoNALUs) {
+					return nil
+				}
+				return fmt.Errorf("unable to decode AVCC: %w", err)
+			}
+
+			cb(msg.DTS+msg.PTSDelta, au)
+		}
+		return nil
+	}
+}
+
+// OnDataOpus sets a callback that is called when Opus data is received.
+func (r *Reader) OnDataOpus(track *format.Opus, cb OnDataOpusFunc) {
+	r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+		if msg, ok := msg.(*message.AudioExCodedFrames); ok {
+			cb(msg.DTS, msg.Payload)
+		}
 		return nil
 	}
 }
 
 // OnDataMPEG4Audio sets a callback that is called when MPEG-4 Audio data is received.
-func (r *Reader) OnDataMPEG4Audio(cb OnDataMPEG4AudioFunc) {
-	r.onDataAudio = func(msg *message.Audio) error {
-		if msg.AACType == message.AudioAACTypeAU {
+func (r *Reader) OnDataMPEG4Audio(track *format.MPEG4Audio, cb OnDataMPEG4AudioFunc) {
+	r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.Audio:
+			if msg.AACType == message.AudioAACTypeAU {
+				cb(msg.DTS, msg.Payload)
+			}
+
+		case *message.AudioExCodedFrames:
 			cb(msg.DTS, msg.Payload)
 		}
 		return nil
@@ -653,43 +691,65 @@ func (r *Reader) OnDataMPEG4Audio(cb OnDataMPEG4AudioFunc) {
 }
 
 // OnDataMPEG1Audio sets a callback that is called when MPEG-1 Audio data is received.
-func (r *Reader) OnDataMPEG1Audio(cb OnDataMPEG1AudioFunc) {
-	r.onDataAudio = func(msg *message.Audio) error {
-		cb(msg.DTS, msg.Payload)
+func (r *Reader) OnDataMPEG1Audio(track *format.MPEG1Audio, cb OnDataMPEG1AudioFunc) {
+	r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.Audio:
+			cb(msg.DTS, msg.Payload)
+
+		case *message.AudioExCodedFrames:
+			cb(msg.DTS, msg.Payload)
+		}
+		return nil
+	}
+}
+
+// OnDataAC3 sets a callback that is called when AC-3 data is received.
+func (r *Reader) OnDataAC3(track *format.AC3, cb OnDataAC3Func) {
+	r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+		if msg, ok := msg.(*message.AudioExCodedFrames); ok {
+			cb(msg.DTS, msg.Payload)
+		}
 		return nil
 	}
 }
 
 // OnDataG711 sets a callback that is called when G711 data is received.
-func (r *Reader) OnDataG711(cb OnDataG711Func) {
-	r.onDataAudio = func(msg *message.Audio) error {
-		cb(msg.DTS, msg.Payload)
+func (r *Reader) OnDataG711(track *format.G711, cb OnDataG711Func) {
+	r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+		if msg, ok := msg.(*message.Audio); ok {
+			cb(msg.DTS, msg.Payload)
+		}
 		return nil
 	}
 }
 
 // OnDataLPCM sets a callback that is called when LPCM data is received.
-func (r *Reader) OnDataLPCM(cb OnDataLPCMFunc) {
-	bitDepth := r.audioTrack.(*format.LPCM).BitDepth
+func (r *Reader) OnDataLPCM(track *format.LPCM, cb OnDataLPCMFunc) {
+	bitDepth := track.BitDepth
 
 	if bitDepth == 16 {
-		r.onDataAudio = func(msg *message.Audio) error {
-			le := len(msg.Payload)
-			if le%2 != 0 {
-				return fmt.Errorf("invalid payload length: %d", le)
-			}
+		r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+			if msg, ok := msg.(*message.Audio); ok {
+				le := len(msg.Payload)
+				if le%2 != 0 {
+					return fmt.Errorf("invalid payload length: %d", le)
+				}
 
-			// convert from little endian to big endian
-			for i := 0; i < le; i += 2 {
-				msg.Payload[i], msg.Payload[i+1] = msg.Payload[i+1], msg.Payload[i]
-			}
+				// convert from little endian to big endian
+				for i := 0; i < le; i += 2 {
+					msg.Payload[i], msg.Payload[i+1] = msg.Payload[i+1], msg.Payload[i]
+				}
 
-			cb(msg.DTS, msg.Payload)
+				cb(msg.DTS, msg.Payload)
+			}
 			return nil
 		}
 	} else {
-		r.onDataAudio = func(msg *message.Audio) error {
-			cb(msg.DTS, msg.Payload)
+		r.onAudioData[r.audioTrackID(track)] = func(msg message.Message) error {
+			if msg, ok := msg.(*message.Audio); ok {
+				cb(msg.DTS, msg.Payload)
+			}
 			return nil
 		}
 	}
@@ -703,19 +763,38 @@ func (r *Reader) Read() error {
 	}
 
 	switch msg := msg.(type) {
-	case *message.Video, *message.ExtendedFramesX, *message.ExtendedCodedFrames:
-		if r.onDataVideo == nil {
-			return fmt.Errorf("received a video packet, but track is not set up")
+	case *message.Video, *message.VideoExCodedFrames, *message.VideoExFramesX:
+		if r.videoTracks[0] == nil {
+			return fmt.Errorf("received a packet for video track 0, but track is not set up")
 		}
 
-		return r.onDataVideo(msg)
+		return r.onVideoData[0](msg)
 
-	case *message.Audio:
-		if r.onDataAudio == nil {
-			return fmt.Errorf("received an audio packet, but track is not set up")
+	case *message.Audio, *message.AudioExCodedFrames:
+		if r.audioTracks[0] == nil {
+			return fmt.Errorf("received a packet for audio track 0, but track is not set up")
 		}
 
-		return r.onDataAudio(msg)
+		return r.onAudioData[0](msg)
+
+	case *message.VideoExMultitrack:
+		switch wmsg := msg.Wrapped.(type) {
+		case *message.VideoExCodedFrames, *message.VideoExFramesX:
+			if r.videoTracks[msg.TrackID] == nil {
+				return fmt.Errorf("received a packet for video track %d, but track is not set up", msg.TrackID)
+			}
+
+			return r.onVideoData[msg.TrackID](wmsg)
+		}
+
+	case *message.AudioExMultitrack:
+		if wmsg, ok := msg.Wrapped.(*message.AudioExCodedFrames); ok {
+			if r.audioTracks[msg.TrackID] == nil {
+				return fmt.Errorf("received a packet for audio track %d, but track is not set up", msg.TrackID)
+			}
+
+			return r.onAudioData[msg.TrackID](wmsg)
+		}
 	}
 
 	return nil

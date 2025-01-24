@@ -17,7 +17,7 @@ import (
 
 // Source is a SRT static source.
 type Source struct {
-	ReadTimeout conf.StringDuration
+	ReadTimeout conf.Duration
 	Parent      defs.StaticSourceParent
 }
 

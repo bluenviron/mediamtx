@@ -8,14 +8,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPeerConnectionCloseImmediately(t *testing.T) {
 	pc := &PeerConnection{
-		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
 		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            false,
@@ -37,8 +37,8 @@ func TestPeerConnectionCloseImmediately(t *testing.T) {
 // test that an audio codec is present regardless of the fact that an audio track is.
 func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	pc1 := &PeerConnection{
-		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
 		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            false,
@@ -49,8 +49,8 @@ func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	defer pc1.Close()
 
 	pc2 := &PeerConnection{
-		HandshakeTimeout:   conf.StringDuration(10 * time.Second),
-		TrackGatherTimeout: conf.StringDuration(2 * time.Second),
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
 		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            true,

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 // ICEFragmentUnmarshal decodes an ICE fragment.

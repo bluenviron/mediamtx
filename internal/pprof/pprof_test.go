@@ -15,7 +15,7 @@ func TestPreflightRequest(t *testing.T) {
 	s := &PPROF{
 		Address:     "127.0.0.1:9999",
 		AllowOrigin: "*",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		Parent:      test.NilLogger,
 	}
 	err := s.Initialize()
@@ -51,7 +51,7 @@ func TestPprof(t *testing.T) {
 	s := &PPROF{
 		Address:     "127.0.0.1:9999",
 		AllowOrigin: "*",
-		ReadTimeout: conf.StringDuration(10 * time.Second),
+		ReadTimeout: conf.Duration(10 * time.Second),
 		AuthManager: test.NilAuthManager,
 		Parent:      test.NilLogger,
 	}

@@ -12,9 +12,9 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/google/uuid"
-	"github.com/pion/ice/v2"
+	"github.com/pion/ice/v4"
 	"github.com/pion/sdp/v3"
-	pwebrtc "github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -126,16 +126,18 @@ func (s *session) runInner2() (int, error) {
 func (s *session) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
+	req := defs.PathAccessRequest{
+		Name:    s.req.pathName,
+		Publish: true,
+		IP:      net.ParseIP(ip),
+		Proto:   auth.ProtocolWebRTC,
+		ID:      &s.uuid,
+	}
+	req.FillFromHTTPRequest(s.req.httpRequest)
+
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			Publish:     true,
-			IP:          net.ParseIP(ip),
-			Proto:       auth.ProtocolWebRTC,
-			ID:          &s.uuid,
-			HTTPRequest: s.req.httpRequest,
-		},
+		Author:        s,
+		AccessRequest: req,
 	})
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -237,15 +239,17 @@ func (s *session) runPublish() (int, error) {
 func (s *session) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
+	req := defs.PathAccessRequest{
+		Name:  s.req.pathName,
+		IP:    net.ParseIP(ip),
+		Proto: auth.ProtocolWebRTC,
+		ID:    &s.uuid,
+	}
+	req.FillFromHTTPRequest(s.req.httpRequest)
+
 	path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			IP:          net.ParseIP(ip),
-			Proto:       auth.ProtocolWebRTC,
-			ID:          &s.uuid,
-			HTTPRequest: s.req.httpRequest,
-		},
+		Author:        s,
+		AccessRequest: req,
 	})
 	if err != nil {
 		var terr2 defs.PathNoOnePublishingError
@@ -390,7 +394,7 @@ func (s *session) addCandidates(
 // APIReaderDescribe implements reader.
 func (s *session) APIReaderDescribe() defs.APIPathSourceOrReader {
 	return defs.APIPathSourceOrReader{
-		Type: "webrtcSession",
+		Type: "webRTCSession",
 		ID:   s.uuid.String(),
 	}
 }

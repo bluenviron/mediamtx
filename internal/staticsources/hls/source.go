@@ -18,7 +18,7 @@ import (
 
 // Source is a HLS static source.
 type Source struct {
-	ReadTimeout conf.StringDuration
+	ReadTimeout conf.Duration
 	Parent      defs.StaticSourceParent
 }
 

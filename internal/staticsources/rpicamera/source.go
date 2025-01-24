@@ -117,6 +117,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		})
 	}
 
+	defer func() {
+		if stream != nil {
+			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+		}
+	}()
+
 	cam := &camera{
 		Params: paramsFromConf(s.LogLevel, params.Conf),
 		OnData: onData,
@@ -127,14 +133,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 	defer cam.close()
 
-	defer func() {
-		if stream != nil {
-			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
-		}
+	cameraErr := make(chan error)
+	go func() {
+		cameraErr <- cam.wait()
 	}()
 
 	for {
 		select {
+		case err := <-cameraErr:
+			return err
+
 		case cnf := <-params.ReloadConf:
 			cam.reloadParams(paramsFromConf(s.LogLevel, cnf))
 

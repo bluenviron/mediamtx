@@ -165,11 +165,11 @@ components:
         # RTSP server
         rtsp:
           type: boolean
-        protocols:
+        rtspTransports:
           type: array
           items:
             type: string
-        encryption:
+        rtspEncryption:
           type: string
         rtspAddress:
           type: string
@@ -185,9 +185,9 @@ components:
           type: integer
         multicastRTCPPort:
           type: integer
-        serverKey:
+        rtspServerKey:
           type: string
-        serverCert:
+        rtspServerCert:
           type: string
         rtspAuthMethods:
           type: array
@@ -657,6 +657,9 @@ components:
         bytesSent:
           type: integer
           format: int64
+        session:
+          type: string
+          nullable: true
 
     RTSPConnList:
       type: object
@@ -693,6 +696,30 @@ components:
           type: integer
           format: int64
         bytesSent:
+          type: integer
+          format: int64
+        rtpPacketsReceived:
+          type: integer
+          format: int64
+        rtpPacketsSent:
+          type: integer
+          format: int64
+        rtpPacketsLost:
+          type: integer
+          format: int64
+        rtpPacketsInError:
+          type: integer
+          format: int64
+        rtpPacketsJitter:
+          type: number
+          format: float64
+        rtcpPacketsReceived:
+          type: integer
+          format: int64
+        rtcpPacketsSent:
+          type: integer
+          format: int64
+        rtcpPacketsInError:
           type: integer
           format: int64
 

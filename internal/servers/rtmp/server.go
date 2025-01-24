@@ -64,8 +64,8 @@ type serverParent interface {
 // Server is a RTMP server.
 type Server struct {
 	Address             string
-	ReadTimeout         conf.StringDuration
-	WriteTimeout        conf.StringDuration
+	ReadTimeout         conf.Duration
+	WriteTimeout        conf.Duration
 	IsTLS               bool
 	ServerCert          string
 	ServerKey           string

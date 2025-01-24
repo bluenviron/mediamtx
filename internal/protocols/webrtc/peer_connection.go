@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/ice/v2"
+	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
 	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -56,7 +56,7 @@ func TracksAreValid(medias []*sdp.MediaDescription) error {
 	}
 
 	if !videoTrack && !audioTrack {
-		return fmt.Errorf("no valid tracks count")
+		return fmt.Errorf("no valid tracks found")
 	}
 
 	return nil
@@ -72,8 +72,8 @@ type PeerConnection struct {
 	ICEServers            []webrtc.ICEServer
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             ice.TCPMux
-	HandshakeTimeout      conf.StringDuration
-	TrackGatherTimeout    conf.StringDuration
+	HandshakeTimeout      conf.Duration
+	TrackGatherTimeout    conf.Duration
 	LocalRandomUDP        bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
@@ -99,6 +99,8 @@ type PeerConnection struct {
 func (co *PeerConnection) Start() error {
 	settingsEngine := webrtc.SettingEngine{}
 
+	settingsEngine.SetIncludeLoopbackCandidate(true)
+
 	settingsEngine.SetInterfaceFilter(func(iface string) bool {
 		return co.IPsFromInterfaces && (len(co.IPsFromInterfacesList) == 0 ||
 			stringInSlice(iface, co.IPsFromInterfacesList))
@@ -107,21 +109,30 @@ func (co *PeerConnection) Start() error {
 	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)
 
 	var networkTypes []webrtc.NetworkType
+	enableUDP := false
 
-	// always enable UDP in order to support STUN/TURN
-	networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+	// UDP is always needed when there's a STUN/TURN server.
+	if len(co.ICEServers) != 0 {
+		enableUDP = true
+	}
 
 	if co.ICEUDPMux != nil {
+		enableUDP = true
 		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
-	if co.ICETCPMux != nil {
-		settingsEngine.SetICETCPMux(co.ICETCPMux)
-		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+	if co.LocalRandomUDP {
+		enableUDP = true
+		settingsEngine.SetLocalRandomUDP(true)
 	}
 
-	if co.LocalRandomUDP {
-		settingsEngine.SetICEUDPRandom(true)
+	if co.ICETCPMux != nil {
+		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+		settingsEngine.SetICETCPMux(co.ICETCPMux)
+	}
+
+	if enableUDP {
+		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
 	}
 
 	settingsEngine.SetNetworkTypes(networkTypes)
@@ -131,15 +142,31 @@ func (co *PeerConnection) Start() error {
 	if co.Publish {
 		videoSetupped := false
 		audioSetupped := false
+		for _, tr := range co.OutgoingTracks {
+			if tr.isVideo() {
+				videoSetupped = true
+			} else {
+				audioSetupped = true
+			}
+		}
+
+		// When audio is not used, a track has to be present anyway,
+		// otherwise video is not displayed on Firefox and Chrome.
+		if !audioSetupped {
+			co.OutgoingTracks = append(co.OutgoingTracks, &OutgoingTrack{
+				Caps: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypePCMU,
+					ClockRate: 8000,
+				},
+			})
+		}
 
 		for _, tr := range co.OutgoingTracks {
 			var codecType webrtc.RTPCodecType
 			if tr.isVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
-				videoSetupped = true
 			} else {
 				codecType = webrtc.RTPCodecTypeAudio
-				audioSetupped = true
 			}
 
 			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
@@ -151,8 +178,8 @@ func (co *PeerConnection) Start() error {
 			}
 		}
 
-		// always register at least a video and a audio codec
-		// otherwise handshake will fail or audio will be muted on some clients (like Firefox)
+		// When video is not used, a track must not be added but a codec has to present.
+		// Otherwise audio is muted on Firefox and Chrome.
 		if !videoSetupped {
 			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -161,18 +188,6 @@ func (co *PeerConnection) Start() error {
 				},
 				PayloadType: 96,
 			}, webrtc.RTPCodecTypeVideo)
-			if err != nil {
-				return err
-			}
-		}
-		if !audioSetupped {
-			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
-				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  webrtc.MimeTypePCMU,
-					ClockRate: 8000,
-				},
-				PayloadType: 0,
-			}, webrtc.RTPCodecTypeAudio)
 			if err != nil {
 				return err
 			}
@@ -230,7 +245,7 @@ func (co *PeerConnection) Start() error {
 			}
 		}
 	} else {
-		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
+		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {
@@ -238,7 +253,7 @@ func (co *PeerConnection) Start() error {
 			return err
 		}
 
-		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RtpTransceiverInit{
+		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {

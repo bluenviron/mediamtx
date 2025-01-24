@@ -50,11 +50,11 @@ type muxer struct {
 	remoteAddr      string
 	variant         conf.HLSVariant
 	segmentCount    int
-	segmentDuration conf.StringDuration
-	partDuration    conf.StringDuration
+	segmentDuration conf.Duration
+	partDuration    conf.Duration
 	segmentMaxSize  conf.StringSize
 	directory       string
-	closeAfter      conf.StringDuration
+	closeAfter      conf.Duration
 	wg              *sync.WaitGroup
 	pathName        string
 	pathManager     serverPathManager
@@ -124,8 +124,8 @@ func (m *muxer) runInner() error {
 		Author: m,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     m.pathName,
-			SkipAuth: true,
 			Query:    m.query,
+			SkipAuth: true,
 		},
 	})
 	if err != nil {

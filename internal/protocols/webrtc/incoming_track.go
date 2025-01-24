@@ -7,7 +7,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -75,16 +75,17 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeH265,
-			ClockRate: 90000,
+			MimeType:    webrtc.MimeTypeH265,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-id=93;profile-id=2;tier-flag=0;tx-mode=SRST",
 		},
 		PayloadType: 103,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH264,
+			MimeType:    webrtc.MimeTypeH265,
 			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+			SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
 		},
 		PayloadType: 104,
 	},
@@ -92,9 +93,17 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeH264,
 			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
 		},
 		PayloadType: 105,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+		PayloadType: 106,
 	},
 }
 

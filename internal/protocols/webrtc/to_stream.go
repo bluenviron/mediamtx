@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 var errNoSupportedCodecsTo = errors.New(

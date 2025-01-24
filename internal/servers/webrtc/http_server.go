@@ -79,7 +79,7 @@ type httpServer struct {
 	serverCert     string
 	allowOrigin    string
 	trustedProxies conf.IPNetworks
-	readTimeout    conf.StringDuration
+	readTimeout    conf.Duration
 	pathManager    serverPathManager
 	parent         *Server
 
@@ -124,14 +124,16 @@ func (s *httpServer) close() {
 }
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
+	req := defs.PathAccessRequest{
+		Name:    pathName,
+		Publish: publish,
+		IP:      net.ParseIP(ctx.ClientIP()),
+		Proto:   auth.ProtocolWebRTC,
+	}
+	req.FillFromHTTPRequest(ctx.Request)
+
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
-		AccessRequest: defs.PathAccessRequest{
-			Name:        pathName,
-			Publish:     publish,
-			IP:          net.ParseIP(ctx.ClientIP()),
-			Proto:       auth.ProtocolWebRTC,
-			HTTPRequest: ctx.Request,
-		},
+		AccessRequest: req,
 	})
 	if err != nil {
 		var terr *auth.Error

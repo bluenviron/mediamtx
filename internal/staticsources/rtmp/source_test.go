@@ -54,7 +54,10 @@ func TestSource(t *testing.T) {
 				w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)
 				require.NoError(t, err)
 
-				err = w.WriteH264(0, 0, true, [][]byte{{0x05, 0x02, 0x03, 0x04}})
+				err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+				require.NoError(t, err)
+
+				err = w.WriteH264(3*time.Second, 3*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
 			}()
 
@@ -64,8 +67,8 @@ func TestSource(t *testing.T) {
 				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:  conf.StringDuration(10 * time.Second),
-							WriteTimeout: conf.StringDuration(10 * time.Second),
+							ReadTimeout:  conf.Duration(10 * time.Second),
+							WriteTimeout: conf.Duration(10 * time.Second),
 							Parent:       p,
 						}
 					},
@@ -76,8 +79,8 @@ func TestSource(t *testing.T) {
 				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:  conf.StringDuration(10 * time.Second),
-							WriteTimeout: conf.StringDuration(10 * time.Second),
+							ReadTimeout:  conf.Duration(10 * time.Second),
+							WriteTimeout: conf.Duration(10 * time.Second),
 							Parent:       p,
 						}
 					},

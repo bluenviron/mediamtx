@@ -7,8 +7,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/rawmessage"
 )
 
-// ExtendedFramesX is a FramesX extended message.
-type ExtendedFramesX struct {
+// VideoExFramesX is a FramesX extended message.
+type VideoExFramesX struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
@@ -16,7 +16,7 @@ type ExtendedFramesX struct {
 	Payload         []byte
 }
 
-func (m *ExtendedFramesX) unmarshal(raw *rawmessage.Message) error {
+func (m *VideoExFramesX) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) < 6 {
 		return fmt.Errorf("not enough bytes")
 	}
@@ -24,20 +24,27 @@ func (m *ExtendedFramesX) unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
+
 	m.FourCC = FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
+	switch m.FourCC {
+	case FourCCAV1, FourCCVP9, FourCCHEVC, FourCCAVC:
+	default:
+		return fmt.Errorf("unsupported fourCC: %v", m.FourCC)
+	}
+
 	m.Payload = raw.Body[5:]
 
 	return nil
 }
 
-func (m ExtendedFramesX) marshalBodySize() int {
+func (m VideoExFramesX) marshalBodySize() int {
 	return 5 + len(m.Payload)
 }
 
-func (m ExtendedFramesX) marshal() (*rawmessage.Message, error) {
+func (m VideoExFramesX) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
-	body[0] = 0b10000000 | byte(ExtendedTypeFramesX)
+	body[0] = 0b10000000 | byte(VideoExTypeFramesX)
 	body[1] = uint8(m.FourCC >> 24)
 	body[2] = uint8(m.FourCC >> 16)
 	body[3] = uint8(m.FourCC >> 8)

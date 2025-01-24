@@ -39,7 +39,7 @@ func TestSource(t *testing.T) {
 		w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 		require.NoError(t, err)
 
-		err = w.WriteH264(track, 0, 0, true, [][]byte{{ // IDR
+		err = w.WriteH2642(track, 0, 0, [][]byte{{ // IDR
 			5, 1,
 		}})
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestSource(t *testing.T) {
 	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ReadTimeout: conf.StringDuration(10 * time.Second),
+				ReadTimeout: conf.Duration(10 * time.Second),
 				Parent:      p,
 			}
 		},
