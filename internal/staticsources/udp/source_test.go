@@ -41,12 +41,12 @@ func TestSource(t *testing.T) {
 	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
 	require.NoError(t, err)
 
-	err = w.WriteH264(track, 0, 0, true, [][]byte{{ // IDR
+	err = w.WriteH2642(track, 0, 0, [][]byte{{ // IDR
 		5, 1,
 	}})
 	require.NoError(t, err)
 
-	err = w.WriteH264(track, 0, 0, true, [][]byte{{ // non-IDR
+	err = w.WriteH2642(track, 0, 0, [][]byte{{ // non-IDR
 		5, 2,
 	}})
 	require.NoError(t, err)

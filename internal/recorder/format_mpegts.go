@@ -117,11 +117,10 @@ func (f *formatMPEGTS) initialize() bool {
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH265(
+								return f.mw.WriteH2652(
 									track,
 									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
-									randomAccess,
 									tunit.AU)
 							},
 						)
@@ -162,11 +161,10 @@ func (f *formatMPEGTS) initialize() bool {
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH264(
+								return f.mw.WriteH2642(
 									track,
 									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
-									randomAccess,
 									tunit.AU)
 							},
 						)
