@@ -144,6 +144,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 		l := len(s.CachedUnits)
 		if l > maxCachedGOPSize {
 			s.CachedUnits = s.CachedUnits[l-maxCachedGOPSize:]
+			sf.decodeErrLogger.Log(logger.Warn, "GOP cache is full, dropping packets")
 		}
 	}
 
