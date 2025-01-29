@@ -702,6 +702,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.GopCache != p.conf.GopCache ||
 		closeMetrics ||
 		closeAuthManager ||
 		closeLogger
