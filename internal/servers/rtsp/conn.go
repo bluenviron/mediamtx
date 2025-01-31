@@ -25,7 +25,7 @@ const (
 
 type connParent interface {
 	logger.Writer
-	findSessionByRSession(rsession *gortsplib.ServerSession) *session
+	findSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *session
 }
 
 type conn struct {
@@ -222,7 +222,7 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 		BytesReceived: stats.BytesReceived,
 		BytesSent:     stats.BytesSent,
 		Session: func() *uuid.UUID {
-			sx := c.parent.findSessionByRSession(c.rconn.Session())
+			sx := c.parent.findSessionByRSessionUnsafe(c.rconn.Session())
 			if sx != nil {
 				return &sx.uuid
 			}
