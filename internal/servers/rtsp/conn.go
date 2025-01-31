@@ -214,9 +214,6 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 
 func (c *conn) apiItem() *defs.APIRTSPConn {
 	stats := c.rconn.Stats()
-	if stats == nil {
-		stats = &gortsplib.StatsConn{}
-	}
 
 	return &defs.APIRTSPConn{
 		ID:            c.uuid,

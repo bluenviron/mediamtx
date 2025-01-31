@@ -379,9 +379,6 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 	defer s.mutex.Unlock()
 
 	stats := s.rsession.Stats()
-	if stats == nil {
-		stats = &gortsplib.StatsSession{}
-	}
 
 	return &defs.APIRTSPSession{
 		ID:         s.uuid,
