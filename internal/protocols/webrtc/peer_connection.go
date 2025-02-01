@@ -301,6 +301,16 @@ func (co *PeerConnection) Start() error {
 			close(co.failed)
 
 		case webrtc.PeerConnectionStateClosed:
+			// "closed" can arrive before "failed" and without
+			// the Close() method being called at all.
+			// It happens when the other peer sends a termination
+			// message like a DTLS CloseNotify.
+			select {
+			case <-co.failed:
+			default:
+				close(co.failed)
+			}
+
 			close(co.done)
 		}
 	})
