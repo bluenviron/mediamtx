@@ -337,10 +337,7 @@ func (s *Server) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession, *s
 	return nil, nil
 }
 
-func (s *Server) findSessionByRSession(rsession *gortsplib.ServerSession) *session {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
+func (s *Server) findSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *session {
 	return s.sessions[rsession]
 }
 
