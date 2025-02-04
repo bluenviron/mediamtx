@@ -280,6 +280,7 @@ type Conf struct {
 	WebRTCICEServers2           WebRTCICEServers `json:"webrtcICEServers2"`
 	WebRTCHandshakeTimeout      Duration         `json:"webrtcHandshakeTimeout"`
 	WebRTCTrackGatherTimeout    Duration         `json:"webrtcTrackGatherTimeout"`
+	WebRTCSTUNGatherTimeout     Duration         `json:"webrtcSTUNGatherTimeout"`
 	WebRTCICEUDPMuxAddress      *string          `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
 	WebRTCICETCPMuxAddress      *string          `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
 	WebRTCICEHostNAT1To1IPs     *[]string        `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
@@ -405,6 +406,7 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCICEServers2 = []WebRTCICEServer{}
 	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
 	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
+	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
 
 	// SRT server
 	conf.SRT = true

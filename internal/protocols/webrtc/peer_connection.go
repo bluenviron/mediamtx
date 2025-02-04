@@ -74,6 +74,7 @@ type PeerConnection struct {
 	ICETCPMux             ice.TCPMux
 	HandshakeTimeout      conf.Duration
 	TrackGatherTimeout    conf.Duration
+	STUNGatherTimeout     conf.Duration
 	LocalRandomUDP        bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
@@ -136,6 +137,7 @@ func (co *PeerConnection) Start() error {
 	}
 
 	settingsEngine.SetNetworkTypes(networkTypes)
+	settingsEngine.SetSTUNGatherTimeout(time.Duration(co.STUNGatherTimeout))
 
 	mediaEngine := &webrtc.MediaEngine{}
 
