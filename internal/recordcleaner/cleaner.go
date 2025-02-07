@@ -72,20 +72,7 @@ func (c *Cleaner) run() {
 	}
 }
 
-func (c *Cleaner) atLeastOneRecordDeleteAfter() bool {
-	for _, e := range c.PathConfs {
-		if e.RecordDeleteAfter != 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *Cleaner) cleanInterval() time.Duration {
-	if !c.atLeastOneRecordDeleteAfter() {
-		return 365 * 24 * time.Hour
-	}
-
 	interval := 30 * 60 * time.Second
 
 	for _, e := range c.PathConfs {
