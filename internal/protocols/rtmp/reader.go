@@ -579,7 +579,8 @@ func (r *Reader) OnDataH265(track *format.H265, cb OnDataH26xFunc) {
 	r.onVideoData[r.videoTrackID(track)] = func(msg message.Message) error {
 		switch msg := msg.(type) {
 		case *message.VideoExFramesX:
-			au, err := h264.AVCCUnmarshal(msg.Payload)
+			var au h264.AVCC
+			err := au.Unmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
@@ -590,7 +591,8 @@ func (r *Reader) OnDataH265(track *format.H265, cb OnDataH26xFunc) {
 			cb(msg.DTS, au)
 
 		case *message.VideoExCodedFrames:
-			au, err := h264.AVCCUnmarshal(msg.Payload)
+			var au h264.AVCC
+			err := au.Unmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
@@ -625,7 +627,8 @@ func (r *Reader) OnDataH264(track *format.H264, cb OnDataH26xFunc) {
 				cb(msg.DTS+msg.PTSDelta, au)
 
 			case message.VideoTypeAU:
-				au, err := h264.AVCCUnmarshal(msg.Payload)
+				var au h264.AVCC
+				err := au.Unmarshal(msg.Payload)
 				if err != nil {
 					if errors.Is(err, h264.ErrAVCCNoNALUs) {
 						return nil
@@ -639,7 +642,8 @@ func (r *Reader) OnDataH264(track *format.H264, cb OnDataH26xFunc) {
 			return nil
 
 		case *message.VideoExFramesX:
-			au, err := h264.AVCCUnmarshal(msg.Payload)
+			var au h264.AVCC
+			err := au.Unmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
@@ -650,7 +654,8 @@ func (r *Reader) OnDataH264(track *format.H264, cb OnDataH26xFunc) {
 			cb(msg.DTS, au)
 
 		case *message.VideoExCodedFrames:
-			au, err := h264.AVCCUnmarshal(msg.Payload)
+			var au h264.AVCC
+			err := au.Unmarshal(msg.Payload)
 			if err != nil {
 				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil

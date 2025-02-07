@@ -183,9 +183,7 @@ func (f *formatFMP4) initialize() bool {
 							firstReceived = true
 						}
 
-						sampl, err := fmp4.NewPartSampleAV1(
-							randomAccess,
-							tunit.TU)
+						sampl, err := fmp4.NewPartSampleAV12(tunit.TU)
 						if err != nil {
 							return err
 						}
@@ -346,9 +344,8 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						sampl, err := fmp4.NewPartSampleH26x(
+						sampl, err := fmp4.NewPartSampleH265(
 							int32(tunit.PTS-dts),
-							randomAccess,
 							tunit.AU)
 						if err != nil {
 							return err
@@ -421,9 +418,8 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						sampl, err := fmp4.NewPartSampleH26x(
+						sampl, err := fmp4.NewPartSampleH264(
 							int32(tunit.PTS-dts),
-							randomAccess,
 							tunit.AU)
 						if err != nil {
 							return err
