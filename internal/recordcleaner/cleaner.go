@@ -3,7 +3,10 @@ package recordcleaner
 
 import (
 	"context"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -118,6 +121,17 @@ func (c *Cleaner) processPath(now time.Time, pathName string) error {
 		return nil
 	}
 
+	err = c.deleteExpiredSegments(now, pathName, pathConf)
+	if err != nil {
+		return err
+	}
+
+	c.deleteEmptyDirs(pathConf)
+
+	return nil
+}
+
+func (c *Cleaner) deleteExpiredSegments(now time.Time, pathName string, pathConf *conf.Path) error {
 	end := now.Add(-time.Duration(pathConf.RecordDeleteAfter))
 	segments, err := recordstore.FindSegments(pathConf, pathName, nil, &end)
 	if err != nil {
@@ -130,4 +144,21 @@ func (c *Cleaner) processPath(now time.Time, pathName string) error {
 	}
 
 	return nil
+}
+
+func (c *Cleaner) deleteEmptyDirs(pathConf *conf.Path) {
+	recordPath := strings.ReplaceAll(pathConf.RecordPath, "%path", pathConf.Name)
+	commonPath := recordstore.CommonPath(recordPath)
+
+	filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error { //nolint:errcheck
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			os.Remove(fpath)
+		}
+
+		return nil
+	})
 }
