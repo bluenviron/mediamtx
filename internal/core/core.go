@@ -52,6 +52,15 @@ var cli struct {
 	Confpath string `arg:"" default:""`
 }
 
+func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
+	for _, e := range pathConfs {
+		if e.RecordDeleteAfter != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Core is an instance of MediaMTX.
 type Core struct {
 	ctx             context.Context
@@ -306,7 +315,8 @@ func (p *Core) createResources(initial bool) error {
 		p.pprof = i
 	}
 
-	if p.recordCleaner == nil {
+	if p.recordCleaner == nil &&
+		atLeastOneRecordDeleteAfter(p.conf.Paths) {
 		p.recordCleaner = &recordcleaner.Cleaner{
 			PathConfs: p.conf.Paths,
 			Parent:    p,
@@ -674,6 +684,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
+		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
 		closeLogger
 	if !closeRecorderCleaner && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.recordCleaner.ReloadPathConfs(newConf.Paths)
