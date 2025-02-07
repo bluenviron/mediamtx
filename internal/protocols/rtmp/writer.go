@@ -167,7 +167,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 
 // WriteH264 writes H264 data.
 func (w *Writer) WriteH264(pts time.Duration, dts time.Duration, au [][]byte) error {
-	avcc, err := h264.AVCCMarshal(au)
+	avcc, err := h264.AVCC(au).Marshal()
 	if err != nil {
 		return err
 	}
