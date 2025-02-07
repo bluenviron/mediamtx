@@ -387,6 +387,8 @@ webrtcICEServers2: []
 webrtcHandshakeTimeout: 10s
 # Maximum time to gather video tracks.
 webrtcTrackGatherTimeout: 2s
+# The maximum time to gather STUN candidates.
+webrtcSTUNGatherTimeout: 5s
 
 ###############################################
 # Global settings -> SRT server
