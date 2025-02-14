@@ -77,6 +77,7 @@ type path struct {
 	wg                *sync.WaitGroup
 	externalCmdPool   *externalcmd.Pool
 	parent            pathParent
+	gopCache          bool
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -716,6 +717,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		desc,
 		allocateEncoder,
 		logger.NewLimitedLogger(pa.source),
+		pa.gopCache,
 	)
 	if err != nil {
 		return err
