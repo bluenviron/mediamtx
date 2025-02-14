@@ -686,7 +686,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeRecorderCleaner := newConf == nil ||
 		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
 		closeLogger
-	if !closeRecorderCleaner && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+	if !closeRecorderCleaner && p.recordCleaner != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.recordCleaner.ReloadPathConfs(newConf.Paths)
 	}
 
