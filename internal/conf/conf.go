@@ -47,7 +47,7 @@ func firstThatExists(paths []string) string {
 	return ""
 }
 
-func contains(list []auth.ValidateMethod, item auth.ValidateMethod) bool {
+func contains(list []auth.VerifyMethod, item auth.VerifyMethod) bool {
 	for _, i := range list {
 		if i == item {
 			return true
@@ -371,7 +371,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastRTCPPort = 8003
 	conf.RTSPServerKey = "server.key"
 	conf.RTSPServerCert = "server.crt"
-	conf.RTSPAuthMethods = RTSPAuthMethods{auth.ValidateMethodBasic}
+	conf.RTSPAuthMethods = RTSPAuthMethods{auth.VerifyMethodBasic}
 
 	// RTMP server
 	conf.RTMP = true
@@ -624,7 +624,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l.Log(logger.Warn, "parameter 'authMethods' is deprecated and has been replaced with 'rtspAuthMethods'")
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
-	if contains(conf.RTSPAuthMethods, auth.ValidateMethodDigestMD5) {
+	if contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
 		if conf.AuthMethod != AuthMethodInternal {
 			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 		}

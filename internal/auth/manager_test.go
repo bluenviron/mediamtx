@@ -159,7 +159,7 @@ func TestAuthInternalRTSPDigest(t *testing.T) {
 					},
 				},
 				HTTPAddress:     "",
-				RTSPAuthMethods: []auth.ValidateMethod{auth.ValidateMethodDigestMD5},
+				RTSPAuthMethods: []auth.VerifyMethod{auth.VerifyMethodDigestMD5},
 			}
 
 			u, err := base.ParseURL("rtsp://127.0.0.1:8554/mypath")
@@ -173,7 +173,7 @@ func TestAuthInternalRTSPDigest(t *testing.T) {
 			if ca == "ok" {
 				var s *auth.Sender
 				s, err = auth.NewSender(
-					auth.GenerateWWWAuthenticate([]auth.ValidateMethod{auth.ValidateMethodDigestMD5}, "IPCAM", "mynonce"),
+					auth.GenerateWWWAuthenticate([]auth.VerifyMethod{auth.VerifyMethodDigestMD5}, "IPCAM", "mynonce"),
 					"myuser",
 					"mypass",
 				)
@@ -217,7 +217,7 @@ func TestAuthInternalCredentialsInBearer(t *testing.T) {
 			},
 		},
 		HTTPAddress:     "",
-		RTSPAuthMethods: []auth.ValidateMethod{auth.ValidateMethodDigestMD5},
+		RTSPAuthMethods: []auth.VerifyMethod{auth.VerifyMethodDigestMD5},
 	}
 
 	req := &Request{

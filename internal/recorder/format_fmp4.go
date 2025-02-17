@@ -6,18 +6,18 @@ import (
 	"time"
 
 	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
-	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
-	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
-	"github.com/bluenviron/mediacommon/pkg/codecs/jpeg"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4video"
-	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
-	"github.com/bluenviron/mediacommon/pkg/codecs/vp9"
-	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/jpeg"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg1audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/vp9"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
@@ -291,7 +291,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				var dtsExtractor *h265.DTSExtractor2
+				var dtsExtractor *h265.DTSExtractor
 
 				f.ri.rec.Stream.AddReader(
 					f.ri,
@@ -336,7 +336,7 @@ func (f *formatFMP4) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor2()
+							dtsExtractor = h265.NewDTSExtractor()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -372,7 +372,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				var dtsExtractor *h264.DTSExtractor2
+				var dtsExtractor *h264.DTSExtractor
 
 				f.ri.rec.Stream.AddReader(
 					f.ri,
@@ -410,7 +410,7 @@ func (f *formatFMP4) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor2()
+							dtsExtractor = h264.NewDTSExtractor()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
