@@ -379,6 +379,28 @@ func TestConfErrors(t *testing.T) {
 			"rtspAuthMethods: []",
 			"at least one 'rtspAuthMethods' must be provided",
 		},
+		{
+			"invalid fallback",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    fallback: invalid://invalid",
+			`'invalid://invalid' is not a valid RTSP URL`,
+		},
+		{
+			"invalid source redirect",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    source: redirect\n" +
+				"    sourceRedirect: invalid://invalid",
+			`'invalid://invalid' is not a valid RTSP URL`,
+		},
+		{
+			"useless source redirect",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    sourceRedirect: invalid://invalid",
+			`'sourceRedirect' is useless when source is not 'redirect'`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
