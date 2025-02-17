@@ -266,7 +266,7 @@ func TestConfErrors(t *testing.T) {
 			"yaml: unmarshal errors:\n  line 2: key \"paths\" already set in map",
 		},
 		{
-			"non existent parameter 1",
+			"non existent parameter",
 			`invalid: param`,
 			"json: unknown field \"invalid\"",
 		},
@@ -308,11 +308,17 @@ func TestConfErrors(t *testing.T) {
 			"invalid ICE server: 'testing'",
 		},
 		{
-			"non existent parameter 2",
+			"non existent parameter in path",
 			"paths:\n" +
 				"  mypath:\n" +
 				"    invalid: parameter\n",
 			"json: unknown field \"invalid\"",
+		},
+		{
+			"non existent parameter in auth",
+			"authInternalUsers:\n" +
+				"- users: test\n",
+			"json: unknown field \"users\"",
 		},
 		{
 			"invalid path name",

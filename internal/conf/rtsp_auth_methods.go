@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
 // RTSPAuthMethods is the rtspAuthMethods parameter.
@@ -34,7 +35,7 @@ func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler.
 func (d *RTSPAuthMethods) UnmarshalJSON(b []byte) error {
 	var in []string
-	if err := json.Unmarshal(b, &in); err != nil {
+	if err := jsonwrapper.Unmarshal(b, &in); err != nil {
 		return err
 	}
 

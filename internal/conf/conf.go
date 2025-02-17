@@ -2,7 +2,6 @@
 package conf
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,8 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf/decrypt"
 	"github.com/bluenviron/mediamtx/internal/conf/env"
-	"github.com/bluenviron/mediamtx/internal/conf/yaml"
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
+	"github.com/bluenviron/mediamtx/internal/conf/yamlwrapper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -473,7 +473,7 @@ func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string) (string,
 		}
 	}
 
-	err = yaml.Load(byts, conf)
+	err = yamlwrapper.Unmarshal(byts, conf)
 	if err != nil {
 		return "", err
 	}
@@ -787,11 +787,8 @@ func (conf *Conf) Validate(l logger.Writer) error {
 // UnmarshalJSON implements json.Unmarshaler.
 func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.setDefaults()
-
 	type alias Conf
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	return d.Decode((*alias)(conf))
+	return jsonwrapper.Unmarshal(b, (*alias)(conf))
 }
 
 // Global returns the global part of Conf.
