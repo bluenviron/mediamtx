@@ -108,7 +108,7 @@ type Manager struct {
 	JWTJWKS         string
 	JWTClaimKey     string
 	ReadTimeout     time.Duration
-	RTSPAuthMethods []auth.ValidateMethod
+	RTSPAuthMethods []auth.VerifyMethod
 
 	mutex          sync.RWMutex
 	jwtHTTPClient  *http.Client
@@ -189,7 +189,7 @@ func (m *Manager) authenticateWithUser(
 
 	if u.User != "any" {
 		if req.RTSPRequest != nil && rtspAuthHeader != nil && rtspAuthHeader.Method == headers.AuthMethodDigest {
-			err := auth.Validate(
+			err := auth.Verify(
 				req.RTSPRequest,
 				string(u.User),
 				string(u.Pass),

@@ -31,7 +31,7 @@ type connParent interface {
 type conn struct {
 	isTLS               bool
 	rtspAddress         string
-	authMethods         []rtspauth.ValidateMethod
+	authMethods         []rtspauth.VerifyMethod
 	readTimeout         conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool

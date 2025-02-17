@@ -84,7 +84,7 @@ func TestServerPublish(t *testing.T) {
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
+		AuthMethods:         []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
 		ReadTimeout:         conf.Duration(10 * time.Second),
 		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,
@@ -202,7 +202,7 @@ func TestServerRead(t *testing.T) {
 
 	s := &Server{
 		Address:             "127.0.0.1:8557",
-		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
+		AuthMethods:         []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
 		ReadTimeout:         conf.Duration(10 * time.Second),
 		WriteTimeout:        conf.Duration(10 * time.Second),
 		WriteQueueSize:      512,

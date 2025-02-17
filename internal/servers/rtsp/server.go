@@ -60,7 +60,7 @@ type serverParent interface {
 // Server is a RTSP server.
 type Server struct {
 	Address             string
-	AuthMethods         []auth.ValidateMethod
+	AuthMethods         []auth.VerifyMethod
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int

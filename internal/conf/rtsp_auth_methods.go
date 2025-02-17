@@ -10,7 +10,7 @@ import (
 )
 
 // RTSPAuthMethods is the rtspAuthMethods parameter.
-type RTSPAuthMethods []auth.ValidateMethod
+type RTSPAuthMethods []auth.VerifyMethod
 
 // MarshalJSON implements json.Marshaler.
 func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
@@ -18,7 +18,7 @@ func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
 
 	for i, v := range d {
 		switch v {
-		case auth.ValidateMethodBasic:
+		case auth.VerifyMethodBasic:
 			out[i] = "basic"
 
 		default:
@@ -43,10 +43,10 @@ func (d *RTSPAuthMethods) UnmarshalJSON(b []byte) error {
 	for _, v := range in {
 		switch v {
 		case "basic":
-			*d = append(*d, auth.ValidateMethodBasic)
+			*d = append(*d, auth.VerifyMethodBasic)
 
 		case "digest":
-			*d = append(*d, auth.ValidateMethodDigestMD5)
+			*d = append(*d, auth.VerifyMethodDigestMD5)
 
 		default:
 			return fmt.Errorf("invalid authentication method: '%s'", v)

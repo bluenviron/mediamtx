@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg1audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/h264conf"
@@ -176,7 +176,7 @@ func (w *Writer) WriteH264(pts time.Duration, dts time.Duration, au [][]byte) er
 		ChunkStreamID:   message.VideoChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecH264,
-		IsKeyFrame:      h264.IDRPresent(au),
+		IsKeyFrame:      h264.IsRandomAccess(au),
 		Type:            message.VideoTypeAU,
 		Payload:         avcc,
 		DTS:             dts,
