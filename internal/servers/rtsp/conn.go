@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -22,6 +23,19 @@ import (
 const (
 	rtspAuthRealm = "IPCAM"
 )
+
+func absoluteURL(req *base.Request, v string) string {
+	if strings.HasPrefix(v, "/") {
+		ur := base.URL{
+			Scheme: req.URL.Scheme,
+			Host:   req.URL.Host,
+			Path:   v,
+		}
+		return ur.String()
+	}
+
+	return v
+}
 
 type connParent interface {
 	logger.Writer
@@ -169,7 +183,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{res.Redirect},
+				"Location": base.HeaderValue{absoluteURL(ctx.Request, res.Redirect)},
 			},
 		}, nil, nil
 	}

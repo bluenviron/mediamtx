@@ -504,7 +504,8 @@ pathDefaults:
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")
 
-  # RTSP URL which clients will be redirected to.
+  # path which clients will be redirected to.
+  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   sourceRedirect:
 
   ###############################################
