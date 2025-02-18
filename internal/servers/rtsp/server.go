@@ -106,6 +106,7 @@ func (s *Server) Initialize() error {
 		WriteTimeout:   time.Duration(s.WriteTimeout),
 		WriteQueueSize: s.WriteQueueSize,
 		RTSPAddress:    s.Address,
+		AuthMethods:    s.AuthMethods,
 	}
 
 	if s.UseUDP {
