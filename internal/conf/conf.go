@@ -642,6 +642,9 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l.Log(logger.Warn, "parameter 'serverKey' is deprecated and has been replaced with 'rtspServerKey'")
 		conf.RTSPServerKey = *conf.ServerKey
 	}
+	if len(conf.RTSPAuthMethods) == 0 {
+		return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
+	}
 
 	// RTMP
 
