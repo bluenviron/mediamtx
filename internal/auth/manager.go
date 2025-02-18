@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -91,7 +92,7 @@ func (c *customClaims) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("claim '%s' not found inside JWT", c.permissionsKey)
 	}
 
-	err = json.Unmarshal(rawPermissions, &c.permissions)
+	err = jsonwrapper.Unmarshal(rawPermissions, &c.permissions)
 	if err != nil {
 		return err
 	}
@@ -108,7 +109,7 @@ type Manager struct {
 	JWTJWKS         string
 	JWTClaimKey     string
 	ReadTimeout     time.Duration
-	RTSPAuthMethods []auth.ValidateMethod
+	RTSPAuthMethods []auth.VerifyMethod
 
 	mutex          sync.RWMutex
 	jwtHTTPClient  *http.Client
@@ -189,7 +190,7 @@ func (m *Manager) authenticateWithUser(
 
 	if u.User != "any" {
 		if req.RTSPRequest != nil && rtspAuthHeader != nil && rtspAuthHeader.Method == headers.AuthMethodDigest {
-			err := auth.Validate(
+			err := auth.Verify(
 				req.RTSPRequest,
 				string(u.User),
 				string(u.Pass),

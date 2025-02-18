@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -23,15 +24,28 @@ const (
 	rtspAuthRealm = "IPCAM"
 )
 
+func absoluteURL(req *base.Request, v string) string {
+	if strings.HasPrefix(v, "/") {
+		ur := base.URL{
+			Scheme: req.URL.Scheme,
+			Host:   req.URL.Host,
+			Path:   v,
+		}
+		return ur.String()
+	}
+
+	return v
+}
+
 type connParent interface {
 	logger.Writer
-	findSessionByRSession(rsession *gortsplib.ServerSession) *session
+	findSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *session
 }
 
 type conn struct {
 	isTLS               bool
 	rtspAddress         string
-	authMethods         []rtspauth.ValidateMethod
+	authMethods         []rtspauth.VerifyMethod
 	readTimeout         conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -169,7 +183,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{res.Redirect},
+				"Location": base.HeaderValue{absoluteURL(ctx.Request, res.Redirect)},
 			},
 		}, nil, nil
 	}
@@ -214,9 +228,6 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 
 func (c *conn) apiItem() *defs.APIRTSPConn {
 	stats := c.rconn.Stats()
-	if stats == nil {
-		stats = &gortsplib.StatsConn{}
-	}
 
 	return &defs.APIRTSPConn{
 		ID:            c.uuid,
@@ -225,7 +236,7 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 		BytesReceived: stats.BytesReceived,
 		BytesSent:     stats.BytesSent,
 		Session: func() *uuid.UUID {
-			sx := c.parent.findSessionByRSession(c.rconn.Session())
+			sx := c.parent.findSessionByRSessionUnsafe(c.rconn.Session())
 			if sx != nil {
 				return &sx.uuid
 			}

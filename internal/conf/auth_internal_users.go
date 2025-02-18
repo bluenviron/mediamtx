@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"encoding/json"
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
 // AuthInternalUserPermission is a permission of a user.
@@ -26,7 +26,7 @@ func (s *AuthInternalUsers) UnmarshalJSON(b []byte) error {
 	// remove default value before loading new value
 	// https://github.com/golang/go/issues/21092
 	*s = nil
-	return json.Unmarshal(b, (*[]AuthInternalUser)(s))
+	return jsonwrapper.Unmarshal(b, (*[]AuthInternalUser)(s))
 }
 
 // AuthInternalUserPermissions is a list of AuthInternalUserPermission
@@ -37,5 +37,5 @@ func (s *AuthInternalUserPermissions) UnmarshalJSON(b []byte) error {
 	// remove default value before loading new value
 	// https://github.com/golang/go/issues/21092
 	*s = nil
-	return json.Unmarshal(b, (*[]AuthInternalUserPermission)(s))
+	return jsonwrapper.Unmarshal(b, (*[]AuthInternalUserPermission)(s))
 }
