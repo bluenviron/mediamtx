@@ -407,6 +407,24 @@ func TestConfErrors(t *testing.T) {
 				"    sourceRedirect: invalid://invalid",
 			`'sourceRedirect' is useless when source is not 'redirect'`,
 		},
+		{
+			"invalid user",
+			"authInternalUsers:\n" +
+				"- user:\n" +
+				"  pass: test\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			"empty usernames are not supported",
+		},
+		{
+			"invalid pass",
+			"authInternalUsers:\n" +
+				"- user: any\n" +
+				"  pass: test\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`using a password with 'any' user is not supported`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
