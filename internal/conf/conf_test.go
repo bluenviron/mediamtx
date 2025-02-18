@@ -374,6 +374,11 @@ func TestConfErrors(t *testing.T) {
 				"authJWTClaimKey: \"\"",
 			"'authJWTClaimKey' is empty",
 		},
+		{
+			"invalid rtsp auth methods",
+			"rtspAuthMethods: []",
+			"at least one 'rtspAuthMethods' must be provided",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
