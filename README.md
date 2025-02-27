@@ -125,6 +125,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Forward streams to other servers](#forward-streams-to-other-servers)
   * [Proxy requests to other servers](#proxy-requests-to-other-servers)
   * [On-demand publishing](#on-demand-publishing)
+  * [Expose the server in a subfolder](#expose-the-server-in-a-subfolder)
   * [Start on boot](#start-on-boot)
     * [Linux](#linux)
     * [OpenWrt](#openwrt)
@@ -1704,6 +1705,46 @@ paths:
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
 
+### Expose the server in a subfolder
+
+HTTP-based services (WebRTC, HLS, Control API, Playback Server) can be exposed in a subfolder of an existing HTTP server or reverse proxy. The reverse proxy must be able to intercept HTTP requests addressed to MediaMTX and corresponding responses, and perform the following changes:
+
+* The subfolder path must be stripped from request paths. For instance, if the server is exposed behind `/subpath` and the reverse proxy receives a request with path `/subpath/mystream/index.m3u8`, this has to be changed into `/mystream/index.m3u8`.
+
+* Any `Location` header in responses must be prefixed with the subfolder path. For instance, if the server is exposed behind `/subpath` and the server sends a response with `Location: /mystream/index.m3u8`, this has to be changed into `Location: /subfolder/mystream/index.m3u8`.
+
+If _nginx_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+location /subpath/ {
+    proxy_pass http://mediamtx-ip:8889/;
+    proxy_redirect / /subpath/;
+}
+```
+
+If _Apache HTTP Server_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+<Location /subpath>
+    ProxyPass http://mediamtx-ip:8889
+    ProxyPassReverse http://mediamtx-ip:8889
+    Header edit Location ^(.*)$ "/subpath$1"
+</Location>
+```
+
+If _Caddy_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+:80 {
+    handle_path /subpath/* {
+        reverse_proxy {
+            to mediamtx-ip:8889
+            header_down Location ^/ /subpath/
+        }
+    }
+}
+```
+
 ### Start on boot
 
 #### Linux
@@ -2238,7 +2279,7 @@ webrtcICEServers2:
 
 The server can ingest and broadcast with WebRTC a wide variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can publish and read all codecs due to internal limitations that cannot be overcome by this or any other server.
 
-In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to the lack of browser support. The situation recently improved and can be described as following:
+In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to lack of browser support. The situation improved recently and can be described as following:
 
 * Safari on iOS and macOS fully supports publishing and reading H265 tracks
 * Chrome on Windows supports publishing and reading H265 tracks when a GPU is present and when the browser is launched with the following flags:
