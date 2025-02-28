@@ -242,7 +242,6 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX %s", version)
 
 		if p.confPath != "" {
 			a, _ := filepath.Abs(p.confPath)
