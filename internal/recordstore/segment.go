@@ -77,9 +77,12 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 
 		if !info.IsDir() {
 			var pa Path
-			ok := pa.Decode(recordPath, fpath)
-			if ok && pathConf.Regexp.FindStringSubmatch(pa.Path) != nil {
-				ret[pa.Path] = struct{}{}
+			if ok := pa.Decode(recordPath, fpath); ok {
+				if err := conf.IsValidPathName(pa.Path); err == nil {
+					if pathConf.Regexp.FindStringSubmatch(pa.Path) != nil {
+						ret[pa.Path] = struct{}{}
+					}
+				}
 			}
 		}
 
