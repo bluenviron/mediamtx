@@ -4,11 +4,15 @@ package rtmp
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,6 +27,36 @@ import (
 
 // ErrConnNotFound is returned when a connection is not found.
 var ErrConnNotFound = errors.New("connection not found")
+
+type serverAPICreateStreamKeyRes struct {
+	err error
+}
+
+type serverAPICreateStreamKeyReq struct {
+	streamKey uuid.UUID
+	streamId  uuid.UUID
+	available bool
+	res       chan serverAPICreateStreamKeyRes
+}
+
+type serverAPIDeleteStreamIdRes struct {
+	err error
+}
+
+type serverAPIDeleteStreamIdReq struct {
+	streamKey uuid.UUID
+	streamId  uuid.UUID
+	res       chan serverAPIDeleteStreamIdRes
+}
+
+type serverAPIDeleteStreamKeyRes struct {
+	err error
+}
+
+type serverAPIDeleteStreamKeyReq struct {
+	streamKey uuid.UUID
+	res       chan serverAPIDeleteStreamKeyRes
+}
 
 type serverAPIConnsListRes struct {
 	data *defs.APIRTMPConnList
@@ -45,6 +79,13 @@ type serverAPIConnsGetReq struct {
 
 type serverAPIConnsKickRes struct {
 	err error
+}
+
+type StreamInfo struct {
+	StreamKey string `json:"streamKey"`
+	StreamID  string `json:"streamId"`
+	Available bool   `json:"available"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type serverAPIConnsKickReq struct {
@@ -85,12 +126,15 @@ type Server struct {
 	loader    *certloader.CertLoader
 
 	// in
-	chNewConn      chan net.Conn
-	chAcceptErr    chan error
-	chCloseConn    chan *conn
-	chAPIConnsList chan serverAPIConnsListReq
-	chAPIConnsGet  chan serverAPIConnsGetReq
-	chAPIConnsKick chan serverAPIConnsKickReq
+	chNewConn            chan net.Conn
+	chAcceptErr          chan error
+	chCloseConn          chan *conn
+	chAPIConnsList       chan serverAPIConnsListReq
+	chAPIConnsGet        chan serverAPIConnsGetReq
+	chAPIConnsKick       chan serverAPIConnsKickReq
+	chAPICreateStreamKey chan serverAPICreateStreamKeyReq
+	chAPIDeleteStreamId  chan serverAPIDeleteStreamIdReq
+	chAPIDeleteStreamKey chan serverAPIDeleteStreamKeyReq
 }
 
 // Initialize initializes the server.
@@ -123,7 +167,9 @@ func (s *Server) Initialize() error {
 	s.chAPIConnsList = make(chan serverAPIConnsListReq)
 	s.chAPIConnsGet = make(chan serverAPIConnsGetReq)
 	s.chAPIConnsKick = make(chan serverAPIConnsKickReq)
-
+	s.chAPICreateStreamKey = make(chan serverAPICreateStreamKeyReq)
+	s.chAPIDeleteStreamId = make(chan serverAPIDeleteStreamIdReq)
+	s.chAPIDeleteStreamKey = make(chan serverAPIDeleteStreamKeyReq)
 	s.Log(logger.Info, "listener opened on %s", s.Address)
 
 	l := &listener{
@@ -163,6 +209,7 @@ func (s *Server) Close() {
 func (s *Server) run() {
 	defer s.wg.Done()
 
+	filename := "/app/streamId/streamId.json"
 outer:
 	for {
 		select {
@@ -227,6 +274,146 @@ outer:
 			c.Close()
 			req.res <- serverAPIConnsKickRes{}
 
+		case req := <-s.chAPICreateStreamKey:
+			var streams []StreamInfo
+
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("read file: %w", err)}
+					continue
+				}
+				streams = []StreamInfo{}
+			} else {
+				if err := json.Unmarshal(data, &streams); err != nil {
+					req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("unmarshal streams: %w", err)}
+					continue
+				}
+			}
+
+			for _, stream := range streams {
+				if stream.StreamID == req.streamId.String() {
+					req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("stream id already exists")}
+					continue outer
+				}
+			}
+
+			newStream := StreamInfo{
+				StreamKey: req.streamKey.String(),
+				StreamID:  req.streamId.String(),
+				Available: req.available,
+				CreatedAt: time.Now().Format(time.RFC3339),
+			}
+			streams = append(streams, newStream)
+
+			if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+				req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("create directory: %w", err)}
+				continue
+			}
+
+			updatedData, err := json.MarshalIndent(streams, "", "  ")
+			if err != nil {
+				req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("marshal streams: %w", err)}
+				continue
+			}
+
+			if err := os.WriteFile(filename, updatedData, 0644); err != nil {
+				req.res <- serverAPICreateStreamKeyRes{err: fmt.Errorf("write file: %w", err)}
+				continue
+			}
+
+			req.res <- serverAPICreateStreamKeyRes{err: nil}
+		case req := <-s.chAPIDeleteStreamId:
+			var streams []StreamInfo
+
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				if os.IsNotExist(err) {
+					req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("file not found")}
+					continue
+				}
+				req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("read file: %w", err)}
+				continue
+			}
+
+			if err := json.Unmarshal(data, &streams); err != nil {
+				req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("unmarshal streams: %w", err)}
+				continue
+			}
+
+			found := false
+			newStreams := []StreamInfo{}
+			for _, stream := range streams {
+				if stream.StreamKey == req.streamKey.String() && stream.StreamID == req.streamId.String() {
+					found = true
+					continue
+				}
+				newStreams = append(newStreams, stream)
+			}
+
+			if !found {
+				req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("stream not found")}
+				continue
+			}
+
+			updatedData, err := json.MarshalIndent(newStreams, "", "  ")
+			if err != nil {
+				req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("marshal streams: %w", err)}
+				continue
+			}
+
+			if err := os.WriteFile(filename, updatedData, 0644); err != nil {
+				req.res <- serverAPIDeleteStreamIdRes{err: fmt.Errorf("write file: %w", err)}
+				continue
+			}
+
+			req.res <- serverAPIDeleteStreamIdRes{err: nil}
+
+		case req := <-s.chAPIDeleteStreamKey:
+			var streams []StreamInfo
+
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				if os.IsNotExist(err) {
+					req.res <- serverAPIDeleteStreamKeyRes{err: nil}
+					continue
+				}
+				req.res <- serverAPIDeleteStreamKeyRes{err: fmt.Errorf("read file: %w", err)}
+				continue
+			}
+
+			if err := json.Unmarshal(data, &streams); err != nil {
+				req.res <- serverAPIDeleteStreamKeyRes{err: fmt.Errorf("unmarshal streams: %w", err)}
+				continue
+			}
+
+			found := false
+			newStreams := []StreamInfo{}
+			for _, stream := range streams {
+				if stream.StreamKey == req.streamKey.String() {
+					found = true
+					continue
+				}
+				newStreams = append(newStreams, stream)
+			}
+
+			if !found {
+				req.res <- serverAPIDeleteStreamKeyRes{err: nil}
+				continue
+			}
+
+			updatedData, err := json.MarshalIndent(newStreams, "", "  ")
+			if err != nil {
+				req.res <- serverAPIDeleteStreamKeyRes{err: fmt.Errorf("marshal streams: %w", err)}
+				continue
+			}
+
+			if err := os.WriteFile(filename, updatedData, 0644); err != nil {
+				req.res <- serverAPIDeleteStreamKeyRes{err: fmt.Errorf("write file: %w", err)}
+				continue
+			}
+
+			req.res <- serverAPIDeleteStreamKeyRes{err: nil}
 		case <-s.ctx.Done():
 			break outer
 		}
@@ -313,6 +500,61 @@ func (s *Server) APIConnsKick(uuid uuid.UUID) error {
 
 	select {
 	case s.chAPIConnsKick <- req:
+		res := <-req.res
+		return res.err
+
+	case <-s.ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}
+
+// APICreateStreamKey is called by api.
+func (s *Server) APICreateStreamKey(streamKey uuid.UUID, streamId uuid.UUID) (uuid.UUID, error) {
+	availableDefault := true
+	req := serverAPICreateStreamKeyReq{
+		streamKey: streamKey,
+		streamId:  streamId,
+		available: availableDefault,
+		res:       make(chan serverAPICreateStreamKeyRes),
+	}
+
+	select {
+	case s.chAPICreateStreamKey <- req:
+		res := <-req.res
+		return req.streamId, res.err
+
+	case <-s.ctx.Done():
+		return uuid.Nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIDeleteStreamId is called by api.
+func (s *Server) APIDeleteStreamId(streamKey uuid.UUID, streamId uuid.UUID) error {
+	req := serverAPIDeleteStreamIdReq{
+		streamKey: streamKey,
+		streamId:  streamId,
+		res:       make(chan serverAPIDeleteStreamIdRes),
+	}
+
+	select {
+	case s.chAPIDeleteStreamId <- req:
+		res := <-req.res
+		return res.err
+
+	case <-s.ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}
+
+// APIDeleteStreamKey is called by api.
+func (s *Server) APIDeleteStreamKey(streamKey uuid.UUID) error {
+	req := serverAPIDeleteStreamKeyReq{
+		streamKey: streamKey,
+		res:       make(chan serverAPIDeleteStreamKeyRes),
+	}
+
+	select {
+	case s.chAPIDeleteStreamKey <- req:
 		res := <-req.res
 		return res.err
 

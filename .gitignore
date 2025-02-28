@@ -5,3 +5,10 @@
 /internal/core/VERSION
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*
+.mediamtx.yml
+.idea
+.env
+.vscode
+.vscode/*
+.vscode/*/*
+.vscode/*/*/*

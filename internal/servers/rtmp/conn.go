@@ -2,10 +2,13 @@ package rtmp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,12 +26,101 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
-	// remove leading and trailing slashes inserted by OBS and some other clients
+func pathNameAndQuery(inURL *url.URL) (string, url.Values, string, error) {
 	tmp := strings.TrimRight(inURL.String(), "/")
 	ur, _ := url.Parse(tmp)
 	pathName := strings.TrimLeft(ur.Path, "/")
-	return pathName, ur.Query(), ur.RawQuery
+
+	if pathName == "" {
+		return "", nil, "", errors.New("invalid path name")
+	}
+
+	filename := "/app/streamId/streamId.json"
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", nil, "", fmt.Errorf("stream key file not found: %v", err)
+	}
+
+	var streams []StreamInfo
+	if err := json.Unmarshal(data, &streams); err != nil {
+		return "", nil, "", errors.New("invalid stream key file")
+	}
+
+	var validStreams []StreamInfo
+	for _, stream := range streams {
+		if stream.StreamKey == pathName && stream.Available {
+			validStreams = append(validStreams, stream)
+		}
+	}
+
+	if len(validStreams) == 0 {
+		return "", nil, "", errors.New("no available stream found")
+	}
+
+	sort.Slice(validStreams, func(i, j int) bool {
+		timeI, _ := time.Parse(time.RFC3339, validStreams[i].CreatedAt)
+		timeJ, _ := time.Parse(time.RFC3339, validStreams[j].CreatedAt)
+		return timeI.Before(timeJ)
+	})
+
+	selectedStream := validStreams[0]
+
+	for i := range streams {
+		if streams[i].StreamID == selectedStream.StreamID {
+			streams[i].Available = false
+			break
+		}
+	}
+
+	updatedData, err := json.MarshalIndent(streams, "", "  ")
+	if err != nil {
+		return "", nil, "", errors.New("failed to update stream file")
+	}
+
+	if err := os.WriteFile(filename, updatedData, 0644); err != nil {
+		return "", nil, "", errors.New("failed to save stream file")
+	}
+
+	return selectedStream.StreamID, ur.Query(), ur.RawQuery, nil
+}
+
+func deleteStreamByID(streamID string) error {
+	filename := "/app/streamId/streamId.json"
+
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("stream key file not found: %v", err)
+	}
+
+	var streams []StreamInfo
+	if err := json.Unmarshal(data, &streams); err != nil {
+		return errors.New("invalid stream key file")
+	}
+
+	newStreams := make([]StreamInfo, 0, len(streams))
+	found := false
+	for _, stream := range streams {
+		if stream.StreamID == streamID {
+			found = true
+			continue
+		}
+		newStreams = append(newStreams, stream)
+	}
+
+	if !found {
+		return errors.New("stream ID not found")
+	}
+
+	updatedData, err := json.MarshalIndent(newStreams, "", "  ")
+	if err != nil {
+		return errors.New("failed to update stream file")
+	}
+
+	if err := os.WriteFile(filename, updatedData, 0644); err != nil {
+		return errors.New("failed to save stream file")
+	}
+
+	return nil
 }
 
 type connState int
@@ -112,7 +204,9 @@ func (c *conn) run() { //nolint:dupl
 	c.ctxCancel()
 
 	c.parent.closeConn(c)
-
+	if err := deleteStreamByID(c.pathName); err != nil {
+		c.Log(logger.Info, "failed to delete stream: %v", err)
+	}
 	c.Log(logger.Info, "closed: %v", err)
 }
 
@@ -153,7 +247,10 @@ func (c *conn) runReader() error {
 }
 
 func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
-	pathName, query, rawQuery := pathNameAndQuery(u)
+	pathName, query, rawQuery, err := pathNameAndQuery(u)
+	if err != nil {
+		return err
+	}
 
 	path, stream, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
@@ -168,7 +265,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)
@@ -219,7 +316,10 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 }
 
 func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
-	pathName, query, rawQuery := pathNameAndQuery(u)
+	pathName, query, rawQuery, err := pathNameAndQuery(u)
+	if err != nil {
+		return err
+	}
 
 	path, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author: c,
@@ -235,7 +335,7 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)
