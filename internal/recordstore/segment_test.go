@@ -44,6 +44,25 @@ func TestFindAllPathsWithSegments(t *testing.T) {
 	require.Equal(t, []string{"path1", "path2"}, paths)
 }
 
+func TestFindAllPathsWithSegmentsInvalidPath(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-recordstore")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.WriteFile(filepath.Join(dir, "_2015-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
+	require.NoError(t, err)
+
+	paths := FindAllPathsWithSegments(map[string]*conf.Path{
+		"~^.*$": {
+			Name:         "~^.*$",
+			Regexp:       regexp.MustCompile("^.*$"),
+			RecordPath:   filepath.Join(dir, "%path_%Y-%m-%d_%H-%M-%S-%f"),
+			RecordFormat: conf.RecordFormatFMP4,
+		},
+	})
+	require.Equal(t, []string{}, paths)
+}
+
 func TestFindSegments(t *testing.T) {
 	for _, ca := range []string{
 		"no filtering",

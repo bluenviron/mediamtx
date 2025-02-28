@@ -16,7 +16,8 @@ import (
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
 
-func isValidPathName(name string) error {
+// IsValidPathName checks whether the path name is valid.
+func IsValidPathName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cannot be empty")
 	}
@@ -48,7 +49,7 @@ func checkSRTPassphrase(passphrase string) error {
 
 func checkRedirect(v string) error {
 	if strings.HasPrefix(v, "/") {
-		err := isValidPathName(v[1:])
+		err := IsValidPathName(v[1:])
 		if err != nil {
 			return fmt.Errorf("'%s': %w", v, err)
 		}
@@ -64,11 +65,6 @@ func checkRedirect(v string) error {
 
 // FindPathConf returns the configuration corresponding to the given path name.
 func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, error) {
-	err := isValidPathName(name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
-	}
-
 	// normal path
 	if pathConf, ok := pathConfs[name]; ok {
 		return pathConf, nil, nil
@@ -77,6 +73,11 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 	// regular expression-based path
 	for pathConfName, pathConf := range pathConfs {
 		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
+			err := IsValidPathName(name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+			}
+
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
 				return pathConf, m, nil
@@ -87,6 +88,11 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 	// process all_others after every other entry
 	for pathConfName, pathConf := range pathConfs {
 		if pathConfName == "all" || pathConfName == "all_others" {
+			err := IsValidPathName(name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+			}
+
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
 				return pathConf, m, nil
@@ -282,7 +288,7 @@ func (pconf *Path) validate(
 		pconf.Regexp = regexp.MustCompile("^.*$")
 
 	case name == "" || name[0] != '~': // normal path
-		err := isValidPathName(name)
+		err := IsValidPathName(name)
 		if err != nil {
 			return fmt.Errorf("invalid path name '%s': %w", name, err)
 		}
@@ -489,18 +495,17 @@ func (pconf *Path) validate(
 		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
 	}
 
-	if conf.Playback {
-		if !strings.Contains(pconf.RecordPath, "%Y") ||
-			!strings.Contains(pconf.RecordPath, "%m") ||
-			!strings.Contains(pconf.RecordPath, "%d") ||
-			!strings.Contains(pconf.RecordPath, "%H") ||
-			!strings.Contains(pconf.RecordPath, "%M") ||
-			!strings.Contains(pconf.RecordPath, "%S") ||
-			!strings.Contains(pconf.RecordPath, "%f") {
-			return fmt.Errorf("record path '%s' is missing one of the mandatory elements"+
-				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
-				pconf.RecordPath)
-		}
+	if !strings.Contains(pconf.RecordPath, "%path") ||
+		!strings.Contains(pconf.RecordPath, "%Y") ||
+		!strings.Contains(pconf.RecordPath, "%m") ||
+		!strings.Contains(pconf.RecordPath, "%d") ||
+		!strings.Contains(pconf.RecordPath, "%H") ||
+		!strings.Contains(pconf.RecordPath, "%M") ||
+		!strings.Contains(pconf.RecordPath, "%S") ||
+		!strings.Contains(pconf.RecordPath, "%f") {
+		return fmt.Errorf("record path '%s' is missing one of the mandatory elements:"+
+			" %%path %%Y %%m %%d %%H %%M %%S %%f",
+			pconf.RecordPath)
 	}
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
