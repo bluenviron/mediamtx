@@ -54,7 +54,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		Log: s,
 	}
 
-	_, err = client.Read(params.Context)
+	err = client.Initialize(params.Context)
 	if err != nil {
 		return err
 	}

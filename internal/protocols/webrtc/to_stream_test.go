@@ -403,7 +403,7 @@ func TestToStream(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, err = pc2.GatherIncomingTracks(context.Background())
+			err = pc2.GatherIncomingTracks(context.Background())
 			require.NoError(t, err)
 
 			var stream *stream.Stream

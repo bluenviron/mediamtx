@@ -275,12 +275,6 @@ func TestServerPublish(t *testing.T) {
 	su, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whip?param=value")
 	require.NoError(t, err)
 
-	wc := &whip.Client{
-		HTTPClient: hc,
-		URL:        su,
-		Log:        test.NilLogger,
-	}
-
 	track := &webrtc.OutgoingTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
@@ -289,7 +283,15 @@ func TestServerPublish(t *testing.T) {
 		},
 	}
 
-	err = wc.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
+	wc := &whip.Client{
+		HTTPClient:     hc,
+		URL:            su,
+		Publish:        true,
+		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		Log:            test.NilLogger,
+	}
+
+	err = wc.Initialize(context.Background())
 	require.NoError(t, err)
 	defer checkClose(t, wc.Close)
 
@@ -587,13 +589,13 @@ func TestServerRead(t *testing.T) {
 				}
 			}()
 
-			tracks, err := wc.Read(context.Background())
+			err = wc.Initialize(context.Background())
 			require.NoError(t, err)
 			defer checkClose(t, wc.Close)
 
 			done := make(chan struct{})
 
-			tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
+			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
 				select {
 				case <-done:
 				default:

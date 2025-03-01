@@ -246,12 +246,6 @@ webrtc_sessions_bytes_sent 0
 			defer tr.CloseIdleConnections()
 			hc2 := &http.Client{Transport: tr}
 
-			s := &whip.Client{
-				HTTPClient: hc2,
-				URL:        su,
-				Log:        test.NilLogger,
-			}
-
 			track := &webrtc.OutgoingTrack{
 				Caps: pwebrtc.RTPCodecCapability{
 					MimeType:    pwebrtc.MimeTypeH264,
@@ -260,7 +254,15 @@ webrtc_sessions_bytes_sent 0
 				},
 			}
 
-			err = s.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
+			s := &whip.Client{
+				HTTPClient:     hc2,
+				URL:            su,
+				Log:            test.NilLogger,
+				Publish:        true,
+				OutgoingTracks: []*webrtc.OutgoingTrack{track},
+			}
+
+			err = s.Initialize(context.Background())
 			require.NoError(t, err)
 			defer checkClose(t, s.Close)
 

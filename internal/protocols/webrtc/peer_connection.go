@@ -423,7 +423,7 @@ outer:
 }
 
 // GatherIncomingTracks gathers incoming tracks.
-func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*IncomingTrack, error) {
+func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) error {
 	var sdp sdp.SessionDescription
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
@@ -436,9 +436,9 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 		select {
 		case <-t.C:
 			if len(co.incomingTracks) != 0 {
-				return co.incomingTracks, nil
+				return nil
 			}
-			return nil, fmt.Errorf("deadline exceeded while waiting tracks")
+			return fmt.Errorf("deadline exceeded while waiting tracks")
 
 		case pair := <-co.incomingTrack:
 			t := &IncomingTrack{
@@ -451,14 +451,14 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 			co.incomingTracks = append(co.incomingTracks, t)
 
 			if len(co.incomingTracks) >= maxTrackCount {
-				return co.incomingTracks, nil
+				return nil
 			}
 
 		case <-co.Failed():
-			return nil, fmt.Errorf("peer connection closed")
+			return fmt.Errorf("peer connection closed")
 
 		case <-ctx.Done():
-			return nil, fmt.Errorf("terminated")
+			return fmt.Errorf("terminated")
 		}
 	}
 }
@@ -503,6 +503,11 @@ func (co *PeerConnection) LocalCandidate() string {
 	}
 
 	return ""
+}
+
+// IncomingTracks returns incoming tracks.
+func (co *PeerConnection) IncomingTracks() []*IncomingTrack {
+	return co.incomingTracks
 }
 
 // StartReading starts reading all incoming tracks.
