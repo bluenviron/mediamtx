@@ -1,21 +1,20 @@
-package webrtc
+package whip
 
 import (
 	"context"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/rtp"
 	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
-
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
-	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func whipOffer(body []byte) *pwebrtc.SessionDescription {
@@ -25,7 +24,7 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	}
 }
 
-func TestSource(t *testing.T) {
+func TestClientRead(t *testing.T) {
 	outgoingTracks := []*webrtc.OutgoingTrack{{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    "audio/opus",
@@ -117,23 +116,22 @@ func TestSource(t *testing.T) {
 		}),
 	}
 
-	ln, err := net.Listen("tcp", "localhost:9003")
+	ln, err := net.Listen("tcp", "localhost:9005")
 	require.NoError(t, err)
 
 	go httpServ.Serve(ln)
 	defer httpServ.Shutdown(context.Background())
 
-	te := test.NewSourceTester(
-		func(p defs.StaticSourceParent) defs.StaticSource {
-			return &Source{
-				ReadTimeout: conf.Duration(10 * time.Second),
-				Parent:      p,
-			}
-		},
-		"whep://localhost:9003/my/resource",
-		&conf.Path{},
-	)
-	defer te.Close()
+	u, err := url.Parse("http://localhost:9005/my/resource")
+	require.NoError(t, err)
 
-	<-te.Unit
+	cl := &Client{
+		HTTPClient: &http.Client{},
+		URL:        u,
+		Log:        test.NilLogger,
+	}
+
+	_, err = cl.Read(context.Background())
+	require.NoError(t, err)
+	defer cl.Close() //nolint:errcheck
 }

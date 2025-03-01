@@ -69,6 +69,7 @@ type trackRecvPair struct {
 
 // PeerConnection is a wrapper around webrtc.PeerConnection.
 type PeerConnection struct {
+	LocalRandomUDP        bool
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             ice.TCPMux
 	ICEServers            []webrtc.ICEServer
@@ -122,10 +123,7 @@ func (co *PeerConnection) Start() error {
 		settingsEngine.SetICETCPMux(co.ICETCPMux)
 	}
 
-	// if there are no fixed listeners, or ICE servers,
-	// enable a set of random UDP listeners
-	// since they are required to connect to remote UDP listeners
-	if co.ICEUDPMux == nil && co.ICETCPMux == nil && len(co.ICEServers) == 0 {
+	if co.LocalRandomUDP {
 		settingsEngine.SetLocalRandomUDP(true)
 	}
 
