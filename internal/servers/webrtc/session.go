@@ -205,7 +205,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	_, err = pc.GatherIncomingTracks(s.ctx)
+	err = pc.GatherIncomingTracks(s.ctx)
 	if err != nil {
 		return 0, err
 	}

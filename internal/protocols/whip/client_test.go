@@ -126,12 +126,12 @@ func TestClientRead(t *testing.T) {
 	require.NoError(t, err)
 
 	cl := &Client{
-		HTTPClient: &http.Client{},
 		URL:        u,
+		HTTPClient: &http.Client{},
 		Log:        test.NilLogger,
 	}
 
-	_, err = cl.Read(context.Background())
+	err = cl.Initialize(context.Background())
 	require.NoError(t, err)
 	defer cl.Close() //nolint:errcheck
 }
