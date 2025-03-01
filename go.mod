@@ -24,7 +24,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.1.1
-	github.com/pion/ice/v4 v4.0.5
+	github.com/pion/ice/v4 v4.0.7
 	github.com/pion/interceptor v0.1.37
 	github.com/pion/logging v0.2.3
 	github.com/pion/rtcp v1.2.15
@@ -73,7 +73,7 @@ require (
 	github.com/pion/dtls/v3 v3.0.4 // indirect
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/sctp v1.8.35 // indirect
+	github.com/pion/sctp v1.8.36 // indirect
 	github.com/pion/srtp/v3 v3.0.4 // indirect
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect
@@ -98,6 +98,6 @@ require (
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 
-replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.0.0-20250119142625-d95137564171
+replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.0.0-20250301104324-b2df7db9f75d
 
-replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.0.0-20250119122430-da50f500fa8e
+replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.0.0-20250228091429-18796cd12b4f
