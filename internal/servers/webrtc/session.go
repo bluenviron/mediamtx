@@ -253,7 +253,7 @@ func (s *session) runRead() (int, error) {
 		AccessRequest: req,
 	})
 	if err != nil {
-		var terr2 defs.PathNoOnePublishingError
+		var terr2 defs.PathNoStreamAvailableError
 		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
 		}
