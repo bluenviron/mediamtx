@@ -189,7 +189,9 @@ Available images:
 |bluenviron/mediamtx:latest-rpi|:x:|:heavy_check_mark:|
 |bluenviron/mediamtx:latest-ffmpeg-rpi|:heavy_check_mark:|:heavy_check_mark:|
 
-The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets. This issue can be avoided by disabling the RTSP UDP transport protocol:
+The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets.
+
+If the `--network=host` cannot be used (for instance, it is not compatible with Windows or Kubernetes), you can disable the RTSP UDP transport protocol, add the server IP to `MTX_WEBRTCADDITIONALHOSTS` and expose ports manually:
 
 ```
 docker run --rm -it \
@@ -203,8 +205,6 @@ docker run --rm -it \
 -p 8189:8189/udp \
 bluenviron/mediamtx
 ```
-
-set `MTX_WEBRTCADDITIONALHOSTS` to your local IP address.
 
 ### Arch Linux package
 
@@ -2211,7 +2211,7 @@ http://localhost:8889/mystream/whip?jwt=[jwt]
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
-Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, then insert the LAN address of the server. If clients are coming from the internet, insert the public IP address of the server, or alternatively a DNS name, if you have one. You can insert multiple values to support all scenarios:
+Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, add the LAN address of the server. If clients are coming from the internet, add the public IP address of the server, or alternatively a DNS name, if you have one. You can add multiple values to support all scenarios:
 
 ```yml
 webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
@@ -2234,14 +2234,12 @@ webrtcLocalTCPAddress: :8189
 
 If there's a NAT / container between server and clients, it must be configured to route all incoming TCP packets on port 8189 to the server.
 
-If you still have problems, enable a STUN server:
+If you still have problems, add a STUN server. When a STUN server is in use, server IP is obtained automatically and connections are established with the "UDP hole punching" technique, that uses a random UDP port that does not need to be open. For instance:
 
 ```yml
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 ```
-
-When a STUN server is in use, connections can be established with the "UDP hole punching" method, that uses a random UDP port that does not need to be open.
 
 If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 

@@ -46,10 +46,9 @@ func (c *Client) Publish(
 
 	c.pc = &webrtc.PeerConnection{
 		ICEServers:         iceServers,
+		IPsFromInterfaces:  true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
 		Publish:            true,
 		OutgoingTracks:     outgoingTracks,
 		Log:                c.Log,
@@ -100,7 +99,7 @@ outer:
 
 		case <-c.pc.GatheringDone():
 
-		case <-c.pc.Ready():
+		case <-c.pc.Connected():
 			break outer
 
 		case <-t.C:
@@ -122,10 +121,9 @@ func (c *Client) Read(ctx context.Context) ([]*webrtc.IncomingTrack, error) {
 
 	c.pc = &webrtc.PeerConnection{
 		ICEServers:         iceServers,
+		IPsFromInterfaces:  true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
 		Publish:            false,
 		Log:                c.Log,
 	}
@@ -190,7 +188,7 @@ outer:
 
 		case <-c.pc.GatheringDone():
 
-		case <-c.pc.Ready():
+		case <-c.pc.Connected():
 			break outer
 
 		case <-t.C:
