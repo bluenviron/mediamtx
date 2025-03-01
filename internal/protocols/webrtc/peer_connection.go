@@ -69,16 +69,15 @@ type trackRecvPair struct {
 
 // PeerConnection is a wrapper around webrtc.PeerConnection.
 type PeerConnection struct {
-	ICEServers            []webrtc.ICEServer
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             ice.TCPMux
-	HandshakeTimeout      conf.Duration
-	TrackGatherTimeout    conf.Duration
-	STUNGatherTimeout     conf.Duration
-	LocalRandomUDP        bool
+	ICEServers            []webrtc.ICEServer
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
+	HandshakeTimeout      conf.Duration
+	TrackGatherTimeout    conf.Duration
+	STUNGatherTimeout     conf.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
 	Log                   logger.Writer
@@ -86,7 +85,7 @@ type PeerConnection struct {
 	wr                *webrtc.PeerConnection
 	stateChangeMutex  sync.Mutex
 	newLocalCandidate chan *webrtc.ICECandidateInit
-	ready             chan struct{}
+	connected         chan struct{}
 	failed            chan struct{}
 	done              chan struct{}
 	gatheringDone     chan struct{}
@@ -109,34 +108,27 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)
 
-	var networkTypes []webrtc.NetworkType
-	enableUDP := false
-
-	// UDP is always needed when there's a STUN/TURN server.
-	if len(co.ICEServers) != 0 {
-		enableUDP = true
-	}
+	// always enable all networks since we might be the client of a remote TCP listener
+	settingsEngine.SetNetworkTypes([]webrtc.NetworkType{
+		webrtc.NetworkTypeUDP4,
+		webrtc.NetworkTypeTCP4,
+	})
 
 	if co.ICEUDPMux != nil {
-		enableUDP = true
 		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
-	if co.LocalRandomUDP {
-		enableUDP = true
-		settingsEngine.SetLocalRandomUDP(true)
-	}
-
 	if co.ICETCPMux != nil {
-		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
 		settingsEngine.SetICETCPMux(co.ICETCPMux)
 	}
 
-	if enableUDP {
-		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+	// if there are no fixed listeners, or ICE servers,
+	// enable a set of random UDP listeners
+	// since they are required to connect to remote UDP listeners
+	if co.ICEUDPMux == nil && co.ICETCPMux == nil && len(co.ICEServers) == 0 {
+		settingsEngine.SetLocalRandomUDP(true)
 	}
 
-	settingsEngine.SetNetworkTypes(networkTypes)
 	settingsEngine.SetSTUNGatherTimeout(time.Duration(co.STUNGatherTimeout))
 
 	mediaEngine := &webrtc.MediaEngine{}
@@ -230,7 +222,7 @@ func (co *PeerConnection) Start() error {
 	}
 
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
-	co.ready = make(chan struct{})
+	co.connected = make(chan struct{})
 	co.failed = make(chan struct{})
 	co.done = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
@@ -287,9 +279,9 @@ func (co *PeerConnection) Start() error {
 		case webrtc.PeerConnectionStateConnected:
 			// PeerConnectionStateConnected can arrive twice, since state can
 			// switch from "disconnected" to "connected".
-			// contrarily, we're interested into emitting "ready" once.
+			// contrarily, we're interested into emitting "connected" once.
 			select {
-			case <-co.ready:
+			case <-co.connected:
 				return
 			default:
 			}
@@ -297,7 +289,7 @@ func (co *PeerConnection) Start() error {
 			co.Log.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
 				co.LocalCandidate(), co.RemoteCandidate())
 
-			close(co.ready)
+			close(co.connected)
 
 		case webrtc.PeerConnectionStateFailed:
 			close(co.failed)
@@ -322,7 +314,7 @@ func (co *PeerConnection) Start() error {
 			v := i.ToJSON()
 			select {
 			case co.newLocalCandidate <- &v:
-			case <-co.ready:
+			case <-co.connected:
 			case <-co.ctx.Done():
 			}
 		} else {
@@ -408,8 +400,8 @@ func (co *PeerConnection) waitGatheringDone(ctx context.Context) error {
 	}
 }
 
-// WaitUntilReady waits until connection is established.
-func (co *PeerConnection) WaitUntilReady(
+// WaitUntilConnected waits until connection is established.
+func (co *PeerConnection) WaitUntilConnected(
 	ctx context.Context,
 ) error {
 	t := time.NewTimer(time.Duration(co.HandshakeTimeout))
@@ -421,7 +413,7 @@ outer:
 		case <-t.C:
 			return fmt.Errorf("deadline exceeded while waiting connection")
 
-		case <-co.ready:
+		case <-co.connected:
 			break outer
 
 		case <-ctx.Done():
@@ -473,9 +465,9 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) ([]*Incoming
 	}
 }
 
-// Ready returns when ready.
-func (co *PeerConnection) Ready() <-chan struct{} {
-	return co.ready
+// Connected returns when connected.
+func (co *PeerConnection) Connected() <-chan struct{} {
+	return co.connected
 }
 
 // Failed returns when failed.

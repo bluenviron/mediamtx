@@ -36,7 +36,6 @@ func TestSource(t *testing.T) {
 	}}
 
 	pc := &webrtc.PeerConnection{
-		LocalRandomUDP:     true,
 		IPsFromInterfaces:  true,
 		Publish:            true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
@@ -82,7 +81,7 @@ func TestSource(t *testing.T) {
 				w.Write([]byte(answer.SDP))
 
 				go func() {
-					err3 := pc.WaitUntilReady(context.Background())
+					err3 := pc.WaitUntilConnected(context.Background())
 					require.NoError(t, err3)
 
 					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
