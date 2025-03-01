@@ -45,6 +45,7 @@ func (c *Client) Publish(
 	}
 
 	c.pc = &webrtc.PeerConnection{
+		LocalRandomUDP:     true,
 		ICEServers:         iceServers,
 		IPsFromInterfaces:  true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
@@ -120,6 +121,7 @@ func (c *Client) Read(ctx context.Context) ([]*webrtc.IncomingTrack, error) {
 	}
 
 	c.pc = &webrtc.PeerConnection{
+		LocalRandomUDP:     true,
 		ICEServers:         iceServers,
 		IPsFromInterfaces:  true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
