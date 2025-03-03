@@ -188,7 +188,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 				return res, nil, err2
 			}
 
-			var terr2 defs.PathNoOnePublishingError
+			var terr2 defs.PathNoStreamAvailableError
 			if errors.As(err, &terr2) {
 				return &base.Response{
 					StatusCode: base.StatusNotFound,

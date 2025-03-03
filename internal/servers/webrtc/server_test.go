@@ -618,7 +618,7 @@ func TestServerReadNotFound(t *testing.T) {
 			return &conf.Path{}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			return nil, nil, defs.PathNoOnePublishingError{}
+			return nil, nil, defs.PathNoStreamAvailableError{}
 		},
 	}
 

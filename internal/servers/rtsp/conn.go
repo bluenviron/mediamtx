@@ -160,7 +160,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 			return res, nil, err2
 		}
 
-		var terr2 defs.PathNoOnePublishingError
+		var terr2 defs.PathNoStreamAvailableError
 		if errors.As(res.Err, &terr2) {
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
