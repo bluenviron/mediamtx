@@ -150,7 +150,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 			s.CachedUnits[s.Cached] = u
 			s.Cached ++
 		} else if s.CachedUnits != nil {
-			s.CachedUnits = xappend(s.CachedUnits, u)
+			s.CachedUnits = append(s.CachedUnits, u)
 			s.Cached ++
 		}
 	}
