@@ -138,7 +138,9 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 				lastFrame := s.CachedUnits[s.CacheLength - 1]
 				if s.CacheLength == 0 {
 					s.CacheLength = s.Cached
-					s.CachedUnits = copy(make([]unit.Unit, s.CacheLength + 1, maxCachedGOPSize), s.CachedUnits)
+					var newCachedUnits = make([]unit.Unit, s.CacheLength + 1, maxCachedGOPSize)
+					copy(newCachedUnits, s.CachedUnits)
+					s.CachedUnits = newCachedUnits
 				}
 				s.CachedUnits[0] = lastFrame
 				s.Cached = 1
@@ -148,7 +150,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 			s.CachedUnits[s.Cached] = u
 			s.Cached ++
 		} else if s.CachedUnits != nil {
-			s.CachedUnits = append(s.CachedUnits, u)
+			s.CachedUnits = xappend(s.CachedUnits, u)
 			s.Cached ++
 		}
 	}
