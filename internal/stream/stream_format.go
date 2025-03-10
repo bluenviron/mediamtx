@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
@@ -33,6 +34,8 @@ func isKeyFrame(u unit.Unit) bool {
 		return h264.IsRandomAccess(tunit.AU)
 	case *unit.H265:
 		return h265.IsRandomAccess(tunit.AU)
+	case *unit.AV1:
+		return av1.IsRandomAccess2(tunit.TU)
 	}
 	return false
 }
@@ -43,6 +46,8 @@ func isEmptyAU(u unit.Unit) bool {
 		return len(tunit.AU) == 0
 	case *unit.H265:
 		return len(tunit.AU) == 0
+	case *unit.AV1:
+		return len(tunit.TU) == 0
 	}
 	return true
 }
