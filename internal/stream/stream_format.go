@@ -35,7 +35,7 @@ func isKeyFrame(u unit.Unit) bool {
 	case *unit.H265:
 		return h265.IsRandomAccess(tunit.AU)
 	case *unit.AV1:
-		isRandomAccess, err := av1.IsRandomAccess(tunit.TU)
+		isRandomAccess, _ = av1.IsRandomAccess(tunit.TU)
 		return isRandomAccess
 	}
 	return false
