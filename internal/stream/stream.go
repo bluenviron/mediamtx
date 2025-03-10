@@ -40,6 +40,8 @@ type Stream struct {
 	readerRunning chan struct{}
 
 	CachedUnits []unit.Unit
+	CacheLength int
+	Cached int
 }
 
 // New allocates a Stream.
@@ -193,7 +195,7 @@ func (s *Stream) StartReader(reader Reader) {
 				}
 
 				framesWithAU := 0
-				for _, u := range s.CachedUnits {
+				for _, u := range s.CachedUnits[:s.Cached] {
 					if !isEmptyAU(u) {
 						framesWithAU++
 					}
@@ -209,11 +211,11 @@ func (s *Stream) StartReader(reader Reader) {
 				playbackFPS := 100
 				msPerFrame := 1000 / playbackFPS
 				ticksPerMs := 90000 / 1000
-				lastTimestamp := s.CachedUnits[len(s.CachedUnits)-1].GetRTPPackets()[0].Timestamp
-				lastPts := s.CachedUnits[len(s.CachedUnits)-1].GetPTS()
+				lastTimestamp := s.CachedUnits[s.Cached-1].GetRTPPackets()[0].Timestamp
+				lastPts := s.CachedUnits[ls.Cached-1].GetPTS()
 				delta := -ticksPerMs * framesWithAU * msPerFrame
 				start := time.Now()
-				for _, u := range s.CachedUnits {
+				for _, u := range s.CachedUnits[:s.Cached] {
 					if isEmptyAU(u) {
 						continue
 					}

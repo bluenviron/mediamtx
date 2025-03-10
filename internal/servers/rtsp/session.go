@@ -252,11 +252,11 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 		s.transport = s.rsession.SetuppedTransport()
 		s.mutex.Unlock()
 
-		if len(s.stream.CachedUnits) > 0 {
-			lastTimestamp := s.stream.CachedUnits[len(s.stream.CachedUnits)-1].GetRTPPackets()[0].Timestamp
+		if s.stream.Cached > 0 {
+			lastTimestamp := s.stream.CachedUnits[s.stream.Cached-1].GetRTPPackets()[0].Timestamp
 			for _, medi := range s.stream.Desc().Medias {
 				if medi.Type == description.MediaTypeVideo {
-					for _, u := range s.stream.CachedUnits {
+					for _, u := range s.stream.CachedUnits[:Cached] {
 						for _, pkt := range u.GetRTPPackets() {
 							pkt.Timestamp = lastTimestamp
 							err := s.rsession.WritePacketRTP(medi, pkt)

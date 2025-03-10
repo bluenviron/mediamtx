@@ -122,29 +122,25 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	atomic.AddUint64(s.bytesReceived, size)
 
 	if sf.gopCache && medi.Type == description.MediaTypeVideo {
-		if isKeyFrame(u) {
+		if isKeyFrame(u){
 			if s.CachedUnits == nil {
 				// Initialize the cache and enable caching
 				s.CachedUnits = make([]unit.Unit, 0, maxCachedGOPSize)
+				s.CachedLength == 0
+				s.Cached = 0
 			} else {
-				// Keep the last packets that were used to generate the key frame.
-				// This is to send a full key frame in the RTSP stream.
-				i := len(s.CachedUnits)
-				for ; i > 0; i-- {
-					if !isEmptyAU(s.CachedUnits[i-1]) {
-						break
-					}
+				lastFrame = s.CachedUnits[s.CachedLength - 1]
+				if s.CacheLength == 0 {
+					s.CachedLength = len(s.CachedUnits)
+					s.CachedUnits = make([]unit.Unit, 0, s.CacheLength + 1)
 				}
-				s.CachedUnits = s.CachedUnits[i:]
+				s.CachedUnits[0] = lastFrame
+				s.Cached = 1
 			}
 		}
 		if s.CachedUnits != nil {
-			s.CachedUnits = append(s.CachedUnits, u)
-		}
-		l := len(s.CachedUnits)
-		if l > maxCachedGOPSize {
-			s.CachedUnits = s.CachedUnits[l-maxCachedGOPSize:]
-			sf.decodeErrLogger.Log(logger.Warn, "GOP cache is full, dropping packets")
+			s.CachedUnits[s.Cached] = u
+			s.Cached ++
 		}
 	}
 
