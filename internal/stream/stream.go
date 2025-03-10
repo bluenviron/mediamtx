@@ -212,7 +212,7 @@ func (s *Stream) StartReader(reader Reader) {
 				msPerFrame := 1000 / playbackFPS
 				ticksPerMs := 90000 / 1000
 				lastTimestamp := s.CachedUnits[s.Cached-1].GetRTPPackets()[0].Timestamp
-				lastPts := s.CachedUnits[ls.Cached-1].GetPTS()
+				lastPts := s.CachedUnits[s.Cached-1].GetPTS()
 				delta := -ticksPerMs * framesWithAU * msPerFrame
 				start := time.Now()
 				for _, u := range s.CachedUnits[:s.Cached] {
