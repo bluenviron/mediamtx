@@ -265,6 +265,7 @@ func TestServerRedirect(t *testing.T) {
 				desc,
 				true,
 				test.NilLogger,
+				false,
 			)
 			require.NoError(t, err)
 

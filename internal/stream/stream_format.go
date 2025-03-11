@@ -35,7 +35,8 @@ func isKeyFrame(u unit.Unit) bool {
 	case *unit.H265:
 		return h265.IsRandomAccess(tunit.AU)
 	case *unit.AV1:
-		var isRandomAccess, _ = av1.IsRandomAccess(tunit.TU)
+		var isRandomAccess bool
+		isRandomAccess, _ = av1.IsRandomAccess(tunit.TU)
 		return isRandomAccess
 	}
 	return false
@@ -138,7 +139,8 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 				lastFrame := s.CachedUnits[s.CacheLength - 1]
 				if s.CacheLength == 0 {
 					s.CacheLength = s.Cached
-					var newCachedUnits = make([]unit.Unit, s.CacheLength + 1, maxCachedGOPSize)
+					var newCachedUnits []unit.Unit
+					newCachedUnits = make([]unit.Unit, s.CacheLength + 1, maxCachedGOPSize)
 					copy(newCachedUnits, s.CachedUnits)
 					s.CachedUnits = newCachedUnits
 				}
