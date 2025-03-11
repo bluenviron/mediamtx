@@ -512,6 +512,10 @@ func (pconf *Path) validate(
 		return fmt.Errorf("maximum segment duration is 1 day")
 	}
 
+	if pconf.RecordDeleteAfter != 0 && pconf.RecordDeleteAfter < pconf.RecordSegmentDuration {
+		return fmt.Errorf("'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'")
+	}
+
 	// Authentication (deprecated)
 
 	if deprecatedCredentialsMode {
