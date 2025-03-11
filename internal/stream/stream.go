@@ -41,7 +41,7 @@ type Stream struct {
 
 	CachedUnits []unit.Unit
 	CacheLength int
-	Cached int
+	Cached      int
 }
 
 // New allocates a Stream.

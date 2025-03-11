@@ -6,9 +6,9 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
@@ -129,18 +129,17 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	atomic.AddUint64(s.bytesReceived, size)
 
 	if sf.gopCache && medi.Type == description.MediaTypeVideo {
-		if isKeyFrame(u){
+		if isKeyFrame(u) {
 			if s.CachedUnits == nil {
 				// Initialize the cache and enable caching
 				s.CachedUnits = make([]unit.Unit, 0, maxCachedGOPSize)
 				s.CacheLength = 0
 				s.Cached = 0
 			} else {
-				lastFrame := s.CachedUnits[s.CacheLength - 1]
+				lastFrame := s.CachedUnits[s.CacheLength-1]
 				if s.CacheLength == 0 {
 					s.CacheLength = s.Cached
-					var newCachedUnits []unit.Unit
-					newCachedUnits = make([]unit.Unit, s.CacheLength + 1, maxCachedGOPSize)
+					var newCachedUnits []unit.Unit = make([]unit.Unit, s.CacheLength+1, maxCachedGOPSize)
 					copy(newCachedUnits, s.CachedUnits)
 					s.CachedUnits = newCachedUnits
 				}
@@ -150,10 +149,10 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 		}
 		if s.CacheLength != 0 {
 			s.CachedUnits[s.Cached] = u
-			s.Cached ++
+			s.Cached++
 		} else if s.CachedUnits != nil {
 			s.CachedUnits = append(s.CachedUnits, u)
-			s.Cached ++
+			s.Cached++
 		}
 	}
 
