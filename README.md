@@ -638,6 +638,64 @@ paths:
 
 All available parameters are listed in the [sample configuration file](/mediamtx.yml).
 
+If you wish to run mediamtx without `privileged` and with read only filesystem 
+in a container then you must pass tmpfs with exec and list of devices
+which are specific to the given camera.
+
+Below is a minimal example docker-compose.yml for standard Raspberry Pi CSI camera
+
+```yml
+---
+# run docker compose up on rpi4 with CSI camera on Debian Bookworm (12)
+services:
+  mediamtx:
+    image: "docker.io/bluenviron/mediamtx:latest-ffmpeg-rpi"
+    user: "65534:44" # nobody:video inside of the container
+    read_only: true
+    ports:
+      - "8554:8554"
+      - "1935:1935"
+      - "8888:8888"
+      - "8889:8889"
+      - "8890:8890/udp"
+      - "8189:8189/udp"
+    environment:
+      MTX_RTSPTRANSPORTS: "tcp"
+      MTX_WEBRTCADDITIONALHOSTS: "192.168.x.x" # change this to your rpi address
+    volumes:
+      - "./mediamtx.yml:/mediamtx.yml:ro"
+      - "/run/udev:/run/udev:ro"
+    tmpfs:
+      - /dev/shm:exec
+    devices:
+      - "/dev/v4l-subdev0:/dev/v4l-subdev0"
+      - "/dev/vchiq:/dev/vchiq"
+      - "/dev/dma_heap/linux,cma:/dev/dma_heap/linux,cma"
+      - "/dev/dma_heap/system:/dev/dma_heap/system"
+      # raspberry pi CSI camera devices below
+      - "/dev/video0:/dev/video0"
+      - "/dev/video10:/dev/video10"
+      - "/dev/video11:/dev/video11"
+      - "/dev/video12:/dev/video12"
+      - "/dev/video13:/dev/video13"
+      - "/dev/video14:/dev/video14"
+      - "/dev/video15:/dev/video15"
+      - "/dev/video16:/dev/video16"
+      - "/dev/video18:/dev/video18"
+      - "/dev/video19:/dev/video19"
+      - "/dev/video20:/dev/video20"
+      - "/dev/video21:/dev/video21"
+      - "/dev/video22:/dev/video22"
+      - "/dev/video23:/dev/video23"
+      - "/dev/video31:/dev/video31"
+      - "/dev/media0:/dev/media0"
+      - "/dev/media1:/dev/media1"
+      - "/dev/media2:/dev/media2"
+      - "/dev/media3:/dev/media3"
+      - "/dev/media4:/dev/media4"
+
+```
+
 In order to add audio from a USB microfone, install GStreamer and alsa-utils:
 
 ```sh
