@@ -1621,12 +1621,12 @@ The server will return a list of timespans in JSON format:
 [
   {
     "start": "2006-01-02T15:04:05Z07:00",
-    "duration": "60.0",
+    "duration": 60.0,
     "url": "http://localhost:9996/get?path=[mypath]&start=2006-01-02T15%3A04%3A05Z07%3A00&duration=60.0"
   },
   {
     "start": "2006-01-02T15:07:05Z07:00",
-    "duration": "32.33",
+    "duration": 32.33,
     "url": "http://localhost:9996/get?path=[mypath]&start=2006-01-02T15%3A07%3A05Z07%3A00&duration=32.33"
   }
 ]
