@@ -144,6 +144,8 @@ type Path struct {
 	// RTSP source
 	RTSPTransport       RTSPTransport  `json:"rtspTransport"`
 	RTSPAnyPort         bool           `json:"rtspAnyPort"`
+	RTSPClientRTPPort   int            `json:"rtspClientRTPPort"`
+	RTSPClientRTCPPort  int            `json:"rtspClientRTCPPort"`
 	SourceProtocol      *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
 	SourceAnyPortEnable *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`

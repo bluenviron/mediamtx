@@ -490,6 +490,11 @@ pathDefaults:
   # Support sources that don't provide server ports or use random server ports. This is a security issue
   # and must be used only when interacting with sources that require it.
   rtspAnyPort: no
+  # Fixed client ports for RTSP connections.
+  # This allows to reuse the same ports for multiple RTSP connections.
+  # If zero, random ports will be used for each connection.
+  rtspClientRTPPort: 0
+  rtspClientRTCPPort: 0
   # Range header to send to the source, in order to start streaming from the specified offset.
   # available values:
   # * clock: Absolute time

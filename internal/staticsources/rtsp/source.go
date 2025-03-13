@@ -86,6 +86,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		WriteTimeout:   time.Duration(s.WriteTimeout),
 		WriteQueueSize: s.WriteQueueSize,
 		AnyPortEnable:  params.Conf.RTSPAnyPort,
+		ClientRTPPort:  params.Conf.RTSPClientRTPPort,
+		ClientRTCPPort: params.Conf.RTSPClientRTCPPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
