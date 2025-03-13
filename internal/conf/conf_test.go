@@ -423,6 +423,14 @@ func TestConfErrors(t *testing.T) {
 				"    recordPath: invalid\n",
 			`record path 'invalid' is missing one of the mandatory elements: %path %Y %m %d %H %M %S %f`,
 		},
+		{
+			"invalid record delete after",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordSegmentDuration: 30m\n" +
+				"    recordDeleteAfter: 20m\n",
+			`'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
