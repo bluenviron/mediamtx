@@ -250,6 +250,20 @@ func (s *Stream) StartReader(reader Reader) {
 							},
 							AU: tunit.AU,
 						}
+					case *unit.AV1:
+						clonedU = &unit.AV1{
+							Base: unit.Base{
+								RTPPackets: []*rtp.Packet{
+									{
+										Header: rtp.Header{
+											Timestamp: lastTimestamp + uint32(delta),
+										},
+									},
+								},
+								PTS: lastPts + int64(delta),
+							},
+							TU: tunit.TU,
+						}
 					}
 					until := start
 					sr.push(func() error {
