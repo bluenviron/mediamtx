@@ -38,7 +38,6 @@ func isKeyFrame(u unit.Unit) bool {
 		var isRandomAccess bool
 		isRandomAccess, _ = av1.IsRandomAccess(tunit.TU)
 		return isRandomAccess
-
 	}
 	return false
 }
