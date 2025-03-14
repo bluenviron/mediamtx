@@ -4,8 +4,8 @@
   <br>
   <br>
 
-  [![Test](https://github.com/bluenviron/mediamtx/workflows/code_test/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:code_test)
-  [![Lint](https://github.com/bluenviron/mediamtx/workflows/code_lint/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:code_lint)
+  [![Test](https://github.com/bluenviron/mediamtx/actions/workflows/code_test.yml/badge.svg)](https://github.com/bluenviron/mediamtx/actions/workflows/code_test.yml)
+  [![Lint](https://github.com/bluenviron/mediamtx/actions/workflows/code_lint.yml/badge.svg)](https://github.com/bluenviron/mediamtx/actions/workflows/code_lint.yml)
   [![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/tree/main)
   [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
   [![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
@@ -125,6 +125,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Forward streams to other servers](#forward-streams-to-other-servers)
   * [Proxy requests to other servers](#proxy-requests-to-other-servers)
   * [On-demand publishing](#on-demand-publishing)
+  * [Expose the server in a subfolder](#expose-the-server-in-a-subfolder)
   * [Start on boot](#start-on-boot)
     * [Linux](#linux)
     * [OpenWrt](#openwrt)
@@ -188,7 +189,9 @@ Available images:
 |bluenviron/mediamtx:latest-rpi|:x:|:heavy_check_mark:|
 |bluenviron/mediamtx:latest-ffmpeg-rpi|:heavy_check_mark:|:heavy_check_mark:|
 
-The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets. This issue can be avoided by disabling the RTSP UDP transport protocol:
+The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets.
+
+If the `--network=host` cannot be used (for instance, it is not compatible with Windows or Kubernetes), you can disable the RTSP UDP transport protocol, add the server IP to `MTX_WEBRTCADDITIONALHOSTS` and expose ports manually:
 
 ```
 docker run --rm -it \
@@ -202,8 +205,6 @@ docker run --rm -it \
 -p 8189:8189/udp \
 bluenviron/mediamtx
 ```
-
-set `MTX_WEBRTCADDITIONALHOSTS` to your local IP address.
 
 ### Arch Linux package
 
@@ -1559,7 +1560,8 @@ pathDefaults:
   record: yes
   # Path of recording segments.
   # Extension is added automatically.
-  # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
+  # Available variables are %path (path name), %Y %m %d (year, month, day),
+  # %H %M %S (hours, minutes, seconds), %f (milliseconds), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
@@ -1703,6 +1705,46 @@ paths:
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
+
+### Expose the server in a subfolder
+
+HTTP-based services (WebRTC, HLS, Control API, Playback Server, Metrics, pprof) can be exposed in a subfolder of an existing HTTP server or reverse proxy. The reverse proxy must be able to intercept HTTP requests addressed to MediaMTX and corresponding responses, and perform the following changes:
+
+* The subfolder path must be stripped from request paths. For instance, if the server is exposed behind `/subpath` and the reverse proxy receives a request with path `/subpath/mystream/index.m3u8`, this has to be changed into `/mystream/index.m3u8`.
+
+* Any `Location` header in responses must be prefixed with the subfolder path. For instance, if the server is exposed behind `/subpath` and the server sends a response with `Location: /mystream/index.m3u8`, this has to be changed into `Location: /subfolder/mystream/index.m3u8`.
+
+If _nginx_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+location /subpath/ {
+    proxy_pass http://mediamtx-ip:8889/;
+    proxy_redirect / /subpath/;
+}
+```
+
+If _Apache HTTP Server_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+<Location /subpath>
+    ProxyPass http://mediamtx-ip:8889
+    ProxyPassReverse http://mediamtx-ip:8889
+    Header edit Location ^(.*)$ "/subpath$1"
+</Location>
+```
+
+If _Caddy_ is the reverse proxy, this can be achieved with the following configuration:
+
+```
+:80 {
+    handle_path /subpath/* {
+        reverse_proxy {
+            to mediamtx-ip:8889
+            header_down Location ^/ /subpath/
+        }
+    }
+}
+```
 
 ### Start on boot
 
@@ -2170,7 +2212,7 @@ http://localhost:8889/mystream/whip?jwt=[jwt]
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
-Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, then insert the LAN address of the server. If clients are coming from the internet, insert the public IP address of the server, or alternatively a DNS name, if you have one. You can insert multiple values to support all scenarios:
+Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, add the LAN address of the server. If clients are coming from the internet, add the public IP address of the server, or alternatively a DNS name, if you have one. You can add multiple values to support all scenarios:
 
 ```yml
 webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
@@ -2193,14 +2235,12 @@ webrtcLocalTCPAddress: :8189
 
 If there's a NAT / container between server and clients, it must be configured to route all incoming TCP packets on port 8189 to the server.
 
-If you still have problems, enable a STUN server:
+If you still have problems, add a STUN server. When a STUN server is in use, server IP is obtained automatically and connections are established with the "UDP hole punching" technique, that uses a random UDP port that does not need to be open. For instance:
 
 ```yml
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 ```
-
-When a STUN server is in use, connections can be established with the "UDP hole punching" method, that uses a random UDP port that does not need to be open.
 
 If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 
@@ -2238,7 +2278,7 @@ webrtcICEServers2:
 
 The server can ingest and broadcast with WebRTC a wide variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can publish and read all codecs due to internal limitations that cannot be overcome by this or any other server.
 
-In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to the lack of browser support. The situation recently improved and can be described as following:
+In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to lack of browser support. The situation improved recently and can be described as following:
 
 * Safari on iOS and macOS fully supports publishing and reading H265 tracks
 * Chrome on Windows supports publishing and reading H265 tracks when a GPU is present and when the browser is launched with the following flags:

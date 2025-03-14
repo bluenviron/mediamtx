@@ -531,7 +531,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 					Log:        test.NilLogger,
 				}
 
-				_, err = c.Read(context.Background())
+				err = c.Initialize(context.Background())
 				require.NoError(t, err)
 				defer checkClose(t, c.Close)
 
@@ -1019,12 +1019,6 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err := url.Parse("http://localhost:8889/mypath/whip")
 				require.NoError(t, err)
 
-				c := &whip.Client{
-					HTTPClient: hc,
-					URL:        u,
-					Log:        test.NilLogger,
-				}
-
 				track := &webrtc.OutgoingTrack{
 					Caps: pwebrtc.RTPCodecCapability{
 						MimeType:    pwebrtc.MimeTypeH264,
@@ -1033,7 +1027,15 @@ func TestAPIProtocolKick(t *testing.T) {
 					},
 				}
 
-				err = c.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
+				c := &whip.Client{
+					HTTPClient:     hc,
+					URL:            u,
+					Log:            test.NilLogger,
+					Publish:        true,
+					OutgoingTracks: []*webrtc.OutgoingTrack{track},
+				}
+
+				err = c.Initialize(context.Background())
 				require.NoError(t, err)
 				defer func() {
 					require.Error(t, c.Close())

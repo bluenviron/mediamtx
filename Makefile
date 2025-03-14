@@ -1,5 +1,5 @@
 BASE_IMAGE = golang:1.23-alpine3.20
-LINT_IMAGE = golangci/golangci-lint:v1.61.0
+LINT_IMAGE = golangci/golangci-lint:v1.64.5
 NODE_IMAGE = node:20-alpine3.20
 ALPINE_IMAGE = alpine:3.20
 RPI32_IMAGE = balenalib/raspberry-pi:bullseye-run-20240508

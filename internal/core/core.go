@@ -264,14 +264,13 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
-			Method:          p.conf.AuthMethod,
-			InternalUsers:   p.conf.AuthInternalUsers,
-			HTTPAddress:     p.conf.AuthHTTPAddress,
-			HTTPExclude:     p.conf.AuthHTTPExclude,
-			JWTJWKS:         p.conf.AuthJWTJWKS,
-			JWTClaimKey:     p.conf.AuthJWTClaimKey,
-			ReadTimeout:     time.Duration(p.conf.ReadTimeout),
-			RTSPAuthMethods: p.conf.RTSPAuthMethods,
+			Method:        p.conf.AuthMethod,
+			InternalUsers: p.conf.AuthInternalUsers,
+			HTTPAddress:   p.conf.AuthHTTPAddress,
+			HTTPExclude:   p.conf.AuthHTTPExclude,
+			JWTJWKS:       p.conf.AuthJWTJWKS,
+			JWTClaimKey:   p.conf.AuthJWTClaimKey,
+			ReadTimeout:   time.Duration(p.conf.ReadTimeout),
 		}
 	}
 
@@ -654,8 +653,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods)
+		newConf.ReadTimeout != p.conf.ReadTimeout
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
 	}

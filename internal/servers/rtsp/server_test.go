@@ -73,7 +73,7 @@ func TestServerPublish(t *testing.T) {
 	pathManager := &test.PathManager{
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
-				return nil, &auth.Error{Message: "", AskCredentials: true}
+				return nil, auth.Error{Message: "", AskCredentials: true}
 			}
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
@@ -164,7 +164,7 @@ func TestServerRead(t *testing.T) {
 	pathManager := &test.PathManager{
 		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
-				return defs.PathDescribeRes{Err: &auth.Error{Message: "", AskCredentials: true}}
+				return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 			}
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
@@ -284,7 +284,7 @@ func TestServerRedirect(t *testing.T) {
 					}
 
 					if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
-						return defs.PathDescribeRes{Err: &auth.Error{Message: "", AskCredentials: true}}
+						return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 					}
 
 					require.Equal(t, "path2", req.AccessRequest.Name)

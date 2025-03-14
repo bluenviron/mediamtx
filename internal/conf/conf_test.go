@@ -365,15 +365,6 @@ func TestConfErrors(t *testing.T) {
 			`all_others, all and '~^.*$' are aliases`,
 		},
 		{
-			"playback",
-			"playback: yes\n" +
-				"paths:\n" +
-				"  my_path:\n" +
-				"    recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S",
-			`record path './recordings/%path/%Y-%m-%d_%H-%M-%S' is missing one of the` +
-				` mandatory elements for the playback server to work: %Y %m %d %H %M %S %f`,
-		},
-		{
 			"jwt claim key empty",
 			"authMethod: jwt\n" +
 				"authJWTJWKS: https://not-real.com\n" +
@@ -406,6 +397,31 @@ func TestConfErrors(t *testing.T) {
 				"  my_path:\n" +
 				"    sourceRedirect: invalid://invalid",
 			`'sourceRedirect' is useless when source is not 'redirect'`,
+		},
+		{
+			"invalid user",
+			"authInternalUsers:\n" +
+				"- user:\n" +
+				"  pass: test\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			"empty usernames are not supported",
+		},
+		{
+			"invalid pass",
+			"authInternalUsers:\n" +
+				"- user: any\n" +
+				"  pass: test\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`using a password with 'any' user is not supported`,
+		},
+		{
+			"invalid record path",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordPath: invalid\n",
+			`record path 'invalid' is missing one of the mandatory elements: %path %Y %m %d %H %M %S %f`,
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

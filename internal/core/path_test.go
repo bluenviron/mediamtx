@@ -503,7 +503,7 @@ func TestPathRunOnRead(t *testing.T) {
 						Log:        test.NilLogger,
 					}
 
-					_, err = c.Read(context.Background())
+					err = c.Initialize(context.Background())
 					require.NoError(t, err)
 					defer checkClose(t, c.Close)
 				}
