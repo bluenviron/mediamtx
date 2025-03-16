@@ -617,14 +617,37 @@ If you want to run the server inside Docker, you need to use the `latest-rpi` im
 ```sh
 docker run --rm -it \
 --network=host \
---privileged \
+--user nobody:video \
+--device=/dev/video0 \
+--device=/dev/video10 \
+--device=/dev/video11 \
+--device=/dev/video12 \
+--device=/dev/video13 \
+--device=/dev/video14 \
+--device=/dev/video15 \
+--device=/dev/video16 \
+--device=/dev/video18 \
+--device=/dev/video19 \
+--device=/dev/video20 \
+--device=/dev/video21 \
+--device=/dev/video22 \
+--device=/dev/video23 \
+--device=/dev/video31 \
+--device=/dev/media0 \
+--device=/dev/media1 \
+--device=/dev/media2 \
+--device=/dev/media3 \
+--device=/dev/media4 \
+--device=/dev/v4l-subdev0 \
+--device=/dev/dma_heap/linux,cma \
+--device=/dev/dma_heap/system \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
 -e MTX_PATHS_CAM_SOURCE=rpiCamera \
 bluenviron/mediamtx:latest-rpi
 ```
 
-Be aware that the server is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](#custom-libcamera).
+Be aware that the precompiled server is not compatible with cameras that require a custom `libcamera` (like some ArduCam products), since it comes with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](#custom-libcamera).
 
 Camera settings can be changed by using the `rpiCamera*` parameters:
 
