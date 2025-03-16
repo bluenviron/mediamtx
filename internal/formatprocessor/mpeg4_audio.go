@@ -13,45 +13,38 @@ import (
 )
 
 type formatProcessorMPEG4Audio struct {
-	udpMaxPayloadSize int
-	format            *format.MPEG4Audio
-	encoder           *rtpmpeg4audio.Encoder
-	decoder           *rtpmpeg4audio.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.MPEG4Audio
+	GenerateRTPPackets bool
+
+	encoder     *rtpmpeg4audio.Encoder
+	decoder     *rtpmpeg4audio.Decoder
+	randomStart uint32
 }
 
-func newMPEG4Audio(
-	udpMaxPayloadSize int,
-	forma *format.MPEG4Audio,
-	generateRTPPackets bool,
-) (*formatProcessorMPEG4Audio, error) {
-	t := &formatProcessorMPEG4Audio{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorMPEG4Audio) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorMPEG4Audio) createEncoder() error {
 	t.encoder = &rtpmpeg4audio.Encoder{
-		PayloadMaxSize:   t.udpMaxPayloadSize - 12,
-		PayloadType:      t.format.PayloadTyp,
-		SizeLength:       t.format.SizeLength,
-		IndexLength:      t.format.IndexLength,
-		IndexDeltaLength: t.format.IndexDeltaLength,
+		PayloadMaxSize:   t.UDPMaxPayloadSize - 12,
+		PayloadType:      t.Format.PayloadTyp,
+		SizeLength:       t.Format.SizeLength,
+		IndexLength:      t.Format.IndexLength,
+		IndexDeltaLength: t.Format.IndexDeltaLength,
 	}
 	return t.encoder.Init()
 }
@@ -90,16 +83,16 @@ func (t *formatProcessorMPEG4Audio) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

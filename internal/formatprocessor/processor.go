@@ -22,6 +22,8 @@ type Processor interface {
 		pts int64,
 		hasNonRTSPReaders bool,
 	) (unit.Unit, error)
+
+	initialize() error
 }
 
 // New allocates a Processor.
@@ -30,50 +32,115 @@ func New(
 	forma format.Format,
 	generateRTPPackets bool,
 ) (Processor, error) {
+	var proc Processor
+
 	switch forma := forma.(type) {
 	case *format.AV1:
-		return newAV1(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorAV1{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.VP9:
-		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorVP9{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.VP8:
-		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorVP8{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.H265:
-		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorH265{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.H264:
-		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorH264{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.MPEG4Video:
-		return newMPEG4Video(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorMPEG4Video{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.MPEG1Video:
-		return newMPEG1Video(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorMPEG1Video{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.Opus:
-		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorOpus{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.MPEG4Audio:
-		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorMPEG4Audio{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.MPEG1Audio:
-		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorMPEG1Audio{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.MJPEG:
-		return newMJPEG(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorMJPEG{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.AC3:
-		return newAC3(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorAC3{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.G711:
-		return newG711(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorG711{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	case *format.LPCM:
-		return newLPCM(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorLPCM{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 
 	default:
-		return newGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
+		proc = &formatProcessorGeneric{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
 	}
+
+	err := proc.initialize()
+	return proc, err
 }

@@ -9,9 +9,9 @@ type Pool struct {
 	wg sync.WaitGroup
 }
 
-// NewPool allocates a Pool.
-func NewPool() *Pool {
-	return &Pool{}
+// Initialize initializes a Pool.
+func (p *Pool) Initialize() error {
+	return nil
 }
 
 // Close waits for all external commands to exit.
