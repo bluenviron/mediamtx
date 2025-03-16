@@ -50,8 +50,12 @@ func (s *Server) Initialize() error {
 			return fmt.Errorf("server cert is missing")
 		}
 
-		var err error
-		s.loader, err = certloader.New(s.ServerCert, s.ServerKey, s.Parent)
+		s.loader = &certloader.CertLoader{
+			CertPath: s.ServerCert,
+			KeyPath:  s.ServerKey,
+			Parent:   s.Parent,
+		}
+		err := s.loader.Initialize()
 		if err != nil {
 			return err
 		}

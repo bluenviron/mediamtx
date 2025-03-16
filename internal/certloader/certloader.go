@@ -11,39 +11,37 @@ import (
 
 // CertLoader is a certificate loader. It watches for changes to the certificate and key files.
 type CertLoader struct {
-	log                     logger.Writer
-	certWatcher, keyWatcher *confwatcher.ConfWatcher
-	certPath, keyPath       string
-	done                    chan struct{}
+	CertPath string
+	KeyPath  string
+	Parent   logger.Writer
 
-	cert   *tls.Certificate
-	certMu sync.RWMutex
+	certWatcher, keyWatcher *confwatcher.ConfWatcher
+	cert                    *tls.Certificate
+	certMu                  sync.RWMutex
+
+	done chan struct{}
 }
 
-// New allocates a CertLoader.
-func New(certPath, keyPath string, log logger.Writer) (*CertLoader, error) {
-	cl := &CertLoader{
-		log:      log,
-		certPath: certPath,
-		keyPath:  keyPath,
-		done:     make(chan struct{}),
-	}
+// Initialize initializes a CertLoader.
+func (cl *CertLoader) Initialize() error {
+	cl.done = make(chan struct{})
 
-	var err error
-	cl.certWatcher, err = confwatcher.New(certPath)
+	cl.certWatcher = &confwatcher.ConfWatcher{FilePath: cl.CertPath}
+	err := cl.certWatcher.Initialize()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	cl.keyWatcher, err = confwatcher.New(keyPath)
+	cl.keyWatcher = &confwatcher.ConfWatcher{FilePath: cl.KeyPath}
+	err = cl.keyWatcher.Initialize()
 	if err != nil {
 		cl.certWatcher.Close() //nolint:errcheck
-		return nil, err
+		return err
 	}
 
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	cert, err := tls.LoadX509KeyPair(cl.CertPath, cl.KeyPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	cl.certMu.Lock()
@@ -52,7 +50,7 @@ func New(certPath, keyPath string, log logger.Writer) (*CertLoader, error) {
 
 	go cl.watch()
 
-	return cl, nil
+	return nil
 }
 
 // Close closes a CertLoader and releases any underlying resources.
@@ -78,9 +76,9 @@ func (cl *CertLoader) watch() {
 	for {
 		select {
 		case <-cl.certWatcher.Watch():
-			cert, err := tls.LoadX509KeyPair(cl.certPath, cl.keyPath)
+			cert, err := tls.LoadX509KeyPair(cl.CertPath, cl.KeyPath)
 			if err != nil {
-				cl.log.Log(logger.Error, "certloader failed to load after change to %s: %s", cl.certPath, err.Error())
+				cl.Parent.Log(logger.Error, "certloader failed to load after change to %s: %s", cl.CertPath, err.Error())
 				continue
 			}
 
@@ -88,11 +86,11 @@ func (cl *CertLoader) watch() {
 			cl.cert = &cert
 			cl.certMu.Unlock()
 
-			cl.log.Log(logger.Info, "certificate reloaded after change to %s", cl.certPath)
+			cl.Parent.Log(logger.Info, "certificate reloaded after change to %s", cl.CertPath)
 		case <-cl.keyWatcher.Watch():
-			cert, err := tls.LoadX509KeyPair(cl.certPath, cl.keyPath)
+			cert, err := tls.LoadX509KeyPair(cl.CertPath, cl.KeyPath)
 			if err != nil {
-				cl.log.Log(logger.Error, "certloader failed to load after change to %s: %s", cl.keyPath, err.Error())
+				cl.Parent.Log(logger.Error, "certloader failed to load after change to %s: %s", cl.KeyPath, err.Error())
 				continue
 			}
 
@@ -100,7 +98,7 @@ func (cl *CertLoader) watch() {
 			cl.cert = &cert
 			cl.certMu.Unlock()
 
-			cl.log.Log(logger.Info, "certificate reloaded after change to %s", cl.keyPath)
+			cl.Parent.Log(logger.Info, "certificate reloaded after change to %s", cl.KeyPath)
 		case <-cl.done:
 			return
 		}

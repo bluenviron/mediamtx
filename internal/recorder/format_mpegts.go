@@ -77,7 +77,7 @@ func (f *formatMPEGTS) initialize() bool {
 		return track
 	}
 
-	for _, media := range f.ri.rec.Stream.Desc().Medias {
+	for _, media := range f.ri.rec.Stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -383,7 +383,7 @@ func (f *formatMPEGTS) initialize() bool {
 	}
 
 	n := 1
-	for _, medi := range f.ri.rec.Stream.Desc().Medias {
+	for _, medi := range f.ri.rec.Stream.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormatsMap[forma]; !ok {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())

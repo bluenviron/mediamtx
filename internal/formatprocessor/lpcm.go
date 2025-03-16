@@ -12,44 +12,37 @@ import (
 )
 
 type formatProcessorLPCM struct {
-	udpMaxPayloadSize int
-	format            *format.LPCM
-	encoder           *rtplpcm.Encoder
-	decoder           *rtplpcm.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.LPCM
+	GenerateRTPPackets bool
+
+	encoder     *rtplpcm.Encoder
+	decoder     *rtplpcm.Decoder
+	randomStart uint32
 }
 
-func newLPCM(
-	udpMaxPayloadSize int,
-	forma *format.LPCM,
-	generateRTPPackets bool,
-) (*formatProcessorLPCM, error) {
-	t := &formatProcessorLPCM{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorLPCM) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorLPCM) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
-		PayloadType:    t.format.PayloadTyp,
-		BitDepth:       t.format.BitDepth,
-		ChannelCount:   t.format.ChannelCount,
+		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadType:    t.Format.PayloadTyp,
+		BitDepth:       t.Format.BitDepth,
+		ChannelCount:   t.Format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
@@ -88,16 +81,16 @@ func (t *formatProcessorLPCM) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

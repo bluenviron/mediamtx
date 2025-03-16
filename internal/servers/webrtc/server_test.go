@@ -52,17 +52,18 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 }
 
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	var err error
-	p.stream, err = stream.New(
-		512,
-		1460,
-		req.Desc,
-		true,
-		test.NilLogger,
-	)
+	p.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: true,
+		DecodeErrLogger:    test.NilLogger,
+	}
+	err := p.stream.Initialize()
 	if err != nil {
 		return nil, err
 	}
+
 	close(p.streamCreated)
 	return p.stream, nil
 }
@@ -316,8 +317,8 @@ func TestServerPublish(t *testing.T) {
 
 	path.stream.AddReader(
 		reader,
-		path.stream.Desc().Medias[0],
-		path.stream.Desc().Medias[0].Formats[0],
+		path.stream.Desc.Medias[0],
+		path.stream.Desc.Medias[0].Formats[0],
 		func(u unit.Unit) error {
 			select {
 			case <-recv:
@@ -505,16 +506,17 @@ func TestServerRead(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
-			str, err := stream.New(
-				512,
-				1460,
-				desc,
-				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
-				test.NilLogger,
-			)
+			strm := &stream.Stream{
+				WriteQueueSize:     512,
+				UDPMaxPayloadSize:  1472,
+				Desc:               desc,
+				GenerateRTPPackets: reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
+				DecodeErrLogger:    test.NilLogger,
+			}
+			err := strm.Initialize()
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: str}
+			path := &dummyPath{stream: strm}
 
 			pathManager := &test.PathManager{
 				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
@@ -529,7 +531,7 @@ func TestServerRead(t *testing.T) {
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.User)
 					require.Equal(t, "mypass", req.AccessRequest.Pass)
-					return path, str, nil
+					return path, strm, nil
 				},
 			}
 
@@ -576,16 +578,16 @@ func TestServerRead(t *testing.T) {
 			go func() {
 				defer close(writerDone)
 
-				str.WaitRunningReader()
+				strm.WaitRunningReader()
 
 				r := reflect.New(reflect.TypeOf(ca.unit).Elem())
 				r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
 
 				if g, ok := r.Interface().(*unit.Generic); ok {
 					clone := *g.RTPPackets[0]
-					str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					strm.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
 				} else {
-					str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
 				}
 			}()
 

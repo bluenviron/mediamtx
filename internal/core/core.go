@@ -259,7 +259,11 @@ func (p *Core) createResources(initial bool) error {
 
 		gin.SetMode(gin.ReleaseMode)
 
-		p.externalCmdPool = externalcmd.NewPool()
+		p.externalCmdPool = &externalcmd.Pool{}
+		err = p.externalCmdPool.Initialize()
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.authManager == nil {
@@ -631,7 +635,8 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial && p.confPath != "" {
-		p.confWatcher, err = confwatcher.New(p.confPath)
+		p.confWatcher = &confwatcher.ConfWatcher{FilePath: p.confPath}
+		err = p.confWatcher.Initialize()
 		if err != nil {
 			return err
 		}

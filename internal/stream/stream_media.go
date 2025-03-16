@@ -8,31 +8,30 @@ import (
 )
 
 type streamMedia struct {
+	UDPMaxPayloadSize  int
+	Media              *description.Media
+	GenerateRTPPackets bool
+	DecodeErrLogger    logger.Writer
+
 	formats map[format.Format]*streamFormat
 }
 
-func newStreamMedia(udpMaxPayloadSize int,
-	medi *description.Media,
-	generateRTPPackets bool,
-	decodeErrLogger logger.Writer,
-) (*streamMedia, error) {
-	sm := &streamMedia{
-		formats: make(map[format.Format]*streamFormat),
-	}
+func (sm *streamMedia) initialize() error {
+	sm.formats = make(map[format.Format]*streamFormat)
 
-	for _, forma := range medi.Formats {
+	for _, forma := range sm.Media.Formats {
 		sf := &streamFormat{
-			udpMaxPayloadSize:  udpMaxPayloadSize,
+			udpMaxPayloadSize:  sm.UDPMaxPayloadSize,
 			format:             forma,
-			generateRTPPackets: generateRTPPackets,
-			decodeErrLogger:    decodeErrLogger,
+			generateRTPPackets: sm.GenerateRTPPackets,
+			decodeErrLogger:    sm.DecodeErrLogger,
 		}
 		err := sf.initialize()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sm.formats[forma] = sf
 	}
 
-	return sm, nil
+	return nil
 }
