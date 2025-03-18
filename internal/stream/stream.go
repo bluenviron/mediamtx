@@ -42,7 +42,7 @@ type Stream struct {
 
 	readerRunning chan struct{}
 
-	GopCache bool
+	GopCache    bool
 	CachedUnits []unit.Unit
 }
 
@@ -60,7 +60,7 @@ func (s *Stream) Initialize() error {
 			Media:              media,
 			GenerateRTPPackets: s.GenerateRTPPackets,
 			DecodeErrLogger:    s.DecodeErrLogger,
-			gopCache:           s.GopCache
+			gopCache:           s.GopCache,
 		}
 		err := s.streamMedias[media].initialize()
 		if err != nil {
