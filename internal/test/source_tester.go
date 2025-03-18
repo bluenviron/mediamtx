@@ -70,7 +70,6 @@ func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathS
 		Desc:               req.Desc,
 		GenerateRTPPackets: req.GenerateRTPPackets,
 		DecodeErrLogger:    t,
-		GopCache:           false,
 	}
 	err := t.stream.Initialize()
 	if err != nil {

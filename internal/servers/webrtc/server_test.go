@@ -58,7 +58,6 @@ func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stre
 		Desc:               req.Desc,
 		GenerateRTPPackets: true,
 		DecodeErrLogger:    test.NilLogger,
-		GopCache:           false,
 	}
 	err := p.stream.Initialize()
 	if err != nil {
