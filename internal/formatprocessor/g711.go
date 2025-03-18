@@ -12,44 +12,37 @@ import (
 )
 
 type formatProcessorG711 struct {
-	udpMaxPayloadSize int
-	format            *format.G711
-	encoder           *rtplpcm.Encoder
-	decoder           *rtplpcm.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.G711
+	GenerateRTPPackets bool
+
+	encoder     *rtplpcm.Encoder
+	decoder     *rtplpcm.Decoder
+	randomStart uint32
 }
 
-func newG711(
-	udpMaxPayloadSize int,
-	forma *format.G711,
-	generateRTPPackets bool,
-) (*formatProcessorG711, error) {
-	t := &formatProcessorG711{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorG711) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorG711) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
-		PayloadType:    t.format.PayloadType(),
+		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadType:    t.Format.PayloadType(),
 		BitDepth:       8,
-		ChannelCount:   t.format.ChannelCount,
+		ChannelCount:   t.Format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
@@ -88,16 +81,16 @@ func (t *formatProcessorG711) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

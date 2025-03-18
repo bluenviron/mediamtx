@@ -26,8 +26,11 @@ type ReadFunc func(unit.Unit) error
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers.
 type Stream struct {
-	writeQueueSize int
-	desc           *description.Session
+	WriteQueueSize     int
+	UDPMaxPayloadSize  int
+	Desc               *description.Session
+	GenerateRTPPackets bool
+	DecodeErrLogger    logger.Writer
 
 	bytesReceived *uint64
 	bytesSent     *uint64
@@ -39,38 +42,33 @@ type Stream struct {
 
 	readerRunning chan struct{}
 
+	GopCache bool
 	CachedUnits []unit.Unit
 }
 
-// New allocates a Stream.
-func New(
-	writeQueueSize int,
-	udpMaxPayloadSize int,
-	desc *description.Session,
-	generateRTPPackets bool,
-	decodeErrLogger logger.Writer,
-	gopCache bool,
-) (*Stream, error) {
-	s := &Stream{
-		writeQueueSize: writeQueueSize,
-		desc:           desc,
-		bytesReceived:  new(uint64),
-		bytesSent:      new(uint64),
-	}
-
+// Initialize initializes a Stream.
+func (s *Stream) Initialize() error {
+	s.bytesReceived = new(uint64)
+	s.bytesSent = new(uint64)
 	s.streamMedias = make(map[*description.Media]*streamMedia)
 	s.streamReaders = make(map[Reader]*streamReader)
 	s.readerRunning = make(chan struct{})
 
-	for _, media := range desc.Medias {
-		var err error
-		s.streamMedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, decodeErrLogger, gopCache)
+	for _, media := range s.Desc.Medias {
+		s.streamMedias[media] = &streamMedia{
+			UDPMaxPayloadSize:  s.UDPMaxPayloadSize,
+			Media:              media,
+			GenerateRTPPackets: s.GenerateRTPPackets,
+			DecodeErrLogger:    s.DecodeErrLogger,
+			gopCache:           s.GopCache
+		}
+		err := s.streamMedias[media].initialize()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return s, nil
+	return nil
 }
 
 // Close closes all resources of the stream.
@@ -81,11 +79,6 @@ func (s *Stream) Close() {
 	if s.rtspsStream != nil {
 		s.rtspsStream.Close()
 	}
-}
-
-// Desc returns the description of the stream.
-func (s *Stream) Desc() *description.Session {
-	return s.desc
 }
 
 // BytesReceived returns received bytes.
@@ -116,7 +109,7 @@ func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspStream == nil {
-		s.rtspStream = gortsplib.NewServerStream(server, s.desc)
+		s.rtspStream = gortsplib.NewServerStream(server, s.Desc)
 	}
 	return s.rtspStream
 }
@@ -127,7 +120,7 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspsStream == nil {
-		s.rtspsStream = gortsplib.NewServerStream(server, s.desc)
+		s.rtspsStream = gortsplib.NewServerStream(server, s.Desc)
 	}
 	return s.rtspsStream
 }
@@ -141,7 +134,7 @@ func (s *Stream) AddReader(reader Reader, medi *description.Media, forma format.
 	sr, ok := s.streamReaders[reader]
 	if !ok {
 		sr = &streamReader{
-			queueSize: s.writeQueueSize,
+			queueSize: s.WriteQueueSize,
 			parent:    reader,
 		}
 		sr.initialize()

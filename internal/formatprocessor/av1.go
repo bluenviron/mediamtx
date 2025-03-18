@@ -20,42 +20,35 @@ var (
 )
 
 type formatProcessorAV1 struct {
-	udpMaxPayloadSize int
-	format            *format.AV1
-	encoder           *rtpav1.Encoder
-	decoder           *rtpav1.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.AV1
+	GenerateRTPPackets bool
+
+	encoder     *rtpav1.Encoder
+	decoder     *rtpav1.Decoder
+	randomStart uint32
 }
 
-func newAV1(
-	udpMaxPayloadSize int,
-	forma *format.AV1,
-	generateRTPPackets bool,
-) (*formatProcessorAV1, error) {
-	t := &formatProcessorAV1{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorAV1) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorAV1) createEncoder() error {
 	t.encoder = &rtpav1.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
-		PayloadType:    t.format.PayloadTyp,
+		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
@@ -94,16 +87,16 @@ func (t *formatProcessorAV1) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

@@ -11,21 +11,17 @@ import (
 )
 
 type formatProcessorGeneric struct {
-	udpMaxPayloadSize int
+	UDPMaxPayloadSize  int
+	Format             format.Format
+	GenerateRTPPackets bool
 }
 
-func newGeneric(
-	udpMaxPayloadSize int,
-	forma format.Format,
-	generateRTPPackets bool,
-) (*formatProcessorGeneric, error) {
-	if generateRTPPackets {
-		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %T", forma)
+func (t *formatProcessorGeneric) initialize() error {
+	if t.GenerateRTPPackets {
+		return fmt.Errorf("we don't know how to generate RTP packets of format %T", t.Format)
 	}
 
-	return &formatProcessorGeneric{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-	}, nil
+	return nil
 }
 
 func (t *formatProcessorGeneric) ProcessUnit(_ unit.Unit) error {
@@ -50,9 +46,9 @@ func (t *formatProcessorGeneric) ProcessRTPPacket(
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	return u, nil

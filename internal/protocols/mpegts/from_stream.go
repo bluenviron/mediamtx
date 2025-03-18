@@ -47,7 +47,7 @@ func FromStream(
 		strea.AddReader(reader, media, forma, readFunc)
 	}
 
-	for _, media := range strea.Desc().Medias {
+	for _, media := range strea.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -317,7 +317,7 @@ func FromStream(
 	}
 
 	n := 1
-	for _, medi := range strea.Desc().Medias {
+	for _, medi := range strea.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormats[forma]; !ok {
 				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())

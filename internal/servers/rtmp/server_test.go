@@ -38,18 +38,18 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 }
 
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	var err error
-	p.stream, err = stream.New(
-		512,
-		1460,
-		req.Desc,
-		true,
-		test.NilLogger,
-		false,
-	)
+	p.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: true,
+		DecodeErrLogger:    test.NilLogger,
+	}
+	err := p.stream.Initialize()
 	if err != nil {
 		return nil, err
 	}
+
 	close(p.streamCreated)
 	return p.stream, nil
 }
@@ -148,8 +148,8 @@ func TestServerPublish(t *testing.T) {
 
 			path.stream.AddReader(
 				reader,
-				path.stream.Desc().Medias[0],
-				path.stream.Desc().Medias[0].Formats[0],
+				path.stream.Desc.Medias[0],
+				path.stream.Desc.Medias[0].Formats[0],
 				func(u unit.Unit) error {
 					require.Equal(t, [][]byte{
 						test.FormatH264.SPS,
@@ -195,17 +195,17 @@ func TestServerRead(t *testing.T) {
 			}
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-			str, err := stream.New(
-				512,
-				1460,
-				desc,
-				true,
-				test.NilLogger,
-				false,
-			)
+			strm := &stream.Stream{
+				WriteQueueSize:     512,
+				UDPMaxPayloadSize:  1472,
+				Desc:               desc,
+				GenerateRTPPackets: true,
+				DecodeErrLogger:    test.NilLogger,
+			}
+			err := strm.Initialize()
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: str}
+			path := &dummyPath{stream: strm}
 
 			pathManager := &test.PathManager{
 				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -249,9 +249,9 @@ func TestServerRead(t *testing.T) {
 			defer nconn.Close()
 
 			go func() {
-				str.WaitRunningReader()
+				strm.WaitRunningReader()
 
-				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 					},
@@ -260,7 +260,7 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 
-				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: 2 * 90000,
@@ -270,7 +270,7 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 
-				str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: 3 * 90000,

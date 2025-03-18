@@ -35,18 +35,19 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 }
 
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	var err error
-	p.stream, err = stream.New(
-		512,
-		1460,
-		req.Desc,
-		true,
-		test.NilLogger,
-		false,
-	)
+	p.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: true,
+		DecodeErrLogger:    test.NilLogger,
+		GopCache:           false,
+	}
+	err := p.stream.Initialize()
 	if err != nil {
 		return nil, err
 	}
+
 	close(p.streamCreated)
 	return p.stream, nil
 }
@@ -61,7 +62,9 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
 func TestServerPublish(t *testing.T) {
-	externalCmdPool := externalcmd.NewPool()
+	externalCmdPool := &externalcmd.Pool{}
+	err := externalCmdPool.Initialize()
+	require.NoError(t, err)
 	defer externalCmdPool.Close()
 
 	path := &dummyPath{
@@ -91,7 +94,7 @@ func TestServerPublish(t *testing.T) {
 		PathManager:         pathManager,
 		Parent:              test.NilLogger,
 	}
-	err := s.Initialize()
+	err = s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
 
@@ -134,8 +137,8 @@ func TestServerPublish(t *testing.T) {
 
 	path.stream.AddReader(
 		reader,
-		path.stream.Desc().Medias[0],
-		path.stream.Desc().Medias[0].Formats[0],
+		path.stream.Desc.Medias[0],
+		path.stream.Desc.Medias[0].Formats[0],
 		func(u unit.Unit) error {
 			require.Equal(t, [][]byte{
 				test.FormatH264.SPS,
@@ -161,22 +164,25 @@ func TestServerPublish(t *testing.T) {
 }
 
 func TestServerRead(t *testing.T) {
-	externalCmdPool := externalcmd.NewPool()
+	externalCmdPool := &externalcmd.Pool{}
+	err := externalCmdPool.Initialize()
+	require.NoError(t, err)
 	defer externalCmdPool.Close()
 
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-	str, err := stream.New(
-		512,
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-		false,
-	)
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		DecodeErrLogger:    test.NilLogger,
+		GopCache:           false,
+	}
+	err = strm.Initialize()
 	require.NoError(t, err)
 
-	path := &dummyPath{stream: str}
+	path := &dummyPath{stream: strm}
 
 	pathManager := &test.PathManager{
 		AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -218,9 +224,9 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer reader.Close()
 
-	str.WaitRunningReader()
+	strm.WaitRunningReader()
 
-	str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{
 			NTP: time.Time{},
 		},
@@ -251,7 +257,7 @@ func TestServerRead(t *testing.T) {
 		return nil
 	})
 
-	str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{
 			NTP: time.Time{},
 		},

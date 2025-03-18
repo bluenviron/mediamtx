@@ -578,7 +578,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				if pa.stream == nil {
 					return []string{}
 				}
-				return defs.MediasToCodecs(pa.stream.Desc().Medias)
+				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
 			BytesReceived: func() uint64 {
 				if pa.stream == nil {
@@ -696,15 +696,15 @@ func (pa *path) onDemandPublisherStop(reason string) {
 }
 
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
-	var err error
-	pa.stream, err = stream.New(
-		pa.writeQueueSize,
-		pa.udpMaxPayloadSize,
-		desc,
-		allocateEncoder,
-		logger.NewLimitedLogger(pa.source),
-		pa.gopCache,
-	)
+	pa.stream = &stream.Stream{
+		WriteQueueSize:     pa.writeQueueSize,
+		UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
+		Desc:               desc,
+		GenerateRTPPackets: allocateEncoder,
+		DecodeErrLogger:    logger.NewLimitedLogger(pa.source),
+		GopCache:           pa.gopCache,
+	}
+	err := pa.stream.Initialize()
 	if err != nil {
 		return err
 	}

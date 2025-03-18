@@ -13,41 +13,34 @@ import (
 )
 
 type formatProcessorMJPEG struct {
-	udpMaxPayloadSize int
-	format            *format.MJPEG
-	encoder           *rtpmjpeg.Encoder
-	decoder           *rtpmjpeg.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.MJPEG
+	GenerateRTPPackets bool
+
+	encoder     *rtpmjpeg.Encoder
+	decoder     *rtpmjpeg.Decoder
+	randomStart uint32
 }
 
-func newMJPEG(
-	udpMaxPayloadSize int,
-	forma *format.MJPEG,
-	generateRTPPackets bool,
-) (*formatProcessorMJPEG, error) {
-	t := &formatProcessorMJPEG{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorMJPEG) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorMJPEG) createEncoder() error {
 	t.encoder = &rtpmjpeg.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 	}
 	return t.encoder.Init()
 }
@@ -87,16 +80,16 @@ func (t *formatProcessorMJPEG) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}
