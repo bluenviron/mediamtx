@@ -254,7 +254,7 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 
 		if len(s.stream.CachedUnits) > 0 {
 			lastTimestamp := s.stream.CachedUnits[len(s.stream.CachedUnits)-1].GetRTPPackets()[0].Timestamp
-			for _, medi := range s.stream.Desc().Medias {
+			for _, medi := range s.stream.Desc.Medias {
 				if medi.Type == description.MediaTypeVideo {
 					for _, u := range s.stream.CachedUnits {
 						for _, pkt := range u.GetRTPPackets() {
