@@ -676,7 +676,7 @@ func TestServerRead(t *testing.T) {
 				WriteQueueSize:     512,
 				UDPMaxPayloadSize:  1472,
 				Desc:               desc,
-				GenerateRTPPackets: reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
+				GenerateRTPPackets: reflect.TypeOf(ca.unit[0]) != reflect.TypeOf(&unit.Generic{}),
 				DecodeErrLogger:    test.NilLogger,
 				GopCache:           ca.gopCache,
 			}
