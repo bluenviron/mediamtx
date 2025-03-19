@@ -34,7 +34,8 @@ func TestCoreErrors(t *testing.T) {
 		{
 			"logger",
 			"logDestinations: [file]\n" +
-				"logFile: /nonexisting/nonexist\n",
+				"logFile: /nonexisting/nonexist\n" +
+				"sysLogPrefix: /mediamtx\n",
 		},
 		{
 			"metrics",

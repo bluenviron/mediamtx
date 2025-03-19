@@ -57,6 +57,8 @@ components:
             type: string
         logFile:
           type: string
+        sysLogPrefix:
+          type: string
         readTimeout:
           type: string
         writeTimeout:

@@ -11,8 +11,8 @@ type destinationSysLog struct {
 	buf    bytes.Buffer
 }
 
-func newDestinationSyslog() (destination, error) {
-	syslog, err := newSysLog("mediamtx")
+func newDestinationSyslog(prefix string) (destination, error) {
+	syslog, err := newSysLog(prefix)
 	if err != nil {
 		return nil, err
 	}
