@@ -161,6 +161,7 @@ type Conf struct {
 	LogLevel            LogLevel        `json:"logLevel"`
 	LogDestinations     LogDestinations `json:"logDestinations"`
 	LogFile             string          `json:"logFile"`
+	SysLogPrefix        string          `json:"sysLogPrefix"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
@@ -311,6 +312,7 @@ func (conf *Conf) setDefaults() {
 	conf.LogLevel = LogLevel(logger.Info)
 	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
 	conf.LogFile = "mediamtx.log"
+	conf.SysLogPrefix = "mediamtx"
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512
