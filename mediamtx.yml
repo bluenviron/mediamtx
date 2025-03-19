@@ -12,7 +12,7 @@ logLevel: info
 logDestinations: [stdout]
 # If "file" is in logDestinations, this is the file which will receive the logs.
 logFile: mediamtx.log
-# If "stdout" is in logDestinations, use prefix for logs.
+# If "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
 
 # Timeout of read operations.
