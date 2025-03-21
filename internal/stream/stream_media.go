@@ -13,7 +13,8 @@ type streamMedia struct {
 	GenerateRTPPackets bool
 	DecodeErrLogger    logger.Writer
 
-	formats map[format.Format]*streamFormat
+	formats  map[format.Format]*streamFormat
+	gopCache bool
 }
 
 func (sm *streamMedia) initialize() error {
@@ -25,6 +26,7 @@ func (sm *streamMedia) initialize() error {
 			format:             forma,
 			generateRTPPackets: sm.GenerateRTPPackets,
 			decodeErrLogger:    sm.DecodeErrLogger,
+			gopCache:           sm.gopCache,
 		}
 		err := sf.initialize()
 		if err != nil {
