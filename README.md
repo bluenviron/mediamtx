@@ -255,6 +255,29 @@ Otherwise, [compile the server from source](#openwrt-1).
    ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
    ```
 
+### List of Ports and URLs
+
+In case you need to configure your firewall rules.
+
+| Port | Protocol    | Example URL                       |
+|------|-------------|-----------------------------------|
+| 1935 | RTMP        | rtmp://localhost:1935/mystream    |
+| 1937 | RTMPS       | rtmps://localhost:1937/mystream   |
+| 8189*| UDP WebRTC  | open port 8189 UDP on firewall    |
+| 8322 | RTSPS / SSL | rtsps://localhost:8322/mystream   |
+| 8554 | RTMP / OBS  | rtsp://localhost:8554/mystream    |
+| 8888 | WebRTC/HLS  | http://localhost:8888/mystream    |
+| 8889 | WHIP        | http://localhost:8889/mystream/whip |
+| 8890*| UDP SRT     | srt://localhost:8890?streamid=read:mystream:user:pass |
+| 9996 | Playback    | http://localhost:9996/list?path=[mypath]&start=[start]&end=[end] |
+| 9997 | Control API | 127.0.0.1:9997/v3/paths/list |
+| 9998 | Metrics API | 127.0.0.1:9998/metrics | 
+| 9999 | PerfProf    | 127.0.0.1:9999/debug/pprof/heap | 
+
+- Most often ports are TCP, with the exception of UDP ports 8890 and 8189, which can be both
+- Some ports are not enabled by default such as 9996, see configuration to enable
+- By default the API only binds to 127.0.0.1 / localhost for security reasons   
+   
 ## Publish to the server
 
 ### By software
