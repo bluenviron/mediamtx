@@ -19,7 +19,7 @@ type Logger struct {
 }
 
 // New allocates a log handler.
-func New(level Level, destinations []Destination, filePath string) (*Logger, error) {
+func New(level Level, destinations []Destination, filePath string, sysLogPrefix string) (*Logger, error) {
 	lh := &Logger{
 		level: level,
 	}
@@ -38,7 +38,7 @@ func New(level Level, destinations []Destination, filePath string) (*Logger, err
 			lh.destinations = append(lh.destinations, dest)
 
 		case DestinationSyslog:
-			dest, err := newDestinationSyslog()
+			dest, err := newDestinationSyslog(sysLogPrefix)
 			if err != nil {
 				lh.Close()
 				return nil, err
