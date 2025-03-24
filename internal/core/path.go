@@ -75,6 +75,7 @@ type path struct {
 	wg                *sync.WaitGroup
 	externalCmdPool   *externalcmd.Pool
 	parent            pathParent
+	gopCache          bool
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -701,6 +702,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		Desc:               desc,
 		GenerateRTPPackets: allocateEncoder,
 		DecodeErrLogger:    logger.NewLimitedLogger(pa.source),
+		GopCache:           pa.gopCache,
 	}
 	err := pa.stream.Initialize()
 	if err != nil {
