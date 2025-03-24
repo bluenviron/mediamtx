@@ -3,12 +3,12 @@ package webrtc
 import (
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -238,10 +238,11 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 type IncomingTrack struct {
 	OnPacketRTP func(*rtp.Packet)
 
-	track     *webrtc.TrackRemote
-	receiver  *webrtc.RTPReceiver
-	writeRTCP func([]rtcp.Packet) error
-	log       logger.Writer
+	track       *webrtc.TrackRemote
+	receiver    *webrtc.RTPReceiver
+	writeRTCP   func([]rtcp.Packet) error
+	log         logger.Writer
+	packetsLost *counterdumper.CounterDumper
 }
 
 func (t *IncomingTrack) initialize() {
@@ -259,6 +260,20 @@ func (*IncomingTrack) PTSEqualsDTS(*rtp.Packet) bool {
 }
 
 func (t *IncomingTrack) start() {
+	t.packetsLost = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			t.log.Log(logger.Warn, "%d RTP %s lost",
+				val,
+				func() string {
+					if val == 1 {
+						return "packet"
+					}
+					return "packets"
+				}())
+		},
+	}
+	t.packetsLost.Start()
+
 	// read incoming RTCP packets to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
@@ -301,7 +316,7 @@ func (t *IncomingTrack) start() {
 
 			packets, lost := reorderer.Process(pkt)
 			if lost != 0 {
-				t.log.Log(logger.Warn, (liberrors.ErrClientRTPPacketsLost{Lost: lost}).Error())
+				t.packetsLost.Add(uint64(lost))
 				// do not return
 			}
 
@@ -315,4 +330,10 @@ func (t *IncomingTrack) start() {
 			}
 		}
 	}()
+}
+
+func (t *IncomingTrack) stop() {
+	if t.packetsLost != nil {
+		t.packetsLost.Stop()
+	}
 }

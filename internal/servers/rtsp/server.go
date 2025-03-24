@@ -306,10 +306,10 @@ func (s *Server) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Response
 	return se.onPause(ctx)
 }
 
-// OnPacketLost implements gortsplib.ServerHandlerOnDecodeError.
-func (s *Server) OnPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) {
+// OnPacketsLost implements gortsplib.ServerHandlerOnPacketsLost.
+func (s *Server) OnPacketsLost(ctx *gortsplib.ServerHandlerOnPacketsLostCtx) {
 	se := ctx.Session.UserData().(*session)
-	se.onPacketLost(ctx)
+	se.onPacketsLost(ctx)
 }
 
 // OnDecodeError implements gortsplib.ServerHandlerOnDecodeError.

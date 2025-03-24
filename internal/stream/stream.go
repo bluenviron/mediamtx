@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -30,7 +31,7 @@ type Stream struct {
 	UDPMaxPayloadSize  int
 	Desc               *description.Session
 	GenerateRTPPackets bool
-	DecodeErrLogger    logger.Writer
+	Parent             logger.Writer
 
 	bytesReceived *uint64
 	bytesSent     *uint64
@@ -39,6 +40,7 @@ type Stream struct {
 	rtspStream    *gortsplib.ServerStream
 	rtspsStream   *gortsplib.ServerStream
 	streamReaders map[Reader]*streamReader
+	decodeErrors  *counterdumper.CounterDumper
 
 	readerRunning chan struct{}
 }
@@ -51,12 +53,25 @@ func (s *Stream) Initialize() error {
 	s.streamReaders = make(map[Reader]*streamReader)
 	s.readerRunning = make(chan struct{})
 
+	s.decodeErrors = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Parent.Log(logger.Warn, "%s decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
+
 	for _, media := range s.Desc.Medias {
 		s.streamMedias[media] = &streamMedia{
 			UDPMaxPayloadSize:  s.UDPMaxPayloadSize,
 			Media:              media,
 			GenerateRTPPackets: s.GenerateRTPPackets,
-			DecodeErrLogger:    s.DecodeErrLogger,
+			DecodeErrors:       s.decodeErrors,
 		}
 		err := s.streamMedias[media].initialize()
 		if err != nil {

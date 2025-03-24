@@ -129,7 +129,7 @@ func TestRecorder(t *testing.T) {
 				UDPMaxPayloadSize:  1472,
 				Desc:               desc,
 				GenerateRTPPackets: true,
-				DecodeErrLogger:    test.NilLogger,
+				Parent:             test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -343,7 +343,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 		UDPMaxPayloadSize:  1472,
 		Desc:               desc,
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -431,7 +431,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 				UDPMaxPayloadSize:  1472,
 				Desc:               desc,
 				GenerateRTPPackets: true,
-				DecodeErrLogger:    test.NilLogger,
+				Parent:             test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -492,7 +492,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 				UDPMaxPayloadSize:  1472,
 				Desc:               desc,
 				GenerateRTPPackets: true,
-				DecodeErrLogger:    test.NilLogger,
+				Parent:             test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)

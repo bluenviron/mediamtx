@@ -21,7 +21,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 			Formats: []format.Format{&format.VP8{}},
 		}}},
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 			},
 		}},
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)

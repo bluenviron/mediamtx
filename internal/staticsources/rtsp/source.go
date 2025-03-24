@@ -10,6 +10,7 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
@@ -77,7 +78,37 @@ func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	decodeErrLogger := logger.NewLimitedLogger(s)
+	packetsLost := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d RTP %s lost",
+				val,
+				func() string {
+					if val == 1 {
+						return "packet"
+					}
+					return "packets"
+				}())
+		},
+	}
+
+	packetsLost.Start()
+	defer packetsLost.Stop()
+
+	decodeErrors := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%s decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
+
+	decodeErrors.Start()
+	defer decodeErrors.Stop()
 
 	c := &gortsplib.Client{
 		Transport:      params.Conf.RTSPTransport.Transport,
@@ -95,11 +126,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnTransportSwitch: func(err error) {
 			s.Log(logger.Warn, err.Error())
 		},
-		OnPacketLost: func(err error) {
-			decodeErrLogger.Log(logger.Warn, err.Error())
+		OnPacketsLost: func(lost uint64) {
+			packetsLost.Add(lost)
 		},
-		OnDecodeError: func(err error) {
-			decodeErrLogger.Log(logger.Warn, err.Error())
+		OnDecodeError: func(_ error) {
+			decodeErrors.Increase()
 		},
 	}
 

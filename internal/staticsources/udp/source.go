@@ -11,6 +11,7 @@ import (
 	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
@@ -112,10 +113,24 @@ func (s *Source) runReader(pc net.PacketConn) error {
 		return err
 	}
 
-	decodeErrLogger := logger.NewLimitedLogger(s)
+	decodeErrors := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%s decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
 
-	r.OnDecodeError(func(err error) {
-		decodeErrLogger.Log(logger.Warn, err.Error())
+	decodeErrors.Start()
+	defer decodeErrors.Stop()
+
+	r.OnDecodeError(func(_ error) {
+		decodeErrors.Increase()
 	})
 
 	var stream *stream.Stream

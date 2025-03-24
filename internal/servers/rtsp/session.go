@@ -15,6 +15,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
@@ -42,22 +43,65 @@ type session struct {
 	transport       *gortsplib.Transport
 	pathName        string
 	query           string
-	decodeErrLogger logger.Writer
-	writeErrLogger  logger.Writer
+	packetsLost     *counterdumper.CounterDumper
+	decodeErrors    *counterdumper.CounterDumper
+	discardedFrames *counterdumper.CounterDumper
 }
 
 func (s *session) initialize() {
 	s.uuid = uuid.New()
 	s.created = time.Now()
 
-	s.decodeErrLogger = logger.NewLimitedLogger(s)
-	s.writeErrLogger = logger.NewLimitedLogger(s)
+	s.packetsLost = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d RTP %s lost",
+				val,
+				func() string {
+					if val == 1 {
+						return "packet"
+					}
+					return "packets"
+				}())
+		},
+	}
+	s.packetsLost.Start()
+
+	s.decodeErrors = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%s decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
+	s.decodeErrors.Start()
+
+	s.discardedFrames = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "connection is too slow, discarding %d %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "frame"
+					}
+					return "frames"
+				}())
+		},
+	}
+	s.discardedFrames.Start()
 
 	s.Log(logger.Info, "created by %v", s.rconn.NetConn().RemoteAddr())
 }
 
 // Close closes a Session.
 func (s *session) Close() {
+	s.discardedFrames.Stop()
+	s.decodeErrors.Stop()
+	s.packetsLost.Stop()
 	s.rsession.Close()
 }
 
@@ -341,18 +385,19 @@ func (s *session) APISourceDescribe() defs.APIPathSourceOrReader {
 }
 
 // onPacketLost is called by rtspServer.
-func (s *session) onPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) {
-	s.decodeErrLogger.Log(logger.Warn, ctx.Error.Error())
+func (s *session) onPacketsLost(ctx *gortsplib.ServerHandlerOnPacketsLostCtx) {
+	s.packetsLost.Add(ctx.Lost)
 }
 
 // onDecodeError is called by rtspServer.
-func (s *session) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
-	s.decodeErrLogger.Log(logger.Warn, ctx.Error.Error())
+func (s *session) onDecodeError(_ *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	s.decodeErrors.Increase()
 }
 
 // onStreamWriteError is called by rtspServer.
-func (s *session) onStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
-	s.writeErrLogger.Log(logger.Warn, ctx.Error.Error())
+func (s *session) onStreamWriteError(_ *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
+	// currently the only error returned by OnStreamWriteError is ErrServerWriteQueueFull
+	s.discardedFrames.Increase()
 }
 
 func (s *session) apiItem() *defs.APIRTSPSession {
