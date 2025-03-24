@@ -28,7 +28,8 @@ func TestToStreamNoSupportedCodecs(t *testing.T) {
 	_, err = mux.WriteTables()
 	require.NoError(t, err)
 
-	r, err := mpegts.NewReader(&buf)
+	r := &mpegts.Reader{R: &buf}
+	err = r.Initialize()
 	require.NoError(t, err)
 
 	l := test.Logger(func(logger.Level, string, ...interface{}) {
@@ -59,7 +60,8 @@ func TestToStreamSkipUnsupportedTracks(t *testing.T) {
 	_, err = mux.WriteTables()
 	require.NoError(t, err)
 
-	r, err := mpegts.NewReader(&buf)
+	r := &mpegts.Reader{R: &buf}
+	err = r.Initialize()
 	require.NoError(t, err)
 
 	n := 0

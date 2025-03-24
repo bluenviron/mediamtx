@@ -548,7 +548,8 @@ func TestAPIProtocolListGet(t *testing.T) {
 				}
 
 				bw := bufio.NewWriter(conn)
-				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+				w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+				err = w.Initialize()
 				require.NoError(t, err)
 
 				err = w.WriteH264(track, 0, 0, [][]byte{{1}})
@@ -1054,7 +1055,8 @@ func TestAPIProtocolKick(t *testing.T) {
 				}
 
 				bw := bufio.NewWriter(conn)
-				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+				w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+				err = w.Initialize()
 				require.NoError(t, err)
 
 				err = w.WriteH264(track, 0, 0, [][]byte{{1}})

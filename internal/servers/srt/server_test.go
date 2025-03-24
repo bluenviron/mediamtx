@@ -115,7 +115,8 @@ func TestServerPublish(t *testing.T) {
 	}
 
 	bw := bufio.NewWriter(publisher)
-	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+	w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+	err = w.Initialize()
 	require.NoError(t, err)
 
 	err = w.WriteH264(track, 0, 0, [][]byte{
@@ -233,7 +234,8 @@ func TestServerRead(t *testing.T) {
 		},
 	})
 
-	r, err := mpegts.NewReader(reader)
+	r := &mpegts.Reader{R: reader}
+	err = r.Initialize()
 	require.NoError(t, err)
 
 	require.Equal(t, []*mpegts.Track{{

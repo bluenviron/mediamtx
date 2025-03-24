@@ -106,7 +106,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(pc net.PacketConn) error {
 	pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	r, err := mcmpegts.NewReader(mcmpegts.NewBufferedReader(newPacketConnReader(pc)))
+	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(newPacketConnReader(pc))}
+	err := r.Initialize()
 	if err != nil {
 		return err
 	}

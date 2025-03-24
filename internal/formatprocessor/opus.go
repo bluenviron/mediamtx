@@ -61,7 +61,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		pkt.Timestamp += t.randomStart + uint32(pts)
 
 		rtpPackets = append(rtpPackets, pkt)
-		pts += int64(opus.PacketDuration(packet)) * int64(t.Format.ClockRate()) / int64(time.Second)
+		pts += opus.PacketDuration2(packet)
 	}
 
 	u.RTPPackets = rtpPackets

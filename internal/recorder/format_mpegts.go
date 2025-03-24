@@ -103,7 +103,8 @@ func (f *formatMPEGTS) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor()
+							dtsExtractor = &h265.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -147,7 +148,8 @@ func (f *formatMPEGTS) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor()
+							dtsExtractor = &h264.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -394,7 +396,12 @@ func (f *formatMPEGTS) initialize() bool {
 
 	f.dw = &dynamicWriter{}
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
-	f.mw = mpegts.NewWriter(f.bw, tracks)
+
+	f.mw = &mpegts.Writer{W: f.bw, Tracks: tracks}
+	err := f.mw.Initialize()
+	if err != nil {
+		panic(err)
+	}
 
 	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))

@@ -505,14 +505,18 @@ func setupAudioTrack(
 						return nil
 					}
 
-					var lpcmSamples []byte
+					var lpcm []byte
 					if g711Format.MULaw {
-						lpcmSamples = g711.DecodeMulaw(tunit.Samples)
+						var mu g711.Mulaw
+						mu.Unmarshal(tunit.Samples)
+						lpcm = mu
 					} else {
-						lpcmSamples = g711.DecodeAlaw(tunit.Samples)
+						var al g711.Alaw
+						al.Unmarshal(tunit.Samples)
+						lpcm = al
 					}
 
-					packets, err := encoder.Encode(lpcmSamples)
+					packets, err := encoder.Encode(lpcm)
 					if err != nil {
 						return nil //nolint:nilerr
 					}

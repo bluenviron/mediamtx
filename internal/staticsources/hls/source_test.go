@@ -58,9 +58,11 @@ func TestSource(t *testing.T) {
 	router.GET("/segment1.ts", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", `video/MP2T`)
 
-		w := mpegts.NewWriter(ctx.Writer, tracks)
+		w := &mpegts.Writer{W: ctx.Writer, Tracks: tracks}
+		err := w.Initialize()
+		require.NoError(t, err)
 
-		err := w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
+		err = w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
 		require.NoError(t, err)
 
 		err = w.WriteH264(track1, 2*90000, 2*90000, [][]byte{
@@ -73,9 +75,11 @@ func TestSource(t *testing.T) {
 	router.GET("/segment2.ts", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", `video/MP2T`)
 
-		w := mpegts.NewWriter(ctx.Writer, tracks)
+		w := &mpegts.Writer{W: ctx.Writer, Tracks: tracks}
+		err := w.Initialize()
+		require.NoError(t, err)
 
-		err := w.WriteMPEG4Audio(track2, 3*90000, [][]byte{{1, 2, 3, 4}})
+		err = w.WriteMPEG4Audio(track2, 3*90000, [][]byte{{1, 2, 3, 4}})
 		require.NoError(t, err)
 	})
 
