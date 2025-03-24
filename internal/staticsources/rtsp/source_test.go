@@ -126,7 +126,12 @@ func TestSource(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
+			stream = &gortsplib.ServerStream{
+				Server: &s,
+				Desc:   &description.Session{Medias: []*description.Media{media0}},
+			}
+			err = stream.Initialize()
+			require.NoError(t, err)
 			defer stream.Close()
 
 			var te *test.SourceTester
@@ -232,7 +237,12 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
+	stream = &gortsplib.ServerStream{
+		Server: &s,
+		Desc:   &description.Session{Medias: []*description.Media{media0}},
+	}
+	err = stream.Initialize()
+	require.NoError(t, err)
 	defer stream.Close()
 
 	var sp conf.RTSPTransport
@@ -316,7 +326,12 @@ func TestRTSPSourceRange(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
+			stream = &gortsplib.ServerStream{
+				Server: &s,
+				Desc:   &description.Session{Medias: []*description.Media{media0}},
+			}
+			err = stream.Initialize()
+			require.NoError(t, err)
 			defer stream.Close()
 
 			cnf := &conf.Path{}

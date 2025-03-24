@@ -183,13 +183,14 @@ func (f *formatFMP4) initialize() bool {
 							firstReceived = true
 						}
 
-						sampl, err := fmp4.NewPartSampleAV12(tunit.TU)
+						var sampl fmp4.PartSample
+						err := sampl.FillAV1(tunit.TU)
 						if err != nil {
 							return err
 						}
 
 						return track.write(&sample{
-							PartSample: sampl,
+							PartSample: &sampl,
 							dts:        tunit.PTS,
 							ntp:        tunit.NTP,
 						})
@@ -336,7 +337,8 @@ func (f *formatFMP4) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor()
+							dtsExtractor = &h265.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -344,7 +346,8 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						sampl, err := fmp4.NewPartSampleH265(
+						var sampl fmp4.PartSample
+						err = sampl.FillH265(
 							int32(tunit.PTS-dts),
 							tunit.AU)
 						if err != nil {
@@ -352,7 +355,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						return track.write(&sample{
-							PartSample: sampl,
+							PartSample: &sampl,
 							dts:        dts,
 							ntp:        tunit.NTP,
 						})
@@ -410,7 +413,8 @@ func (f *formatFMP4) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor()
+							dtsExtractor = &h264.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -418,7 +422,8 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						sampl, err := fmp4.NewPartSampleH264(
+						var sampl fmp4.PartSample
+						err = sampl.FillH264(
 							int32(tunit.PTS-dts),
 							tunit.AU)
 						if err != nil {
@@ -426,7 +431,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						return track.write(&sample{
-							PartSample: sampl,
+							PartSample: &sampl,
 							dts:        dts,
 							ntp:        tunit.NTP,
 						})
@@ -613,7 +618,7 @@ func (f *formatFMP4) initialize() bool {
 								return err
 							}
 
-							pts += int64(opus.PacketDuration(packet)) * int64(clockRate) / int64(time.Second)
+							pts += opus.PacketDuration2(packet)
 						}
 
 						return nil
@@ -795,20 +800,25 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.G711)
+
 						if tunit.Samples == nil {
 							return nil
 						}
 
-						var out []byte
+						var lpcm []byte
 						if forma.MULaw {
-							out = g711.DecodeMulaw(tunit.Samples)
+							var mu g711.Mulaw
+							mu.Unmarshal(tunit.Samples)
+							lpcm = mu
 						} else {
-							out = g711.DecodeAlaw(tunit.Samples)
+							var al g711.Alaw
+							al.Unmarshal(tunit.Samples)
+							lpcm = al
 						}
 
 						return track.write(&sample{
 							PartSample: &fmp4.PartSample{
-								Payload: out,
+								Payload: lpcm,
 							},
 							dts: tunit.PTS,
 							ntp: tunit.NTP,

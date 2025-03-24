@@ -27,7 +27,8 @@ func ToStream(
 	var medias []*description.Media //nolint:prealloc
 	var unsupportedTracks []int
 
-	td := mpegts.NewTimeDecoder()
+	td := &mpegts.TimeDecoder{}
+	td.Initialize()
 
 	for i, track := range r.Tracks() { //nolint:dupl
 		var medi *description.Media

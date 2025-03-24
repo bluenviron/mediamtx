@@ -105,7 +105,14 @@ func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspStream == nil {
-		s.rtspStream = gortsplib.NewServerStream(server, s.Desc)
+		s.rtspStream = &gortsplib.ServerStream{
+			Server: server,
+			Desc:   s.Desc,
+		}
+		err := s.rtspStream.Initialize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return s.rtspStream
 }
@@ -116,7 +123,14 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspsStream == nil {
-		s.rtspsStream = gortsplib.NewServerStream(server, s.Desc)
+		s.rtspsStream = &gortsplib.ServerStream{
+			Server: server,
+			Desc:   s.Desc,
+		}
+		err := s.rtspsStream.Initialize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return s.rtspsStream
 }

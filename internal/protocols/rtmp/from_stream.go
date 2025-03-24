@@ -72,7 +72,8 @@ func setupVideo(
 						return nil
 					}
 
-					videoDTSExtractor = h264.NewDTSExtractor()
+					videoDTSExtractor = &h264.DTSExtractor{}
+					videoDTSExtractor.Initialize()
 				} else if !idrPresent && !nonIDRPresent {
 					return nil
 				}

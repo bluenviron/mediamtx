@@ -827,7 +827,12 @@ func TestPathResolveSource(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{test.MediaH264}})
+	stream = &gortsplib.ServerStream{
+		Server: &s,
+		Desc:   &description.Session{Medias: []*description.Media{test.MediaH264}},
+	}
+	err = stream.Initialize()
+	require.NoError(t, err)
 	defer stream.Close()
 
 	p, ok := newInstance(

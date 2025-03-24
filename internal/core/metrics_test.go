@@ -300,7 +300,8 @@ webrtc_sessions_bytes_sent 0
 			}
 
 			bw := bufio.NewWriter(publisher)
-			w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+			w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(track, 0, 0, [][]byte{
