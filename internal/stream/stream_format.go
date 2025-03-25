@@ -8,8 +8,8 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -22,10 +22,10 @@ func unitSize(u unit.Unit) uint64 {
 }
 
 type streamFormat struct {
-	udpMaxPayloadSize  int
-	format             format.Format
-	generateRTPPackets bool
-	decodeErrLogger    logger.Writer
+	UDPMaxPayloadSize  int
+	Format             format.Format
+	GenerateRTPPackets bool
+	DecodeErrors       *counterdumper.CounterDumper
 
 	proc           formatprocessor.Processor
 	pausedReaders  map[*streamReader]ReadFunc
@@ -37,7 +37,7 @@ func (sf *streamFormat) initialize() error {
 	sf.runningReaders = make(map[*streamReader]ReadFunc)
 
 	var err error
-	sf.proc, err = formatprocessor.New(sf.udpMaxPayloadSize, sf.format, sf.generateRTPPackets)
+	sf.proc, err = formatprocessor.New(sf.UDPMaxPayloadSize, sf.Format, sf.GenerateRTPPackets)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (sf *streamFormat) startReader(sr *streamReader) {
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Unit) {
 	err := sf.proc.ProcessUnit(u)
 	if err != nil {
-		sf.decodeErrLogger.Log(logger.Warn, err.Error())
+		sf.DecodeErrors.Increase()
 		return
 	}
 
@@ -82,7 +82,7 @@ func (sf *streamFormat) writeRTPPacket(
 
 	u, err := sf.proc.ProcessRTPPacket(pkt, ntp, pts, hasNonRTSPReaders)
 	if err != nil {
-		sf.decodeErrLogger.Log(logger.Warn, err.Error())
+		sf.DecodeErrors.Increase()
 		return
 	}
 

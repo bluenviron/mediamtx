@@ -700,7 +700,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
 		Desc:               desc,
 		GenerateRTPPackets: allocateEncoder,
-		DecodeErrLogger:    logger.NewLimitedLogger(pa.source),
+		Parent:             pa.source,
 	}
 	err := pa.stream.Initialize()
 	if err != nil {

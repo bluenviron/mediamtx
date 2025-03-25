@@ -43,7 +43,7 @@ func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stre
 		UDPMaxPayloadSize:  1472,
 		Desc:               req.Desc,
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err := p.stream.Initialize()
 	if err != nil {
@@ -152,7 +152,7 @@ func TestServerRead(t *testing.T) {
 		UDPMaxPayloadSize:  1472,
 		Desc:               desc,
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -262,7 +262,7 @@ func TestServerRedirect(t *testing.T) {
 				UDPMaxPayloadSize:  1472,
 				Desc:               desc,
 				GenerateRTPPackets: true,
-				DecodeErrLogger:    test.NilLogger,
+				Parent:             test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)

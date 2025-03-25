@@ -325,8 +325,13 @@ func (co *PeerConnection) Start() error {
 
 // Close closes the connection.
 func (co *PeerConnection) Close() {
+	for _, track := range co.incomingTracks {
+		track.stop()
+	}
+
 	co.ctxCancel()
 	co.wr.Close() //nolint:errcheck
+
 	<-co.done
 }
 

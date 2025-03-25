@@ -69,7 +69,7 @@ func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathS
 		UDPMaxPayloadSize:  1472,
 		Desc:               req.Desc,
 		GenerateRTPPackets: req.GenerateRTPPackets,
-		DecodeErrLogger:    t,
+		Parent:             t,
 	}
 	err := t.stream.Initialize()
 	if err != nil {

@@ -159,7 +159,7 @@ func TestServerRead(t *testing.T) {
 			UDPMaxPayloadSize:  1472,
 			Desc:               desc,
 			GenerateRTPPackets: true,
-			DecodeErrLogger:    test.NilLogger,
+			Parent:             test.NilLogger,
 		}
 		err := strm.Initialize()
 		require.NoError(t, err)
@@ -259,7 +259,7 @@ func TestServerRead(t *testing.T) {
 			UDPMaxPayloadSize:  1472,
 			Desc:               desc,
 			GenerateRTPPackets: true,
-			DecodeErrLogger:    test.NilLogger,
+			Parent:             test.NilLogger,
 		}
 		err := strm.Initialize()
 		require.NoError(t, err)
@@ -364,7 +364,7 @@ func TestDirectory(t *testing.T) {
 		UDPMaxPayloadSize:  1472,
 		Desc:               desc,
 		GenerateRTPPackets: true,
-		DecodeErrLogger:    test.NilLogger,
+		Parent:             test.NilLogger,
 	}
 	err = strm.Initialize()
 	require.NoError(t, err)
