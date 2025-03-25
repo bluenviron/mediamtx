@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -76,7 +77,8 @@ func tagFromGit() error {
 	// where .git/objects/info/alternates points to a directory outside of the .git directory.
 	//
 	// To work around this, specify an AlternatesFS that allows access to the entire filesystem.
-	storerFs := osfs.New("../../.git", osfs.WithBoundOS())
+	dotGitAbs, _ := filepath.Abs("../../.git")
+	storerFs := osfs.New(dotGitAbs, osfs.WithBoundOS())
 	storer := filesystem.NewStorageWithOptions(storerFs, cache.NewObjectLRUDefault(), filesystem.Options{
 		AlternatesFS: osfs.New("/", osfs.WithBoundOS()),
 	})
