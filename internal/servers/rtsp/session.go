@@ -68,7 +68,7 @@ func (s *session) initialize() {
 
 	s.decodeErrors = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%s decode %s",
+			s.Log(logger.Warn, "%d decode %s",
 				val,
 				func() string {
 					if val == 1 {

@@ -115,7 +115,7 @@ func (s *Source) runReader(pc net.PacketConn) error {
 
 	decodeErrors := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%s decode %s",
+			s.Log(logger.Warn, "%d decode %s",
 				val,
 				func() string {
 					if val == 1 {
