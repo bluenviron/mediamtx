@@ -125,6 +125,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Forward streams to other servers](#forward-streams-to-other-servers)
   * [Proxy requests to other servers](#proxy-requests-to-other-servers)
   * [On-demand publishing](#on-demand-publishing)
+  * [Route absolute timestamps](#route-absolute-timestamps)
   * [Expose the server in a subfolder](#expose-the-server-in-a-subfolder)
   * [Start on boot](#start-on-boot)
     * [Linux](#linux)
@@ -1705,6 +1706,17 @@ paths:
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
+
+### Route absolute timestamps
+
+Some streaming protocols allow to route absolute timestamps, associated with each frame, that are useful for synchronizing several video or data streams together. In particular, _MediaMTX_ supports receiving absolute timestamps with the following protocols:
+
+* HLS (through the `EXT-X-PROGRAM-DATE-TIME` tag in playlists)
+
+and supports sending absolute timestamps with the following protocols:
+
+* HLS (through the `EXT-X-PROGRAM-DATE-TIME` tag in playlists)
+* RTSP (through RTCP reports)
 
 ### Expose the server in a subfolder
 
