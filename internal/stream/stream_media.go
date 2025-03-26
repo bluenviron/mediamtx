@@ -7,10 +7,10 @@ import (
 )
 
 type streamMedia struct {
-	UDPMaxPayloadSize  int
-	Media              *description.Media
-	GenerateRTPPackets bool
-	DecodeErrors       *counterdumper.CounterDumper
+	udpMaxPayloadSize  int
+	media              *description.Media
+	generateRTPPackets bool
+	processingErrors   *counterdumper.CounterDumper
 
 	formats map[format.Format]*streamFormat
 }
@@ -18,12 +18,12 @@ type streamMedia struct {
 func (sm *streamMedia) initialize() error {
 	sm.formats = make(map[format.Format]*streamFormat)
 
-	for _, forma := range sm.Media.Formats {
+	for _, forma := range sm.media.Formats {
 		sf := &streamFormat{
-			UDPMaxPayloadSize:  sm.UDPMaxPayloadSize,
-			Format:             forma,
-			GenerateRTPPackets: sm.GenerateRTPPackets,
-			DecodeErrors:       sm.DecodeErrors,
+			udpMaxPayloadSize:  sm.udpMaxPayloadSize,
+			format:             forma,
+			generateRTPPackets: sm.generateRTPPackets,
+			processingErrors:   sm.processingErrors,
 		}
 		err := sf.initialize()
 		if err != nil {

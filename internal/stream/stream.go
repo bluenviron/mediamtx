@@ -33,14 +33,14 @@ type Stream struct {
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	bytesReceived *uint64
-	bytesSent     *uint64
-	streamMedias  map[*description.Media]*streamMedia
-	mutex         sync.RWMutex
-	rtspStream    *gortsplib.ServerStream
-	rtspsStream   *gortsplib.ServerStream
-	streamReaders map[Reader]*streamReader
-	decodeErrors  *counterdumper.CounterDumper
+	bytesReceived    *uint64
+	bytesSent        *uint64
+	streamMedias     map[*description.Media]*streamMedia
+	mutex            sync.RWMutex
+	rtspStream       *gortsplib.ServerStream
+	rtspsStream      *gortsplib.ServerStream
+	streamReaders    map[Reader]*streamReader
+	processingErrors *counterdumper.CounterDumper
 
 	readerRunning chan struct{}
 }
@@ -53,9 +53,9 @@ func (s *Stream) Initialize() error {
 	s.streamReaders = make(map[Reader]*streamReader)
 	s.readerRunning = make(chan struct{})
 
-	s.decodeErrors = &counterdumper.CounterDumper{
+	s.processingErrors = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Parent.Log(logger.Warn, "%d decode %s",
+			s.Parent.Log(logger.Warn, "%d processing %s",
 				val,
 				func() string {
 					if val == 1 {
@@ -65,14 +65,14 @@ func (s *Stream) Initialize() error {
 				}())
 		},
 	}
-	s.decodeErrors.Start()
+	s.processingErrors.Start()
 
 	for _, media := range s.Desc.Medias {
 		s.streamMedias[media] = &streamMedia{
-			UDPMaxPayloadSize:  s.UDPMaxPayloadSize,
-			Media:              media,
-			GenerateRTPPackets: s.GenerateRTPPackets,
-			DecodeErrors:       s.decodeErrors,
+			udpMaxPayloadSize:  s.UDPMaxPayloadSize,
+			media:              media,
+			generateRTPPackets: s.GenerateRTPPackets,
+			processingErrors:   s.processingErrors,
 		}
 		err := s.streamMedias[media].initialize()
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *Stream) Initialize() error {
 
 // Close closes all resources of the stream.
 func (s *Stream) Close() {
-	s.decodeErrors.Stop()
+	s.processingErrors.Stop()
 
 	if s.rtspStream != nil {
 		s.rtspStream.Close()
