@@ -40,7 +40,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	decodeErrors := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%s decode %s",
+			s.Log(logger.Warn, "%d decode %s",
 				val,
 				func() string {
 					if val == 1 {

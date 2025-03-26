@@ -210,7 +210,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 
 	decodeErrors := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			c.Log(logger.Warn, "%s decode %s",
+			c.Log(logger.Warn, "%d decode %s",
 				val,
 				func() string {
 					if val == 1 {

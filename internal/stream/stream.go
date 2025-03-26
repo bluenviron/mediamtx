@@ -55,7 +55,7 @@ func (s *Stream) Initialize() error {
 
 	s.decodeErrors = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Parent.Log(logger.Warn, "%s decode %s",
+			s.Parent.Log(logger.Warn, "%d decode %s",
 				val,
 				func() string {
 					if val == 1 {
@@ -65,6 +65,7 @@ func (s *Stream) Initialize() error {
 				}())
 		},
 	}
+	s.decodeErrors.Start()
 
 	for _, media := range s.Desc.Medias {
 		s.streamMedias[media] = &streamMedia{
@@ -84,6 +85,8 @@ func (s *Stream) Initialize() error {
 
 // Close closes all resources of the stream.
 func (s *Stream) Close() {
+	s.decodeErrors.Stop()
+
 	if s.rtspStream != nil {
 		s.rtspStream.Close()
 	}
