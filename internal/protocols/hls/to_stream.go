@@ -7,8 +7,18 @@ import (
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
+)
+
+type ntpState int
+
+const (
+	ntpStateInitial ntpState = iota
+	ntpStateUnavailable
+	ntpStateAvailable
+	ntpStateDegraded
 )
 
 func multiplyAndDivide(v, m, d int64) int64 {
@@ -23,6 +33,42 @@ func ToStream(
 	tracks []*gohlslib.Track,
 	stream **stream.Stream,
 ) ([]*description.Media, error) {
+	var state ntpState
+
+	handleNTP := func(track *gohlslib.Track) time.Time {
+		switch state {
+		case ntpStateInitial:
+			ntp, avail := c.AbsoluteTime(track)
+			if !avail {
+				state = ntpStateUnavailable
+				return time.Now()
+			}
+
+			state = ntpStateAvailable
+			return ntp
+
+		case ntpStateAvailable:
+			ntp, avail := c.AbsoluteTime(track)
+			if !avail {
+				panic("should not happen")
+			}
+
+			return ntp
+
+		case ntpStateUnavailable:
+			_, avail := c.AbsoluteTime(track)
+			if avail {
+				(*stream).Parent.Log(logger.Warn, "absolute timestamp appeared after stream started, we are not using it")
+				state = ntpStateDegraded
+			}
+
+			return time.Now()
+
+		default: // ntpStateDegraded
+			return time.Now()
+		}
+	}
+
 	var medias []*description.Media //nolint:prealloc
 
 	for _, track := range tracks {
@@ -41,7 +87,7 @@ func ToStream(
 			c.OnDataAV1(track, func(pts int64, tu [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.AV1{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					TU: tu,
@@ -59,7 +105,7 @@ func ToStream(
 			c.OnDataVP9(track, func(pts int64, frame []byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.VP9{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					Frame: frame,
@@ -80,7 +126,7 @@ func ToStream(
 			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					AU: au,
@@ -101,7 +147,7 @@ func ToStream(
 			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					},
 					AU: au,
@@ -120,7 +166,7 @@ func ToStream(
 			c.OnDataOpus(track, func(pts int64, packets [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
 					},
 					Packets: packets,
@@ -142,7 +188,7 @@ func ToStream(
 			c.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4Audio{
 					Base: unit.Base{
-						NTP: time.Now(),
+						NTP: handleNTP(track),
 						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
 					},
 					AUs: aus,
