@@ -178,7 +178,7 @@ func TestSource(t *testing.T) {
 	}
 }
 
-func TestRTSPSourceNoPassword(t *testing.T) {
+func TestSourceNoPassword(t *testing.T) {
 	var stream *gortsplib.ServerStream
 
 	nonce, err := auth.GenerateNonce()
@@ -267,7 +267,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	<-te.Unit
 }
 
-func TestRTSPSourceRange(t *testing.T) {
+func TestSourceRange(t *testing.T) {
 	for _, ca := range []string{"clock", "npt", "smpte"} {
 		t.Run(ca, func(t *testing.T) {
 			var stream *gortsplib.ServerStream

@@ -23,6 +23,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+type ntpState int
+
+const (
+	ntpStateInitial ntpState = iota
+	ntpStateReplace
+	ntpStateAvailable
+)
+
 type session struct {
 	isTLS           bool
 	transports      conf.RTSPTransports
@@ -322,13 +330,49 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 			cmedi := medi
 			cforma := forma
 
+			var ntpStat ntpState
+
+			if !s.path.SafeConf().RTSPAbsoluteTimestamp {
+				ntpStat = ntpStateReplace
+			}
+
+			handleNTP := func(pkt *rtp.Packet) (time.Time, bool) {
+				switch ntpStat {
+				case ntpStateReplace:
+					return time.Now(), true
+
+				case ntpStateInitial:
+					ntp, avail := s.rsession.PacketNTP(cmedi, pkt)
+					if !avail {
+						s.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
+						return time.Time{}, false
+					}
+
+					ntpStat = ntpStateAvailable
+					return ntp, true
+
+				default: // ntpStateAvailable
+					ntp, avail := s.rsession.PacketNTP(cmedi, pkt)
+					if !avail {
+						panic("should not happen")
+					}
+
+					return ntp, true
+				}
+			}
+
 			s.rsession.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
 				pts, ok := s.rsession.PacketPTS2(cmedi, pkt)
 				if !ok {
 					return
 				}
 
-				stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
+				ntp, ok := handleNTP(pkt)
+				if !ok {
+					return
+				}
+
+				stream.WriteRTPPacket(cmedi, cforma, pkt, ntp, pts)
 			})
 		}
 	}
