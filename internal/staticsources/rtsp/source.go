@@ -16,6 +16,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 )
 
+type ntpState int
+
+const (
+	ntpStateInitial ntpState = iota
+	ntpStateReplace
+	ntpStateAvailable
+)
+
 func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 	switch cnf.RTSPRangeType {
 	case conf.RTSPRangeTypeClock:
@@ -173,13 +181,49 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 					cmedi := medi
 					cforma := forma
 
+					var ntpStat ntpState
+
+					if !params.Conf.RTSPAbsoluteTimestamp {
+						ntpStat = ntpStateReplace
+					}
+
+					handleNTP := func(pkt *rtp.Packet) (time.Time, bool) {
+						switch ntpStat {
+						case ntpStateReplace:
+							return time.Now(), true
+
+						case ntpStateInitial:
+							ntp, avail := c.PacketNTP(cmedi, pkt)
+							if !avail {
+								s.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
+								return time.Time{}, false
+							}
+
+							ntpStat = ntpStateAvailable
+							return ntp, true
+
+						default: // ntpStateAvailable
+							ntp, avail := c.PacketNTP(cmedi, pkt)
+							if !avail {
+								panic("should not happen")
+							}
+
+							return ntp, true
+						}
+					}
+
 					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
 						pts, ok := c.PacketPTS2(cmedi, pkt)
 						if !ok {
 							return
 						}
 
-						res.Stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
+						ntp, ok := handleNTP(pkt)
+						if !ok {
+							return
+						}
+
+						res.Stream.WriteRTPPacket(cmedi, cforma, pkt, ntp, pts)
 					})
 				}
 			}
