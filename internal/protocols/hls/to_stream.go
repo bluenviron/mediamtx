@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gohlslib/v2"
@@ -33,18 +34,22 @@ func ToStream(
 	tracks []*gohlslib.Track,
 	stream **stream.Stream,
 ) ([]*description.Media, error) {
-	var state ntpState
+	var ntpStat ntpState
+	var ntpStatMutex sync.Mutex
 
 	handleNTP := func(track *gohlslib.Track) time.Time {
-		switch state {
+		ntpStatMutex.Lock()
+		defer ntpStatMutex.Unlock()
+
+		switch ntpStat {
 		case ntpStateInitial:
 			ntp, avail := c.AbsoluteTime(track)
 			if !avail {
-				state = ntpStateUnavailable
+				ntpStat = ntpStateUnavailable
 				return time.Now()
 			}
 
-			state = ntpStateAvailable
+			ntpStat = ntpStateAvailable
 			return ntp
 
 		case ntpStateAvailable:
@@ -59,7 +64,7 @@ func ToStream(
 			_, avail := c.AbsoluteTime(track)
 			if avail {
 				(*stream).Parent.Log(logger.Warn, "absolute timestamp appeared after stream started, we are not using it")
-				state = ntpStateDegraded
+				ntpStat = ntpStateDegraded
 			}
 
 			return time.Now()
@@ -88,7 +93,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.AV1{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
 					},
 					TU: tu,
 				})
@@ -106,7 +111,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.VP9{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
 					},
 					Frame: frame,
 				})
@@ -127,7 +132,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
 					},
 					AU: au,
 				})
@@ -148,7 +153,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
 					},
 					AU: au,
 				})
@@ -167,7 +172,7 @@ func ToStream(
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
+						PTS: pts, // // no conversion is needed since clock rate is 48khz in both HLS and RTSP
 					},
 					Packets: packets,
 				})
