@@ -88,12 +88,13 @@ func ToStream(
 					PayloadTyp: 96,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataAV1(track, func(pts int64, tu [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.AV1{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					TU: tu,
 				})
@@ -106,12 +107,13 @@ func ToStream(
 					PayloadTyp: 96,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataVP9(track, func(pts int64, frame []byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.VP9{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					Frame: frame,
 				})
@@ -127,12 +129,13 @@ func ToStream(
 					PPS:        tcodec.PPS,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					AU: au,
 				})
@@ -148,12 +151,13 @@ func ToStream(
 					PPS:               tcodec.PPS,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // no conversion is needed since clock rate is 90khz in both HLS and RTSP
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					AU: au,
 				})
@@ -167,12 +171,13 @@ func ToStream(
 					ChannelCount: tcodec.ChannelCount,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataOpus(track, func(pts int64, packets [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: pts, // // no conversion is needed since clock rate is 48khz in both HLS and RTSP
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					Packets: packets,
 				})
@@ -189,12 +194,13 @@ func ToStream(
 					Config:           &tcodec.Config,
 				}},
 			}
+			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) {
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: handleNTP(track),
-						PTS: multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), int64(clockRate)),
+						PTS: multiplyAndDivide(pts, int64(newClockRate), int64(clockRate)),
 					},
 					AUs: aus,
 				})
