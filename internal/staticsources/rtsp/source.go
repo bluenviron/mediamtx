@@ -7,12 +7,12 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 )
 
@@ -168,21 +168,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-			for _, medi := range desc.Medias {
-				for _, forma := range medi.Formats {
-					cmedi := medi
-					cforma := forma
-
-					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-						pts, ok := c.PacketPTS2(cmedi, pkt)
-						if !ok {
-							return
-						}
-
-						res.Stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
-					})
-				}
-			}
+			rtsp.ToStream(
+				c,
+				desc.Medias,
+				params.Conf,
+				res.Stream,
+				s)
 
 			rangeHeader, err := createRangeHeader(params.Conf)
 			if err != nil {
