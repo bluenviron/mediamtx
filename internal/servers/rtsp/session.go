@@ -11,7 +11,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/google/uuid"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -20,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -317,21 +317,12 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 
 	s.stream = stream
 
-	for _, medi := range s.rsession.AnnouncedDescription().Medias {
-		for _, forma := range medi.Formats {
-			cmedi := medi
-			cforma := forma
-
-			s.rsession.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				pts, ok := s.rsession.PacketPTS2(cmedi, pkt)
-				if !ok {
-					return
-				}
-
-				stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
-			})
-		}
-	}
+	rtsp.ToStream(
+		s.rsession,
+		s.rsession.AnnouncedDescription().Medias,
+		s.path.SafeConf(),
+		stream,
+		s)
 
 	s.mutex.Lock()
 	s.state = gortsplib.ServerSessionStateRecord
