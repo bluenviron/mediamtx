@@ -14,12 +14,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func multiplyAndDivide(v, m, d int64) int64 {
-	secs := v / d
-	dec := v % d
-	return (secs*m + dec*m/d)
-}
-
 func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 	return params{
 		LogLevel: func() string {
@@ -95,7 +89,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	medias := []*description.Media{medi}
 	var stream *stream.Stream
 
-	onData := func(dts time.Duration, au [][]byte) {
+	onData := func(pts int64, ntp time.Time, au [][]byte) {
 		if stream == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               &description.Session{Medias: medias},
@@ -110,8 +104,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
 			Base: unit.Base{
-				NTP: time.Now(),
-				PTS: multiplyAndDivide(int64(dts), 90000, int64(time.Second)),
+				PTS: pts,
+				NTP: ntp,
 			},
 			AU: au,
 		})
@@ -124,8 +118,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}()
 
 	cam := &camera{
-		Params: paramsFromConf(s.LogLevel, params.Conf),
-		OnData: onData,
+		params: paramsFromConf(s.LogLevel, params.Conf),
+		onData: onData,
 	}
 	err := cam.initialize()
 	if err != nil {

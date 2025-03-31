@@ -1709,10 +1709,11 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 ### Route absolute timestamps
 
-Some streaming protocols allow to route absolute timestamps, associated with each frame, that are useful for synchronizing several video or data streams together. In particular, _MediaMTX_ supports receiving absolute timestamps with the following protocols:
+Some streaming protocols allow to route absolute timestamps, associated with each frame, that are useful for synchronizing several video or data streams together. In particular, _MediaMTX_ supports receiving absolute timestamps with the following protocols and devices:
 
 * HLS (through the `EXT-X-PROGRAM-DATE-TIME` tag in playlists)
 * RTSP (through RTCP reports, when `rtspAbsoluteTimestamp` is `true` in settings)
+* Raspberry Pi Camera
 
 and supports sending absolute timestamps with the following protocols:
 
