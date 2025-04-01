@@ -30,6 +30,7 @@ Live streams can be published to the server with:
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
 |[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
+|[Unix/MPEG-TS](#unixmpeg-ts)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
 Live streams can be read from the server with:
@@ -857,6 +858,26 @@ paths:
 The resulting stream will be available in path `/mypath`.
 
 Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+
+#### Unix/MPEG-TS
+
+The server supports ingesting Unix/MPEG-TS packets (i.e. MPEG-TS packets sent over unix sockets). For instance, you can generate a multicast Unix/MPEG-TS stream with FFmpeg:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f mpegts unix:/tmp/ffmpeg.socket
+```
+
+Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  mypath:
+    source: unix:/tmp/ffmpeg.socket
+```
+
+The resulting stream will be available in path `/mypath`.
 
 ## Read from the server
 

@@ -16,6 +16,7 @@ import (
 	rtspsource "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
 	srtsource "github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	udpsource "github.com/bluenviron/mediamtx/internal/staticsources/udp"
+	unixsource "github.com/bluenviron/mediamtx/internal/staticsources/unix"
 	webrtcsource "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
 )
 
@@ -98,6 +99,12 @@ func (s *staticSourceHandler) initialize() {
 
 	case strings.HasPrefix(s.conf.Source, "udp://"):
 		s.instance = &udpsource.Source{
+			ReadTimeout: s.readTimeout,
+			Parent:      s,
+		}
+
+	case strings.HasPrefix(s.conf.Source, "unix:"):
+		s.instance = &unixsource.Source{
 			ReadTimeout: s.readTimeout,
 			Parent:      s,
 		}
