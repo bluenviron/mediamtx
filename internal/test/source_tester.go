@@ -64,13 +64,17 @@ func (t *SourceTester) Log(_ logger.Level, _ string, _ ...interface{}) {
 
 // SetReady implements StaticSourceParent.
 func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
-	t.stream, _ = stream.New(
-		512,
-		1460,
-		req.Desc,
-		req.GenerateRTPPackets,
-		t,
-	)
+	t.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: req.GenerateRTPPackets,
+		Parent:             t,
+	}
+	err := t.stream.Initialize()
+	if err != nil {
+		panic(err)
+	}
 
 	t.reader = NilLogger
 

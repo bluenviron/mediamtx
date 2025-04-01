@@ -151,14 +151,15 @@ func (s *session) runPublish() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		ICEUDPMux:             s.iceUDPMux,
+		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,
-		HandshakeTimeout:      s.parent.HandshakeTimeout,
-		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
+		HandshakeTimeout:      s.parent.HandshakeTimeout,
+		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
+		STUNGatherTimeout:     s.parent.STUNGatherTimeout,
 		Publish:               false,
 		Log:                   s,
 	}
@@ -195,7 +196,7 @@ func (s *session) runPublish() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilReady(s.ctx)
+	err = pc.WaitUntilConnected(s.ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -204,7 +205,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	_, err = pc.GatherIncomingTracks(s.ctx)
+	err = pc.GatherIncomingTracks(s.ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -252,7 +253,7 @@ func (s *session) runRead() (int, error) {
 		AccessRequest: req,
 	})
 	if err != nil {
-		var terr2 defs.PathNoOnePublishingError
+		var terr2 defs.PathNoStreamAvailableError
 		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
 		}
@@ -268,14 +269,15 @@ func (s *session) runRead() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		ICEUDPMux:             s.iceUDPMux,
+		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,
-		HandshakeTimeout:      s.parent.HandshakeTimeout,
-		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
+		HandshakeTimeout:      s.parent.HandshakeTimeout,
+		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
+		STUNGatherTimeout:     s.parent.STUNGatherTimeout,
 		Publish:               true,
 		Log:                   s,
 	}
@@ -304,7 +306,7 @@ func (s *session) runRead() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilReady(s.ctx)
+	err = pc.WaitUntilConnected(s.ctx)
 	if err != nil {
 		stream.RemoveReader(s)
 		return 0, err

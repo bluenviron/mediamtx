@@ -22,7 +22,12 @@ func TestCertReload(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(serverKeyPath)
 
-	loader, err := New(serverCertPath, serverKeyPath, test.NilLogger)
+	loader := &CertLoader{
+		CertPath: serverCertPath,
+		KeyPath:  serverKeyPath,
+		Parent:   test.NilLogger,
+	}
+	err = loader.Initialize()
 	require.NoError(t, err)
 	defer loader.Close()
 

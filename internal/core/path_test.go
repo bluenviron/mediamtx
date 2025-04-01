@@ -503,7 +503,7 @@ func TestPathRunOnRead(t *testing.T) {
 						Log:        test.NilLogger,
 					}
 
-					_, err = c.Read(context.Background())
+					err = c.Initialize(context.Background())
 					require.NoError(t, err)
 					defer checkClose(t, c.Close)
 				}
@@ -827,7 +827,12 @@ func TestPathResolveSource(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{test.MediaH264}})
+	stream = &gortsplib.ServerStream{
+		Server: &s,
+		Desc:   &description.Session{Medias: []*description.Media{test.MediaH264}},
+	}
+	err = stream.Initialize()
+	require.NoError(t, err)
 	defer stream.Close()
 
 	p, ok := newInstance(

@@ -154,13 +154,14 @@ func TestServerRead(t *testing.T) {
 	t.Run("always remux off", func(t *testing.T) {
 		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-		str, err := stream.New(
-			512,
-			1460,
-			desc,
-			true,
-			test.NilLogger,
-		)
+		strm := &stream.Stream{
+			WriteQueueSize:     512,
+			UDPMaxPayloadSize:  1472,
+			Desc:               desc,
+			GenerateRTPPackets: true,
+			Parent:             test.NilLogger,
+		}
+		err := strm.Initialize()
 		require.NoError(t, err)
 
 		pm := &test.PathManager{
@@ -174,7 +175,7 @@ func TestServerRead(t *testing.T) {
 			AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
-				return &dummyPath{}, str, nil
+				return &dummyPath{}, strm, nil
 			},
 		}
 
@@ -235,7 +236,7 @@ func TestServerRead(t *testing.T) {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
 			for i := 0; i < 4; i++ {
-				str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
+				strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: int64(i) * 90000,
@@ -253,13 +254,14 @@ func TestServerRead(t *testing.T) {
 	t.Run("always remux on", func(t *testing.T) {
 		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-		str, err := stream.New(
-			512,
-			1460,
-			desc,
-			true,
-			test.NilLogger,
-		)
+		strm := &stream.Stream{
+			WriteQueueSize:     512,
+			UDPMaxPayloadSize:  1472,
+			Desc:               desc,
+			GenerateRTPPackets: true,
+			Parent:             test.NilLogger,
+		}
+		err := strm.Initialize()
 		require.NoError(t, err)
 
 		pm := &test.PathManager{
@@ -273,7 +275,7 @@ func TestServerRead(t *testing.T) {
 			AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "", req.AccessRequest.Query)
-				return &dummyPath{}, str, nil
+				return &dummyPath{}, strm, nil
 			},
 		}
 
@@ -301,10 +303,10 @@ func TestServerRead(t *testing.T) {
 
 		s.PathReady(&dummyPath{})
 
-		str.WaitRunningReader()
+		strm.WaitRunningReader()
 
 		for i := 0; i < 4; i++ {
-			str.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
+			strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 				Base: unit.Base{
 					NTP: time.Time{},
 					PTS: int64(i) * 90000,
@@ -357,18 +359,19 @@ func TestDirectory(t *testing.T) {
 
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-	str, err := stream.New(
-		512,
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-	)
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err = strm.Initialize()
 	require.NoError(t, err)
 
 	pm := &test.PathManager{
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			return &dummyPath{}, str, nil
+			return &dummyPath{}, strm, nil
 		},
 	}
 

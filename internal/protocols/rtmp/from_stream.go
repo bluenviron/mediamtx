@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg1audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 var errNoSupportedCodecsFrom = errors.New(
-	"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
+	"the strm doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 
 func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
 	secs := v / d
@@ -29,19 +29,19 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 }
 
 func setupVideo(
-	strea *stream.Stream,
+	str *stream.Stream,
 	reader stream.Reader,
 	w **Writer,
 	nconn net.Conn,
 	writeTimeout time.Duration,
 ) format.Format {
 	var videoFormatH264 *format.H264
-	videoMedia := strea.Desc().FindFormat(&videoFormatH264)
+	videoMedia := str.Desc.FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
-		var videoDTSExtractor *h264.DTSExtractor2
+		var videoDTSExtractor *h264.DTSExtractor
 
-		strea.AddReader(
+		str.AddReader(
 			reader,
 			videoMedia,
 			videoFormatH264,
@@ -72,7 +72,8 @@ func setupVideo(
 						return nil
 					}
 
-					videoDTSExtractor = h264.NewDTSExtractor2()
+					videoDTSExtractor = &h264.DTSExtractor{}
+					videoDTSExtractor.Initialize()
 				} else if !idrPresent && !nonIDRPresent {
 					return nil
 				}
@@ -96,17 +97,17 @@ func setupVideo(
 }
 
 func setupAudio(
-	strea *stream.Stream,
+	str *stream.Stream,
 	reader stream.Reader,
 	w **Writer,
 	nconn net.Conn,
 	writeTimeout time.Duration,
 ) format.Format {
 	var audioFormatMPEG4Audio *format.MPEG4Audio
-	audioMedia := strea.Desc().FindFormat(&audioFormatMPEG4Audio)
+	audioMedia := str.Desc.FindFormat(&audioFormatMPEG4Audio)
 
 	if audioMedia != nil {
-		strea.AddReader(
+		str.AddReader(
 			reader,
 			audioMedia,
 			audioFormatMPEG4Audio,
@@ -137,10 +138,10 @@ func setupAudio(
 	}
 
 	var audioFormatMPEG1 *format.MPEG1Audio
-	audioMedia = strea.Desc().FindFormat(&audioFormatMPEG1)
+	audioMedia = str.Desc.FindFormat(&audioFormatMPEG1)
 
 	if audioMedia != nil {
-		strea.AddReader(
+		str.AddReader(
 			reader,
 			audioMedia,
 			audioFormatMPEG1,
@@ -182,9 +183,9 @@ func setupAudio(
 	return nil
 }
 
-// FromStream maps a MediaMTX stream to a RTMP stream.
+// FromStream maps a MediaMTX strm to a RTMP strm.
 func FromStream(
-	stream *stream.Stream,
+	str *stream.Stream,
 	reader stream.Reader,
 	conn *Conn,
 	nconn net.Conn,
@@ -193,7 +194,7 @@ func FromStream(
 	var w *Writer
 
 	videoFormat := setupVideo(
-		stream,
+		str,
 		reader,
 		&w,
 		nconn,
@@ -201,7 +202,7 @@ func FromStream(
 	)
 
 	audioFormat := setupAudio(
-		stream,
+		str,
 		reader,
 		&w,
 		nconn,
@@ -219,7 +220,7 @@ func FromStream(
 	}
 
 	n := 1
-	for _, media := range stream.Desc().Medias {
+	for _, media := range str.Desc.Medias {
 		for _, forma := range media.Formats {
 			if forma != videoFormat && forma != audioFormat {
 				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())

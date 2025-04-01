@@ -3,9 +3,10 @@ linters:
   - asciicheck
   - bidichk
   - bodyclose
+  #- contextcheck
+  - copyloopvar
   - dupl
   - errorlint
-  - exportloopref
   - gochecknoinits
   - gocritic
   - gofmt
@@ -18,7 +19,7 @@ linters:
   - revive
   - usestdlibvars
   - unconvert
-  - tenv
+  #- usetesting
   - tparallel
   - wastedassign
   - whitespace

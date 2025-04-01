@@ -13,41 +13,34 @@ import (
 )
 
 type formatProcessorMPEG1Audio struct {
-	udpMaxPayloadSize int
-	format            *format.MPEG1Audio
-	encoder           *rtpmpeg1audio.Encoder
-	decoder           *rtpmpeg1audio.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.MPEG1Audio
+	GenerateRTPPackets bool
+
+	encoder     *rtpmpeg1audio.Encoder
+	decoder     *rtpmpeg1audio.Decoder
+	randomStart uint32
 }
 
-func newMPEG1Audio(
-	udpMaxPayloadSize int,
-	forma *format.MPEG1Audio,
-	generateRTPPackets bool,
-) (*formatProcessorMPEG1Audio, error) {
-	t := &formatProcessorMPEG1Audio{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorMPEG1Audio) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorMPEG1Audio) createEncoder() error {
 	t.encoder = &rtpmpeg1audio.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 	}
 	return t.encoder.Init()
 }
@@ -86,16 +79,16 @@ func (t *formatProcessorMPEG1Audio) ProcessRTPPacket( //nolint:dupl
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.udpMaxPayloadSize {
+	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.udpMaxPayloadSize)
+			pkt.MarshalSize(), t.UDPMaxPayloadSize)
 	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

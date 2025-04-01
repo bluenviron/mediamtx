@@ -12,6 +12,8 @@ logLevel: info
 logDestinations: [stdout]
 # If "file" is in logDestinations, this is the file which will receive the logs.
 logFile: mediamtx.log
+# If "syslog" is in logDestinations, use prefix for logs.
+sysLogPrefix: mediamtx
 
 # Timeout of read operations.
 readTimeout: 10s
@@ -387,6 +389,8 @@ webrtcICEServers2: []
 webrtcHandshakeTimeout: 10s
 # Maximum time to gather video tracks.
 webrtcTrackGatherTimeout: 2s
+# The maximum time to gather STUN candidates.
+webrtcSTUNGatherTimeout: 5s
 
 ###############################################
 # Global settings -> SRT server
@@ -447,6 +451,9 @@ pathDefaults:
   # If the stream is not available, redirect readers to this path.
   # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   fallback:
+  # Route absolute timestamps of RTSP packets published or proxied through this path.
+  # Absolute timestamps are transported through RTCP reports.
+  rtspAbsoluteTimestamp: false
 
   ###############################################
   # Default path settings -> Record
@@ -455,7 +462,8 @@ pathDefaults:
   record: no
   # Path of recording segments.
   # Extension is added automatically.
-  # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
+  # Available variables are %path (path name), %Y %m %d (year, month, day),
+  # %H %M %S (hours, minutes, seconds), %f (milliseconds), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   # Format of recorded segments.
   # Available formats are "fmp4" (fragmented MP4) and "mpegts" (MPEG-TS).
@@ -502,7 +510,8 @@ pathDefaults:
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")
 
-  # RTSP URL which clients will be redirected to.
+  # path which clients will be redirected to.
+  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   sourceRedirect:
 
   ###############################################

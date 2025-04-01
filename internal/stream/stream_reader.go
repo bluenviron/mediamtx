@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -11,16 +12,15 @@ type streamReader struct {
 	queueSize int
 	parent    logger.Writer
 
-	writeErrLogger logger.Writer
-	buffer         *ringbuffer.RingBuffer
-	started        bool
+	buffer          *ringbuffer.RingBuffer
+	started         bool
+	discardedFrames *counterdumper.CounterDumper
 
 	// out
 	err chan error
 }
 
 func (w *streamReader) initialize() {
-	w.writeErrLogger = logger.NewLimitedLogger(w.parent)
 	buffer, _ := ringbuffer.New(uint64(w.queueSize))
 	w.buffer = buffer
 	w.err = make(chan error)
@@ -28,12 +28,29 @@ func (w *streamReader) initialize() {
 
 func (w *streamReader) start() {
 	w.started = true
+
+	w.discardedFrames = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			w.parent.Log(logger.Warn, "connection is too slow, discarding %d %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "frame"
+					}
+					return "frames"
+				}())
+		},
+	}
+	w.discardedFrames.Start()
+
 	go w.run()
 }
 
 func (w *streamReader) stop() {
 	w.buffer.Close()
+
 	if w.started {
+		w.discardedFrames.Stop()
 		<-w.err
 	}
 }
@@ -64,6 +81,6 @@ func (w *streamReader) runInner() error {
 func (w *streamReader) push(cb func() error) {
 	ok := w.buffer.Push(cb)
 	if !ok {
-		w.writeErrLogger.Log(logger.Warn, "write queue is full")
+		w.discardedFrames.Increase()
 	}
 }

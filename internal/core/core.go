@@ -52,6 +52,15 @@ var cli struct {
 	Confpath string `arg:"" default:""`
 }
 
+func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
+	for _, e := range pathConfs {
+		if e.RecordDeleteAfter != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Core is an instance of MediaMTX.
 type Core struct {
 	ctx             context.Context
@@ -118,7 +127,7 @@ func New(args []string) (*Core, bool) {
 		done:           make(chan struct{}),
 	}
 
-	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "")
+	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "", "")
 
 	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
 	if err != nil {
@@ -220,6 +229,7 @@ func (p *Core) createResources(initial bool) error {
 			logger.Level(p.conf.LogLevel),
 			p.conf.LogDestinations,
 			p.conf.LogFile,
+			p.conf.SysLogPrefix,
 		)
 		if err != nil {
 			return err
@@ -250,19 +260,22 @@ func (p *Core) createResources(initial bool) error {
 
 		gin.SetMode(gin.ReleaseMode)
 
-		p.externalCmdPool = externalcmd.NewPool()
+		p.externalCmdPool = &externalcmd.Pool{}
+		err = p.externalCmdPool.Initialize()
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
-			Method:          p.conf.AuthMethod,
-			InternalUsers:   p.conf.AuthInternalUsers,
-			HTTPAddress:     p.conf.AuthHTTPAddress,
-			HTTPExclude:     p.conf.AuthHTTPExclude,
-			JWTJWKS:         p.conf.AuthJWTJWKS,
-			JWTClaimKey:     p.conf.AuthJWTClaimKey,
-			ReadTimeout:     time.Duration(p.conf.ReadTimeout),
-			RTSPAuthMethods: p.conf.RTSPAuthMethods,
+			Method:        p.conf.AuthMethod,
+			InternalUsers: p.conf.AuthInternalUsers,
+			HTTPAddress:   p.conf.AuthHTTPAddress,
+			HTTPExclude:   p.conf.AuthHTTPExclude,
+			JWTJWKS:       p.conf.AuthJWTJWKS,
+			JWTClaimKey:   p.conf.AuthJWTClaimKey,
+			ReadTimeout:   time.Duration(p.conf.ReadTimeout),
 		}
 	}
 
@@ -306,7 +319,8 @@ func (p *Core) createResources(initial bool) error {
 		p.pprof = i
 	}
 
-	if p.recordCleaner == nil {
+	if p.recordCleaner == nil &&
+		atLeastOneRecordDeleteAfter(p.conf.Paths) {
 		p.recordCleaner = &recordcleaner.Cleaner{
 			PathConfs: p.conf.Paths,
 			Parent:    p,
@@ -549,6 +563,7 @@ func (p *Core) createResources(initial bool) error {
 			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
 			ICEServers:            p.conf.WebRTCICEServers2,
 			HandshakeTimeout:      p.conf.WebRTCHandshakeTimeout,
+			STUNGatherTimeout:     p.conf.WebRTCSTUNGatherTimeout,
 			TrackGatherTimeout:    p.conf.WebRTCTrackGatherTimeout,
 			ExternalCmdPool:       p.externalCmdPool,
 			PathManager:           p.pathManager,
@@ -621,7 +636,8 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial && p.confPath != "" {
-		p.confWatcher, err = confwatcher.New(p.confPath)
+		p.confWatcher = &confwatcher.ConfWatcher{FilePath: p.confPath}
+		err = p.confWatcher.Initialize()
 		if err != nil {
 			return err
 		}
@@ -634,7 +650,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeLogger := newConf == nil ||
 		newConf.LogLevel != p.conf.LogLevel ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
-		newConf.LogFile != p.conf.LogFile
+		newConf.LogFile != p.conf.LogFile ||
+		newConf.SysLogPrefix != p.conf.SysLogPrefix
 
 	closeAuthManager := newConf == nil ||
 		newConf.AuthMethod != p.conf.AuthMethod ||
@@ -642,8 +659,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods)
+		newConf.ReadTimeout != p.conf.ReadTimeout
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
 	}
@@ -673,8 +689,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
+		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
 		closeLogger
-	if !closeRecorderCleaner && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+	if !closeRecorderCleaner && p.recordCleaner != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.recordCleaner.ReloadPathConfs(newConf.Paths)
 	}
 
@@ -696,7 +713,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closePathManager := newConf == nil ||
 		newConf.LogLevel != p.conf.LogLevel ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -816,6 +832,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
+		newConf.WebRTCSTUNGatherTimeout != p.conf.WebRTCSTUNGatherTimeout ||
 		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
 		closeMetrics ||
 		closePathManager ||

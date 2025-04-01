@@ -7,10 +7,10 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
-	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -47,7 +47,7 @@ func FromStream(
 		strea.AddReader(reader, media, forma, readFunc)
 	}
 
-	for _, media := range strea.Desc().Medias {
+	for _, media := range strea.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -55,7 +55,7 @@ func FromStream(
 			case *format.H265: //nolint:dupl
 				track := &mcmpegts.Track{Codec: &mcmpegts.CodecH265{}}
 
-				var dtsExtractor *h265.DTSExtractor2
+				var dtsExtractor *h265.DTSExtractor
 
 				addTrack(
 					media,
@@ -73,7 +73,8 @@ func FromStream(
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor2()
+							dtsExtractor = &h265.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -82,7 +83,7 @@ func FromStream(
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err = (*w).WriteH2652(
+						err = (*w).WriteH265(
 							track,
 							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
@@ -96,7 +97,7 @@ func FromStream(
 			case *format.H264: //nolint:dupl
 				track := &mcmpegts.Track{Codec: &mcmpegts.CodecH264{}}
 
-				var dtsExtractor *h264.DTSExtractor2
+				var dtsExtractor *h264.DTSExtractor
 
 				addTrack(
 					media,
@@ -108,13 +109,14 @@ func FromStream(
 							return nil
 						}
 
-						idrPresent := h264.IDRPresent(tunit.AU)
+						idrPresent := h264.IsRandomAccess(tunit.AU)
 
 						if dtsExtractor == nil {
 							if !idrPresent {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor2()
+							dtsExtractor = &h264.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -123,7 +125,7 @@ func FromStream(
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err = (*w).WriteH2642(
+						err = (*w).WriteH264(
 							track,
 							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
@@ -317,7 +319,7 @@ func FromStream(
 	}
 
 	n := 1
-	for _, medi := range strea.Desc().Medias {
+	for _, medi := range strea.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormats[forma]; !ok {
 				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
@@ -326,7 +328,11 @@ func FromStream(
 		}
 	}
 
-	w = mcmpegts.NewWriter(bw, tracks)
+	w = &mcmpegts.Writer{W: bw, Tracks: tracks}
+	err := w.Initialize()
+	if err != nil {
+		panic(err)
+	}
 
 	return nil
 }

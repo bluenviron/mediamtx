@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
-	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -46,7 +46,7 @@ func setupVideoTrack(
 	pc *PeerConnection,
 ) (format.Format, error) {
 	var av1Format *format.AV1
-	media := stream.Desc().FindFormat(&av1Format)
+	media := stream.Desc.FindFormat(&av1Format)
 
 	if av1Format != nil {
 		track := &OutgoingTrack{
@@ -94,7 +94,7 @@ func setupVideoTrack(
 	}
 
 	var vp9Format *format.VP9
-	media = stream.Desc().FindFormat(&vp9Format)
+	media = stream.Desc.FindFormat(&vp9Format)
 
 	if vp9Format != nil {
 		track := &OutgoingTrack{
@@ -144,7 +144,7 @@ func setupVideoTrack(
 	}
 
 	var vp8Format *format.VP8
-	media = stream.Desc().FindFormat(&vp8Format)
+	media = stream.Desc.FindFormat(&vp8Format)
 
 	if vp8Format != nil {
 		track := &OutgoingTrack{
@@ -192,7 +192,7 @@ func setupVideoTrack(
 	}
 
 	var h265Format *format.H265
-	media = stream.Desc().FindFormat(&h265Format)
+	media = stream.Desc.FindFormat(&h265Format)
 
 	if h265Format != nil { //nolint:dupl
 		track := &OutgoingTrack{
@@ -251,7 +251,7 @@ func setupVideoTrack(
 	}
 
 	var h264Format *format.H264
-	media = stream.Desc().FindFormat(&h264Format)
+	media = stream.Desc.FindFormat(&h264Format)
 
 	if h264Format != nil { //nolint:dupl
 		track := &OutgoingTrack{
@@ -318,7 +318,7 @@ func setupAudioTrack(
 	pc *PeerConnection,
 ) (format.Format, error) {
 	var opusFormat *format.Opus
-	media := stream.Desc().FindFormat(&opusFormat)
+	media := stream.Desc.FindFormat(&opusFormat)
 
 	if opusFormat != nil {
 		var caps webrtc.RTPCodecCapability
@@ -371,7 +371,7 @@ func setupAudioTrack(
 	}
 
 	var g722Format *format.G722
-	media = stream.Desc().FindFormat(&g722Format)
+	media = stream.Desc.FindFormat(&g722Format)
 
 	if g722Format != nil {
 		track := &OutgoingTrack{
@@ -398,7 +398,7 @@ func setupAudioTrack(
 	}
 
 	var g711Format *format.G711
-	media = stream.Desc().FindFormat(&g711Format)
+	media = stream.Desc.FindFormat(&g711Format)
 
 	if g711Format != nil {
 		// These are the sample rates and channels supported by Chrome.
@@ -505,14 +505,18 @@ func setupAudioTrack(
 						return nil
 					}
 
-					var lpcmSamples []byte
+					var lpcm []byte
 					if g711Format.MULaw {
-						lpcmSamples = g711.DecodeMulaw(tunit.Samples)
+						var mu g711.Mulaw
+						mu.Unmarshal(tunit.Samples)
+						lpcm = mu
 					} else {
-						lpcmSamples = g711.DecodeAlaw(tunit.Samples)
+						var al g711.Alaw
+						al.Unmarshal(tunit.Samples)
+						lpcm = al
 					}
 
-					packets, err := encoder.Encode(lpcmSamples)
+					packets, err := encoder.Encode(lpcm)
 					if err != nil {
 						return nil //nolint:nilerr
 					}
@@ -534,7 +538,7 @@ func setupAudioTrack(
 	}
 
 	var lpcmFormat *format.LPCM
-	media = stream.Desc().FindFormat(&lpcmFormat)
+	media = stream.Desc.FindFormat(&lpcmFormat)
 
 	if lpcmFormat != nil {
 		if lpcmFormat.BitDepth != 16 {
@@ -632,7 +636,7 @@ func FromStream(
 	}
 
 	n := 1
-	for _, media := range stream.Desc().Medias {
+	for _, media := range stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			if forma != videoFormat && forma != audioFormat {
 				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())

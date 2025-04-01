@@ -52,17 +52,18 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 }
 
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	var err error
-	p.stream, err = stream.New(
-		512,
-		1460,
-		req.Desc,
-		true,
-		test.NilLogger,
-	)
+	p.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := p.stream.Initialize()
 	if err != nil {
 		return nil, err
 	}
+
 	close(p.streamCreated)
 	return p.stream, nil
 }
@@ -99,6 +100,7 @@ func initializeTestServer(t *testing.T) *Server {
 		ICEServers:            []conf.WebRTCICEServer{},
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		ExternalCmdPool:       nil,
 		PathManager:           pm,
 		Parent:                test.NilLogger,
@@ -187,6 +189,7 @@ func TestServerOptionsICEServer(t *testing.T) {
 		}},
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		STUNGatherTimeout:  conf.Duration(5 * time.Second),
 		ExternalCmdPool:    nil,
 		PathManager:        pathManager,
 		Parent:             test.NilLogger,
@@ -257,6 +260,7 @@ func TestServerPublish(t *testing.T) {
 		ICEServers:            []conf.WebRTCICEServer{},
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		ExternalCmdPool:       nil,
 		PathManager:           pathManager,
 		Parent:                test.NilLogger,
@@ -272,12 +276,6 @@ func TestServerPublish(t *testing.T) {
 	su, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whip?param=value")
 	require.NoError(t, err)
 
-	wc := &whip.Client{
-		HTTPClient: hc,
-		URL:        su,
-		Log:        test.NilLogger,
-	}
-
 	track := &webrtc.OutgoingTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
@@ -286,7 +284,15 @@ func TestServerPublish(t *testing.T) {
 		},
 	}
 
-	err = wc.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
+	wc := &whip.Client{
+		HTTPClient:     hc,
+		URL:            su,
+		Publish:        true,
+		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		Log:            test.NilLogger,
+	}
+
+	err = wc.Initialize(context.Background())
 	require.NoError(t, err)
 	defer checkClose(t, wc.Close)
 
@@ -311,8 +317,8 @@ func TestServerPublish(t *testing.T) {
 
 	path.stream.AddReader(
 		reader,
-		path.stream.Desc().Medias[0],
-		path.stream.Desc().Medias[0].Formats[0],
+		path.stream.Desc.Medias[0],
+		path.stream.Desc.Medias[0].Formats[0],
 		func(u unit.Unit) error {
 			select {
 			case <-recv:
@@ -500,16 +506,17 @@ func TestServerRead(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
-			str, err := stream.New(
-				512,
-				1460,
-				desc,
-				reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
-				test.NilLogger,
-			)
+			strm := &stream.Stream{
+				WriteQueueSize:     512,
+				UDPMaxPayloadSize:  1472,
+				Desc:               desc,
+				GenerateRTPPackets: reflect.TypeOf(ca.unit) != reflect.TypeOf(&unit.Generic{}),
+				Parent:             test.NilLogger,
+			}
+			err := strm.Initialize()
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: str}
+			path := &dummyPath{stream: strm}
 
 			pathManager := &test.PathManager{
 				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
@@ -524,7 +531,7 @@ func TestServerRead(t *testing.T) {
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.User)
 					require.Equal(t, "mypass", req.AccessRequest.Pass)
-					return path, str, nil
+					return path, strm, nil
 				},
 			}
 
@@ -544,6 +551,7 @@ func TestServerRead(t *testing.T) {
 				ICEServers:            []conf.WebRTCICEServer{},
 				HandshakeTimeout:      conf.Duration(10 * time.Second),
 				TrackGatherTimeout:    conf.Duration(2 * time.Second),
+				STUNGatherTimeout:     conf.Duration(5 * time.Second),
 				ExternalCmdPool:       nil,
 				PathManager:           pathManager,
 				Parent:                test.NilLogger,
@@ -570,26 +578,26 @@ func TestServerRead(t *testing.T) {
 			go func() {
 				defer close(writerDone)
 
-				str.WaitRunningReader()
+				strm.WaitRunningReader()
 
 				r := reflect.New(reflect.TypeOf(ca.unit).Elem())
 				r.Elem().Set(reflect.ValueOf(ca.unit).Elem())
 
 				if g, ok := r.Interface().(*unit.Generic); ok {
 					clone := *g.RTPPackets[0]
-					str.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					strm.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
 				} else {
-					str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
+					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(unit.Unit))
 				}
 			}()
 
-			tracks, err := wc.Read(context.Background())
+			err = wc.Initialize(context.Background())
 			require.NoError(t, err)
 			defer checkClose(t, wc.Close)
 
 			done := make(chan struct{})
 
-			tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
+			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
 				select {
 				case <-done:
 				default:
@@ -612,7 +620,7 @@ func TestServerReadNotFound(t *testing.T) {
 			return &conf.Path{}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			return nil, nil, defs.PathNoOnePublishingError{}
+			return nil, nil, defs.PathNoStreamAvailableError{}
 		},
 	}
 
@@ -632,6 +640,7 @@ func TestServerReadNotFound(t *testing.T) {
 		ICEServers:            []conf.WebRTCICEServer{},
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		ExternalCmdPool:       nil,
 		PathManager:           pm,
 		Parent:                test.NilLogger,

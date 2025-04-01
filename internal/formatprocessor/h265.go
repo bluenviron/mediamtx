@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph265"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -102,36 +102,29 @@ func rtpH265ExtractParams(payload []byte) ([]byte, []byte, []byte) {
 }
 
 type formatProcessorH265 struct {
-	udpMaxPayloadSize int
-	format            *format.H265
-	encoder           *rtph265.Encoder
-	decoder           *rtph265.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.H265
+	GenerateRTPPackets bool
+
+	encoder     *rtph265.Encoder
+	decoder     *rtph265.Decoder
+	randomStart uint32
 }
 
-func newH265(
-	udpMaxPayloadSize int,
-	forma *format.H265,
-	generateRTPPackets bool,
-) (*formatProcessorH265, error) {
-	t := &formatProcessorH265{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorH265) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder(nil, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorH265) createEncoder(
@@ -139,11 +132,11 @@ func (t *formatProcessorH265) createEncoder(
 	initialSequenceNumber *uint16,
 ) error {
 	t.encoder = &rtph265.Encoder{
-		PayloadMaxSize:        t.udpMaxPayloadSize - 12,
-		PayloadType:           t.format.PayloadTyp,
+		PayloadMaxSize:        t.UDPMaxPayloadSize - 12,
+		PayloadType:           t.Format.PayloadTyp,
 		SSRC:                  ssrc,
 		InitialSequenceNumber: initialSequenceNumber,
-		MaxDONDiff:            t.format.MaxDONDiff,
+		MaxDONDiff:            t.Format.MaxDONDiff,
 	}
 	return t.encoder.Init()
 }
@@ -151,26 +144,26 @@ func (t *formatProcessorH265) createEncoder(
 func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(payload []byte) {
 	vps, sps, pps := rtpH265ExtractParams(payload)
 
-	if (vps != nil && !bytes.Equal(vps, t.format.VPS)) ||
-		(sps != nil && !bytes.Equal(sps, t.format.SPS)) ||
-		(pps != nil && !bytes.Equal(pps, t.format.PPS)) {
+	if (vps != nil && !bytes.Equal(vps, t.Format.VPS)) ||
+		(sps != nil && !bytes.Equal(sps, t.Format.SPS)) ||
+		(pps != nil && !bytes.Equal(pps, t.Format.PPS)) {
 		if vps == nil {
-			vps = t.format.VPS
+			vps = t.Format.VPS
 		}
 		if sps == nil {
-			sps = t.format.SPS
+			sps = t.Format.SPS
 		}
 		if pps == nil {
-			pps = t.format.PPS
+			pps = t.Format.PPS
 		}
-		t.format.SafeSetParams(vps, sps, pps)
+		t.Format.SafeSetParams(vps, sps, pps)
 	}
 }
 
 func (t *formatProcessorH265) updateTrackParametersFromAU(au [][]byte) {
-	vps := t.format.VPS
-	sps := t.format.SPS
-	pps := t.format.PPS
+	vps := t.Format.VPS
+	sps := t.Format.SPS
+	pps := t.Format.PPS
 	update := false
 
 	for _, nalu := range au {
@@ -178,19 +171,19 @@ func (t *formatProcessorH265) updateTrackParametersFromAU(au [][]byte) {
 
 		switch typ {
 		case h265.NALUType_VPS_NUT:
-			if !bytes.Equal(nalu, t.format.VPS) {
+			if !bytes.Equal(nalu, t.Format.VPS) {
 				vps = nalu
 				update = true
 			}
 
 		case h265.NALUType_SPS_NUT:
-			if !bytes.Equal(nalu, t.format.SPS) {
+			if !bytes.Equal(nalu, t.Format.SPS) {
 				sps = nalu
 				update = true
 			}
 
 		case h265.NALUType_PPS_NUT:
-			if !bytes.Equal(nalu, t.format.PPS) {
+			if !bytes.Equal(nalu, t.Format.PPS) {
 				pps = nalu
 				update = true
 			}
@@ -198,7 +191,7 @@ func (t *formatProcessorH265) updateTrackParametersFromAU(au [][]byte) {
 	}
 
 	if update {
-		t.format.SafeSetParams(vps, sps, pps)
+		t.Format.SafeSetParams(vps, sps, pps)
 	}
 }
 
@@ -221,7 +214,7 @@ func (t *formatProcessorH265) remuxAccessUnit(au [][]byte) [][]byte {
 				isKeyFrame = true
 
 				// prepend parameters
-				if t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
+				if t.Format.VPS != nil && t.Format.SPS != nil && t.Format.PPS != nil {
 					n += 3
 				}
 			}
@@ -236,10 +229,10 @@ func (t *formatProcessorH265) remuxAccessUnit(au [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if isKeyFrame && t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
-		filteredNALUs[0] = t.format.VPS
-		filteredNALUs[1] = t.format.SPS
-		filteredNALUs[2] = t.format.PPS
+	if isKeyFrame && t.Format.VPS != nil && t.Format.SPS != nil && t.Format.PPS != nil {
+		filteredNALUs[0] = t.Format.VPS
+		filteredNALUs[1] = t.Format.SPS
+		filteredNALUs[2] = t.Format.PPS
 		i = 3
 	}
 
@@ -304,7 +297,7 @@ func (t *formatProcessorH265) ProcessRTPPacket( //nolint:dupl
 		pkt.PaddingSize = 0
 
 		// RTP packets exceed maximum size: start re-encoding them
-		if pkt.MarshalSize() > t.udpMaxPayloadSize {
+		if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 			v1 := pkt.SSRC
 			v2 := pkt.SequenceNumber
 			err := t.createEncoder(&v1, &v2)
@@ -318,7 +311,7 @@ func (t *formatProcessorH265) ProcessRTPPacket( //nolint:dupl
 	if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

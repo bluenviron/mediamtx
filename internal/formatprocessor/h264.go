@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -82,36 +82,29 @@ func rtpH264ExtractParams(payload []byte) ([]byte, []byte) {
 }
 
 type formatProcessorH264 struct {
-	udpMaxPayloadSize int
-	format            *format.H264
-	encoder           *rtph264.Encoder
-	decoder           *rtph264.Decoder
-	randomStart       uint32
+	UDPMaxPayloadSize  int
+	Format             *format.H264
+	GenerateRTPPackets bool
+
+	encoder     *rtph264.Encoder
+	decoder     *rtph264.Decoder
+	randomStart uint32
 }
 
-func newH264(
-	udpMaxPayloadSize int,
-	forma *format.H264,
-	generateRTPPackets bool,
-) (*formatProcessorH264, error) {
-	t := &formatProcessorH264{
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		format:            forma,
-	}
-
-	if generateRTPPackets {
+func (t *formatProcessorH264) initialize() error {
+	if t.GenerateRTPPackets {
 		err := t.createEncoder(nil, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		t.randomStart, err = randUint32()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (t *formatProcessorH264) createEncoder(
@@ -119,11 +112,11 @@ func (t *formatProcessorH264) createEncoder(
 	initialSequenceNumber *uint16,
 ) error {
 	t.encoder = &rtph264.Encoder{
-		PayloadMaxSize:        t.udpMaxPayloadSize - 12,
-		PayloadType:           t.format.PayloadTyp,
+		PayloadMaxSize:        t.UDPMaxPayloadSize - 12,
+		PayloadType:           t.Format.PayloadTyp,
 		SSRC:                  ssrc,
 		InitialSequenceNumber: initialSequenceNumber,
-		PacketizationMode:     t.format.PacketizationMode,
+		PacketizationMode:     t.Format.PacketizationMode,
 	}
 	return t.encoder.Init()
 }
@@ -131,21 +124,21 @@ func (t *formatProcessorH264) createEncoder(
 func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(payload []byte) {
 	sps, pps := rtpH264ExtractParams(payload)
 
-	if (sps != nil && !bytes.Equal(sps, t.format.SPS)) ||
-		(pps != nil && !bytes.Equal(pps, t.format.PPS)) {
+	if (sps != nil && !bytes.Equal(sps, t.Format.SPS)) ||
+		(pps != nil && !bytes.Equal(pps, t.Format.PPS)) {
 		if sps == nil {
-			sps = t.format.SPS
+			sps = t.Format.SPS
 		}
 		if pps == nil {
-			pps = t.format.PPS
+			pps = t.Format.PPS
 		}
-		t.format.SafeSetParams(sps, pps)
+		t.Format.SafeSetParams(sps, pps)
 	}
 }
 
 func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
-	sps := t.format.SPS
-	pps := t.format.PPS
+	sps := t.Format.SPS
+	pps := t.Format.PPS
 	update := false
 
 	for _, nalu := range au {
@@ -167,7 +160,7 @@ func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
 	}
 
 	if update {
-		t.format.SafeSetParams(sps, pps)
+		t.Format.SafeSetParams(sps, pps)
 	}
 }
 
@@ -190,7 +183,7 @@ func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 				isKeyFrame = true
 
 				// prepend parameters
-				if t.format.SPS != nil && t.format.PPS != nil {
+				if t.Format.SPS != nil && t.Format.PPS != nil {
 					n += 2
 				}
 			}
@@ -205,9 +198,9 @@ func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if isKeyFrame && t.format.SPS != nil && t.format.PPS != nil {
-		filteredNALUs[0] = t.format.SPS
-		filteredNALUs[1] = t.format.PPS
+	if isKeyFrame && t.Format.SPS != nil && t.Format.PPS != nil {
+		filteredNALUs[0] = t.Format.SPS
+		filteredNALUs[1] = t.Format.PPS
 		i = 2
 	}
 
@@ -272,7 +265,7 @@ func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 		pkt.PaddingSize = 0
 
 		// RTP packets exceed maximum size: start re-encoding them
-		if pkt.MarshalSize() > t.udpMaxPayloadSize {
+		if pkt.MarshalSize() > t.UDPMaxPayloadSize {
 			v1 := pkt.SSRC
 			v2 := pkt.SequenceNumber
 			err := t.createEncoder(&v1, &v2)
@@ -286,7 +279,7 @@ func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 	if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
 		if t.decoder == nil {
 			var err error
-			t.decoder, err = t.format.CreateDecoder()
+			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
 				return nil, err
 			}

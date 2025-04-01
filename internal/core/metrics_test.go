@@ -15,7 +15,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	pwebrtc "github.com/pion/webrtc/v4"
@@ -246,12 +246,6 @@ webrtc_sessions_bytes_sent 0
 			defer tr.CloseIdleConnections()
 			hc2 := &http.Client{Transport: tr}
 
-			s := &whip.Client{
-				HTTPClient: hc2,
-				URL:        su,
-				Log:        test.NilLogger,
-			}
-
 			track := &webrtc.OutgoingTrack{
 				Caps: pwebrtc.RTPCodecCapability{
 					MimeType:    pwebrtc.MimeTypeH264,
@@ -260,7 +254,15 @@ webrtc_sessions_bytes_sent 0
 				},
 			}
 
-			err = s.Publish(context.Background(), []*webrtc.OutgoingTrack{track})
+			s := &whip.Client{
+				HTTPClient:     hc2,
+				URL:            su,
+				Log:            test.NilLogger,
+				Publish:        true,
+				OutgoingTracks: []*webrtc.OutgoingTrack{track},
+			}
+
+			err = s.Initialize(context.Background())
 			require.NoError(t, err)
 			defer checkClose(t, s.Close)
 
@@ -298,10 +300,11 @@ webrtc_sessions_bytes_sent 0
 			}
 
 			bw := bufio.NewWriter(publisher)
-			w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+			w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+			err = w.Initialize()
 			require.NoError(t, err)
 
-			err = w.WriteH2642(track, 0, 0, [][]byte{
+			err = w.WriteH264(track, 0, 0, [][]byte{
 				test.FormatH264.SPS,
 				test.FormatH264.PPS,
 				{0x05, 1}, // IDR

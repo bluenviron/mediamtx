@@ -3,30 +3,44 @@ package main
 import (
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/conf/yaml"
+	"github.com/bluenviron/mediamtx/internal/conf/yamlwrapper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/stretchr/testify/require"
 )
+
+type openAPIProperty struct {
+	Ref      string `json:"$ref"`
+	Type     string `json:"type"`
+	Nullable bool   `json:"nullable"`
+}
+
+type openAPISchema struct {
+	Type       string                     `json:"type"`
+	Properties map[string]openAPIProperty `json:"properties"`
+}
+
+type openAPI struct {
+	Components struct {
+		Schemas map[string]openAPISchema `json:"schemas"`
+	} `json:"components"`
+}
 
 func TestAPIDocs(t *testing.T) {
 	byts, err := os.ReadFile("../../apidocs/openapi.yaml")
 	require.NoError(t, err)
 
-	var raw map[string]interface{}
-	err = yaml.Load(byts, &raw)
+	var doc openAPI
+	err = yamlwrapper.Unmarshal(byts, &doc)
 	require.NoError(t, err)
 
-	components := raw["components"].(map[string]interface{})
-	schemas := components["schemas"].(map[string]interface{})
-
 	for _, ca := range []struct {
-		yamlKey  string
-		goStruct interface{}
+		openAPIKey string
+		goStruct   any
 	}{
 		{
 			"AuthInternalUser",
@@ -125,30 +139,46 @@ func TestAPIDocs(t *testing.T) {
 			defs.APIWebRTCSessionList{},
 		},
 	} {
-		t.Run(ca.yamlKey, func(t *testing.T) {
-			yamlContent := schemas[ca.yamlKey].(map[string]interface{})
-			props := yamlContent["properties"].(map[string]interface{})
-			key1 := make([]string, len(props))
-			i := 0
-			for key := range props {
-				key1[i] = key
-				i++
-			}
+		t.Run(ca.openAPIKey, func(t *testing.T) {
+			content1 := doc.Components.Schemas[ca.openAPIKey]
 
-			var key2 []string
+			content2 := openAPISchema{
+				Type:       "object",
+				Properties: make(map[string]openAPIProperty),
+			}
 			ty := reflect.TypeOf(ca.goStruct)
-			for i := 0; i < ty.NumField(); i++ {
+			for i := range ty.NumField() {
 				sf := ty.Field(i)
 				js := sf.Tag.Get("json")
 				if js != "-" && js != "paths" && js != "pathDefaults" && !strings.Contains(js, ",omitempty") {
-					key2 = append(key2, js)
+					switch {
+					case sf.Type == reflect.TypeOf(""):
+						content2.Properties[js] = openAPIProperty{Type: "string"}
+
+					case sf.Type == reflect.TypeOf(int(0)):
+						content2.Properties[js] = openAPIProperty{Type: "integer"}
+
+					case sf.Type == reflect.TypeOf(false):
+						content2.Properties[js] = openAPIProperty{Type: "boolean"}
+
+					case sf.Type == reflect.TypeOf(time.Time{}):
+						content2.Properties[js] = openAPIProperty{Type: "string"}
+
+					case sf.Type == reflect.TypeOf(&time.Time{}):
+						content2.Properties[js] = openAPIProperty{
+							Type:     "string",
+							Nullable: true,
+						}
+
+					default:
+						if existing, ok := content1.Properties[js]; ok {
+							content2.Properties[js] = existing
+						}
+					}
 				}
 			}
 
-			sort.Strings(key1)
-			sort.Strings(key2)
-
-			require.Equal(t, key1, key2)
+			require.Equal(t, content2, content1)
 		})
 	}
 }

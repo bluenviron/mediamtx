@@ -14,16 +14,17 @@ import (
 )
 
 func TestFromStreamNoSupportedCodecs(t *testing.T) {
-	stream, err := stream.New(
-		512,
-		1460,
-		&description.Session{Medias: []*description.Media{{
+	strm := &stream.Stream{
+		WriteQueueSize:    512,
+		UDPMaxPayloadSize: 1472,
+		Desc: &description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
 			Formats: []format.Format{&format.VP8{}},
 		}}},
-		true,
-		test.NilLogger,
-	)
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
 	require.NoError(t, err)
 
 	l := test.Logger(func(logger.Level, string, ...interface{}) {
@@ -32,15 +33,15 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 
 	m := &gohlslib.Muxer{}
 
-	err = FromStream(stream, l, m)
+	err = FromStream(strm, l, m)
 	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
-	stream, err := stream.New(
-		512,
-		1460,
-		&description.Session{Medias: []*description.Media{
+	strm := &stream.Stream{
+		WriteQueueSize:    512,
+		UDPMaxPayloadSize: 1472,
+		Desc: &description.Session{Medias: []*description.Media{
 			{
 				Type:    description.MediaTypeVideo,
 				Formats: []format.Format{&format.VP9{}},
@@ -54,9 +55,10 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 				Formats: []format.Format{&format.MPEG1Audio{}},
 			},
 		}},
-		true,
-		test.NilLogger,
-	)
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
 	require.NoError(t, err)
 
 	m := &gohlslib.Muxer{}
@@ -74,9 +76,9 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		n++
 	})
 
-	err = FromStream(stream, l, m)
+	err = FromStream(strm, l, m)
 	require.NoError(t, err)
-	defer stream.RemoveReader(l)
+	defer strm.RemoveReader(l)
 
 	require.Equal(t, 2, n)
 }

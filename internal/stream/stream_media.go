@@ -3,36 +3,34 @@ package stream
 import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 )
 
 type streamMedia struct {
+	udpMaxPayloadSize  int
+	media              *description.Media
+	generateRTPPackets bool
+	processingErrors   *counterdumper.CounterDumper
+
 	formats map[format.Format]*streamFormat
 }
 
-func newStreamMedia(udpMaxPayloadSize int,
-	medi *description.Media,
-	generateRTPPackets bool,
-	decodeErrLogger logger.Writer,
-) (*streamMedia, error) {
-	sm := &streamMedia{
-		formats: make(map[format.Format]*streamFormat),
-	}
+func (sm *streamMedia) initialize() error {
+	sm.formats = make(map[format.Format]*streamFormat)
 
-	for _, forma := range medi.Formats {
+	for _, forma := range sm.media.Formats {
 		sf := &streamFormat{
-			udpMaxPayloadSize:  udpMaxPayloadSize,
+			udpMaxPayloadSize:  sm.udpMaxPayloadSize,
 			format:             forma,
-			generateRTPPackets: generateRTPPackets,
-			decodeErrLogger:    decodeErrLogger,
+			generateRTPPackets: sm.generateRTPPackets,
+			processingErrors:   sm.processingErrors,
 		}
 		err := sf.initialize()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sm.formats[forma] = sf
 	}
 
-	return sm, nil
+	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -26,63 +27,72 @@ type ReadFunc func(unit.Unit) error
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers.
 type Stream struct {
-	writeQueueSize int
-	desc           *description.Session
+	WriteQueueSize     int
+	UDPMaxPayloadSize  int
+	Desc               *description.Session
+	GenerateRTPPackets bool
+	Parent             logger.Writer
 
-	bytesReceived *uint64
-	bytesSent     *uint64
-	streamMedias  map[*description.Media]*streamMedia
-	mutex         sync.RWMutex
-	rtspStream    *gortsplib.ServerStream
-	rtspsStream   *gortsplib.ServerStream
-	streamReaders map[Reader]*streamReader
+	bytesReceived    *uint64
+	bytesSent        *uint64
+	streamMedias     map[*description.Media]*streamMedia
+	mutex            sync.RWMutex
+	rtspStream       *gortsplib.ServerStream
+	rtspsStream      *gortsplib.ServerStream
+	streamReaders    map[Reader]*streamReader
+	processingErrors *counterdumper.CounterDumper
 
 	readerRunning chan struct{}
 }
 
-// New allocates a Stream.
-func New(
-	writeQueueSize int,
-	udpMaxPayloadSize int,
-	desc *description.Session,
-	generateRTPPackets bool,
-	decodeErrLogger logger.Writer,
-) (*Stream, error) {
-	s := &Stream{
-		writeQueueSize: writeQueueSize,
-		desc:           desc,
-		bytesReceived:  new(uint64),
-		bytesSent:      new(uint64),
-	}
-
+// Initialize initializes a Stream.
+func (s *Stream) Initialize() error {
+	s.bytesReceived = new(uint64)
+	s.bytesSent = new(uint64)
 	s.streamMedias = make(map[*description.Media]*streamMedia)
 	s.streamReaders = make(map[Reader]*streamReader)
 	s.readerRunning = make(chan struct{})
 
-	for _, media := range desc.Medias {
-		var err error
-		s.streamMedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, decodeErrLogger)
+	s.processingErrors = &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Parent.Log(logger.Warn, "%d processing %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
+	s.processingErrors.Start()
+
+	for _, media := range s.Desc.Medias {
+		s.streamMedias[media] = &streamMedia{
+			udpMaxPayloadSize:  s.UDPMaxPayloadSize,
+			media:              media,
+			generateRTPPackets: s.GenerateRTPPackets,
+			processingErrors:   s.processingErrors,
+		}
+		err := s.streamMedias[media].initialize()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return s, nil
+	return nil
 }
 
 // Close closes all resources of the stream.
 func (s *Stream) Close() {
+	s.processingErrors.Stop()
+
 	if s.rtspStream != nil {
 		s.rtspStream.Close()
 	}
 	if s.rtspsStream != nil {
 		s.rtspsStream.Close()
 	}
-}
-
-// Desc returns the description of the stream.
-func (s *Stream) Desc() *description.Session {
-	return s.desc
 }
 
 // BytesReceived returns received bytes.
@@ -98,15 +108,11 @@ func (s *Stream) BytesSent() uint64 {
 	bytesSent := atomic.LoadUint64(s.bytesSent)
 	if s.rtspStream != nil {
 		stats := s.rtspStream.Stats()
-		if stats != nil {
-			bytesSent += stats.BytesSent
-		}
+		bytesSent += stats.BytesSent
 	}
 	if s.rtspsStream != nil {
 		stats := s.rtspsStream.Stats()
-		if stats != nil {
-			bytesSent += stats.BytesSent
-		}
+		bytesSent += stats.BytesSent
 	}
 	return bytesSent
 }
@@ -117,7 +123,14 @@ func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspStream == nil {
-		s.rtspStream = gortsplib.NewServerStream(server, s.desc)
+		s.rtspStream = &gortsplib.ServerStream{
+			Server: server,
+			Desc:   s.Desc,
+		}
+		err := s.rtspStream.Initialize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return s.rtspStream
 }
@@ -128,7 +141,14 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	defer s.mutex.Unlock()
 
 	if s.rtspsStream == nil {
-		s.rtspsStream = gortsplib.NewServerStream(server, s.desc)
+		s.rtspsStream = &gortsplib.ServerStream{
+			Server: server,
+			Desc:   s.Desc,
+		}
+		err := s.rtspsStream.Initialize()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return s.rtspsStream
 }
@@ -142,7 +162,7 @@ func (s *Stream) AddReader(reader Reader, medi *description.Media, forma format.
 	sr, ok := s.streamReaders[reader]
 	if !ok {
 		sr = &streamReader{
-			queueSize: s.writeQueueSize,
+			queueSize: s.WriteQueueSize,
 			parent:    reader,
 		}
 		sr.initialize()

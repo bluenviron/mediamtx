@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -438,23 +436,11 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 	}
 
 	if pa.conf.Fallback != "" {
-		fallbackURL := func() string {
-			if strings.HasPrefix(pa.conf.Fallback, "/") {
-				ur := base.URL{
-					Scheme: req.AccessRequest.RTSPRequest.URL.Scheme,
-					User:   req.AccessRequest.RTSPRequest.URL.User,
-					Host:   req.AccessRequest.RTSPRequest.URL.Host,
-					Path:   pa.conf.Fallback,
-				}
-				return ur.String()
-			}
-			return pa.conf.Fallback
-		}()
-		req.Res <- defs.PathDescribeRes{Redirect: fallbackURL}
+		req.Res <- defs.PathDescribeRes{Redirect: pa.conf.Fallback}
 		return
 	}
 
-	req.Res <- defs.PathDescribeRes{Err: defs.PathNoOnePublishingError{PathName: pa.name}}
+	req.Res <- defs.PathDescribeRes{Err: defs.PathNoStreamAvailableError{PathName: pa.name}}
 }
 
 func (pa *path) doRemovePublisher(req defs.PathRemovePublisherReq) {
@@ -545,7 +531,7 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 		return
 	}
 
-	req.Res <- defs.PathAddReaderRes{Err: defs.PathNoOnePublishingError{PathName: pa.name}}
+	req.Res <- defs.PathAddReaderRes{Err: defs.PathNoStreamAvailableError{PathName: pa.name}}
 }
 
 func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
@@ -591,7 +577,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				if pa.stream == nil {
 					return []string{}
 				}
-				return defs.MediasToCodecs(pa.stream.Desc().Medias)
+				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
 			BytesReceived: func() uint64 {
 				if pa.stream == nil {
@@ -709,14 +695,14 @@ func (pa *path) onDemandPublisherStop(reason string) {
 }
 
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
-	var err error
-	pa.stream, err = stream.New(
-		pa.writeQueueSize,
-		pa.udpMaxPayloadSize,
-		desc,
-		allocateEncoder,
-		logger.NewLimitedLogger(pa.source),
-	)
+	pa.stream = &stream.Stream{
+		WriteQueueSize:     pa.writeQueueSize,
+		UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
+		Desc:               desc,
+		GenerateRTPPackets: allocateEncoder,
+		Parent:             pa.source,
+	}
+	err := pa.stream.Initialize()
 	if err != nil {
 		return err
 	}

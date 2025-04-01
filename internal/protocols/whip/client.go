@@ -26,34 +26,34 @@ const (
 
 // Client is a WHIP client.
 type Client struct {
-	HTTPClient *http.Client
-	URL        *url.URL
-	Log        logger.Writer
+	URL            *url.URL
+	Publish        bool
+	OutgoingTracks []*webrtc.OutgoingTrack
+	HTTPClient     *http.Client
+	Log            logger.Writer
 
 	pc               *webrtc.PeerConnection
 	patchIsSupported bool
 }
 
-// Publish publishes tracks.
-func (c *Client) Publish(
-	ctx context.Context,
-	outgoingTracks []*webrtc.OutgoingTrack,
-) error {
+// Initialize initializes the Client.
+func (c *Client) Initialize(ctx context.Context) error {
 	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
 		return err
 	}
 
 	c.pc = &webrtc.PeerConnection{
+		LocalRandomUDP:     true,
 		ICEServers:         iceServers,
+		IPsFromInterfaces:  true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		Publish:            true,
-		OutgoingTracks:     outgoingTracks,
+		Publish:            c.Publish,
+		OutgoingTracks:     c.OutgoingTracks,
 		Log:                c.Log,
 	}
+
 	err = c.pc.Start()
 	if err != nil {
 		return err
@@ -77,101 +77,28 @@ func (c *Client) Publish(
 		return err
 	}
 
-	err = c.pc.SetAnswer(res.Answer)
-	if err != nil {
-		c.deleteSession(context.Background()) //nolint:errcheck
-		c.pc.Close()
-		return err
-	}
-
-	t := time.NewTimer(handshakeTimeout)
-	defer t.Stop()
-
-outer:
-	for {
-		select {
-		case ca := <-c.pc.NewLocalCandidate():
-			err := c.patchCandidate(ctx, offer, res.ETag, ca)
-			if err != nil {
-				c.deleteSession(context.Background()) //nolint:errcheck
-				c.pc.Close()
-				return err
-			}
-
-		case <-c.pc.GatheringDone():
-
-		case <-c.pc.Ready():
-			break outer
-
-		case <-t.C:
+	if !c.Publish {
+		var sdp sdp.SessionDescription
+		err = sdp.Unmarshal([]byte(res.Answer.SDP))
+		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
-			return fmt.Errorf("deadline exceeded while waiting connection")
+			return err
+		}
+
+		err = webrtc.TracksAreValid(sdp.MediaDescriptions)
+		if err != nil {
+			c.deleteSession(context.Background()) //nolint:errcheck
+			c.pc.Close()
+			return err
 		}
 	}
 
-	return nil
-}
-
-// Read reads tracks.
-func (c *Client) Read(ctx context.Context) ([]*webrtc.IncomingTrack, error) {
-	iceServers, err := c.optionsICEServers(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.pc = &webrtc.PeerConnection{
-		ICEServers:         iceServers,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		Publish:            false,
-		Log:                c.Log,
-	}
-	err = c.pc.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	offer, err := c.pc.CreatePartialOffer()
-	if err != nil {
-		c.pc.Close()
-		return nil, err
-	}
-
-	res, err := c.postOffer(ctx, offer)
-	if err != nil {
-		c.pc.Close()
-		return nil, err
-	}
-
-	c.URL, err = c.URL.Parse(res.Location)
-	if err != nil {
-		c.pc.Close()
-		return nil, err
-	}
-
-	var sdp sdp.SessionDescription
-	err = sdp.Unmarshal([]byte(res.Answer.SDP))
-	if err != nil {
-		c.deleteSession(context.Background()) //nolint:errcheck
-		c.pc.Close()
-		return nil, err
-	}
-
-	err = webrtc.TracksAreValid(sdp.MediaDescriptions)
-	if err != nil {
-		c.deleteSession(context.Background()) //nolint:errcheck
-		c.pc.Close()
-		return nil, err
-	}
-
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
 		c.pc.Close()
-		return nil, err
+		return err
 	}
 
 	t := time.NewTimer(handshakeTimeout)
@@ -185,34 +112,41 @@ outer:
 			if err != nil {
 				c.deleteSession(context.Background()) //nolint:errcheck
 				c.pc.Close()
-				return nil, err
+				return err
 			}
 
 		case <-c.pc.GatheringDone():
 
-		case <-c.pc.Ready():
+		case <-c.pc.Connected():
 			break outer
 
 		case <-t.C:
 			c.deleteSession(context.Background()) //nolint:errcheck
 			c.pc.Close()
-			return nil, fmt.Errorf("deadline exceeded while waiting connection")
+			return fmt.Errorf("deadline exceeded while waiting connection")
 		}
 	}
 
-	tracks, err := c.pc.GatherIncomingTracks(ctx)
-	if err != nil {
-		c.deleteSession(context.Background()) //nolint:errcheck
-		c.pc.Close()
-		return nil, err
+	if !c.Publish {
+		err = c.pc.GatherIncomingTracks(ctx)
+		if err != nil {
+			c.deleteSession(context.Background()) //nolint:errcheck
+			c.pc.Close()
+			return err
+		}
 	}
 
-	return tracks, nil
+	return nil
 }
 
 // PeerConnection returns the underlying peer connection.
 func (c *Client) PeerConnection() *webrtc.PeerConnection {
 	return c.pc
+}
+
+// IncomingTracks returns incoming tracks.
+func (c *Client) IncomingTracks() []*webrtc.IncomingTrack {
+	return c.pc.IncomingTracks()
 }
 
 // StartReading starts reading all incoming tracks.

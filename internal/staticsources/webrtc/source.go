@@ -54,7 +54,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		Log: s,
 	}
 
-	_, err = client.Read(params.Context)
+	err = client.Initialize(params.Context)
 	if err != nil {
 		return err
 	}
@@ -75,9 +75,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return rres.Err
 	}
 
-	stream = rres.Stream
-
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
+	stream = rres.Stream
 
 	client.StartReading()
 

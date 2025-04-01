@@ -8,11 +8,11 @@ import (
 	"time"
 
 	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4video"
-	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -77,7 +77,7 @@ func (f *formatMPEGTS) initialize() bool {
 		return track
 	}
 
-	for _, media := range f.ri.rec.Stream.Desc().Medias {
+	for _, media := range f.ri.rec.Stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -85,7 +85,7 @@ func (f *formatMPEGTS) initialize() bool {
 			case *rtspformat.H265: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH265{})
 
-				var dtsExtractor *h265.DTSExtractor2
+				var dtsExtractor *h265.DTSExtractor
 
 				f.ri.rec.Stream.AddReader(
 					f.ri,
@@ -103,7 +103,8 @@ func (f *formatMPEGTS) initialize() bool {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h265.NewDTSExtractor2()
+							dtsExtractor = &h265.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -117,7 +118,7 @@ func (f *formatMPEGTS) initialize() bool {
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH2652(
+								return f.mw.WriteH265(
 									track,
 									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
@@ -129,7 +130,7 @@ func (f *formatMPEGTS) initialize() bool {
 			case *rtspformat.H264: //nolint:dupl
 				track := addTrack(forma, &mpegts.CodecH264{})
 
-				var dtsExtractor *h264.DTSExtractor2
+				var dtsExtractor *h264.DTSExtractor
 
 				f.ri.rec.Stream.AddReader(
 					f.ri,
@@ -141,13 +142,14 @@ func (f *formatMPEGTS) initialize() bool {
 							return nil
 						}
 
-						randomAccess := h264.IDRPresent(tunit.AU)
+						randomAccess := h264.IsRandomAccess(tunit.AU)
 
 						if dtsExtractor == nil {
 							if !randomAccess {
 								return nil
 							}
-							dtsExtractor = h264.NewDTSExtractor2()
+							dtsExtractor = &h264.DTSExtractor{}
+							dtsExtractor.Initialize()
 						}
 
 						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
@@ -161,7 +163,7 @@ func (f *formatMPEGTS) initialize() bool {
 							true,
 							randomAccess,
 							func() error {
-								return f.mw.WriteH2642(
+								return f.mw.WriteH264(
 									track,
 									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
@@ -383,7 +385,7 @@ func (f *formatMPEGTS) initialize() bool {
 	}
 
 	n := 1
-	for _, medi := range f.ri.rec.Stream.Desc().Medias {
+	for _, medi := range f.ri.rec.Stream.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormatsMap[forma]; !ok {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
@@ -394,7 +396,12 @@ func (f *formatMPEGTS) initialize() bool {
 
 	f.dw = &dynamicWriter{}
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
-	f.mw = mpegts.NewWriter(f.bw, tracks)
+
+	f.mw = &mpegts.Writer{W: f.bw, Tracks: tracks}
+	err := f.mw.Initialize()
+	if err != nil {
+		panic(err)
+	}
 
 	f.ri.Log(logger.Info, "recording %s",
 		defs.FormatsInfo(setuppedFormats))

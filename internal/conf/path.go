@@ -16,7 +16,8 @@ import (
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
 
-func isValidPathName(name string) error {
+// IsValidPathName checks whether the path name is valid.
+func IsValidPathName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cannot be empty")
 	}
@@ -36,7 +37,7 @@ func isValidPathName(name string) error {
 	return nil
 }
 
-func srtCheckPassphrase(passphrase string) error {
+func checkSRTPassphrase(passphrase string) error {
 	switch {
 	case len(passphrase) < 10 || len(passphrase) > 79:
 		return fmt.Errorf("must be between 10 and 79 characters")
@@ -46,13 +47,24 @@ func srtCheckPassphrase(passphrase string) error {
 	}
 }
 
-// FindPathConf returns the configuration corresponding to the given path name.
-func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, error) {
-	err := isValidPathName(name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+func checkRedirect(v string) error {
+	if strings.HasPrefix(v, "/") {
+		err := IsValidPathName(v[1:])
+		if err != nil {
+			return fmt.Errorf("'%s': %w", v, err)
+		}
+	} else {
+		_, err := base.ParseURL(v)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid RTSP URL", v)
+		}
 	}
 
+	return nil
+}
+
+// FindPathConf returns the configuration corresponding to the given path name.
+func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, error) {
 	// normal path
 	if pathConf, ok := pathConfs[name]; ok {
 		return pathConf, nil, nil
@@ -61,6 +73,11 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 	// regular expression-based path
 	for pathConfName, pathConf := range pathConfs {
 		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
+			err := IsValidPathName(name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+			}
+
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
 				return pathConf, m, nil
@@ -71,6 +88,11 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 	// process all_others after every other entry
 	for pathConfName, pathConf := range pathConfs {
 		if pathConfName == "all" || pathConfName == "all_others" {
+			err := IsValidPathName(name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+			}
+
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
 				return pathConf, m, nil
@@ -96,6 +118,7 @@ type Path struct {
 	MaxReaders                 int      `json:"maxReaders"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
 	Fallback                   string   `json:"fallback"`
+	RTSPAbsoluteTimestamp      bool     `json:"rtspAbsoluteTimestamp"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -266,7 +289,7 @@ func (pconf *Path) validate(
 		pconf.Regexp = regexp.MustCompile("^.*$")
 
 	case name == "" || name[0] != '~': // normal path
-		err := isValidPathName(name)
+		err := IsValidPathName(name)
 		if err != nil {
 			return fmt.Errorf("invalid path name '%s': %w", name, err)
 		}
@@ -295,6 +318,10 @@ func (pconf *Path) validate(
 		return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 	}
 
+	if pconf.Source != "redirect" && pconf.SourceRedirect != "" {
+		return fmt.Errorf("'sourceRedirect' is useless when source is not 'redirect'")
+	}
+
 	// source-dependent settings
 
 	switch {
@@ -306,7 +333,7 @@ func (pconf *Path) validate(
 		}
 
 		if pconf.SRTPublishPassphrase != "" {
-			err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
+			err := checkSRTPassphrase(pconf.SRTPublishPassphrase)
 			if err != nil {
 				return fmt.Errorf("invalid 'srtPublishPassphrase': %w", err)
 			}
@@ -387,9 +414,9 @@ func (pconf *Path) validate(
 			return fmt.Errorf("source redirect must be filled")
 		}
 
-		_, err := base.ParseURL(pconf.SourceRedirect)
+		err := checkRedirect(pconf.SourceRedirect)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
+			return err
 		}
 
 	case pconf.Source == "rpiCamera":
@@ -450,23 +477,16 @@ func (pconf *Path) validate(
 	}
 
 	if pconf.SRTReadPassphrase != "" {
-		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
+		err := checkSRTPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %w", err)
 		}
 	}
 
 	if pconf.Fallback != "" {
-		if strings.HasPrefix(pconf.Fallback, "/") {
-			err := isValidPathName(pconf.Fallback[1:])
-			if err != nil {
-				return fmt.Errorf("'%s': %w", pconf.Fallback, err)
-			}
-		} else {
-			_, err := base.ParseURL(pconf.Fallback)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
-			}
+		err := checkRedirect(pconf.Fallback)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -476,23 +496,25 @@ func (pconf *Path) validate(
 		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
 	}
 
-	if conf.Playback {
-		if !strings.Contains(pconf.RecordPath, "%Y") ||
-			!strings.Contains(pconf.RecordPath, "%m") ||
-			!strings.Contains(pconf.RecordPath, "%d") ||
-			!strings.Contains(pconf.RecordPath, "%H") ||
-			!strings.Contains(pconf.RecordPath, "%M") ||
-			!strings.Contains(pconf.RecordPath, "%S") ||
-			!strings.Contains(pconf.RecordPath, "%f") {
-			return fmt.Errorf("record path '%s' is missing one of the mandatory elements"+
-				" for the playback server to work: %%Y %%m %%d %%H %%M %%S %%f",
-				pconf.RecordPath)
-		}
+	if !strings.Contains(pconf.RecordPath, "%path") ||
+		!strings.Contains(pconf.RecordPath, "%Y") ||
+		!strings.Contains(pconf.RecordPath, "%m") ||
+		!strings.Contains(pconf.RecordPath, "%d") ||
+		!strings.Contains(pconf.RecordPath, "%H") ||
+		!strings.Contains(pconf.RecordPath, "%M") ||
+		!strings.Contains(pconf.RecordPath, "%S") ||
+		!strings.Contains(pconf.RecordPath, "%f") {
+		return fmt.Errorf("record path '%s' is missing one of the mandatory elements:"+
+			" %%path %%Y %%m %%d %%H %%M %%S %%f",
+			pconf.RecordPath)
 	}
 
-	// avoid overflowing DurationV0 of mvhd
-	if pconf.RecordSegmentDuration > Duration(24*time.Hour) {
+	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
 		return fmt.Errorf("maximum segment duration is 1 day")
+	}
+
+	if pconf.RecordDeleteAfter != 0 && pconf.RecordDeleteAfter < pconf.RecordSegmentDuration {
+		return fmt.Errorf("'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'")
 	}
 
 	// Authentication (deprecated)

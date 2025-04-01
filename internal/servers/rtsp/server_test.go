@@ -38,20 +38,19 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 }
 
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	var err error
-	p.stream, err = stream.New(
-		512,
-		1460,
-		req.Desc,
-		true,
-		test.NilLogger,
-	)
+	p.stream = &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               req.Desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := p.stream.Initialize()
 	if err != nil {
 		return nil, err
 	}
 
 	close(p.streamCreated)
-
 	return p.stream, nil
 }
 
@@ -72,7 +71,7 @@ func TestServerPublish(t *testing.T) {
 	pathManager := &test.PathManager{
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
-				return nil, &auth.Error{Message: "", AskCredentials: true}
+				return nil, auth.Error{Message: "", AskCredentials: true}
 			}
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
@@ -83,29 +82,14 @@ func TestServerPublish(t *testing.T) {
 	}
 
 	s := &Server{
-		Address:             "127.0.0.1:8557",
-		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
-		ReadTimeout:         conf.Duration(10 * time.Second),
-		WriteTimeout:        conf.Duration(10 * time.Second),
-		WriteQueueSize:      512,
-		UseUDP:              false,
-		UseMulticast:        false,
-		RTPAddress:          "",
-		RTCPAddress:         "",
-		MulticastIPRange:    "",
-		MulticastRTPPort:    0,
-		MulticastRTCPPort:   0,
-		IsTLS:               false,
-		ServerCert:          "",
-		ServerKey:           "",
-		RTSPAddress:         "",
-		Transports:          conf.RTSPTransports{gortsplib.TransportTCP: {}},
-		RunOnConnect:        "",
-		RunOnConnectRestart: false,
-		RunOnDisconnect:     "",
-		ExternalCmdPool:     nil,
-		PathManager:         pathManager,
-		Parent:              test.NilLogger,
+		Address:        "127.0.0.1:8557",
+		AuthMethods:    []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -129,8 +113,8 @@ func TestServerPublish(t *testing.T) {
 
 	path.stream.AddReader(
 		reader,
-		path.stream.Desc().Medias[0],
-		path.stream.Desc().Medias[0].Formats[0],
+		path.stream.Desc.Medias[0],
+		path.stream.Desc.Medias[0].Formats[0],
 		func(u unit.Unit) error {
 			require.Equal(t, [][]byte{
 				test.FormatH264.SPS,
@@ -163,21 +147,22 @@ func TestServerPublish(t *testing.T) {
 func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
-	str, err := stream.New(
-		512,
-		1460,
-		desc,
-		true,
-		test.NilLogger,
-	)
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
 	require.NoError(t, err)
 
-	path := &dummyPath{stream: str}
+	path := &dummyPath{stream: strm}
 
 	pathManager := &test.PathManager{
 		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 			if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
-				return defs.PathDescribeRes{Err: &auth.Error{Message: "", AskCredentials: true}}
+				return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 			}
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
@@ -185,10 +170,9 @@ func TestServerRead(t *testing.T) {
 			require.Equal(t, "mypass", req.AccessRequest.Pass)
 
 			return defs.PathDescribeRes{
-				Path:     path,
-				Stream:   path.stream,
-				Redirect: "",
-				Err:      nil,
+				Path:   path,
+				Stream: path.stream,
+				Err:    nil,
 			}
 		},
 		AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -201,29 +185,14 @@ func TestServerRead(t *testing.T) {
 	}
 
 	s := &Server{
-		Address:             "127.0.0.1:8557",
-		AuthMethods:         []rtspauth.ValidateMethod{rtspauth.ValidateMethodBasic},
-		ReadTimeout:         conf.Duration(10 * time.Second),
-		WriteTimeout:        conf.Duration(10 * time.Second),
-		WriteQueueSize:      512,
-		UseUDP:              false,
-		UseMulticast:        false,
-		RTPAddress:          "",
-		RTCPAddress:         "",
-		MulticastIPRange:    "",
-		MulticastRTPPort:    0,
-		MulticastRTCPPort:   0,
-		IsTLS:               false,
-		ServerCert:          "",
-		ServerKey:           "",
-		RTSPAddress:         "",
-		Transports:          conf.RTSPTransports{gortsplib.TransportTCP: {}},
-		RunOnConnect:        "",
-		RunOnConnectRestart: false,
-		RunOnDisconnect:     "",
-		ExternalCmdPool:     nil,
-		PathManager:         pathManager,
-		Parent:              test.NilLogger,
+		Address:        "127.0.0.1:8557",
+		AuthMethods:    []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
@@ -271,7 +240,7 @@ func TestServerRead(t *testing.T) {
 	_, err = reader.Play(nil)
 	require.NoError(t, err)
 
-	str.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{
 			NTP: time.Time{},
 		},
@@ -281,4 +250,82 @@ func TestServerRead(t *testing.T) {
 	})
 
 	<-recv
+}
+
+func TestServerRedirect(t *testing.T) {
+	for _, ca := range []string{"relative", "absolute"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+			strm := &stream.Stream{
+				WriteQueueSize:     512,
+				UDPMaxPayloadSize:  1472,
+				Desc:               desc,
+				GenerateRTPPackets: true,
+				Parent:             test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			path := &dummyPath{stream: strm}
+
+			pathManager := &test.PathManager{
+				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+					if req.AccessRequest.Name == "path1" {
+						if ca == "relative" {
+							return defs.PathDescribeRes{
+								Redirect: "/path2",
+							}
+						}
+						return defs.PathDescribeRes{
+							Redirect: "rtsp://localhost:8557/path2",
+						}
+					}
+
+					if req.AccessRequest.User == "" && req.AccessRequest.Pass == "" {
+						return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
+					}
+
+					require.Equal(t, "path2", req.AccessRequest.Name)
+					require.Equal(t, "", req.AccessRequest.Query)
+					require.Equal(t, "myuser", req.AccessRequest.User)
+					require.Equal(t, "mypass", req.AccessRequest.Pass)
+
+					return defs.PathDescribeRes{
+						Path:   path,
+						Stream: path.stream,
+						Err:    nil,
+					}
+				},
+			}
+
+			s := &Server{
+				Address:        "127.0.0.1:8557",
+				AuthMethods:    []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
+				ReadTimeout:    conf.Duration(10 * time.Second),
+				WriteTimeout:   conf.Duration(10 * time.Second),
+				WriteQueueSize: 512,
+				Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+				PathManager:    pathManager,
+				Parent:         test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			reader := gortsplib.Client{}
+
+			u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/path1?param=value")
+			require.NoError(t, err)
+
+			err = reader.Start(u.Scheme, u.Host)
+			require.NoError(t, err)
+			defer reader.Close()
+
+			desc2, _, err := reader.Describe(u)
+			require.NoError(t, err)
+
+			require.Equal(t, desc.Medias[0].Formats, desc2.Medias[0].Formats)
+		})
+	}
 }

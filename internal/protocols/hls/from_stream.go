@@ -36,7 +36,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatAV1 *format.AV1
-	videoMedia := strea.Desc().FindFormat(&videoFormatAV1)
+	videoMedia := strea.Desc.FindFormat(&videoFormatAV1)
 
 	if videoFormatAV1 != nil {
 		track := &gohlslib.Track{
@@ -71,7 +71,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatVP9 *format.VP9
-	videoMedia = strea.Desc().FindFormat(&videoFormatVP9)
+	videoMedia = strea.Desc.FindFormat(&videoFormatVP9)
 
 	if videoFormatVP9 != nil {
 		track := &gohlslib.Track{
@@ -106,7 +106,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatH265 *format.H265
-	videoMedia = strea.Desc().FindFormat(&videoFormatH265)
+	videoMedia = strea.Desc.FindFormat(&videoFormatH265)
 
 	if videoFormatH265 != nil {
 		vps, sps, pps := videoFormatH265.SafeParams()
@@ -146,7 +146,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatH264 *format.H264
-	videoMedia = strea.Desc().FindFormat(&videoFormatH264)
+	videoMedia = strea.Desc.FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
 		sps, pps := videoFormatH264.SafeParams()
@@ -202,7 +202,7 @@ func setupAudioTracks(
 		strea.AddReader(reader, medi, forma, readFunc)
 	}
 
-	for _, media := range strea.Desc().Medias {
+	for _, media := range strea.Desc.Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.Opus:
@@ -297,7 +297,7 @@ func FromStream(
 	}
 
 	n := 1
-	for _, media := range stream.Desc().Medias {
+	for _, media := range stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			if _, ok := setuppedFormats[forma]; !ok {
 				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())

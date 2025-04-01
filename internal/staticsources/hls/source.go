@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
@@ -37,7 +38,21 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 	}()
 
-	decodeErrLogger := logger.NewLimitedLogger(s)
+	decodeErrors := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
+
+	decodeErrors.Start()
+	defer decodeErrors.Stop()
 
 	tr := &http.Transport{
 		TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
@@ -63,8 +78,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnDownloadPart: func(u string) {
 			s.Log(logger.Debug, "downloading part %v", u)
 		},
-		OnDecodeError: func(err error) {
-			decodeErrLogger.Log(logger.Warn, err.Error())
+		OnDecodeError: func(_ error) {
+			decodeErrors.Increase()
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
 			medias, err := hls.ToStream(c, tracks, &stream)

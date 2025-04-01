@@ -41,6 +41,7 @@ func TestSource(t *testing.T) {
 		Publish:            true,
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		STUNGatherTimeout:  conf.Duration(5 * time.Second),
 		OutgoingTracks:     outgoingTracks,
 		Log:                test.NilLogger,
 	}
@@ -81,7 +82,7 @@ func TestSource(t *testing.T) {
 				w.Write([]byte(answer.SDP))
 
 				go func() {
-					err3 := pc.WaitUntilReady(context.Background())
+					err3 := pc.WaitUntilConnected(context.Background())
 					require.NoError(t, err3)
 
 					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{

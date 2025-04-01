@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
@@ -69,15 +70,30 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(sconn srt.Conn) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	r, err := mcmpegts.NewReader(mcmpegts.NewBufferedReader(sconn))
+	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(sconn)}
+	err := r.Initialize()
 	if err != nil {
 		return err
 	}
 
-	decodeErrLogger := logger.NewLimitedLogger(s)
+	decodeErrors := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d decode %s",
+				val,
+				func() string {
+					if val == 1 {
+						return "error"
+					}
+					return "errors"
+				}())
+		},
+	}
 
-	r.OnDecodeError(func(err error) {
-		decodeErrLogger.Log(logger.Warn, err.Error())
+	decodeErrors.Start()
+	defer decodeErrors.Stop()
+
+	r.OnDecodeError(func(_ error) {
+		decodeErrors.Increase()
 	})
 
 	var stream *stream.Stream
