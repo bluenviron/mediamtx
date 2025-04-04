@@ -1,6 +1,6 @@
-//go:build enable_highlevel_tests
+//go:build enable_e2e_tests
 
-package testhighlevel
+package teste2e
 
 import (
 	"net/http"
