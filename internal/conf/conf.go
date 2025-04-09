@@ -210,6 +210,7 @@ type Conf struct {
 	// Playback
 	Playback               bool       `json:"playback"`
 	PlaybackAddress        string     `json:"playbackAddress"`
+	PlaybackBaseUrl        string     `json:"playbackBaseUrl"`
 	PlaybackEncryption     bool       `json:"playbackEncryption"`
 	PlaybackServerKey      string     `json:"playbackServerKey"`
 	PlaybackServerCert     string     `json:"playbackServerCert"`
@@ -353,6 +354,7 @@ func (conf *Conf) setDefaults() {
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
+	conf.PlaybackBaseUrl = ""
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
 	conf.PlaybackAllowOrigin = "*"
@@ -646,6 +648,14 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 	if len(conf.RTSPAuthMethods) == 0 {
 		return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
+	}
+
+	// Playback
+
+	if conf.PlaybackBaseUrl != "" &&
+		!strings.HasPrefix(conf.PlaybackBaseUrl, "http://") &&
+		!strings.HasPrefix(conf.PlaybackBaseUrl, "https://") {
+		return fmt.Errorf("'playbackBaseUrl' must be a HTTP(S) URL")
 	}
 
 	// RTMP
