@@ -31,7 +31,7 @@ jobs:
 
     - run: make test32
 
-  test_highlevel:
+  test_e2e:
     runs-on: ubuntu-22.04
 
     steps:
@@ -43,4 +43,4 @@ jobs:
       with:
         go-version: "1.23"
 
-    - run: make test-highlevel-nodocker
+    - run: make test-e2e-nodocker

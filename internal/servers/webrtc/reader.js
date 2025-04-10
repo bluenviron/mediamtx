@@ -95,25 +95,28 @@
     return ret;
   };
 
-  const findFreePayloadType = (firstLine) => {
-    const payloadTypes = firstLine.split(' ').slice(3);
-    for (let i = 96; i <= 127; i++) {
-      if (!payloadTypes.includes(i.toString())) {
-        return i.toString();
+  const reservePayloadType = (payloadTypes) => {
+    // everything is valid between 30 and 127, except for interval between 64 and 95
+    // https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/call/payload_type.h#29
+    for (let i = 30; i <= 127; i++) {
+      if ((i <= 63 || i >= 96) && !payloadTypes.includes(i.toString())) {
+        const pl = i.toString();
+        payloadTypes.push(pl);
+        return pl;
       }
     }
     throw Error('unable to find a free payload type');
   };
 
-  const enableStereoPcmau = (section) => {
+  const enableStereoPcmau = (payloadTypes, section) => {
     let lines = section.split('\r\n');
 
-    let payloadType = findFreePayloadType(lines[0]);
+    let payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} PCMU/8000/2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} PCMA/8000/2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
@@ -121,40 +124,40 @@
     return lines.join('\r\n');
   };
 
-  const enableMultichannelOpus = (section) => {
+  const enableMultichannelOpus = (payloadTypes, section) => {
     let lines = section.split('\r\n');
 
-    let payloadType = findFreePayloadType(lines[0]);
+    let payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/3`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,2,1;num_streams=2;coupled_streams=1`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/4`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/5`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/6`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/7`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/8`);
     lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4`);
@@ -163,20 +166,20 @@
     return lines.join('\r\n');
   };
 
-  const enableL16 = (section) => {
+  const enableL16 = (payloadTypes, section) => {
     let lines = section.split('\r\n');
 
-    let payloadType = findFreePayloadType(lines[0]);
+    let payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/8000/2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/16000/2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-    payloadType = findFreePayloadType(lines[0]);
+    payloadType = reservePayloadType(payloadTypes);
     lines[0] += ` ${payloadType}`;
     lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/48000/2`);
     lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
@@ -216,18 +219,22 @@
   const editOffer = (sdp, nonAdvertisedCodecs) => {
     const sections = sdp.split('m=');
 
-    for (let i = 0; i < sections.length; i++) {
+    const payloadTypes = sections.slice(1)
+      .map((s) => s.split('\r\n')[0].split(' ').slice(3))
+      .reduce((prev, cur) => [...prev, ...cur], []);
+
+    for (let i = 1; i < sections.length; i++) {
       if (sections[i].startsWith('audio')) {
         sections[i] = enableStereoOpus(sections[i]);
 
         if (nonAdvertisedCodecs.includes('pcma/8000/2')) {
-          sections[i] = enableStereoPcmau(sections[i]);
+          sections[i] = enableStereoPcmau(payloadTypes, sections[i]);
         }
         if (nonAdvertisedCodecs.includes('multiopus/48000/6')) {
-          sections[i] = enableMultichannelOpus(sections[i]);
+          sections[i] = enableMultichannelOpus(payloadTypes, sections[i]);
         }
         if (nonAdvertisedCodecs.includes('L16/48000/2')) {
-          sections[i] = enableL16(sections[i]);
+          sections[i] = enableL16(payloadTypes, sections[i]);
         }
 
         break;
