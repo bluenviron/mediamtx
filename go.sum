@@ -37,8 +37,8 @@ github.com/bluenviron/gohlslib/v2 v2.1.4-0.20250210133907-d3dddacbb9fc h1:t1i9fo
 github.com/bluenviron/gohlslib/v2 v2.1.4-0.20250210133907-d3dddacbb9fc/go.mod h1:soTVqoidOT+L08hUSDreM7DebNyjjViUiEvpWlr7EIs=
 github.com/bluenviron/gortsplib/v4 v4.12.4-0.20250412081005-74a65e4c08ac h1:nAimhoITwkviljXTFYuB8zyqmgF4Q8a/bzki1sn6VMA=
 github.com/bluenviron/gortsplib/v4 v4.12.4-0.20250412081005-74a65e4c08ac/go.mod h1:rEwUB2wda1rjnStH/mMu4SVHTLAAkZBalBp/zDlUbPc=
-github.com/bluenviron/mediacommon/v2 v2.0.1-0.20250324151931-b8ce69d15d3d h1:AlIFt4i8ex3cGfoxLS3JoYVzSP4MgL9aMH/rp6kiYN4=
-github.com/bluenviron/mediacommon/v2 v2.0.1-0.20250324151931-b8ce69d15d3d/go.mod h1:iHEz1SFIet6zBwAQoh1a92vTQ3dV3LpVFbom6/SLz3k=
+github.com/bluenviron/mediacommon/v2 v2.1.0 h1:NtlRCaAo7gnCcO+EHHeFJxSIt+v8uNbvJqlH1Gk2PZM=
+github.com/bluenviron/mediacommon/v2 v2.1.0/go.mod h1:iHEz1SFIet6zBwAQoh1a92vTQ3dV3LpVFbom6/SLz3k=
 github.com/bytedance/sonic v1.13.2 h1:8/H1FempDZqC4VqjptGo14QQlJx8VdZJegxs6wwfqpQ=
 github.com/bytedance/sonic v1.13.2/go.mod h1:o68xyaF9u2gvVBuGHPlUVCy+ZfmNNO5ETf1+KgkJhz4=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
