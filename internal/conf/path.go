@@ -118,7 +118,7 @@ type Path struct {
 	MaxReaders                 int      `json:"maxReaders"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
 	Fallback                   string   `json:"fallback"`
-	RTSPAbsoluteTimestamp      bool     `json:"rtspAbsoluteTimestamp"`
+	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Record
 	Record                bool         `json:"record"`

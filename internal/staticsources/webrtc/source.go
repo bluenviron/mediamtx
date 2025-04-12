@@ -50,8 +50,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
 		},
-		URL: u,
-		Log: s,
+		UseAbsoluteTimestamp: params.Conf.UseAbsoluteTimestamp,
+		URL:                  u,
+		Log:                  s,
 	}
 
 	err = client.Initialize(params.Context)

@@ -597,7 +597,7 @@ func TestServerRead(t *testing.T) {
 
 			done := make(chan struct{})
 
-			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
+			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet, _ time.Time) {
 				select {
 				case <-done:
 				default:

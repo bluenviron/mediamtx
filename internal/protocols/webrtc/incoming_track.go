@@ -3,6 +3,7 @@ package webrtc
 import (
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/rtcpreceiver"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
@@ -236,17 +237,20 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 
 // IncomingTrack is an incoming track.
 type IncomingTrack struct {
-	OnPacketRTP func(*rtp.Packet)
+	OnPacketRTP func(*rtp.Packet, time.Time)
 
-	track       *webrtc.TrackRemote
-	receiver    *webrtc.RTPReceiver
-	writeRTCP   func([]rtcp.Packet) error
-	log         logger.Writer
-	packetsLost *counterdumper.CounterDumper
+	useAbsoluteTimestamp bool
+	track                *webrtc.TrackRemote
+	receiver             *webrtc.RTPReceiver
+	writeRTCP            func([]rtcp.Packet) error
+	log                  logger.Writer
+
+	packetsLost  *counterdumper.CounterDumper
+	rtcpReceiver *rtcpreceiver.RTCPReceiver
 }
 
 func (t *IncomingTrack) initialize() {
-	t.OnPacketRTP = func(*rtp.Packet) {}
+	t.OnPacketRTP = func(*rtp.Packet, time.Time) {}
 }
 
 // ClockRate returns the clock rate. Needed by rtptime.GlobalDecoder
@@ -274,13 +278,36 @@ func (t *IncomingTrack) start() {
 	}
 	t.packetsLost.Start()
 
-	// read incoming RTCP packets to make interceptors work
+	t.rtcpReceiver = &rtcpreceiver.RTCPReceiver{
+		ClockRate: int(t.track.SSRC()),
+		Period:    1 * time.Second,
+		WritePacketRTCP: func(p rtcp.Packet) {
+			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
+		},
+	}
+	err := t.rtcpReceiver.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	// incoming RTCP packets must always be read to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			_, _, err := t.receiver.Read(buf)
+			n, _, err := t.receiver.Read(buf)
 			if err != nil {
 				return
+			}
+
+			pkts, err := rtcp.Unmarshal(buf[:n])
+			if err != nil {
+				panic(err)
+			}
+
+			for _, pkt := range pkts {
+				if sr, ok := pkt.(*rtcp.SenderReport); ok {
+					t.rtcpReceiver.ProcessSenderReport(sr, time.Now())
+				}
 			}
 		}
 	}()
@@ -321,20 +348,41 @@ func (t *IncomingTrack) start() {
 				// do not return
 			}
 
+			err = t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
+			if err != nil {
+				t.log.Log(logger.Warn, err.Error())
+				continue
+			}
+
+			var ntp time.Time
+			if t.useAbsoluteTimestamp {
+				var avail bool
+				ntp, avail = t.rtcpReceiver.PacketNTP(pkt.Timestamp)
+				if !avail {
+					t.log.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
+					continue
+				}
+			} else {
+				ntp = time.Now()
+			}
+
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.
 				if len(pkt.Payload) == 0 {
 					continue
 				}
 
-				t.OnPacketRTP(pkt)
+				t.OnPacketRTP(pkt, ntp)
 			}
 		}
 	}()
 }
 
-func (t *IncomingTrack) stop() {
+func (t *IncomingTrack) close() {
 	if t.packetsLost != nil {
 		t.packetsLost.Stop()
+	}
+	if t.rtcpReceiver != nil {
+		t.rtcpReceiver.Close()
 	}
 }

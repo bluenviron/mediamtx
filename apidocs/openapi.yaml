@@ -324,7 +324,7 @@ components:
           type: string
         fallback:
           type: string
-        rtspAbsoluteTimestamp:
+        useAbsoluteTimestamp:
           type: boolean
 
         # Record

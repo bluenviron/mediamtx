@@ -17,6 +17,7 @@ import (
 	pwebrtc "github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
@@ -32,6 +33,12 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	}
 }
 
+type sessionParent interface {
+	closeSession(sx *session)
+	generateICEServers(clientConfig bool) ([]pwebrtc.ICEServer, error)
+	logger.Writer
+}
+
 type session struct {
 	parentCtx             context.Context
 	ipsFromInterfaces     bool
@@ -39,11 +46,14 @@ type session struct {
 	additionalHosts       []string
 	iceUDPMux             ice.UDPMux
 	iceTCPMux             ice.TCPMux
+	handshakeTimeout      conf.Duration
+	trackGatherTimeout    conf.Duration
+	stunGatherTimeout     conf.Duration
 	req                   webRTCNewSessionReq
 	wg                    *sync.WaitGroup
 	externalCmdPool       *externalcmd.Pool
 	pathManager           serverPathManager
-	parent                *Server
+	parent                sessionParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -157,10 +167,11 @@ func (s *session) runPublish() (int, error) {
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		HandshakeTimeout:      s.parent.HandshakeTimeout,
-		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
-		STUNGatherTimeout:     s.parent.STUNGatherTimeout,
+		HandshakeTimeout:      s.handshakeTimeout,
+		TrackGatherTimeout:    s.trackGatherTimeout,
+		STUNGatherTimeout:     s.stunGatherTimeout,
 		Publish:               false,
+		UseAbsoluteTimestamp:  path.SafeConf().UseAbsoluteTimestamp,
 		Log:                   s,
 	}
 	err = pc.Start()
@@ -275,10 +286,11 @@ func (s *session) runRead() (int, error) {
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		HandshakeTimeout:      s.parent.HandshakeTimeout,
-		TrackGatherTimeout:    s.parent.TrackGatherTimeout,
-		STUNGatherTimeout:     s.parent.STUNGatherTimeout,
+		HandshakeTimeout:      s.handshakeTimeout,
+		TrackGatherTimeout:    s.trackGatherTimeout,
+		STUNGatherTimeout:     s.stunGatherTimeout,
 		Publish:               true,
+		UseAbsoluteTimestamp:  path.SafeConf().UseAbsoluteTimestamp,
 		Log:                   s,
 	}
 
