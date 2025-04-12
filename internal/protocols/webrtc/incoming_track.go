@@ -306,7 +306,8 @@ func (t *IncomingTrack) start() {
 
 	// read incoming RTP packets
 	go func() {
-		reorderer := rtpreorderer.New()
+		reorderer := &rtpreorderer.Reorderer{}
+		reorderer.Initialize()
 
 		for {
 			pkt, _, err := t.track.ReadRTP()
