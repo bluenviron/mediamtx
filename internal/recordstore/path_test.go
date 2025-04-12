@@ -31,6 +31,15 @@ var pathCases = []struct {
 		},
 		"mypath/1638447323.mp4",
 	},
+	{
+		"unix microseconds",
+		"%path/%s.%f.mp4",
+		Path{
+			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.UTC).Local(),
+			Path:  "mypath",
+		},
+		"mypath/1638447323.567324.mp4",
+	},
 }
 
 func TestPathDecode(t *testing.T) {

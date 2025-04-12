@@ -417,11 +417,26 @@ func TestConfErrors(t *testing.T) {
 			`using a password with 'any' user is not supported`,
 		},
 		{
-			"invalid record path",
+			"invalid record path 1",
 			"paths:\n" +
 				"  my_path:\n" +
 				"    recordPath: invalid\n",
-			`record path 'invalid' is missing one of the mandatory elements: %path %Y %m %d %H %M %S %f`,
+			`'recordPath' must contain %path`,
+		},
+		{
+			"invalid record path 2",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordPath: '%path/invalid'\n",
+			`'recordPath' must contain either %s or %Y %m %d %H %M %S`,
+		},
+		{
+			"invalid record path 3",
+			"playback: true\n" +
+				"paths:\n" +
+				"  my_path:\n" +
+				"    recordPath: '%path/%s'\n",
+			`'recordPath' must contain %f`,
 		},
 		{
 			"invalid record delete after",

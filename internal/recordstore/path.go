@@ -190,7 +190,7 @@ func (p *Path) Decode(format string, v string) bool {
 	}
 
 	if unixSec > 0 {
-		p.Start = time.Unix(unixSec, 0)
+		p.Start = time.Unix(unixSec, int64(micros)*1000)
 	} else {
 		p.Start = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
 	}
