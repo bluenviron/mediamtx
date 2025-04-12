@@ -496,17 +496,22 @@ func (pconf *Path) validate(
 		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
 	}
 
-	if !strings.Contains(pconf.RecordPath, "%path") ||
-		!strings.Contains(pconf.RecordPath, "%Y") ||
-		!strings.Contains(pconf.RecordPath, "%m") ||
-		!strings.Contains(pconf.RecordPath, "%d") ||
-		!strings.Contains(pconf.RecordPath, "%H") ||
-		!strings.Contains(pconf.RecordPath, "%M") ||
-		!strings.Contains(pconf.RecordPath, "%S") ||
-		!strings.Contains(pconf.RecordPath, "%f") {
-		return fmt.Errorf("record path '%s' is missing one of the mandatory elements:"+
-			" %%path %%Y %%m %%d %%H %%M %%S %%f",
-			pconf.RecordPath)
+	if !strings.Contains(pconf.RecordPath, "%path") {
+		return fmt.Errorf("'recordPath' must contain %%path")
+	}
+
+	if !strings.Contains(pconf.RecordPath, "%s") &&
+		(!strings.Contains(pconf.RecordPath, "%Y") ||
+			!strings.Contains(pconf.RecordPath, "%m") ||
+			!strings.Contains(pconf.RecordPath, "%d") ||
+			!strings.Contains(pconf.RecordPath, "%H") ||
+			!strings.Contains(pconf.RecordPath, "%M") ||
+			!strings.Contains(pconf.RecordPath, "%S")) {
+		return fmt.Errorf("'recordPath' must contain either %%s or %%Y %%m %%d %%H %%M %%S")
+	}
+
+	if conf.Playback && !strings.Contains(pconf.RecordPath, "%f") {
+		return fmt.Errorf("'recordPath' must contain %%f")
 	}
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
