@@ -31,6 +31,7 @@ type pathParent interface {
 	pathReady(*path)
 	pathNotReady(*path)
 	closePath(*path)
+	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
 type pathOnDemandState int
@@ -174,6 +175,7 @@ func (pa *path) run() {
 			WriteTimeout:   pa.writeTimeout,
 			WriteQueueSize: pa.writeQueueSize,
 			Matches:        pa.matches,
+			PathManager:    pa.parent,
 			Parent:         pa,
 		}
 		pa.source.(*staticsources.Handler).Initialize()

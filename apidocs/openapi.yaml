@@ -364,6 +364,8 @@ components:
         # Raspberry Pi Camera source
         rpiCameraCamID:
           type: integer
+        rpiCameraSecondary:
+          type: boolean
         rpiCameraWidth:
           type: integer
         rpiCameraHeight:
@@ -436,6 +438,8 @@ components:
           type: string
         rpiCameraLevel:
           type: string
+        rpiCameraJPEGQuality:
+          type: integer
 
         # Hooks
         runOnInit:

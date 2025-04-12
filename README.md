@@ -88,6 +88,8 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [By device](#by-device)
     * [Generic webcam](#generic-webcam)
     * [Raspberry Pi Cameras](#raspberry-pi-cameras)
+      * [Adding audio](#adding-audio)
+      * [Secondary stream](#secondary-stream)
   * [By protocol](#by-protocol)
     * [SRT clients](#srt-clients)
     * [SRT cameras and servers](#srt-cameras-and-servers)
@@ -274,7 +276,7 @@ The RTSP protocol supports multiple underlying transport protocols, each with it
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:8554/mystream
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 #### GStreamer
 
@@ -301,7 +303,7 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/mystream
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 GStreamer can also publish a stream by using the [WebRTC / WHIP protocol](#webrtc). Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
 
@@ -350,7 +352,7 @@ Latest versions of OBS Studio can publish to the server with the [WebRTC / WHIP 
 
 Save the configuration and click `Start streaming`.
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 #### OpenCV
 
@@ -425,7 +427,7 @@ while True:
     start = now
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 #### Unity
 
@@ -536,7 +538,7 @@ public class WebRTCPublisher : MonoBehaviour
 
 In the _Hierarchy_ window, find or create a scene and a camera, then add the `WebRTCPublisher.cs` script as component of the camera, by dragging it inside the _Inspector_ window. then Press the _Play_ button at the top of the page.
 
-The resulting stream will be available in path `/unity`.
+The resulting stream is available in path `/unity`.
 
 #### Web browsers
 
@@ -546,7 +548,7 @@ Web browsers can publish a stream to the server by using the [WebRTC protocol](#
 http://localhost:8889/mystream/publish
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 This web page can be embedded into another web page by using an iframe:
 
@@ -584,7 +586,7 @@ Where `USB2.0 HD UVC WebCam` is the name of a webcam, that can be obtained with:
 ffmpeg -list_devices true -f dshow -i dummy
 ```
 
-The resulting stream will be available in path `/cam`.
+The resulting stream is available in path `/cam`.
 
 #### Raspberry Pi Cameras
 
@@ -611,7 +613,7 @@ If you want to run the standard (non-Docker) version of the server:
        source: rpiCamera
    ```
 
-The resulting stream will be available in path `/cam`.
+The resulting stream is available in path `/cam`.
 
 If you want to run the server inside Docker, you need to use the `latest-rpi` image and launch the container with some additional flags:
 
@@ -638,6 +640,8 @@ paths:
 ```
 
 All available parameters are listed in the [sample configuration file](/mediamtx.yml).
+
+##### Adding audio
 
 In order to add audio from a USB microfone, install GStreamer and alsa-utils:
 
@@ -678,7 +682,42 @@ paths:
     runOnInitRestart: yes
 ```
 
-The resulting stream will be available in path `/cam_with_audio`.
+The resulting stream is available in path `/cam_with_audio`.
+
+##### Secondary stream
+
+It is possible to enable a secondary stream from the same camera, with a different resolution, FPS and codec. Configuration is the same of a primary stream, with `rpiCameraSecondary` set to `true` and parameters adjusted accordingly:
+
+```yml
+paths:
+  # primary stream
+  rpi:
+    source: rpiCamera
+    # Width of frames.
+    rpiCameraWidth: 1920
+    # Height of frames.
+    rpiCameraHeight: 1080
+    # FPS.
+    rpiCameraFPS: 30
+
+  # secondary stream
+  secondary:
+    source: rpiCamera
+    # This is a secondary stream.
+    rpiCameraSecondary: true
+    # Width of frames.
+    rpiCameraWidth: 640
+    # Height of frames.
+    rpiCameraHeight: 480
+    # FPS.
+    rpiCameraFPS: 10
+    # Codec. in case of secondary streams, it defaults to M-JPEG.
+    rpiCameraCodec: auto
+    # JPEG quality.
+    rpiCameraJPEGQuality: 60
+```
+
+The secondary stream is available in path `/secondary`.
 
 ### By protocol
 
@@ -690,7 +729,7 @@ SRT is a protocol that allows to publish and read live data stream, providing en
 srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 ```
 
-Replace `mystream` with any name you want. The resulting stream will be available in path `/mystream`.
+Replace `mystream` with any name you want. The resulting stream is available in path `/mystream`.
 
 If credentials are enabled, append username and password to `streamid`:
 
@@ -723,7 +762,7 @@ WebRTC is an API that makes use of a set of protocols and methods to connect two
 http://localhost:8889/mystream/publish
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 WHIP is a WebRTC extensions that allows to publish streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHIP (for instance, latest versions of OBS Studio), you can publish a stream to the server by using this URL:
 
@@ -756,7 +795,7 @@ RTSP is a protocol that allows to publish and read streams. It supports differen
 rtsp://localhost:8554/mystream
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
@@ -771,7 +810,7 @@ paths:
     source: rtsp://original-url
 ```
 
-The resulting stream will be available in path `/proxied`.
+The resulting stream is available in path `/proxied`.
 
 The server supports any number of source streams (count is just limited by available hardware resources) it's enough to add additional entries to the paths section:
 
@@ -792,7 +831,7 @@ RTMP is a protocol that allows to read and publish streams, but is less versatil
 rtmp://localhost/mystream
 ```
 
-The resulting stream will be available in path `/mystream`.
+The resulting stream is available in path `/mystream`.
 
 In case authentication is enabled, credentials can be passed to the server by using the `user` and `pass` query parameters:
 
@@ -813,7 +852,7 @@ paths:
     source: rtmp://original-url
 ```
 
-The resulting stream will be available in path `/proxied`.
+The resulting stream is available in path `/proxied`.
 
 #### HLS cameras and servers
 
@@ -826,7 +865,7 @@ paths:
     source: http://original-url/stream/index.m3u8
 ```
 
-The resulting stream will be available in path `/proxied`.
+The resulting stream is available in path `/proxied`.
 
 #### UDP/MPEG-TS
 
@@ -854,7 +893,7 @@ paths:
     source: udp://238.0.0.1:1234
 ```
 
-The resulting stream will be available in path `/mypath`.
+The resulting stream is available in path `/mypath`.
 
 Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 

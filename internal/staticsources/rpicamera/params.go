@@ -38,4 +38,8 @@ type params struct {
 	Bitrate           uint32
 	Profile           string
 	Level             string
+	SecondaryWidth    uint32
+	SecondaryHeight   uint32
+	SecondaryFPS      float32
+	SecondaryQuality  uint32
 }

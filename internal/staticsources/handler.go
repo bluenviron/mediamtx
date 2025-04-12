@@ -18,6 +18,7 @@ import (
 	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	ssudp "github.com/bluenviron/mediamtx/internal/staticsources/udp"
 	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (
@@ -42,6 +43,10 @@ func resolveSource(s string, matches []string, query string) string {
 	return s
 }
 
+type handlerPathManager interface {
+	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+}
+
 type handlerParent interface {
 	logger.Writer
 	StaticSourceHandlerSetReady(context.Context, defs.PathSourceStaticSetReadyReq)
@@ -56,6 +61,7 @@ type Handler struct {
 	WriteTimeout   conf.Duration
 	WriteQueueSize int
 	Matches        []string
+	PathManager    handlerPathManager
 	Parent         handlerParent
 
 	ctx       context.Context
@@ -297,4 +303,9 @@ func (s *Handler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 		<-req.Res
 	case <-s.ctx.Done():
 	}
+}
+
+// AddReader is called by a staticSource.
+func (s *Handler) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+	return s.PathManager.AddReader(req)
 }
