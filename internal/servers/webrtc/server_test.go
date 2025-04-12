@@ -371,7 +371,7 @@ func TestServerRead(t *testing.T) {
 			&unit.AV1{
 				TU: [][]byte{{1, 2}},
 			},
-			[]byte{0, 2, 1, 2},
+			[]byte{0x10, 0x01, 0x02},
 		},
 		{
 			"vp9",
