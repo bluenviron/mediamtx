@@ -31,6 +31,19 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
+// skip ConfigureRTCPReports
+func registerInterceptors(mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry) error {
+	if err := webrtc.ConfigureNack(mediaEngine, interceptorRegistry); err != nil {
+		return err
+	}
+
+	if err := webrtc.ConfigureSimulcastExtensionHeaders(mediaEngine); err != nil {
+		return err
+	}
+
+	return webrtc.ConfigureTWCCSender(mediaEngine, interceptorRegistry)
+}
+
 // TracksAreValid checks whether tracks in the SDP are valid
 func TracksAreValid(medias []*sdp.MediaDescription) error {
 	videoTrack := false
@@ -81,6 +94,7 @@ type PeerConnection struct {
 	STUNGatherTimeout     conf.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
+	UseAbsoluteTimestamp  bool
 	Log                   logger.Writer
 
 	wr                *webrtc.PeerConnection
@@ -202,7 +216,7 @@ func (co *PeerConnection) Start() error {
 
 	interceptorRegistry := &interceptor.Registry{}
 
-	err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry)
+	err := registerInterceptors(mediaEngine, interceptorRegistry)
 	if err != nil {
 		return err
 	}
@@ -326,7 +340,10 @@ func (co *PeerConnection) Start() error {
 // Close closes the connection.
 func (co *PeerConnection) Close() {
 	for _, track := range co.incomingTracks {
-		track.stop()
+		track.close()
+	}
+	for _, track := range co.OutgoingTracks {
+		track.close()
 	}
 
 	co.ctxCancel()
@@ -447,10 +464,11 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) error {
 
 		case pair := <-co.incomingTrack:
 			t := &IncomingTrack{
-				track:     pair.track,
-				receiver:  pair.receiver,
-				writeRTCP: co.wr.WriteRTCP,
-				log:       co.Log,
+				useAbsoluteTimestamp: co.UseAbsoluteTimestamp,
+				track:                pair.track,
+				receiver:             pair.receiver,
+				writeRTCP:            co.wr.WriteRTCP,
+				log:                  co.Log,
 			}
 			t.initialize()
 			co.incomingTracks = append(co.incomingTracks, t)

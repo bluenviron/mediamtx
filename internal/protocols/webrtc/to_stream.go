@@ -142,13 +142,13 @@ func ToStream(
 			Formats: []format.Format{forma},
 		}
 
-		track.OnPacketRTP = func(pkt *rtp.Packet) {
+		track.OnPacketRTP = func(pkt *rtp.Packet, ntp time.Time) {
 			pts, ok := timeDecoder.Decode(track, pkt)
 			if !ok {
 				return
 			}
 
-			(*stream).WriteRTPPacket(medi, forma, pkt, time.Now(), pts)
+			(*stream).WriteRTPPacket(medi, forma, pkt, ntp, pts)
 		}
 
 		medias = append(medias, medi)

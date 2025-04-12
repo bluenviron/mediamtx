@@ -42,7 +42,7 @@ func ToStream(
 
 			var ntpStat ntpState
 
-			if !pathConf.RTSPAbsoluteTimestamp {
+			if !pathConf.UseAbsoluteTimestamp {
 				ntpStat = ntpStateReplace
 			}
 

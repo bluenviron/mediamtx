@@ -2,7 +2,10 @@ package webrtc
 
 import (
 	"strings"
+	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/rtcpsender"
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
@@ -20,7 +23,9 @@ var multichannelOpusSDP = map[int]string{
 type OutgoingTrack struct {
 	Caps webrtc.RTPCodecCapability
 
-	track *webrtc.TrackLocalStaticRTP
+	track      *webrtc.TrackLocalStaticRTP
+	ssrc       uint32
+	rtcpSender *rtcpsender.RTCPSender
 }
 
 func (t *OutgoingTrack) isVideo() bool {
@@ -50,13 +55,32 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 		return err
 	}
 
-	// read incoming RTCP packets to make interceptors work
+	t.ssrc = uint32(sender.GetParameters().Encodings[0].SSRC)
+
+	t.rtcpSender = &rtcpsender.RTCPSender{
+		ClockRate: int(t.track.Codec().ClockRate),
+		Period:    1 * time.Second,
+		TimeNow:   time.Now,
+		WritePacketRTCP: func(pkt rtcp.Packet) {
+			p.wr.WriteRTCP([]rtcp.Packet{pkt}) //nolint:errcheck
+		},
+	}
+	t.rtcpSender.Initialize()
+
+	p.wr.GetSenders()
+
+	// incoming RTCP packets must always be read to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			_, _, err := sender.Read(buf)
+			n, _, err := sender.Read(buf)
 			if err != nil {
 				return
+			}
+
+			_, err = rtcp.Unmarshal(buf[:n])
+			if err != nil {
+				panic(err)
 			}
 		}
 	}()
@@ -64,7 +88,23 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	return nil
 }
 
+func (t *OutgoingTrack) close() {
+	if t.rtcpSender != nil {
+		t.rtcpSender.Close()
+	}
+}
+
 // WriteRTP writes a RTP packet.
 func (t *OutgoingTrack) WriteRTP(pkt *rtp.Packet) error {
+	return t.WriteRTPWithNTP(pkt, time.Now())
+}
+
+// WriteRTPWithNTP writes a RTP packet.
+func (t *OutgoingTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
+	// use right SSRC in packet to make rtcpSender work
+	pkt.SSRC = t.ssrc
+
+	t.rtcpSender.ProcessPacket(pkt, ntp, true)
+
 	return t.track.WriteRTP(pkt)
 }
