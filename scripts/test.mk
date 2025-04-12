@@ -29,7 +29,7 @@ test:
 	temp \
 	make test-nodocker
 
-test32:
+test-32:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=i386
 	docker run --rm \
 	-v "$(shell pwd):/s" \
