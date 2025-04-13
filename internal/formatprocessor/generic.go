@@ -10,13 +10,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorGeneric struct {
+type generic struct {
 	UDPMaxPayloadSize  int
 	Format             format.Format
 	GenerateRTPPackets bool
 }
 
-func (t *formatProcessorGeneric) initialize() error {
+func (t *generic) initialize() error {
 	if t.GenerateRTPPackets {
 		return fmt.Errorf("we don't know how to generate RTP packets of format %T", t.Format)
 	}
@@ -24,11 +24,11 @@ func (t *formatProcessorGeneric) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorGeneric) ProcessUnit(_ unit.Unit) error {
+func (t *generic) ProcessUnit(_ unit.Unit) error {
 	return fmt.Errorf("using a generic unit without RTP is not supported")
 }
 
-func (t *formatProcessorGeneric) ProcessRTPPacket(
+func (t *generic) ProcessRTPPacket(
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

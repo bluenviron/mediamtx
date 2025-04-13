@@ -21,7 +21,7 @@ var (
 	}
 )
 
-type formatProcessorMPEG1Video struct {
+type mpeg1Video struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MPEG1Video
 	GenerateRTPPackets bool
@@ -31,7 +31,7 @@ type formatProcessorMPEG1Video struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorMPEG1Video) initialize() error {
+func (t *mpeg1Video) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -47,14 +47,14 @@ func (t *formatProcessorMPEG1Video) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorMPEG1Video) createEncoder() error {
+func (t *mpeg1Video) createEncoder() error {
 	t.encoder = &rtpmpeg1video.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 	}
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.MPEG1Video)
 
 	// encode into RTP
@@ -71,7 +71,7 @@ func (t *formatProcessorMPEG1Video) ProcessUnit(uu unit.Unit) error { //nolint:d
 	return nil
 }
 
-func (t *formatProcessorMPEG1Video) ProcessRTPPacket( //nolint:dupl
+func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

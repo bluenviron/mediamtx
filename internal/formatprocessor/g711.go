@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorG711 struct {
+type g711 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.G711
 	GenerateRTPPackets bool
@@ -21,7 +21,7 @@ type formatProcessorG711 struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorG711) initialize() error {
+func (t *g711) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -37,7 +37,7 @@ func (t *formatProcessorG711) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorG711) createEncoder() error {
+func (t *g711) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 		PayloadType:    t.Format.PayloadType(),
@@ -47,7 +47,7 @@ func (t *formatProcessorG711) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.G711)
 
 	pkts, err := t.encoder.Encode(u.Samples)
@@ -63,7 +63,7 @@ func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorG711) ProcessRTPPacket( //nolint:dupl
+func (t *g711) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

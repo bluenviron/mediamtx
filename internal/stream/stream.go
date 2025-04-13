@@ -25,7 +25,7 @@ type Reader interface {
 type ReadFunc func(unit.Unit) error
 
 // Stream is a media stream.
-// It stores tracks, readers and allows to write data to readers.
+// It stores tracks, readers and allows to write data to readers, converting it when needed.
 type Stream struct {
 	WriteQueueSize     int
 	UDPMaxPayloadSize  int

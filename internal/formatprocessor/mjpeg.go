@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorMJPEG struct {
+type mjpeg struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MJPEG
 	GenerateRTPPackets bool
@@ -22,7 +22,7 @@ type formatProcessorMJPEG struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorMJPEG) initialize() error {
+func (t *mjpeg) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -38,14 +38,14 @@ func (t *formatProcessorMJPEG) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorMJPEG) createEncoder() error {
+func (t *mjpeg) createEncoder() error {
 	t.encoder = &rtpmjpeg.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 	}
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMJPEG) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *mjpeg) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.MJPEG)
 
 	// encode into RTP
@@ -62,7 +62,7 @@ func (t *formatProcessorMJPEG) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorMJPEG) ProcessRTPPacket( //nolint:dupl
+func (t *mjpeg) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

@@ -6,13 +6,13 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpsimpleaudio"
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
+	mcopus "github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorOpus struct {
+type opus struct {
 	UDPMaxPayloadSize  int
 	Format             *format.Opus
 	GenerateRTPPackets bool
@@ -22,7 +22,7 @@ type formatProcessorOpus struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorOpus) initialize() error {
+func (t *opus) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -38,7 +38,7 @@ func (t *formatProcessorOpus) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorOpus) createEncoder() error {
+func (t *opus) createEncoder() error {
 	t.encoder = &rtpsimpleaudio.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 		PayloadType:    t.Format.PayloadTyp,
@@ -46,7 +46,7 @@ func (t *formatProcessorOpus) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *opus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.Opus)
 
 	var rtpPackets []*rtp.Packet //nolint:prealloc
@@ -61,7 +61,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		pkt.Timestamp += t.randomStart + uint32(pts)
 
 		rtpPackets = append(rtpPackets, pkt)
-		pts += opus.PacketDuration2(packet)
+		pts += mcopus.PacketDuration2(packet)
 	}
 
 	u.RTPPackets = rtpPackets
@@ -69,7 +69,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorOpus) ProcessRTPPacket(
+func (t *opus) ProcessRTPPacket(
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
