@@ -90,7 +90,7 @@ func TestNew(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			p, err := New(1472, ca.in, false)
+			p, err := New(1472, ca.in, false, nil)
 			require.NoError(t, err)
 			require.IsType(t, ca.out, p)
 		})

@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1video"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -25,6 +26,7 @@ type mpeg1Video struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MPEG1Video
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpmpeg1video.Encoder
 	decoder     *rtpmpeg1video.Decoder

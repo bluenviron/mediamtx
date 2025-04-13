@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -16,6 +17,7 @@ type vp9 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.VP9
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpvp9.Encoder
 	decoder     *rtpvp9.Decoder

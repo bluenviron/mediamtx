@@ -73,6 +73,7 @@ func (s *Stream) Initialize() error {
 			media:              media,
 			generateRTPPackets: s.GenerateRTPPackets,
 			processingErrors:   s.processingErrors,
+			parent:             s.Parent,
 		}
 		err := s.streamMedias[media].initialize()
 		if err != nil {

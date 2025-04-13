@@ -17,7 +17,7 @@ func TestGenericRemovePadding(t *testing.T) {
 	err := forma.Init()
 	require.NoError(t, err)
 
-	p, err := New(1472, forma, false)
+	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
 	pkt := &rtp.Packet{

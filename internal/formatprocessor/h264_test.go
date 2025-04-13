@@ -2,6 +2,7 @@ package formatprocessor
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,8 +11,22 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+type testLogger struct {
+	cb func(level logger.Level, format string, args ...interface{})
+}
+
+func (l *testLogger) Log(level logger.Level, format string, args ...interface{}) {
+	l.cb(level, format, args...)
+}
+
+// Logger returns a dummy logger.
+func Logger(cb func(logger.Level, string, ...interface{})) logger.Writer {
+	return &testLogger{cb: cb}
+}
 
 func TestH264DynamicParams(t *testing.T) {
 	for _, ca := range []string{"standard", "aggregated"} {
@@ -21,7 +36,7 @@ func TestH264DynamicParams(t *testing.T) {
 				PacketizationMode: 1,
 			}
 
-			p, err := New(1472, forma, false)
+			p, err := New(1472, forma, false, nil)
 			require.NoError(t, err)
 
 			enc, err := forma.CreateEncoder()
@@ -86,7 +101,13 @@ func TestH264OversizedPackets(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, false)
+	logged := false
+
+	p, err := New(1472, forma, false,
+		Logger(func(_ logger.Level, s string, i ...interface{}) {
+			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
+			logged = true
+		}))
 	require.NoError(t, err)
 
 	var out []*rtp.Packet
@@ -176,6 +197,8 @@ func TestH264OversizedPackets(t *testing.T) {
 			),
 		},
 	}, out)
+
+	require.True(t, logged)
 }
 
 func TestH264EmptyPacket(t *testing.T) {
@@ -184,7 +207,7 @@ func TestH264EmptyPacket(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, true)
+	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &unit.H264{

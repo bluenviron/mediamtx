@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1audio"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -16,6 +17,7 @@ type mpeg1Audio struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MPEG1Audio
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpmpeg1audio.Encoder
 	decoder     *rtpmpeg1audio.Decoder

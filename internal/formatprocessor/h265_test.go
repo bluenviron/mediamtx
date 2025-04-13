@@ -2,6 +2,7 @@ package formatprocessor
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -20,7 +22,7 @@ func TestH265DynamicParams(t *testing.T) {
 				PayloadTyp: 96,
 			}
 
-			p, err := New(1472, forma, false)
+			p, err := New(1472, forma, false, nil)
 			require.NoError(t, err)
 
 			enc, err := forma.CreateEncoder()
@@ -94,7 +96,13 @@ func TestH265OversizedPackets(t *testing.T) {
 		PPS:        []byte{byte(mch265.NALUType_PPS_NUT) << 1, 16, 17, 18},
 	}
 
-	p, err := New(1472, forma, false)
+	logged := false
+
+	p, err := New(1472, forma, false,
+		Logger(func(_ logger.Level, s string, i ...interface{}) {
+			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
+			logged = true
+		}))
 	require.NoError(t, err)
 
 	var out []*rtp.Packet
@@ -172,6 +180,8 @@ func TestH265OversizedPackets(t *testing.T) {
 			),
 		},
 	}, out)
+
+	require.True(t, logged)
 }
 
 func TestH265EmptyPacket(t *testing.T) {
@@ -179,7 +189,7 @@ func TestH265EmptyPacket(t *testing.T) {
 		PayloadTyp: 96,
 	}
 
-	p, err := New(1472, forma, true)
+	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &unit.H265{

@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -15,6 +16,7 @@ type g711 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.G711
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtplpcm.Encoder
 	decoder     *rtplpcm.Decoder

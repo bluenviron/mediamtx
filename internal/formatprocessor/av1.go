@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -23,6 +24,7 @@ type av1 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.AV1
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpav1.Encoder
 	decoder     *rtpav1.Decoder
