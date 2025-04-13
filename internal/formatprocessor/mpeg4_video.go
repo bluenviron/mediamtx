@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -30,6 +31,7 @@ type mpeg4Video struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MPEG4Video
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpmpeg4video.Encoder
 	decoder     *rtpmpeg4video.Decoder

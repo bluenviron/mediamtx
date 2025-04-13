@@ -10,6 +10,7 @@ import (
 	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -85,6 +86,7 @@ type h264 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.H264
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtph264.Encoder
 	decoder     *rtph264.Decoder
@@ -266,6 +268,8 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 
 		// RTP packets exceed maximum size: start re-encoding them
 		if pkt.MarshalSize() > t.UDPMaxPayloadSize {
+			t.Parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
+
 			v1 := pkt.SSRC
 			v2 := pkt.SequenceNumber
 			err := t.createEncoder(&v1, &v2)

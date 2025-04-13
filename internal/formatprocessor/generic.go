@@ -7,6 +7,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -14,6 +15,7 @@ type generic struct {
 	UDPMaxPayloadSize  int
 	Format             format.Format
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 }
 
 func (t *generic) initialize() error {

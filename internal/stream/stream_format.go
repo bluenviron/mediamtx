@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -26,6 +27,7 @@ type streamFormat struct {
 	format             format.Format
 	generateRTPPackets bool
 	processingErrors   *counterdumper.CounterDumper
+	parent             logger.Writer
 
 	proc           formatprocessor.Processor
 	pausedReaders  map[*streamReader]ReadFunc
@@ -37,7 +39,7 @@ func (sf *streamFormat) initialize() error {
 	sf.runningReaders = make(map[*streamReader]ReadFunc)
 
 	var err error
-	sf.proc, err = formatprocessor.New(sf.udpMaxPayloadSize, sf.format, sf.generateRTPPackets)
+	sf.proc, err = formatprocessor.New(sf.udpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
 	if err != nil {
 		return err
 	}

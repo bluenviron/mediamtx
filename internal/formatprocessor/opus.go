@@ -9,6 +9,7 @@ import (
 	mcopus "github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -16,6 +17,7 @@ type opus struct {
 	UDPMaxPayloadSize  int
 	Format             *format.Opus
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpsimpleaudio.Encoder
 	decoder     *rtpsimpleaudio.Decoder

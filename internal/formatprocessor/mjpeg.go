@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmjpeg"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -16,6 +17,7 @@ type mjpeg struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MJPEG
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpmjpeg.Encoder
 	decoder     *rtpmjpeg.Decoder

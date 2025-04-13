@@ -15,7 +15,7 @@ func TestOpusEncode(t *testing.T) {
 		ChannelCount: 2,
 	}
 
-	p, err := New(1472, forma, true)
+	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &unit.Opus{

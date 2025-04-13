@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -41,6 +42,7 @@ func New(
 	udpMaxPayloadSize int,
 	forma format.Format,
 	generateRTPPackets bool,
+	parent logger.Writer,
 ) (Processor, error) {
 	var proc Processor
 
@@ -50,6 +52,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.VP9:
@@ -57,6 +60,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.VP8:
@@ -64,6 +68,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.H265:
@@ -71,6 +76,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.H264:
@@ -78,6 +84,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.MPEG4Video:
@@ -85,6 +92,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.MPEG1Video:
@@ -92,6 +100,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.MJPEG:
@@ -99,6 +108,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.Opus:
@@ -106,6 +116,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.MPEG4Audio:
@@ -113,6 +124,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.MPEG1Audio:
@@ -120,6 +132,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.AC3:
@@ -127,6 +140,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.G711:
@@ -134,6 +148,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	case *format.LPCM:
@@ -141,6 +156,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 
 	default:
@@ -148,6 +164,7 @@ func New(
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
 		}
 	}
 

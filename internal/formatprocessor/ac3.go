@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpac3"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -16,6 +17,7 @@ type ac3 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.AC3
 	GenerateRTPPackets bool
+	Parent             logger.Writer
 
 	encoder     *rtpac3.Encoder
 	decoder     *rtpac3.Decoder
