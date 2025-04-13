@@ -19,7 +19,7 @@ var (
 	}
 )
 
-type formatProcessorAV1 struct {
+type av1 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.AV1
 	GenerateRTPPackets bool
@@ -29,7 +29,7 @@ type formatProcessorAV1 struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorAV1) initialize() error {
+func (t *av1) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -45,7 +45,7 @@ func (t *formatProcessorAV1) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorAV1) createEncoder() error {
+func (t *av1) createEncoder() error {
 	t.encoder = &rtpav1.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 		PayloadType:    t.Format.PayloadTyp,
@@ -53,7 +53,7 @@ func (t *formatProcessorAV1) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorAV1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *av1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.AV1)
 
 	pkts, err := t.encoder.Encode(u.TU)
@@ -69,7 +69,7 @@ func (t *formatProcessorAV1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorAV1) ProcessRTPPacket( //nolint:dupl
+func (t *av1) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

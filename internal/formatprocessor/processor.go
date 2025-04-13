@@ -2,6 +2,7 @@
 package formatprocessor
 
 import (
+	"crypto/rand"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -10,7 +11,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// Processor cleans and normalizes streams.
+func randUint32() (uint32, error) {
+	var b [4]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]), nil
+}
+
+// Processor is the codec-dependent part of the processing that happens inside stream.Stream.
 type Processor interface {
 	// process a Unit.
 	ProcessUnit(unit.Unit) error
@@ -36,105 +46,105 @@ func New(
 
 	switch forma := forma.(type) {
 	case *format.AV1:
-		proc = &formatProcessorAV1{
+		proc = &av1{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.VP9:
-		proc = &formatProcessorVP9{
+		proc = &vp9{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.VP8:
-		proc = &formatProcessorVP8{
+		proc = &vp8{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.H265:
-		proc = &formatProcessorH265{
+		proc = &h265{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.H264:
-		proc = &formatProcessorH264{
+		proc = &h264{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.MPEG4Video:
-		proc = &formatProcessorMPEG4Video{
+		proc = &mpeg4Video{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.MPEG1Video:
-		proc = &formatProcessorMPEG1Video{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
-			Format:             forma,
-			GenerateRTPPackets: generateRTPPackets,
-		}
-
-	case *format.Opus:
-		proc = &formatProcessorOpus{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
-			Format:             forma,
-			GenerateRTPPackets: generateRTPPackets,
-		}
-
-	case *format.MPEG4Audio:
-		proc = &formatProcessorMPEG4Audio{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
-			Format:             forma,
-			GenerateRTPPackets: generateRTPPackets,
-		}
-
-	case *format.MPEG1Audio:
-		proc = &formatProcessorMPEG1Audio{
+		proc = &mpeg1Video{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.MJPEG:
-		proc = &formatProcessorMJPEG{
+		proc = &mjpeg{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
+
+	case *format.Opus:
+		proc = &opus{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
+
+	case *format.MPEG4Audio:
+		proc = &mpeg4Audio{
+			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+		}
+
+	case *format.MPEG1Audio:
+		proc = &mpeg1Audio{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.AC3:
-		proc = &formatProcessorAC3{
+		proc = &ac3{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.G711:
-		proc = &formatProcessorG711{
+		proc = &g711{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	case *format.LPCM:
-		proc = &formatProcessorLPCM{
+		proc = &lpcm{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 		}
 
 	default:
-		proc = &formatProcessorGeneric{
+		proc = &generic{
 			UDPMaxPayloadSize:  udpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,

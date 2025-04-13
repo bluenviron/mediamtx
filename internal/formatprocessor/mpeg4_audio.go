@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorMPEG4Audio struct {
+type mpeg4Audio struct {
 	UDPMaxPayloadSize  int
 	Format             *format.MPEG4Audio
 	GenerateRTPPackets bool
@@ -22,7 +22,7 @@ type formatProcessorMPEG4Audio struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorMPEG4Audio) initialize() error {
+func (t *mpeg4Audio) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -38,7 +38,7 @@ func (t *formatProcessorMPEG4Audio) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorMPEG4Audio) createEncoder() error {
+func (t *mpeg4Audio) createEncoder() error {
 	t.encoder = &rtpmpeg4audio.Encoder{
 		PayloadMaxSize:   t.UDPMaxPayloadSize - 12,
 		PayloadType:      t.Format.PayloadTyp,
@@ -49,7 +49,7 @@ func (t *formatProcessorMPEG4Audio) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG4Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *mpeg4Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.MPEG4Audio)
 
 	pkts, err := t.encoder.Encode(u.AUs)
@@ -65,7 +65,7 @@ func (t *formatProcessorMPEG4Audio) ProcessUnit(uu unit.Unit) error { //nolint:d
 	return nil
 }
 
-func (t *formatProcessorMPEG4Audio) ProcessRTPPacket( //nolint:dupl
+func (t *mpeg4Audio) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -27,14 +27,14 @@ func TestH264DynamicParams(t *testing.T) {
 			enc, err := forma.CreateEncoder()
 			require.NoError(t, err)
 
-			pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
+			pkts, err := enc.Encode([][]byte{{byte(mch264.NALUTypeIDR)}})
 			require.NoError(t, err)
 
 			data, err := p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
 			require.NoError(t, err)
 
 			require.Equal(t, [][]byte{
-				{byte(h264.NALUTypeIDR)},
+				{byte(mch264.NALUTypeIDR)},
 			}, data.(*unit.H264).AU)
 
 			if ca == "standard" {
@@ -63,7 +63,7 @@ func TestH264DynamicParams(t *testing.T) {
 			require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
 			require.Equal(t, []byte{8, 1}, forma.PPS)
 
-			pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
+			pkts, err = enc.Encode([][]byte{{byte(mch264.NALUTypeIDR)}})
 			require.NoError(t, err)
 
 			data, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
@@ -72,7 +72,7 @@ func TestH264DynamicParams(t *testing.T) {
 			require.Equal(t, [][]byte{
 				{0x07, 4, 5, 6},
 				{0x08, 1},
-				{byte(h264.NALUTypeIDR)},
+				{byte(mch264.NALUTypeIDR)},
 			}, data.(*unit.H264).AU)
 		})
 	}

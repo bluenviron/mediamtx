@@ -1,7 +1,6 @@
 package formatprocessor
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"time"
@@ -13,16 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func randUint32() (uint32, error) {
-	var b [4]byte
-	_, err := rand.Read(b[:])
-	if err != nil {
-		return 0, err
-	}
-	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]), nil
-}
-
-type formatProcessorAC3 struct {
+type ac3 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.AC3
 	GenerateRTPPackets bool
@@ -32,7 +22,7 @@ type formatProcessorAC3 struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorAC3) initialize() error {
+func (t *ac3) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -48,14 +38,14 @@ func (t *formatProcessorAC3) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorAC3) createEncoder() error {
+func (t *ac3) createEncoder() error {
 	t.encoder = &rtpac3.Encoder{
 		PayloadType: t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorAC3) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *ac3) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.AC3)
 
 	pkts, err := t.encoder.Encode(u.Frames)
@@ -71,7 +61,7 @@ func (t *formatProcessorAC3) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorAC3) ProcessRTPPacket( //nolint:dupl
+func (t *ac3) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

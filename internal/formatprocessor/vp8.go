@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorVP8 struct {
+type vp8 struct {
 	UDPMaxPayloadSize  int
 	Format             *format.VP8
 	GenerateRTPPackets bool
@@ -22,7 +22,7 @@ type formatProcessorVP8 struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorVP8) initialize() error {
+func (t *vp8) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -38,7 +38,7 @@ func (t *formatProcessorVP8) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorVP8) createEncoder() error {
+func (t *vp8) createEncoder() error {
 	t.encoder = &rtpvp8.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 		PayloadType:    t.Format.PayloadTyp,
@@ -46,7 +46,7 @@ func (t *formatProcessorVP8) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorVP8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *vp8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.VP8)
 
 	pkts, err := t.encoder.Encode(u.Frame)
@@ -62,7 +62,7 @@ func (t *formatProcessorVP8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorVP8) ProcessRTPPacket( //nolint:dupl
+func (t *vp8) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,

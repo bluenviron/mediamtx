@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorLPCM struct {
+type lpcm struct {
 	UDPMaxPayloadSize  int
 	Format             *format.LPCM
 	GenerateRTPPackets bool
@@ -21,7 +21,7 @@ type formatProcessorLPCM struct {
 	randomStart uint32
 }
 
-func (t *formatProcessorLPCM) initialize() error {
+func (t *lpcm) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -37,7 +37,7 @@ func (t *formatProcessorLPCM) initialize() error {
 	return nil
 }
 
-func (t *formatProcessorLPCM) createEncoder() error {
+func (t *lpcm) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
 		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
 		PayloadType:    t.Format.PayloadTyp,
@@ -47,7 +47,7 @@ func (t *formatProcessorLPCM) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorLPCM) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+func (t *lpcm) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.LPCM)
 
 	pkts, err := t.encoder.Encode(u.Samples)
@@ -63,7 +63,7 @@ func (t *formatProcessorLPCM) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *formatProcessorLPCM) ProcessRTPPacket( //nolint:dupl
+func (t *lpcm) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
