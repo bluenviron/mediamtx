@@ -13,7 +13,7 @@ import (
 // Source is an entity that can provide a stream.
 // it can be:
 // - publisher
-// - staticSourceHandler
+// - staticsources.Handler
 // - redirectSource
 type Source interface {
 	logger.Writer

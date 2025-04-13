@@ -1,4 +1,5 @@
-package core
+// Package staticsources contains static source implementations.
+package staticsources
 
 import (
 	"context"
@@ -10,18 +11,24 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	hlssource "github.com/bluenviron/mediamtx/internal/staticsources/hls"
-	rpicamerasource "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
-	rtmpsource "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
-	rtspsource "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
-	srtsource "github.com/bluenviron/mediamtx/internal/staticsources/srt"
-	udpsource "github.com/bluenviron/mediamtx/internal/staticsources/udp"
-	webrtcsource "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
+	sshls "github.com/bluenviron/mediamtx/internal/staticsources/hls"
+	ssrpicamera "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
+	ssrtmp "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
+	ssrtsp "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
+	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
+	ssudp "github.com/bluenviron/mediamtx/internal/staticsources/udp"
+	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
 )
 
 const (
-	staticSourceHandlerRetryPause = 5 * time.Second
+	retryPause = 5 * time.Second
 )
+
+func emptyTimer() *time.Timer {
+	t := time.NewTimer(0)
+	<-t.C
+	return t
+}
 
 func resolveSource(s string, matches []string, query string) string {
 	if len(matches) > 1 {
@@ -35,21 +42,21 @@ func resolveSource(s string, matches []string, query string) string {
 	return s
 }
 
-type staticSourceHandlerParent interface {
+type handlerParent interface {
 	logger.Writer
-	staticSourceHandlerSetReady(context.Context, defs.PathSourceStaticSetReadyReq)
-	staticSourceHandlerSetNotReady(context.Context, defs.PathSourceStaticSetNotReadyReq)
+	StaticSourceHandlerSetReady(context.Context, defs.PathSourceStaticSetReadyReq)
+	StaticSourceHandlerSetNotReady(context.Context, defs.PathSourceStaticSetNotReadyReq)
 }
 
-// staticSourceHandler is a static source handler.
-type staticSourceHandler struct {
-	conf           *conf.Path
-	logLevel       conf.LogLevel
-	readTimeout    conf.Duration
-	writeTimeout   conf.Duration
-	writeQueueSize int
-	matches        []string
-	parent         staticSourceHandlerParent
+// Handler is a static source handler.
+type Handler struct {
+	Conf           *conf.Path
+	LogLevel       conf.LogLevel
+	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
+	WriteQueueSize int
+	Matches        []string
+	Parent         handlerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -66,58 +73,59 @@ type staticSourceHandler struct {
 	done chan struct{}
 }
 
-func (s *staticSourceHandler) initialize() {
+// Initialize initializes Handler.
+func (s *Handler) Initialize() {
 	s.chReloadConf = make(chan *conf.Path)
 	s.chInstanceSetReady = make(chan defs.PathSourceStaticSetReadyReq)
 	s.chInstanceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
 
 	switch {
-	case strings.HasPrefix(s.conf.Source, "rtsp://") ||
-		strings.HasPrefix(s.conf.Source, "rtsps://"):
-		s.instance = &rtspsource.Source{
-			ReadTimeout:    s.readTimeout,
-			WriteTimeout:   s.writeTimeout,
-			WriteQueueSize: s.writeQueueSize,
+	case strings.HasPrefix(s.Conf.Source, "rtsp://") ||
+		strings.HasPrefix(s.Conf.Source, "rtsps://"):
+		s.instance = &ssrtsp.Source{
+			ReadTimeout:    s.ReadTimeout,
+			WriteTimeout:   s.WriteTimeout,
+			WriteQueueSize: s.WriteQueueSize,
 			Parent:         s,
 		}
 
-	case strings.HasPrefix(s.conf.Source, "rtmp://") ||
-		strings.HasPrefix(s.conf.Source, "rtmps://"):
-		s.instance = &rtmpsource.Source{
-			ReadTimeout:  s.readTimeout,
-			WriteTimeout: s.writeTimeout,
+	case strings.HasPrefix(s.Conf.Source, "rtmp://") ||
+		strings.HasPrefix(s.Conf.Source, "rtmps://"):
+		s.instance = &ssrtmp.Source{
+			ReadTimeout:  s.ReadTimeout,
+			WriteTimeout: s.WriteTimeout,
 			Parent:       s,
 		}
 
-	case strings.HasPrefix(s.conf.Source, "http://") ||
-		strings.HasPrefix(s.conf.Source, "https://"):
-		s.instance = &hlssource.Source{
-			ReadTimeout: s.readTimeout,
+	case strings.HasPrefix(s.Conf.Source, "http://") ||
+		strings.HasPrefix(s.Conf.Source, "https://"):
+		s.instance = &sshls.Source{
+			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.conf.Source, "udp://"):
-		s.instance = &udpsource.Source{
-			ReadTimeout: s.readTimeout,
+	case strings.HasPrefix(s.Conf.Source, "udp://"):
+		s.instance = &ssudp.Source{
+			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.conf.Source, "srt://"):
-		s.instance = &srtsource.Source{
-			ReadTimeout: s.readTimeout,
+	case strings.HasPrefix(s.Conf.Source, "srt://"):
+		s.instance = &sssrt.Source{
+			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}
 
-	case strings.HasPrefix(s.conf.Source, "whep://") ||
-		strings.HasPrefix(s.conf.Source, "wheps://"):
-		s.instance = &webrtcsource.Source{
-			ReadTimeout: s.readTimeout,
+	case strings.HasPrefix(s.Conf.Source, "whep://") ||
+		strings.HasPrefix(s.Conf.Source, "wheps://"):
+		s.instance = &sswebrtc.Source{
+			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}
 
-	case s.conf.Source == "rpiCamera":
-		s.instance = &rpicamerasource.Source{
-			LogLevel: s.logLevel,
+	case s.Conf.Source == "rpiCamera":
+		s.instance = &ssrpicamera.Source{
+			LogLevel: s.LogLevel,
 			Parent:   s,
 		}
 
@@ -126,11 +134,13 @@ func (s *staticSourceHandler) initialize() {
 	}
 }
 
-func (s *staticSourceHandler) close(reason string) {
-	s.stop(reason)
+// Close closes Handler.
+func (s *Handler) Close(reason string) {
+	s.Stop(reason)
 }
 
-func (s *staticSourceHandler) start(onDemand bool, query string) {
+// Start starts Handler.
+func (s *Handler) Start(onDemand bool, query string) {
 	if s.running {
 		panic("should not happen")
 	}
@@ -151,7 +161,8 @@ func (s *staticSourceHandler) start(onDemand bool, query string) {
 	go s.run()
 }
 
-func (s *staticSourceHandler) stop(reason string) {
+// Stop stops Handler.
+func (s *Handler) Stop(reason string) {
 	if !s.running {
 		panic("should not happen")
 	}
@@ -167,11 +178,11 @@ func (s *staticSourceHandler) stop(reason string) {
 }
 
 // Log implements logger.Writer.
-func (s *staticSourceHandler) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, format, args...)
+func (s *Handler) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, format, args...)
 }
 
-func (s *staticSourceHandler) run() {
+func (s *Handler) run() {
 	defer close(s.done)
 
 	var runCtx context.Context
@@ -180,14 +191,14 @@ func (s *staticSourceHandler) run() {
 	runReloadConf := make(chan *conf.Path)
 
 	recreate := func() {
-		resolvedSource := resolveSource(s.conf.Source, s.matches, s.query)
+		resolvedSource := resolveSource(s.Conf.Source, s.Matches, s.query)
 
 		runCtx, runCtxCancel = context.WithCancel(context.Background())
 		go func() {
 			runErr <- s.instance.Run(defs.StaticSourceRunParams{
 				Context:        runCtx,
 				ResolvedSource: resolvedSource,
-				Conf:           s.conf,
+				Conf:           s.Conf,
 				ReloadConf:     runReloadConf,
 			})
 		}()
@@ -204,16 +215,16 @@ func (s *staticSourceHandler) run() {
 			runCtxCancel()
 			s.instance.Log(logger.Error, err.Error())
 			recreating = true
-			recreateTimer = time.NewTimer(staticSourceHandlerRetryPause)
+			recreateTimer = time.NewTimer(retryPause)
 
 		case req := <-s.chInstanceSetReady:
-			s.parent.staticSourceHandlerSetReady(s.ctx, req)
+			s.Parent.StaticSourceHandlerSetReady(s.ctx, req)
 
 		case req := <-s.chInstanceSetNotReady:
-			s.parent.staticSourceHandlerSetNotReady(s.ctx, req)
+			s.Parent.StaticSourceHandlerSetNotReady(s.ctx, req)
 
 		case newConf := <-s.chReloadConf:
-			s.conf = newConf
+			s.Conf = newConf
 			if !recreating {
 				cReloadConf := runReloadConf
 				cInnerCtx := runCtx
@@ -239,7 +250,8 @@ func (s *staticSourceHandler) run() {
 	}
 }
 
-func (s *staticSourceHandler) reloadConf(newConf *conf.Path) {
+// ReloadConf is called by path.
+func (s *Handler) ReloadConf(newConf *conf.Path) {
 	ctx := s.ctx
 
 	if !s.running {
@@ -255,12 +267,12 @@ func (s *staticSourceHandler) reloadConf(newConf *conf.Path) {
 }
 
 // APISourceDescribe instanceements source.
-func (s *staticSourceHandler) APISourceDescribe() defs.APIPathSourceOrReader {
+func (s *Handler) APISourceDescribe() defs.APIPathSourceOrReader {
 	return s.instance.APISourceDescribe()
 }
 
-// setReady is called by a staticSource.
-func (s *staticSourceHandler) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
+// SetReady is called by a staticSource.
+func (s *Handler) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
 	req.Res = make(chan defs.PathSourceStaticSetReadyRes)
 	select {
 	case s.chInstanceSetReady <- req:
@@ -277,8 +289,8 @@ func (s *staticSourceHandler) SetReady(req defs.PathSourceStaticSetReadyReq) def
 	}
 }
 
-// setNotReady is called by a staticSource.
-func (s *staticSourceHandler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
+// SetNotReady is called by a staticSource.
+func (s *Handler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 	req.Res = make(chan struct{})
 	select {
 	case s.chInstanceSetNotReady <- req:
