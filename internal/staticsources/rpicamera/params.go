@@ -2,40 +2,40 @@ package rpicamera
 
 type params struct {
 	LogLevel          string
-	CameraID          uint
-	Width             uint
-	Height            uint
+	CameraID          uint32
+	Width             uint32
+	Height            uint32
 	HFlip             bool
 	VFlip             bool
-	Brightness        float64
-	Contrast          float64
-	Saturation        float64
-	Sharpness         float64
+	Brightness        float32
+	Contrast          float32
+	Saturation        float32
+	Sharpness         float32
 	Exposure          string
 	AWB               string
-	AWBGainRed        float64
-	AWBGainBlue       float64
+	AWBGainRed        float32
+	AWBGainBlue       float32
 	Denoise           string
-	Shutter           uint
+	Shutter           uint32
 	Metering          string
-	Gain              float64
-	EV                float64
+	Gain              float32
+	EV                float32
 	ROI               string
 	HDR               bool
 	TuningFile        string
 	Mode              string
-	FPS               float64
+	FPS               float32
 	AfMode            string
 	AfRange           string
 	AfSpeed           string
-	LensPosition      float64
+	LensPosition      float32
 	AfWindow          string
-	FlickerPeriod     uint
+	FlickerPeriod     uint32
 	TextOverlayEnable bool
 	TextOverlay       string
 	Codec             string
-	IDRPeriod         uint
-	Bitrate           uint
+	IDRPeriod         uint32
+	Bitrate           uint32
 	Profile           string
 	Level             string
 }

@@ -15,21 +15,22 @@ func (p params) serialize() []byte {
 	nf := rv.NumField()
 	ret := make([]string, nf)
 
-	for i := 0; i < nf; i++ {
+	for i := range nf {
 		entry := rt.Field(i).Name + ":"
 		f := rv.Field(i)
+		v := f.Interface()
 
-		switch f.Kind() {
-		case reflect.Uint:
-			entry += strconv.FormatUint(f.Uint(), 10)
+		switch v := v.(type) {
+		case uint32:
+			entry += strconv.FormatUint(uint64(v), 10)
 
-		case reflect.Float64:
-			entry += strconv.FormatFloat(f.Float(), 'f', -1, 64)
+		case float32:
+			entry += strconv.FormatFloat(float64(v), 'f', -1, 64)
 
-		case reflect.String:
-			entry += base64.StdEncoding.EncodeToString([]byte(f.String()))
+		case string:
+			entry += base64.StdEncoding.EncodeToString([]byte(v))
 
-		case reflect.Bool:
+		case bool:
 			if f.Bool() {
 				entry += "1"
 			} else {
