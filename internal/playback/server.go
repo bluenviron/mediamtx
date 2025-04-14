@@ -19,6 +19,12 @@ type serverAuthManager interface {
 	Authenticate(req *auth.Request) error
 }
 
+type serverPathManager interface {
+	Describe(req defs.PathDescribeReq) defs.PathDescribeRes
+	AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, error)
+	AddReader(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+}
+
 // Server is the playback server.
 type Server struct {
 	Address        string
@@ -31,6 +37,7 @@ type Server struct {
 	PathConfs      map[string]*conf.Path
 	AuthManager    serverAuthManager
 	Parent         logger.Writer
+	PathManager    serverPathManager
 
 	httpServer *httpp.Server
 	mutex      sync.RWMutex
