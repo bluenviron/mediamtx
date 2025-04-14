@@ -7,4 +7,4 @@ import (
 )
 
 //go:embed mtxrpicam_32/*
-var component embed.FS
+var mtxrpicam embed.FS
