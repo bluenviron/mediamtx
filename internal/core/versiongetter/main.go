@@ -82,7 +82,8 @@ func tagFromGit() error {
 	storer := filesystem.NewStorageWithOptions(storerFs, cache.NewObjectLRUDefault(), filesystem.Options{
 		AlternatesFS: osfs.New("/", osfs.WithBoundOS()),
 	})
-	worktreeFs := osfs.New("../..", osfs.WithBoundOS())
+	workTreeAbs, _ := filepath.Abs("../../")
+	worktreeFs := osfs.New(workTreeAbs, osfs.WithBoundOS())
 	repo, err := git.Open(storer, worktreeFs)
 	if err != nil {
 		return fmt.Errorf("failed to open repository: %w", err)
