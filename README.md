@@ -2521,10 +2521,11 @@ The command will produce tarballs in folder `binaries/`.
 
 ## License
 
-All the code in this repository is released under the [MIT License](LICENSE). Compiled binaries make use of some third-party dependencies:
+All the code in this repository is released under the [MIT License](LICENSE). Compiled binaries include some third-party dependencies:
 
-* hls.js, released under the [Apache License 2.0](https://github.com/video-dev/hls.js/blob/master/LICENSE)
-* all the dependencies listed into the [go.mod file](go.mod), which are all released under either the MIT license, BSD-3-Clause license or Apache License 2.0
+* all the Golang-based dependencies listed into the [go.mod file](go.mod), which are all released under either the MIT license, BSD 3-Clause license or Apache License 2.0.
+* hls.js, released under the [Apache License 2.0](https://github.com/video-dev/hls.js/blob/master/LICENSE).
+* mediamtx-rpicamera, which is released under the same license of _MediaMTX_ but includes some [third-party dependencies](https://github.com/bluenviron/mediamtx-rpicamera?tab=readme-ov-file#license).
 
 ## Specifications
 
