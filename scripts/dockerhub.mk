@@ -1,7 +1,8 @@
 DOCKER_REPOSITORY = bluenviron/mediamtx
 
 define DOCKERFILE_DOCKERHUB
-FROM scratch
+FROM $(ALPINE_IMAGE)
+RUN apk add --no-cache tzdata
 ARG TARGETPLATFORM
 ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
@@ -11,6 +12,7 @@ export DOCKERFILE_DOCKERHUB
 define DOCKERFILE_DOCKERHUB_FFMPEG
 FROM $(ALPINE_IMAGE)
 RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache tzdata
 ARG TARGETPLATFORM
 ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
