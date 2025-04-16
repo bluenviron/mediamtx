@@ -1761,9 +1761,9 @@ and supports sending absolute timestamps with the following protocols:
 * RTSP (through RTCP reports)
 * WebRTC (through RTCP reports)
 
-A library that can read absolute timestamps with HLS is [gohlslib](https://github.com/bluenviron/gohlslib)
+A library that can read absolute timestamps with HLS is [gohlslib](https://github.com/bluenviron/gohlslib).
 
-A library that can read absolute timestamps with RTSP is [gortsplib](https://github.com/bluenviron/gortsplib)
+A library that can read absolute timestamps with RTSP is [gortsplib](https://github.com/bluenviron/gortsplib).
 
 A browser can read read absolute timestamps with WebRTC if it exposes the [estimatedPlayoutTimestamp](https://www.w3.org/TR/webrtc-stats/#dom-rtcinboundrtpstreamstats-estimatedplayouttimestamp) statistic.
 
