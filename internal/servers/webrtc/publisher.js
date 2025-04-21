@@ -186,19 +186,28 @@
   class MediaMTXWebRTCPublisher {
     constructor(conf) {
       this.conf = conf;
-      this.state = 'initializing';
+      this.state = 'running';
       this.restartTimeout = null;
       this.pc = null;
       this.offerData = null;
       this.sessionUrl = null;
       this.queuedCandidates = [];
-
       this.start();
     }
 
-    start = () => {
-      this.state = 'running';
+    close = () => {
+      this.state = 'closed';
 
+      if (this.pc !== null) {
+        this.pc.close();
+      }
+
+      if (this.restartTimeout !== null) {
+        clearTimeout(this.restartTimeout);
+      }
+    };
+
+    start = () => {
       this.requestICEServers()
         .then((iceServers) => this.setupPeerConnection(iceServers))
         .then((offer) => this.sendOffer(offer))
@@ -209,42 +218,32 @@
     };
 
     handleError = (err) => {
-      if (this.state === 'restarting' || this.state === 'error') {
-        return;
-      }
-
-      if (this.pc !== null) {
-        this.pc.close();
-        this.pc = null;
-      }
-
-      this.offerData = null;
-
-      if (this.sessionUrl !== null) {
-        fetch(this.sessionUrl, {
-          method: 'DELETE',
-        });
-        this.sessionUrl = null;
-      }
-
-      this.queuedCandidates = [];
-
       if (this.state === 'running') {
+        if (this.pc !== null) {
+          this.pc.close();
+          this.pc = null;
+        }
+
+        this.offerData = null;
+
+        if (this.sessionUrl !== null) {
+          fetch(this.sessionUrl, {
+            method: 'DELETE',
+          });
+          this.sessionUrl = null;
+        }
+
+        this.queuedCandidates = [];
         this.state = 'restarting';
 
         this.restartTimeout = window.setTimeout(() => {
           this.restartTimeout = null;
+          this.state = 'running';
           this.start();
         }, retryPause);
 
         if (this.conf.onError !== undefined) {
-          this.conf.onError(err + ', retrying in some seconds');
-        }
-      } else {
-        this.state = 'error';
-
-        if (this.conf.onError !== undefined) {
-          this.conf.onError(err);
+          this.conf.onError(`${err}, retrying in some seconds`);
         }
       }
     };
@@ -257,6 +256,10 @@
     };
 
     setupPeerConnection = (iceServers) => {
+      if (this.state !== 'running') {
+        throw new Error('closed');
+      }
+
       this.pc = new RTCPeerConnection({
         iceServers,
         // https://webrtc.org/getting-started/unified-plan-transition-guide
@@ -280,6 +283,10 @@
     };
 
     sendOffer = (offer) => {
+      if (this.state !== 'running') {
+        throw new Error('closed');
+      }
+
       offer = editOffer(
         offer,
         this.conf.videoCodec,
@@ -296,12 +303,12 @@
       })
         .then((res) => {
           switch (res.status) {
-          case 201:
-            break;
-          case 400:
-            return res.json().then((e) => { throw new Error(e.error); });
-          default:
-            throw new Error(`bad status code ${res.status}`);
+            case 201:
+              break;
+            case 400:
+              return res.json().then((e) => { throw new Error(e.error); });
+            default:
+              throw new Error(`bad status code ${res.status}`);
           }
 
           this.sessionUrl = new URL(res.headers.get('location'), this.conf.url).toString();
@@ -312,7 +319,7 @@
 
     setAnswer = (answer) => {
       if (this.state !== 'running') {
-        return;
+        throw new Error('closed');
       }
 
       answer = editAnswer(answer, this.conf.videoBitrate);
@@ -322,6 +329,10 @@
         sdp: answer,
       }))
         .then(() => {
+          if (this.state !== 'running') {
+            return;
+          }
+
           if (this.queuedCandidates.length !== 0) {
             this.sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];

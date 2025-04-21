@@ -279,54 +279,57 @@
   class MediaMTXWebRTCReader {
     constructor(conf) {
       this.conf = conf;
-      this.state = 'initializing';
+      this.state = 'getting_codecs';
       this.restartTimeout = null;
       this.pc = null;
       this.offerData = null;
       this.sessionUrl = null;
       this.queuedCandidates = [];
-
-      this.getNonAdvertisedCodecs()
-        .then(() => this.start())
-        .catch((err) => {
-          this.handleError(err);
-        });
+      this.getNonAdvertisedCodecs();
     }
 
-    handleError = (err) => {
-      if (this.state === 'restarting' || this.state === 'error') {
-        return;
-      }
+    close = () => {
+      this.state = 'closed';
 
       if (this.pc !== null) {
         this.pc.close();
-        this.pc = null;
       }
 
-      this.offerData = null;
-
-      if (this.sessionUrl !== null) {
-        fetch(this.sessionUrl, {
-          method: 'DELETE',
-        });
-        this.sessionUrl = null;
+      if (this.restartTimeout !== null) {
+        clearTimeout(this.restartTimeout);
       }
+    };
 
-      this.queuedCandidates = [];
-
+    handleError = (err) => {
       if (this.state === 'running') {
+        if (this.pc !== null) {
+          this.pc.close();
+          this.pc = null;
+        }
+
+        this.offerData = null;
+
+        if (this.sessionUrl !== null) {
+          fetch(this.sessionUrl, {
+            method: 'DELETE',
+          });
+          this.sessionUrl = null;
+        }
+
+        this.queuedCandidates = [];
         this.state = 'restarting';
 
         this.restartTimeout = window.setTimeout(() => {
           this.restartTimeout = null;
+          this.state = 'running';
           this.start();
         }, retryPause);
 
         if (this.conf.onError !== undefined) {
-          this.conf.onError(err + ', retrying in some seconds');
+          this.conf.onError(`${err}, retrying in some seconds`);
         }
-      } else {
-        this.state = 'error';
+      } else if (this.state === 'getting_codecs') {
+        this.state = 'failed';
 
         if (this.conf.onError !== undefined) {
           this.conf.onError(err);
@@ -335,21 +338,28 @@
     };
 
     getNonAdvertisedCodecs = () => {
-      return Promise.all([
+      Promise.all([
         ['pcma/8000/2'],
         ['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
         ['L16/48000/2'],
       ]
-        .map((c) => supportsNonAdvertisedCodec(c[0], c[1]).then((r) => (r) ? c[0] : false)))
+        .map((c) => supportsNonAdvertisedCodec(c[0], c[1]).then((r) => ((r) ? c[0] : false))))
         .then((c) => c.filter((e) => e !== false))
         .then((codecs) => {
+          if (this.state !== 'getting_codecs') {
+            throw new Error('closed');
+          }
+
           this.nonAdvertisedCodecs = codecs;
+          this.state = 'running';
+          this.start();
+        })
+        .catch((err) => {
+          this.handleError(err);
         });
     };
 
     start = () => {
-      this.state = 'running';
-
       this.requestICEServers()
         .then((iceServers) => this.setupPeerConnection(iceServers))
         .then((offer) => this.sendOffer(offer))
@@ -367,6 +377,10 @@
     };
 
     setupPeerConnection = (iceServers) => {
+      if (this.state !== 'running') {
+        throw new Error('closed');
+      }
+
       this.pc = new RTCPeerConnection({
         iceServers,
         // https://webrtc.org/getting-started/unified-plan-transition-guide
@@ -392,6 +406,10 @@
     };
 
     sendOffer = (offer) => {
+      if (this.state !== 'running') {
+        throw new Error('closed');
+      }
+
       return fetch(this.conf.url, {
         method: 'POST',
         headers: {'Content-Type': 'application/sdp'},
@@ -399,14 +417,14 @@
       })
         .then((res) => {
           switch (res.status) {
-          case 201:
-            break;
-          case 404:
-            throw new Error('stream not found');
-          case 400:
-            return res.json().then((e) => { throw new Error(e.error); });
-          default:
-            throw new Error(`bad status code ${res.status}`);
+            case 201:
+              break;
+            case 404:
+              throw new Error('stream not found');
+            case 400:
+              return res.json().then((e) => { throw new Error(e.error); });
+            default:
+              throw new Error(`bad status code ${res.status}`);
           }
 
           this.sessionUrl = new URL(res.headers.get('location'), this.conf.url).toString();
@@ -417,7 +435,7 @@
 
     setAnswer = (answer) => {
       if (this.state !== 'running') {
-        return;
+        throw new Error('closed');
       }
 
       return this.pc.setRemoteDescription(new RTCSessionDescription({
@@ -425,6 +443,10 @@
         sdp: answer,
       }))
         .then(() => {
+          if (this.state !== 'running') {
+            return;
+          }
+
           if (this.queuedCandidates.length !== 0) {
             this.sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];
