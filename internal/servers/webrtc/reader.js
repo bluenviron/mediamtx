@@ -53,16 +53,27 @@ class MediaMTXWebRTCReader {
 
   static #supportsNonAdvertisedCodec(codec, fmtp) {
     return new Promise((resolve) => {
-      const payloadType = 118; // TODO: dynamic
       const pc = new RTCPeerConnection({ iceServers: [] });
       const mediaType = 'audio';
+      let payloadType = '';
+
       pc.addTransceiver(mediaType, { direction: 'recvonly' });
       pc.createOffer()
         .then((offer) => {
+          if (offer.sdp === undefined) {
+            throw new Error('SDP not present');
+          }
           if (offer.sdp.includes(` ${codec}`)) { // codec is advertised, there's no need to add it manually
             throw new Error('already present');
           }
+
           const sections = offer.sdp.split(`m=${mediaType}`);
+
+          const payloadTypes = sections.slice(1)
+            .map((s) => s.split('\r\n')[0].split(' ').slice(3))
+            .reduce((prev, cur) => [...prev, ...cur], []);
+          payloadType = this.#reservePayloadType(payloadTypes);
+
           const lines = sections[1].split('\r\n');
           lines[0] += ` ${payloadType}`;
           lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} ${codec}`);
