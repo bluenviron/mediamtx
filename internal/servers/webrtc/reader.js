@@ -1,8 +1,29 @@
 'use strict';
 
 (() => {
+  /**
+   * @callback OnError
+   * @param {string} err - error.
+   */
+
+  /**
+   * @callback OnTrack
+   * @param {RTCTrackEvent} evt - track event.
+   */
+
+  /**
+   * @typedef Conf
+   * @type {object}
+   * @property {string} url - absolute URL of the WHEP endpoint.
+   * @property {OnError} onError - called when there's an error.
+   * @property {OnTrack} onTrack - called when there's a track available.
+   */
 
   class MediaMTXWebRTCReader {
+    /**
+     * Allocate a WebRTC/WHEP reader.
+     * @param {Conf} conf - configuration.
+     */
     constructor(conf) {
       this.retryPause = 2000;
       this.conf = conf;
@@ -15,6 +36,9 @@
       this.#getNonAdvertisedCodecs();
     }
 
+    /**
+     * Close the reader and all its resources.
+     */
     close() {
       this.state = 'closed';
 

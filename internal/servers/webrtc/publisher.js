@@ -1,8 +1,34 @@
 'use strict';
 
 (() => {
+  /**
+   * @callback OnError
+   * @param {string} err - error.
+   */
+
+  /**
+   * @callback OnConnected
+   */
+
+  /**
+   * @typedef Conf
+   * @type {object}
+   * @property {string} url - absolute URL of the WHIP endpoint.
+   * @property {MediaStream} stream - stream that contains outgoing tracks.
+   * @property {string} videoCodec - outgoing video codec.
+   * @property {number} videoBitrate - outgoing video bitrate.
+   * @property {string} audioCodec - outgoing audio bitrate.
+   * @property {number} audioBitrate - outgoing audio bitrate.
+   * @property {boolean} audioVoice - whether audio is voice.
+   * @property {OnError} onError - called when there's an error.
+   * @property {OnConnected} onConnected - called when connected.
+   */
 
   class MediaMTXWebRTCPublisher {
+    /**
+     * Allocate a WebRTC/WHIP publisher.
+     * @param {Conf} conf - configuration.
+     */
     constructor(conf) {
       this.retryPause = 2000;
       this.conf = conf;
@@ -15,6 +41,9 @@
       this.#start();
     }
 
+    /**
+     * Close the publisher and all its resources.
+     */
     close = () => {
       this.state = 'closed';
 
