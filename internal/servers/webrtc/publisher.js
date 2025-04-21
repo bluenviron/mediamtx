@@ -393,12 +393,12 @@
       })
         .then((res) => {
           switch (res.status) {
-          case 204:
-            break;
-          case 404:
-            throw new Error('stream not found');
-          default:
-            throw new Error(`bad status code ${res.status}`);
+            case 204:
+              break;
+            case 404:
+              throw new Error('stream not found');
+            default:
+              throw new Error(`bad status code ${res.status}`);
           }
         })
         .catch((err) => {

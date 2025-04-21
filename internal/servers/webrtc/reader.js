@@ -59,7 +59,7 @@
         pc.addTransceiver(mediaType, { direction: 'recvonly' });
         pc.createOffer()
           .then((offer) => {
-            if (offer.sdp.includes(' ' + codec)) { // codec is advertised, there's no need to add it manually
+            if (offer.sdp.includes(` ${codec}`)) { // codec is advertised, there's no need to add it manually
               throw new Error('already present');
             }
             const sections = offer.sdp.split(`m=${mediaType}`);
@@ -73,24 +73,24 @@
             offer.sdp = sections.join(`m=${mediaType}`);
             return pc.setLocalDescription(offer);
           })
-          .then(() => {
-            return pc.setRemoteDescription(new RTCSessionDescription({
+          .then(() => (
+            pc.setRemoteDescription(new RTCSessionDescription({
               type: 'answer',
               sdp: 'v=0\r\n'
               + 'o=- 6539324223450680508 0 IN IP4 0.0.0.0\r\n'
               + 's=-\r\n'
               + 't=0 0\r\n'
               + 'a=fingerprint:sha-256 0D:9F:78:15:42:B5:4B:E6:E2:94:3E:5B:37:78:E1:4B:54:59:A3:36:3A:E5:05:EB:27:EE:8F:D2:2D:41:29:25\r\n'
-              + `m=${mediaType} 9 UDP/TLS/RTP/SAVPF ${payloadType}` + '\r\n'
+              + `m=${mediaType} 9 UDP/TLS/RTP/SAVPF ${payloadType}\r\n`
               + 'c=IN IP4 0.0.0.0\r\n'
               + 'a=ice-pwd:7c3bf4770007e7432ee4ea4d697db675\r\n'
               + 'a=ice-ufrag:29e036dc\r\n'
               + 'a=sendonly\r\n'
               + 'a=rtcp-mux\r\n'
-              + `a=rtpmap:${payloadType} ${codec}` + '\r\n'
-              + ((fmtp !== undefined) ? `a=fmtp:${payloadType} ${fmtp}` + '\r\n' : ''),
-            }));
-          })
+              + `a=rtpmap:${payloadType} ${codec}\r\n`
+              + ((fmtp !== undefined) ? `a=fmtp:${payloadType} ${fmtp}\r\n` : ''),
+            }))
+          ))
           .then(() => {
             resolve(true);
           })
@@ -158,7 +158,7 @@
     }
 
     static #enableStereoPcmau(payloadTypes, section) {
-      let lines = section.split('\r\n');
+      const lines = section.split('\r\n');
 
       let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
@@ -174,7 +174,7 @@
     }
 
     static #enableMultichannelOpus(payloadTypes, section) {
-      let lines = section.split('\r\n');
+      const lines = section.split('\r\n');
 
       let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
@@ -216,7 +216,7 @@
     }
 
     static #enableL16(payloadTypes, section) {
-      let lines = section.split('\r\n');
+      const lines = section.split('\r\n');
 
       let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
@@ -238,7 +238,7 @@
 
     static #enableStereoOpus(section) {
       let opusPayloadFormat = '';
-      let lines = section.split('\r\n');
+      const lines = section.split('\r\n');
 
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
@@ -252,7 +252,7 @@
       }
 
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+        if (lines[i].startsWith(`a=fmtp:${opusPayloadFormat} `)) {
           if (!lines[i].includes('stereo')) {
             lines[i] += ';stereo=1';
           }
@@ -303,18 +303,18 @@
         candidatesByMedia[mid].push(candidate);
       }
 
-      let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
-        + 'a=ice-pwd:' + od.icePwd + '\r\n';
+      let frag = `a=ice-ufrag:${od.iceUfrag}\r\n`
+        + `a=ice-pwd:${od.icePwd}\r\n`;
 
       let mid = 0;
 
       for (const media of od.medias) {
         if (candidatesByMedia[mid] !== undefined) {
-          frag += 'm=' + media + '\r\n'
-            + 'a=mid:' + mid + '\r\n';
+          frag += `m=${media}\r\n`
+            + `a=mid:${mid}\r\n`;
 
           for (const candidate of candidatesByMedia[mid]) {
-            frag += 'a=' + candidate.candidate + '\r\n';
+            frag += `a=${candidate.candidate}\r\n`;
           }
         }
         mid++;
@@ -396,7 +396,7 @@
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
-        .then((res) => MediaMTXWebRTCReader.#linkToIceServers(res.headers.get('Link')))
+        .then((res) => MediaMTXWebRTCReader.#linkToIceServers(res.headers.get('Link')));
     }
 
     #setupPeerConnection(iceServers) {
@@ -502,12 +502,12 @@
       })
         .then((res) => {
           switch (res.status) {
-          case 204:
-            break;
-          case 404:
-            throw new Error('stream not found');
-          default:
-            throw new Error(`bad status code ${res.status}`);
+            case 204:
+              break;
+            case 404:
+              throw new Error('stream not found');
+            default:
+              throw new Error(`bad status code ${res.status}`);
           }
         })
         .catch((err) => {
