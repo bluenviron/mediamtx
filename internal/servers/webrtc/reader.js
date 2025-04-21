@@ -18,9 +18,10 @@
  * @property {OnTrack} onTrack - called when there's a track available.
  */
 
+/** WebRTC/WHEP reader. */
 class MediaMTXWebRTCReader {
   /**
-   * Allocate a WebRTC/WHEP reader.
+   * Create a MediaMTXWebRTCReader.
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {

@@ -23,9 +23,10 @@
  * @property {OnConnected} onConnected - called when connected.
  */
 
+/** WebRTC/WHIP publisher. */
 class MediaMTXWebRTCPublisher {
   /**
-   * Allocate a WebRTC/WHIP publisher.
+   * Create a MediaMTXWebRTCPublisher.
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
