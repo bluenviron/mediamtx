@@ -12,7 +12,7 @@
       this.offerData = null;
       this.sessionUrl = null;
       this.queuedCandidates = [];
-      this.start();
+      this.#start();
     }
 
     close = () => {
@@ -27,11 +27,11 @@
       }
     };
 
-    static unquoteCredential(v) {
+    static #unquoteCredential(v) {
       return JSON.parse(`"${v}"`);
     }
 
-    static linkToIceServers(links) {
+    static #linkToIceServers(links) {
       return (links !== null) ? links.split(', ').map((link) => {
         const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
         const ret = {
@@ -39,8 +39,8 @@
         };
 
         if (m[3] !== undefined) {
-          ret.username = this.unquoteCredential(m[3]);
-          ret.credential = this.unquoteCredential(m[4]);
+          ret.username = this.#unquoteCredential(m[3]);
+          ret.credential = this.#unquoteCredential(m[4]);
           ret.credentialType = 'password';
         }
 
@@ -48,7 +48,7 @@
       }) : [];
     }
 
-    static parseOffer(offer) {
+    static #parseOffer(offer) {
       const ret = {
         iceUfrag: '',
         icePwd: '',
@@ -68,7 +68,7 @@
       return ret;
     }
 
-    static generateSdpFragment(od, candidates) {
+    static #generateSdpFragment(od, candidates) {
       const candidatesByMedia = {};
       for (const candidate of candidates) {
         const mid = candidate.sdpMLineIndex;
@@ -98,7 +98,7 @@
       return frag;
     }
 
-    static setCodec(section, codec) {
+    static #setCodec(section, codec) {
       const lines = section.split('\r\n');
       const lines2 = [];
       const payloadFormats = [];
@@ -137,7 +137,7 @@
       return lines3.join('\r\n');
     }
 
-    static setVideoBitrate(section, bitrate) {
+    static #setVideoBitrate(section, bitrate) {
       let lines = section.split('\r\n');
 
       for (let i = 0; i < lines.length; i++) {
@@ -150,7 +150,7 @@
       return lines.join('\r\n');
     }
 
-    static setAudioBitrate(section, bitrate, voice) {
+    static #setAudioBitrate(section, bitrate, voice) {
       let opusPayloadFormat = '';
       let lines = section.split('\r\n');
 
@@ -180,43 +180,43 @@
       return lines.join('\r\n');
     }
 
-    static editOffer(sdp, videoCodec, audioCodec, audioBitrate, audioVoice) {
+    static #editOffer(sdp, videoCodec, audioCodec, audioBitrate, audioVoice) {
       const sections = sdp.split('m=');
 
       for (let i = 0; i < sections.length; i++) {
         if (sections[i].startsWith('video')) {
-          sections[i] = this.setCodec(sections[i], videoCodec);
+          sections[i] = this.#setCodec(sections[i], videoCodec);
         } else if (sections[i].startsWith('audio')) {
-          sections[i] = this.setAudioBitrate(this.setCodec(sections[i], audioCodec), audioBitrate, audioVoice);
+          sections[i] = this.#setAudioBitrate(this.#setCodec(sections[i], audioCodec), audioBitrate, audioVoice);
         }
       }
 
       return sections.join('m=');
     }
 
-    static editAnswer(sdp, videoBitrate) {
+    static #editAnswer(sdp, videoBitrate) {
       const sections = sdp.split('m=');
 
       for (let i = 0; i < sections.length; i++) {
         if (sections[i].startsWith('video')) {
-          sections[i] = this.setVideoBitrate(sections[i], videoBitrate);
+          sections[i] = this.#setVideoBitrate(sections[i], videoBitrate);
         }
       }
 
       return sections.join('m=');
     }
 
-    start() {
-      this.requestICEServers()
-        .then((iceServers) => this.setupPeerConnection(iceServers))
-        .then((offer) => this.sendOffer(offer))
-        .then((answer) => this.setAnswer(answer))
+    #start() {
+      this.#requestICEServers()
+        .then((iceServers) => this.#setupPeerConnection(iceServers))
+        .then((offer) => this.#sendOffer(offer))
+        .then((answer) => this.#setAnswer(answer))
         .catch((err) => {
-          this.handleError(err.toString());
+          this.#handleError(err.toString());
         });
     }
 
-    handleError(err) {
+    #handleError(err) {
       if (this.state === 'running') {
         if (this.pc !== null) {
           this.pc.close();
@@ -238,7 +238,7 @@
         this.restartTimeout = window.setTimeout(() => {
           this.restartTimeout = null;
           this.state = 'running';
-          this.start();
+          this.#start();
         }, this.retryPause);
 
         if (this.conf.onError !== undefined) {
@@ -247,14 +247,14 @@
       }
     }
 
-    requestICEServers() {
+    #requestICEServers() {
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
-        .then((res) => this.constructor.linkToIceServers(res.headers.get('Link')));
+        .then((res) => MediaMTXWebRTCPublisher.#linkToIceServers(res.headers.get('Link')));
     }
 
-    setupPeerConnection(iceServers) {
+    #setupPeerConnection(iceServers) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -265,8 +265,8 @@
         sdpSemantics: 'unified-plan',
       });
 
-      this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-      this.pc.onconnectionstatechange = () => this.onConnectionState();
+      this.pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
+      this.pc.onconnectionstatechange = () => this.#onConnectionState();
 
       this.conf.stream.getTracks().forEach((track) => {
         this.pc.addTrack(track, this.conf.stream);
@@ -274,19 +274,19 @@
 
       return this.pc.createOffer()
         .then((offer) => {
-          this.offerData = this.constructor.parseOffer(offer.sdp);
+          this.offerData = MediaMTXWebRTCPublisher.#parseOffer(offer.sdp);
 
           return this.pc.setLocalDescription(offer)
             .then(() => offer.sdp);
         });
     }
 
-    sendOffer(offer) {
+    #sendOffer(offer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
 
-      offer = this.constructor.editOffer(
+      offer = MediaMTXWebRTCPublisher.#editOffer(
         offer,
         this.conf.videoCodec,
         this.conf.audioCodec,
@@ -316,12 +316,12 @@
         });
     }
 
-    setAnswer(answer) {
+    #setAnswer(answer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
 
-      answer = this.constructor.editAnswer(answer, this.conf.videoBitrate);
+      answer = MediaMTXWebRTCPublisher.#editAnswer(answer, this.conf.videoBitrate);
 
       return this.pc.setRemoteDescription(new RTCSessionDescription({
         type: 'answer',
@@ -333,13 +333,13 @@
           }
 
           if (this.queuedCandidates.length !== 0) {
-            this.sendLocalCandidates(this.queuedCandidates);
+            this.#sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];
           }
         });
     }
 
-    onLocalCandidate(evt) {
+    #onLocalCandidate(evt) {
       if (this.state !== 'running') {
         return;
       }
@@ -348,19 +348,19 @@
         if (this.sessionUrl === null) {
           this.queuedCandidates.push(evt.candidate);
         } else {
-          this.sendLocalCandidates([evt.candidate]);
+          this.#sendLocalCandidates([evt.candidate]);
         }
       }
     }
 
-    sendLocalCandidates(candidates) {
+    #sendLocalCandidates(candidates) {
       fetch(this.sessionUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/trickle-ice-sdpfrag',
           'If-Match': '*',
         },
-        body: this.constructor.generateSdpFragment(this.offerData, candidates),
+        body: MediaMTXWebRTCPublisher.#generateSdpFragment(this.offerData, candidates),
       })
         .then((res) => {
           switch (res.status) {
@@ -373,11 +373,11 @@
           }
         })
         .catch((err) => {
-          this.handleError(err.toString());
+          this.#handleError(err.toString());
         });
     }
 
-    onConnectionState() {
+    #onConnectionState() {
       if (this.state !== 'running') {
         return;
       }
@@ -389,7 +389,7 @@
       if (this.pc.connectionState === 'failed'
         || this.pc.connectionState === 'closed'
       ) {
-        this.handleError('peer connection closed');
+        this.#handleError('peer connection closed');
       } else if (this.pc.connectionState === 'connected') {
         if (this.conf.onConnected !== undefined) {
           this.conf.onConnected();

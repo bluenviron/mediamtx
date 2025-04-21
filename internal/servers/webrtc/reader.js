@@ -12,7 +12,7 @@
       this.offerData = null;
       this.sessionUrl = null;
       this.queuedCandidates = [];
-      this.getNonAdvertisedCodecs();
+      this.#getNonAdvertisedCodecs();
     }
 
     close() {
@@ -27,7 +27,7 @@
       }
     }
 
-    static supportsNonAdvertisedCodec(codec, fmtp) {
+    static #supportsNonAdvertisedCodec(codec, fmtp) {
       return new Promise((resolve) => {
         const payloadType = 118; // TODO: dynamic
         const pc = new RTCPeerConnection({ iceServers: [] });
@@ -79,11 +79,11 @@
       });
     }
 
-    static unquoteCredential(v) {
+    static #unquoteCredential(v) {
       return JSON.parse(`"${v}"`);
     }
 
-    static linkToIceServers(links) {
+    static #linkToIceServers(links) {
       return (links !== null) ? links.split(', ').map((link) => {
         const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
         const ret = {
@@ -91,8 +91,8 @@
         };
 
         if (m[3] !== undefined) {
-          ret.username = this.unquoteCredential(m[3]);
-          ret.credential = this.unquoteCredential(m[4]);
+          ret.username = this.#unquoteCredential(m[3]);
+          ret.credential = this.#unquoteCredential(m[4]);
           ret.credentialType = 'password';
         }
 
@@ -100,7 +100,7 @@
       }) : [];
     }
 
-    static parseOffer(sdp) {
+    static #parseOffer(sdp) {
       const ret = {
         iceUfrag: '',
         icePwd: '',
@@ -120,7 +120,7 @@
       return ret;
     }
 
-    static reservePayloadType(payloadTypes) {
+    static #reservePayloadType(payloadTypes) {
       // everything is valid between 30 and 127, except for interval between 64 and 95
       // https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/call/payload_type.h#29
       for (let i = 30; i <= 127; i++) {
@@ -133,15 +133,15 @@
       throw Error('unable to find a free payload type');
     }
 
-    static enableStereoPcmau(payloadTypes, section) {
+    static #enableStereoPcmau(payloadTypes, section) {
       let lines = section.split('\r\n');
 
-      let payloadType = this.reservePayloadType(payloadTypes);
+      let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} PCMU/8000/2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} PCMA/8000/2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
@@ -149,40 +149,40 @@
       return lines.join('\r\n');
     }
 
-    static enableMultichannelOpus(payloadTypes, section) {
+    static #enableMultichannelOpus(payloadTypes, section) {
       let lines = section.split('\r\n');
 
-      let payloadType = this.reservePayloadType(payloadTypes);
+      let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/3`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,2,1;num_streams=2;coupled_streams=1`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/4`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/5`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/6`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/7`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} multiopus/48000/8`);
       lines.splice(lines.length - 1, 0, `a=fmtp:${payloadType} channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4`);
@@ -191,20 +191,20 @@
       return lines.join('\r\n');
     }
 
-    static enableL16(payloadTypes, section) {
+    static #enableL16(payloadTypes, section) {
       let lines = section.split('\r\n');
 
-      let payloadType = this.reservePayloadType(payloadTypes);
+      let payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/8000/2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/16000/2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
 
-      payloadType = this.reservePayloadType(payloadTypes);
+      payloadType = this.#reservePayloadType(payloadTypes);
       lines[0] += ` ${payloadType}`;
       lines.splice(lines.length - 1, 0, `a=rtpmap:${payloadType} L16/48000/2`);
       lines.splice(lines.length - 1, 0, `a=rtcp-fb:${payloadType} transport-cc`);
@@ -212,7 +212,7 @@
       return lines.join('\r\n');
     }
 
-    static enableStereoOpus(section) {
+    static #enableStereoOpus(section) {
       let opusPayloadFormat = '';
       let lines = section.split('\r\n');
 
@@ -241,7 +241,7 @@
       return lines.join('\r\n');
     }
 
-    static editOffer(sdp, nonAdvertisedCodecs) {
+    static #editOffer(sdp, nonAdvertisedCodecs) {
       const sections = sdp.split('m=');
 
       const payloadTypes = sections.slice(1)
@@ -250,16 +250,16 @@
 
       for (let i = 1; i < sections.length; i++) {
         if (sections[i].startsWith('audio')) {
-          sections[i] = this.enableStereoOpus(sections[i]);
+          sections[i] = this.#enableStereoOpus(sections[i]);
 
           if (nonAdvertisedCodecs.includes('pcma/8000/2')) {
-            sections[i] = this.enableStereoPcmau(payloadTypes, sections[i]);
+            sections[i] = this.#enableStereoPcmau(payloadTypes, sections[i]);
           }
           if (nonAdvertisedCodecs.includes('multiopus/48000/6')) {
-            sections[i] = this.enableMultichannelOpus(payloadTypes, sections[i]);
+            sections[i] = this.#enableMultichannelOpus(payloadTypes, sections[i]);
           }
           if (nonAdvertisedCodecs.includes('L16/48000/2')) {
-            sections[i] = this.enableL16(payloadTypes, sections[i]);
+            sections[i] = this.#enableL16(payloadTypes, sections[i]);
           }
 
           break;
@@ -269,7 +269,7 @@
       return sections.join('m=');
     }
 
-    static generateSdpFragment(od, candidates) {
+    static #generateSdpFragment(od, candidates) {
       const candidatesByMedia = {};
       for (const candidate of candidates) {
         const mid = candidate.sdpMLineIndex;
@@ -299,7 +299,7 @@
       return frag;
     }
 
-    handleError(err) {
+    #handleError(err) {
       if (this.state === 'running') {
         if (this.pc !== null) {
           this.pc.close();
@@ -321,7 +321,7 @@
         this.restartTimeout = window.setTimeout(() => {
           this.restartTimeout = null;
           this.state = 'running';
-          this.start();
+          this.#start();
         }, this.retryPause);
 
         if (this.conf.onError !== undefined) {
@@ -336,13 +336,13 @@
       }
     }
 
-    getNonAdvertisedCodecs() {
+    #getNonAdvertisedCodecs() {
       Promise.all([
         ['pcma/8000/2'],
         ['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
         ['L16/48000/2'],
       ]
-        .map((c) => this.constructor.supportsNonAdvertisedCodec(c[0], c[1]).then((r) => ((r) ? c[0] : false))))
+        .map((c) => MediaMTXWebRTCReader.#supportsNonAdvertisedCodec(c[0], c[1]).then((r) => ((r) ? c[0] : false))))
         .then((c) => c.filter((e) => e !== false))
         .then((codecs) => {
           if (this.state !== 'getting_codecs') {
@@ -351,31 +351,31 @@
 
           this.nonAdvertisedCodecs = codecs;
           this.state = 'running';
-          this.start();
+          this.#start();
         })
         .catch((err) => {
-          this.handleError(err);
+          this.#handleError(err);
         });
     }
 
-    start() {
-      this.requestICEServers()
-        .then((iceServers) => this.setupPeerConnection(iceServers))
-        .then((offer) => this.sendOffer(offer))
-        .then((answer) => this.setAnswer(answer))
+    #start() {
+      this.#requestICEServers()
+        .then((iceServers) => this.#setupPeerConnection(iceServers))
+        .then((offer) => this.#sendOffer(offer))
+        .then((answer) => this.#setAnswer(answer))
         .catch((err) => {
-          this.handleError(err.toString());
+          this.#handleError(err.toString());
         });
     }
 
-    requestICEServers() {
+    #requestICEServers() {
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
-        .then((res) => this.constructor.linkToIceServers(res.headers.get('Link')))
+        .then((res) => MediaMTXWebRTCReader.#linkToIceServers(res.headers.get('Link')))
     }
 
-    setupPeerConnection(iceServers) {
+    #setupPeerConnection(iceServers) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -390,21 +390,21 @@
       this.pc.addTransceiver('video', { direction });
       this.pc.addTransceiver('audio', { direction });
 
-      this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-      this.pc.onconnectionstatechange = () => this.onConnectionState();
-      this.pc.ontrack = (evt) => this.onTrack(evt);
+      this.pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
+      this.pc.onconnectionstatechange = () => this.#onConnectionState();
+      this.pc.ontrack = (evt) => this.#onTrack(evt);
 
       return this.pc.createOffer()
         .then((offer) => {
-          offer.sdp = this.constructor.editOffer(offer.sdp, this.nonAdvertisedCodecs);
-          this.offerData = this.constructor.parseOffer(offer.sdp);
+          offer.sdp = MediaMTXWebRTCReader.#editOffer(offer.sdp, this.nonAdvertisedCodecs);
+          this.offerData = MediaMTXWebRTCReader.#parseOffer(offer.sdp);
 
           return this.pc.setLocalDescription(offer)
             .then(() => offer.sdp);
         });
     }
 
-    sendOffer(offer) {
+    #sendOffer(offer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -432,7 +432,7 @@
         });
     }
 
-    setAnswer(answer) {
+    #setAnswer(answer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -447,13 +447,13 @@
           }
 
           if (this.queuedCandidates.length !== 0) {
-            this.sendLocalCandidates(this.queuedCandidates);
+            this.#sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];
           }
         });
     }
 
-    onLocalCandidate(evt) {
+    #onLocalCandidate(evt) {
       if (this.state !== 'running') {
         return;
       }
@@ -462,19 +462,19 @@
         if (this.sessionUrl === null) {
           this.queuedCandidates.push(evt.candidate);
         } else {
-          this.sendLocalCandidates([evt.candidate]);
+          this.#sendLocalCandidates([evt.candidate]);
         }
       }
     }
 
-    sendLocalCandidates(candidates) {
+    #sendLocalCandidates(candidates) {
       fetch(this.sessionUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/trickle-ice-sdpfrag',
           'If-Match': '*',
         },
-        body: this.constructor.generateSdpFragment(this.offerData, candidates),
+        body: MediaMTXWebRTCReader.#generateSdpFragment(this.offerData, candidates),
       })
         .then((res) => {
           switch (res.status) {
@@ -487,11 +487,11 @@
           }
         })
         .catch((err) => {
-          this.handleError(err.toString());
+          this.#handleError(err.toString());
         });
     }
 
-    onConnectionState() {
+    #onConnectionState() {
       if (this.state !== 'running') {
         return;
       }
@@ -503,11 +503,11 @@
       if (this.pc.connectionState === 'failed'
         || this.pc.connectionState === 'closed'
       ) {
-        this.handleError('peer connection closed');
+        this.#handleError('peer connection closed');
       }
     }
 
-    onTrack(evt) {
+    #onTrack(evt) {
       if (this.conf.onTrack !== undefined) {
         this.conf.onTrack(evt);
       }
