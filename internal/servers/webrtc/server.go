@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
+	webrtcTurnSecretExpiration = 24 * time.Hour
 )
 
 // ErrSessionNotFound is returned when a session is not found.
