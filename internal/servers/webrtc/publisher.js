@@ -206,7 +206,7 @@
       return sections.join('m=');
     }
 
-    start = () => {
+    start() {
       this.requestICEServers()
         .then((iceServers) => this.setupPeerConnection(iceServers))
         .then((offer) => this.sendOffer(offer))
@@ -214,9 +214,9 @@
         .catch((err) => {
           this.handleError(err.toString());
         });
-    };
+    }
 
-    handleError = (err) => {
+    handleError(err) {
       if (this.state === 'running') {
         if (this.pc !== null) {
           this.pc.close();
@@ -245,16 +245,16 @@
           this.conf.onError(`${err}, retrying in some seconds`);
         }
       }
-    };
+    }
 
-    requestICEServers = () => {
+    requestICEServers() {
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
         .then((res) => this.constructor.linkToIceServers(res.headers.get('Link')));
-    };
+    }
 
-    setupPeerConnection = (iceServers) => {
+    setupPeerConnection(iceServers) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -279,9 +279,9 @@
           return this.pc.setLocalDescription(offer)
             .then(() => offer.sdp);
         });
-    };
+    }
 
-    sendOffer = (offer) => {
+    sendOffer(offer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -314,9 +314,9 @@
 
           return res.text();
         });
-    };
+    }
 
-    setAnswer = (answer) => {
+    setAnswer(answer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -337,9 +337,9 @@
             this.queuedCandidates = [];
           }
         });
-    };
+    }
 
-    onLocalCandidate = (evt) => {
+    onLocalCandidate(evt) {
       if (this.state !== 'running') {
         return;
       }
@@ -351,9 +351,9 @@
           this.sendLocalCandidates([evt.candidate]);
         }
       }
-    };
+    }
 
-    sendLocalCandidates = (candidates) => {
+    sendLocalCandidates(candidates) {
       fetch(this.sessionUrl, {
         method: 'PATCH',
         headers: {
@@ -375,9 +375,9 @@
         .catch((err) => {
           this.handleError(err.toString());
         });
-    };
+    }
 
-    onConnectionState = () => {
+    onConnectionState() {
       if (this.state !== 'running') {
         return;
       }
@@ -395,7 +395,7 @@
           this.conf.onConnected();
         }
       }
-    };
+    }
 
   }
 

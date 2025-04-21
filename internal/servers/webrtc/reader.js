@@ -15,7 +15,7 @@
       this.getNonAdvertisedCodecs();
     }
 
-    close = () => {
+    close() {
       this.state = 'closed';
 
       if (this.pc !== null) {
@@ -25,7 +25,7 @@
       if (this.restartTimeout !== null) {
         clearTimeout(this.restartTimeout);
       }
-    };
+    }
 
     static supportsNonAdvertisedCodec(codec, fmtp) {
       return new Promise((resolve) => {
@@ -299,7 +299,7 @@
       return frag;
     }
 
-    handleError = (err) => {
+    handleError(err) {
       if (this.state === 'running') {
         if (this.pc !== null) {
           this.pc.close();
@@ -334,9 +334,9 @@
           this.conf.onError(err);
         }
       }
-    };
+    }
 
-    getNonAdvertisedCodecs = () => {
+    getNonAdvertisedCodecs() {
       Promise.all([
         ['pcma/8000/2'],
         ['multiopus/48000/6', 'channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2'],
@@ -356,9 +356,9 @@
         .catch((err) => {
           this.handleError(err);
         });
-    };
+    }
 
-    start = () => {
+    start() {
       this.requestICEServers()
         .then((iceServers) => this.setupPeerConnection(iceServers))
         .then((offer) => this.sendOffer(offer))
@@ -366,16 +366,16 @@
         .catch((err) => {
           this.handleError(err.toString());
         });
-    };
+    }
 
-    requestICEServers = () => {
+    requestICEServers() {
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
         .then((res) => this.constructor.linkToIceServers(res.headers.get('Link')))
-    };
+    }
 
-    setupPeerConnection = (iceServers) => {
+    setupPeerConnection(iceServers) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -402,9 +402,9 @@
           return this.pc.setLocalDescription(offer)
             .then(() => offer.sdp);
         });
-    };
+    }
 
-    sendOffer = (offer) => {
+    sendOffer(offer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -430,9 +430,9 @@
 
           return res.text();
         });
-    };
+    }
 
-    setAnswer = (answer) => {
+    setAnswer(answer) {
       if (this.state !== 'running') {
         throw new Error('closed');
       }
@@ -451,9 +451,9 @@
             this.queuedCandidates = [];
           }
         });
-    };
+    }
 
-    onLocalCandidate = (evt) => {
+    onLocalCandidate(evt) {
       if (this.state !== 'running') {
         return;
       }
@@ -465,9 +465,9 @@
           this.sendLocalCandidates([evt.candidate]);
         }
       }
-    };
+    }
 
-    sendLocalCandidates = (candidates) => {
+    sendLocalCandidates(candidates) {
       fetch(this.sessionUrl, {
         method: 'PATCH',
         headers: {
@@ -489,9 +489,9 @@
         .catch((err) => {
           this.handleError(err.toString());
         });
-    };
+    }
 
-    onConnectionState = () => {
+    onConnectionState() {
       if (this.state !== 'running') {
         return;
       }
@@ -505,13 +505,13 @@
       ) {
         this.handleError('peer connection closed');
       }
-    };
+    }
 
-    onTrack = (evt) => {
+    onTrack(evt) {
       if (this.conf.onTrack !== undefined) {
         this.conf.onTrack(evt);
       }
-    };
+    }
 
   }
 
