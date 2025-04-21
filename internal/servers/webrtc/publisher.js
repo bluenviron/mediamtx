@@ -2,189 +2,9 @@
 
 (() => {
 
-  const unquoteCredential = (v) => (
-    JSON.parse(`"${v}"`)
-  );
-
-  const linkToIceServers = (links) => (
-    (links !== null) ? links.split(', ').map((link) => {
-      const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
-      const ret = {
-        urls: [m[1]],
-      };
-
-      if (m[3] !== undefined) {
-        ret.username = unquoteCredential(m[3]);
-        ret.credential = unquoteCredential(m[4]);
-        ret.credentialType = 'password';
-      }
-
-      return ret;
-    }) : []
-  );
-
-  const parseOffer = (offer) => {
-    const ret = {
-      iceUfrag: '',
-      icePwd: '',
-      medias: [],
-    };
-
-    for (const line of offer.split('\r\n')) {
-      if (line.startsWith('m=')) {
-        ret.medias.push(line.slice('m='.length));
-      } else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
-        ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
-      } else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
-        ret.icePwd = line.slice('a=ice-pwd:'.length);
-      }
-    }
-
-    return ret;
-  };
-
-  const generateSdpFragment = (od, candidates) => {
-    const candidatesByMedia = {};
-    for (const candidate of candidates) {
-      const mid = candidate.sdpMLineIndex;
-      if (candidatesByMedia[mid] === undefined) {
-        candidatesByMedia[mid] = [];
-      }
-      candidatesByMedia[mid].push(candidate);
-    }
-
-    let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
-      + 'a=ice-pwd:' + od.icePwd + '\r\n';
-
-    let mid = 0;
-
-    for (const media of od.medias) {
-      if (candidatesByMedia[mid] !== undefined) {
-        frag += 'm=' + media + '\r\n'
-          + 'a=mid:' + mid + '\r\n';
-
-        for (const candidate of candidatesByMedia[mid]) {
-          frag += 'a=' + candidate.candidate + '\r\n';
-        }
-      }
-      mid++;
-    }
-
-    return frag;
-  };
-
-  const setCodec = (section, codec) => {
-    const lines = section.split('\r\n');
-    const lines2 = [];
-    const payloadFormats = [];
-
-    for (const line of lines) {
-      if (!line.startsWith('a=rtpmap:')) {
-        lines2.push(line);
-      } else {
-        if (line.toLowerCase().includes(codec)) {
-          payloadFormats.push(line.slice('a=rtpmap:'.length).split(' ')[0]);
-          lines2.push(line);
-        }
-      }
-    }
-
-    const lines3 = [];
-    let firstLine = true;
-
-    for (const line of lines2) {
-      if (firstLine) {
-        firstLine = false;
-        lines3.push(line.split(' ').slice(0, 3).concat(payloadFormats).join(' '));
-      } else if (line.startsWith('a=fmtp:')) {
-        if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
-          lines3.push(line);
-        }
-      } else if (line.startsWith('a=rtcp-fb:')) {
-        if (payloadFormats.includes(line.slice('a=rtcp-fb:'.length).split(' ')[0])) {
-          lines3.push(line);
-        }
-      } else {
-        lines3.push(line);
-      }
-    }
-
-    return lines3.join('\r\n');
-  };
-
-  const setVideoBitrate = (section, bitrate) => {
-    let lines = section.split('\r\n');
-
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('c=')) {
-        lines = [...lines.slice(0, i+1), 'b=TIAS:' + (parseInt(bitrate) * 1024).toString(), ...lines.slice(i+1)];
-        break
-      }
-    }
-
-    return lines.join('\r\n');
-  };
-
-  const setAudioBitrate = (section, bitrate, voice) => {
-    let opusPayloadFormat = '';
-    let lines = section.split('\r\n');
-
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
-        opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
-        break;
-      }
-    }
-
-    if (opusPayloadFormat === '') {
-      return section;
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
-        if (voice) {
-          lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
-            + (parseInt(bitrate) * 1024).toString();
-        } else {
-          lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate='
-            + (parseInt(bitrate) * 1024).toString();
-        }
-      }
-    }
-
-    return lines.join('\r\n');
-  };
-
-  const editOffer = (sdp, videoCodec, audioCodec, audioBitrate, audioVoice) => {
-    const sections = sdp.split('m=');
-
-    for (let i = 0; i < sections.length; i++) {
-      if (sections[i].startsWith('video')) {
-        sections[i] = setCodec(sections[i], videoCodec);
-      } else if (sections[i].startsWith('audio')) {
-        sections[i] = setAudioBitrate(setCodec(sections[i], audioCodec), audioBitrate, audioVoice);
-      }
-    }
-
-    return sections.join('m=');
-  };
-
-  const editAnswer = (sdp, videoBitrate) => {
-    const sections = sdp.split('m=');
-
-    for (let i = 0; i < sections.length; i++) {
-      if (sections[i].startsWith('video')) {
-        sections[i] = setVideoBitrate(sections[i], videoBitrate);
-      }
-    }
-
-    return sections.join('m=');
-  };
-
-  const retryPause = 2000;
-
   class MediaMTXWebRTCPublisher {
     constructor(conf) {
+      this.retryPause = 2000;
       this.conf = conf;
       this.state = 'running';
       this.restartTimeout = null;
@@ -206,6 +26,185 @@
         clearTimeout(this.restartTimeout);
       }
     };
+
+    static unquoteCredential(v) {
+      return JSON.parse(`"${v}"`);
+    }
+
+    static linkToIceServers(links) {
+      return (links !== null) ? links.split(', ').map((link) => {
+        const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
+        const ret = {
+          urls: [m[1]],
+        };
+
+        if (m[3] !== undefined) {
+          ret.username = this.unquoteCredential(m[3]);
+          ret.credential = this.unquoteCredential(m[4]);
+          ret.credentialType = 'password';
+        }
+
+        return ret;
+      }) : [];
+    }
+
+    static parseOffer(offer) {
+      const ret = {
+        iceUfrag: '',
+        icePwd: '',
+        medias: [],
+      };
+
+      for (const line of offer.split('\r\n')) {
+        if (line.startsWith('m=')) {
+          ret.medias.push(line.slice('m='.length));
+        } else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
+          ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
+        } else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
+          ret.icePwd = line.slice('a=ice-pwd:'.length);
+        }
+      }
+
+      return ret;
+    }
+
+    static generateSdpFragment(od, candidates) {
+      const candidatesByMedia = {};
+      for (const candidate of candidates) {
+        const mid = candidate.sdpMLineIndex;
+        if (candidatesByMedia[mid] === undefined) {
+          candidatesByMedia[mid] = [];
+        }
+        candidatesByMedia[mid].push(candidate);
+      }
+
+      let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
+        + 'a=ice-pwd:' + od.icePwd + '\r\n';
+
+      let mid = 0;
+
+      for (const media of od.medias) {
+        if (candidatesByMedia[mid] !== undefined) {
+          frag += 'm=' + media + '\r\n'
+            + 'a=mid:' + mid + '\r\n';
+
+          for (const candidate of candidatesByMedia[mid]) {
+            frag += 'a=' + candidate.candidate + '\r\n';
+          }
+        }
+        mid++;
+      }
+
+      return frag;
+    }
+
+    static setCodec(section, codec) {
+      const lines = section.split('\r\n');
+      const lines2 = [];
+      const payloadFormats = [];
+
+      for (const line of lines) {
+        if (!line.startsWith('a=rtpmap:')) {
+          lines2.push(line);
+        } else {
+          if (line.toLowerCase().includes(codec)) {
+            payloadFormats.push(line.slice('a=rtpmap:'.length).split(' ')[0]);
+            lines2.push(line);
+          }
+        }
+      }
+
+      const lines3 = [];
+      let firstLine = true;
+
+      for (const line of lines2) {
+        if (firstLine) {
+          firstLine = false;
+          lines3.push(line.split(' ').slice(0, 3).concat(payloadFormats).join(' '));
+        } else if (line.startsWith('a=fmtp:')) {
+          if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
+            lines3.push(line);
+          }
+        } else if (line.startsWith('a=rtcp-fb:')) {
+          if (payloadFormats.includes(line.slice('a=rtcp-fb:'.length).split(' ')[0])) {
+            lines3.push(line);
+          }
+        } else {
+          lines3.push(line);
+        }
+      }
+
+      return lines3.join('\r\n');
+    }
+
+    static setVideoBitrate(section, bitrate) {
+      let lines = section.split('\r\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('c=')) {
+          lines = [...lines.slice(0, i+1), 'b=TIAS:' + (parseInt(bitrate) * 1024).toString(), ...lines.slice(i+1)];
+          break
+        }
+      }
+
+      return lines.join('\r\n');
+    }
+
+    static setAudioBitrate(section, bitrate, voice) {
+      let opusPayloadFormat = '';
+      let lines = section.split('\r\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+          opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+          break;
+        }
+      }
+
+      if (opusPayloadFormat === '') {
+        return section;
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+          if (voice) {
+            lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
+              + (parseInt(bitrate) * 1024).toString();
+          } else {
+            lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate='
+              + (parseInt(bitrate) * 1024).toString();
+          }
+        }
+      }
+
+      return lines.join('\r\n');
+    }
+
+    static editOffer(sdp, videoCodec, audioCodec, audioBitrate, audioVoice) {
+      const sections = sdp.split('m=');
+
+      for (let i = 0; i < sections.length; i++) {
+        if (sections[i].startsWith('video')) {
+          sections[i] = this.setCodec(sections[i], videoCodec);
+        } else if (sections[i].startsWith('audio')) {
+          sections[i] = this.setAudioBitrate(this.setCodec(sections[i], audioCodec), audioBitrate, audioVoice);
+        }
+      }
+
+      return sections.join('m=');
+    }
+
+    static editAnswer(sdp, videoBitrate) {
+      const sections = sdp.split('m=');
+
+      for (let i = 0; i < sections.length; i++) {
+        if (sections[i].startsWith('video')) {
+          sections[i] = this.setVideoBitrate(sections[i], videoBitrate);
+        }
+      }
+
+      return sections.join('m=');
+    }
 
     start = () => {
       this.requestICEServers()
@@ -240,7 +239,7 @@
           this.restartTimeout = null;
           this.state = 'running';
           this.start();
-        }, retryPause);
+        }, this.retryPause);
 
         if (this.conf.onError !== undefined) {
           this.conf.onError(`${err}, retrying in some seconds`);
@@ -252,7 +251,7 @@
       return fetch(this.conf.url, {
         method: 'OPTIONS',
       })
-        .then((res) => linkToIceServers(res.headers.get('Link')));
+        .then((res) => this.constructor.linkToIceServers(res.headers.get('Link')));
     };
 
     setupPeerConnection = (iceServers) => {
@@ -275,7 +274,7 @@
 
       return this.pc.createOffer()
         .then((offer) => {
-          this.offerData = parseOffer(offer.sdp);
+          this.offerData = this.constructor.parseOffer(offer.sdp);
 
           return this.pc.setLocalDescription(offer)
             .then(() => offer.sdp);
@@ -287,7 +286,7 @@
         throw new Error('closed');
       }
 
-      offer = editOffer(
+      offer = this.constructor.editOffer(
         offer,
         this.conf.videoCodec,
         this.conf.audioCodec,
@@ -322,7 +321,7 @@
         throw new Error('closed');
       }
 
-      answer = editAnswer(answer, this.conf.videoBitrate);
+      answer = this.constructor.editAnswer(answer, this.conf.videoBitrate);
 
       return this.pc.setRemoteDescription(new RTCSessionDescription({
         type: 'answer',
@@ -361,7 +360,7 @@
           'Content-Type': 'application/trickle-ice-sdpfrag',
           'If-Match': '*',
         },
-        body: generateSdpFragment(this.offerData, candidates),
+        body: this.constructor.generateSdpFragment(this.offerData, candidates),
       })
         .then((res) => {
           switch (res.status) {
