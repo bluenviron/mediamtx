@@ -15,6 +15,7 @@ const (
 	AuthMethodInternal AuthMethod = iota
 	AuthMethodHTTP
 	AuthMethodJWT
+	AuthMethodJWTInternal
 )
 
 // MarshalJSON implements json.Marshaler.
@@ -28,8 +29,10 @@ func (d AuthMethod) MarshalJSON() ([]byte, error) {
 	case AuthMethodHTTP:
 		out = "http"
 
-	default:
+	case AuthMethodJWT:
 		out = "jwt"
+	default:
+		out = "internal-and-jwt"
 	}
 
 	return json.Marshal(out)
@@ -51,6 +54,9 @@ func (d *AuthMethod) UnmarshalJSON(b []byte) error {
 
 	case "jwt":
 		*d = AuthMethodJWT
+
+	case "internal-and-jwt":
+		*d = AuthMethodJWTInternal
 
 	default:
 		return fmt.Errorf("invalid authMethod: '%s'", in)

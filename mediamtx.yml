@@ -46,6 +46,7 @@ runOnDisconnect:
 # * internal: users are stored in the configuration file
 # * http: an external HTTP URL is contacted to perform authentication
 # * jwt: an external identity server provides authentication through JWTs
+# * internal-and-jwt: users are stored in the configuration file or JWTs when not found internal users
 authMethod: internal
 
 # Internal authentication.

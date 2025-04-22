@@ -591,7 +591,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			return fmt.Errorf("'authHTTPAddress' is empty")
 		}
 
-	case AuthMethodJWT:
+	case AuthMethodJWT | AuthMethodJWTInternal:
 		if conf.AuthJWTJWKS == "" {
 			return fmt.Errorf("'authJWTJWKS' is empty")
 		}

@@ -132,8 +132,14 @@ func (m *Manager) Authenticate(req *Request) error {
 	case conf.AuthMethodHTTP:
 		err = m.authenticateHTTP(req)
 
-	default:
+	case conf.AuthMethodJWT:
 		err = m.authenticateJWT(req)
+
+	default:
+		err = m.authenticateInternal(req)
+		if err != nil {
+			err = m.authenticateJWT(req)
+		}
 	}
 
 	if err != nil {
