@@ -233,37 +233,52 @@ func (m *Manager) authenticateJWT(req *Request) error {
 func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	now := time.Now()
 
+	m.mutex.RLock()
+	needsRefresh := now.Sub(m.jwtLastRefresh) >= jwtRefreshPeriod
+	m.mutex.RUnlock()
+
+	if needsRefresh {
+		err := m.ForceRefreshJWTJWKS()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.jwtKeyFunc.Keyfunc, nil
+}
+
+func (m *Manager) ForceRefreshJWTJWKS() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if now.Sub(m.jwtLastRefresh) >= jwtRefreshPeriod {
-		if m.jwtHTTPClient == nil {
-			m.jwtHTTPClient = &http.Client{
-				Timeout:   (m.ReadTimeout),
-				Transport: &http.Transport{},
-			}
+	if m.jwtHTTPClient == nil {
+		m.jwtHTTPClient = &http.Client{
+			Timeout:   (m.ReadTimeout),
+			Transport: &http.Transport{},
 		}
-
-		res, err := m.jwtHTTPClient.Get(m.JWTJWKS)
-		if err != nil {
-			return nil, err
-		}
-		defer res.Body.Close()
-
-		var raw json.RawMessage
-		err = json.NewDecoder(res.Body).Decode(&raw)
-		if err != nil {
-			return nil, err
-		}
-
-		tmp, err := keyfunc.NewJWKSetJSON(raw)
-		if err != nil {
-			return nil, err
-		}
-
-		m.jwtKeyFunc = tmp
-		m.jwtLastRefresh = now
 	}
 
-	return m.jwtKeyFunc.Keyfunc, nil
+	res, err := m.jwtHTTPClient.Get(m.JWTJWKS)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	var raw json.RawMessage
+	err = json.NewDecoder(res.Body).Decode(&raw)
+	if err != nil {
+		return err
+	}
+
+	tmp, err := keyfunc.NewJWKSetJSON(raw)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	m.jwtKeyFunc = tmp
+	m.jwtLastRefresh = now
+	return nil
 }
