@@ -895,7 +895,23 @@ paths:
 
 The resulting stream is available in path `/mypath`.
 
-Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+If the listening IP is a multicast IP, _MediaMTX_ listens for incoming multicast packets on all network interfaces. It is possible to listen on a single interface only by using the `interface` parameter:
+
+```yml
+paths:
+  mypath:
+    source: udp://238.0.0.1:1234?interface=eth0
+```
+
+It is possible to restrict who can send packets by using the `source` parameter:
+
+```yml
+paths:
+  mypath:
+    source: udp://0.0.0.0:1234?source=192.168.3.5
+```
+
+Known clients that can publish with UDP/MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
 ## Read from the server
 
