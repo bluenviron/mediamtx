@@ -412,3 +412,25 @@ func TestAuthJWT(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthJWTExclude(t *testing.T) {
+	m := Manager{
+		Method:      conf.AuthMethodJWT,
+		JWTJWKS:     "http://localhost:4567/jwks",
+		JWTClaimKey: "my_permission_key",
+		JWTExclude: []conf.AuthInternalUserPermission{{
+			Action: conf.AuthActionPublish,
+		}},
+	}
+
+	err := m.Authenticate(&Request{
+		User:     "",
+		Pass:     "",
+		IP:       net.ParseIP("127.0.0.1"),
+		Action:   conf.AuthActionPublish,
+		Path:     "teststream",
+		Protocol: ProtocolRTSP,
+		Query:    "param=value",
+	})
+	require.NoError(t, err)
+}
