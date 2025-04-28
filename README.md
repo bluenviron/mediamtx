@@ -157,6 +157,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Custom libcamera](#custom-libcamera)
   * [Cross compile](#cross-compile)
   * [Compile for all supported platforms](#compile-for-all-supported-platforms)
+  * [Docker image](#docker-image-1)
 * [License](#license)
 * [Specifications](#specifications)
 * [Related projects](#related-projects)
@@ -2573,6 +2574,24 @@ make binaries
 ```
 
 The command will produce tarballs in folder `binaries/`.
+
+### Docker image
+
+The official Docker image can be recompiled by following these steps:
+
+1. Build binaries for all supported platforms:
+
+   ```sh
+   make binaries
+   ```
+
+2. Build the image by using one of the Dockerfiles inside the `docker/` folder:
+
+   ```
+   docker build . -f docker/standard.Dockerfile -t my-mediamtx
+   ```
+
+   A Dockerfile is available for each image variant (`standard.Dockerfile`, `ffmpeg.Dockerfile`, `rpi.Dockerfile`, `ffmpeg-rpi.Dockerfile`).
 
 ## License
 
