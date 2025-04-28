@@ -4,7 +4,7 @@ import "github.com/bluenviron/mediamtx/internal/auth"
 
 // AuthManager is a dummy auth manager.
 type AuthManager struct {
-	fnc func(req *auth.Request) error
+	fnc             func(req *auth.Request) error
 	forceRefreshFnc func() error
 }
 
@@ -13,6 +13,7 @@ func (m *AuthManager) Authenticate(req *auth.Request) error {
 	return m.fnc(req)
 }
 
+// ForceRefreshJWTJWKS is a function that simulates a JWKS refresh.
 func (m *AuthManager) ForceRefreshJWTJWKS() error {
 	return m.forceRefreshFnc()
 }

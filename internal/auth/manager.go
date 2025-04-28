@@ -249,6 +249,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	return m.jwtKeyFunc.Keyfunc, nil
 }
 
+// ForceRefreshJWTJWKS force reloads the JWW keys
 func (m *Manager) ForceRefreshJWTJWKS() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
