@@ -413,6 +413,87 @@ func TestAuthJWT(t *testing.T) {
 	}
 }
 
+func TestAuthJWTAsString(t *testing.T) {
+	// taken from
+	// https://github.com/MicahParks/jwkset/blob/master/examples/http_server/main.go
+
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	jwk, err := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+		Metadata: jwkset.JWKMetadataOptions{
+			KID: "test-key-id",
+		},
+	})
+	require.NoError(t, err)
+
+	jwkSet := jwkset.NewMemoryStorage()
+	err = jwkSet.KeyWrite(context.Background(), jwk)
+	require.NoError(t, err)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(response)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:4567")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	type customClaims struct {
+		jwt.RegisteredClaims
+		MediaMTXPermissions string `json:"my_permission_key"`
+	}
+
+	enc, err := json.Marshal([]conf.AuthInternalUserPermission{{
+		Action: conf.AuthActionPublish,
+		Path:   "mypath",
+	}})
+	require.NoError(t, err)
+
+	claims := customClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "test",
+			Subject:   "somebody",
+			ID:        "1",
+		},
+		MediaMTXPermissions: string(enc),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header[jwkset.HeaderKID] = "test-key-id"
+	ss, err := token.SignedString(key)
+	require.NoError(t, err)
+
+	m := Manager{
+		Method:      conf.AuthMethodJWT,
+		JWTJWKS:     "http://localhost:4567/jwks",
+		JWTClaimKey: "my_permission_key",
+	}
+
+	err = m.Authenticate(&Request{
+		IP:       net.ParseIP("127.0.0.1"),
+		Action:   conf.AuthActionPublish,
+		Path:     "mypath",
+		Protocol: ProtocolRTSP,
+		Query:    "param=value&jwt=" + ss,
+	})
+	require.NoError(t, err)
+}
+
 func TestAuthJWTExclude(t *testing.T) {
 	m := Manager{
 		Method:      conf.AuthMethodJWT,
