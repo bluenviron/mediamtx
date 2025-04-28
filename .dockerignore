@@ -1,6 +1,5 @@
 # do not add .git, since it is needed to extract the tag
-# do not add /tmp, since it is needed by make dockerhub
-/binaries
+# do not add /binaries, since it is needed by Docker images
 /coverage*.txt
 /apidocs/*.html
 /internal/core/VERSION
