@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-// Restrict avoids listening on IPv6 when address is 0.0.0.0.
+// Restrict prevents listening on IPv6 when address is 0.0.0.0.
 func Restrict(network string, address string) (string, string) {
 	host, _, err := net.SplitHostPort(address)
 	if err == nil {

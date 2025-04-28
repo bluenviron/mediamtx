@@ -4,6 +4,7 @@ package udp
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -25,18 +26,20 @@ const (
 )
 
 type packetConnReader struct {
-	net.PacketConn
-}
-
-func newPacketConnReader(pc net.PacketConn) *packetConnReader {
-	return &packetConnReader{
-		PacketConn: pc,
-	}
+	pc       net.PacketConn
+	sourceIP net.IP
 }
 
 func (r *packetConnReader) Read(p []byte) (int, error) {
-	n, _, err := r.PacketConn.ReadFrom(p)
-	return n, err
+	for {
+		n, addr, err := r.pc.ReadFrom(p)
+
+		if r.sourceIP != nil && addr != nil && !addr.(*net.UDPAddr).IP.Equal(r.sourceIP) {
+			continue
+		}
+
+		return n, err
+	}
 }
 
 type packetConn interface {
@@ -59,9 +62,22 @@ func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	hostPort := params.ResolvedSource[len("udp://"):]
+	u, err := url.Parse(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+	q := u.Query()
 
-	addr, err := net.ResolveUDPAddr("udp", hostPort)
+	var sourceIP net.IP
+
+	if src := q.Get("source"); src != "" {
+		sourceIP = net.ParseIP(src)
+		if sourceIP == nil {
+			return fmt.Errorf("invalid source IP")
+		}
+	}
+
+	addr, err := net.ResolveUDPAddr("udp", u.Host)
 	if err != nil {
 		return err
 	}
@@ -69,9 +85,22 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var pc packetConn
 
 	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
-		pc, err = multicast.NewMultiConn(hostPort, true, net.ListenPacket)
-		if err != nil {
-			return err
+		if intfName := q.Get("interface"); intfName != "" {
+			var intf *net.Interface
+			intf, err = net.InterfaceByName(intfName)
+			if err != nil {
+				return err
+			}
+
+			pc, err = multicast.NewSingleConn(intf, addr.String(), net.ListenPacket)
+			if err != nil {
+				return err
+			}
+		} else {
+			pc, err = multicast.NewMultiConn(addr.String(), true, net.ListenPacket)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		var tmp net.PacketConn
@@ -91,7 +120,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	readerErr := make(chan error)
 	go func() {
-		readerErr <- s.runReader(pc)
+		readerErr <- s.runReader(pc, sourceIP)
 	}()
 
 	select {
@@ -105,9 +134,10 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 }
 
-func (s *Source) runReader(pc net.PacketConn) error {
+func (s *Source) runReader(pc net.PacketConn, sourceIP net.IP) error {
 	pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(newPacketConnReader(pc))}
+	pcr := &packetConnReader{pc: pc, sourceIP: sourceIP}
+	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(pcr)}
 	err := r.Initialize()
 	if err != nil {
 		return err
