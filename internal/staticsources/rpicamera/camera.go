@@ -66,7 +66,7 @@ func getArchitecture(libPath string) (bool, error) {
 }
 
 func checkArchitecture() error {
-	byts, err := exec.Command("ldconfig", "-p").Output()
+	byts, err := exec.Command("/usr/sbin/ldconfig", "-p").Output()
 	if err != nil {
 		return fmt.Errorf("ldconfig failed: %w", err)
 	}
