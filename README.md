@@ -1618,7 +1618,7 @@ pathDefaults:
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d (year, month, day),
-  # %H %M %S (hours, minutes, seconds), %f (milliseconds), %s (unix epoch).
+  # %H %M %S (hours, minutes, seconds), %f (microseconds), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
