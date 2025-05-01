@@ -141,7 +141,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 			Type: description.MediaTypeApplication,
 			Formats: []format.Format{&format.Generic{
 				PayloadTyp: 96,
-				RTPMa:      "rpicamera_secondary",
+				RTPMa:      "rpicamera_secondary/90000",
 				ClockRat:   90000,
 			}},
 		}
