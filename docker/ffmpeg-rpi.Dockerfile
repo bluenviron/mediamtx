@@ -7,9 +7,9 @@ ADD binaries/mediamtx_*_linux_arm64.tar.gz /linux/arm64
 
 #################################################################
 
-FROM --platform=linux/arm/v6 balenalib/raspberry-pi:bullseye-run-20240508 AS base-arm-v6
-FROM --platform=linux/arm/v7 balenalib/raspberry-pi:bullseye-run-20240508 AS base-arm-v7
-FROM --platform=linux/arm64 balenalib/raspberrypi3-64:bullseye-run-20240429 AS base-arm64
+FROM --platform=linux/arm/v6 balenalib/raspberry-pi:bullseye-run-20250501 AS base-arm-v6
+FROM --platform=linux/arm/v7 balenalib/raspberry-pi:bullseye-run-20250501 AS base-arm-v7
+FROM --platform=linux/arm64 balenalib/raspberrypi3-64:bullseye-run-20250401 AS base-arm64
 
 #################################################################
 FROM --platform=linux/amd64 scratch AS base
