@@ -331,10 +331,13 @@ func FuzzUnmarshal(f *testing.F) {
 		f.Add(ca.enc)
 	}
 
-	f.Fuzz(func(_ *testing.T, b []byte) {
+	f.Fuzz(func(t *testing.T, b []byte) {
 		what, err := Unmarshal(b)
-		if err == nil {
-			what.Marshal() //nolint:errcheck
+		if err != nil {
+			return
 		}
+
+		_, err = what.Marshal()
+		require.NoError(t, err)
 	})
 }

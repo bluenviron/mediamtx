@@ -158,41 +158,53 @@ func TestChunkMarshal(t *testing.T) {
 }
 
 func FuzzChunk0Read(f *testing.F) {
-	f.Fuzz(func(_ *testing.T, b []byte) {
+	f.Fuzz(func(t *testing.T, b []byte) {
 		var chunk Chunk0
 		err := chunk.Read(bytes.NewReader(b), 65536, false)
-		if err == nil {
-			chunk.Marshal(false) //nolint:errcheck
+		if err != nil {
+			return
 		}
+
+		_, err = chunk.Marshal(false)
+		require.NoError(t, err)
 	})
 }
 
 func FuzzChunk1Read(f *testing.F) {
-	f.Fuzz(func(_ *testing.T, b []byte) {
+	f.Fuzz(func(t *testing.T, b []byte) {
 		var chunk Chunk1
 		err := chunk.Read(bytes.NewReader(b), 65536, false)
-		if err == nil {
-			chunk.Marshal(false) //nolint:errcheck
+		if err != nil {
+			return
 		}
+
+		_, err = chunk.Marshal(false)
+		require.NoError(t, err)
 	})
 }
 
 func FuzzChunk2Read(f *testing.F) {
-	f.Fuzz(func(_ *testing.T, b []byte) {
+	f.Fuzz(func(t *testing.T, b []byte) {
 		var chunk Chunk2
 		err := chunk.Read(bytes.NewReader(b), 65536, false)
-		if err == nil {
-			chunk.Marshal(false) //nolint:errcheck
+		if err != nil {
+			return
 		}
+
+		_, err = chunk.Marshal(false)
+		require.NoError(t, err)
 	})
 }
 
 func FuzzChunk3Read(f *testing.F) {
-	f.Fuzz(func(_ *testing.T, b []byte) {
+	f.Fuzz(func(t *testing.T, b []byte) {
 		var chunk Chunk3
 		err := chunk.Read(bytes.NewReader(b), 65536, true)
-		if err == nil {
-			chunk.Marshal(false) //nolint:errcheck
+		if err != nil {
+			return
 		}
+
+		_, err = chunk.Marshal(false)
+		require.NoError(t, err)
 	})
 }
