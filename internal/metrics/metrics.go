@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
@@ -54,14 +54,14 @@ type Metrics struct {
 
 	httpServer   *httpp.Server
 	mutex        sync.Mutex
-	pathManager  api.PathManager
-	rtspServer   api.RTSPServer
-	rtspsServer  api.RTSPServer
-	rtmpServer   api.RTMPServer
-	rtmpsServer  api.RTMPServer
-	srtServer    api.SRTServer
-	hlsManager   api.HLSServer
-	webRTCServer api.WebRTCServer
+	pathManager  defs.APIPathManager
+	rtspServer   defs.APIRTSPServer
+	rtspsServer  defs.APIRTSPServer
+	rtmpServer   defs.APIRTMPServer
+	rtmpsServer  defs.APIRTMPServer
+	srtServer    defs.APISRTServer
+	hlsServer    defs.APIHLSServer
+	webRTCServer defs.APIWebRTCServer
 }
 
 // Initialize initializes metrics.
@@ -166,8 +166,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		out += metric("paths", "", 0)
 	}
 
-	if !interfaceIsEmpty(m.hlsManager) {
-		data, err := m.hlsManager.APIMuxersList()
+	if !interfaceIsEmpty(m.hlsServer) {
+		data, err := m.hlsServer.APIMuxersList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{name=\"" + i.Path + "\"}"
@@ -447,56 +447,56 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 }
 
 // SetPathManager is called by core.
-func (m *Metrics) SetPathManager(s api.PathManager) {
+func (m *Metrics) SetPathManager(s defs.APIPathManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.pathManager = s
 }
 
 // SetHLSServer is called by core.
-func (m *Metrics) SetHLSServer(s api.HLSServer) {
+func (m *Metrics) SetHLSServer(s defs.APIHLSServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.hlsManager = s
+	m.hlsServer = s
 }
 
 // SetRTSPServer is called by core.
-func (m *Metrics) SetRTSPServer(s api.RTSPServer) {
+func (m *Metrics) SetRTSPServer(s defs.APIRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
 // SetRTSPSServer is called by core.
-func (m *Metrics) SetRTSPSServer(s api.RTSPServer) {
+func (m *Metrics) SetRTSPSServer(s defs.APIRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s
 }
 
 // SetRTMPServer is called by core.
-func (m *Metrics) SetRTMPServer(s api.RTMPServer) {
+func (m *Metrics) SetRTMPServer(s defs.APIRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
 }
 
 // SetRTMPSServer is called by core.
-func (m *Metrics) SetRTMPSServer(s api.RTMPServer) {
+func (m *Metrics) SetRTMPSServer(s defs.APIRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpsServer = s
 }
 
 // SetSRTServer is called by core.
-func (m *Metrics) SetSRTServer(s api.SRTServer) {
+func (m *Metrics) SetSRTServer(s defs.APISRTServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.srtServer = s
 }
 
 // SetWebRTCServer is called by core.
-func (m *Metrics) SetWebRTCServer(s api.WebRTCServer) {
+func (m *Metrics) SetWebRTCServer(s defs.APIWebRTCServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.webRTCServer = s

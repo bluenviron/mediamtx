@@ -77,48 +77,6 @@ func recordingsOfPath(
 	return ret
 }
 
-// PathManager contains methods used by the API and Metrics server.
-type PathManager interface {
-	APIPathsList() (*defs.APIPathList, error)
-	APIPathsGet(string) (*defs.APIPath, error)
-}
-
-// HLSServer contains methods used by the API and Metrics server.
-type HLSServer interface {
-	APIMuxersList() (*defs.APIHLSMuxerList, error)
-	APIMuxersGet(string) (*defs.APIHLSMuxer, error)
-}
-
-// RTSPServer contains methods used by the API and Metrics server.
-type RTSPServer interface {
-	APIConnsList() (*defs.APIRTSPConnsList, error)
-	APIConnsGet(uuid.UUID) (*defs.APIRTSPConn, error)
-	APISessionsList() (*defs.APIRTSPSessionList, error)
-	APISessionsGet(uuid.UUID) (*defs.APIRTSPSession, error)
-	APISessionsKick(uuid.UUID) error
-}
-
-// RTMPServer contains methods used by the API and Metrics server.
-type RTMPServer interface {
-	APIConnsList() (*defs.APIRTMPConnList, error)
-	APIConnsGet(uuid.UUID) (*defs.APIRTMPConn, error)
-	APIConnsKick(uuid.UUID) error
-}
-
-// SRTServer contains methods used by the API and Metrics server.
-type SRTServer interface {
-	APIConnsList() (*defs.APISRTConnList, error)
-	APIConnsGet(uuid.UUID) (*defs.APISRTConn, error)
-	APIConnsKick(uuid.UUID) error
-}
-
-// WebRTCServer contains methods used by the API and Metrics server.
-type WebRTCServer interface {
-	APISessionsList() (*defs.APIWebRTCSessionList, error)
-	APISessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error)
-	APISessionsKick(uuid.UUID) error
-}
-
 type apiAuthManager interface {
 	Authenticate(req *auth.Request) error
 }
@@ -139,14 +97,14 @@ type API struct {
 	ReadTimeout    conf.Duration
 	Conf           *conf.Conf
 	AuthManager    apiAuthManager
-	PathManager    PathManager
-	RTSPServer     RTSPServer
-	RTSPSServer    RTSPServer
-	RTMPServer     RTMPServer
-	RTMPSServer    RTMPServer
-	HLSServer      HLSServer
-	WebRTCServer   WebRTCServer
-	SRTServer      SRTServer
+	PathManager    defs.APIPathManager
+	RTSPServer     defs.APIRTSPServer
+	RTSPSServer    defs.APIRTSPServer
+	RTMPServer     defs.APIRTMPServer
+	RTMPSServer    defs.APIRTMPServer
+	HLSServer      defs.APIHLSServer
+	WebRTCServer   defs.APIWebRTCServer
+	SRTServer      defs.APISRTServer
 	Parent         apiParent
 
 	httpServer *httpp.Server
