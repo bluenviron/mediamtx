@@ -719,3 +719,9 @@ paths:
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
   all_others:
+
+  test:
+    source: publisher
+    record: yes
+    recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f.mp4
+    recordFormat: fmp4
