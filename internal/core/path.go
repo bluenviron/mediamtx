@@ -161,6 +161,10 @@ func (pa *path) Name() string {
 	return pa.name
 }
 
+func (pa *path) isReady() bool {
+	return pa.stream != nil
+}
+
 func (pa *path) run() {
 	defer close(pa.done)
 	defer pa.wg.Done()
@@ -568,28 +572,28 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.source.APISourceDescribe()
 				return &v
 			}(),
-			Ready: pa.stream != nil,
+			Ready: pa.isReady(),
 			ReadyTime: func() *time.Time {
-				if pa.stream == nil {
+				if !pa.isReady() {
 					return nil
 				}
 				v := pa.readyTime
 				return &v
 			}(),
 			Tracks: func() []string {
-				if pa.stream == nil {
+				if !pa.isReady() {
 					return []string{}
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
 			BytesReceived: func() uint64 {
-				if pa.stream == nil {
+				if !pa.isReady() {
 					return 0
 				}
 				return pa.stream.BytesReceived()
 			}(),
 			BytesSent: func() uint64 {
-				if pa.stream == nil {
+				if !pa.isReady() {
 					return 0
 				}
 				return pa.stream.BytesSent()

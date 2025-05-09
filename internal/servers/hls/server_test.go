@@ -21,6 +21,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type dummyPathManager struct {
+	setHLSServerImpl func() []defs.Path
+	findPathConfImpl func(req defs.PathFindPathConfReq) (*conf.Path, error)
+	addReaderImpl    func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+}
+
+func (pm *dummyPathManager) SetHLSServer(*Server) []defs.Path {
+	if pm.setHLSServerImpl != nil {
+		return pm.setHLSServerImpl()
+	}
+	return nil
+}
+
+func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+	return pm.findPathConfImpl(req)
+}
+
+func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+	return pm.addReaderImpl(req)
+}
+
 type dummyPath struct{}
 
 func (pa *dummyPath) Name() string {
@@ -53,6 +74,7 @@ func TestPreflightRequest(t *testing.T) {
 		Address:     "127.0.0.1:8888",
 		AllowOrigin: "*",
 		ReadTimeout: conf.Duration(10 * time.Second),
+		PathManager: &dummyPathManager{},
 		Parent:      test.NilLogger,
 	}
 	err := s.Initialize()
@@ -90,12 +112,12 @@ func TestServerNotFound(t *testing.T) {
 		"always remux on",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			pm := &test.PathManager{
-				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			pm := &dummyPathManager{
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
 					return &conf.Path{}, nil
 				},
-				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
 					return nil, nil, fmt.Errorf("not found")
 				},
@@ -164,15 +186,15 @@ func TestServerRead(t *testing.T) {
 		err := strm.Initialize()
 		require.NoError(t, err)
 
-		pm := &test.PathManager{
-			FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+		pm := &dummyPathManager{
+			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
 				require.Equal(t, "myuser", req.AccessRequest.User)
 				require.Equal(t, "mypass", req.AccessRequest.Pass)
 				return &conf.Path{}, nil
 			},
-			AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
 				return &dummyPath{}, strm, nil
@@ -264,15 +286,15 @@ func TestServerRead(t *testing.T) {
 		err := strm.Initialize()
 		require.NoError(t, err)
 
-		pm := &test.PathManager{
-			FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+		pm := &dummyPathManager{
+			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
 				require.Equal(t, "myuser", req.AccessRequest.User)
 				require.Equal(t, "mypass", req.AccessRequest.Pass)
 				return &conf.Path{}, nil
 			},
-			AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "", req.AccessRequest.Query)
 				return &dummyPath{}, strm, nil
@@ -369,8 +391,8 @@ func TestDirectory(t *testing.T) {
 	err = strm.Initialize()
 	require.NoError(t, err)
 
-	pm := &test.PathManager{
-		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+	pm := &dummyPathManager{
+		addReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 			return &dummyPath{}, strm, nil
 		},
 	}
@@ -403,4 +425,51 @@ func TestDirectory(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dir, "mydir", "teststream"))
 	require.NoError(t, err)
+}
+
+func TestDynamicAlwaysRemux(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+
+	pm := &dummyPathManager{
+		setHLSServerImpl: func() []defs.Path {
+			return []defs.Path{&dummyPath{}}
+		},
+		addReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+			close(done)
+			return &dummyPath{}, strm, nil
+		},
+	}
+
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Encryption:      false,
+		ServerKey:       "",
+		ServerCert:      "",
+		AlwaysRemux:     true,
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.Duration(1 * time.Second),
+		PartDuration:    conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		ReadTimeout:     conf.Duration(10 * time.Second),
+		PathManager:     pm,
+		Parent:          test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	<-done
 }

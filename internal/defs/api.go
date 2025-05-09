@@ -8,6 +8,48 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
+// APIPathManager contains methods used by the API and Metrics server.
+type APIPathManager interface {
+	APIPathsList() (*APIPathList, error)
+	APIPathsGet(string) (*APIPath, error)
+}
+
+// APIHLSServer contains methods used by the API and Metrics server.
+type APIHLSServer interface {
+	APIMuxersList() (*APIHLSMuxerList, error)
+	APIMuxersGet(string) (*APIHLSMuxer, error)
+}
+
+// APIRTSPServer contains methods used by the API and Metrics server.
+type APIRTSPServer interface {
+	APIConnsList() (*APIRTSPConnsList, error)
+	APIConnsGet(uuid.UUID) (*APIRTSPConn, error)
+	APISessionsList() (*APIRTSPSessionList, error)
+	APISessionsGet(uuid.UUID) (*APIRTSPSession, error)
+	APISessionsKick(uuid.UUID) error
+}
+
+// APIRTMPServer contains methods used by the API and Metrics server.
+type APIRTMPServer interface {
+	APIConnsList() (*APIRTMPConnList, error)
+	APIConnsGet(uuid.UUID) (*APIRTMPConn, error)
+	APIConnsKick(uuid.UUID) error
+}
+
+// APISRTServer contains methods used by the API and Metrics server.
+type APISRTServer interface {
+	APIConnsList() (*APISRTConnList, error)
+	APIConnsGet(uuid.UUID) (*APISRTConn, error)
+	APIConnsKick(uuid.UUID) error
+}
+
+// APIWebRTCServer contains methods used by the API and Metrics server.
+type APIWebRTCServer interface {
+	APISessionsList() (*APIWebRTCSessionList, error)
+	APISessionsGet(uuid.UUID) (*APIWebRTCSession, error)
+	APISessionsKick(uuid.UUID) error
+}
+
 // APIError is a generic error.
 type APIError struct {
 	Error string `json:"error"`

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"sync"
@@ -35,6 +36,10 @@ const (
 
 // ErrSessionNotFound is returned when a session is not found.
 var ErrSessionNotFound = errors.New("session not found")
+
+func interfaceIsEmpty(i interface{}) bool {
+	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+}
 
 type nilWriter struct{}
 
@@ -163,6 +168,10 @@ type webRTCDeleteSessionReq struct {
 	res      chan webRTCDeleteSessionRes
 }
 
+type serverMetrics interface {
+	SetWebRTCServer(defs.APIWebRTCServer)
+}
+
 type serverPathManager interface {
 	FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error)
 	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error)
@@ -192,6 +201,7 @@ type Server struct {
 	TrackGatherTimeout    conf.Duration
 	STUNGatherTimeout     conf.Duration
 	ExternalCmdPool       *externalcmd.Pool
+	Metrics               serverMetrics
 	PathManager           serverPathManager
 	Parent                serverParent
 
@@ -284,6 +294,10 @@ func (s *Server) Initialize() error {
 
 	go s.run()
 
+	if !interfaceIsEmpty(s.Metrics) {
+		s.Metrics.SetWebRTCServer(s)
+	}
+
 	return nil
 }
 
@@ -295,6 +309,11 @@ func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
 // Close closes the server.
 func (s *Server) Close() {
 	s.Log(logger.Info, "listener is closing")
+
+	if !interfaceIsEmpty(s.Metrics) {
+		s.Metrics.SetWebRTCServer(nil)
+	}
+
 	s.ctxCancel()
 	<-s.done
 }
