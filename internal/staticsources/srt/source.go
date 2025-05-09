@@ -111,6 +111,8 @@ func (s *Source) runReader(sconn srt.Conn) error {
 		return res.Err
 	}
 
+	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
 	stream = res.Stream
 
 	for {
