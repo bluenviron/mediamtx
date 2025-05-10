@@ -141,26 +141,50 @@ func readCommandResult(
 
 // Conn is a RTMP connection.
 type Conn struct {
+	RW            io.ReadWriter
+	Client        bool
+	URL           *url.URL
+	Publish       bool
+	skipHandshake bool
+
 	bc  *bytecounter.ReadWriter
 	mrw *message.ReadWriter
 }
 
-// NewClientConn initializes a client-side connection.
-func NewClientConn(rw io.ReadWriter, u *url.URL, publish bool) (*Conn, error) {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
+// Initialize initializes Conn.
+func (c *Conn) Initialize() error {
+	c.bc = bytecounter.NewReadWriter(c.RW)
+
+	if !c.skipHandshake {
+		if c.Client {
+			if c.URL == nil {
+				return fmt.Errorf("URL must be specified in client mode")
+			}
+
+			err := c.initializeClient()
+			if err != nil {
+				return err
+			}
+		} else {
+			if c.URL != nil {
+				return fmt.Errorf("URL must be empty in server mode")
+			}
+
+			var err error
+			c.URL, c.Publish, err = c.initializeServer()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		c.mrw = message.NewReadWriter(c.bc, c.bc, false)
 	}
 
-	err := c.initializeClient(u, publish)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return nil
 }
 
-func (c *Conn) initializeClient(u *url.URL, publish bool) error {
-	connectpath, actionpath := splitPath(u)
+func (c *Conn) initializeClient() error {
+	connectpath, actionpath := splitPath(c.URL)
 
 	_, _, err := handshake.DoClient(c.bc, false, false)
 	if err != nil {
@@ -191,22 +215,27 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 		return err
 	}
 
+	connectArg := amf0.Object{
+		{Key: "app", Value: connectpath},
+		{Key: "flashVer", Value: "LNX 9,0,124,2"},
+		{Key: "tcUrl", Value: getTcURL(c.URL)},
+	}
+
+	if !c.Publish {
+		connectArg = append(connectArg,
+			amf0.ObjectEntry{Key: "fpad", Value: false},
+			amf0.ObjectEntry{Key: "capabilities", Value: float64(15)},
+			amf0.ObjectEntry{Key: "audioCodecs", Value: float64(4071)},
+			amf0.ObjectEntry{Key: "videoCodecs", Value: float64(252)},
+			amf0.ObjectEntry{Key: "videoFunction", Value: float64(1)},
+		)
+	}
+
 	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "connect",
 		CommandID:     1,
-		Arguments: []interface{}{
-			amf0.Object{
-				{Key: "app", Value: connectpath},
-				{Key: "flashVer", Value: "LNX 9,0,124,2"},
-				{Key: "tcUrl", Value: getTcURL(u)},
-				{Key: "fpad", Value: false},
-				{Key: "capabilities", Value: float64(15)},
-				{Key: "audioCodecs", Value: float64(4071)},
-				{Key: "videoCodecs", Value: float64(252)},
-				{Key: "videoFunction", Value: float64(1)},
-			},
-		},
+		Arguments:     []interface{}{connectArg},
 	})
 	if err != nil {
 		return err
@@ -217,7 +246,7 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 		return err
 	}
 
-	if !publish {
+	if !c.Publish {
 		err = c.mrw.Write(&message.CommandAMF0{
 			ChunkStreamID: 3,
 			Name:          "createStream",
@@ -318,20 +347,6 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 	}
 
 	return readCommandResult(c.mrw, 5, "onStatus", resultIsOK1)
-}
-
-// NewServerConn initializes a server-side connection.
-func NewServerConn(rw io.ReadWriter) (*Conn, *url.URL, bool, error) {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
-	}
-
-	u, publish, err := c.initializeServer()
-	if err != nil {
-		return nil, nil, false, err
-	}
-
-	return c, u, publish, nil
 }
 
 func (c *Conn) initializeServer() (*url.URL, bool, error) {
@@ -597,16 +612,6 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 			return u, true, nil
 		}
 	}
-}
-
-func newNoHandshakeConn(rw io.ReadWriter) *Conn {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
-	}
-
-	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
-
-	return c
 }
 
 // BytesReceived returns the number of bytes received.

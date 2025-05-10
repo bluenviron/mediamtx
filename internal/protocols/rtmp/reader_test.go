@@ -1630,10 +1630,19 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			c := newNoHandshakeConn(&buf)
-
-			r, err := NewReader(c)
+			c := &Conn{
+				RW:            &buf,
+				skipHandshake: true,
+			}
+			err := c.Initialize()
 			require.NoError(t, err)
+
+			r := &Reader{
+				Conn: c,
+			}
+			err = r.Initialize()
+			require.NoError(t, err)
+
 			tracks := r.Tracks()
 			require.Equal(t, ca.tracks, tracks)
 		})

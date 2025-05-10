@@ -272,29 +272,26 @@ func sortedKeys(m map[uint8]format.Format) []int {
 
 // Reader is a wrapper around Conn that provides utilities to demux incoming data.
 type Reader struct {
-	conn        *Conn
+	Conn *Conn
+
 	videoTracks map[uint8]format.Format
 	audioTracks map[uint8]format.Format
 	onVideoData map[uint8]func(message.Message) error
 	onAudioData map[uint8]func(message.Message) error
 }
 
-// NewReader allocates a Reader.
-func NewReader(conn *Conn) (*Reader, error) {
-	r := &Reader{
-		conn: conn,
-	}
-
+// Initialize initializes a reader.
+func (r *Reader) Initialize() error {
 	var err error
 	r.videoTracks, r.audioTracks, err = r.readTracks()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	r.onVideoData = make(map[uint8]func(message.Message) error)
 	r.onAudioData = make(map[uint8]func(message.Message) error)
 
-	return r, nil
+	return nil
 }
 
 func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format, error) {
@@ -369,7 +366,7 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 	}
 
 	for {
-		msg, err := r.conn.Read()
+		msg, err := r.Conn.Read()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -762,7 +759,7 @@ func (r *Reader) OnDataLPCM(track *format.LPCM, cb OnDataLPCMFunc) {
 
 // Read reads data.
 func (r *Reader) Read() error {
-	msg, err := r.conn.Read()
+	msg, err := r.Conn.Read()
 	if err != nil {
 		return err
 	}

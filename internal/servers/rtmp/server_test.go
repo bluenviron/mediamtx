@@ -128,10 +128,21 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer nconn.Close()
 
-			conn, err := rtmp.NewClientConn(nconn, u, true)
+			conn := &rtmp.Conn{
+				RW:      nconn,
+				Client:  true,
+				URL:     u,
+				Publish: true,
+			}
+			err = conn.Initialize()
 			require.NoError(t, err)
 
-			w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)
+			w := &rtmp.Writer{
+				Conn:       conn,
+				VideoTrack: test.FormatH264,
+				AudioTrack: test.FormatMPEG4Audio,
+			}
+			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(
@@ -281,10 +292,19 @@ func TestServerRead(t *testing.T) {
 				})
 			}()
 
-			conn, err := rtmp.NewClientConn(nconn, u, false)
+			conn := &rtmp.Conn{
+				RW:      nconn,
+				Client:  true,
+				URL:     u,
+				Publish: false,
+			}
+			err = conn.Initialize()
 			require.NoError(t, err)
 
-			r, err := rtmp.NewReader(conn)
+			r := &rtmp.Reader{
+				Conn: conn,
+			}
+			err = r.Initialize()
 			require.NoError(t, err)
 
 			tracks := r.Tracks()

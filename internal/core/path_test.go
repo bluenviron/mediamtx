@@ -217,7 +217,13 @@ func TestPathRunOnConnect(t *testing.T) {
 					require.NoError(t, err)
 					defer nconn.Close()
 
-					_, err = rtmp.NewClientConn(nconn, u, true)
+					conn := &rtmp.Conn{
+						RW:      nconn,
+						Client:  true,
+						URL:     u,
+						Publish: true,
+					}
+					err = conn.Initialize()
 					require.NoError(t, err)
 
 				case "rtmps":
@@ -230,7 +236,13 @@ func TestPathRunOnConnect(t *testing.T) {
 					require.NoError(t, err)
 					defer nconn.Close() //nolint:errcheck
 
-					_, err = rtmp.NewClientConn(nconn, u, true)
+					conn := &rtmp.Conn{
+						RW:      nconn,
+						Client:  true,
+						URL:     u,
+						Publish: true,
+					}
+					err = conn.Initialize()
 					require.NoError(t, err)
 
 				case "srt":
@@ -440,10 +452,19 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer nconn.Close()
 
-					conn, err := rtmp.NewClientConn(nconn, u, false)
+					conn := &rtmp.Conn{
+						RW:      nconn,
+						Client:  true,
+						URL:     u,
+						Publish: false,
+					}
+					err = conn.Initialize()
 					require.NoError(t, err)
 
-					_, err = rtmp.NewReader(conn)
+					r := &rtmp.Reader{
+						Conn: conn,
+					}
+					err = r.Initialize()
 					require.NoError(t, err)
 
 				case "rtmps":
@@ -454,7 +475,13 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer nconn.Close() //nolint:errcheck
 
-					conn, err := rtmp.NewClientConn(nconn, u, false)
+					conn := &rtmp.Conn{
+						RW:      nconn,
+						Client:  true,
+						URL:     u,
+						Publish: false,
+					}
+					err = conn.Initialize()
 					require.NoError(t, err)
 
 					go func() {
@@ -474,7 +501,10 @@ func TestPathRunOnRead(t *testing.T) {
 						}
 					}()
 
-					_, err = rtmp.NewReader(conn)
+					r := &rtmp.Reader{
+						Conn: conn,
+					}
+					err = r.Initialize()
 					require.NoError(t, err)
 
 				case "srt":
