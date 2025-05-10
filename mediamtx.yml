@@ -89,6 +89,7 @@ authInternalUsers:
 # {
 #   "user": "user",
 #   "password": "password",
+#   "token": "token",
 #   "ip": "ip",
 #   "action": "publish|read|playback|api|metrics|pprof",
 #   "path": "path",
@@ -111,7 +112,6 @@ authHTTPExclude:
 # This JWT must contain the claim "mediamtx_permissions" with permissions,
 # for instance:
 # {
-#  ...
 #  "mediamtx_permissions": [
 #     {
 #       "action": "publish",
@@ -119,7 +119,7 @@ authHTTPExclude:
 #     }
 #   ]
 # }
-# Users are expected to pass the JWT in the Authorization header or as a query parameter.
+# Users are expected to pass the JWT in the Authorization header or as password.
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:

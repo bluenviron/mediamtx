@@ -20,6 +20,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 )
 
 func absoluteURL(req *base.Request, v string) string {
@@ -138,16 +139,16 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	ctx.Path = ctx.Path[1:]
 
 	req := defs.PathAccessRequest{
-		Name:  ctx.Path,
-		Query: ctx.Query,
-		IP:    c.ip(),
-		Proto: auth.ProtocolRTSP,
-		ID:    &c.uuid,
+		Name:        ctx.Path,
+		Query:       ctx.Query,
+		Proto:       auth.ProtocolRTSP,
+		ID:          &c.uuid,
+		Credentials: rtsp.Credentials(ctx.Request),
+		IP:          c.ip(),
 		CustomVerifyFunc: func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
 		},
 	}
-	req.FillFromRTSPRequest(ctx.Request)
 
 	res := c.pathManager.Describe(defs.PathDescribeReq{
 		AccessRequest: req,

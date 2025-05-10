@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -137,13 +138,14 @@ func (s *session) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
 	req := defs.PathAccessRequest{
-		Name:    s.req.pathName,
-		Publish: true,
-		IP:      net.ParseIP(ip),
-		Proto:   auth.ProtocolWebRTC,
-		ID:      &s.uuid,
+		Name:        s.req.pathName,
+		Query:       s.req.httpRequest.URL.RawQuery,
+		Publish:     true,
+		Proto:       auth.ProtocolWebRTC,
+		ID:          &s.uuid,
+		Credentials: httpp.Credentials(s.req.httpRequest),
+		IP:          net.ParseIP(ip),
 	}
-	req.FillFromHTTPRequest(s.req.httpRequest)
 
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        s,
@@ -252,12 +254,13 @@ func (s *session) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
 	req := defs.PathAccessRequest{
-		Name:  s.req.pathName,
-		IP:    net.ParseIP(ip),
-		Proto: auth.ProtocolWebRTC,
-		ID:    &s.uuid,
+		Name:        s.req.pathName,
+		Query:       s.req.httpRequest.URL.RawQuery,
+		Proto:       auth.ProtocolWebRTC,
+		ID:          &s.uuid,
+		Credentials: httpp.Credentials(s.req.httpRequest),
+		IP:          net.ParseIP(ip),
 	}
-	req.FillFromHTTPRequest(s.req.httpRequest)
 
 	path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author:        s,

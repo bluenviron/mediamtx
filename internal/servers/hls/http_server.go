@@ -148,12 +148,13 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	}
 
 	req := defs.PathAccessRequest{
-		Name:    dir,
-		Publish: false,
-		IP:      net.ParseIP(ctx.ClientIP()),
-		Proto:   auth.ProtocolHLS,
+		Name:        dir,
+		Query:       ctx.Request.URL.RawQuery,
+		Publish:     false,
+		Proto:       auth.ProtocolHLS,
+		Credentials: httpp.Credentials(ctx.Request),
+		IP:          net.ParseIP(ctx.ClientIP()),
 	}
-	req.FillFromHTTPRequest(ctx.Request)
 
 	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: req,
