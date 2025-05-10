@@ -79,7 +79,7 @@ func recordingsOfPath(
 
 type apiAuthManager interface {
 	Authenticate(req *auth.Request) error
-	ForceRefreshJWTJWKS() error
+	RefreshJWTJWKS()
 }
 
 type apiParent interface {
@@ -135,7 +135,7 @@ func (a *API) Initialize() error {
 	group.POST("/config/paths/replace/*name", a.onConfigPathsReplace)
 	group.DELETE("/config/paths/delete/*name", a.onConfigPathsDelete)
 
-	group.POST("/config/auth/jwks/refresh", a.onAuthJwksRefresh)
+	group.POST("/auth/jwks/refresh", a.onAuthJwksRefresh)
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
@@ -540,12 +540,7 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 }
 
 func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
-	err := a.AuthManager.ForceRefreshJWTJWKS()
-	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
+	a.AuthManager.RefreshJWTJWKS()
 	ctx.Status(http.StatusOK)
 }
 

@@ -268,12 +268,10 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	return m.jwtKeyFunc.Keyfunc, nil
 }
 
-// ForceRefreshJWTJWKS force reloads the JWW keys
-func (m *Manager) ForceRefreshJWTJWKS() error {
+// RefreshJWTJWKS refreshes the JWT JWKS.
+func (m *Manager) RefreshJWTJWKS() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	m.jwtLastRefresh = time.Time{}
-
-	return nil
 }
