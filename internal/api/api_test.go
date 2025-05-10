@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -717,4 +718,42 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, http.StatusOK, res.StatusCode)
+}
+
+func TestAuthJWKSRefresh(t *testing.T) {
+	ok := false
+
+	api := API{
+		Address:     "localhost:9997",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		AuthManager: &test.AuthManager{
+			AuthenticateImpl: func(_ *auth.Request) error {
+				return nil
+			},
+			RefreshJWTJWKSImpl: func() {
+				ok = true
+			},
+		},
+		Parent: &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	u, err := url.Parse("http://localhost:9997/v3/auth/jwks/refresh")
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), nil)
+	require.NoError(t, err)
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	require.True(t, ok)
 }
