@@ -24,7 +24,7 @@ const (
 	// PauseAfterError is the pause to apply after an authentication failure.
 	PauseAfterError = 2 * time.Second
 
-	jwtRefreshPeriod = 60 * 60 * time.Second
+	jwksRefreshPeriod = 60 * 60 * time.Second
 )
 
 // Error is a authentication error.
@@ -79,9 +79,9 @@ type Manager struct {
 	JWTExclude         []conf.AuthInternalUserPermission
 	ReadTimeout        time.Duration
 
-	mutex          sync.RWMutex
-	jwtLastRefresh time.Time
-	jwtKeyFunc     keyfunc.Keyfunc
+	mutex           sync.RWMutex
+	jwksLastRefresh time.Time
+	jwtKeyFunc      keyfunc.Keyfunc
 }
 
 // ReloadInternalUsers reloads InternalUsers.
@@ -237,7 +237,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if now.Sub(m.jwtLastRefresh) >= jwtRefreshPeriod {
+	if now.Sub(m.jwksLastRefresh) >= jwksRefreshPeriod {
 		tr := &http.Transport{
 			TLSClientConfig: tls.ConfigForFingerprint(m.JWTJWKSFingerprint),
 		}
@@ -266,7 +266,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		}
 
 		m.jwtKeyFunc = tmp
-		m.jwtLastRefresh = now
+		m.jwksLastRefresh = now
 	}
 
 	return m.jwtKeyFunc.Keyfunc, nil
@@ -277,5 +277,5 @@ func (m *Manager) RefreshJWTJWKS() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	m.jwtLastRefresh = time.Time{}
+	m.jwksLastRefresh = time.Time{}
 }
