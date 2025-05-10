@@ -74,8 +74,8 @@ func TestServerPublish(t *testing.T) {
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
+			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 			return path, nil
 		},
 	}
@@ -187,8 +187,8 @@ func TestServerRead(t *testing.T) {
 		AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
-			require.Equal(t, "myuser", req.AccessRequest.User)
-			require.Equal(t, "mypass", req.AccessRequest.Pass)
+			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
+			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 			return path, path.stream, nil
 		},
 	}

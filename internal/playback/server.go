@@ -118,11 +118,12 @@ func (s *Server) middlewareOrigin(ctx *gin.Context) {
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	req := &auth.Request{
-		IP:     net.ParseIP(ctx.ClientIP()),
-		Action: conf.AuthActionPlayback,
-		Path:   pathName,
+		Action:      conf.AuthActionPlayback,
+		Path:        pathName,
+		Query:       ctx.Request.URL.RawQuery,
+		Credentials: httpp.Credentials(ctx.Request),
+		IP:          net.ParseIP(ctx.ClientIP()),
 	}
-	req.FillFromHTTPRequest(ctx.Request)
 
 	err := s.AuthManager.Authenticate(req)
 	if err != nil {

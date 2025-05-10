@@ -190,8 +190,8 @@ func TestServerRead(t *testing.T) {
 			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
-				require.Equal(t, "myuser", req.AccessRequest.User)
-				require.Equal(t, "mypass", req.AccessRequest.Pass)
+				require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
+				require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 				return &conf.Path{}, nil
 			},
 			addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
@@ -290,8 +290,8 @@ func TestServerRead(t *testing.T) {
 			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				require.Equal(t, "teststream", req.AccessRequest.Name)
 				require.Equal(t, "param=value", req.AccessRequest.Query)
-				require.Equal(t, "myuser", req.AccessRequest.User)
-				require.Equal(t, "mypass", req.AccessRequest.Pass)
+				require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
+				require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 				return &conf.Path{}, nil
 			},
 			addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {

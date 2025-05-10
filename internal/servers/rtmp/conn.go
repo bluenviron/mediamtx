@@ -163,11 +163,13 @@ func (c *conn) runRead(conn *rtmp.Conn) error {
 		AccessRequest: defs.PathAccessRequest{
 			Name:  pathName,
 			Query: rawQuery,
-			IP:    c.ip(),
-			User:  query.Get("user"),
-			Pass:  query.Get("pass"),
 			Proto: auth.ProtocolRTMP,
 			ID:    &c.uuid,
+			Credentials: &auth.Credentials{
+				User: query.Get("user"),
+				Pass: query.Get("pass"),
+			},
+			IP: c.ip(),
 		},
 	})
 	if err != nil {
@@ -230,11 +232,13 @@ func (c *conn) runPublish(conn *rtmp.Conn) error {
 			Name:    pathName,
 			Query:   rawQuery,
 			Publish: true,
-			IP:      c.ip(),
-			User:    query.Get("user"),
-			Pass:    query.Get("pass"),
 			Proto:   auth.ProtocolRTMP,
 			ID:      &c.uuid,
+			Credentials: &auth.Credentials{
+				User: query.Get("user"),
+				Pass: query.Get("pass"),
+			},
+			IP: c.ip(),
 		},
 	})
 	if err != nil {

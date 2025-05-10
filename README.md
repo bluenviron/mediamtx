@@ -345,11 +345,11 @@ If you want to generate a stream that can be read with WebRTC, open `Settings ->
 
 Then use the button `Start Recording` (instead of `Start Streaming`) to start streaming.
 
-Latest versions of OBS Studio can publish to the server with the [WebRTC / WHIP protocol](#webrtc). Use the following parameters:
+Recent versions of OBS Studio can also publish to the server with the [WebRTC / WHIP protocol](#webrtc). Use the following parameters:
 
 * Service: `WHIP`
 * Server: `http://localhost:8889/mystream/whip`
-* Bearer Token: `myuser:mypass` (if internal authentication is enabled) or JWT (if JWT-based authentication is enabled)
+* Bearer Token: `myuser:mypass` (when internal authentication is enabled) or `JWT` (when JWT-based authentication is enabled)
 
 Save the configuration and click `Start streaming`.
 
@@ -1369,7 +1369,8 @@ There are 3 ways to change the configuration:
 
 #### Internal
 
-The server provides three way to authenticate users:
+The server provides three methods to authenticate users:
+
 * Internal: users are stored in the configuration file
 * HTTP-based: an external HTTP URL is contacted to perform authentication
 * JWT: an external identity server provides authentication through JWTs
@@ -1453,6 +1454,7 @@ Each time a user needs to be authenticated, the specified URL will be requested 
 {
   "user": "user",
   "password": "password",
+  "token": "token",
   "ip": "ip",
   "action": "publish|read|playback|api|metrics|pprof",
   "path": "path",
@@ -1486,7 +1488,7 @@ authHTTPExclude:
 
 #### JWT-based
 
-Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external server is contacted just once, and not for every request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
+Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external server is contacted once, and not for every request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
 
 ```yml
 authMethod: jwt
@@ -1507,21 +1509,29 @@ The JWT is expected to contain a claim, with a list of permissions in the same f
 }
 ```
 
-Clients are expected to pass the JWT in the Authorization header (in case of HLS, WebRTC and all web-based features) or in query parameters (in case of all other protocols), for instance:
+Clients are expected to pass the JWT in one of the following ways (from best to worst):
 
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?jwt=MY_JWT
-```
+1. Through the `Authorization: Bearer` HTTP header. This is possible if the protocol or feature is based on HTTP, like HLS, WebRTC, API, Metrics, pprof.
 
-For instance (HLS):
+2. As password. Username is arbitrary.
 
-```
-GET /mypath/index.m3u8 HTTP/1.1
-Host: example.com
-Authorization: Bearer MY_JWT
-```
+3. As query parameter in the URL, with the `jwt` key. This method is discouraged since the JWT is visible and publicly shared if the URL is shared, causing a security issue.
 
-Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide such JWTs:
+These are the recommended methods for each client:
+
+|client|protocol|method|notes|
+|------|--------|------|-----|
+|Web browsers|HLS|Authorization: Bearer||
+|Web browsers|WebRTC|Authorization: Bearer||
+|OBS Studio|WebRTC|Authorization: Bearer||
+|OBS Studio|RTMP|Query parameter||
+|FFmpeg|RTSP|Query parameter|password is truncated and cannot be used|
+|FFmpeg|RTMP|unsupported|Passwords and query parameters are currently truncated to 1024 characters by FFmpeg, so it's impossible to use FFMPEG+RTMP+JWT|
+|GStreamer|RTSP|Password||
+|GStreamer|RTMP|Query parameter||
+|any|SRT|unsupported|SRT truncates passwords and query parameters to 512 characters, so it's impossible to use SRT+JWT. See [#3430](https://github.com/bluenviron/mediamtx/issues/3430)|
+
+Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs:
 
 1. Start Keycloak:
 
@@ -2260,31 +2270,27 @@ Where:
 
 #### Authenticating with WHIP/WHEP
 
-When using WHIP or WHEP to establish a WebRTC connection, there are multiple ways to provide credentials.
+When using WHIP or WHEP to establish a WebRTC connection, there are several ways to provide credentials.
 
-If internal authentication or HTTP-based authentication is enabled, username and password can be passed through the `Authentication: Basic` header:
+* If internal authentication or HTTP-based authentication is in use, username and password can be passed through the `Authorization: Basic` HTTP header:
 
-```
-Authentication: Basic [base64_encoded_credentials]
-```
+  ```
+  Authorization: Basic base64(user:pass)
+  ```
 
-Username and password can be also passed through the `Authentication: Bearer` header (since it's mandated by the specification):
+  Where `base64(user:pass)` is the base64 encoding of "user:pass".
 
-```
-Authentication: Bearer username:password
-```
+  When the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio), credentials can be passed through the `Authorization: Bearer` header, where value is the concatenation of username and password, separated by a colon:
 
-If JWT-based authentication is enabled, JWT can be passed through the `Authentication: Bearer` header:
+  ```
+  Authorization: Bearer username:password
+  ```
 
-```
-Authentication: Bearer [jwt]
-```
+* If JWT-based authentication is in use, the JWT can be passed through the `Authorization: Bearer` header:
 
-The JWT can also be passed through query parameters:
-
-```
-http://localhost:8889/mystream/whip?jwt=[jwt]
-```
+  ```
+  Authorization: Bearer MY_JWT
+  ```
 
 #### Solving WebRTC connectivity issues
 
