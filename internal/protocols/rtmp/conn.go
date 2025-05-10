@@ -151,6 +151,7 @@ type Conn struct {
 	mrw *message.ReadWriter
 }
 
+// Initialize initializes Conn.
 func (c *Conn) Initialize() error {
 	c.bc = bytecounter.NewReadWriter(c.RW)
 
@@ -160,7 +161,7 @@ func (c *Conn) Initialize() error {
 				return fmt.Errorf("URL must be specified in client mode")
 			}
 
-			err := c.initializeClient(c.URL, c.Publish)
+			err := c.initializeClient()
 			if err != nil {
 				return err
 			}
@@ -182,8 +183,8 @@ func (c *Conn) Initialize() error {
 	return nil
 }
 
-func (c *Conn) initializeClient(u *url.URL, publish bool) error {
-	connectpath, actionpath := splitPath(u)
+func (c *Conn) initializeClient() error {
+	connectpath, actionpath := splitPath(c.URL)
 
 	_, _, err := handshake.DoClient(c.bc, false, false)
 	if err != nil {
@@ -214,22 +215,27 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 		return err
 	}
 
+	connectArg := amf0.Object{
+		{Key: "app", Value: connectpath},
+		{Key: "flashVer", Value: "LNX 9,0,124,2"},
+		{Key: "tcUrl", Value: getTcURL(c.URL)},
+	}
+
+	if !c.Publish {
+		connectArg = append(connectArg,
+			amf0.ObjectEntry{Key: "fpad", Value: false},
+			amf0.ObjectEntry{Key: "capabilities", Value: float64(15)},
+			amf0.ObjectEntry{Key: "audioCodecs", Value: float64(4071)},
+			amf0.ObjectEntry{Key: "videoCodecs", Value: float64(252)},
+			amf0.ObjectEntry{Key: "videoFunction", Value: float64(1)},
+		)
+	}
+
 	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "connect",
 		CommandID:     1,
-		Arguments: []interface{}{
-			amf0.Object{
-				{Key: "app", Value: connectpath},
-				{Key: "flashVer", Value: "LNX 9,0,124,2"},
-				{Key: "tcUrl", Value: getTcURL(u)},
-				{Key: "fpad", Value: false},
-				{Key: "capabilities", Value: float64(15)},
-				{Key: "audioCodecs", Value: float64(4071)},
-				{Key: "videoCodecs", Value: float64(252)},
-				{Key: "videoFunction", Value: float64(1)},
-			},
-		},
+		Arguments:     []interface{}{connectArg},
 	})
 	if err != nil {
 		return err
@@ -240,7 +246,7 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 		return err
 	}
 
-	if !publish {
+	if !c.Publish {
 		err = c.mrw.Write(&message.CommandAMF0{
 			ChunkStreamID: 3,
 			Name:          "createStream",

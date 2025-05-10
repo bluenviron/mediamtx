@@ -57,25 +57,42 @@ func TestNewClientConn(t *testing.T) {
 					Value: 65536,
 				}, msg)
 
-				msg, err2 = mrw.Read()
-				require.NoError(t, err2)
-				require.Equal(t, &message.CommandAMF0{
-					ChunkStreamID: 3,
-					Name:          "connect",
-					CommandID:     1,
-					Arguments: []interface{}{
-						amf0.Object{
-							{Key: "app", Value: "stream"},
-							{Key: "flashVer", Value: "LNX 9,0,124,2"},
-							{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
-							{Key: "fpad", Value: false},
-							{Key: "capabilities", Value: float64(15)},
-							{Key: "audioCodecs", Value: float64(4071)},
-							{Key: "videoCodecs", Value: float64(252)},
-							{Key: "videoFunction", Value: float64(1)},
+				if ca != "publish" {
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
+					require.Equal(t, &message.CommandAMF0{
+						ChunkStreamID: 3,
+						Name:          "connect",
+						CommandID:     1,
+						Arguments: []interface{}{
+							amf0.Object{
+								{Key: "app", Value: "stream"},
+								{Key: "flashVer", Value: "LNX 9,0,124,2"},
+								{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
+								{Key: "fpad", Value: false},
+								{Key: "capabilities", Value: float64(15)},
+								{Key: "audioCodecs", Value: float64(4071)},
+								{Key: "videoCodecs", Value: float64(252)},
+								{Key: "videoFunction", Value: float64(1)},
+							},
 						},
-					},
-				}, msg)
+					}, msg)
+				} else {
+					msg, err2 = mrw.Read()
+					require.NoError(t, err2)
+					require.Equal(t, &message.CommandAMF0{
+						ChunkStreamID: 3,
+						Name:          "connect",
+						CommandID:     1,
+						Arguments: []interface{}{
+							amf0.Object{
+								{Key: "app", Value: "stream"},
+								{Key: "flashVer", Value: "LNX 9,0,124,2"},
+								{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
+							},
+						},
+					}, msg)
+				}
 
 				err2 = mrw.Write(&message.CommandAMF0{
 					ChunkStreamID: 3,
@@ -264,7 +281,7 @@ func TestNewClientConn(t *testing.T) {
 
 			case "publish":
 				require.Equal(t, uint64(3427), conn.BytesReceived())
-				require.Equal(t, uint64(3466), conn.BytesSent())
+				require.Equal(t, uint64(0xd27), conn.BytesSent())
 			}
 
 			<-done
@@ -294,7 +311,7 @@ func TestNewServerConn(t *testing.T) {
 					RW:     nconn,
 					Client: false,
 				}
-				err = conn.Initialize()
+				err2 = conn.Initialize()
 				require.NoError(t, err2)
 
 				require.Equal(t, &url.URL{
