@@ -15,6 +15,7 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -68,17 +69,17 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 
 // Manager is the authentication manager.
 type Manager struct {
-	Method        conf.AuthMethod
-	InternalUsers []conf.AuthInternalUser
-	HTTPAddress   string
-	HTTPExclude   []conf.AuthInternalUserPermission
-	JWTJWKS       string
-	JWTClaimKey   string
-	JWTExclude    []conf.AuthInternalUserPermission
-	ReadTimeout   time.Duration
+	Method             conf.AuthMethod
+	InternalUsers      []conf.AuthInternalUser
+	HTTPAddress        string
+	HTTPExclude        []conf.AuthInternalUserPermission
+	JWTJWKS            string
+	JWTJWKSFingerprint string
+	JWTClaimKey        string
+	JWTExclude         []conf.AuthInternalUserPermission
+	ReadTimeout        time.Duration
 
 	mutex          sync.RWMutex
-	jwtHTTPClient  *http.Client
 	jwtLastRefresh time.Time
 	jwtKeyFunc     keyfunc.Keyfunc
 }
@@ -237,14 +238,17 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	defer m.mutex.Unlock()
 
 	if now.Sub(m.jwtLastRefresh) >= jwtRefreshPeriod {
-		if m.jwtHTTPClient == nil {
-			m.jwtHTTPClient = &http.Client{
-				Timeout:   (m.ReadTimeout),
-				Transport: &http.Transport{},
-			}
+		tr := &http.Transport{
+			TLSClientConfig: tls.ConfigForFingerprint(m.JWTJWKSFingerprint),
+		}
+		defer tr.CloseIdleConnections()
+
+		httpClient := &http.Client{
+			Timeout:   (m.ReadTimeout),
+			Transport: tr,
 		}
 
-		res, err := m.jwtHTTPClient.Get(m.JWTJWKS)
+		res, err := httpClient.Get(m.JWTJWKS)
 		if err != nil {
 			return nil, err
 		}

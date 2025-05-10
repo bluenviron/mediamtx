@@ -269,14 +269,15 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
-			Method:        p.conf.AuthMethod,
-			InternalUsers: p.conf.AuthInternalUsers,
-			HTTPAddress:   p.conf.AuthHTTPAddress,
-			HTTPExclude:   p.conf.AuthHTTPExclude,
-			JWTJWKS:       p.conf.AuthJWTJWKS,
-			JWTClaimKey:   p.conf.AuthJWTClaimKey,
-			JWTExclude:    p.conf.AuthJWTExclude,
-			ReadTimeout:   time.Duration(p.conf.ReadTimeout),
+			Method:             p.conf.AuthMethod,
+			InternalUsers:      p.conf.AuthInternalUsers,
+			HTTPAddress:        p.conf.AuthHTTPAddress,
+			HTTPExclude:        p.conf.AuthHTTPExclude,
+			JWTJWKS:            p.conf.AuthJWTJWKS,
+			JWTJWKSFingerprint: p.conf.AuthJWTJWKSFingerprint,
+			JWTClaimKey:        p.conf.AuthJWTClaimKey,
+			JWTExclude:         p.conf.AuthJWTExclude,
+			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
 		}
 	}
 
@@ -633,6 +634,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthHTTPAddress != p.conf.AuthHTTPAddress ||
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
+		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
 		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout

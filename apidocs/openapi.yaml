@@ -89,6 +89,8 @@ components:
             $ref: '#/components/schemas/AuthInternalUserPermission'
         authJWTJWKS:
           type: string
+        authJWTJWKSFingerprint:
+          type: string
         authJWTClaimKey:
           type: string
 

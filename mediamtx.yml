@@ -123,6 +123,12 @@ authHTTPExclude:
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:
+# If the JWKS URL has a self-signed or invalid certificate,
+# you can provide the fingerprint of the certificate in order to
+# validate it anyway. It can be obtained by running:
+# openssl s_client -connect jwt_jwks_domain:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+# openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+authJWTJWKSFingerprint:
 # name of the claim that contains permissions.
 authJWTClaimKey: mediamtx_permissions
 # Actions to exclude from JWT-based authentication.
