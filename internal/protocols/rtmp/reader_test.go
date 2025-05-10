@@ -1637,8 +1637,12 @@ func TestReadTracks(t *testing.T) {
 			err := c.Initialize()
 			require.NoError(t, err)
 
-			r, err := NewReader(c)
+			r := &Reader{
+				Conn: c,
+			}
+			err = r.Initialize()
 			require.NoError(t, err)
+
 			tracks := r.Tracks()
 			require.Equal(t, ca.tracks, tracks)
 		})

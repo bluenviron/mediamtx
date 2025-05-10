@@ -45,25 +45,23 @@ func mpeg1AudioChannels(m mpeg1audio.ChannelMode) bool {
 
 // Writer is a wrapper around Conn that provides utilities to mux outgoing data.
 type Writer struct {
-	conn *Conn
+	Conn       *Conn
+	VideoTrack format.Format
+	AudioTrack format.Format
 }
 
-// NewWriter allocates a Writer.
-func NewWriter(conn *Conn, videoTrack format.Format, audioTrack format.Format) (*Writer, error) {
-	w := &Writer{
-		conn: conn,
-	}
-
-	err := w.writeTracks(videoTrack, audioTrack)
+// Initialize initializes a Writer.
+func (w *Writer) Initialize() error {
+	err := w.writeTracks()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return w, nil
+	return nil
 }
 
-func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format) error {
-	err := w.conn.Write(&message.DataAMF0{
+func (w *Writer) writeTracks() error {
+	err := w.Conn.Write(&message.DataAMF0{
 		ChunkStreamID:   4,
 		MessageStreamID: 0x1000000,
 		Payload: []interface{}{
@@ -77,7 +75,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 				{
 					Key: "videocodecid",
 					Value: func() float64 {
-						switch videoTrack.(type) {
+						switch w.VideoTrack.(type) {
 						case *format.H264:
 							return message.CodecH264
 
@@ -93,7 +91,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 				{
 					Key: "audiocodecid",
 					Value: func() float64 {
-						switch audioTrack.(type) {
+						switch w.AudioTrack.(type) {
 						case *format.MPEG1Audio:
 							return message.CodecMPEG1Audio
 
@@ -112,7 +110,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 		return err
 	}
 
-	if videoTrack, ok := videoTrack.(*format.H264); ok {
+	if videoTrack, ok := w.VideoTrack.(*format.H264); ok {
 		// write decoder config only if SPS and PPS are available.
 		// if they're not available yet, they're sent later.
 		if sps, pps := videoTrack.SafeParams(); sps != nil && pps != nil {
@@ -121,7 +119,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 				PPS: pps,
 			}.Marshal()
 
-			err = w.conn.Write(&message.Video{
+			err = w.Conn.Write(&message.Video{
 				ChunkStreamID:   message.VideoChunkStreamID,
 				MessageStreamID: 0x1000000,
 				Codec:           message.CodecH264,
@@ -137,7 +135,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 
 	var audioConfig *mpeg4audio.AudioSpecificConfig
 
-	if track, ok := audioTrack.(*format.MPEG4Audio); ok {
+	if track, ok := w.AudioTrack.(*format.MPEG4Audio); ok {
 		audioConfig = track.GetConfig()
 	}
 
@@ -147,7 +145,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 			return err
 		}
 
-		err = w.conn.Write(&message.Audio{
+		err = w.Conn.Write(&message.Audio{
 			ChunkStreamID:   message.AudioChunkStreamID,
 			MessageStreamID: 0x1000000,
 			Codec:           message.CodecMPEG4Audio,
@@ -172,7 +170,7 @@ func (w *Writer) WriteH264(pts time.Duration, dts time.Duration, au [][]byte) er
 		return err
 	}
 
-	return w.conn.Write(&message.Video{
+	return w.Conn.Write(&message.Video{
 		ChunkStreamID:   message.VideoChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecH264,
@@ -186,7 +184,7 @@ func (w *Writer) WriteH264(pts time.Duration, dts time.Duration, au [][]byte) er
 
 // WriteMPEG4Audio writes MPEG-4 Audio data.
 func (w *Writer) WriteMPEG4Audio(pts time.Duration, au []byte) error {
-	return w.conn.Write(&message.Audio{
+	return w.Conn.Write(&message.Audio{
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecMPEG4Audio,
@@ -201,7 +199,7 @@ func (w *Writer) WriteMPEG4Audio(pts time.Duration, au []byte) error {
 
 // WriteMPEG1Audio writes MPEG-1 Audio data.
 func (w *Writer) WriteMPEG1Audio(pts time.Duration, h *mpeg1audio.FrameHeader, frame []byte) error {
-	return w.conn.Write(&message.Audio{
+	return w.Conn.Write(&message.Audio{
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecMPEG1Audio,

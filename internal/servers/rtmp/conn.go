@@ -255,7 +255,10 @@ func (c *conn) runPublish(conn *rtmp.Conn) error {
 	c.query = rawQuery
 	c.mutex.Unlock()
 
-	r, err := rtmp.NewReader(conn)
+	r := &rtmp.Reader{
+		Conn: conn,
+	}
+	err = r.Initialize()
 	if err != nil {
 		return err
 	}

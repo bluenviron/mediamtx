@@ -212,7 +212,11 @@ webrtc_sessions_bytes_sent 0
 			err = conn.Initialize()
 			require.NoError(t, err)
 
-			w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
+			w := &rtmp.Writer{
+				Conn:       conn,
+				VideoTrack: test.FormatH264,
+			}
+			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
@@ -239,7 +243,11 @@ webrtc_sessions_bytes_sent 0
 			err = conn.Initialize()
 			require.NoError(t, err)
 
-			w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
+			w := &rtmp.Writer{
+				Conn:       conn,
+				VideoTrack: test.FormatH264,
+			}
+			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})

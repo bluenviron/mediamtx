@@ -213,8 +213,12 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
-	var err error
-	w, err = NewWriter(conn, videoFormat, audioFormat)
+	w = &Writer{
+		Conn:       conn,
+		VideoTrack: videoFormat,
+		AudioTrack: audioFormat,
+	}
+	err := w.Initialize()
 	if err != nil {
 		return err
 	}

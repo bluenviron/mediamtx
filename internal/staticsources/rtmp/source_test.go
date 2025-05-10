@@ -54,7 +54,12 @@ func TestSource(t *testing.T) {
 				err = conn.Initialize()
 				require.NoError(t, err)
 
-				w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)
+				w := &rtmp.Writer{
+					Conn:       conn,
+					VideoTrack: test.FormatH264,
+					AudioTrack: test.FormatMPEG4Audio,
+				}
+				err = w.Initialize()
 				require.NoError(t, err)
 
 				err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})

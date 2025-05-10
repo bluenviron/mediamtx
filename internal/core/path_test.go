@@ -461,7 +461,10 @@ func TestPathRunOnRead(t *testing.T) {
 					err = conn.Initialize()
 					require.NoError(t, err)
 
-					_, err = rtmp.NewReader(conn)
+					r := &rtmp.Reader{
+						Conn: conn,
+					}
+					err = r.Initialize()
 					require.NoError(t, err)
 
 				case "rtmps":
@@ -498,7 +501,10 @@ func TestPathRunOnRead(t *testing.T) {
 						}
 					}()
 
-					_, err = rtmp.NewReader(conn)
+					r := &rtmp.Reader{
+						Conn: conn,
+					}
+					err = r.Initialize()
 					require.NoError(t, err)
 
 				case "srt":

@@ -101,7 +101,10 @@ func (s *Source) runReader(u *url.URL, nconn net.Conn) error {
 		return err
 	}
 
-	r, err := rtmp.NewReader(conn)
+	r := &rtmp.Reader{
+		Conn: conn,
+	}
+	err = r.Initialize()
 	if err != nil {
 		return err
 	}
