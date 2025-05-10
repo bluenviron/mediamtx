@@ -48,7 +48,10 @@ func TestSource(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn, _, _, err := rtmp.NewServerConn(nconn)
+				conn := &rtmp.Conn{
+					RW: nconn,
+				}
+				err = conn.Initialize()
 				require.NoError(t, err)
 
 				w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)

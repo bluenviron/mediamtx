@@ -248,7 +248,13 @@ func TestNewClientConn(t *testing.T) {
 			require.NoError(t, err)
 			defer nconn.Close()
 
-			conn, err := NewClientConn(nconn, u, ca == "publish")
+			conn := &Conn{
+				RW:      nconn,
+				Client:  true,
+				URL:     u,
+				Publish: ca == "publish",
+			}
+			err = conn.Initialize()
 			require.NoError(t, err)
 
 			switch ca {
@@ -284,15 +290,19 @@ func TestNewServerConn(t *testing.T) {
 				require.NoError(t, err2)
 				defer nconn.Close()
 
-				_, u, isPublishing, err2 := NewServerConn(nconn)
+				conn := &Conn{
+					RW:     nconn,
+					Client: false,
+				}
+				err = conn.Initialize()
 				require.NoError(t, err2)
 
 				require.Equal(t, &url.URL{
 					Scheme: "rtmp",
 					Host:   "127.0.0.1:9121",
 					Path:   "//stream/",
-				}, u)
-				require.Equal(t, ca == "publish" || ca == "publish neko", isPublishing)
+				}, conn.URL)
+				require.Equal(t, ca == "publish" || ca == "publish neko", conn.Publish)
 
 				close(done)
 			}()
@@ -500,7 +510,14 @@ func BenchmarkRead(b *testing.B) {
 		})
 	}
 
-	conn := newNoHandshakeConn(&buf)
+	conn := &Conn{
+		RW:            &buf,
+		skipHandshake: true,
+	}
+	err := conn.Initialize()
+	if err != nil {
+		panic(err)
+	}
 
 	for n := 0; n < b.N; n++ {
 		conn.Read() //nolint:errcheck

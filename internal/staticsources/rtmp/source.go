@@ -90,7 +90,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 func (s *Source) runReader(u *url.URL, nconn net.Conn) error {
 	nconn.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
 	nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.WriteTimeout)))
-	conn, err := rtmp.NewClientConn(nconn, u, false)
+	conn := &rtmp.Conn{
+		RW:      nconn,
+		Client:  true,
+		URL:     u,
+		Publish: false,
+	}
+	err := conn.Initialize()
 	if err != nil {
 		return err
 	}

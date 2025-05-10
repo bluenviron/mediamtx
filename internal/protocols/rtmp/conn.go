@@ -141,22 +141,45 @@ func readCommandResult(
 
 // Conn is a RTMP connection.
 type Conn struct {
+	RW            io.ReadWriter
+	Client        bool
+	URL           *url.URL
+	Publish       bool
+	skipHandshake bool
+
 	bc  *bytecounter.ReadWriter
 	mrw *message.ReadWriter
 }
 
-// NewClientConn initializes a client-side connection.
-func NewClientConn(rw io.ReadWriter, u *url.URL, publish bool) (*Conn, error) {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
+func (c *Conn) Initialize() error {
+	c.bc = bytecounter.NewReadWriter(c.RW)
+
+	if !c.skipHandshake {
+		if c.Client {
+			if c.URL == nil {
+				return fmt.Errorf("URL must be specified in client mode")
+			}
+
+			err := c.initializeClient(c.URL, c.Publish)
+			if err != nil {
+				return err
+			}
+		} else {
+			if c.URL != nil {
+				return fmt.Errorf("URL must be empty in server mode")
+			}
+
+			var err error
+			c.URL, c.Publish, err = c.initializeServer()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		c.mrw = message.NewReadWriter(c.bc, c.bc, false)
 	}
 
-	err := c.initializeClient(u, publish)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return nil
 }
 
 func (c *Conn) initializeClient(u *url.URL, publish bool) error {
@@ -318,20 +341,6 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 	}
 
 	return readCommandResult(c.mrw, 5, "onStatus", resultIsOK1)
-}
-
-// NewServerConn initializes a server-side connection.
-func NewServerConn(rw io.ReadWriter) (*Conn, *url.URL, bool, error) {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
-	}
-
-	u, publish, err := c.initializeServer()
-	if err != nil {
-		return nil, nil, false, err
-	}
-
-	return c, u, publish, nil
 }
 
 func (c *Conn) initializeServer() (*url.URL, bool, error) {
@@ -597,16 +606,6 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 			return u, true, nil
 		}
 	}
-}
-
-func newNoHandshakeConn(rw io.ReadWriter) *Conn {
-	c := &Conn{
-		bc: bytecounter.NewReadWriter(rw),
-	}
-
-	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
-
-	return c
 }
 
 // BytesReceived returns the number of bytes received.

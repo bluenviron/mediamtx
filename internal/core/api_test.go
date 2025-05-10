@@ -430,7 +430,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn, err := rtmp.NewClientConn(nconn, u, true)
+				conn := &rtmp.Conn{
+					RW:      nconn,
+					Client:  true,
+					URL:     u,
+					Publish: true,
+				}
+				err = conn.Initialize()
 				require.NoError(t, err)
 
 				w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
@@ -1007,7 +1013,13 @@ func TestAPIProtocolKick(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn, err := rtmp.NewClientConn(nconn, u, true)
+				conn := &rtmp.Conn{
+					RW:      nconn,
+					Client:  true,
+					URL:     u,
+					Publish: true,
+				}
+				err = conn.Initialize()
 				require.NoError(t, err)
 
 				w, err := rtmp.NewWriter(conn, test.FormatH264, nil)
