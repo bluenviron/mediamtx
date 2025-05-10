@@ -122,6 +122,8 @@ func (a *API) Initialize() error {
 
 	group := router.Group("/v3")
 
+	group.POST("/auth/jwks/refresh", a.onAuthJwksRefresh)
+
 	group.GET("/config/global/get", a.onConfigGlobalGet)
 	group.PATCH("/config/global/patch", a.onConfigGlobalPatch)
 
@@ -134,8 +136,6 @@ func (a *API) Initialize() error {
 	group.PATCH("/config/paths/patch/*name", a.onConfigPathsPatch)
 	group.POST("/config/paths/replace/*name", a.onConfigPathsReplace)
 	group.DELETE("/config/paths/delete/*name", a.onConfigPathsDelete)
-
-	group.POST("/auth/jwks/refresh", a.onAuthJwksRefresh)
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
