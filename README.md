@@ -1515,7 +1515,7 @@ Clients are expected to pass the JWT in one of the following ways (from best to 
 
 2. As password. Username is arbitrary.
 
-3. As query parameter in the URL, with the `jwt` key. This method is discouraged since the JWT is visible and publicly shared if the URL is shared, causing a security issue.
+3. As query parameter in the URL, with the `jwt` key. This method is discouraged since the JWT is publicly shared when the URL is shared, causing a security issue.
 
 These are the recommended methods for each client:
 

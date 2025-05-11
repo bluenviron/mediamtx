@@ -249,6 +249,7 @@ func (a *API) middlewareOrigin(ctx *gin.Context) {
 func (a *API) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
 		Action:      conf.AuthActionAPI,
+		Query:       ctx.Request.URL.RawQuery,
 		Credentials: httpp.Credentials(ctx.Request),
 		IP:          net.ParseIP(ctx.ClientIP()),
 	}

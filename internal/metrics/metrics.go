@@ -124,6 +124,7 @@ func (m *Metrics) middlewareOrigin(ctx *gin.Context) {
 func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
 		Action:      conf.AuthActionMetrics,
+		Query:       ctx.Request.URL.RawQuery,
 		Credentials: httpp.Credentials(ctx.Request),
 		IP:          net.ParseIP(ctx.ClientIP()),
 	}

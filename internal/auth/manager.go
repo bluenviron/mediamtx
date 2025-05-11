@@ -27,6 +27,21 @@ const (
 	jwksRefreshPeriod = 60 * 60 * time.Second
 )
 
+func isHTTPRequest(r *Request) bool {
+	switch r.Action {
+	case conf.AuthActionPlayback, conf.AuthActionAPI,
+		conf.AuthActionMetrics, conf.AuthActionPprof:
+		return true
+	}
+
+	switch r.Protocol {
+	case ProtocolHLS, ProtocolWebRTC:
+		return true
+	}
+
+	return false
+}
+
 // Error is a authentication error.
 type Error struct {
 	Wrapped        error
@@ -77,6 +92,7 @@ type Manager struct {
 	JWTJWKSFingerprint string
 	JWTClaimKey        string
 	JWTExclude         []conf.AuthInternalUserPermission
+	JWTInHTTPQuery     bool
 	ReadTimeout        time.Duration
 
 	mutex           sync.RWMutex
@@ -219,18 +235,21 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	case req.Credentials.Pass != "":
 		encodedJWT = req.Credentials.Pass
 
-	default:
+	case (!isHTTPRequest(req) || m.JWTInHTTPQuery):
 		var v url.Values
 		v, err = url.ParseQuery(req.Query)
 		if err != nil {
 			return err
 		}
 
-		if len(v["jwt"]) != 1 {
+		if len(v["jwt"]) != 1 || len(v["jwt"][0]) == 0 {
 			return fmt.Errorf("JWT not provided")
 		}
 
 		encodedJWT = v["jwt"][0]
+
+	default:
+		return fmt.Errorf("JWT not provided")
 	}
 
 	var cc jwtClaims

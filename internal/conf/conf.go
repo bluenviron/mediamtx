@@ -181,6 +181,7 @@ type Conf struct {
 	AuthJWTJWKSFingerprint    string                      `json:"authJWTJWKSFingerprint"`
 	AuthJWTClaimKey           string                      `json:"authJWTClaimKey"`
 	AuthJWTExclude            AuthInternalUserPermissions `json:"authJWTExclude"`
+	AuthJWTInHTTPQuery        bool                        `json:"authJWTInHTTPQuery"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -335,6 +336,7 @@ func (conf *Conf) setDefaults() {
 	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
 	conf.AuthJWTExclude = []AuthInternalUserPermission{}
+	conf.AuthJWTInHTTPQuery = true
 
 	// Control API
 	conf.APIAddress = ":9997"

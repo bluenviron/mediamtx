@@ -99,6 +99,7 @@ func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
 func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
 		Action:      conf.AuthActionPprof,
+		Query:       ctx.Request.URL.RawQuery,
 		Credentials: httpp.Credentials(ctx.Request),
 		IP:          net.ParseIP(ctx.ClientIP()),
 	}
