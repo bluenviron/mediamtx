@@ -14,9 +14,10 @@ import (
 )
 
 type openAPIProperty struct {
-	Ref      string `json:"$ref"`
-	Type     string `json:"type"`
-	Nullable bool   `json:"nullable"`
+	Ref      string           `json:"$ref"`
+	Type     string           `json:"type"`
+	Nullable bool             `json:"nullable"`
+	Items    *openAPIProperty `json:"items"`
 }
 
 type openAPISchema struct {
@@ -170,9 +171,19 @@ func TestAPIDocs(t *testing.T) {
 							Nullable: true,
 						}
 
+					case sf.Type == reflect.TypeOf(conf.AuthInternalUserPermissions{}):
+						content2.Properties[js] = openAPIProperty{
+							Type: "array",
+							Items: &openAPIProperty{
+								Ref: "#/components/schemas/AuthInternalUserPermission",
+							},
+						}
+
 					default:
 						if existing, ok := content1.Properties[js]; ok {
 							content2.Properties[js] = existing
+						} else {
+							t.Errorf("missing item: '%s'", js)
 						}
 					}
 				}

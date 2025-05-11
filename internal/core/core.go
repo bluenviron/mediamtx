@@ -277,6 +277,7 @@ func (p *Core) createResources(initial bool) error {
 			JWTJWKSFingerprint: p.conf.AuthJWTJWKSFingerprint,
 			JWTClaimKey:        p.conf.AuthJWTClaimKey,
 			JWTExclude:         p.conf.AuthJWTExclude,
+			JWTInHTTPQuery:     p.conf.AuthJWTInHTTPQuery,
 			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
 		}
 	}
@@ -637,6 +638,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
 		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
+		newConf.AuthJWTInHTTPQuery != p.conf.AuthJWTInHTTPQuery ||
 		newConf.ReadTimeout != p.conf.ReadTimeout
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)

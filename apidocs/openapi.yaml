@@ -93,6 +93,12 @@ components:
           type: string
         authJWTClaimKey:
           type: string
+        authJWTExclude:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthInternalUserPermission'
+        authJWTInHTTPQuery:
+          type: boolean
 
         # Control API
         api:
