@@ -62,4 +62,22 @@ func TestCredentials(t *testing.T) {
 			Token: "testing123",
 		}, c)
 	})
+
+	t.Run("user and pass and token", func(t *testing.T) {
+		h := &http.Request{
+			URL: &url.URL{},
+			Header: http.Header{
+				"Authorization": []string{
+					"Basic bXl1c2VyOm15cGFzcw==",
+					"Bearer testing123",
+				},
+			},
+		}
+
+		c := Credentials(h)
+
+		require.Equal(t, &auth.Credentials{
+			Token: "testing123",
+		}, c)
+	})
 }
