@@ -321,14 +321,14 @@ gst-launch-1.0 videotestsrc \
 OBS Studio can publish to the server in multiple ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
 * Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream`
+* Server: `rtmp://localhost/mystream`
+* Stream key: (empty)
 
 If credentials are in use, use the following parameters:
 
 * Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream?user=myuser&pass=mypass`
+* Server: `rtmp://localhost/mystream?user=myuser&pass=mypass`
+* Stream key: (empty)
 
 Save the configuration and click `Start streaming`.
 
