@@ -213,18 +213,13 @@ func TestPathRunOnConnect(t *testing.T) {
 					u, err := url.Parse("rtmp://127.0.0.1:1935/test")
 					require.NoError(t, err)
 
-					nconn, err := net.Dial("tcp", u.Host)
-					require.NoError(t, err)
-					defer nconn.Close()
-
-					conn := &rtmp.Conn{
-						RW:      nconn,
-						Client:  true,
+					conn := &rtmp.Client{
 						URL:     u,
 						Publish: true,
 					}
-					err = conn.Initialize()
+					err = conn.Initialize(context.Background())
 					require.NoError(t, err)
+					defer conn.Close()
 
 				case "rtmps":
 					connType = "rtmpsConn"
@@ -232,18 +227,14 @@ func TestPathRunOnConnect(t *testing.T) {
 					u, err := url.Parse("rtmps://127.0.0.1:1936/test")
 					require.NoError(t, err)
 
-					nconn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-					require.NoError(t, err)
-					defer nconn.Close() //nolint:errcheck
-
-					conn := &rtmp.Conn{
-						RW:      nconn,
-						Client:  true,
-						URL:     u,
-						Publish: true,
+					conn := &rtmp.Client{
+						URL:       u,
+						Publish:   true,
+						TLSConfig: &tls.Config{InsecureSkipVerify: true},
 					}
-					err = conn.Initialize()
+					err = conn.Initialize(context.Background())
 					require.NoError(t, err)
+					defer conn.Close()
 
 				case "srt":
 					connType = "srtConn"
@@ -448,18 +439,13 @@ func TestPathRunOnRead(t *testing.T) {
 					u, err := url.Parse("rtmp://127.0.0.1:1935/test?query=value")
 					require.NoError(t, err)
 
-					nconn, err := net.Dial("tcp", u.Host)
-					require.NoError(t, err)
-					defer nconn.Close()
-
-					conn := &rtmp.Conn{
-						RW:      nconn,
-						Client:  true,
+					conn := &rtmp.Client{
 						URL:     u,
 						Publish: false,
 					}
-					err = conn.Initialize()
+					err = conn.Initialize(context.Background())
 					require.NoError(t, err)
+					defer conn.Close()
 
 					r := &rtmp.Reader{
 						Conn: conn,
@@ -471,18 +457,14 @@ func TestPathRunOnRead(t *testing.T) {
 					u, err := url.Parse("rtmps://127.0.0.1:1936/test?query=value")
 					require.NoError(t, err)
 
-					nconn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-					require.NoError(t, err)
-					defer nconn.Close() //nolint:errcheck
-
-					conn := &rtmp.Conn{
-						RW:      nconn,
-						Client:  true,
-						URL:     u,
-						Publish: false,
+					conn := &rtmp.Client{
+						URL:       u,
+						Publish:   false,
+						TLSConfig: &tls.Config{InsecureSkipVerify: true},
 					}
-					err = conn.Initialize()
+					err = conn.Initialize(context.Background())
 					require.NoError(t, err)
+					defer conn.Close()
 
 					go func() {
 						for i := uint16(0); i < 3; i++ {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -22,14 +21,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
-
-func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
-	// remove leading and trailing slashes inserted by OBS and some other clients
-	tmp := strings.TrimRight(inURL.String(), "/")
-	ur, _ := url.Parse(tmp)
-	pathName := strings.TrimLeft(ur.Path, "/")
-	return pathName, ur.Query(), ur.RawQuery
-}
 
 type connState int
 
@@ -58,7 +49,7 @@ type conn struct {
 	uuid      uuid.UUID
 	created   time.Time
 	mutex     sync.RWMutex
-	rconn     *rtmp.Conn
+	rconn     *rtmp.ServerConn
 	state     connState
 	pathName  string
 	query     string
@@ -137,10 +128,16 @@ func (c *conn) runInner() error {
 func (c *conn) runReader() error {
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	conn := &rtmp.Conn{
+
+	conn := &rtmp.ServerConn{
 		RW: c.nconn,
 	}
 	err := conn.Initialize()
+	if err != nil {
+		return err
+	}
+
+	err = conn.Accept()
 	if err != nil {
 		return err
 	}
@@ -150,19 +147,20 @@ func (c *conn) runReader() error {
 	c.mutex.Unlock()
 
 	if !conn.Publish {
-		return c.runRead(conn)
+		return c.runRead()
 	}
-	return c.runPublish(conn)
+	return c.runPublish()
 }
 
-func (c *conn) runRead(conn *rtmp.Conn) error {
-	pathName, query, rawQuery := pathNameAndQuery(conn.URL)
+func (c *conn) runRead() error {
+	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
+	query := c.rconn.URL.Query()
 
 	path, stream, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  pathName,
-			Query: rawQuery,
+			Query: c.rconn.URL.RawQuery,
 			Proto: auth.ProtocolRTMP,
 			ID:    &c.uuid,
 			Credentials: &auth.Credentials{
@@ -187,10 +185,10 @@ func (c *conn) runRead(conn *rtmp.Conn) error {
 	c.mutex.Lock()
 	c.state = connStateRead
 	c.pathName = pathName
-	c.query = rawQuery
+	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
 
-	err = rtmp.FromStream(stream, c, conn, c.nconn, time.Duration(c.writeTimeout))
+	err = rtmp.FromStream(stream, c, c.rconn, c.nconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}
@@ -204,7 +202,7 @@ func (c *conn) runRead(conn *rtmp.Conn) error {
 		Conf:            path.SafeConf(),
 		ExternalCmdEnv:  path.ExternalCmdEnv(),
 		Reader:          c.APISourceDescribe(),
-		Query:           rawQuery,
+		Query:           c.rconn.URL.RawQuery,
 	})
 	defer onUnreadHook()
 
@@ -223,14 +221,15 @@ func (c *conn) runRead(conn *rtmp.Conn) error {
 	}
 }
 
-func (c *conn) runPublish(conn *rtmp.Conn) error {
-	pathName, query, rawQuery := pathNameAndQuery(conn.URL)
+func (c *conn) runPublish() error {
+	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
+	query := c.rconn.URL.Query()
 
 	path, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    pathName,
-			Query:   rawQuery,
+			Query:   c.rconn.URL.RawQuery,
 			Publish: true,
 			Proto:   auth.ProtocolRTMP,
 			ID:      &c.uuid,
@@ -256,11 +255,11 @@ func (c *conn) runPublish(conn *rtmp.Conn) error {
 	c.mutex.Lock()
 	c.state = connStatePublish
 	c.pathName = pathName
-	c.query = rawQuery
+	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
 
 	r := &rtmp.Reader{
-		Conn: conn,
+		Conn: c.rconn,
 	}
 	err = r.Initialize()
 	if err != nil {

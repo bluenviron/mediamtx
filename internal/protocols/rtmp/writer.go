@@ -43,14 +43,14 @@ func mpeg1AudioChannels(m mpeg1audio.ChannelMode) bool {
 	return m != mpeg1audio.ChannelModeMono
 }
 
-// Writer is a wrapper around Conn that provides utilities to mux outgoing data.
+// Writer provides functions to write outgoing data.
 type Writer struct {
-	Conn       *Conn
+	Conn       Conn
 	VideoTrack format.Format
 	AudioTrack format.Format
 }
 
-// Initialize initializes a Writer.
+// Initialize initializes Writer.
 func (w *Writer) Initialize() error {
 	err := w.writeTracks()
 	if err != nil {
