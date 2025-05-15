@@ -270,9 +270,9 @@ func sortedKeys(m map[uint8]format.Format) []int {
 	return ret
 }
 
-// Reader is a wrapper around Conn that provides utilities to demux incoming data.
+// Reader provides functions to read incoming data.
 type Reader struct {
-	Conn *Conn
+	Conn Conn
 
 	videoTracks map[uint8]format.Format
 	audioTracks map[uint8]format.Format
@@ -280,7 +280,7 @@ type Reader struct {
 	onAudioData map[uint8]func(message.Message) error
 }
 
-// Initialize initializes a reader.
+// Initialize initializes Reader.
 func (r *Reader) Initialize() error {
 	var err error
 	r.videoTracks, r.audioTracks, err = r.readTracks()

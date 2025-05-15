@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -196,21 +195,17 @@ webrtc_sessions_bytes_sent 0
 
 		go func() {
 			defer wg.Done()
+
 			u, err := url.Parse("rtmp://localhost:1935/rtmp_path")
 			require.NoError(t, err)
 
-			nconn, err := net.Dial("tcp", u.Host)
-			require.NoError(t, err)
-			defer nconn.Close()
-
-			conn := &rtmp.Conn{
-				RW:      nconn,
-				Client:  true,
+			conn := &rtmp.Client{
 				URL:     u,
 				Publish: true,
 			}
-			err = conn.Initialize()
+			err = conn.Initialize(context.Background())
 			require.NoError(t, err)
+			defer conn.Close()
 
 			w := &rtmp.Writer{
 				Conn:       conn,
@@ -227,21 +222,18 @@ webrtc_sessions_bytes_sent 0
 
 		go func() {
 			defer wg.Done()
+
 			u, err := url.Parse("rtmps://localhost:1936/rtmps_path")
 			require.NoError(t, err)
 
-			nconn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-			require.NoError(t, err)
-			defer nconn.Close() //nolint:errcheck
-
-			conn := &rtmp.Conn{
-				RW:      nconn,
-				Client:  true,
-				URL:     u,
-				Publish: true,
+			conn := &rtmp.Client{
+				URL:       u,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true},
+				Publish:   true,
 			}
-			err = conn.Initialize()
+			err = conn.Initialize(context.Background())
 			require.NoError(t, err)
+			defer conn.Close()
 
 			w := &rtmp.Writer{
 				Conn:       conn,

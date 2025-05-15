@@ -1,8 +1,8 @@
 package rtmp
 
 import (
+	"context"
 	"crypto/tls"
-	"net"
 	"net/url"
 	"os"
 	"testing"
@@ -116,26 +116,27 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value")
-			require.NoError(t, err)
+			var rawURL string
 
-			nconn, err := func() (net.Conn, error) {
-				if encrypt == "plain" {
-					return net.Dial("tcp", u.Host)
-				}
-				return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-			}()
-			require.NoError(t, err)
-			defer nconn.Close()
-
-			conn := &rtmp.Conn{
-				RW:      nconn,
-				Client:  true,
-				URL:     u,
-				Publish: true,
+			if encrypt == "tls" {
+				rawURL += "rtmps://"
+			} else {
+				rawURL += "rtmp://"
 			}
-			err = conn.Initialize()
+
+			rawURL += "127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value"
+
+			u, err := url.Parse(rawURL)
 			require.NoError(t, err)
+
+			conn := &rtmp.Client{
+				URL:       u,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true},
+				Publish:   true,
+			}
+			err = conn.Initialize(context.Background())
+			require.NoError(t, err)
+			defer conn.Close()
 
 			w := &rtmp.Writer{
 				Conn:       conn,
@@ -247,17 +248,27 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value")
+			var rawURL string
+
+			if encrypt == "tls" {
+				rawURL += "rtmps://"
+			} else {
+				rawURL += "rtmp://"
+			}
+
+			rawURL += "127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value"
+
+			u, err := url.Parse(rawURL)
 			require.NoError(t, err)
 
-			nconn, err := func() (net.Conn, error) {
-				if encrypt == "plain" {
-					return net.Dial("tcp", u.Host)
-				}
-				return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-			}()
+			conn := &rtmp.Client{
+				URL:       u,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true},
+				Publish:   false,
+			}
+			err = conn.Initialize(context.Background())
 			require.NoError(t, err)
-			defer nconn.Close()
+			defer conn.Close()
 
 			go func() {
 				strm.WaitRunningReader()
@@ -291,15 +302,6 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 			}()
-
-			conn := &rtmp.Conn{
-				RW:      nconn,
-				Client:  true,
-				URL:     u,
-				Publish: false,
-			}
-			err = conn.Initialize()
-			require.NoError(t, err)
 
 			r := &rtmp.Reader{
 				Conn: conn,

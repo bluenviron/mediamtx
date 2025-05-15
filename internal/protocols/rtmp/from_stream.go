@@ -187,7 +187,7 @@ func setupAudio(
 func FromStream(
 	str *stream.Stream,
 	reader stream.Reader,
-	conn *Conn,
+	conn Conn,
 	nconn net.Conn,
 	writeTimeout time.Duration,
 ) error {

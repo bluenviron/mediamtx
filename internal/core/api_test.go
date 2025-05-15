@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -418,26 +417,27 @@ func TestAPIProtocolListGet(t *testing.T) {
 					port = "1936"
 				}
 
-				u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mypath?key=val")
-				require.NoError(t, err)
+				var rawURL string
 
-				nconn, err := func() (net.Conn, error) {
-					if ca == "rtmp" {
-						return net.Dial("tcp", u.Host)
-					}
-					return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-				}()
-				require.NoError(t, err)
-				defer nconn.Close()
-
-				conn := &rtmp.Conn{
-					RW:      nconn,
-					Client:  true,
-					URL:     u,
-					Publish: true,
+				if ca == "rtmps" {
+					rawURL = "rtmps://"
+				} else {
+					rawURL = "rtmp://"
 				}
-				err = conn.Initialize()
+
+				rawURL += "127.0.0.1:" + port + "/mypath?key=val"
+
+				u, err := url.Parse(rawURL)
 				require.NoError(t, err)
+
+				conn := &rtmp.Client{
+					URL:       u,
+					TLSConfig: &tls.Config{InsecureSkipVerify: true},
+					Publish:   true,
+				}
+				err = conn.Initialize(context.Background())
+				require.NoError(t, err)
+				defer conn.Close()
 
 				w := &rtmp.Writer{
 					Conn:       conn,
@@ -1013,18 +1013,13 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err := url.Parse("rtmp://localhost:1935/mypath")
 				require.NoError(t, err)
 
-				nconn, err := net.Dial("tcp", u.Host)
-				require.NoError(t, err)
-				defer nconn.Close()
-
-				conn := &rtmp.Conn{
-					RW:      nconn,
-					Client:  true,
+				conn := &rtmp.Client{
 					URL:     u,
 					Publish: true,
 				}
-				err = conn.Initialize()
+				err = conn.Initialize(context.Background())
 				require.NoError(t, err)
+				defer conn.Close()
 
 				w := &rtmp.Writer{
 					Conn:       conn,
