@@ -435,10 +435,6 @@ func segmentFMP4SeekAndMuxParts(
 					break
 				}
 
-				if muxerDTS >= 0 {
-					atLeastOnePartWritten = true
-				}
-
 				sampleOffset := dataOffset
 				sampleSize := e.SampleSize
 
@@ -467,6 +463,10 @@ func segmentFMP4SeekAndMuxParts(
 				atLeastOneSampleWritten = true
 				dataOffset += uint64(e.SampleSize)
 				muxerDTS += int64(e.SampleDuration)
+
+				if muxerDTS >= 0 {
+					atLeastOnePartWritten = true
+				}
 			}
 
 			if atLeastOneSampleWritten {
