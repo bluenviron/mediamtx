@@ -194,6 +194,9 @@ func segmentFMP4ReadDurationFromParts(
 		}
 
 		if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'f'}) {
+			if lastMoofPos > 0 {
+				break
+			}
 			return 0, fmt.Errorf("moof box not found")
 		}
 
