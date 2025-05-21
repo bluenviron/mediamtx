@@ -10,7 +10,6 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 const (
@@ -380,7 +379,6 @@ func segmentFMP4SeekAndMuxParts(
 	moofOffset := uint64(0)
 	var tfhd *mp4.Tfhd
 	var tfdt *mp4.Tfdt
-	atLeastOnePartWritten := false
 	var timeScale uint32
 	var maxMuxerDTS time.Duration
 	breakAtNextMdat := false
@@ -435,10 +433,6 @@ func segmentFMP4SeekAndMuxParts(
 					break
 				}
 
-				if muxerDTS >= 0 {
-					atLeastOnePartWritten = true
-				}
-
 				sampleOffset := dataOffset
 				sampleSize := e.SampleSize
 
@@ -488,10 +482,6 @@ func segmentFMP4SeekAndMuxParts(
 	})
 	if err != nil && !errors.Is(err, errTerminated) {
 		return 0, err
-	}
-
-	if !atLeastOnePartWritten {
-		return 0, recordstore.ErrNoSegmentsFound
 	}
 
 	return maxMuxerDTS, nil

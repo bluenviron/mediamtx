@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 const (
@@ -73,7 +74,7 @@ func (w *muxerFMP4) writeSample(
 		if w.curTrack.firstDTS < 0 {
 			w.curTrack.firstDTS = dts
 
-			// if frame is a IDR, remove previous GOP
+			// if sample is a IDR, remove previous GOP
 			if !isNonSyncSample {
 				w.curTrack.samples = nil
 			}
@@ -101,14 +102,14 @@ func (w *muxerFMP4) writeSample(
 			}
 		}
 	} else {
-		// store GOP of the first frame, and set PTSOffset = 0 and Duration = 0 in each sample
-		if !isNonSyncSample { // if frame is a IDR, reset GOP
+		if !isNonSyncSample { // sample is IDR
+			// reset GOP
 			w.curTrack.samples = []*fmp4.PartSample{{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
 			}}
-		} else {
-			// append frame to current GOP
+		} else { // sample is not IDR
+			// append sample to current GOP, with PTSOffset = 0 and Duration = 0
 			w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
@@ -156,26 +157,20 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 		}
 	}
 
-	if part.Tracks != nil {
-		part.SequenceNumber = w.nextSequenceNumber
-		w.nextSequenceNumber++
-
+	// no samples to write
+	if part.Tracks == nil {
+		// if no samples has been written before, return an error
 		if w.init != nil {
-			err := w.init.Marshal(&w.outBuf)
-			if err != nil {
-				return err
-			}
-
-			_, err = w.w.Write(w.outBuf.Bytes())
-			if err != nil {
-				return err
-			}
-
-			w.init = nil
-			w.outBuf.Reset()
+			return recordstore.ErrNoSegmentsFound
 		}
+		return nil
+	}
 
-		err := part.Marshal(&w.outBuf)
+	part.SequenceNumber = w.nextSequenceNumber
+	w.nextSequenceNumber++
+
+	if w.init != nil {
+		err := w.init.Marshal(&w.outBuf)
 		if err != nil {
 			return err
 		}
@@ -185,8 +180,21 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 			return err
 		}
 
+		w.init = nil
 		w.outBuf.Reset()
 	}
+
+	err := part.Marshal(&w.outBuf)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.w.Write(w.outBuf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	w.outBuf.Reset()
 
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 type muxerMP4Track struct {
@@ -24,8 +25,9 @@ func findTrackMP4(tracks []*muxerMP4Track, id int) *muxerMP4Track {
 type muxerMP4 struct {
 	w io.Writer
 
-	tracks   []*muxerMP4Track
-	curTrack *muxerMP4Track
+	tracks     []*muxerMP4Track
+	curTrack   *muxerMP4Track
+	hasContent bool
 }
 
 func (w *muxerMP4) writeInit(init *fmp4.Init) {
@@ -53,7 +55,7 @@ func (w *muxerMP4) writeSample(
 	payloadSize uint32,
 	getPayload func() ([]byte, error),
 ) error {
-	// remove GOPs before the GOP of the first frame
+	// remove GOPs before the GOP of the first sample
 	if (dts < 0 || (dts >= 0 && w.curTrack.lastDTS < 0)) && !isNonSyncSample {
 		w.curTrack.Samples = nil
 	}
@@ -72,6 +74,8 @@ func (w *muxerMP4) writeSample(
 	if !isNonSyncSample {
 		ptsOffset = 0
 	}
+
+	w.hasContent = w.hasContent || dts >= 0
 
 	w.curTrack.Samples = append(w.curTrack.Samples, &pmp4.Sample{
 		PTSOffset:       ptsOffset,
@@ -93,6 +97,10 @@ func (w *muxerMP4) writeFinalDTS(dts int64) {
 }
 
 func (w *muxerMP4) flush() error {
+	if !w.hasContent {
+		return recordstore.ErrNoSegmentsFound
+	}
+
 	h := pmp4.Presentation{
 		Tracks: make([]*pmp4.Track, len(w.tracks)),
 	}
