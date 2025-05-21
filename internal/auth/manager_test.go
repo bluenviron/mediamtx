@@ -27,6 +27,228 @@ func mustParseCIDR(v string) net.IPNet {
 	return *ne
 }
 
+func strPointer(s string) *string {
+	return &s
+}
+
+func TestMatchesPermission(t *testing.T) {
+	testCases := []struct {
+		name        string
+		permissions []conf.AuthInternalUserPermission
+		request     *Request
+		expected    bool
+	}{
+		// 1. Old `path` format
+		{
+			name: "Old path - action match, path match exact",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("somepath")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "somepath"},
+			expected: true,
+		},
+		{
+			name: "Old path - action match, path match regex",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("~^somepath$")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "somepath"},
+			expected: true,
+		},
+		{
+			name: "Old path - action match, path match regex prefix",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("~^video")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "video/cam1"},
+			expected: true,
+		},
+		{
+			name: "Old path - action match, path match empty path for any",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "anotherpath"},
+			expected: true,
+		},
+		{
+			name: "Old path - action match, nil Path for any",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: nil},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "anotherpath"},
+			expected: true,
+		},
+		{
+			name: "Old path - action match, path no match",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("somepath")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "anotherpath"},
+			expected: false,
+		},
+		{
+			name: "Old path - action no match",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("somepath")},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "somepath"},
+			expected: false,
+		},
+
+		// 2. New `paths` format
+		{
+			name: "New paths - action match, one path matches exact",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"path1", "path2", "path3"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "path2"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, one path matches regex",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"path1", "~^path2$", "path3"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "path2"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, one path matches regex prefix",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"other", "~^video"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "video/cam1"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, one path is empty string for any",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"path1", "", "path3"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "anyotherpath"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, multiple paths, one matches",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"nomatch1", "match", "nomatch2"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "match"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, Paths is empty slice (implies any path as Path is nil)",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Paths: []string{}}, // Path is implicitly nil
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "somepath"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, Paths is nil (implies any path as Path is nil)",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Paths: nil}, // Path is implicitly nil
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "somepath"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, path no match in Paths",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Paths: []string{"path1", "path2"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "path3"},
+			expected: false,
+		},
+		{
+			name: "New paths - action match, Paths with empty string, but Path has value (Paths takes precedence)",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Path: strPointer("specificPath"), Paths: []string{"", "path2"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "anyPathWillDo"},
+			expected: true,
+		},
+		{
+			name: "New paths - action match, Paths with no match, Path has value (Paths takes precedence, so no match)",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionRead, Path: strPointer("thisShouldNotMatch"), Paths: []string{"path1", "path2"}},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "thisShouldNotMatch"}, // Request path matches Path field, but Paths field takes precedence
+			expected: false,
+		},
+
+		// 3. Permissions for non-path specific actions
+		{
+			name: "Non-path action - API, action match, path irrelevant",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionAPI},
+			},
+			request:  &Request{Action: conf.AuthActionAPI, Path: "anypath"},
+			expected: true,
+		},
+		{
+			name: "Non-path action - Metrics, action match, path irrelevant",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionMetrics},
+			},
+			request:  &Request{Action: conf.AuthActionMetrics, Path: "anypath/can/be/here"},
+			expected: true,
+		},
+		{
+			name: "Non-path action - Pprof, action match, path irrelevant",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPprof},
+			},
+			request:  &Request{Action: conf.AuthActionPprof, Path: ""},
+			expected: true,
+		},
+		{
+			name: "Non-path action - API, action no match",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionAPI},
+			},
+			request:  &Request{Action: conf.AuthActionMetrics, Path: "anypath"},
+			expected: false,
+		},
+		{
+			name: "Non-path action - API, permission has Path and Paths, should still match",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionAPI, Path: strPointer("somepath"), Paths: []string{"p1", "p2"}},
+			},
+			request:  &Request{Action: conf.AuthActionAPI, Path: "anypath"},
+			expected: true,
+		},
+
+		// 4. Mixed permissions
+		{
+			name: "Mixed - First perm no match (action), second perm matches (path)",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("path1")},
+				{Action: conf.AuthActionRead, Path: strPointer("path2")},
+			},
+			request:  &Request{Action: conf.AuthActionRead, Path: "path2"},
+			expected: true,
+		},
+		{
+			name: "Mixed - First perm matches (action and path), should return true without checking second",
+			permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish, Path: strPointer("path1")},
+				{Action: conf.AuthActionRead, Path: strPointer("path2")},
+			},
+			request:  &Request{Action: conf.AuthActionPublish, Path: "path1"},
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := matchesPermission(tc.permissions, tc.request)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func TestAuthInternal(t *testing.T) {
 	for _, outcome := range []string{
 		"ok",
@@ -49,7 +271,7 @@ func TestAuthInternal(t *testing.T) {
 							IPs: conf.IPNetworks{mustParseCIDR("127.1.1.1/32")},
 							Permissions: []conf.AuthInternalUserPermission{{
 								Action: conf.AuthActionPublish,
-								Path:   "mypath",
+								Path:   strPointer("mypath"), // Updated to use strPointer
 							}},
 						},
 					},
@@ -161,7 +383,7 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 						IPs:  conf.IPNetworks{mustParseCIDR("127.1.1.1/32")},
 						Permissions: []conf.AuthInternalUserPermission{{
 							Action: conf.AuthActionPublish,
-							Path:   "mypath",
+							Path:   strPointer("mypath"), // Updated to use strPointer
 						}},
 					},
 				},
@@ -348,7 +570,7 @@ func TestAuthJWT(t *testing.T) {
 		},
 		MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 			Action: conf.AuthActionPublish,
-			Path:   "mypath",
+			Path:   strPointer("mypath"), // Updated to use strPointer
 		}},
 	}
 
@@ -420,7 +642,7 @@ func TestAuthJWTAsString(t *testing.T) {
 
 	enc, err := json.Marshal([]conf.AuthInternalUserPermission{{
 		Action: conf.AuthActionPublish,
-		Path:   "mypath",
+		Path:   strPointer("mypath"), // Updated to use strPointer
 	}})
 	require.NoError(t, err)
 
@@ -542,7 +764,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 			},
 			MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 				Action: conf.AuthActionPublish,
-				Path:   "mypath",
+				Path:   strPointer("mypath"), // Updated to use strPointer
 			}},
 		}
 

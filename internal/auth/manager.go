@@ -60,20 +60,35 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 			if perm.Action == conf.AuthActionPublish ||
 				perm.Action == conf.AuthActionRead ||
 				perm.Action == conf.AuthActionPlayback {
-				switch {
-				case perm.Path == "":
-					return true
-
-				case strings.HasPrefix(perm.Path, "~"):
-					regexp, err := regexp.Compile(perm.Path[1:])
-					if err == nil && regexp.MatchString(req.Path) {
+				// Prioritize Paths if it's non-empty
+				if len(perm.Paths) > 0 {
+					for _, p := range perm.Paths {
+						if p == "" { // Empty path implies any path
+							return true
+						}
+						if strings.HasPrefix(p, "~") {
+							regexp, err := regexp.Compile(p[1:])
+							if err == nil && regexp.MatchString(req.Path) {
+								return true
+							}
+						} else if p == req.Path { // Direct string match
+							return true
+						}
+					}
+				} else { // Fall back to checking Path
+					if perm.Path == nil || *perm.Path == "" { // Nil or empty path implies any path
 						return true
 					}
-
-				case perm.Path == req.Path:
-					return true
+					if strings.HasPrefix(*perm.Path, "~") {
+						regexp, err := regexp.Compile((*perm.Path)[1:])
+						if err == nil && regexp.MatchString(req.Path) {
+							return true
+						}
+					} else if *perm.Path == req.Path { // Direct string match
+						return true
+					}
 				}
-			} else {
+			} else { // For other actions, path matching is not applicable
 				return true
 			}
 		}

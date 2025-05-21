@@ -109,8 +109,10 @@ authHTTPExclude:
 
 # JWT-based authentication.
 # Users have to login through an external identity server and obtain a JWT.
-# This JWT must contain the claim "mediamtx_permissions" with permissions,
-# for instance:
+# This JWT must contain the claim "mediamtx_permissions" with permissions.
+# For example:
+#
+# Using a single path:
 # {
 #  "mediamtx_permissions": [
 #     {
@@ -119,6 +121,22 @@ authHTTPExclude:
 #     }
 #   ]
 # }
+#
+# Or using multiple paths:
+# {
+#  "mediamtx_permissions": [
+#     {
+#       "action": "publish",
+#       "paths": ["somepath", "somepath2", "~^anotherpathprefix.*$"]
+#     },
+#     {
+#       "action": "read",
+#       "path": "specificreadpath"
+#     }
+#   ]
+# }
+# Note: For a given permission entry, use either "path" or "paths", not both.
+# Regular expressions can be used by prefixing the path string with a tilde (~).
 # Users are expected to pass the JWT in the Authorization header, password or query parameter.
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.

@@ -9,7 +9,19 @@ import (
 // AuthInternalUserPermission is a permission of a user.
 type AuthInternalUserPermission struct {
 	Action AuthAction `json:"action"`
-	Path   string     `json:"path"`
+	Path   *string    `json:"path,omitempty"`
+	Paths  []string   `json:"paths,omitempty"`
+}
+
+// Validate validates the permission.
+func (p AuthInternalUserPermission) Validate() error {
+	if p.Path != nil && p.Paths != nil && len(p.Paths) > 0 {
+		return fmt.Errorf("path and paths cannot be used together")
+	}
+	if p.Path == nil && (p.Paths == nil || len(p.Paths) == 0) {
+		return fmt.Errorf("path or paths must be defined")
+	}
+	return nil
 }
 
 // AuthInternalUser is an user.
@@ -34,6 +46,12 @@ func (d *AuthInternalUser) UnmarshalJSON(b []byte) error {
 
 	if d.User == "any" && d.Pass != "" {
 		return fmt.Errorf("using a password with 'any' user is not supported")
+	}
+
+	for _, p := range d.Permissions {
+		if err := p.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
