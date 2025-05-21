@@ -46,5 +46,12 @@ func (c *jwtClaims) UnmarshalJSON(b []byte) error {
 		}
 	}
 
+	for i, p := range c.permissions {
+		err = p.Validate()
+		if err != nil {
+			return fmt.Errorf("permission at index %d is invalid: %w", i, err)
+		}
+	}
+
 	return nil
 }
