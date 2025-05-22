@@ -413,6 +413,16 @@ srt: yes
 srtAddress: :8890
 
 ###############################################
+# Global settings -> WebSocket server
+
+# Enable supervision via websocket.
+websocket: yes
+# Address of the WebSocket listener.
+websocketAddress: :4242
+# Interval between messages in seconds.
+wsInterval: 1
+
+###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,
