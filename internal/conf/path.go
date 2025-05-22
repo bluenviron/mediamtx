@@ -624,7 +624,7 @@ func (pconf *Path) validate(
 				IPs:  ips,
 				Permissions: []AuthInternalUserPermission{{
 					Action: AuthActionPublish,
-					Path:   pathName,
+					Path:   &pathName,
 				}},
 			})
 		}()
@@ -656,7 +656,7 @@ func (pconf *Path) validate(
 				IPs:  ips,
 				Permissions: []AuthInternalUserPermission{{
 					Action: AuthActionRead,
-					Path:   pathName,
+					Path:   &pathName,
 				}},
 			})
 		}()
