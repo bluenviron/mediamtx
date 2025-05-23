@@ -136,7 +136,7 @@ func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 }
 
 func writeContent(buf *bytes.Buffer, format string, args []interface{}) {
-	buf.Write([]byte(fmt.Sprintf(format, args...)))
+	fmt.Fprintf(buf, format, args...)
 	buf.WriteByte('\n')
 }
 
