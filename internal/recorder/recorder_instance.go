@@ -12,7 +12,7 @@ import (
 )
 
 type sample struct {
-	*fmp4.PartSample
+	*fmp4.Sample
 	dts int64
 	ntp time.Time
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -238,7 +239,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        1,
 							TimeScale: 90000,
-							Codec: &fmp4.CodecH264{
+							Codec: &mp4.CodecH264{
 								SPS: test.FormatH264.SPS,
 								PPS: test.FormatH264.PPS,
 							},
@@ -246,7 +247,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        2,
 							TimeScale: 90000,
-							Codec: &fmp4.CodecH265{
+							Codec: &mp4.CodecH265{
 								VPS: test.FormatH265.VPS,
 								SPS: test.FormatH265.SPS,
 								PPS: test.FormatH265.PPS,
@@ -255,7 +256,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        3,
 							TimeScale: 44100,
-							Codec: &fmp4.CodecMPEG4Audio{
+							Codec: &mp4.CodecMPEG4Audio{
 								Config: mpeg4audio.Config{
 									Type:         2,
 									SampleRate:   44100,
@@ -266,7 +267,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        4,
 							TimeScale: 8000,
-							Codec: &fmp4.CodecLPCM{
+							Codec: &mp4.CodecLPCM{
 								BitDepth:     16,
 								SampleRate:   8000,
 								ChannelCount: 1,
@@ -275,7 +276,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        5,
 							TimeScale: 44100,
-							Codec: &fmp4.CodecLPCM{
+							Codec: &mp4.CodecLPCM{
 								BitDepth:     16,
 								SampleRate:   44100,
 								ChannelCount: 2,
