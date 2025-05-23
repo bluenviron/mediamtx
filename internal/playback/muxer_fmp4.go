@@ -17,7 +17,7 @@ type muxerFMP4Track struct {
 	timeScale uint32
 	firstDTS  int64
 	lastDTS   int64
-	samples   []*fmp4.PartSample
+	samples   []*fmp4.Sample
 }
 
 func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
@@ -73,7 +73,7 @@ func (w *muxerFMP4) writeSample(
 		if w.curTrack.firstDTS < 0 {
 			w.curTrack.firstDTS = dts
 
-			// if frame is a IDR, remove previous GOP
+			// if sample is a IDR, remove previous GOP
 			if !isNonSyncSample {
 				w.curTrack.samples = nil
 			}
@@ -85,7 +85,7 @@ func (w *muxerFMP4) writeSample(
 			w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(diff)
 		}
 
-		w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
+		w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
 			PTSOffset:       ptsOffset,
 			IsNonSyncSample: isNonSyncSample,
 			Payload:         pl,
@@ -101,15 +101,15 @@ func (w *muxerFMP4) writeSample(
 			}
 		}
 	} else {
-		// store GOP of the first frame, and set PTSOffset = 0 and Duration = 0 in each sample
-		if !isNonSyncSample { // if frame is a IDR, reset GOP
-			w.curTrack.samples = []*fmp4.PartSample{{
+		if !isNonSyncSample { // sample is IDR
+			// reset GOP
+			w.curTrack.samples = []*fmp4.Sample{{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
 			}}
-		} else {
-			// append frame to current GOP
-			w.curTrack.samples = append(w.curTrack.samples, &fmp4.PartSample{
+		} else { // sample is not IDR
+			// append sample to current GOP, with PTSOffset = 0 and Duration = 0
+			w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
 			})
@@ -136,7 +136,7 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 		if track.firstDTS >= 0 && (len(track.samples) > 1 || (final && len(track.samples) != 0)) {
 			// do not write the final sample
 			// in order to allow changing its duration to compensate NTP-DTS differences
-			var samples []*fmp4.PartSample
+			var samples []*fmp4.Sample
 			if !final {
 				samples = track.samples[:len(track.samples)-1]
 			} else {

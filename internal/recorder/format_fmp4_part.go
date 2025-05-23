@@ -93,7 +93,7 @@ func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dtsDurati
 		p.partTracks[track] = partTrack
 	}
 
-	partTrack.Samples = append(partTrack.Samples, sample.PartSample)
+	partTrack.Samples = append(partTrack.Samples, sample.Sample)
 	p.endDTS = dtsDuration
 
 	return nil

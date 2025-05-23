@@ -53,7 +53,7 @@ func (w *muxerMP4) writeSample(
 	payloadSize uint32,
 	getPayload func() ([]byte, error),
 ) error {
-	// remove GOPs before the GOP of the first frame
+	// remove GOPs before the GOP of the first sample
 	if (dts < 0 || (dts >= 0 && w.curTrack.lastDTS < 0)) && !isNonSyncSample {
 		w.curTrack.Samples = nil
 	}
