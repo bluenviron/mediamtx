@@ -91,11 +91,11 @@ func mpeg4AudioTrackFromConfig(data []byte) (*format.MPEG4Audio, error) {
 }
 
 func audioTrackFromData(msg *message.Audio) (format.Format, error) {
-	switch {
-	case msg.Codec == message.CodecMPEG1Audio:
+	switch msg.Codec {
+	case message.CodecMPEG1Audio:
 		return &format.MPEG1Audio{}, nil
 
-	case msg.Codec == message.CodecPCMA:
+	case message.CodecPCMA:
 		return &format.G711{
 			PayloadTyp: 8,
 			MULaw:      false,
@@ -108,7 +108,7 @@ func audioTrackFromData(msg *message.Audio) (format.Format, error) {
 			}(),
 		}, nil
 
-	case msg.Codec == message.CodecPCMU:
+	case message.CodecPCMU:
 		return &format.G711{
 			PayloadTyp: 0,
 			MULaw:      true,
@@ -121,7 +121,7 @@ func audioTrackFromData(msg *message.Audio) (format.Format, error) {
 			}(),
 		}, nil
 
-	case msg.Codec == message.CodecLPCM:
+	case message.CodecLPCM:
 		return &format.LPCM{
 			PayloadTyp: 96,
 			BitDepth: func() int {
