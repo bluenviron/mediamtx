@@ -293,6 +293,11 @@ type Conf struct {
 	// SRT server
 	SRT        bool   `json:"srt"`
 	SRTAddress string `json:"srtAddress"`
+	
+	// WebSocket server
+	WebSocket        bool   `json:"websocket"`
+	WebSocketAddress string `json:"websocketAddress"`
+	WsInterval	 int	`json:"wsInterval"`
 
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty"`                // deprecated
@@ -418,6 +423,11 @@ func (conf *Conf) setDefaults() {
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+	
+	// WebSocket server
+	conf.WebSocket = true
+	conf.WebSocketAddress = ":4242"
+	conf.WsInterval = 1
 
 	conf.PathDefaults.setDefaults()
 }
