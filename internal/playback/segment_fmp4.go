@@ -193,7 +193,7 @@ func segmentFMP4ReadDurationFromParts(
 		}
 
 		if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'f'}) {
-			return 0, fmt.Errorf("moof box not found")
+			break
 		}
 
 		moofSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
@@ -209,7 +209,7 @@ func segmentFMP4ReadDurationFromParts(
 		}
 
 		if !bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}) {
-			return 0, fmt.Errorf("mdat box not found")
+			break
 		}
 
 		mdatSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
