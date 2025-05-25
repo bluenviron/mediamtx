@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 const (
@@ -75,7 +76,7 @@ func (w *muxerFMP4) writeSample(
 
 			// if sample is a IDR, remove previous GOP
 			if !isNonSyncSample {
-				w.curTrack.samples = nil
+				w.curTrack.samples = w.curTrack.samples[:0]
 			}
 		} else {
 			diff := dts - w.curTrack.lastDTS
@@ -103,10 +104,11 @@ func (w *muxerFMP4) writeSample(
 	} else {
 		if !isNonSyncSample { // sample is IDR
 			// reset GOP
-			w.curTrack.samples = []*fmp4.Sample{{
+			w.curTrack.samples = w.curTrack.samples[:0]
+			w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
-			}}
+			})
 		} else { // sample is not IDR
 			// append sample to current GOP, with PTSOffset = 0 and Duration = 0
 			w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
@@ -120,7 +122,7 @@ func (w *muxerFMP4) writeSample(
 }
 
 func (w *muxerFMP4) writeFinalDTS(dts int64) {
-	if w.curTrack.firstDTS >= 0 {
+	if len(w.curTrack.samples) != 0 && w.curTrack.firstDTS >= 0 {
 		diff := dts - w.curTrack.lastDTS
 		if diff < 0 {
 			diff = 0
@@ -156,26 +158,20 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 		}
 	}
 
-	if part.Tracks != nil {
-		part.SequenceNumber = w.nextSequenceNumber
-		w.nextSequenceNumber++
-
+	// no samples to write
+	if part.Tracks == nil {
+		// if no samples has been written before, return an error
 		if w.init != nil {
-			err := w.init.Marshal(&w.outBuf)
-			if err != nil {
-				return err
-			}
-
-			_, err = w.w.Write(w.outBuf.Bytes())
-			if err != nil {
-				return err
-			}
-
-			w.init = nil
-			w.outBuf.Reset()
+			return recordstore.ErrNoSegmentsFound
 		}
+		return nil
+	}
 
-		err := part.Marshal(&w.outBuf)
+	part.SequenceNumber = w.nextSequenceNumber
+	w.nextSequenceNumber++
+
+	if w.init != nil {
+		err := w.init.Marshal(&w.outBuf)
 		if err != nil {
 			return err
 		}
@@ -185,8 +181,21 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 			return err
 		}
 
+		w.init = nil
 		w.outBuf.Reset()
 	}
+
+	err := part.Marshal(&w.outBuf)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.w.Write(w.outBuf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	w.outBuf.Reset()
 
 	return nil
 }
