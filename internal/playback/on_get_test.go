@@ -295,8 +295,9 @@ func TestOnGet(t *testing.T) {
 								ID: 1,
 								Samples: []*fmp4.Sample{
 									{
-										Duration: 0,
-										Payload:  []byte{3, 4},
+										Duration:  0,
+										PTSOffset: 90000,
+										Payload:   []byte{3, 4},
 									},
 									{
 										Duration:        90000,
@@ -516,8 +517,9 @@ func TestOnGetDifferentInit(t *testing.T) {
 					ID: 1,
 					Samples: []*fmp4.Sample{
 						{
-							Duration: 0,
-							Payload:  []byte{3, 4},
+							Duration:  0,
+							PTSOffset: 90000,
+							Payload:   []byte{3, 4},
 						},
 						{
 							Duration:        90000,
@@ -593,8 +595,9 @@ func TestOnGetNTPCompensation(t *testing.T) {
 					ID: 1,
 					Samples: []*fmp4.Sample{
 						{
-							Duration: 0,
-							Payload:  []byte{3, 4},
+							Duration:  0,
+							PTSOffset: 90000,
+							Payload:   []byte{3, 4},
 						},
 						{
 							Duration:        90000 - 45000,
