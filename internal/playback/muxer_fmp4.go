@@ -71,6 +71,7 @@ func (w *muxerFMP4) writeSample(
 	}
 
 	if dts >= 0 {
+		// this is the first visible sample of this track
 		if w.curTrack.firstDTS < 0 {
 			w.curTrack.firstDTS = dts
 
@@ -79,11 +80,11 @@ func (w *muxerFMP4) writeSample(
 				w.curTrack.samples = w.curTrack.samples[:0]
 			}
 		} else {
-			diff := dts - w.curTrack.lastDTS
-			if diff < 0 {
-				diff = 0
+			duration := dts - w.curTrack.lastDTS
+			if duration < 0 {
+				duration = 0
 			}
-			w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(diff)
+			w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(duration)
 		}
 
 		w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
@@ -103,17 +104,21 @@ func (w *muxerFMP4) writeSample(
 		}
 	} else {
 		if !isNonSyncSample { // sample is IDR
-			// reset GOP
+			// create a new GOP that starts from this sample.
+			// set sample duration to zero
 			w.curTrack.samples = w.curTrack.samples[:0]
 			w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
+				PTSOffset:       ptsOffset,
 			})
 		} else { // sample is not IDR
-			// append sample to current GOP, with PTSOffset = 0 and Duration = 0
+			// append sample to current GOP
+			// set sample duration to zero
 			w.curTrack.samples = append(w.curTrack.samples, &fmp4.Sample{
 				IsNonSyncSample: isNonSyncSample,
 				Payload:         pl,
+				PTSOffset:       ptsOffset,
 			})
 		}
 	}
@@ -123,11 +128,11 @@ func (w *muxerFMP4) writeSample(
 
 func (w *muxerFMP4) writeFinalDTS(dts int64) {
 	if len(w.curTrack.samples) != 0 && w.curTrack.firstDTS >= 0 {
-		diff := dts - w.curTrack.lastDTS
-		if diff < 0 {
-			diff = 0
+		duration := dts - w.curTrack.lastDTS
+		if duration < 0 {
+			duration = 0
 		}
-		w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(diff)
+		w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(duration)
 	}
 }
 
