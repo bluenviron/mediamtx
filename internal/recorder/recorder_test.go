@@ -71,12 +71,12 @@ func TestRecorder(t *testing.T) {
 		},
 	}}
 
-	writeToStream := func(stream *stream.Stream, startDTS int64, startNTP time.Time) {
+	writeToStream := func(strm *stream.Stream, startDTS int64, startNTP time.Time) {
 		for i := 0; i < 2; i++ {
 			pts := startDTS + int64(i)*100*90000/1000
 			ntp := startNTP.Add(time.Duration(i*60) * time.Second)
 
-			stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 				Base: unit.Base{
 					PTS: pts,
 					NTP: ntp,
@@ -88,7 +88,7 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			stream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.H265{
+			strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.H265{
 				Base: unit.Base{
 					PTS: pts,
 				},
@@ -100,21 +100,21 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			stream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
+			strm.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
 				Base: unit.Base{
 					PTS: pts * int64(desc.Medias[2].Formats[0].ClockRate()) / 90000,
 				},
 				AUs: [][]byte{{1, 2, 3, 4}},
 			})
 
-			stream.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
+			strm.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
 				Base: unit.Base{
 					PTS: pts * int64(desc.Medias[3].Formats[0].ClockRate()) / 90000,
 				},
 				Samples: []byte{1, 2, 3, 4},
 			})
 
-			stream.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.LPCM{
+			strm.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.LPCM{
 				Base: unit.Base{
 					PTS: pts * int64(desc.Medias[4].Formats[0].ClockRate()) / 90000,
 				},
@@ -410,7 +410,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, true, found)
+	require.True(t, found)
 }
 
 func TestRecorderSkipTracksPartial(t *testing.T) {
@@ -537,4 +537,121 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			require.Equal(t, 1, n)
 		})
 	}
+}
+
+func TestRecorderFMP4SegmentSwitch(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []rtspformat.Format{test.FormatH264},
+		},
+		{
+			Type:    description.MediaTypeAudio,
+			Formats: []rtspformat.Format{test.FormatMPEG4Audio},
+		},
+	}}
+
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		UDPMaxPayloadSize:  1472,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	dir, err := os.MkdirTemp("", "mediamtx-agent")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	n := 0
+
+	w := &Recorder{
+		PathFormat:      filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		Parent:          test.NilLogger,
+		OnSegmentCreate: func(segPath string) {
+			switch n {
+			case 0:
+				require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"), segPath)
+			case 1:
+				require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-700000.mp4"), segPath) // +0.7s
+			}
+			n++
+		},
+	}
+	w.Initialize()
+
+	pts := 50 * time.Second
+	ntp := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+		Base: unit.Base{
+			PTS: int64(pts) * 90000 / int64(time.Second),
+			NTP: ntp,
+		},
+		AU: [][]byte{
+			{5}, // IDR
+		},
+	})
+
+	pts += 700 * time.Millisecond
+	ntp = ntp.Add(700 * time.Millisecond)
+
+	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{ // segment switch should happen here
+		Base: unit.Base{
+			PTS: int64(pts) * 44100 / int64(time.Second),
+			NTP: ntp,
+		},
+		AUs: [][]byte{{1, 2}},
+	})
+
+	pts += 400 * time.Millisecond
+	ntp = ntp.Add(400 * time.Millisecond)
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+		Base: unit.Base{
+			PTS: int64(pts) * 90000 / int64(time.Second),
+			NTP: ntp,
+		},
+		AU: [][]byte{
+			{5}, // IDR
+		},
+	})
+
+	pts += 100 * time.Millisecond
+	ntp = ntp.Add(100 * time.Millisecond)
+
+	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{
+		Base: unit.Base{
+			PTS: int64(pts) * 44100 / int64(time.Second),
+			NTP: ntp,
+		},
+		AUs: [][]byte{{3, 4}},
+	})
+
+	pts += 400 * time.Millisecond
+	ntp = ntp.Add(400 * time.Millisecond)
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+		Base: unit.Base{
+			PTS: int64(pts) * 90000 / int64(time.Second),
+			NTP: ntp,
+		},
+		AU: [][]byte{
+			{5}, // IDR
+		},
+	})
+
+	time.Sleep(100 * time.Millisecond)
+
+	w.Close()
+
+	require.Equal(t, 2, n)
 }

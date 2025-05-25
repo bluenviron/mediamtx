@@ -136,7 +136,7 @@ func (f *formatFMP4) initialize() bool {
 		}
 	}
 
-	for _, media := range f.ri.rec.Stream.Desc.Medias {
+	for _, media := range f.ri.stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -149,7 +149,7 @@ func (f *formatFMP4) initialize() bool {
 
 				firstReceived := false
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -210,7 +210,7 @@ func (f *formatFMP4) initialize() bool {
 
 				firstReceived := false
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -295,7 +295,7 @@ func (f *formatFMP4) initialize() bool {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -378,7 +378,7 @@ func (f *formatFMP4) initialize() bool {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -453,7 +453,7 @@ func (f *formatFMP4) initialize() bool {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -506,7 +506,7 @@ func (f *formatFMP4) initialize() bool {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -559,7 +559,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -595,7 +595,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -633,7 +633,7 @@ func (f *formatFMP4) initialize() bool {
 					}
 					track := addTrack(forma, codec)
 
-					f.ri.rec.Stream.AddReader(
+					f.ri.stream.AddReader(
 						f.ri,
 						media,
 						forma,
@@ -671,7 +671,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -730,7 +730,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -795,7 +795,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -835,7 +835,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.rec.Stream.AddReader(
+				f.ri.stream.AddReader(
 					f.ri,
 					media,
 					forma,
@@ -863,7 +863,7 @@ func (f *formatFMP4) initialize() bool {
 	}
 
 	n := 1
-	for _, medi := range f.ri.rec.Stream.Desc.Medias {
+	for _, medi := range f.ri.stream.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if _, ok := setuppedFormatsMap[forma]; !ok {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
