@@ -136,7 +136,7 @@ func (s *formatFMP4Segment) close() error {
 		}
 
 		if err2 == nil {
-			s.f.ri.rec.OnSegmentComplete(s.path, duration)
+			s.f.ri.onSegmentComplete(s.path, duration)
 		}
 	}
 
@@ -150,11 +150,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dtsDur
 		s.curPart = &formatFMP4Part{
 			s:              s,
 			sequenceNumber: s.f.nextSequenceNumber,
-			startDTS:       dtsDuration,
+			startDTS:       s.startDTS,
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
-	} else if s.curPart.duration() >= s.f.ri.rec.PartDuration {
+	} else if s.curPart.duration() >= s.f.ri.partDuration {
 		err := s.curPart.close()
 		s.curPart = nil
 

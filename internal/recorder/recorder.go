@@ -53,7 +53,15 @@ func (r *Recorder) Initialize() {
 	r.done = make(chan struct{})
 
 	r.currentInstance = &recorderInstance{
-		rec: r,
+		pathFormat:        r.PathFormat,
+		format:            r.Format,
+		partDuration:      r.PartDuration,
+		segmentDuration:   r.SegmentDuration,
+		pathName:          r.PathName,
+		stream:            r.Stream,
+		onSegmentCreate:   r.OnSegmentCreate,
+		onSegmentComplete: r.OnSegmentComplete,
+		parent:            r,
 	}
 	r.currentInstance.initialize()
 
@@ -91,7 +99,15 @@ func (r *Recorder) run() {
 		}
 
 		r.currentInstance = &recorderInstance{
-			rec: r,
+			pathFormat:        r.PathFormat,
+			format:            r.Format,
+			partDuration:      r.PartDuration,
+			segmentDuration:   r.SegmentDuration,
+			pathName:          r.PathName,
+			stream:            r.Stream,
+			onSegmentCreate:   r.OnSegmentCreate,
+			onSegmentComplete: r.OnSegmentComplete,
+			parent:            r,
 		}
 		r.currentInstance.initialize()
 	}

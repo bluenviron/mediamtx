@@ -148,10 +148,10 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		medias = append(medias, mediaSecondary)
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
 	initializeStream := func() {
-		if stream == nil {
+		if strm == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               &description.Session{Medias: medias},
 				GenerateRTPPackets: false,
@@ -160,7 +160,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 				panic("should not happen")
 			}
 
-			stream = res.Stream
+			strm = res.Stream
 		}
 	}
 
@@ -184,7 +184,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 		for _, pkt := range pkts {
 			pkt.Timestamp = uint32(pts)
-			stream.WriteRTPPacket(medi, medi.Formats[0], pkt, ntp, pts)
+			strm.WriteRTPPacket(medi, medi.Formats[0], pkt, ntp, pts)
 		}
 	}
 
@@ -211,13 +211,13 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 			for _, pkt := range pkts {
 				pkt.Timestamp = uint32(pts)
 				pkt.PayloadType = 96
-				stream.WriteRTPPacket(mediaSecondary, mediaSecondary.Formats[0], pkt, ntp, pts)
+				strm.WriteRTPPacket(mediaSecondary, mediaSecondary.Formats[0], pkt, ntp, pts)
 			}
 		}
 	}
 
 	defer func() {
-		if stream != nil {
+		if strm != nil {
 			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()

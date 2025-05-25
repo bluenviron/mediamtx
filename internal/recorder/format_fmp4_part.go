@@ -55,7 +55,7 @@ func (p *formatFMP4Part) initialize() {
 
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
-		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ri.pathFormat)
+		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ri.pathFormat2)
 		p.s.f.ri.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)
@@ -68,7 +68,7 @@ func (p *formatFMP4Part) close() error {
 			return err
 		}
 
-		p.s.f.ri.rec.OnSegmentCreate(p.s.path)
+		p.s.f.ri.onSegmentCreate(p.s.path)
 
 		err = writeInit(fi, p.s.f.tracks)
 		if err != nil {
