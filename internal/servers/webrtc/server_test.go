@@ -655,7 +655,7 @@ func TestServerReadNotFound(t *testing.T) {
 
 	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
 	require.NoError(t, err)
-	defer pc.Close() //nolint:errcheck
+	defer pc.GracefulClose() //nolint:errcheck
 
 	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
 	require.NoError(t, err)
@@ -686,7 +686,7 @@ func TestServerPatchNotFound(t *testing.T) {
 
 	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
 	require.NoError(t, err)
-	defer pc.Close() //nolint:errcheck
+	defer pc.GracefulClose() //nolint:errcheck
 
 	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
 	require.NoError(t, err)
