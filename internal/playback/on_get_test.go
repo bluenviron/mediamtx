@@ -132,12 +132,12 @@ func writeSegment2(t *testing.T, fpath string) {
 		{
 			Tracks: []*fmp4.PartTrack{{
 				ID:       1,
-				BaseTime: 0,
+				BaseTime: 1 * 90000,
 				Samples: []*fmp4.Sample{
 					{
 						Duration: 1 * 90000,
 						Payload:  []byte{7, 8},
-					}, // 1 sec
+					}, // 2 sec
 				},
 			}},
 		},
@@ -153,15 +153,18 @@ func writeSegment2(t *testing.T, fpath string) {
 					{
 						Duration: 1 * 48000,
 						Payload:  []byte{7, 8},
-					}, // 2 secs
+					},
+					{
+						Duration: 1 * 48000,
+						Payload:  []byte{9, 10},
+					}, // 3 secs
 				},
 			}},
 		},
 		{
-			SequenceNumber: 5,
 			Tracks: []*fmp4.PartTrack{{
 				ID:       1,
-				BaseTime: 1 * 90000,
+				BaseTime: 2 * 90000,
 				Samples: []*fmp4.Sample{
 					{
 						Duration: 1 * 90000,
@@ -170,10 +173,6 @@ func writeSegment2(t *testing.T, fpath string) {
 					{
 						Duration: 1 * 90000,
 						Payload:  []byte{11, 12},
-					},
-					{
-						Duration: 1 * 90000,
-						Payload:  []byte{13, 14},
 					}, // 4 secs
 				},
 			}},
@@ -239,9 +238,9 @@ func TestOnGet(t *testing.T) {
 			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
-			writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-			writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-			writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000.mp4"))
+			writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4")) // start=0, len=62s/61s
+			writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-01-500000.mp4")) // start=61s, len=4s/3s
+			writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000.mp4")) // start=64s, len=4s/3s
 
 			s := &Server{
 				Address:     "127.0.0.1:9996",
@@ -264,7 +263,7 @@ func TestOnGet(t *testing.T) {
 
 			v := url.Values{}
 			v.Set("path", "mypath")
-			v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+			v.Set("start", time.Date(2008, 11, 7, 11, 23, 0, 500000000, time.Local).Format(time.RFC3339Nano))
 			v.Set("duration", "3")
 			v.Set("format", format)
 			u.RawQuery = v.Encode()
@@ -292,18 +291,14 @@ func TestOnGet(t *testing.T) {
 						SequenceNumber: 0,
 						Tracks: []*fmp4.PartTrack{
 							{
-								ID: 1,
+								ID:       1,
+								BaseTime: 0,
 								Samples: []*fmp4.Sample{
 									{
-										Duration:  0,
-										PTSOffset: 90000,
-										Payload:   []byte{3, 4},
-									},
-									{
 										Duration:        90000,
-										PTSOffset:       -90000,
-										IsNonSyncSample: true,
-										Payload:         []byte{5, 6},
+										PTSOffset:       90000,
+										IsNonSyncSample: false,
+										Payload:         []uint8{3, 4},
 									},
 								},
 							},
@@ -313,12 +308,14 @@ func TestOnGet(t *testing.T) {
 						SequenceNumber: 1,
 						Tracks: []*fmp4.PartTrack{
 							{
-								ID:       2,
-								BaseTime: 48000,
+								ID:       1,
+								BaseTime: 90000,
 								Samples: []*fmp4.Sample{
 									{
-										Duration: 48000,
-										Payload:  []byte{5, 6},
+										Duration:        90000,
+										PTSOffset:       -90000,
+										IsNonSyncSample: true,
+										Payload:         []uint8{5, 6},
 									},
 								},
 							},
@@ -328,12 +325,14 @@ func TestOnGet(t *testing.T) {
 						SequenceNumber: 2,
 						Tracks: []*fmp4.PartTrack{
 							{
-								ID:       1,
-								BaseTime: 90000,
+								ID:       2,
+								BaseTime: 0,
 								Samples: []*fmp4.Sample{
 									{
-										Duration: 90000,
-										Payload:  []byte{7, 8},
+										Duration:        48000,
+										PTSOffset:       0,
+										IsNonSyncSample: false,
+										Payload:         []uint8{3, 4},
 									},
 								},
 							},
@@ -343,22 +342,43 @@ func TestOnGet(t *testing.T) {
 						SequenceNumber: 3,
 						Tracks: []*fmp4.PartTrack{
 							{
-								ID:       1,
-								BaseTime: 2 * 90000,
+								ID:       2,
+								BaseTime: 48000,
 								Samples: []*fmp4.Sample{
 									{
-										Duration: 90000,
-										Payload:  []byte{9, 10},
+										Duration:        48000,
+										PTSOffset:       0,
+										IsNonSyncSample: false,
+										Payload:         []uint8{5, 6},
+									},
+								},
+							},
+						},
+					},
+					{
+						SequenceNumber: 4,
+						Tracks: []*fmp4.PartTrack{
+							{
+								ID:       1,
+								BaseTime: 180000,
+								Samples: []*fmp4.Sample{
+									{
+										Duration:        90000,
+										PTSOffset:       0,
+										IsNonSyncSample: false,
+										Payload:         []uint8{7, 8},
 									},
 								},
 							},
 							{
 								ID:       2,
-								BaseTime: 2 * 48000,
+								BaseTime: 96000,
 								Samples: []*fmp4.Sample{
 									{
-										Duration: 48000,
-										Payload:  []byte{7, 8},
+										Duration:        48000,
+										PTSOffset:       0,
+										IsNonSyncSample: false,
+										Payload:         []uint8{7, 8},
 									},
 								},
 							},
@@ -388,15 +408,17 @@ func TestOnGet(t *testing.T) {
 						{
 							ID:         1,
 							TimeScale:  90000,
-							TimeOffset: -90000,
+							TimeOffset: 0,
 							Codec: &mp4.CodecH264{
 								SPS: test.FormatH264.SPS,
 								PPS: test.FormatH264.PPS,
 							},
 							Samples: []*pmp4.Sample{
 								{
-									Duration:    90000,
-									PayloadSize: 2,
+									Duration:        90000,
+									PTSOffset:       0,
+									IsNonSyncSample: false,
+									PayloadSize:     2,
 								},
 								{
 									Duration:        90000,
@@ -405,19 +427,17 @@ func TestOnGet(t *testing.T) {
 									PayloadSize:     2,
 								},
 								{
-									Duration:    90000,
-									PayloadSize: 2,
-								},
-								{
-									Duration:    90000,
-									PayloadSize: 2,
+									Duration:        90000,
+									PTSOffset:       0,
+									IsNonSyncSample: false,
+									PayloadSize:     2,
 								},
 							},
 						},
 						{
 							ID:         2,
 							TimeScale:  48000,
-							TimeOffset: 48000,
+							TimeOffset: 0,
 							Codec: &mp4.CodecMPEG4Audio{
 								Config: mpeg4audio.Config{
 									Type:         mpeg4audio.ObjectTypeAACLC,
@@ -426,6 +446,10 @@ func TestOnGet(t *testing.T) {
 								},
 							},
 							Samples: []*pmp4.Sample{
+								{
+									Duration:    48000,
+									PayloadSize: 2,
+								},
 								{
 									Duration:    48000,
 									PayloadSize: 2,
@@ -444,9 +468,9 @@ func TestOnGet(t *testing.T) {
 						{3, 4},
 						{5, 6},
 						{7, 8},
-						{9, 10},
 					},
 					2: {
+						{3, 4},
 						{5, 6},
 						{7, 8},
 					},
@@ -534,6 +558,7 @@ func TestOnGetDifferentInit(t *testing.T) {
 	}, parts)
 }
 
+// this tests that even if NTP changes, duration between samples does not.
 func TestOnGetNTPCompensation(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)
@@ -542,8 +567,107 @@ func TestOnGetNTPCompensation(t *testing.T) {
 	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4")) // remove 0.5 secs
+	init := fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &mp4.CodecH264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
+			},
+			{
+				ID:        2,
+				TimeScale: 48000,
+				Codec: &mp4.CodecMPEG4Audio{
+					Config: mpeg4audio.Config{
+						Type:         mpeg4audio.ObjectTypeAACLC,
+						SampleRate:   48000,
+						ChannelCount: 2,
+					},
+				},
+			},
+		},
+	}
+
+	func() {
+		var buf1 seekablebuffer.Buffer
+		err = init.Marshal(&buf1)
+		require.NoError(t, err)
+
+		var buf2 seekablebuffer.Buffer
+		parts := fmp4.Parts{
+			{
+				Tracks: []*fmp4.PartTrack{
+					{
+						ID: 1,
+						Samples: []*fmp4.Sample{
+							{
+								Duration: 1 * 90000,
+								Payload:  []byte{1, 2},
+							}, // 1sec
+						},
+					},
+					{
+						ID: 2,
+						Samples: []*fmp4.Sample{
+							{
+								Duration: 0.5 * 48000,
+								Payload:  []byte{3, 4},
+							}, // 0.5s secs
+						},
+					},
+				},
+			},
+		}
+		err = parts.Marshal(&buf2)
+		require.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"),
+			append(buf1.Bytes(), buf2.Bytes()...), 0o644)
+		require.NoError(t, err)
+	}()
+
+	func() {
+		var buf1 seekablebuffer.Buffer
+		err = init.Marshal(&buf1)
+		require.NoError(t, err)
+
+		var buf2 seekablebuffer.Buffer
+		parts := fmp4.Parts{
+			{
+				Tracks: []*fmp4.PartTrack{{
+					ID:       1,
+					BaseTime: 0.5 * 90000,
+					Samples: []*fmp4.Sample{
+						{
+							Duration: 1 * 90000,
+							Payload:  []byte{5, 6},
+						}, // 1.5sec
+					},
+				}},
+			},
+			{
+				Tracks: []*fmp4.PartTrack{{
+					ID:       2,
+					BaseTime: 0,
+					Samples: []*fmp4.Sample{
+						{
+							Duration: 0.5 * 48000,
+							Payload:  []byte{7, 8},
+						}, // 0.5sec
+					},
+				}},
+			},
+		}
+		err = parts.Marshal(&buf2)
+		require.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-22-01-000000.mp4"), // add 0.5 secs
+			append(buf1.Bytes(), buf2.Bytes()...), 0o644)
+		require.NoError(t, err)
+	}()
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
@@ -566,7 +690,7 @@ func TestOnGetNTPCompensation(t *testing.T) {
 
 	v := url.Values{}
 	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano))
 	v.Set("duration", "3")
 	v.Set("format", "fmp4")
 	u.RawQuery = v.Encode()
@@ -587,7 +711,7 @@ func TestOnGetNTPCompensation(t *testing.T) {
 	err = parts.Unmarshal(buf)
 	require.NoError(t, err)
 
-	require.Equal(t, fmp4.Parts{
+	require.Equal(t, fmp4.Parts{ //nolint:dupl
 		{
 			SequenceNumber: 0,
 			Tracks: []*fmp4.PartTrack{
@@ -595,25 +719,8 @@ func TestOnGetNTPCompensation(t *testing.T) {
 					ID: 1,
 					Samples: []*fmp4.Sample{
 						{
-							Duration:  0,
-							PTSOffset: 90000,
-							Payload:   []byte{3, 4},
-						},
-						{
-							Duration:        90000 - 45000,
-							PTSOffset:       -90000,
-							IsNonSyncSample: true,
-							Payload:         []byte{5, 6},
-						},
-					},
-				},
-				{
-					ID:       2,
-					BaseTime: 24000,
-					Samples: []*fmp4.Sample{
-						{
-							Duration: 48000,
-							Payload:  []byte{5, 6},
+							Duration: 90000,
+							Payload:  []byte{1, 2},
 						},
 					},
 				},
@@ -624,50 +731,24 @@ func TestOnGetNTPCompensation(t *testing.T) {
 			Tracks: []*fmp4.PartTrack{
 				{
 					ID:       1,
-					BaseTime: 90000 - 45000,
+					BaseTime: 90000,
 					Samples: []*fmp4.Sample{
 						{
 							Duration: 90000,
-							Payload:  []byte{7, 8},
-						},
-					},
-				},
-			},
-		},
-		{
-			SequenceNumber: 2,
-			Tracks: []*fmp4.PartTrack{
-				{
-					ID:       1,
-					BaseTime: 2*90000 - 45000,
-					Samples: []*fmp4.Sample{
-						{
-							Duration: 90000,
-							Payload:  []byte{9, 10},
-						},
-					},
-				},
-			},
-		},
-		{
-			SequenceNumber: 3,
-			Tracks: []*fmp4.PartTrack{
-				{
-					ID:       1,
-					BaseTime: 225000,
-					Samples: []*fmp4.Sample{
-						{
-							Duration: 90000,
-							Payload:  []byte{11, 12},
+							Payload:  []byte{5, 6},
 						},
 					},
 				},
 				{
 					ID:       2,
-					BaseTime: 72000,
+					BaseTime: 0,
 					Samples: []*fmp4.Sample{
 						{
-							Duration: 48000,
+							Duration: 0.5 * 48000,
+							Payload:  []byte{3, 4},
+						},
+						{
+							Duration: 0.5 * 48000,
 							Payload:  []byte{7, 8},
 						},
 					},
