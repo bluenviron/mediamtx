@@ -42,6 +42,15 @@ func credentialsProvided(req *base.Request) bool {
 	return err == nil && auth.Username != ""
 }
 
+func contains(list []rtspauth.VerifyMethod, item rtspauth.VerifyMethod) bool {
+	for _, i := range list {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+
 type connParent interface {
 	logger.Writer
 	findSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *session
@@ -138,16 +147,23 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}
 	ctx.Path = ctx.Path[1:]
 
-	req := defs.PathAccessRequest{
-		Name:        ctx.Path,
-		Query:       ctx.Query,
-		Proto:       auth.ProtocolRTSP,
-		ID:          &c.uuid,
-		Credentials: rtsp.Credentials(ctx.Request),
-		IP:          c.ip(),
-		CustomVerifyFunc: func(expectedUser, expectedPass string) bool {
+	// CustomVerifyFunc prevents hashed credentials from working.
+	// Use it only when strictly needed.
+	var customVerifyFunc func(expectedUser, expectedPass string) bool
+	if contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+		customVerifyFunc = func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
-		},
+		}
+	}
+
+	req := defs.PathAccessRequest{
+		Name:             ctx.Path,
+		Query:            ctx.Query,
+		Proto:            auth.ProtocolRTSP,
+		ID:               &c.uuid,
+		Credentials:      rtsp.Credentials(ctx.Request),
+		IP:               c.ip(),
+		CustomVerifyFunc: customVerifyFunc,
 	}
 
 	res := c.pathManager.Describe(defs.PathDescribeReq{
