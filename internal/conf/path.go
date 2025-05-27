@@ -7,6 +7,7 @@ import (
 	gourl "net/url"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -70,33 +71,34 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 		return pathConf, nil, nil
 	}
 
-	// regular expression-based path
-	for pathConfName, pathConf := range pathConfs {
-		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
-			err := IsValidPathName(name)
-			if err != nil {
-				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
-			}
-
-			m := pathConf.Regexp.FindStringSubmatch(name)
-			if m != nil {
-				return pathConf, m, nil
-			}
-		}
+	err := IsValidPathName(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
 	}
 
-	// process all_others after every other entry
-	for pathConfName, pathConf := range pathConfs {
-		if pathConfName == "all" || pathConfName == "all_others" {
-			err := IsValidPathName(name)
-			if err != nil {
-				return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
-			}
+	// gather and sort all regexp-based path configs
+	var regexpPathConfs []*Path
+	for _, pathConf := range pathConfs {
+		if pathConf.Regexp != nil {
+			regexpPathConfs = append(regexpPathConfs, pathConf)
+		}
+	}
+	sort.Slice(regexpPathConfs, func(i, j int) bool {
+		// keep all and all_others at the end
+		if regexpPathConfs[i].Name == "all" || regexpPathConfs[i].Name == "all_others" {
+			return false
+		}
+		if regexpPathConfs[j].Name == "all" || regexpPathConfs[j].Name == "all_others" {
+			return true
+		}
+		return regexpPathConfs[i].Name < regexpPathConfs[j].Name
+	})
 
-			m := pathConf.Regexp.FindStringSubmatch(name)
-			if m != nil {
-				return pathConf, m, nil
-			}
+	// check path against regexp-based path configs
+	for _, pathConf := range regexpPathConfs {
+		m := pathConf.Regexp.FindStringSubmatch(name)
+		if m != nil {
+			return pathConf, m, nil
 		}
 	}
 
