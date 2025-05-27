@@ -82,19 +82,19 @@ func (p *formatFMP4Part) close() error {
 	return writePart(p.s.fi, p.sequenceNumber, p.partTracks)
 }
 
-func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dtsDuration time.Duration) error {
+func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
 	partTrack, ok := p.partTracks[track]
 	if !ok {
 		partTrack = &fmp4.PartTrack{
 			ID: track.initTrack.ID,
-			BaseTime: uint64(multiplyAndDivide(int64(dtsDuration-p.s.startDTS),
+			BaseTime: uint64(multiplyAndDivide(int64(dts-p.s.startDTS),
 				int64(track.initTrack.TimeScale), int64(time.Second))),
 		}
 		p.partTracks[track] = partTrack
 	}
 
 	partTrack.Samples = append(partTrack.Samples, sample.Sample)
-	p.endDTS = dtsDuration
+	p.endDTS = dts
 
 	return nil
 }
