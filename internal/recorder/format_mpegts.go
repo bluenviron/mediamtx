@@ -416,7 +416,7 @@ func (f *formatMPEGTS) close() {
 }
 
 func (f *formatMPEGTS) write(
-	dtsDuration time.Duration,
+	dts time.Duration,
 	ntp time.Time,
 	isVideo bool,
 	randomAccess bool,
@@ -430,14 +430,14 @@ func (f *formatMPEGTS) write(
 	case f.currentSegment == nil:
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dtsDuration,
+			startDTS: dts,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dtsDuration-f.currentSegment.startDTS) >= f.ri.segmentDuration:
-		f.currentSegment.lastDTS = dtsDuration
+		(dts-f.currentSegment.startDTS) >= f.ri.segmentDuration:
+		f.currentSegment.lastDTS = dts
 		err := f.currentSegment.close()
 		if err != nil {
 			return err
@@ -445,21 +445,21 @@ func (f *formatMPEGTS) write(
 
 		f.currentSegment = &formatMPEGTSSegment{
 			f:        f,
-			startDTS: dtsDuration,
+			startDTS: dts,
 			startNTP: ntp,
 		}
 		f.currentSegment.initialize()
 
-	case (dtsDuration - f.currentSegment.lastFlush) >= f.ri.partDuration:
+	case (dts - f.currentSegment.lastFlush) >= f.ri.partDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err
 		}
 
-		f.currentSegment.lastFlush = dtsDuration
+		f.currentSegment.lastFlush = dts
 	}
 
-	f.currentSegment.lastDTS = dtsDuration
+	f.currentSegment.lastDTS = dts
 
 	return writeCB()
 }

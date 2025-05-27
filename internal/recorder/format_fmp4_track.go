@@ -48,31 +48,31 @@ func (t *formatFMP4Track) write(sample *sample) error {
 	}
 	sample.Duration = uint32(t.nextSample.dts - sample.dts)
 
-	dtsDuration := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
+	dts := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
 
 	if t.f.currentSegment == nil {
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
-			startDTS: dtsDuration,
+			startDTS: dts,
 			startNTP: sample.ntp,
 		}
 		t.f.currentSegment.initialize()
-	} else if (dtsDuration - t.f.currentSegment.startDTS) < 0 { // BaseTime is negative, this is not supported by fMP4
+	} else if (dts - t.f.currentSegment.startDTS) < 0 { // BaseTime is negative, this is not supported by fMP4
 		t.f.ri.Log(logger.Warn, "sample of track %d received too late, discarding", t.initTrack.ID)
 		return nil
 	}
 
-	err := t.f.currentSegment.write(t, sample, dtsDuration)
+	err := t.f.currentSegment.write(t, sample, dts)
 	if err != nil {
 		return err
 	}
 
-	nextDTSDuration := timestampToDuration(t.nextSample.dts, int(t.initTrack.TimeScale))
+	nextDTS := timestampToDuration(t.nextSample.dts, int(t.initTrack.TimeScale))
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(nextDTSDuration-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
-		t.f.currentSegment.lastDTS = nextDTSDuration
+		(nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
+		t.f.currentSegment.lastDTS = nextDTS
 		err := t.f.currentSegment.close()
 		if err != nil {
 			return err
@@ -82,9 +82,9 @@ func (t *formatFMP4Track) write(sample *sample) error {
 		oldestSample, oldestDTS := findOldestNextSample(t.f.tracks)
 
 		// prevent going too back in time
-		if (nextDTSDuration - oldestDTS) > maxBasetime {
+		if (nextDTS - oldestDTS) > maxBasetime {
 			oldestSample = t.nextSample
-			oldestDTS = nextDTSDuration
+			oldestDTS = nextDTS
 		}
 
 		t.f.currentSegment = &formatFMP4Segment{
