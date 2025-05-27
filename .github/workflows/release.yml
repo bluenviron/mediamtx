@@ -137,18 +137,6 @@ jobs:
         DOCKER_USER: ${{ secrets.DOCKER_USER }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
-  dockerhub_legacy:
-    needs: dockerhub
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - run: make dockerhub-legacy
-      env:
-        DOCKER_USER_LEGACY: ${{ secrets.DOCKER_USER_LEGACY }}
-        DOCKER_PASSWORD_LEGACY: ${{ secrets.DOCKER_PASSWORD_LEGACY }}
-
   api_docs:
     needs: binaries
     runs-on: ubuntu-22.04
