@@ -12,21 +12,33 @@ const (
 	maxBasetime = 1 * time.Second
 )
 
-func findOldestNextSample(tracks []*formatFMP4Track) (*sample, time.Duration) {
-	var oldestSample *sample
-	var oldestDTS time.Duration
-
+// start next segment from the oldest next sample, in order to avoid negative basetimes (impossible) in fMP4.
+// keep starting position within a certain distance from the newest next sample to avoid big basetimes.
+func nextSegmentStartingPos(tracks []*formatFMP4Track) (time.Time, time.Duration) {
+	var maxDTS time.Duration
 	for _, track := range tracks {
 		if track.nextSample != nil {
-			normalizedDTS := timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale))
-			if oldestSample == nil || normalizedDTS < oldestDTS {
-				oldestSample = track.nextSample
-				oldestDTS = normalizedDTS
+			dts := timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale))
+			if dts > maxDTS {
+				maxDTS = dts
 			}
 		}
 	}
 
-	return oldestSample, oldestDTS
+	var oldestNTP time.Time
+	oldestDTS := maxDTS
+
+	for _, track := range tracks {
+		if track.nextSample != nil {
+			dts := timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale))
+			if (maxDTS-dts) <= maxBasetime && (dts <= oldestDTS) {
+				oldestNTP = track.nextSample.ntp
+				oldestDTS = dts
+			}
+		}
+	}
+
+	return oldestNTP, oldestDTS
 }
 
 type formatFMP4Track struct {
@@ -77,19 +89,12 @@ func (t *formatFMP4Track) write(sample *sample) error {
 			return err
 		}
 
-		// start next segment from the oldest next sample, in order to avoid the "negative basetime" issue
-		oldestSample, oldestDTS := findOldestNextSample(t.f.tracks)
-
-		// prevent going too back in time
-		if (nextDTS - oldestDTS) > maxBasetime {
-			oldestSample = t.nextSample
-			oldestDTS = nextDTS
-		}
+		oldestNTP, oldestDTS := nextSegmentStartingPos(t.f.tracks)
 
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
 			startDTS: oldestDTS,
-			startNTP: oldestSample.ntp,
+			startNTP: oldestNTP,
 		}
 		t.f.currentSegment.initialize()
 	}
