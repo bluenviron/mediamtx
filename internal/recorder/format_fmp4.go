@@ -880,13 +880,6 @@ func (f *formatFMP4) initialize() bool {
 
 func (f *formatFMP4) close() {
 	if f.currentSegment != nil {
-		for _, track := range f.tracks {
-			if track.nextSample != nil &&
-				timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale)) > f.currentSegment.lastDTS {
-				f.currentSegment.lastDTS = timestampToDuration(track.nextSample.dts, int(track.initTrack.TimeScale))
-			}
-		}
-
 		f.currentSegment.close() //nolint:errcheck
 	}
 }
