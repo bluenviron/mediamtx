@@ -348,6 +348,12 @@ func (co *PeerConnection) Close() {
 
 	co.ctxCancel()
 	co.wr.GracefulClose() //nolint:errcheck
+
+	// even if GracefulClose() should wait for any goroutine to return,
+	// we have to wait for OnConnectionStateChange to return anyway,
+	// since it is executed in an uncontrolled goroutine.
+	// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
+	<-co.closed
 }
 
 // CreatePartialOffer creates a partial offer.
