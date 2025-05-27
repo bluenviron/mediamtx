@@ -94,7 +94,11 @@ func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dts time.
 	}
 
 	partTrack.Samples = append(partTrack.Samples, sample.Sample)
-	p.endDTS = dts
+
+	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
+	if endDTS > p.endDTS {
+		p.endDTS = endDTS
+	}
 
 	return nil
 }

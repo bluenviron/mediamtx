@@ -106,11 +106,11 @@ type formatFMP4Segment struct {
 	path    string
 	fi      *os.File
 	curPart *formatFMP4Part
-	lastDTS time.Duration
+	endDTS  time.Duration
 }
 
 func (s *formatFMP4Segment) initialize() {
-	s.lastDTS = s.startDTS
+	s.endDTS = s.startDTS
 }
 
 func (s *formatFMP4Segment) close() error {
@@ -123,8 +123,8 @@ func (s *formatFMP4Segment) close() error {
 	if s.fi != nil {
 		s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
 
-		// write overall duration in the header in order to speed up the playback server
-		duration := s.lastDTS - s.startDTS
+		// write overall duration in the header to speed up the playback server
+		duration := s.endDTS - s.startDTS
 		err2 := writeDuration(s.fi, duration)
 		if err == nil {
 			err = err2
@@ -144,7 +144,10 @@ func (s *formatFMP4Segment) close() error {
 }
 
 func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
-	s.lastDTS = dts
+	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
+	if endDTS > s.endDTS {
+		s.endDTS = endDTS
+	}
 
 	if s.curPart == nil {
 		s.curPart = &formatFMP4Part{
