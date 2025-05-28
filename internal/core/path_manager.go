@@ -215,43 +215,28 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 	for pathName, pathData := range pm.paths {
 		path := pathData.path
 		pathConf, _, err := conf.FindPathConf(newPaths, pathName)
+
 		// path does not have a config anymore: delete it
 		if err != nil {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
+			pm.removeAndClosePath(path)
 			continue
 		}
 
-		// Check if we should switch to a new configuration
-		// This happens when a new configuration is added with a name that exactly matches this path
+		// path now belongs to a different config with exact name match
 		if newConf, exists := newPaths[pathName]; exists && newConf.Name == pathName {
-			// Check if the new configuration can be hot reloaded
 			if pathConfCanBeUpdated(path.conf, newConf) {
 				// Hot reload the path with the new configuration
 				go path.reloadConf(newConf)
 			} else {
 				// Configuration cannot be hot reloaded: recreate the path
-				pm.removePath(path)
-				path.close()
-				path.wait() // avoid conflicts between sources
+				pm.removeAndClosePath(path)
 			}
-			continue
-		}
-
-		// path now belongs to a different config: delete it
-		if pathConf.Name != path.conf.Name {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
 			continue
 		}
 
 		// path configuration has changed and cannot be hot reloaded: delete path
 		if _, ok := confsToRecreate[pathConf.Name]; ok {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
+			pm.removeAndClosePath(path)
 			continue
 		}
 
@@ -271,6 +256,12 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 			}
 		}
 	}
+}
+
+func (pm *pathManager) removeAndClosePath(path *path) {
+	pm.removePath(path)
+	path.close()
+	path.wait() // avoid conflicts between sources
 }
 
 func (pm *pathManager) doSetHLSServer(m *hls.Server) []defs.Path {
