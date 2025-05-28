@@ -18,9 +18,6 @@ func (p AuthInternalUserPermission) Validate() error {
 	if p.Path != nil && p.Paths != nil && len(p.Paths) > 0 {
 		return fmt.Errorf("path and paths cannot be used together")
 	}
-	if p.Path == nil && (p.Paths == nil || len(p.Paths) == 0) {
-		return fmt.Errorf("path or paths must be defined")
-	}
 	return nil
 }
 
