@@ -10,12 +10,11 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 const (
 	sampleFlagIsNonSyncSample = 1 << 16
-	concatenationTolerance    = 500 * time.Millisecond
+	concatenationTolerance    = 1 * time.Second
 )
 
 var errTerminated = errors.New("terminated")
@@ -194,7 +193,7 @@ func segmentFMP4ReadDurationFromParts(
 		}
 
 		if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'f'}) {
-			return 0, fmt.Errorf("moof box not found")
+			break
 		}
 
 		moofSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
@@ -210,7 +209,7 @@ func segmentFMP4ReadDurationFromParts(
 		}
 
 		if !bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}) {
-			return 0, fmt.Errorf("mdat box not found")
+			break
 		}
 
 		mdatSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
@@ -368,143 +367,14 @@ outer:
 	return maxElapsed, nil
 }
 
-func segmentFMP4SeekAndMuxParts(
-	r readSeekerAt,
-	segmentStartOffset time.Duration,
-	duration time.Duration,
-	init *fmp4.Init,
-	m muxer,
-) (time.Duration, error) {
-	var segmentStartOffsetMP4 int64
-	var durationMP4 int64
-	moofOffset := uint64(0)
-	var tfhd *mp4.Tfhd
-	var tfdt *mp4.Tfdt
-	atLeastOnePartWritten := false
-	var timeScale uint32
-	var maxMuxerDTS time.Duration
-	breakAtNextMdat := false
-
-	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
-		switch h.BoxInfo.Type.String() {
-		case "moof":
-			moofOffset = h.BoxInfo.Offset
-			return h.Expand()
-
-		case "traf":
-			return h.Expand()
-
-		case "tfhd":
-			box, _, err := h.ReadPayload()
-			if err != nil {
-				return nil, err
-			}
-			tfhd = box.(*mp4.Tfhd)
-
-		case "tfdt":
-			box, _, err := h.ReadPayload()
-			if err != nil {
-				return nil, err
-			}
-			tfdt = box.(*mp4.Tfdt)
-
-			track := findInitTrack(init.Tracks, int(tfhd.TrackID))
-			if track == nil {
-				return nil, fmt.Errorf("invalid track ID: %v", tfhd.TrackID)
-			}
-
-			m.setTrack(int(tfhd.TrackID))
-			timeScale = track.TimeScale
-			segmentStartOffsetMP4 = durationGoToMp4(segmentStartOffset, track.TimeScale)
-			durationMP4 = durationGoToMp4(duration, track.TimeScale)
-
-		case "trun":
-			box, _, err := h.ReadPayload()
-			if err != nil {
-				return nil, err
-			}
-			trun := box.(*mp4.Trun)
-
-			dataOffset := moofOffset + uint64(trun.DataOffset)
-			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) - segmentStartOffsetMP4
-			atLeastOneSampleWritten := false
-
-			for _, e := range trun.Entries {
-				if muxerDTS >= durationMP4 {
-					breakAtNextMdat = true
-					break
-				}
-
-				if muxerDTS >= 0 {
-					atLeastOnePartWritten = true
-				}
-
-				sampleOffset := dataOffset
-				sampleSize := e.SampleSize
-
-				err = m.writeSample(
-					muxerDTS,
-					e.SampleCompositionTimeOffsetV1,
-					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
-					e.SampleSize,
-					func() ([]byte, error) {
-						payload := make([]byte, sampleSize)
-						n, err2 := r.ReadAt(payload, int64(sampleOffset))
-						if err2 != nil {
-							return nil, err2
-						}
-						if n != int(sampleSize) {
-							return nil, fmt.Errorf("partial read")
-						}
-
-						return payload, nil
-					},
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				atLeastOneSampleWritten = true
-				dataOffset += uint64(e.SampleSize)
-				muxerDTS += int64(e.SampleDuration)
-			}
-
-			if atLeastOneSampleWritten {
-				m.writeFinalDTS(muxerDTS)
-			}
-
-			muxerDTSGo := durationMp4ToGo(muxerDTS, timeScale)
-
-			if muxerDTSGo > maxMuxerDTS {
-				maxMuxerDTS = muxerDTSGo
-			}
-
-		case "mdat":
-			if breakAtNextMdat {
-				return nil, errTerminated
-			}
-		}
-		return nil, nil
-	})
-	if err != nil && !errors.Is(err, errTerminated) {
-		return 0, err
-	}
-
-	if !atLeastOnePartWritten {
-		return 0, recordstore.ErrNoSegmentsFound
-	}
-
-	return maxMuxerDTS, nil
-}
-
 func segmentFMP4MuxParts(
 	r readSeekerAt,
-	segmentStartOffset time.Duration,
+	dtsOffset time.Duration,
 	duration time.Duration,
 	init *fmp4.Init,
 	m muxer,
 ) (time.Duration, error) {
-	var segmentStartOffsetMP4 int64
+	var dtsOffsetMP4 int64
 	var durationMP4 int64
 	moofOffset := uint64(0)
 	var tfhd *mp4.Tfhd
@@ -543,7 +413,7 @@ func segmentFMP4MuxParts(
 
 			m.setTrack(int(tfhd.TrackID))
 			timeScale = track.TimeScale
-			segmentStartOffsetMP4 = durationGoToMp4(segmentStartOffset, track.TimeScale)
+			dtsOffsetMP4 = durationGoToMp4(dtsOffset, track.TimeScale)
 			durationMP4 = durationGoToMp4(duration, track.TimeScale)
 
 		case "trun":
@@ -554,8 +424,7 @@ func segmentFMP4MuxParts(
 			trun := box.(*mp4.Trun)
 
 			dataOffset := moofOffset + uint64(trun.DataOffset)
-			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) + segmentStartOffsetMP4
-			atLeastOneSampleWritten := false
+			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) + dtsOffsetMP4
 
 			for _, e := range trun.Entries {
 				if muxerDTS >= durationMP4 {
@@ -588,14 +457,11 @@ func segmentFMP4MuxParts(
 					return nil, err
 				}
 
-				atLeastOneSampleWritten = true
 				dataOffset += uint64(e.SampleSize)
 				muxerDTS += int64(e.SampleDuration)
 			}
 
-			if atLeastOneSampleWritten {
-				m.writeFinalDTS(muxerDTS)
-			}
+			m.writeFinalDTS(muxerDTS)
 
 			muxerDTSGo := durationMp4ToGo(muxerDTS, timeScale)
 

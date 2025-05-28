@@ -157,7 +157,7 @@ func setupAudio(
 						return err
 					}
 
-					if !(!h.MPEG2 && h.Layer == 3) {
+					if h.MPEG2 || h.Layer != 3 {
 						return fmt.Errorf("RTMP only supports MPEG-1 layer 3 audio")
 					}
 

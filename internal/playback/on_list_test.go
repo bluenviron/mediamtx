@@ -12,8 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abema/go-mp4"
+	amp4 "github.com/abema/go-mp4"
+
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -116,15 +118,15 @@ func TestOnList(t *testing.T) {
 			case "unfiltered", "start before first":
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
-						"duration": float64(65),
+						"duration": float64(66),
 						"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
-						"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
+						"url": "http://localhost:9996/get?duration=66&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 					map[string]interface{}{
-						"duration": float64(3),
+						"duration": float64(4),
 						"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-						"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
+						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
 							url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
@@ -132,9 +134,9 @@ func TestOnList(t *testing.T) {
 			case "filtered":
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
-						"duration": float64(64),
+						"duration": float64(65),
 						"start":    time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
-						"url": "http://localhost:9996/get?duration=64&path=mypath&start=" +
+						"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 					map[string]interface{}{
@@ -148,9 +150,9 @@ func TestOnList(t *testing.T) {
 			case "filtered and gap":
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
-						"duration": float64(3),
+						"duration": float64(4),
 						"start":    time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-						"url": "http://localhost:9996/get?duration=3&path=mypath&start=" +
+						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
@@ -218,8 +220,8 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 		return err
 	}
 
-	var mvhd mp4.Mvhd
-	_, err = mp4.Unmarshal(f, uint64(moovSize-8), &mvhd, mp4.Context{})
+	var mvhd amp4.Mvhd
+	_, err = amp4.Unmarshal(f, uint64(moovSize-8), &mvhd, amp4.Context{})
 	if err != nil {
 		return err
 	}
@@ -231,7 +233,7 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 		return err
 	}
 
-	_, err = mp4.Marshal(f, &mvhd, mp4.Context{})
+	_, err = amp4.Marshal(f, &mvhd, amp4.Context{})
 	if err != nil {
 		return err
 	}
@@ -258,7 +260,7 @@ func TestOnListCachedDuration(t *testing.T) {
 				{
 					ID:        1,
 					TimeScale: 90000,
-					Codec: &fmp4.CodecH264{
+					Codec: &mp4.CodecH264{
 						SPS: test.FormatH264.SPS,
 						PPS: test.FormatH264.PPS,
 					},

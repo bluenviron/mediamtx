@@ -102,7 +102,7 @@ type PeerConnection struct {
 	newLocalCandidate chan *webrtc.ICECandidateInit
 	connected         chan struct{}
 	failed            chan struct{}
-	done              chan struct{}
+	closed            chan struct{}
 	gatheringDone     chan struct{}
 	incomingTrack     chan trackRecvPair
 	ctx               context.Context
@@ -236,7 +236,7 @@ func (co *PeerConnection) Start() error {
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
 	co.connected = make(chan struct{})
 	co.failed = make(chan struct{})
-	co.done = make(chan struct{})
+	co.closed = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
 	co.incomingTrack = make(chan trackRecvPair)
 
@@ -246,7 +246,7 @@ func (co *PeerConnection) Start() error {
 		for _, tr := range co.OutgoingTracks {
 			err = tr.setup(co)
 			if err != nil {
-				co.wr.Close() //nolint:errcheck
+				co.wr.GracefulClose() //nolint:errcheck
 				return err
 			}
 		}
@@ -255,7 +255,7 @@ func (co *PeerConnection) Start() error {
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {
-			co.wr.Close() //nolint:errcheck
+			co.wr.GracefulClose() //nolint:errcheck
 			return err
 		}
 
@@ -263,7 +263,7 @@ func (co *PeerConnection) Start() error {
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
 		if err != nil {
-			co.wr.Close() //nolint:errcheck
+			co.wr.GracefulClose() //nolint:errcheck
 			return err
 		}
 
@@ -280,7 +280,7 @@ func (co *PeerConnection) Start() error {
 		defer co.stateChangeMutex.Unlock()
 
 		select {
-		case <-co.done:
+		case <-co.closed:
 			return
 		default:
 		}
@@ -317,7 +317,7 @@ func (co *PeerConnection) Start() error {
 				close(co.failed)
 			}
 
-			close(co.done)
+			close(co.closed)
 		}
 	})
 
@@ -347,9 +347,13 @@ func (co *PeerConnection) Close() {
 	}
 
 	co.ctxCancel()
-	co.wr.Close() //nolint:errcheck
+	co.wr.GracefulClose() //nolint:errcheck
 
-	<-co.done
+	// even if GracefulClose() should wait for any goroutine to return,
+	// we have to wait for OnConnectionStateChange to return anyway,
+	// since it is executed in an uncontrolled goroutine.
+	// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
+	<-co.closed
 }
 
 // CreatePartialOffer creates a partial offer.

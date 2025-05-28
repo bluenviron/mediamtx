@@ -106,11 +106,11 @@ type formatFMP4Segment struct {
 	path    string
 	fi      *os.File
 	curPart *formatFMP4Part
-	lastDTS time.Duration
+	endDTS  time.Duration
 }
 
 func (s *formatFMP4Segment) initialize() {
-	s.lastDTS = s.startDTS
+	s.endDTS = s.startDTS
 }
 
 func (s *formatFMP4Segment) close() error {
@@ -123,8 +123,8 @@ func (s *formatFMP4Segment) close() error {
 	if s.fi != nil {
 		s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
 
-		// write overall duration in the header in order to speed up the playback server
-		duration := s.lastDTS - s.startDTS
+		// write overall duration in the header to speed up the playback server
+		duration := s.endDTS - s.startDTS
 		err2 := writeDuration(s.fi, duration)
 		if err == nil {
 			err = err2
@@ -136,25 +136,28 @@ func (s *formatFMP4Segment) close() error {
 		}
 
 		if err2 == nil {
-			s.f.ri.rec.OnSegmentComplete(s.path, duration)
+			s.f.ri.onSegmentComplete(s.path, duration)
 		}
 	}
 
 	return err
 }
 
-func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dtsDuration time.Duration) error {
-	s.lastDTS = dtsDuration
+func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
+	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
+	if endDTS > s.endDTS {
+		s.endDTS = endDTS
+	}
 
 	if s.curPart == nil {
 		s.curPart = &formatFMP4Part{
 			s:              s,
 			sequenceNumber: s.f.nextSequenceNumber,
-			startDTS:       dtsDuration,
+			startDTS:       dts,
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
-	} else if s.curPart.duration() >= s.f.ri.rec.PartDuration {
+	} else if s.curPart.duration() >= s.f.ri.partDuration {
 		err := s.curPart.close()
 		s.curPart = nil
 
@@ -165,11 +168,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dtsDur
 		s.curPart = &formatFMP4Part{
 			s:              s,
 			sequenceNumber: s.f.nextSequenceNumber,
-			startDTS:       dtsDuration,
+			startDTS:       dts,
 		}
 		s.curPart.initialize()
 		s.f.nextSequenceNumber++
 	}
 
-	return s.curPart.write(track, sample, dtsDuration)
+	return s.curPart.write(track, sample, dts)
 }

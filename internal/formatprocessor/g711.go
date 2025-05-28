@@ -80,7 +80,7 @@ func (t *g711) ProcessRTPPacket( //nolint:dupl
 	}
 
 	// remove padding
-	pkt.Header.Padding = false
+	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if pkt.MarshalSize() > t.UDPMaxPayloadSize {

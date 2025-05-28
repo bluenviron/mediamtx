@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
+	rtspauth "github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/google/uuid"
 
@@ -144,17 +145,24 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	}
 	ctx.Path = ctx.Path[1:]
 
-	req := defs.PathAccessRequest{
-		Name:        ctx.Path,
-		Query:       ctx.Query,
-		Publish:     true,
-		Proto:       auth.ProtocolRTSP,
-		ID:          &c.uuid,
-		Credentials: rtsp.Credentials(ctx.Request),
-		IP:          c.ip(),
-		CustomVerifyFunc: func(expectedUser, expectedPass string) bool {
+	// CustomVerifyFunc prevents hashed credentials from working.
+	// Use it only when strictly needed.
+	var customVerifyFunc func(expectedUser, expectedPass string) bool
+	if contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+		customVerifyFunc = func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
-		},
+		}
+	}
+
+	req := defs.PathAccessRequest{
+		Name:             ctx.Path,
+		Query:            ctx.Query,
+		Publish:          true,
+		Proto:            auth.ProtocolRTSP,
+		ID:               &c.uuid,
+		Credentials:      rtsp.Credentials(ctx.Request),
+		IP:               c.ip(),
+		CustomVerifyFunc: customVerifyFunc,
 	}
 
 	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{

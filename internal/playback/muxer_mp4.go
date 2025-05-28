@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 type muxerMP4Track struct {
@@ -53,19 +54,19 @@ func (w *muxerMP4) writeSample(
 	payloadSize uint32,
 	getPayload func() ([]byte, error),
 ) error {
-	// remove GOPs before the GOP of the first frame
+	// remove GOPs before the GOP of the first sample
 	if (dts < 0 || (dts >= 0 && w.curTrack.lastDTS < 0)) && !isNonSyncSample {
-		w.curTrack.Samples = nil
+		w.curTrack.Samples = w.curTrack.Samples[:0]
 	}
 
-	if w.curTrack.Samples == nil {
+	if len(w.curTrack.Samples) == 0 {
 		w.curTrack.TimeOffset = int32(dts)
 	} else {
-		diff := dts - w.curTrack.lastDTS
-		if diff < 0 {
-			diff = 0
+		duration := dts - w.curTrack.lastDTS
+		if duration < 0 {
+			duration = 0
 		}
-		w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(diff)
+		w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(duration)
 	}
 
 	// prevent warning "edit list: 1 Missing key frame while searching for timestamp: 0"
@@ -85,14 +86,20 @@ func (w *muxerMP4) writeSample(
 }
 
 func (w *muxerMP4) writeFinalDTS(dts int64) {
-	diff := dts - w.curTrack.lastDTS
-	if diff < 0 {
-		diff = 0
+	if len(w.curTrack.Samples) != 0 {
+		duration := dts - w.curTrack.lastDTS
+		if duration < 0 {
+			duration = 0
+		}
+		w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(duration)
 	}
-	w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(diff)
 }
 
 func (w *muxerMP4) flush() error {
+	if len(w.curTrack.Samples) == 0 || w.curTrack.lastDTS < 0 {
+		return recordstore.ErrNoSegmentsFound
+	}
+
 	h := pmp4.Presentation{
 		Tracks: make([]*pmp4.Track, len(w.tracks)),
 	}

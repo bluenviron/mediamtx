@@ -55,7 +55,7 @@ func (p *formatFMP4Part) initialize() {
 
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
-		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ri.pathFormat)
+		p.s.path = recordstore.Path{Start: p.s.startNTP}.Encode(p.s.f.ri.pathFormat2)
 		p.s.f.ri.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)
@@ -68,7 +68,7 @@ func (p *formatFMP4Part) close() error {
 			return err
 		}
 
-		p.s.f.ri.rec.OnSegmentCreate(p.s.path)
+		p.s.f.ri.onSegmentCreate(p.s.path)
 
 		err = writeInit(fi, p.s.f.tracks)
 		if err != nil {
@@ -82,19 +82,23 @@ func (p *formatFMP4Part) close() error {
 	return writePart(p.s.fi, p.sequenceNumber, p.partTracks)
 }
 
-func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dtsDuration time.Duration) error {
+func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
 	partTrack, ok := p.partTracks[track]
 	if !ok {
 		partTrack = &fmp4.PartTrack{
 			ID: track.initTrack.ID,
-			BaseTime: uint64(multiplyAndDivide(int64(dtsDuration-p.s.startDTS),
+			BaseTime: uint64(multiplyAndDivide(int64(dts-p.s.startDTS),
 				int64(track.initTrack.TimeScale), int64(time.Second))),
 		}
 		p.partTracks[track] = partTrack
 	}
 
-	partTrack.Samples = append(partTrack.Samples, sample.PartSample)
-	p.endDTS = dtsDuration
+	partTrack.Samples = append(partTrack.Samples, sample.Sample)
+
+	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
+	if endDTS > p.endDTS {
+		p.endDTS = endDTS
+	}
 
 	return nil
 }

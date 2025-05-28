@@ -1,5 +1,5 @@
-BASE_IMAGE = golang:1.23-alpine3.20
-LINT_IMAGE = golangci/golangci-lint:v1.64.5
+BASE_IMAGE = golang:1.24-alpine3.20
+LINT_IMAGE = golangci/golangci-lint:v2.1.6
 NODE_IMAGE = node:20-alpine3.20
 
 .PHONY: $(shell ls)
@@ -19,7 +19,6 @@ help:
 	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"
 	@echo "  dockerhub        build and push images to Docker Hub"
-	@echo "  dockerhub-legacy build and push images to Docker Hub (legacy)"
 	@echo ""
 
 blank :=

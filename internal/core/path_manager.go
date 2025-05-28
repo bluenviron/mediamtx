@@ -72,12 +72,11 @@ type pathManager struct {
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
 
-	ctx         context.Context
-	ctxCancel   func()
-	wg          sync.WaitGroup
-	hlsServer   *hls.Server
-	paths       map[string]*pathData
-	pathsByConf map[string]map[*path]struct{}
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+	hlsServer *hls.Server
+	paths     map[string]*pathData
 
 	// in
 	chReloadConf   chan map[string]*conf.Path
@@ -99,7 +98,6 @@ func (pm *pathManager) initialize() {
 	pm.ctx = ctx
 	pm.ctxCancel = ctxCancel
 	pm.paths = make(map[string]*pathData)
-	pm.pathsByConf = make(map[string]map[*path]struct{})
 	pm.chReloadConf = make(chan map[string]*conf.Path)
 	pm.chSetHLSServer = make(chan pathSetHLSServerReq)
 	pm.chClosePath = make(chan *path)
@@ -193,38 +191,63 @@ outer:
 }
 
 func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
+	confsToRecreate := make(map[string]struct{})
+	confsToReload := make(map[string]struct{})
+
 	for confName, pathConf := range pm.pathConfs {
 		if newPath, ok := newPaths[confName]; ok {
-			// configuration has changed
 			if !newPath.Equal(pathConf) {
-				if pathConfCanBeUpdated(pathConf, newPath) { // paths associated with the configuration can be updated
-					for pa := range pm.pathsByConf[confName] {
-						go pa.reloadConf(newPath)
-					}
-				} else { // paths associated with the configuration must be recreated
-					for pa := range pm.pathsByConf[confName] {
-						pm.removePath(pa)
-						pa.close()
-						pa.wait() // avoid conflicts between sources
-					}
+				if pathConfCanBeUpdated(pathConf, newPath) {
+					confsToReload[confName] = struct{}{}
+				} else {
+					confsToRecreate[confName] = struct{}{}
 				}
 			}
-		} else {
-			// configuration has been deleted, remove associated paths
-			for pa := range pm.pathsByConf[confName] {
-				pm.removePath(pa)
-				pa.close()
-				pa.wait() // avoid conflicts between sources
-			}
+		}
+	}
+
+	// process existing paths
+	for pathName, pathData := range pm.paths {
+		path := pathData.path
+		pathConf, _, err := conf.FindPathConf(newPaths, pathName)
+		// path does not have a config anymore: delete it
+		if err != nil {
+			pm.removePath(path)
+			path.close()
+			path.wait() // avoid conflicts between sources
+			continue
+		}
+
+		// path now belongs to a different config: delete it
+		if pathConf.Name != path.conf.Name {
+			pm.removePath(path)
+			path.close()
+			path.wait() // avoid conflicts between sources
+			continue
+		}
+
+		// path configuration has changed and cannot be hot reloaded: delete path
+		if _, ok := confsToRecreate[pathConf.Name]; ok {
+			pm.removePath(path)
+			path.close()
+			path.wait() // avoid conflicts between sources
+			continue
+		}
+
+		// path configuration has changed but can be hot reloaded: reload it
+		if _, ok := confsToReload[pathConf.Name]; ok {
+			go path.reloadConf(pathConf)
 		}
 	}
 
 	pm.pathConfs = newPaths
 
-	// add new paths
-	for pathConfName, pathConf := range pm.pathConfs {
-		if _, ok := pm.paths[pathConfName]; !ok && pathConf.Regexp == nil {
-			pm.createPath(pathConf, pathConfName, nil)
+	// create new static paths
+	for pathConfName, pathConf := range newPaths {
+		if pathConf.Regexp == nil {
+			if _, ok := pm.paths[pathConfName]; !ok {
+				pm.createPath(pathConf, pathConfName, nil)
+			}
 		}
 	}
 }
@@ -403,18 +426,9 @@ func (pm *pathManager) createPath(
 	pa.initialize()
 
 	pm.paths[name] = &pathData{path: pa}
-
-	if _, ok := pm.pathsByConf[pathConf.Name]; !ok {
-		pm.pathsByConf[pathConf.Name] = make(map[*path]struct{})
-	}
-	pm.pathsByConf[pathConf.Name][pa] = struct{}{}
 }
 
 func (pm *pathManager) removePath(pa *path) {
-	delete(pm.pathsByConf[pa.conf.Name], pa)
-	if len(pm.pathsByConf[pa.conf.Name]) == 0 {
-		delete(pm.pathsByConf, pa.conf.Name)
-	}
 	delete(pm.paths, pa.name)
 }
 
@@ -453,7 +467,7 @@ func (pm *pathManager) closePath(pa *path) {
 	}
 }
 
-// GetConfForPath is called by a reader or publisher.
+// FindPathConf is called by a reader or publisher.
 func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
 	req.Res = make(chan defs.PathFindPathConfRes)
 	select {
