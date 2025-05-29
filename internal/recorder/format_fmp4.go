@@ -126,16 +126,6 @@ func (f *formatFMP4) initialize() bool {
 		return track
 	}
 
-	updateCodecs := func() {
-		// if codec parameters have been updated,
-		// and current segment has already written codec parameters on disk,
-		// close current segment.
-		if f.currentSegment != nil && f.currentSegment.fi != nil {
-			f.currentSegment.close() //nolint:errcheck
-			f.currentSegment = nil
-		}
-	}
-
 	for _, media := range f.ri.stream.Desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
@@ -160,6 +150,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						randomAccess := false
+						paramsChanged := false
 
 						for _, obu := range tunit.TU {
 							var h av1.OBUHeader
@@ -171,10 +162,14 @@ func (f *formatFMP4) initialize() bool {
 							if h.Type == av1.OBUTypeSequenceHeader {
 								if !bytes.Equal(codec.SequenceHeader, obu) {
 									codec.SequenceHeader = obu
-									updateCodecs()
+									paramsChanged = true
 								}
 								randomAccess = true
 							}
+						}
+
+						if paramsChanged {
+							f.updateCodecParams()
 						}
 
 						if !firstReceived {
@@ -227,34 +222,39 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						randomAccess := false
+						paramsChanged := false
 
 						if !h.NonKeyFrame {
 							randomAccess = true
 
 							if w := h.Width(); codec.Width != w {
 								codec.Width = w
-								updateCodecs()
+								paramsChanged = true
 							}
 							if h := h.Width(); codec.Height != h {
 								codec.Height = h
-								updateCodecs()
+								paramsChanged = true
 							}
 							if codec.Profile != h.Profile {
 								codec.Profile = h.Profile
-								updateCodecs()
+								paramsChanged = true
 							}
 							if codec.BitDepth != h.ColorConfig.BitDepth {
 								codec.BitDepth = h.ColorConfig.BitDepth
-								updateCodecs()
+								paramsChanged = true
 							}
 							if c := h.ChromaSubsampling(); codec.ChromaSubsampling != c {
 								codec.ChromaSubsampling = c
-								updateCodecs()
+								paramsChanged = true
 							}
 							if codec.ColorRange != h.ColorConfig.ColorRange {
 								codec.ColorRange = h.ColorConfig.ColorRange
-								updateCodecs()
+								paramsChanged = true
 							}
+						}
+
+						if paramsChanged {
+							f.updateCodecParams()
 						}
 
 						if !firstReceived {
@@ -306,6 +306,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						randomAccess := false
+						paramsChanged := false
 
 						for _, nalu := range tunit.AU {
 							typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
@@ -314,24 +315,28 @@ func (f *formatFMP4) initialize() bool {
 							case h265.NALUType_VPS_NUT:
 								if !bytes.Equal(codec.VPS, nalu) {
 									codec.VPS = nalu
-									updateCodecs()
+									paramsChanged = true
 								}
 
 							case h265.NALUType_SPS_NUT:
 								if !bytes.Equal(codec.SPS, nalu) {
 									codec.SPS = nalu
-									updateCodecs()
+									paramsChanged = true
 								}
 
 							case h265.NALUType_PPS_NUT:
 								if !bytes.Equal(codec.PPS, nalu) {
 									codec.PPS = nalu
-									updateCodecs()
+									paramsChanged = true
 								}
 
 							case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
 								randomAccess = true
 							}
+						}
+
+						if paramsChanged {
+							f.updateCodecParams()
 						}
 
 						if dtsExtractor == nil {
@@ -389,6 +394,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						randomAccess := false
+						paramsChanged := false
 
 						for _, nalu := range tunit.AU {
 							typ := h264.NALUType(nalu[0] & 0x1F)
@@ -396,18 +402,22 @@ func (f *formatFMP4) initialize() bool {
 							case h264.NALUTypeSPS:
 								if !bytes.Equal(codec.SPS, nalu) {
 									codec.SPS = nalu
-									updateCodecs()
+									paramsChanged = true
 								}
 
 							case h264.NALUTypePPS:
 								if !bytes.Equal(codec.PPS, nalu) {
 									codec.PPS = nalu
-									updateCodecs()
+									paramsChanged = true
 								}
 
 							case h264.NALUTypeIDR:
 								randomAccess = true
 							}
+						}
+
+						if paramsChanged {
+							f.updateCodecParams()
 						}
 
 						if dtsExtractor == nil {
@@ -472,7 +482,7 @@ func (f *formatFMP4) initialize() bool {
 
 								if !bytes.Equal(codec.Config, config) {
 									codec.Config = config
-									updateCodecs()
+									f.updateCodecParams()
 								}
 							}
 						}
@@ -525,7 +535,7 @@ func (f *formatFMP4) initialize() bool {
 
 								if !bytes.Equal(codec.Config, config) {
 									codec.Config = config
-									updateCodecs()
+									f.updateCodecParams()
 								}
 							}
 						}
@@ -577,7 +587,7 @@ func (f *formatFMP4) initialize() bool {
 							}
 							codec.Width = width
 							codec.Height = height
-							updateCodecs()
+							f.updateCodecParams()
 						}
 
 						return track.write(&sample{
@@ -694,7 +704,7 @@ func (f *formatFMP4) initialize() bool {
 								parsed = true
 								codec.SampleRate = h.SampleRate
 								codec.ChannelCount = mpeg1audioChannelCount(h.ChannelMode)
-								updateCodecs()
+								f.updateCodecParams()
 							}
 
 							err = track.write(&sample{
@@ -763,7 +773,7 @@ func (f *formatFMP4) initialize() bool {
 								codec.Acmod = bsi.Acmod
 								codec.LfeOn = bsi.LfeOn
 								codec.BitRateCode = syncInfo.Frmsizecod >> 1
-								updateCodecs()
+								f.updateCodecParams()
 							}
 
 							pts := tunit.PTS + int64(i)*ac3.SamplesPerFrame
@@ -876,6 +886,10 @@ func (f *formatFMP4) initialize() bool {
 		defs.FormatsInfo(setuppedFormats))
 
 	return true
+}
+
+func (f *formatFMP4) updateCodecParams() {
+	f.ri.Log(logger.Debug, "codec parameters have changed")
 }
 
 func (f *formatFMP4) close() {
