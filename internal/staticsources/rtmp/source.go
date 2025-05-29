@@ -18,6 +18,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+var timeNow = time.Now
+
 // Source is a RTMP static source.
 type Source struct {
 	ReadTimeout  conf.Duration
@@ -86,7 +88,8 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 	}
 
 	r := &rtmp.Reader{
-		Conn: conn,
+		Conn:    conn,
+		TimeNow: timeNow,
 	}
 	err = r.Initialize()
 	if err != nil {

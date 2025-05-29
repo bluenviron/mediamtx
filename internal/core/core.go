@@ -39,6 +39,8 @@ import (
 //go:embed VERSION
 var version []byte
 
+var timeNow = time.Now
+
 var defaultConfPaths = []string{
 	"rtsp-simple-server.yml",
 	"mediamtx.yml",
@@ -462,6 +464,7 @@ func (p *Core) createResources(initial bool) error {
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
 			ExternalCmdPool:     p.externalCmdPool,
+			TimeNow:             timeNow,
 			Metrics:             p.metrics,
 			PathManager:         p.pathManager,
 			Parent:              p,
@@ -489,6 +492,7 @@ func (p *Core) createResources(initial bool) error {
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
 			ExternalCmdPool:     p.externalCmdPool,
+			TimeNow:             timeNow,
 			Metrics:             p.metrics,
 			PathManager:         p.pathManager,
 			Parent:              p,
