@@ -48,30 +48,30 @@ func seekAndMux(
 	m muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
-		var firstInit *fmp4.Init
-		var segmentEnd time.Time
-
 		f, err := os.Open(segments[0].Fpath)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		firstInit, _, err = segmentFMP4ReadHeader(f)
+		firstInit, _, err := segmentFMP4ReadHeader(f)
 		if err != nil {
 			return err
 		}
 
 		m.writeInit(firstInit)
 
-		segmentStartOffset := segments[0].Start.Sub(start) // this is negative
+		dts := segments[0].Start.Sub(start) // this is negative
 
-		segmentDuration, err := segmentFMP4MuxParts(f, segmentStartOffset, duration, firstInit, m)
+		var segDuration time.Duration
+		segDuration, dts, err = segmentFMP4MuxParts(f, dts, duration, firstInit, m)
 		if err != nil {
 			return err
 		}
 
-		segmentEnd = start.Add(segmentDuration)
+		// use segDuration to compute ntp and call segmentFMP4CanBeConcatenated()
+		// in order to get the same behavior of the /list endpoint
+		ntp := start.Add(segDuration - start.Sub(segments[0].Start))
 
 		for _, seg := range segments[1:] {
 			f, err = os.Open(seg.Fpath)
@@ -86,19 +86,18 @@ func seekAndMux(
 				return err
 			}
 
-			if !segmentFMP4CanBeConcatenated(firstInit, segmentEnd, init, seg.Start) {
+			if !segmentFMP4CanBeConcatenated(firstInit, ntp, init, seg.Start) {
 				break
 			}
 
-			segmentStartOffset := seg.Start.Sub(start) // this is positive
-
-			var segmentDuration time.Duration
-			segmentDuration, err = segmentFMP4MuxParts(f, segmentStartOffset, duration, firstInit, m)
+			segDuration, dts, err = segmentFMP4MuxParts(f, dts, duration, firstInit, m)
 			if err != nil {
 				return err
 			}
 
-			segmentEnd = start.Add(segmentDuration)
+			// use segDuration to compute ntp and call segmentFMP4CanBeConcatenated()
+			// in order to get the same behavior of the /list endpoint
+			ntp = seg.Start.Add(segDuration)
 		}
 
 		err = m.flush()

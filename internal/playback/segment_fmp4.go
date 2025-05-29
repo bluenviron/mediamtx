@@ -15,6 +15,7 @@ import (
 const (
 	sampleFlagIsNonSyncSample = 1 << 16
 	concatenationTolerance    = 1 * time.Second
+	maxBasetime               = 1 * time.Second
 )
 
 var errTerminated = errors.New("terminated")
@@ -23,6 +24,25 @@ type readSeekerAt interface {
 	io.Reader
 	io.Seeker
 	io.ReaderAt
+}
+
+// try to guess where the next segment will start, using the same algorithm of nextSegmentStartingPos
+func guessNextSegmentStartingPos(dtsPerTrack map[int]time.Duration) time.Duration {
+	var maxElapsed time.Duration
+	for _, dts := range dtsPerTrack {
+		if dts > maxElapsed {
+			maxElapsed = dts
+		}
+	}
+
+	minElapsed := maxElapsed
+	for _, dts := range dtsPerTrack {
+		if (maxElapsed-dts) <= maxBasetime && (dts <= minElapsed) {
+			minElapsed = dts
+		}
+	}
+
+	return minElapsed
 }
 
 func durationGoToMp4(v time.Duration, timeScale uint32) int64 {
@@ -249,7 +269,7 @@ func segmentFMP4ReadDurationFromParts(
 		return 0, err
 	}
 
-	var maxElapsed time.Duration
+	var maxDuration time.Duration
 
 	// foreach traf
 
@@ -351,37 +371,39 @@ outer:
 			return 0, fmt.Errorf("invalid trun box: %w", err)
 		}
 
-		elapsed := int64(tfdt.BaseMediaDecodeTimeV1)
+		duration := int64(tfdt.BaseMediaDecodeTimeV1)
 
 		for _, entry := range trun.Entries {
-			elapsed += int64(entry.SampleDuration)
+			duration += int64(entry.SampleDuration)
 		}
 
-		elapsedGo := durationMp4ToGo(elapsed, track.TimeScale)
+		durationGo := durationMp4ToGo(duration, track.TimeScale)
 
-		if elapsedGo > maxElapsed {
-			maxElapsed = elapsedGo
+		if durationGo > maxDuration {
+			maxDuration = durationGo
 		}
 	}
 
-	return maxElapsed, nil
+	return maxDuration, nil
 }
 
 func segmentFMP4MuxParts(
 	r readSeekerAt,
-	dtsOffset time.Duration,
+	start time.Duration,
 	duration time.Duration,
 	init *fmp4.Init,
 	m muxer,
-) (time.Duration, error) {
-	var dtsOffsetMP4 int64
+) (time.Duration, time.Duration, error) {
+	var startMP4 int64
 	var durationMP4 int64
 	moofOffset := uint64(0)
 	var tfhd *mp4.Tfhd
 	var tfdt *mp4.Tfdt
 	var timeScale uint32
-	var maxMuxerDTS time.Duration
 	breakAtNextMdat := false
+	var curTrackID int
+	dtsPerTrack := make(map[int]time.Duration)
+	var segDuration time.Duration
 
 	_, err := mp4.ReadBoxStructure(r, func(h *mp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -411,9 +433,10 @@ func segmentFMP4MuxParts(
 				return nil, fmt.Errorf("invalid track ID: %v", tfhd.TrackID)
 			}
 
-			m.setTrack(int(tfhd.TrackID))
+			curTrackID = int(tfhd.TrackID)
+			m.setTrack(curTrackID)
 			timeScale = track.TimeScale
-			dtsOffsetMP4 = durationGoToMp4(dtsOffset, track.TimeScale)
+			startMP4 = durationGoToMp4(start, track.TimeScale)
 			durationMP4 = durationGoToMp4(duration, track.TimeScale)
 
 		case "trun":
@@ -424,10 +447,11 @@ func segmentFMP4MuxParts(
 			trun := box.(*mp4.Trun)
 
 			dataOffset := moofOffset + uint64(trun.DataOffset)
-			muxerDTS := int64(tfdt.BaseMediaDecodeTimeV1) + dtsOffsetMP4
+			dts := int64(tfdt.BaseMediaDecodeTimeV1) + startMP4
+			fmt.Println("FIDTS", dts)
 
 			for _, e := range trun.Entries {
-				if muxerDTS >= durationMP4 {
+				if dts >= durationMP4 {
 					breakAtNextMdat = true
 					break
 				}
@@ -436,7 +460,7 @@ func segmentFMP4MuxParts(
 				sampleSize := e.SampleSize
 
 				err = m.writeSample(
-					muxerDTS,
+					dts,
 					e.SampleCompositionTimeOffsetV1,
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
 					e.SampleSize,
@@ -458,15 +482,15 @@ func segmentFMP4MuxParts(
 				}
 
 				dataOffset += uint64(e.SampleSize)
-				muxerDTS += int64(e.SampleDuration)
+				dts += int64(e.SampleDuration)
 			}
 
-			m.writeFinalDTS(muxerDTS)
+			m.writeFinalDTS(dts)
+			dtsPerTrack[curTrackID] = durationMp4ToGo(dts, timeScale)
 
-			muxerDTSGo := durationMp4ToGo(muxerDTS, timeScale)
-
-			if muxerDTSGo > maxMuxerDTS {
-				maxMuxerDTS = muxerDTSGo
+			relDuration := durationMp4ToGo(dts-startMP4, timeScale)
+			if relDuration > segDuration {
+				segDuration = relDuration
 			}
 
 		case "mdat":
@@ -477,8 +501,9 @@ func segmentFMP4MuxParts(
 		return nil, nil
 	})
 	if err != nil && !errors.Is(err, errTerminated) {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return maxMuxerDTS, nil
+	nextSegmentStart := guessNextSegmentStartingPos(dtsPerTrack)
+	return segDuration, nextSegmentStart, nil
 }

@@ -99,9 +99,8 @@ func concatenateSegments(parsed []*parsedSegment) []listEntry {
 			out[len(out)-1].Start.Add(time.Duration(out[len(out)-1].Duration)),
 			parsed.init,
 			parsed.start) {
-			prevStart := out[len(out)-1].Start
 			curEnd := parsed.start.Add(parsed.duration)
-			out[len(out)-1].Duration = listEntryDuration(curEnd.Sub(prevStart))
+			out[len(out)-1].Duration = listEntryDuration(curEnd.Sub(out[len(out)-1].Start))
 		} else {
 			out = append(out, listEntry{
 				Start:    parsed.start,
