@@ -48,13 +48,33 @@ func findInitTrack(tracks []*fmp4.InitTrack, id int) *fmp4.InitTrack {
 	return nil
 }
 
+func initAreCompatible(init1 *fmp4.Init, init2 *fmp4.Init) bool {
+	if len(init1.Tracks) != len(init2.Tracks) {
+		return false
+	}
+
+	for i, track1 := range init1.Tracks {
+		track2 := init2.Tracks[i]
+
+		if track1.ID != track2.ID ||
+			track1.TimeScale != track2.TimeScale ||
+			track1.AvgBitrate != track2.AvgBitrate ||
+			track1.MaxBitrate != track2.MaxBitrate ||
+			reflect.TypeOf(track1.Codec) != reflect.TypeOf(track2.Codec) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func segmentFMP4CanBeConcatenated(
 	prevInit *fmp4.Init,
 	prevEnd time.Time,
 	curInit *fmp4.Init,
 	curStart time.Time,
 ) bool {
-	return reflect.DeepEqual(prevInit, curInit) &&
+	return initAreCompatible(prevInit, curInit) &&
 		!curStart.Before(prevEnd.Add(-concatenationTolerance)) &&
 		!curStart.After(prevEnd.Add(concatenationTolerance))
 }
@@ -371,7 +391,7 @@ func segmentFMP4MuxParts(
 	r readSeekerAt,
 	dtsOffset time.Duration,
 	duration time.Duration,
-	init *fmp4.Init,
+	tracks []*fmp4.InitTrack,
 	m muxer,
 ) (time.Duration, error) {
 	var dtsOffsetMP4 int64
@@ -406,7 +426,7 @@ func segmentFMP4MuxParts(
 			}
 			tfdt = box.(*mp4.Tfdt)
 
-			track := findInitTrack(init.Tracks, int(tfhd.TrackID))
+			track := findInitTrack(tracks, int(tfhd.TrackID))
 			if track == nil {
 				return nil, fmt.Errorf("invalid track ID: %v", tfhd.TrackID)
 			}
