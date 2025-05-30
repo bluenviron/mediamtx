@@ -42,8 +42,6 @@ components:
       properties:
         action:
           type: string
-        path:
-          type: string
 
     GlobalConf:
       type: object
