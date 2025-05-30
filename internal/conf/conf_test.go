@@ -15,6 +15,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+func stringPtr(v string) *string {
+	return &v
+}
+
 func createTempFile(byts []byte) (string, error) {
 	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
 	if err != nil {
@@ -236,7 +240,7 @@ func TestConfDeprecatedAuth(t *testing.T) {
 			Permissions: []AuthInternalUserPermission{
 				{
 					Action: AuthActionPublish,
-					Path:   "cam",
+					Path:   stringPtr("cam"),
 				},
 			},
 		},
@@ -247,7 +251,7 @@ func TestConfDeprecatedAuth(t *testing.T) {
 			Permissions: []AuthInternalUserPermission{
 				{
 					Action: AuthActionRead,
-					Path:   "cam",
+					Path:   stringPtr("cam"),
 				},
 			},
 		},
