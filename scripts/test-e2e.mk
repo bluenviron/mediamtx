@@ -14,7 +14,7 @@ export DOCKERFILE_E2E_TEST
 
 test-e2e:
 	echo "$$DOCKERFILE_E2E_TEST" | docker build -q . -f - -t temp
-	docker run --rm -it \
+	docker run --rm \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	--network=host \
 	temp \
