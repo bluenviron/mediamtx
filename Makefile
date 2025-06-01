@@ -19,6 +19,7 @@ help:
 	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"
 	@echo "  dockerhub        build and push images to Docker Hub"
+	@echo "  mediamtx         build mediamtx for local platform"
 	@echo ""
 
 blank :=
