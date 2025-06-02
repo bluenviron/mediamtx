@@ -3,7 +3,10 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -54,6 +57,45 @@ func dumpTar(src io.Reader) error {
 	return nil
 }
 
+func doSingle(version string, f string) error {
+	err := os.RemoveAll(strings.TrimSuffix(f, ".tar.gz"))
+	if err != nil {
+		return err
+	}
+
+	res, err := http.Get("https://github.com/bluenviron/mediamtx-rpicamera/releases/download/" + version + "/" + f)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status code: %v", res.StatusCode)
+	}
+
+	buf, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	hashBuf, err := os.ReadFile("./mtxrpicamdownloader/HASH_" + strings.ToUpper(strings.ReplaceAll(f, ".", "_")))
+	if err != nil {
+		return err
+	}
+	str := strings.TrimSpace(string(hashBuf))
+
+	hash, err := hex.DecodeString(str)
+	if err != nil {
+		return err
+	}
+
+	if sum := sha256.Sum256(buf); !bytes.Equal(sum[:], hash) {
+		return fmt.Errorf("hash mismatch")
+	}
+
+	return dumpTar(bytes.NewReader(buf))
+}
+
 func do() error {
 	buf, err := os.ReadFile("./mtxrpicamdownloader/VERSION")
 	if err != nil {
@@ -64,22 +106,7 @@ func do() error {
 	log.Printf("downloading mediamtx-rpicamera %s...", version)
 
 	for _, f := range []string{"mtxrpicam_32.tar.gz", "mtxrpicam_64.tar.gz"} {
-		err = os.RemoveAll(strings.TrimSuffix(f, ".tar.gz"))
-		if err != nil {
-			return err
-		}
-
-		res, err := http.Get("https://github.com/bluenviron/mediamtx-rpicamera/releases/download/" + version + "/" + f)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
-
-		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("bad status code: %v", res.StatusCode)
-		}
-
-		err = dumpTar(res.Body)
+		err = doSingle(version, f)
 		if err != nil {
 			return err
 		}
