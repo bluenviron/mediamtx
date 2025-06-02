@@ -23,6 +23,48 @@ func leadingZeros(v int, size int) string {
 	return out2 + out
 }
 
+func timeLocationEncode(t time.Time) string {
+	_, off := t.Zone()
+
+	if off == 0 {
+		return "Z"
+	}
+
+	var ret string
+
+	if off > 0 {
+		ret = "+"
+	} else {
+		ret = "-"
+		off = -off
+	}
+
+	ret += leadingZeros(off/60/60, 2)
+	ret += leadingZeros((off/60)%60, 2)
+
+	return ret
+}
+
+func timeLocationDecode(s string) *time.Location {
+	if s == "Z" {
+		return time.UTC
+	}
+
+	var sign int
+	if s[0] == '+' {
+		sign = 1
+	} else {
+		sign = -1
+	}
+
+	v1, _ := strconv.ParseInt(s[1:3], 10, 64)
+	v2, _ := strconv.ParseInt(s[3:5], 10, 64)
+
+	off := sign*int(v1)*3600 + int(v2)*3600
+
+	return time.FixedZone("myzone", off)
+}
+
 // PathAddExtension adds the file extension to the path.
 func PathAddExtension(path string, format conf.RecordFormat) string {
 	switch format {
@@ -99,6 +141,7 @@ func (p *Path) Decode(format string, v string) bool {
 	re = strings.ReplaceAll(re, "%M", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%S", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%f", "([0-9]{6})")
+	re = strings.ReplaceAll(re, "%z", "(Z|\\+[0-9]{4}|-[0-9]{4})")
 	re = strings.ReplaceAll(re, "%s", "([0-9]{10})")
 	r := regexp.MustCompile(re)
 
@@ -121,6 +164,7 @@ func (p *Path) Decode(format string, v string) bool {
 			"%M",
 			"%S",
 			"%f",
+			"%z",
 			"%s",
 		} {
 			if strings.HasPrefix(cur, va) {
@@ -150,6 +194,7 @@ func (p *Path) Decode(format string, v string) bool {
 	var second int
 	var micros int
 	var unixSec int64 = -1
+	loc := time.Local
 
 	for k, v := range values {
 		switch k {
@@ -184,6 +229,9 @@ func (p *Path) Decode(format string, v string) bool {
 			tmp, _ := strconv.ParseInt(v, 10, 64)
 			micros = int(tmp)
 
+		case "%z":
+			loc = timeLocationDecode(v)
+
 		case "%s":
 			unixSec, _ = strconv.ParseInt(v, 10, 64)
 		}
@@ -192,7 +240,7 @@ func (p *Path) Decode(format string, v string) bool {
 	if unixSec > 0 {
 		p.Start = time.Unix(unixSec, int64(micros)*1000)
 	} else {
-		p.Start = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
+		p.Start = time.Date(year, month, day, hour, minute, second, micros*1000, loc)
 	}
 
 	return true
@@ -208,6 +256,7 @@ func (p Path) Encode(format string) string {
 	format = strings.ReplaceAll(format, "%M", leadingZeros(p.Start.Minute(), 2))
 	format = strings.ReplaceAll(format, "%S", leadingZeros(p.Start.Second(), 2))
 	format = strings.ReplaceAll(format, "%f", leadingZeros(p.Start.Nanosecond()/1000, 6))
+	format = strings.ReplaceAll(format, "%z", timeLocationEncode(p.Start))
 	format = strings.ReplaceAll(format, "%s", strconv.FormatInt(p.Start.Unix(), 10))
 	return format
 }
