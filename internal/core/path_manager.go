@@ -215,7 +215,6 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 	for pathName, pathData := range pm.paths {
 		path := pathData.path
 		pathConf, _, err := conf.FindPathConf(newPaths, pathName)
-
 		// path does not have a config anymore: delete it
 		if err != nil {
 			pm.removeAndClosePath(path)

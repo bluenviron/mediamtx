@@ -137,9 +137,10 @@ func TestPathConfigurationHotReload(t *testing.T) {
 	require.Equal(t, false, allConfig["record"]) // Should be false from "all" config
 
 	// Add a new specific configuration for "undefined_stream" with record enabled
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/undefined_stream", map[string]interface{}{
-		"record": true,
-	}, nil)
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/undefined_stream",
+		map[string]interface{}{
+			"record": true,
+		}, nil)
 
 	// Give the system time to process the configuration change
 	time.Sleep(200 * time.Millisecond)
