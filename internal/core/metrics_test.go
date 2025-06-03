@@ -42,45 +42,35 @@ func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {
 }
 
 func TestMetrics(t *testing.T) {
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
+	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
+
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
+	require.NoError(t, err)
+	defer os.Remove(serverKeyFpath)
+
+	p, ok := newInstance("api: yes\n" +
+		"hlsAlwaysRemux: yes\n" +
+		"metrics: yes\n" +
+		"webrtcServerCert: " + serverCertFpath + "\n" +
+		"webrtcServerKey: " + serverKeyFpath + "\n" +
+		"rtspEncryption: optional\n" +
+		"rtspServerCert: " + serverCertFpath + "\n" +
+		"rtspServerKey: " + serverKeyFpath + "\n" +
+		"rtmpEncryption: optional\n" +
+		"rtmpServerCert: " + serverCertFpath + "\n" +
+		"rtmpServerKey: " + serverKeyFpath + "\n" +
+		"paths:\n" +
+		"  all_others:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
 	t.Run("initial", func(t *testing.T) {
-		serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-		require.NoError(t, err)
-		defer os.Remove(serverCertFpath)
-
-		serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-		require.NoError(t, err)
-		defer os.Remove(serverKeyFpath)
-
-		n := 0
-		timeNow = func() time.Time {
-			d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
-			n++
-			return d
-		}
-		defer func() {
-			timeNow = time.Now
-		}()
-
-		p, ok := newInstance("api: yes\n" +
-			"hlsAlwaysRemux: yes\n" +
-			"metrics: yes\n" +
-			"webrtcServerCert: " + serverCertFpath + "\n" +
-			"webrtcServerKey: " + serverKeyFpath + "\n" +
-			"rtspEncryption: optional\n" +
-			"rtspServerCert: " + serverCertFpath + "\n" +
-			"rtspServerKey: " + serverKeyFpath + "\n" +
-			"rtmpEncryption: optional\n" +
-			"rtmpServerCert: " + serverCertFpath + "\n" +
-			"rtmpServerKey: " + serverKeyFpath + "\n" +
-			"paths:\n" +
-			"  all_others:\n")
-		require.Equal(t, true, ok)
-		defer p.Close()
-
-		tr := &http.Transport{}
-		defer tr.CloseIdleConnections()
-		hc := &http.Client{Transport: tr}
-
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
 		require.Equal(t, `paths 0
@@ -179,44 +169,6 @@ webrtc_sessions_bytes_sent 0
 	})
 
 	t.Run("with data", func(t *testing.T) {
-		serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-		require.NoError(t, err)
-		defer os.Remove(serverCertFpath)
-
-		serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-		require.NoError(t, err)
-		defer os.Remove(serverKeyFpath)
-
-		n := 0
-		timeNow = func() time.Time {
-			d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
-			n++
-			return d
-		}
-		defer func() {
-			timeNow = time.Now
-		}()
-
-		p, ok := newInstance("api: yes\n" +
-			"hlsAlwaysRemux: yes\n" +
-			"metrics: yes\n" +
-			"webrtcServerCert: " + serverCertFpath + "\n" +
-			"webrtcServerKey: " + serverKeyFpath + "\n" +
-			"rtspEncryption: optional\n" +
-			"rtspServerCert: " + serverCertFpath + "\n" +
-			"rtspServerKey: " + serverKeyFpath + "\n" +
-			"rtmpEncryption: optional\n" +
-			"rtmpServerCert: " + serverCertFpath + "\n" +
-			"rtmpServerKey: " + serverKeyFpath + "\n" +
-			"paths:\n" +
-			"  all_others:\n")
-		require.Equal(t, true, ok)
-		defer p.Close()
-
-		tr := &http.Transport{}
-		defer tr.CloseIdleConnections()
-		hc := &http.Client{Transport: tr}
-
 		terminate := make(chan struct{})
 		var wg sync.WaitGroup
 		wg.Add(6)
@@ -240,8 +192,6 @@ webrtc_sessions_bytes_sent 0
 			defer source2.Close()
 			<-terminate
 		}()
-
-		rtmpDone := make(chan struct{})
 
 		go func() {
 			defer wg.Done()
@@ -267,15 +217,11 @@ webrtc_sessions_bytes_sent 0
 			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 			require.NoError(t, err)
 
-			close(rtmpDone)
-
 			<-terminate
 		}()
 
 		go func() {
 			defer wg.Done()
-
-			<-rtmpDone
 
 			u, err := url.Parse("rtmps://localhost:1936/rtmps_path")
 			require.NoError(t, err)
@@ -302,8 +248,6 @@ webrtc_sessions_bytes_sent 0
 			<-terminate
 		}()
 
-		webrtcReady := make(chan struct{})
-
 		go func() {
 			defer wg.Done()
 
@@ -314,20 +258,11 @@ webrtc_sessions_bytes_sent 0
 			defer tr.CloseIdleConnections()
 			hc2 := &http.Client{Transport: tr}
 
-			track1 := &webrtc.OutgoingTrack{
+			track := &webrtc.OutgoingTrack{
 				Caps: pwebrtc.RTPCodecCapability{
 					MimeType:    pwebrtc.MimeTypeH264,
 					ClockRate:   90000,
 					SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
-				},
-			}
-
-			track2 := &webrtc.OutgoingTrack{
-				Caps: pwebrtc.RTPCodecCapability{
-					MimeType:    pwebrtc.MimeTypeOpus,
-					ClockRate:   48000,
-					Channels:    2,
-					SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
 				},
 			}
 
@@ -336,30 +271,25 @@ webrtc_sessions_bytes_sent 0
 				URL:            su,
 				Log:            test.NilLogger,
 				Publish:        true,
-				OutgoingTracks: []*webrtc.OutgoingTrack{track1, track2},
+				OutgoingTracks: []*webrtc.OutgoingTrack{track},
 			}
 
 			err = s.Initialize(context.Background())
 			require.NoError(t, err)
 			defer checkClose(t, s.Close)
 
-			for _, track := range s.OutgoingTracks {
-				err = track.WriteRTP(&rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{1},
-				})
-				require.NoError(t, err)
-			}
-
-			close(webrtcReady)
-
+			err = track.WriteRTP(&rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{1},
+			})
+			require.NoError(t, err)
 			<-terminate
 		}()
 
@@ -398,8 +328,7 @@ webrtc_sessions_bytes_sent 0
 			<-terminate
 		}()
 
-		<-webrtcReady
-		time.Sleep(1 * time.Second)
+		time.Sleep(500*time.Millisecond + 2*time.Second)
 
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
@@ -497,12 +426,12 @@ webrtc_sessions_bytes_sent 0
 				`srt_conns_bytes_send_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_undecrypt\{id=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_us_packets_send_period\{id=".*?",state="publish"\} \d+(\.\d+)?`+"\n"+
+				`srt_conns_us_packets_send_period\{id=".*?",state="publish"\} \d+\.\d+`+"\n"+
 				`srt_conns_packets_flow_window\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_flight_size\{id=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_rtt\{id=".*?",state="publish"\} \d+(\.\d+)?`+"\n"+
+				`srt_conns_ms_rtt\{id=".*?",state="publish"\} \d+\.\d+`+"\n"+
 				`srt_conns_mbps_send_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_mbps_receive_rate\{id=".*?",state="publish"\} \d+(\.\d+)?`+"\n"+
+				`srt_conns_mbps_receive_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_mbps_link_capacity\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_avail_send_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_avail_receive_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
@@ -531,44 +460,6 @@ webrtc_sessions_bytes_sent 0
 	})
 
 	t.Run("servers disabled", func(t *testing.T) {
-		serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-		require.NoError(t, err)
-		defer os.Remove(serverCertFpath)
-
-		serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-		require.NoError(t, err)
-		defer os.Remove(serverKeyFpath)
-
-		n := 0
-		timeNow = func() time.Time {
-			d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
-			n++
-			return d
-		}
-		defer func() {
-			timeNow = time.Now
-		}()
-
-		p, ok := newInstance("api: yes\n" +
-			"hlsAlwaysRemux: yes\n" +
-			"metrics: yes\n" +
-			"webrtcServerCert: " + serverCertFpath + "\n" +
-			"webrtcServerKey: " + serverKeyFpath + "\n" +
-			"rtspEncryption: optional\n" +
-			"rtspServerCert: " + serverCertFpath + "\n" +
-			"rtspServerKey: " + serverKeyFpath + "\n" +
-			"rtmpEncryption: optional\n" +
-			"rtmpServerCert: " + serverCertFpath + "\n" +
-			"rtmpServerKey: " + serverKeyFpath + "\n" +
-			"paths:\n" +
-			"  all_others:\n")
-		require.Equal(t, true, ok)
-		defer p.Close()
-
-		tr := &http.Transport{}
-		defer tr.CloseIdleConnections()
-		hc := &http.Client{Transport: tr}
-
 		httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]interface{}{
 			"rtsp":   false,
 			"rtmp":   false,

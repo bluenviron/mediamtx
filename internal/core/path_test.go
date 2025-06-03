@@ -447,16 +447,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer conn.Close()
 
-					n := 0
-					timeNow := func() time.Time {
-						d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
-						n++
-						return d
-					}
-
 					r := &rtmp.Reader{
-						Conn:    conn,
-						TimeNow: timeNow,
+						Conn: conn,
 					}
 					err = r.Initialize()
 					require.NoError(t, err)
@@ -491,16 +483,8 @@ func TestPathRunOnRead(t *testing.T) {
 						}
 					}()
 
-					n := 0
-					timeNow := func() time.Time {
-						d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
-						n++
-						return d
-					}
-
 					r := &rtmp.Reader{
-						Conn:    conn,
-						TimeNow: timeNow,
+						Conn: conn,
 					}
 					err = r.Initialize()
 					require.NoError(t, err)
