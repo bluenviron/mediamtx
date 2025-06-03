@@ -1635,52 +1635,8 @@ func TestReadTracks(t *testing.T) {
 			}
 			c.initialize()
 
-			n := time.Duration(0)
-
-			TimeNow := func() time.Time {
-				var d time.Time
-
-			outer:
-				for {
-					msg := ca.messages[n]
-					n++
-
-					switch msg := msg.(type) {
-					case *message.Video:
-						d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg.DTS)
-						break outer
-					case *message.VideoExCodedFrames:
-						d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg.DTS)
-						break outer
-					case *message.VideoExMultitrack:
-						msg2 := msg.Wrapped
-						switch msg2 := msg2.(type) {
-						case *message.VideoExCodedFrames:
-							d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg2.DTS)
-							break outer
-						}
-					case *message.Audio:
-						d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg.DTS)
-						break outer
-					case *message.AudioExCodedFrames:
-						d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg.DTS)
-						break outer
-					case *message.AudioExMultitrack:
-						msg2 := msg.Wrapped
-						switch msg2 := msg2.(type) {
-						case *message.AudioExCodedFrames:
-							d = time.Date(2008, 10, 28, 13, 11, 12, 0, time.UTC).Add(msg2.DTS)
-							break outer
-						}
-					}
-				}
-
-				return d
-			}
-
 			r := &Reader{
-				Conn:    c,
-				TimeNow: TimeNow,
+				Conn: c,
 			}
 			err = r.Initialize()
 			require.NoError(t, err)

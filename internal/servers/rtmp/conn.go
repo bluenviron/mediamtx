@@ -41,7 +41,6 @@ type conn struct {
 	wg                  *sync.WaitGroup
 	nconn               net.Conn
 	externalCmdPool     *externalcmd.Pool
-	timeNow             func() time.Time
 	pathManager         serverPathManager
 	parent              *Server
 
@@ -260,8 +259,7 @@ func (c *conn) runPublish() error {
 	c.mutex.Unlock()
 
 	r := &rtmp.Reader{
-		Conn:    c.rconn,
-		TimeNow: c.timeNow,
+		Conn: c.rconn,
 	}
 	err = r.Initialize()
 	if err != nil {
