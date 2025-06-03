@@ -167,7 +167,7 @@ func (co *PeerConnection) Start() error {
 			})
 		}
 
-		for _, tr := range co.OutgoingTracks {
+		for i, tr := range co.OutgoingTracks {
 			var codecType webrtc.RTPCodecType
 			if tr.isVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
@@ -177,7 +177,7 @@ func (co *PeerConnection) Start() error {
 
 			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: tr.Caps,
-				PayloadType:        96,
+				PayloadType:        webrtc.PayloadType(96 + i),
 			}, codecType)
 			if err != nil {
 				return err
