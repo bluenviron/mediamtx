@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.24.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.40.0
+	code.cloudfoundry.org/bytefmt v0.41.0
 	github.com/MicahParks/jwkset v0.9.6
 	github.com/MicahParks/keyfunc/v3 v3.4.0
 	github.com/abema/go-mp4 v1.4.1
