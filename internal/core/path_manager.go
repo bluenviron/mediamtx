@@ -19,6 +19,9 @@ import (
 func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone := oldPathConf.Clone()
 
+	clone.Name = newPathConf.Name
+	clone.Regexp = newPathConf.Regexp
+
 	clone.Record = newPathConf.Record
 
 	clone.RPICameraBrightness = newPathConf.RPICameraBrightness
@@ -51,8 +54,9 @@ type pathSetHLSServerReq struct {
 }
 
 type pathData struct {
-	path  *path
-	ready bool
+	path     *path
+	ready    bool
+	confName string
 }
 
 type pathManagerParent interface {
@@ -209,34 +213,37 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 	// process existing paths
 	for pathName, pathData := range pm.paths {
 		path := pathData.path
-		pathConf, _, err := conf.FindPathConf(newPaths, pathName)
+		newPathConf, _, err := conf.FindPathConf(newPaths, pathName)
 		// path does not have a config anymore: delete it
 		if err != nil {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
+			pm.removeAndClosePath(path)
 			continue
 		}
 
-		// path now belongs to a different config: delete it
-		if pathConf.Name != path.conf.Name {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
+		// path now belongs to a different config
+		if newPathConf.Name != pathData.confName {
+			// path config can be hot reloaded
+			oldPathConf := pm.pathConfs[pathData.confName]
+			if pathConfCanBeUpdated(oldPathConf, newPathConf) {
+				pm.paths[path.name].confName = newPathConf.Name
+				go path.reloadConf(newPathConf)
+				continue
+			}
+
+			// Configuration cannot be hot reloaded: delete the path
+			pm.removeAndClosePath(path)
 			continue
 		}
 
 		// path configuration has changed and cannot be hot reloaded: delete path
-		if _, ok := confsToRecreate[pathConf.Name]; ok {
-			pm.removePath(path)
-			path.close()
-			path.wait() // avoid conflicts between sources
+		if _, ok := confsToRecreate[newPathConf.Name]; ok {
+			pm.removeAndClosePath(path)
 			continue
 		}
 
 		// path configuration has changed but can be hot reloaded: reload it
-		if _, ok := confsToReload[pathConf.Name]; ok {
-			go path.reloadConf(pathConf)
+		if _, ok := confsToReload[newPathConf.Name]; ok {
+			go path.reloadConf(newPathConf)
 		}
 	}
 
@@ -250,6 +257,12 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 			}
 		}
 	}
+}
+
+func (pm *pathManager) removeAndClosePath(path *path) {
+	pm.removePath(path)
+	path.close()
+	path.wait() // avoid conflicts between sources
 }
 
 func (pm *pathManager) doSetHLSServer(m *hls.Server) []defs.Path {
@@ -425,7 +438,10 @@ func (pm *pathManager) createPath(
 	}
 	pa.initialize()
 
-	pm.paths[name] = &pathData{path: pa}
+	pm.paths[name] = &pathData{
+		path:     pa,
+		confName: pathConf.Name,
+	}
 }
 
 func (pm *pathManager) removePath(pa *path) {
