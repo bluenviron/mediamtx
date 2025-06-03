@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -84,6 +85,7 @@ type Server struct {
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
 	ExternalCmdPool     *externalcmd.Pool
+	TimeNow             func() time.Time
 	Metrics             serverMetrics
 	PathManager         serverPathManager
 	Parent              serverParent
@@ -216,6 +218,7 @@ outer:
 				wg:                  &s.wg,
 				nconn:               nconn,
 				externalCmdPool:     s.ExternalCmdPool,
+				timeNow:             s.TimeNow,
 				pathManager:         s.PathManager,
 				parent:              s,
 			}

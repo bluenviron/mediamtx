@@ -97,6 +97,13 @@ func TestServerPublish(t *testing.T) {
 				},
 			}
 
+			n := 0
+			timeNow := func() time.Time {
+				d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
+				n++
+				return d
+			}
+
 			s := &Server{
 				Address:             "127.0.0.1:1935",
 				ReadTimeout:         conf.Duration(10 * time.Second),
@@ -109,6 +116,7 @@ func TestServerPublish(t *testing.T) {
 				RunOnConnectRestart: false,
 				RunOnDisconnect:     "",
 				ExternalCmdPool:     nil,
+				TimeNow:             timeNow,
 				PathManager:         pathManager,
 				Parent:              test.NilLogger,
 			}
@@ -146,12 +154,6 @@ func TestServerPublish(t *testing.T) {
 			err = w.Initialize()
 			require.NoError(t, err)
 
-			err = w.WriteH264(
-				2*time.Second, 2*time.Second, [][]byte{
-					{5, 2, 3, 4},
-				})
-			require.NoError(t, err)
-
 			<-path.streamCreated
 
 			recv := make(chan struct{})
@@ -166,7 +168,7 @@ func TestServerPublish(t *testing.T) {
 					require.Equal(t, [][]byte{
 						test.FormatH264.SPS,
 						test.FormatH264.PPS,
-						{5, 2, 3, 4},
+						{5, 6, 7, 8},
 					}, u.(*unit.H264).AU)
 					close(recv)
 					return nil
@@ -177,7 +179,7 @@ func TestServerPublish(t *testing.T) {
 
 			err = w.WriteH264(
 				3*time.Second, 3*time.Second, [][]byte{
-					{5, 2, 3, 4},
+					{5, 6, 7, 8},
 				})
 			require.NoError(t, err)
 
@@ -303,8 +305,16 @@ func TestServerRead(t *testing.T) {
 				})
 			}()
 
+			n := 0
+			timeNow := func() time.Time {
+				d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
+				n++
+				return d
+			}
+
 			r := &rtmp.Reader{
-				Conn: conn,
+				Conn:    conn,
+				TimeNow: timeNow,
 			}
 			err = r.Initialize()
 			require.NoError(t, err)

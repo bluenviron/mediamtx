@@ -272,7 +272,8 @@ func sortedKeys(m map[uint8]format.Format) []int {
 
 // Reader provides functions to read incoming data.
 type Reader struct {
-	Conn Conn
+	Conn    Conn
+	TimeNow func() time.Time
 
 	videoTracks map[uint8]format.Format
 	audioTracks map[uint8]format.Format
@@ -282,6 +283,10 @@ type Reader struct {
 
 // Initialize initializes Reader.
 func (r *Reader) Initialize() error {
+	if r.TimeNow == nil {
+		r.TimeNow = time.Now
+	}
+
 	var err error
 	r.videoTracks, r.audioTracks, err = r.readTracks()
 	if err != nil {
@@ -296,8 +301,8 @@ func (r *Reader) Initialize() error {
 
 func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format, error) {
 	firstReceived := false
-	var startTime time.Duration
-	var curTime time.Duration
+	var startTime time.Time
+	var curTime time.Time
 
 	videoTracks := make(map[uint8]format.Format)
 	audioTracks := make(map[uint8]format.Format)
@@ -316,21 +321,23 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 		return nil
 	}
 
-	handleVideoExCodedFrames := func(_ uint8, msg *message.VideoExCodedFrames) error {
+	handleVideoExCodedFrames := func(_ uint8, _ *message.VideoExCodedFrames) error {
+		now := r.TimeNow()
 		if !firstReceived {
 			firstReceived = true
-			startTime = msg.DTS
+			startTime = now
 		}
-		curTime = msg.DTS
+		curTime = now
 		return nil
 	}
 
-	handleVideoExFramesX := func(_ uint8, msg *message.VideoExFramesX) error {
+	handleVideoExFramesX := func(_ uint8, _ *message.VideoExFramesX) error {
+		now := r.TimeNow()
 		if !firstReceived {
 			firstReceived = true
-			startTime = msg.DTS
+			startTime = now
 		}
-		curTime = msg.DTS
+		curTime = now
 		return nil
 	}
 
@@ -346,11 +353,12 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 	}
 
 	handleAudioCodedFrames := func(trackID uint8, msg *message.AudioExCodedFrames) error {
+		now := r.TimeNow()
 		if !firstReceived {
 			firstReceived = true
-			startTime = msg.DTS
+			startTime = now
 		}
-		curTime = msg.DTS
+		curTime = now
 
 		if audioTracks[trackID] != nil {
 			return nil
@@ -373,11 +381,12 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 
 		switch msg := msg.(type) {
 		case *message.Video:
+			now := r.TimeNow()
 			if !firstReceived {
 				firstReceived = true
-				startTime = msg.DTS
+				startTime = now
 			}
-			curTime = msg.DTS
+			curTime = now
 
 			if msg.Type == message.VideoTypeConfig && videoTracks[0] == nil {
 				videoTracks[0], err = h264TrackFromConfig(msg.Payload)
@@ -430,11 +439,12 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 			}
 
 		case *message.Audio:
+			now := r.TimeNow()
 			if !firstReceived {
 				firstReceived = true
-				startTime = msg.DTS
+				startTime = now
 			}
-			curTime = msg.DTS
+			curTime = now
 
 			if audioTracks[0] == nil && len(msg.Payload) != 0 {
 				if msg.Codec == message.CodecMPEG4Audio {
@@ -484,7 +494,7 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 			}
 		}
 
-		if (curTime - startTime) >= analyzePeriod {
+		if curTime.Sub(startTime) >= analyzePeriod {
 			break
 		}
 	}

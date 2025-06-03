@@ -83,9 +83,6 @@ func TestSource(t *testing.T) {
 						err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 						require.NoError(t, err)
 
-						err = w.WriteH264(3*time.Second, 3*time.Second, [][]byte{{5, 2, 3, 4}})
-						require.NoError(t, err)
-
 						break
 					}
 				}()
@@ -103,6 +100,16 @@ func TestSource(t *testing.T) {
 				}
 
 				source += "localhost/teststream"
+
+				n := 0
+				timeNow = func() time.Time {
+					d := time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local).Add(time.Duration(n) * 2 * time.Second)
+					n++
+					return d
+				}
+				defer func() {
+					timeNow = time.Now
+				}()
 
 				te := test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
