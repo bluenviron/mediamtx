@@ -19,6 +19,9 @@ import (
 func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone := oldPathConf.Clone()
 
+	clone.Name = newPathConf.Name
+	clone.Regexp = newPathConf.Regexp
+
 	clone.Record = newPathConf.Record
 
 	clone.RPICameraBrightness = newPathConf.RPICameraBrightness
@@ -37,11 +40,6 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RPICameraFPS = newPathConf.RPICameraFPS
 	clone.RPICameraIDRPeriod = newPathConf.RPICameraIDRPeriod
 	clone.RPICameraBitrate = newPathConf.RPICameraBitrate
-
-	if oldPathConf.Name == "all" || oldPathConf.Name == "all_others" {
-		clone.Name = newPathConf.Name
-		clone.Regexp = newPathConf.Regexp
-	}
 
 	return newPathConf.Equal(clone)
 }
@@ -221,15 +219,16 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 			continue
 		}
 
-		// path now belongs to a different config with exact name match
-		if newConf, exists := newPaths[pathName]; exists && newConf.Name == pathName {
-			if pathConfCanBeUpdated(path.conf, newConf) {
-				// Hot reload the path with the new configuration
-				go path.reloadConf(newConf)
-			} else {
-				// Configuration cannot be hot reloaded: recreate the path
-				pm.removeAndClosePath(path)
+		// path now belongs to a different config
+		if pathConf.Name != path.conf.Name {
+			// path config can be hot reloaded
+			if pathConfCanBeUpdated(path.conf, pathConf) {
+				go path.reloadConf(pathConf)
+				continue
 			}
+
+			// Configuration cannot be hot reloaded: delete the path
+			pm.removeAndClosePath(path)
 			continue
 		}
 

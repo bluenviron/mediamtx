@@ -169,4 +169,17 @@ func TestPathConfigurationHotReload(t *testing.T) {
 
 	// Verify the path is still ready and functional
 	require.Equal(t, true, pathData.Ready)
+
+	// revert configuration
+	httpRequest(t, hc, http.MethodDelete, "http://localhost:9997/v3/config/paths/delete/undefined_stream",
+		nil, nil)
+
+	// Give the system time to process the configuration change
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify the path now uses the old configuration
+	pathData, err = p.pathManager.APIPathsGet("undefined_stream")
+	require.NoError(t, err)
+	require.Equal(t, "undefined_stream", pathData.Name)
+	require.Equal(t, "all", pathData.ConfName)
 }
