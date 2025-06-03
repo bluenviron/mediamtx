@@ -3,6 +3,7 @@ package webrtc
 import (
 	"context"
 	"net"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
+	"github.com/pion/rtp"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
@@ -23,6 +25,14 @@ func (nilWriter) Write(p []byte) (int, error) {
 }
 
 var webrtcNilLogger = logging.NewDefaultLeveledLoggerForScope("", 0, &nilWriter{})
+
+func gatherCodecs(tracks []*IncomingTrack) []webrtc.RTPCodecParameters {
+	codecs := make([]webrtc.RTPCodecParameters, len(tracks))
+	for i, track := range tracks {
+		codecs[i] = track.Codec()
+	}
+	return codecs
+}
 
 func TestPeerConnectionCloseImmediately(t *testing.T) {
 	pc := &PeerConnection{
@@ -222,6 +232,108 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestPeerConnectionPublishRead(t *testing.T) {
+	pc1 := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		Publish:            false,
+		Log:                test.NilLogger,
+	}
+	err := pc1.Start()
+	require.NoError(t, err)
+	defer pc1.Close()
+
+	pc2 := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		Publish:            true,
+		OutgoingTracks: []*OutgoingTrack{
+			{
+				Caps: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeH264,
+					ClockRate: 90000,
+				},
+			},
+			{
+				Caps: webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeOpus,
+					ClockRate: 48000,
+					Channels:  2,
+				},
+			},
+		},
+		Log: test.NilLogger,
+	}
+	err = pc2.Start()
+	require.NoError(t, err)
+	defer pc2.Close()
+
+	offer, err := pc1.CreatePartialOffer()
+	require.NoError(t, err)
+
+	answer, err := pc2.CreateFullAnswer(context.Background(), offer)
+	require.NoError(t, err)
+
+	err = pc1.SetAnswer(answer)
+	require.NoError(t, err)
+
+	err = pc1.WaitUntilConnected(context.Background())
+	require.NoError(t, err)
+
+	err = pc2.WaitUntilConnected(context.Background())
+	require.NoError(t, err)
+
+	for _, track := range pc2.OutgoingTracks {
+		err = track.WriteRTP(&rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    111,
+				SequenceNumber: 1123,
+				Timestamp:      45343,
+				SSRC:           563424,
+			},
+			Payload: []byte{5, 2},
+		})
+		require.NoError(t, err)
+	}
+
+	err = pc1.GatherIncomingTracks(context.Background())
+	require.NoError(t, err)
+
+	codecs := gatherCodecs(pc1.IncomingTracks())
+
+	sort.Slice(codecs, func(i, j int) bool {
+		return codecs[i].PayloadType < codecs[j].PayloadType
+	})
+
+	require.Equal(t, []webrtc.RTPCodecParameters{
+		{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeH264,
+				ClockRate:    90000,
+				SDPFmtpLine:  "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+				RTCPFeedback: codecs[0].RTCPFeedback,
+			},
+			PayloadType: 105,
+		},
+		{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeOpus,
+				ClockRate:    48000,
+				Channels:     2,
+				SDPFmtpLine:  "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
+				RTCPFeedback: codecs[1].RTCPFeedback,
+			},
+			PayloadType: 111,
+		},
+	}, codecs)
 }
 
 // test that an audio codec is present regardless of the fact that an audio track is.

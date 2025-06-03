@@ -253,6 +253,11 @@ func (t *IncomingTrack) initialize() {
 	t.OnPacketRTP = func(*rtp.Packet, time.Time) {}
 }
 
+// Codec returns the track codec.
+func (t *IncomingTrack) Codec() webrtc.RTPCodecParameters {
+	return t.track.Codec()
+}
+
 // ClockRate returns the clock rate. Needed by rtptime.GlobalDecoder
 func (t *IncomingTrack) ClockRate() int {
 	return int(t.track.Codec().ClockRate)
