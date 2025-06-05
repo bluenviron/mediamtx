@@ -32,6 +32,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
+	"github.com/bluenviron/mediamtx/internal/servers/websocket"
 )
 
 //go:generate go run ./versiongetter
@@ -84,6 +85,7 @@ type Core struct {
 	srtServer       *srt.Server
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
+	websocketServer *websocket.Server
 
 	// in
 	chAPIConfigSet chan *conf.Conf
@@ -164,7 +166,9 @@ func (p *Core) Wait() {
 
 // Log implements logger.Writer.
 func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
-	p.logger.Log(level, format, args...)
+	if p.logger != nil {
+		p.logger.Log(level, format, args...)
+	}
 }
 
 func (p *Core) run() {
@@ -612,6 +616,26 @@ func (p *Core) createResources(initial bool) error {
 		p.api = i
 	}
 
+	if p.conf.WebSocket {
+		if p.websocketServer == nil {
+			i := &websocket.Server{
+				Address:      p.conf.WebSocketAddress,
+				Parent:       p,
+				HlsServer:    p.hlsServer,
+				RtmpServer:   p.rtmpServer,
+				RtspServer:   p.rtspServer,
+				SrtServer:    p.srtServer,
+				WebRTCServer: p.webRTCServer,
+				WsInterval:   p.conf.WsInterval,
+			}
+			err = i.Initialize()
+			if err != nil {
+				return err
+			}
+			p.websocketServer = i
+		}
+	}
+
 	if initial && p.confPath != "" {
 		p.confWatcher = &confwatcher.ConfWatcher{FilePath: p.confPath}
 		err = p.confWatcher.Initialize()
@@ -850,6 +874,12 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeSRTServer ||
 		closeLogger
 
+	closeWebSocketServer := newConf == nil ||
+		newConf.WebSocket != p.conf.WebSocket ||
+		newConf.WebSocketAddress != p.conf.WebSocketAddress ||
+		newConf.WsInterval != p.conf.WsInterval ||
+		closeLogger
+
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
 		p.confWatcher = nil
@@ -936,6 +966,93 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeLogger && p.logger != nil {
 		p.logger.Close()
 		p.logger = nil
+	}
+
+	if closeWebSocketServer && p.websocketServer != nil || newConf.RTSP != p.conf.RTSP ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.RTSPServerCert != p.conf.RTSPServerCert ||
+		newConf.RTSPServerKey != p.conf.RTSPServerKey ||
+		newConf.RTPAddress != p.conf.RTPAddress ||
+		newConf.RTCPAddress != p.conf.RTCPAddress ||
+		newConf.MulticastIPRange != p.conf.MulticastIPRange ||
+		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
+		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		newConf.RTMP != p.conf.RTMP ||
+		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
+		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
+		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		newConf.HLS != p.conf.HLS ||
+		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.HLSEncryption != p.conf.HLSEncryption ||
+		newConf.HLSServerKey != p.conf.HLSServerKey ||
+		newConf.HLSServerCert != p.conf.HLSServerCert ||
+		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
+		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
+		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
+		newConf.HLSVariant != p.conf.HLSVariant ||
+		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
+		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
+		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
+		newConf.HLSDirectory != p.conf.HLSDirectory ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
+		newConf.WebRTC != p.conf.WebRTC ||
+		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
+		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
+		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
+		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
+		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
+		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
+		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
+		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
+		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
+		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
+		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
+		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
+		newConf.WebRTCSTUNGatherTimeout != p.conf.WebRTCSTUNGatherTimeout ||
+		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
+		newConf.SRT != p.conf.SRT ||
+		newConf.SRTAddress != p.conf.SRTAddress ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		closeMetrics ||
+		newConf.Metrics != p.conf.Metrics ||
+		newConf.MetricsAddress != p.conf.MetricsAddress ||
+		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
+		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
+		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
+		newConf.MetricsAllowOrigin != p.conf.MetricsAllowOrigin ||
+		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closePathManager ||
+		closeAuthManager ||
+		closeLogger {
+		p.websocketServer.Close()
+		p.websocketServer = nil
 	}
 }
 
