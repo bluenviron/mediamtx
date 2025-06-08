@@ -5,6 +5,10 @@ on:
     tags:
     - 'v*'
 
+permissions:
+  id-token: write
+  attestations: write
+
 jobs:
   binaries:
     runs-on: ubuntu-22.04
@@ -14,7 +18,11 @@ jobs:
 
     - run: make binaries
 
-    - run: cd binaries; for f in *; do sha256sum $f > $f.sha256sum; done
+    - run: cd binaries && sha256sum -b * > checksums.sha256
+
+    - uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: '${{ github.workspace }}/binaries/*'
 
     - uses: actions/upload-artifact@v4
       with:
@@ -40,21 +48,31 @@ jobs:
 
           const currentRelease = context.ref.split('/')[2];
 
-          let body = `## New major features\n\n`
-            + `TODO\n\n`
-            + `## Fixes and improvements\n\n`
-            + `TODO\n\n`
-            + `## Security\n\n`
+          let body = `## New major features\n`
+            + `\n`
+            + `TODO\n`
+            + `\n`
+            + `## Fixes and improvements\n`
+            + `\n`
+            + `TODO\n`
+            + `\n`
+            + `## Security\n`
+            + `\n`
             + `Binaries have been produced by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml)`
-            + ` without human intervention.\n\n`
-            + `SHA256 checksums:\n\n`;
-
-          for (const name of await fs.readdir('./binaries/')) {
-            if (name.endsWith('.sha256sum')) {
-              const parts = (await fs.readFile(`./binaries/${name}`, 'utf-8')).slice(0, -1).split(' ');
-              body += `* ${parts[2]} ${parts[0]}\n`;
-            }
-          }
+            + ` without human intervention.\n`
+            + `\n`
+            + 'You can verify that binaries have been produced by the workflow by using [GitHub Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds):\n'
+            + `\n`
+            + '```\n'
+            + `ls mediamtx_* | xargs -L1 gh attestation verify --repo bluenviron/mediamtx\n`
+            + '```\n'
+            + `\n`
+            + 'You can verify the binaries checksum by downloading `checksums.sha256` and running:\n'
+            + `\n`
+            + '```\n'
+            + `cat checksums.sha256 | grep "$(ls mediamtx_*)" | sha256sum --check\n`
+            + '```\n'
+            + `\n`;
 
           const res = await github.rest.repos.createRelease({
             owner,
