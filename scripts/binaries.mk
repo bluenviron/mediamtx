@@ -1,11 +1,5 @@
 BINARY_NAME = mediamtx
 
-ifeq ($(CHECKSUM),1)
-  define DOCKERFILE_CHECKSUM
-  RUN cd /s/binaries; for f in *; do sha256sum $$f > $$f.sha256sum; done
-  endef
-endif
-
 define DOCKERFILE_BINARIES
 FROM $(BASE_IMAGE) AS build-base
 RUN apk add --no-cache zip make git tar
@@ -62,7 +56,6 @@ COPY --from=build-darwin-arm64 /s/binaries /s/binaries
 COPY --from=build-linux-armv6 /s/binaries /s/binaries
 COPY --from=build-linux-armv7 /s/binaries /s/binaries
 COPY --from=build-linux-arm64 /s/binaries /s/binaries
-$(DOCKERFILE_CHECKSUM)
 endef
 export DOCKERFILE_BINARIES
 
@@ -71,3 +64,4 @@ binaries:
 	-t temp
 	docker run --rm -v "$(shell pwd):/out" \
 	temp sh -c "rm -rf /out/binaries && cp -r /s/binaries /out/"
+	sudo chown -R $(shell id -u):$(shell id -g) binaries
