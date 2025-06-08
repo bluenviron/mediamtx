@@ -13,8 +13,8 @@ jobs:
     - uses: actions/checkout@v4
 
     - run: make binaries
-      env:
-        CHECKSUM: '1'
+
+    - run: cd binaries; for f in *; do sha256sum $f > $f.sha256sum; done
 
     - uses: actions/upload-artifact@v4
       with:
