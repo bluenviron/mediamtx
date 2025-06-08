@@ -458,7 +458,7 @@ pathDefaults:
   sourceOnDemandCloseAfter: 10s
   # Maximum number of readers. Zero means no limit.
   maxReaders: 0
-  # SRT encryption passphrase require to read from this path
+  # SRT encryption passphrase required to read from this path.
   srtReadPassphrase:
   # If the stream is not available, redirect readers to this path.
   # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
@@ -495,7 +495,7 @@ pathDefaults:
 
   # Allow another client to disconnect the current publisher and publish in its place.
   overridePublisher: yes
-  # SRT encryption passphrase required to publish to this path
+  # SRT encryption passphrase required to publish to this path.
   srtPublishPassphrase:
 
   ###############################################
