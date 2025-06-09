@@ -279,8 +279,6 @@ func TestServerRead(t *testing.T) {
 
 				err = c.Start()
 				require.NoError(t, err)
-
-				defer func() { <-c.Wait() }()
 				defer c.Close()
 
 				time.Sleep(100 * time.Millisecond)
@@ -397,7 +395,6 @@ func TestServerRead(t *testing.T) {
 
 				err = c.Start()
 				require.NoError(t, err)
-				defer func() { <-c.Wait() }()
 				defer c.Close()
 
 				<-recv1

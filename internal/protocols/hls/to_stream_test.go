@@ -131,11 +131,7 @@ func TestToStream(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	select {
-	case <-done:
-	case err := <-c.Wait():
-		t.Error(err.Error())
-	}
+	<-done
 
 	strm.RemoveReader(reader)
 	strm.Close()

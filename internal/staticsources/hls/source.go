@@ -106,9 +106,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
+	waitErr := make(chan error)
+	go func() {
+		waitErr <- c.Wait2()
+	}()
+
 	for {
 		select {
-		case err := <-c.Wait():
+		case err := <-waitErr:
 			c.Close()
 			return err
 
@@ -116,7 +121,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			c.Close()
-			<-c.Wait()
+			<-waitErr
 			return nil
 		}
 	}
