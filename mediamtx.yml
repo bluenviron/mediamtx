@@ -552,22 +552,20 @@ pathDefaults:
   # values: normal, short, long, custom.
   rpiCameraExposure: normal
   # Auto-white-balance mode.
-  # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom.
+  # (auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy or custom).
   rpiCameraAWB: auto
   # Auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
   # format: [red,blue].
   rpiCameraAWBGains: [0, 0]
-  # Denoise operating mode.
-  # values: off, cdn_off, cdn_fast, cdn_hq.
+  # Denoise operating mode (off, cdn_off, cdn_fast, cdn_hq).
   rpiCameraDenoise: "off"
   # Fixed shutter speed, in microseconds.
   rpiCameraShutter: 0
-  # Metering mode of the AEC/AGC algorithm.
-  # values: centre, spot, matrix, custom.
+  # Metering mode of the AEC/AGC algorithm (centre, spot, matrix or custom).
   rpiCameraMetering: centre
   # Fixed gain.
   rpiCameraGain: 0
-  # EV compensation of the image [-10, 10].
+  # EV compensation of the image in range [-10, 10].
   rpiCameraEV: 0
   # Region of interest, in format x,y,width,height (all normalized between 0 and 1).
   rpiCameraROI:
@@ -580,14 +578,11 @@ pathDefaults:
   rpiCameraMode:
   # frames per second.
   rpiCameraFPS: 30
-  # Autofocus mode.
-  # values: auto, manual, continuous.
+  # Autofocus mode (auto, manual or continuous).
   rpiCameraAfMode: continuous
-  # Autofocus range.
-  # values: normal, macro, full.
+  # Autofocus range (normal, macro or full).
   rpiCameraAfRange: normal
-  # Autofocus speed.
-  # values: normal, fast.
+  # Autofocus speed (normal or fast).
   rpiCameraAfSpeed: normal
   # Lens position (for manual autofocus only), will be set to focus to a specific distance
   # calculated by the following formula: d = 1 / value
@@ -605,13 +600,13 @@ pathDefaults:
   # Text that is printed on each frame.
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
-  # Codec. Available values: auto, hardwareH264, softwareH264, mjpeg.
+  # Codec (auto, hardwareH264, softwareH264 or mjpeg).
   rpiCameraCodec: auto
   # Period between H264 IDR frames.
   rpiCameraIDRPeriod: 60
-  # H264 Bitrate.
+  # H264 bitrate.
   rpiCameraBitrate: 5000000
-  # H264 profile.
+  # H264 profile (baseline, main or high).
   rpiCameraProfile: main
   # H264 level.
   rpiCameraLevel: '4.1'
