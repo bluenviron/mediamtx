@@ -16,7 +16,6 @@ help:
 	@echo "  lint             run linters"
 	@echo "  apidocs          generate api docs HTML"
 	@echo "  binaries         build binaries for all platforms"
-	@echo "  dockerhub        build and push images to Docker Hub"
 	@echo ""
 
 blank :=
