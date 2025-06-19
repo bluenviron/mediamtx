@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
+	"github.com/devsisters/mediamtx/internal/conf/jsonwrapper"
 )
 
 var reDays = regexp.MustCompile("^(-?[0-9]+)d")

@@ -20,10 +20,10 @@ import (
 	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
-	"github.com/bluenviron/mediamtx/internal/protocols/whip"
-	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp"
+	"github.com/devsisters/mediamtx/internal/protocols/webrtc"
+	"github.com/devsisters/mediamtx/internal/protocols/whip"
+	"github.com/devsisters/mediamtx/internal/test"
 )
 
 func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {

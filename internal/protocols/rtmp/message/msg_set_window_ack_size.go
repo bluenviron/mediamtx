@@ -3,7 +3,7 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/rawmessage"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/rawmessage"
 )
 
 // SetWindowAckSize is a set window acknowledgement message.

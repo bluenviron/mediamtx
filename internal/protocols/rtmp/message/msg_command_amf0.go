@@ -3,8 +3,8 @@ package message
 import (
 	"fmt"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/rawmessage"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/amf0"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/rawmessage"
 )
 
 // CommandAMF0 is a AMF0 command message.

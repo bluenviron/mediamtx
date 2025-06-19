@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/devsisters/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/stream"
+	"github.com/devsisters/mediamtx/internal/test"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"

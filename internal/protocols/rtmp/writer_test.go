@@ -8,9 +8,9 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/amf0"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/bytecounter"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/message"
 )
 
 func TestWriteTracks(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/unit"
+	"github.com/devsisters/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/unit"
 )
 
 // AV1-related parameters

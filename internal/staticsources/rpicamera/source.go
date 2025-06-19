@@ -13,11 +13,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmjpeg"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/unit"
+	"github.com/devsisters/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/defs"
+	"github.com/devsisters/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/stream"
+	"github.com/devsisters/mediamtx/internal/unit"
 )
 
 const (

@@ -11,8 +11,8 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/unit"
+	"github.com/devsisters/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/unit"
 )
 
 // MPEG-4 video related parameters

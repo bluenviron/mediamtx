@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/logger"
 )
 
 const (

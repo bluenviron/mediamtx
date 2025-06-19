@@ -10,12 +10,12 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
-	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/devsisters/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/defs"
+	"github.com/devsisters/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp"
+	"github.com/devsisters/mediamtx/internal/protocols/tls"
+	"github.com/devsisters/mediamtx/internal/stream"
 )
 
 // Source is a RTMP static source.

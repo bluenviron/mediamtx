@@ -3,8 +3,8 @@ package defs
 import (
 	"net"
 
-	"github.com/bluenviron/mediamtx/internal/auth"
-	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/auth"
+	"github.com/devsisters/mediamtx/internal/conf"
 	"github.com/google/uuid"
 )
 

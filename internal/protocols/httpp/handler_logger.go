@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/logger"
 )
 
 type loggerWriter struct {

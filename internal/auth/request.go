@@ -3,7 +3,7 @@ package auth
 import (
 	"net"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/conf"
 	"github.com/google/uuid"
 )
 

@@ -4,10 +4,10 @@
   <br>
   <br>
 
-  [![Test](https://github.com/bluenviron/mediamtx/actions/workflows/code_test.yml/badge.svg)](https://github.com/bluenviron/mediamtx/actions/workflows/code_test.yml)
-  [![Lint](https://github.com/bluenviron/mediamtx/actions/workflows/code_lint.yml/badge.svg)](https://github.com/bluenviron/mediamtx/actions/workflows/code_lint.yml)
+  [![Test](https://github.com/devsisters/mediamtx/actions/workflows/code_test.yml/badge.svg)](https://github.com/devsisters/mediamtx/actions/workflows/code_test.yml)
+  [![Lint](https://github.com/devsisters/mediamtx/actions/workflows/code_lint.yml/badge.svg)](https://github.com/devsisters/mediamtx/actions/workflows/code_lint.yml)
   [![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/tree/main)
-  [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
+  [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/devsisters/mediamtx/releases)
   [![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
   [![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://bluenviron.github.io/mediamtx)
 </h1>
@@ -71,96 +71,103 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 
 ## Table of contents
 
-* [Installation](#installation)
-  * [Standalone binary](#standalone-binary)
-  * [Docker image](#docker-image)
-  * [Arch Linux package](#arch-linux-package)
-  * [OpenWrt binary](#openwrt-binary)
-* [Basic usage](#basic-usage)
-* [Publish to the server](#publish-to-the-server)
-  * [By software](#by-software)
-    * [FFmpeg](#ffmpeg)
-    * [GStreamer](#gstreamer)
-    * [OBS Studio](#obs-studio)
-    * [OpenCV](#opencv)
-    * [Unity](#unity)
-    * [Web browsers](#web-browsers)
-  * [By device](#by-device)
-    * [Generic webcam](#generic-webcam)
-    * [Raspberry Pi Cameras](#raspberry-pi-cameras)
-      * [Adding audio](#adding-audio)
-      * [Secondary stream](#secondary-stream)
-  * [By protocol](#by-protocol)
-    * [SRT clients](#srt-clients)
-    * [SRT cameras and servers](#srt-cameras-and-servers)
-    * [WebRTC clients](#webrtc-clients)
-    * [WebRTC servers](#webrtc-servers)
-    * [RTSP clients](#rtsp-clients)
-    * [RTSP cameras and servers](#rtsp-cameras-and-servers)
-    * [RTMP clients](#rtmp-clients)
-    * [RTMP cameras and servers](#rtmp-cameras-and-servers)
-    * [HLS cameras and servers](#hls-cameras-and-servers)
-    * [UDP/MPEG-TS](#udpmpeg-ts)
-* [Read from the server](#read-from-the-server)
-  * [By software](#by-software-1)
-    * [FFmpeg](#ffmpeg-1)
-    * [GStreamer](#gstreamer-1)
-    * [VLC](#vlc)
-    * [Unity](#unity-1)
-    * [Web browsers](#web-browsers-1)
-  * [By protocol](#by-protocol-1)
-    * [SRT](#srt)
-    * [WebRTC](#webrtc)
-    * [RTSP](#rtsp)
-    * [RTMP](#rtmp)
-    * [HLS](#hls)
-* [Other features](#other-features)
-  * [Configuration](#configuration)
-  * [Authentication](#authentication)
-    * [Internal](#internal)
-    * [HTTP-based](#http-based)
-    * [JWT-based](#jwt-based)
-  * [Encrypt the configuration](#encrypt-the-configuration)
-  * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
-  * [Record streams to disk](#record-streams-to-disk)
-  * [Playback recorded streams](#playback-recorded-streams)
-  * [Forward streams to other servers](#forward-streams-to-other-servers)
-  * [Proxy requests to other servers](#proxy-requests-to-other-servers)
-  * [On-demand publishing](#on-demand-publishing)
-  * [Route absolute timestamps](#route-absolute-timestamps)
-  * [Expose the server in a subfolder](#expose-the-server-in-a-subfolder)
-  * [Start on boot](#start-on-boot)
-    * [Linux](#linux)
-    * [OpenWrt](#openwrt)
-    * [Windows](#windows)
-  * [Hooks](#hooks)
-  * [Control API](#control-api)
-  * [Metrics](#metrics)
-  * [pprof](#pprof)
-  * [SRT-specific features](#srt-specific-features)
-    * [Standard stream ID syntax](#standard-stream-id-syntax)
-  * [WebRTC-specific features](#webrtc-specific-features)
-    * [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep)
-    * [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues)
-    * [Supported browsers](#supported-browsers)
-  * [HLS-specific features](#hls-specific-features)
-    * [Supported browsers](#supported-browsers-1)
-  * [RTSP-specific features](#rtsp-specific-features)
-    * [Transport protocols](#transport-protocols)
-    * [Encryption](#encryption)
-    * [Corrupted frames](#corrupted-frames)
-  * [RTMP-specific features](#rtmp-specific-features)
-    * [Encryption](#encryption-1)
-* [Compile from source](#compile-from-source)
-  * [Standard](#standard)
-  * [OpenWrt](#openwrt-1)
-  * [Custom libcamera](#custom-libcamera)
-  * [Cross compile](#cross-compile)
-  * [Compile for all supported platforms](#compile-for-all-supported-platforms)
-  * [Docker image](#docker-image-1)
-* [License](#license)
-* [Specifications](#specifications)
-* [Related projects](#related-projects)
+- [Table of contents](#table-of-contents)
+- [Installation](#installation)
+  - [Standalone binary](#standalone-binary)
+  - [Docker image](#docker-image)
+  - [Arch Linux package](#arch-linux-package)
+  - [OpenWrt binary](#openwrt-binary)
+- [Basic usage](#basic-usage)
+- [Publish to the server](#publish-to-the-server)
+  - [By software](#by-software)
+    - [FFmpeg](#ffmpeg)
+    - [GStreamer](#gstreamer)
+    - [OBS Studio](#obs-studio)
+    - [OpenCV](#opencv)
+    - [Unity](#unity)
+    - [Web browsers](#web-browsers)
+  - [By device](#by-device)
+    - [Generic webcam](#generic-webcam)
+    - [Raspberry Pi Cameras](#raspberry-pi-cameras)
+      - [Adding audio](#adding-audio)
+      - [Secondary stream](#secondary-stream)
+  - [By protocol](#by-protocol)
+    - [SRT clients](#srt-clients)
+    - [SRT cameras and servers](#srt-cameras-and-servers)
+    - [WebRTC clients](#webrtc-clients)
+    - [WebRTC servers](#webrtc-servers)
+    - [RTSP clients](#rtsp-clients)
+    - [RTSP cameras and servers](#rtsp-cameras-and-servers)
+    - [RTMP clients](#rtmp-clients)
+    - [RTMP cameras and servers](#rtmp-cameras-and-servers)
+    - [HLS cameras and servers](#hls-cameras-and-servers)
+    - [UDP/MPEG-TS](#udpmpeg-ts)
+- [Read from the server](#read-from-the-server)
+  - [By software](#by-software-1)
+    - [FFmpeg](#ffmpeg-1)
+    - [GStreamer](#gstreamer-1)
+    - [VLC](#vlc)
+      - [Ubuntu bug](#ubuntu-bug)
+      - [Encrypted streams](#encrypted-streams)
+    - [Unity](#unity-1)
+    - [Web browsers](#web-browsers-1)
+  - [By protocol](#by-protocol-1)
+    - [SRT](#srt)
+    - [WebRTC](#webrtc)
+    - [RTSP](#rtsp)
+      - [Latency](#latency)
+    - [RTMP](#rtmp)
+    - [HLS](#hls)
+      - [LL-HLS](#ll-hls)
+      - [Compatibility with Apple devices](#compatibility-with-apple-devices)
+      - [Latency](#latency-1)
+- [Other features](#other-features)
+  - [Configuration](#configuration)
+  - [Authentication](#authentication)
+    - [Internal](#internal)
+    - [HTTP-based](#http-based)
+    - [JWT-based](#jwt-based)
+  - [Encrypt the configuration](#encrypt-the-configuration)
+  - [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
+  - [Record streams to disk](#record-streams-to-disk)
+  - [Playback recorded streams](#playback-recorded-streams)
+  - [Forward streams to other servers](#forward-streams-to-other-servers)
+  - [Proxy requests to other servers](#proxy-requests-to-other-servers)
+  - [On-demand publishing](#on-demand-publishing)
+  - [Route absolute timestamps](#route-absolute-timestamps)
+  - [Expose the server in a subfolder](#expose-the-server-in-a-subfolder)
+  - [Start on boot](#start-on-boot)
+    - [Linux](#linux)
+    - [OpenWrt](#openwrt)
+    - [Windows](#windows)
+  - [Hooks](#hooks)
+  - [Control API](#control-api)
+  - [Metrics](#metrics)
+  - [pprof](#pprof)
+  - [SRT-specific features](#srt-specific-features)
+    - [Standard stream ID syntax](#standard-stream-id-syntax)
+  - [WebRTC-specific features](#webrtc-specific-features)
+    - [Authenticating with WHIP/WHEP](#authenticating-with-whipwhep)
+    - [Solving WebRTC connectivity issues](#solving-webrtc-connectivity-issues)
+    - [Supported browsers](#supported-browsers)
+  - [HLS-specific features](#hls-specific-features)
+    - [Supported browsers](#supported-browsers-1)
+  - [RTSP-specific features](#rtsp-specific-features)
+    - [Transport protocols](#transport-protocols)
+    - [Encryption](#encryption)
+    - [Corrupted frames](#corrupted-frames)
+  - [RTMP-specific features](#rtmp-specific-features)
+    - [Encryption](#encryption-1)
+- [Compile from source](#compile-from-source)
+  - [Standard](#standard)
+  - [OpenWrt](#openwrt-1)
+  - [Custom libcamera](#custom-libcamera)
+  - [Cross compile](#cross-compile)
+  - [Compile for all supported platforms](#compile-for-all-supported-platforms)
+  - [Docker image](#docker-image-1)
+- [License](#license)
+- [Specifications](#specifications)
+- [Related projects](#related-projects)
 
 ## Installation
 
@@ -168,7 +175,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 ### Standalone binary
 
-1. Download and extract a standalone binary from the [release page](https://github.com/bluenviron/mediamtx/releases) that corresponds to your operating system and architecture.
+1. Download and extract a standalone binary from the [release page](https://github.com/devsisters/mediamtx/releases) that corresponds to your operating system and architecture.
 
 2. Start the server:
 
@@ -1529,7 +1536,7 @@ These are the recommended methods for each client:
 |FFmpeg|RTMP|unsupported|Passwords and query parameters are currently truncated to 1024 characters by FFmpeg, so it's impossible to use FFMPEG+RTMP+JWT|
 |GStreamer|RTSP|Password||
 |GStreamer|RTMP|Query parameter||
-|any|SRT|unsupported|SRT truncates passwords and query parameters to 512 characters, so it's impossible to use SRT+JWT. See [#3430](https://github.com/bluenviron/mediamtx/issues/3430)|
+|any|SRT|unsupported|SRT truncates passwords and query parameters to 512 characters, so it's impossible to use SRT+JWT. See [#3430](https://github.com/devsisters/mediamtx/issues/3430)|
 
 Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs:
 
@@ -2498,7 +2505,7 @@ Be aware that RTMPS is currently unsupported by all major players. However, you 
 Install git and Go &ge; 1.24. Clone the repository, enter into the folder and start the building process:
 
 ```sh
-git clone https://github.com/bluenviron/mediamtx
+git clone https://github.com/devsisters/mediamtx
 cd mediamtx
 go generate ./...
 CGO_ENABLED=0 go build .
@@ -2518,7 +2525,7 @@ opkg install golang git git-http
 Clone the repository, enter into the folder and start the building process:
 
 ```sh
-git clone https://github.com/bluenviron/mediamtx
+git clone https://github.com/devsisters/mediamtx
 cd mediamtx
 go generate ./...
 CGO_ENABLED=0 go build .
@@ -2530,7 +2537,7 @@ If the OpenWrt device doesn't have enough resources to compile, you can [cross c
 
 ### Custom libcamera
 
-If you need to use a custom or external libcamera when interacting with the Raspberry Pi Camera, you have to compile [mediamtx-rpicamera](https://github.com/bluenviron/mediamtx-rpicamera) before compiling the server. Instructions are present in the `mediamtx-rpicamera` repository.
+If you need to use a custom or external libcamera when interacting with the Raspberry Pi Camera, you have to compile [mediamtx-rpicamera](https://github.com/devsisters/mediamtx-rpicamera) before compiling the server. Instructions are present in the `mediamtx-rpicamera` repository.
 
 ### Cross compile
 
@@ -2539,7 +2546,7 @@ Cross compilation allows to build an executable for a target machine from anothe
 On the machine you want to use to compile, install git and Go &ge; 1.24. Clone the repository, enter into the folder and start the building process:
 
 ```sh
-git clone https://github.com/bluenviron/mediamtx
+git clone https://github.com/devsisters/mediamtx
 cd mediamtx
 go generate ./...
 CGO_ENABLED=0 GOOS=my_os GOARCH=my_arch go build .
@@ -2605,7 +2612,7 @@ All the code in this repository is released under the [MIT License](LICENSE). Co
 
 * all the Golang-based dependencies listed into the [go.mod file](go.mod), which are all released under either the MIT license, BSD 3-Clause license or Apache License 2.0.
 * hls.js, released under the [Apache License 2.0](https://github.com/video-dev/hls.js/blob/master/LICENSE).
-* mediamtx-rpicamera, which is released under the same license of _MediaMTX_ but includes some [third-party dependencies](https://github.com/bluenviron/mediamtx-rpicamera?tab=readme-ov-file#license).
+* mediamtx-rpicamera, which is released under the same license of _MediaMTX_ but includes some [third-party dependencies](https://github.com/devsisters/mediamtx-rpicamera?tab=readme-ov-file#license).
 
 ## Specifications
 
@@ -2634,7 +2641,7 @@ All the code in this repository is released under the [MIT License](LICENSE). Co
 * [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
 * [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
 * [mediacommon (codecs and formats library used internally)](https://github.com/bluenviron/mediacommon)
-* [mediamtx-rpicamera (Raspberry Pi Camera component)](https://github.com/bluenviron/mediamtx-rpicamera)
+* [mediamtx-rpicamera (Raspberry Pi Camera component)](https://github.com/devsisters/mediamtx-rpicamera)
 * [datarhei/gosrt (SRT library used internally)](https://github.com/datarhei/gosrt)
 * [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
 * [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)

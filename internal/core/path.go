@@ -10,14 +10,14 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/hooks"
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/recorder"
-	"github.com/bluenviron/mediamtx/internal/staticsources"
-	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/devsisters/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/defs"
+	"github.com/devsisters/mediamtx/internal/externalcmd"
+	"github.com/devsisters/mediamtx/internal/hooks"
+	"github.com/devsisters/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/recorder"
+	"github.com/devsisters/mediamtx/internal/staticsources"
+	"github.com/devsisters/mediamtx/internal/stream"
 )
 
 func emptyTimer() *time.Timer {

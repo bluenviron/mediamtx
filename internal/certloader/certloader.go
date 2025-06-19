@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"github.com/bluenviron/mediamtx/internal/confwatcher"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/confwatcher"
+	"github.com/devsisters/mediamtx/internal/logger"
 )
 
 // CertLoader is a certificate loader. It watches for changes to the certificate and key files.

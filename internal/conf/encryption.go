@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
+	"github.com/devsisters/mediamtx/internal/conf/jsonwrapper"
 )
 
 // Encryption is the rtspEncryption / rtmpEncryption parameter.

@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/logger"
-	sshls "github.com/bluenviron/mediamtx/internal/staticsources/hls"
-	ssrpicamera "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
-	ssrtmp "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
-	ssrtsp "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
-	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
-	ssudp "github.com/bluenviron/mediamtx/internal/staticsources/udp"
-	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
-	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/devsisters/mediamtx/internal/conf"
+	"github.com/devsisters/mediamtx/internal/defs"
+	"github.com/devsisters/mediamtx/internal/logger"
+	sshls "github.com/devsisters/mediamtx/internal/staticsources/hls"
+	ssrpicamera "github.com/devsisters/mediamtx/internal/staticsources/rpicamera"
+	ssrtmp "github.com/devsisters/mediamtx/internal/staticsources/rtmp"
+	ssrtsp "github.com/devsisters/mediamtx/internal/staticsources/rtsp"
+	sssrt "github.com/devsisters/mediamtx/internal/staticsources/srt"
+	ssudp "github.com/devsisters/mediamtx/internal/staticsources/udp"
+	sswebrtc "github.com/devsisters/mediamtx/internal/staticsources/webrtc"
+	"github.com/devsisters/mediamtx/internal/stream"
 )
 
 const (

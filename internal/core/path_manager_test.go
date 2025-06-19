@@ -14,7 +14,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/devsisters/mediamtx/internal/test"
 )
 
 func TestPathAutoDeletion(t *testing.T) {

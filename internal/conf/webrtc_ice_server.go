@@ -1,6 +1,6 @@
 package conf
 
-import "github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
+import "github.com/devsisters/mediamtx/internal/conf/jsonwrapper"
 
 // WebRTCICEServer is a WebRTC ICE Server.
 type WebRTCICEServer struct {

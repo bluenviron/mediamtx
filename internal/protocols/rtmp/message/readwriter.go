@@ -3,7 +3,7 @@ package message
 import (
 	"io"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
+	"github.com/devsisters/mediamtx/internal/protocols/rtmp/bytecounter"
 )
 
 // ReadWriter is a message reader/writer.

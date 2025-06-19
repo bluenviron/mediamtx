@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/devsisters/mediamtx/internal/conf/jsonwrapper"
+	"github.com/devsisters/mediamtx/internal/logger"
 )
 
 // LogDestinations is the logDestionations parameter.

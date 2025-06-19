@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bluenviron/mediamtx/internal/auth"
+	"github.com/devsisters/mediamtx/internal/auth"
 )
 
 // Credentials extracts credentials from a HTTP request.
