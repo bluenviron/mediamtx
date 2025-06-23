@@ -26,7 +26,7 @@ require (
 	github.com/matthewhartstonge/argon2 v1.3.2
 	github.com/pion/ice/v4 v4.0.7
 	github.com/pion/interceptor v0.1.40
-	github.com/pion/logging v0.2.3
+	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.15
 	github.com/pion/rtp v1.8.19
 	github.com/pion/sdp/v3 v3.0.14
