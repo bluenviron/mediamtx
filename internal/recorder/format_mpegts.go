@@ -379,9 +379,31 @@ func (f *formatMPEGTS) initialize() bool {
 		}
 	}
 
+	// Even if there are no supported formats, we can still record the raw MPEG-TS stream
 	if len(setuppedFormats) == 0 {
-		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
-		return false
+		// Log that we're using passthrough mode for MPEG-TS streams with unsupported codecs
+		f.ri.Log(logger.Warn, "no supported tracks found, using MPEG-TS passthrough mode")
+
+		// Create a passthrough recorder instead
+		passthroughFormat := &formatPassthroughTS{
+			ri: f.ri,
+		}
+
+		// Initialize the passthrough format
+		ok := passthroughFormat.initialize()
+		if !ok {
+			return false
+		}
+
+		// Replace this format with the passthrough format
+		*f = formatMPEGTS{
+			ri:             f.ri,
+			dw:             passthroughFormat.dw,
+			bw:             passthroughFormat.bw,
+			currentSegment: nil,
+		}
+
+		return true
 	}
 
 	n := 1

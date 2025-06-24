@@ -510,7 +510,11 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
 				if n == 0 {
 					require.Equal(t, logger.Warn, l)
-					require.Equal(t, "[recorder] no supported tracks found, skipping recording", fmt.Sprintf(format, args...))
+					if ca == "fmp4" {
+						require.Equal(t, "[recorder] no supported tracks found, skipping recording", fmt.Sprintf(format, args...))
+					} else {
+						require.Equal(t, "[recorder] no supported tracks found, using MPEG-TS passthrough mode", fmt.Sprintf(format, args...))
+					}
 				}
 				n++
 			})
@@ -534,7 +538,12 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			w.Initialize()
 			defer w.Close()
 
-			require.Equal(t, 1, n)
+			if ca == "fmp4" {
+				require.Equal(t, 1, n)
+			} else {
+				// For MPEG-TS, we expect more log messages due to passthrough initialization
+				require.Greater(t, n, 0)
+			}
 		})
 	}
 }

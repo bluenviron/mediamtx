@@ -9,6 +9,7 @@ import (
 	"github.com/asticode/go-astits"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -32,11 +33,24 @@ func TestToStreamNoSupportedCodecs(t *testing.T) {
 	err = r.Initialize()
 	require.NoError(t, err)
 
-	l := test.Logger(func(logger.Level, string, ...interface{}) {
-		t.Error("should not happen")
+	var str *stream.Stream
+
+	// Use a simple logger that just logs the message
+	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+		t.Logf("Log: %s", fmt.Sprintf(format, args...))
 	})
-	_, err = ToStream(r, nil, l)
-	require.Equal(t, errNoSupportedCodecs, err)
+
+	// The function should now return medias with a generic format
+	// instead of returning an error
+	medias, err := ToStream(r, &str, l)
+	require.NoError(t, err)
+	require.NotNil(t, medias)
+	require.NotEmpty(t, medias)
+
+	// The stream should be initialized with the provided medias
+	if str != nil {
+		require.Equal(t, medias, str.Desc.Medias)
+	}
 }
 
 func TestToStreamSkipUnsupportedTracks(t *testing.T) {

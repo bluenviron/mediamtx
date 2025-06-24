@@ -55,11 +55,36 @@ func (ri *recorderInstance) initialize() {
 
 	switch ri.format {
 	case conf.RecordFormatMPEGTS:
-		ri.format2 = &formatMPEGTS{
-			ri: ri,
+		// Check if the stream has any unsupported codecs (like KLV metadata)
+		hasUnsupportedCodecs := false
+		for _, media := range ri.stream.Desc.Medias {
+			for _, format := range media.Formats {
+				if format.Codec() == "private" {
+					hasUnsupportedCodecs = true
+					break
+				}
+			}
+			if hasUnsupportedCodecs {
+				break
+			}
 		}
-		ok := ri.format2.initialize()
-		ri.skip = !ok
+
+		// If the stream contains MPEG-TS with unsupported codecs, use passthrough mode
+		if hasUnsupportedCodecs {
+			ri.Log(logger.Info, "stream contains unsupported codecs, using MPEG-TS passthrough mode")
+			ri.format2 = &formatPassthroughTS{
+				ri: ri,
+			}
+			ok := ri.format2.initialize()
+			ri.skip = !ok
+		} else {
+			// Otherwise use the standard MPEG-TS recorder
+			ri.format2 = &formatMPEGTS{
+				ri: ri,
+			}
+			ok := ri.format2.initialize()
+			ri.skip = !ok
+		}
 
 	default:
 		ri.format2 = &formatFMP4{
