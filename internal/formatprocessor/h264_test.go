@@ -105,7 +105,7 @@ func TestH264OversizedPackets(t *testing.T) {
 
 	p, err := New(1460, forma, false,
 		Logger(func(_ logger.Level, s string, i ...interface{}) {
-			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
+			require.Equal(t, "RTP packets are too big (2002 > 1460), remuxing them into smaller ones", fmt.Sprintf(s, i...))
 			logged = true
 		}))
 	require.NoError(t, err)
