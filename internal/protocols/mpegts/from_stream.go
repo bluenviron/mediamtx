@@ -229,6 +229,26 @@ func FromStream(
 						}
 						return bw.Flush()
 					})
+			case *format.KLV:
+				track := &mcmpegts.Track{Codec: forma.KLVCodec}
+
+				addTrack(
+					media,
+					forma,
+					track,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.KLV)
+						if tunit.Packets == nil {
+							return nil
+						}
+
+						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						err := (*w).WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Packets)
+						if err != nil {
+							return err
+						}
+						return bw.Flush()
+					})
 
 			case *format.MPEG4Audio:
 				co := forma.GetConfig()
