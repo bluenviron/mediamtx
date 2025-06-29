@@ -2,6 +2,9 @@
 package srt
 
 import (
+	"fmt"
+	"io"
+	"log"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -15,6 +18,25 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
+
+type loggedConn struct {
+	R io.Reader
+}
+
+func (c *loggedConn) Read(p []byte) (int, error) {
+	n, err := c.R.Read(p)
+	log.Println("incoming:")
+
+	for i, x := range p[:n] {
+		fmt.Printf("0x%.2x, ", x)
+		if (i+1)%8 == 0 {
+			fmt.Println("")
+		}
+	}
+	fmt.Println("")
+
+	return n, err
+}
 
 // Source is a SRT static source.
 type Source struct {
@@ -70,7 +92,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(sconn srt.Conn) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(sconn)}
+	lconn := &loggedConn{R: sconn}
+	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(lconn)}
 	err := r.Initialize()
 	if err != nil {
 		return err
