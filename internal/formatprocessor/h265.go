@@ -299,8 +299,12 @@ func (t *h265) ProcessRTPPacket( //nolint:dupl
 		pkt.PaddingSize = 0
 
 		// RTP packets exceed maximum size: start re-encoding them
-		if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-			t.Parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
+		if size := pkt.MarshalSize(); size > t.UDPMaxPayloadSize {
+			t.Parent.Log(logger.Info,
+				"RTP packets are too big (%d > %d), remuxing them into smaller ones",
+				size,
+				t.UDPMaxPayloadSize,
+			)
 
 			v1 := pkt.SSRC
 			v2 := pkt.SequenceNumber
