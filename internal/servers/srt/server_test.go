@@ -62,8 +62,7 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 
 func TestServerPublish(t *testing.T) {
 	externalCmdPool := &externalcmd.Pool{}
-	err := externalCmdPool.Initialize()
-	require.NoError(t, err)
+	externalCmdPool.Initialize()
 	defer externalCmdPool.Close()
 
 	path := &dummyPath{
@@ -93,7 +92,7 @@ func TestServerPublish(t *testing.T) {
 		PathManager:         pathManager,
 		Parent:              test.NilLogger,
 	}
-	err = s.Initialize()
+	err := s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
 
@@ -165,8 +164,7 @@ func TestServerPublish(t *testing.T) {
 
 func TestServerRead(t *testing.T) {
 	externalCmdPool := &externalcmd.Pool{}
-	err := externalCmdPool.Initialize()
-	require.NoError(t, err)
+	externalCmdPool.Initialize()
 	defer externalCmdPool.Close()
 
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
@@ -178,7 +176,7 @@ func TestServerRead(t *testing.T) {
 		GenerateRTPPackets: true,
 		Parent:             test.NilLogger,
 	}
-	err = strm.Initialize()
+	err := strm.Initialize()
 	require.NoError(t, err)
 
 	path := &dummyPath{stream: strm}
