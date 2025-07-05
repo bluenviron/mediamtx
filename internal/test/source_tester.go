@@ -66,7 +66,7 @@ func (t *SourceTester) Log(_ logger.Level, _ string, _ ...interface{}) {
 func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
 	t.stream = &stream.Stream{
 		WriteQueueSize:     512,
-		UDPMaxPayloadSize:  1472,
+		RTPMaxPayloadSize:  1450,
 		Desc:               req.Desc,
 		GenerateRTPPackets: req.GenerateRTPPackets,
 		Parent:             t,

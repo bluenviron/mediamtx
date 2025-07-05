@@ -104,7 +104,7 @@ func TestToStream(t *testing.T) {
 
 			strm = &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               &description.Session{Medias: medias},
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,

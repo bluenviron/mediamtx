@@ -40,7 +40,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	p.stream = &stream.Stream{
 		WriteQueueSize:     512,
-		UDPMaxPayloadSize:  1472,
+		RTPMaxPayloadSize:  1450,
 		Desc:               req.Desc,
 		GenerateRTPPackets: true,
 		Parent:             test.NilLogger,
@@ -209,7 +209,7 @@ func TestServerRead(t *testing.T) {
 
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,

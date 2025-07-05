@@ -83,7 +83,7 @@ func rtpH264ExtractParams(payload []byte) ([]byte, []byte) {
 }
 
 type h264 struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.H264
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -114,7 +114,7 @@ func (t *h264) createEncoder(
 	initialSequenceNumber *uint16,
 ) error {
 	t.encoder = &rtph264.Encoder{
-		PayloadMaxSize:        t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize:        t.RTPMaxPayloadSize,
 		PayloadType:           t.Format.PayloadTyp,
 		SSRC:                  ssrc,
 		InitialSequenceNumber: initialSequenceNumber,
@@ -267,7 +267,7 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 		pkt.PaddingSize = 0
 
 		// RTP packets exceed maximum size: start re-encoding them
-		if pkt.MarshalSize() > t.UDPMaxPayloadSize {
+		if len(pkt.Payload) > t.RTPMaxPayloadSize {
 			t.Parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
 
 			v1 := pkt.SSRC

@@ -13,7 +13,7 @@ import (
 )
 
 type g711 struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.G711
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -41,7 +41,7 @@ func (t *g711) initialize() error {
 
 func (t *g711) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadType(),
 		BitDepth:       8,
 		ChannelCount:   t.Format.ChannelCount,
@@ -83,9 +83,9 @@ func (t *g711) ProcessRTPPacket( //nolint:dupl
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP

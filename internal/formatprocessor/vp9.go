@@ -14,7 +14,7 @@ import (
 )
 
 type vp9 struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.VP9
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -42,7 +42,7 @@ func (t *vp9) initialize() error {
 
 func (t *vp9) createEncoder() error {
 	t.encoder = &rtpvp9.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
@@ -82,9 +82,9 @@ func (t *vp9) ProcessRTPPacket( //nolint:dupl
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP

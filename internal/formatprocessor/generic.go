@@ -12,7 +12,7 @@ import (
 )
 
 type generic struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             format.Format
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -48,9 +48,9 @@ func (t *generic) ProcessRTPPacket(
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	return u, nil

@@ -127,7 +127,7 @@ func TestRecorder(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,
@@ -341,7 +341,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 
 	strm := &stream.Stream{
 		WriteQueueSize:     512,
-		UDPMaxPayloadSize:  1472,
+		RTPMaxPayloadSize:  1450,
 		Desc:               desc,
 		GenerateRTPPackets: true,
 		Parent:             test.NilLogger,
@@ -429,7 +429,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,
@@ -490,7 +490,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,
@@ -553,7 +553,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 
 	strm := &stream.Stream{
 		WriteQueueSize:     512,
-		UDPMaxPayloadSize:  1472,
+		RTPMaxPayloadSize:  1450,
 		Desc:               desc,
 		GenerateRTPPackets: true,
 		Parent:             test.NilLogger,

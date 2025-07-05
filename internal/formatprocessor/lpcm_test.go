@@ -17,7 +17,7 @@ func TestLPCMEncode(t *testing.T) {
 		ChannelCount: 2,
 	}
 
-	p, err := New(1472, forma, true, nil)
+	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &unit.LPCM{
