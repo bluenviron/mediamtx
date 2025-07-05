@@ -398,12 +398,15 @@ func TestPathRunOnRead(t *testing.T) {
 
 				switch ca {
 				case "rtsp":
-					reader := gortsplib.Client{}
-
 					u, err := base.ParseURL("rtsp://127.0.0.1:8554/test?query=value")
 					require.NoError(t, err)
 
-					err = reader.Start(u.Scheme, u.Host)
+					reader := gortsplib.Client{
+						Scheme: u.Scheme,
+						Host:   u.Host,
+					}
+
+					err = reader.Start2()
 					require.NoError(t, err)
 					defer reader.Close()
 
@@ -417,12 +420,16 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 
 				case "rtsps":
-					reader := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
-
 					u, err := base.ParseURL("rtsps://127.0.0.1:8322/test?query=value")
 					require.NoError(t, err)
 
-					err = reader.Start(u.Scheme, u.Host)
+					reader := gortsplib.Client{
+						Scheme:    u.Scheme,
+						Host:      u.Host,
+						TLSConfig: &tls.Config{InsecureSkipVerify: true},
+					}
+
+					err = reader.Start2()
 					require.NoError(t, err)
 					defer reader.Close()
 
@@ -649,12 +656,15 @@ func TestPathMaxReaders(t *testing.T) {
 	defer source.Close()
 
 	for i := 0; i < 2; i++ {
-		reader := gortsplib.Client{}
-
 		u, err := base.ParseURL("rtsp://127.0.0.1:8554/mystream")
 		require.NoError(t, err)
 
-		err = reader.Start(u.Scheme, u.Host)
+		reader := gortsplib.Client{
+			Scheme: u.Scheme,
+			Host:   u.Host,
+		}
+
+		err = reader.Start2()
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -796,8 +806,12 @@ func TestPathFallback(t *testing.T) {
 			u, err := base.ParseURL("rtsp://localhost:8554/path1")
 			require.NoError(t, err)
 
-			dest := gortsplib.Client{}
-			err = dest.Start(u.Scheme, u.Host)
+			dest := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = dest.Start2()
 			require.NoError(t, err)
 			defer dest.Close()
 
@@ -856,12 +870,15 @@ func TestPathResolveSource(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	reader := gortsplib.Client{}
-
 	u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
 	require.NoError(t, err)
 
-	err = reader.Start(u.Scheme, u.Host)
+	reader := gortsplib.Client{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+	}
+
+	err = reader.Start2()
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -909,12 +926,15 @@ func TestPathOverridePublisher(t *testing.T) {
 
 			frameRecv := make(chan struct{})
 
-			c := gortsplib.Client{}
-
 			u, err := base.ParseURL("rtsp://localhost:8554/teststream")
 			require.NoError(t, err)
 
-			err = c.Start(u.Scheme, u.Host)
+			c := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = c.Start2()
 			require.NoError(t, err)
 			defer c.Close()
 
