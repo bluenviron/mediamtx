@@ -110,7 +110,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
+	u, err := base.ParseURL(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+
 	c := &gortsplib.Client{
+		Scheme:         u.Scheme,
+		Host:           u.Host,
 		Transport:      params.Conf.RTSPTransport.Transport,
 		TLSConfig:      tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
 		ReadTimeout:    time.Duration(s.ReadTimeout),
@@ -134,12 +141,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	u, err := base.ParseURL(params.ResolvedSource)
-	if err != nil {
-		return err
-	}
-
-	err = c.Start(u.Scheme, u.Host)
+	err = c.Start2()
 	if err != nil {
 		return err
 	}

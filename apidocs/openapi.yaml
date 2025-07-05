@@ -195,6 +195,14 @@ components:
           type: integer
         multicastRTCPPort:
           type: integer
+        srtpAddress:
+          type: string
+        srtcpAddress:
+          type: string
+        multicastSRTPPort:
+          type: integer
+        multicastSRTCPPort:
+          type: integer
         rtspServerKey:
           type: string
         rtspServerCert:

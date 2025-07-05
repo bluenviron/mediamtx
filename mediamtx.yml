@@ -237,12 +237,12 @@ playbackTrustedProxies: []
 rtsp: yes
 # List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
-# server and clients, and doesn't support encryption.
+# server and clients.
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
-# TCP is the most versatile, and does support encryption.
+# TCP is the most versatile.
 # The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
-# Encrypt handshakes and TCP streams with TLS (RTSPS).
+# Use secure protocol variants (RTSPS, TLS, SRTP).
 # Available values are "no", "strict", "optional".
 rtspEncryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
@@ -259,6 +259,14 @@ multicastIPRange: 224.1.0.0/16
 multicastRTPPort: 8002
 # Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in rtspTransports.
 multicastRTCPPort: 8003
+# Address of the UDP/SRTP listener. This is needed only when "udp" is in rtspTransports and encryption is enabled.
+srtpAddress: :8004
+# Address of the UDP/SRTCP listener. This is needed only when "udp" is in rtspTransports and encryption is enabled.
+srtcpAddress: :8005
+# Port of all UDP-multicast/SRTP listeners. This is needed only when "multicast" is in rtspTransports and encryption is enabled.
+multicastSRTPPort: 8006
+# Port of all UDP-multicast/SRTCP listeners. This is needed only when "multicast" is in rtspTransports and encryption is enabled.
+multicastSRTCPPort: 8007
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
 # openssl genrsa -out server.key 2048

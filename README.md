@@ -301,7 +301,14 @@ The RTSP protocol supports multiple underlying transport protocols, each with it
 
 ```sh
 gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
-d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/mystream
+d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream protocols=tcp
+```
+
+If encryption is enabled, the `tls-validation-flags` and `profiles` options must be specified too:
+
+```sh
+gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
+d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream tls-validation-flags=0 profiles=GST_RTSP_PROFILE_SAVP
 ```
 
 The resulting stream is available in path `/mystream`.
@@ -2407,9 +2414,9 @@ ffmpeg -i rtsp://original-source \
 
 The RTSP protocol supports different underlying transport protocols, that are chosen by clients during the handshake with the server:
 
-* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients. It doesn't support encryption.
-* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP. It doesn't support encryption.
-* TCP: the most versatile, does support encryption.
+* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients.
+* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP.
+* TCP: the most versatile.
 
 The default transport protocol is UDP. To change the transport protocol, you have to tune the configuration of your client of choice.
 
@@ -2422,10 +2429,9 @@ openssl genrsa -out server.key 2048
 openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
 
-Edit `mediamtx.yml` and set the `rtspTransports`, `encryption`, `serverKey` and serverCert parameters:
+Edit `mediamtx.yml` and set the `encryption`, `serverKey` and serverCert parameters:
 
 ```yml
-rtspTransports: [tcp]
 rtspEncryption: optional
 rtspServerKey: server.key
 rtspServerCert: server.crt

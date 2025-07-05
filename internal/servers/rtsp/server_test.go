@@ -253,12 +253,15 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			reader := gortsplib.Client{}
-
 			u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/teststream?param=value")
 			require.NoError(t, err)
 
-			err = reader.Start(u.Scheme, u.Host)
+			reader := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = reader.Start2()
 			require.NoError(t, err)
 			defer reader.Close()
 
@@ -370,12 +373,15 @@ func TestServerRedirect(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			reader := gortsplib.Client{}
-
 			u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/path1?param=value")
 			require.NoError(t, err)
 
-			err = reader.Start(u.Scheme, u.Host)
+			reader := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = reader.Start2()
 			require.NoError(t, err)
 			defer reader.Close()
 
