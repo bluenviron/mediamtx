@@ -173,14 +173,15 @@ func (pa *path) run() {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
 		pa.source = &staticsources.Handler{
-			Conf:           pa.conf,
-			LogLevel:       pa.logLevel,
-			ReadTimeout:    pa.readTimeout,
-			WriteTimeout:   pa.writeTimeout,
-			WriteQueueSize: pa.writeQueueSize,
-			Matches:        pa.matches,
-			PathManager:    pa.parent,
-			Parent:         pa,
+			Conf:              pa.conf,
+			LogLevel:          pa.logLevel,
+			ReadTimeout:       pa.readTimeout,
+			WriteTimeout:      pa.writeTimeout,
+			WriteQueueSize:    pa.writeQueueSize,
+			UDPMaxPayloadSize: pa.udpMaxPayloadSize,
+			Matches:           pa.matches,
+			PathManager:       pa.parent,
+			Parent:            pa,
 		}
 		pa.source.(*staticsources.Handler).Initialize()
 
