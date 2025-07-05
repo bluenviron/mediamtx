@@ -70,7 +70,7 @@ type pathManager struct {
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
-	udpMaxPayloadSize int
+	rtpMaxPayloadSize int
 	pathConfs         map[string]*conf.Path
 	externalCmdPool   *externalcmd.Pool
 	metrics           *metrics.Metrics
@@ -428,7 +428,7 @@ func (pm *pathManager) createPath(
 		readTimeout:       pm.readTimeout,
 		writeTimeout:      pm.writeTimeout,
 		writeQueueSize:    pm.writeQueueSize,
-		udpMaxPayloadSize: pm.udpMaxPayloadSize,
+		rtpMaxPayloadSize: pm.rtpMaxPayloadSize,
 		conf:              pathConf,
 		name:              name,
 		matches:           matches,

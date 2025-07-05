@@ -14,7 +14,7 @@ import (
 )
 
 type mpeg1Audio struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.MPEG1Audio
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -42,7 +42,7 @@ func (t *mpeg1Audio) initialize() error {
 
 func (t *mpeg1Audio) createEncoder() error {
 	t.encoder = &rtpmpeg1audio.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 	}
 	return t.encoder.Init()
 }
@@ -81,9 +81,9 @@ func (t *mpeg1Audio) ProcessRTPPacket( //nolint:dupl
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP

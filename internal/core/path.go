@@ -70,7 +70,7 @@ type path struct {
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
-	udpMaxPayloadSize int
+	rtpMaxPayloadSize int
 	conf              *conf.Path
 	name              string
 	matches           []string
@@ -178,7 +178,7 @@ func (pa *path) run() {
 			ReadTimeout:       pa.readTimeout,
 			WriteTimeout:      pa.writeTimeout,
 			WriteQueueSize:    pa.writeQueueSize,
-			UDPMaxPayloadSize: pa.udpMaxPayloadSize,
+			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
 			Matches:           pa.matches,
 			PathManager:       pa.parent,
 			Parent:            pa,
@@ -705,7 +705,7 @@ func (pa *path) onDemandPublisherStop(reason string) {
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
 	pa.stream = &stream.Stream{
 		WriteQueueSize:     pa.writeQueueSize,
-		UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
+		RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
 		Desc:               desc,
 		GenerateRTPPackets: allocateEncoder,
 		Parent:             pa.source,

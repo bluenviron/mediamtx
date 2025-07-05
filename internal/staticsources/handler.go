@@ -60,7 +60,7 @@ type Handler struct {
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	WriteQueueSize    int
-	UDPMaxPayloadSize int
+	RTPMaxPayloadSize int
 	Matches           []string
 	PathManager       handlerPathManager
 	Parent            handlerParent
@@ -132,7 +132,7 @@ func (s *Handler) Initialize() {
 
 	case s.Conf.Source == "rpiCamera":
 		s.instance = &ssrpicamera.Source{
-			UDPMaxPayloadSize: s.UDPMaxPayloadSize,
+			RTPMaxPayloadSize: s.RTPMaxPayloadSize,
 			LogLevel:          s.LogLevel,
 			Parent:            s,
 		}
