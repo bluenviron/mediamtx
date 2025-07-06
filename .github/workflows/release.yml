@@ -9,6 +9,9 @@ permissions:
   id-token: write
   attestations: write
   contents: write
+  issues: write
+  discussions: write
+  pull-requests: write
 
 jobs:
   binaries:
