@@ -33,12 +33,12 @@ github.com/asticode/go-astits v1.13.0 h1:XOgkaadfZODnyZRR5Y0/DWkA9vrkLLPLeeOvDwf
 github.com/asticode/go-astits v1.13.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYhJeJ2aZxADI2tGADS15AzIF8MQ8XAhT4=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
-github.com/bluenviron/gohlslib/v2 v2.2.0 h1:eIsCai3IHP0F538h2tCPCRkhQ7XSOaxeceMyPns0o1k=
-github.com/bluenviron/gohlslib/v2 v2.2.0/go.mod h1:sLyKB5iM6Su1kucNHuDUU9aeN/Hw4WxsV2y9k2IHMGs=
+github.com/bluenviron/gohlslib/v2 v2.2.1 h1:ja++oQqmwro4GpEKsOTpjZcu3noLJgIF+FvcUjnaxwM=
+github.com/bluenviron/gohlslib/v2 v2.2.1/go.mod h1:RxgbF6QbrpqhnMR7zuHmvTrvF0S3ySt6kvyX3T4FWSQ=
 github.com/bluenviron/gortsplib/v4 v4.14.2-0.20250706181149-52489821375e h1:XSCp4Q0DZcv2pQs2knAnB/mIr095QtPbshPSGRiPteg=
 github.com/bluenviron/gortsplib/v4 v4.14.2-0.20250706181149-52489821375e/go.mod h1:rur2QGh1wRU6KINZn8LwU8qTPFt1XafJGtsfs0KYzRo=
-github.com/bluenviron/mediacommon/v2 v2.2.1-0.20250706163316-d1fe0aa1b8d9 h1:cleSKsYkXx8y36auvXw3zone9t9JSFTT/4Kr+VLKvGw=
-github.com/bluenviron/mediacommon/v2 v2.2.1-0.20250706163316-d1fe0aa1b8d9/go.mod h1:a6MbPmXtYda9mKibKVMZlW20GYLLrX2R7ZkUE+1pwV0=
+github.com/bluenviron/mediacommon/v2 v2.3.0 h1:FigBBZi0UUFNhvvcQi1n9vd5uZKts2Uv1Ramq1VFUV8=
+github.com/bluenviron/mediacommon/v2 v2.3.0/go.mod h1:a6MbPmXtYda9mKibKVMZlW20GYLLrX2R7ZkUE+1pwV0=
 github.com/bytedance/sonic v1.13.2 h1:8/H1FempDZqC4VqjptGo14QQlJx8VdZJegxs6wwfqpQ=
 github.com/bytedance/sonic v1.13.2/go.mod h1:o68xyaF9u2gvVBuGHPlUVCy+ZfmNNO5ETf1+KgkJhz4=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
