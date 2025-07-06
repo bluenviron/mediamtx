@@ -139,6 +139,26 @@ func ToStream(
 				return nil
 			})
 
+		case *mpegts.CodecKLV:
+			medi = &description.Media{
+				Type: description.MediaTypeApplication,
+				Formats: []format.Format{&format.KLV{
+					PayloadTyp: 96,
+				}},
+			}
+			r.OnDataKLV(track, func(pts int64, uni []byte) error {
+				pts = td.Decode(pts)
+
+				(*stream).WriteUnit(medi, medi.Formats[0], &unit.KLV{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: pts,
+					},
+					Unit: uni,
+				})
+				return nil
+			})
+
 		case *mpegts.CodecMPEG4Audio:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,

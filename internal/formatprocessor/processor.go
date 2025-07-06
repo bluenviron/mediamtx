@@ -119,6 +119,14 @@ func New(
 			Parent:             parent,
 		}
 
+	case *format.KLV:
+		proc = &klv{
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
+		}
+
 	case *format.MPEG4Audio:
 		proc = &mpeg4Audio{
 			RTPMaxPayloadSize:  rtpMaxPayloadSize,

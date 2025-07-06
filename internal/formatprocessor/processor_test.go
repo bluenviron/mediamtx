@@ -84,6 +84,13 @@ func TestNew(t *testing.T) {
 			&lpcm{},
 		},
 		{
+			"klv",
+			&format.KLV{
+				PayloadTyp: 96,
+			},
+			&klv{},
+		},
+		{
 			"generic",
 			&format.Generic{},
 			&generic{},
