@@ -50,7 +50,7 @@ func (t *klv) createEncoder() error {
 func (t *klv) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.KLV)
 
-	if u.Packets != nil {
+	if u.Unit != nil {
 		// ensure the format processor's encoder is initialized
 		if t.encoder == nil {
 			err := t.createEncoder()
@@ -59,7 +59,7 @@ func (t *klv) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 			}
 		}
 
-		pkts, err := t.encoder.Encode(u.Packets)
+		pkts, err := t.encoder.Encode(u.Unit)
 		if err != nil {
 			return err
 		}
@@ -106,12 +106,12 @@ func (t *klv) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		packet, err := t.decoder.Decode(pkt)
+		unit, err := t.decoder.Decode(pkt)
 		if err != nil {
 			return nil, err
 		}
 
-		u.Packets = packet
+		u.Unit = unit
 	}
 
 	// route packet as is

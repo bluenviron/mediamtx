@@ -290,7 +290,7 @@ func (f *formatMPEGTS) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.KLV)
-						if tunit.Packets == nil {
+						if tunit.Unit == nil {
 							return nil
 						}
 
@@ -300,7 +300,7 @@ func (f *formatMPEGTS) initialize() bool {
 							false,
 							true,
 							func() error {
-								return f.mw.WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Packets)
+								return f.mw.WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Unit)
 							},
 						)
 					})

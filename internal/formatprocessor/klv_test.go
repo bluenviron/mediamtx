@@ -38,7 +38,7 @@ func TestKlvProcessUnit(t *testing.T) {
 			NTP:        theTime,
 			PTS:        when,
 		},
-		Packets: []byte{1, 2, 3, 4},
+		Unit: []byte{1, 2, 3, 4},
 	}
 	uu := &u
 

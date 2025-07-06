@@ -146,7 +146,7 @@ func ToStream(
 					PayloadTyp: 96,
 				}},
 			}
-			r.OnDataKLV(track, func(pts int64, packets []byte) error {
+			r.OnDataKLV(track, func(pts int64, uni []byte) error {
 				pts = td.Decode(pts)
 
 				(*stream).WriteUnit(medi, medi.Formats[0], &unit.KLV{
@@ -154,7 +154,7 @@ func ToStream(
 						NTP: time.Now(),
 						PTS: pts,
 					},
-					Packets: packets,
+					Unit: uni,
 				})
 				return nil
 			})

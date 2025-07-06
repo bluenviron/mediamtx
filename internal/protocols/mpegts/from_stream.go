@@ -242,12 +242,12 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.KLV)
-						if tunit.Packets == nil {
+						if tunit.Unit == nil {
 							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err := (*w).WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Packets)
+						err := (*w).WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Unit)
 						if err != nil {
 							return err
 						}
