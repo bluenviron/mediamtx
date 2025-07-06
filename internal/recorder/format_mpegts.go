@@ -280,7 +280,9 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.KLV:
-				track := addTrack(forma, forma.KLVCodec)
+				track := addTrack(forma, &mpegts.CodecKLV{
+					Synchronous: true,
+				})
 
 				f.ri.stream.AddReader(
 					f.ri,

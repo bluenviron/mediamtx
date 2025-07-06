@@ -3,9 +3,7 @@ package formatprocessor
 import (
 	"testing"
 
-	"github.com/asticode/go-astits"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,11 +87,6 @@ func TestNew(t *testing.T) {
 			"klv",
 			&format.KLV{
 				PayloadTyp: 96,
-				KLVCodec: &mpegts.CodecKLV{
-					StreamType:      astits.StreamTypePrivateData,
-					StreamID:        1,
-					PTSDTSIndicator: 1,
-				},
 			},
 			&klv{},
 		},

@@ -230,7 +230,11 @@ func FromStream(
 						return bw.Flush()
 					})
 			case *format.KLV:
-				track := &mcmpegts.Track{Codec: forma.KLVCodec}
+				track := &mcmpegts.Track{
+					Codec: &mcmpegts.CodecKLV{
+						Synchronous: true,
+					},
+				}
 
 				addTrack(
 					media,

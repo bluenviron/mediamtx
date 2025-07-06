@@ -121,7 +121,7 @@ func New(
 
 	case *format.KLV:
 		proc = &klv{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,

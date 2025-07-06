@@ -12,10 +12,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-
-
 type klv struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.KLV
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -43,7 +41,7 @@ func (t *klv) initialize() error {
 
 func (t *klv) createEncoder() error {
 	t.encoder = &rtpklv.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
@@ -61,21 +59,21 @@ func (t *klv) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 			}
 		}
 
-		pkts, err := t.encoder.Encode(u.Packets, uint32(u.PTS))
+		pkts, err := t.encoder.Encode(u.Packets)
 		if err != nil {
 			return err
 		}
 		u.RTPPackets = pkts
 
 		for _, pkt := range u.RTPPackets {
-			pkt.Timestamp += t.randomStart
+			pkt.Timestamp += t.randomStart + uint32(u.PTS)
 		}
 	}
 
 	return nil
 }
 
-func (t *klv) ProcessRTPPacket(
+func (t *klv) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
@@ -90,12 +88,12 @@ func (t *klv) ProcessRTPPacket(
 	}
 
 	// remove padding
-	pkt.Header.Padding = false
+	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP

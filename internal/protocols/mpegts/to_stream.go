@@ -140,12 +140,10 @@ func ToStream(
 			})
 
 		case *mpegts.CodecKLV:
-			klvCodec := track.Codec.(*mpegts.CodecKLV)
 			medi = &description.Media{
 				Type: description.MediaTypeApplication,
 				Formats: []format.Format{&format.KLV{
 					PayloadTyp: 96,
-					KLVCodec:   klvCodec,
 				}},
 			}
 			r.OnDataKLV(track, func(pts int64, packets []byte) error {
