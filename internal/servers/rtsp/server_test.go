@@ -75,6 +75,8 @@ func TestServerPublish(t *testing.T) {
 			pathManager := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return nil, auth.Error{Message: "", AskCredentials: true}
 						}
@@ -91,6 +93,7 @@ func TestServerPublish(t *testing.T) {
 						}
 						require.True(t, ok)
 					}
+
 					return path, nil
 				},
 			}
@@ -191,6 +194,8 @@ func TestServerRead(t *testing.T) {
 			pathManager := &test.PathManager{
 				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 						}
@@ -216,6 +221,8 @@ func TestServerRead(t *testing.T) {
 				},
 				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						require.Equal(t, "teststream", req.AccessRequest.Name)
 						require.Equal(t, "param=value", req.AccessRequest.Query)
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
