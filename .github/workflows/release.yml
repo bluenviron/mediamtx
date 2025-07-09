@@ -9,6 +9,9 @@ permissions:
   id-token: write
   attestations: write
   contents: write
+  issues: write
+  discussions: write
+  pull-requests: write
 
 jobs:
   binaries:
@@ -136,7 +139,9 @@ jobs:
                 body: `This issue is mentioned in release ${curTag.name} 🚀\n`
                   + `Check out the entire changelog by [clicking here](https://github.com/${owner}/${repo}/releases/tag/${curTag.name})`,
               });
-            } catch (exc) {}
+            } catch (exc) {
+              console.error(exc.toString());
+            }
           }
 
   dockerhub:

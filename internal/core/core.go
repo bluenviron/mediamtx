@@ -61,6 +61,18 @@ func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
 	return false
 }
 
+func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	// UDP max payload size - 12 (RTP header)
+	v := udpMaxPayloadSize - 12
+
+	// 10 (SRTP HMAC SHA1 authentication tag)
+	if rtspEncryption == conf.EncryptionOptional || rtspEncryption == conf.EncryptionStrict {
+		v -= 10
+	}
+
+	return v
+}
+
 // Core is an instance of MediaMTX.
 type Core struct {
 	ctx             context.Context
@@ -261,10 +273,7 @@ func (p *Core) createResources(initial bool) error {
 		gin.SetMode(gin.ReleaseMode)
 
 		p.externalCmdPool = &externalcmd.Pool{}
-		err = p.externalCmdPool.Initialize()
-		if err != nil {
-			return err
-		}
+		p.externalCmdPool.Initialize()
 	}
 
 	if p.authManager == nil {
@@ -353,6 +362,8 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.pathManager == nil {
+		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
+
 		p.pathManager = &pathManager{
 			logLevel:          p.conf.LogLevel,
 			authManager:       p.authManager,
@@ -360,7 +371,7 @@ func (p *Core) createResources(initial bool) error {
 			readTimeout:       p.conf.ReadTimeout,
 			writeTimeout:      p.conf.WriteTimeout,
 			writeQueueSize:    p.conf.WriteQueueSize,
-			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
+			rtpMaxPayloadSize: rtpMaxPayloadSize,
 			pathConfs:         p.conf.Paths,
 			externalCmdPool:   p.externalCmdPool,
 			metrics:           p.metrics,
@@ -413,19 +424,22 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTSPEncryption == conf.EncryptionStrict ||
 			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
 		p.rtspsServer == nil {
+		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
+
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
 			AuthMethods:         p.conf.RTSPAuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
-			UseUDP:              false,
-			UseMulticast:        false,
-			RTPAddress:          "",
-			RTCPAddress:         "",
-			MulticastIPRange:    "",
-			MulticastRTPPort:    0,
-			MulticastRTCPPort:   0,
+			UseUDP:              useUDP,
+			UseMulticast:        useMulticast,
+			RTPAddress:          p.conf.SRTPAddress,
+			RTCPAddress:         p.conf.SRTCPAddress,
+			MulticastIPRange:    p.conf.MulticastIPRange,
+			MulticastRTPPort:    p.conf.MulticastSRTPPort,
+			MulticastRTCPPort:   p.conf.MulticastSRTCPPort,
 			IsTLS:               true,
 			ServerCert:          p.conf.RTSPServerCert,
 			ServerKey:           p.conf.RTSPServerKey,
@@ -613,11 +627,12 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial && p.confPath != "" {
-		p.confWatcher = &confwatcher.ConfWatcher{FilePath: p.confPath}
-		err = p.confWatcher.Initialize()
+		cf := &confwatcher.ConfWatcher{FilePath: p.confPath}
+		err = cf.Initialize()
 		if err != nil {
 			return err
 		}
+		p.confWatcher = cf
 	}
 
 	return nil
@@ -697,6 +712,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
 		closeAuthManager ||
 		closeLogger

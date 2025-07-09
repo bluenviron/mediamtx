@@ -40,7 +40,7 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	p.stream = &stream.Stream{
 		WriteQueueSize:     512,
-		UDPMaxPayloadSize:  1472,
+		RTPMaxPayloadSize:  1450,
 		Desc:               req.Desc,
 		GenerateRTPPackets: true,
 		Parent:             test.NilLogger,
@@ -75,6 +75,8 @@ func TestServerPublish(t *testing.T) {
 			pathManager := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return nil, auth.Error{Message: "", AskCredentials: true}
 						}
@@ -91,6 +93,7 @@ func TestServerPublish(t *testing.T) {
 						}
 						require.True(t, ok)
 					}
+
 					return path, nil
 				},
 			}
@@ -177,7 +180,7 @@ func TestServerRead(t *testing.T) {
 
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,
@@ -191,6 +194,8 @@ func TestServerRead(t *testing.T) {
 			pathManager := &test.PathManager{
 				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 						}
@@ -216,6 +221,8 @@ func TestServerRead(t *testing.T) {
 				},
 				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 					if ca == "basic" {
+						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
+
 						require.Equal(t, "teststream", req.AccessRequest.Name)
 						require.Equal(t, "param=value", req.AccessRequest.Query)
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -253,12 +260,15 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			reader := gortsplib.Client{}
-
 			u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/teststream?param=value")
 			require.NoError(t, err)
 
-			err = reader.Start(u.Scheme, u.Host)
+			reader := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = reader.Start2()
 			require.NoError(t, err)
 			defer reader.Close()
 
@@ -316,7 +326,7 @@ func TestServerRedirect(t *testing.T) {
 
 			strm := &stream.Stream{
 				WriteQueueSize:     512,
-				UDPMaxPayloadSize:  1472,
+				RTPMaxPayloadSize:  1450,
 				Desc:               desc,
 				GenerateRTPPackets: true,
 				Parent:             test.NilLogger,
@@ -370,12 +380,15 @@ func TestServerRedirect(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			reader := gortsplib.Client{}
-
 			u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/path1?param=value")
 			require.NoError(t, err)
 
-			err = reader.Start(u.Scheme, u.Host)
+			reader := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = reader.Start2()
 			require.NoError(t, err)
 			defer reader.Close()
 

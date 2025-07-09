@@ -105,8 +105,9 @@ type parent interface {
 
 // Source is a Raspberry Pi Camera static source.
 type Source struct {
-	LogLevel conf.LogLevel
-	Parent   parent
+	RTPMaxPayloadSize int
+	LogLevel          conf.LogLevel
+	Parent            parent
 }
 
 // Log implements logger.Writer.
@@ -166,7 +167,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 	encH264 := &rtph264.Encoder{
 		PayloadType:    96,
-		PayloadMaxSize: 1460,
+		PayloadMaxSize: s.RTPMaxPayloadSize,
 	}
 	err := encH264.Init()
 	if err != nil {
@@ -192,7 +193,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 	if params.Conf.RPICameraSecondaryWidth != 0 {
 		encJpeg := &rtpmjpeg.Encoder{
-			PayloadMaxSize: 1460,
+			PayloadMaxSize: s.RTPMaxPayloadSize,
 		}
 		err = encJpeg.Init()
 		if err != nil {

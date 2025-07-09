@@ -292,18 +292,6 @@ func TestConfErrors(t *testing.T) {
 			"'udpMaxPayloadSize' must be less than 1472",
 		},
 		{
-			"invalid strict encryption 1",
-			"rtspEncryption: strict\n" +
-				"rtspTransports: [udp]\n",
-			"strict encryption cannot be used with the UDP transport protocol",
-		},
-		{
-			"invalid strict encryption 2",
-			"rtspEncryption: strict\n" +
-				"rtspTransports: [multicast]\n",
-			"strict encryption cannot be used with the UDP-multicast transport protocol",
-		},
-		{
 			"invalid ICE server",
 			"webrtcICEServers: [testing]\n",
 			"invalid ICE server: 'testing'",

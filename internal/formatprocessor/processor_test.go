@@ -84,13 +84,20 @@ func TestNew(t *testing.T) {
 			&lpcm{},
 		},
 		{
+			"klv",
+			&format.KLV{
+				PayloadTyp: 96,
+			},
+			&klv{},
+		},
+		{
 			"generic",
 			&format.Generic{},
 			&generic{},
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			p, err := New(1472, ca.in, false, nil)
+			p, err := New(1450, ca.in, false, nil)
 			require.NoError(t, err)
 			require.IsType(t, ca.out, p)
 		})

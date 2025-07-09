@@ -36,7 +36,7 @@ func TestH264DynamicParams(t *testing.T) {
 				PacketizationMode: 1,
 			}
 
-			p, err := New(1472, forma, false, nil)
+			p, err := New(1450, forma, false, nil)
 			require.NoError(t, err)
 
 			enc, err := forma.CreateEncoder()
@@ -103,7 +103,7 @@ func TestH264OversizedPackets(t *testing.T) {
 
 	logged := false
 
-	p, err := New(1472, forma, false,
+	p, err := New(1460, forma, false,
 		Logger(func(_ logger.Level, s string, i ...interface{}) {
 			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
 			logged = true
@@ -207,7 +207,7 @@ func TestH264EmptyPacket(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, true, nil)
+	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &unit.H264{

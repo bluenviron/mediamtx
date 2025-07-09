@@ -28,7 +28,7 @@ type ReadFunc func(unit.Unit) error
 // It stores tracks, readers and allows to write data to readers, converting it when needed.
 type Stream struct {
 	WriteQueueSize     int
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Desc               *description.Session
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -69,7 +69,7 @@ func (s *Stream) Initialize() error {
 
 	for _, media := range s.Desc.Medias {
 		s.streamMedias[media] = &streamMedia{
-			udpMaxPayloadSize:  s.UDPMaxPayloadSize,
+			rtpMaxPayloadSize:  s.RTPMaxPayloadSize,
 			media:              media,
 			generateRTPPackets: s.GenerateRTPPackets,
 			processingErrors:   s.processingErrors,

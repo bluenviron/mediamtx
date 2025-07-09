@@ -55,14 +55,15 @@ type handlerParent interface {
 
 // Handler is a static source handler.
 type Handler struct {
-	Conf           *conf.Path
-	LogLevel       conf.LogLevel
-	ReadTimeout    conf.Duration
-	WriteTimeout   conf.Duration
-	WriteQueueSize int
-	Matches        []string
-	PathManager    handlerPathManager
-	Parent         handlerParent
+	Conf              *conf.Path
+	LogLevel          conf.LogLevel
+	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
+	WriteQueueSize    int
+	RTPMaxPayloadSize int
+	Matches           []string
+	PathManager       handlerPathManager
+	Parent            handlerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -131,8 +132,9 @@ func (s *Handler) Initialize() {
 
 	case s.Conf.Source == "rpiCamera":
 		s.instance = &ssrpicamera.Source{
-			LogLevel: s.LogLevel,
-			Parent:   s,
+			RTPMaxPayloadSize: s.RTPMaxPayloadSize,
+			LogLevel:          s.LogLevel,
+			Parent:            s,
 		}
 
 	default:

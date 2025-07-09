@@ -23,7 +23,7 @@ func unitSize(u unit.Unit) uint64 {
 }
 
 type streamFormat struct {
-	udpMaxPayloadSize  int
+	rtpMaxPayloadSize  int
 	format             format.Format
 	generateRTPPackets bool
 	processingErrors   *counterdumper.CounterDumper
@@ -39,7 +39,7 @@ func (sf *streamFormat) initialize() error {
 	sf.runningReaders = make(map[*streamReader]ReadFunc)
 
 	var err error
-	sf.proc, err = formatprocessor.New(sf.udpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
+	sf.proc, err = formatprocessor.New(sf.rtpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
 	if err != nil {
 		return err
 	}

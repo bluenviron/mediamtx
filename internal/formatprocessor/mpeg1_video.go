@@ -23,7 +23,7 @@ var (
 )
 
 type mpeg1Video struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.MPEG1Video
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -51,7 +51,7 @@ func (t *mpeg1Video) initialize() error {
 
 func (t *mpeg1Video) createEncoder() error {
 	t.encoder = &rtpmpeg1video.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 	}
 	return t.encoder.Init()
 }
@@ -91,9 +91,9 @@ func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP

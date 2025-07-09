@@ -215,18 +215,25 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		}
 	}
 
+	// CustomVerifyFunc prevents hashed credentials from working.
+	// Use it only when strictly needed.
+	var customVerifyFunc func(expectedUser, expectedPass string) bool
+	if contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+		customVerifyFunc = func(expectedUser, expectedPass string) bool {
+			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
+		}
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
 		req := defs.PathAccessRequest{
-			Name:        ctx.Path,
-			Query:       ctx.Query,
-			Proto:       auth.ProtocolRTSP,
-			ID:          &c.uuid,
-			Credentials: rtsp.Credentials(ctx.Request),
-			IP:          c.ip(),
-			CustomVerifyFunc: func(expectedUser, expectedPass string) bool {
-				return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
-			},
+			Name:             ctx.Path,
+			Query:            ctx.Query,
+			Proto:            auth.ProtocolRTSP,
+			ID:               &c.uuid,
+			Credentials:      rtsp.Credentials(ctx.Request),
+			IP:               c.ip(),
+			CustomVerifyFunc: customVerifyFunc,
 		}
 
 		path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{

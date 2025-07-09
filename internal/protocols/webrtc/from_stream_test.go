@@ -15,7 +15,7 @@ import (
 func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	strm := &stream.Stream{
 		WriteQueueSize:    512,
-		UDPMaxPayloadSize: 1472,
+		RTPMaxPayloadSize: 1450,
 		Desc: &description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
 			Formats: []format.Format{&format.MJPEG{}},
@@ -37,7 +37,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	strm := &stream.Stream{
 		WriteQueueSize:    512,
-		UDPMaxPayloadSize: 1472,
+		RTPMaxPayloadSize: 1450,
 		Desc: &description.Session{Medias: []*description.Media{
 			{
 				Type:    description.MediaTypeVideo,
@@ -78,7 +78,7 @@ func TestFromStream(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			strm := &stream.Stream{
 				WriteQueueSize:    512,
-				UDPMaxPayloadSize: 1472,
+				RTPMaxPayloadSize: 1450,
 				Desc: &description.Session{
 					Medias: []*description.Media{{
 						Formats: []format.Format{ca.in},

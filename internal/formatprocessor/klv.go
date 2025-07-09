@@ -1,30 +1,29 @@
-package formatprocessor //nolint:dupl
+package formatprocessor
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1audio"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpklv"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type mpeg1Audio struct {
+type klv struct {
 	RTPMaxPayloadSize  int
-	Format             *format.MPEG1Audio
+	Format             *format.KLV
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpmpeg1audio.Encoder
-	decoder     *rtpmpeg1audio.Decoder
+	encoder     *rtpklv.Encoder
+	decoder     *rtpklv.Decoder
 	randomStart uint32
 }
 
-func (t *mpeg1Audio) initialize() error {
+func (t *klv) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -40,36 +39,47 @@ func (t *mpeg1Audio) initialize() error {
 	return nil
 }
 
-func (t *mpeg1Audio) createEncoder() error {
-	t.encoder = &rtpmpeg1audio.Encoder{
+func (t *klv) createEncoder() error {
+	t.encoder = &rtpklv.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
+		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
 
-func (t *mpeg1Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MPEG1Audio)
+func (t *klv) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.KLV)
 
-	pkts, err := t.encoder.Encode(u.Frames)
-	if err != nil {
-		return err
-	}
-	u.RTPPackets = pkts
+	if u.Unit != nil {
+		// ensure the format processor's encoder is initialized
+		if t.encoder == nil {
+			err := t.createEncoder()
+			if err != nil {
+				return err
+			}
+		}
 
-	for _, pkt := range u.RTPPackets {
-		pkt.Timestamp += t.randomStart + uint32(u.PTS)
+		pkts, err := t.encoder.Encode(u.Unit)
+		if err != nil {
+			return err
+		}
+		u.RTPPackets = pkts
+
+		for _, pkt := range u.RTPPackets {
+			pkt.Timestamp += t.randomStart + uint32(u.PTS)
+		}
 	}
 
 	return nil
 }
 
-func (t *mpeg1Audio) ProcessRTPPacket( //nolint:dupl
+func (t *klv) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.MPEG1Audio{
+	u := &unit.KLV{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -96,16 +106,12 @@ func (t *mpeg1Audio) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		frames, err := t.decoder.Decode(pkt)
+		unit, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious) ||
-				errors.Is(err, rtpmpeg1audio.ErrMorePacketsNeeded) {
-				return u, nil
-			}
 			return nil, err
 		}
 
-		u.Frames = frames
+		u.Unit = unit
 	}
 
 	// route packet as is

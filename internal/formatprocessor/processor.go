@@ -39,7 +39,7 @@ type Processor interface {
 
 // New allocates a Processor.
 func New(
-	udpMaxPayloadSize int,
+	rtpMaxPayloadSize int,
 	forma format.Format,
 	generateRTPPackets bool,
 	parent logger.Writer,
@@ -49,7 +49,7 @@ func New(
 	switch forma := forma.(type) {
 	case *format.AV1:
 		proc = &av1{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -57,7 +57,7 @@ func New(
 
 	case *format.VP9:
 		proc = &vp9{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -65,7 +65,7 @@ func New(
 
 	case *format.VP8:
 		proc = &vp8{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -73,7 +73,7 @@ func New(
 
 	case *format.H265:
 		proc = &h265{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -81,7 +81,7 @@ func New(
 
 	case *format.H264:
 		proc = &h264{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -89,7 +89,7 @@ func New(
 
 	case *format.MPEG4Video:
 		proc = &mpeg4Video{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -97,7 +97,7 @@ func New(
 
 	case *format.MPEG1Video:
 		proc = &mpeg1Video{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -105,7 +105,7 @@ func New(
 
 	case *format.MJPEG:
 		proc = &mjpeg{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -113,7 +113,15 @@ func New(
 
 	case *format.Opus:
 		proc = &opus{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
+		}
+
+	case *format.KLV:
+		proc = &klv{
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -121,7 +129,7 @@ func New(
 
 	case *format.MPEG4Audio:
 		proc = &mpeg4Audio{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -129,7 +137,7 @@ func New(
 
 	case *format.MPEG1Audio:
 		proc = &mpeg1Audio{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -137,7 +145,7 @@ func New(
 
 	case *format.AC3:
 		proc = &ac3{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -145,7 +153,7 @@ func New(
 
 	case *format.G711:
 		proc = &g711{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -153,7 +161,7 @@ func New(
 
 	case *format.LPCM:
 		proc = &lpcm{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,
@@ -161,7 +169,7 @@ func New(
 
 	default:
 		proc = &generic{
-			UDPMaxPayloadSize:  udpMaxPayloadSize,
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
 			Format:             forma,
 			GenerateRTPPackets: generateRTPPackets,
 			Parent:             parent,

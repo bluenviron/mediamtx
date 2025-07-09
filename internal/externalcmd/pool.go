@@ -10,8 +10,7 @@ type Pool struct {
 }
 
 // Initialize initializes a Pool.
-func (p *Pool) Initialize() error {
-	return nil
+func (p *Pool) Initialize() {
 }
 
 // Close waits for all external commands to exit.

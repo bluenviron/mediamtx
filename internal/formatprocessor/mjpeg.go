@@ -14,7 +14,7 @@ import (
 )
 
 type mjpeg struct {
-	UDPMaxPayloadSize  int
+	RTPMaxPayloadSize  int
 	Format             *format.MJPEG
 	GenerateRTPPackets bool
 	Parent             logger.Writer
@@ -42,7 +42,7 @@ func (t *mjpeg) initialize() error {
 
 func (t *mjpeg) createEncoder() error {
 	t.encoder = &rtpmjpeg.Encoder{
-		PayloadMaxSize: t.UDPMaxPayloadSize - 12,
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 	}
 	return t.encoder.Init()
 }
@@ -82,9 +82,9 @@ func (t *mjpeg) ProcessRTPPacket( //nolint:dupl
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > t.UDPMaxPayloadSize {
-		return nil, fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), t.UDPMaxPayloadSize)
+	if len(pkt.Payload) > t.RTPMaxPayloadSize {
+		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
 	// decode from RTP
