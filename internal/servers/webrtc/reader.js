@@ -445,6 +445,7 @@ class MediaMTXWebRTCReader {
     this.pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
     this.pc.onconnectionstatechange = () => this.#onConnectionState();
     this.pc.ontrack = (evt) => this.#onTrack(evt);
+    this.pc.ondatachannel = (evt) => this.#onDataChannel(evt);
 
     return this.pc.createOffer()
       .then((offer) => {
@@ -565,6 +566,32 @@ class MediaMTXWebRTCReader {
   #onTrack(evt) {
     if (this.conf.onTrack !== undefined) {
       this.conf.onTrack(evt);
+    }
+  }
+
+  #onDataChannel(evt) {
+    const dataChannel = evt.channel;
+
+    if (dataChannel.label === 'klv') {
+      dataChannel.onopen = () => {
+        console.log('KLV metadata data channel opened');
+      };
+
+      dataChannel.onmessage = (event) => {
+        if (this.conf.onKLVData !== undefined) {
+          // Parse KLV data from ArrayBuffer
+          const klvData = new Uint8Array(event.data);
+          this.conf.onKLVData(klvData);
+        }
+      };
+
+      dataChannel.onclose = () => {
+        console.log('KLV metadata data channel closed');
+      };
+
+      dataChannel.onerror = (error) => {
+        console.error('KLV metadata data channel error:', error);
+      };
     }
   }
 }

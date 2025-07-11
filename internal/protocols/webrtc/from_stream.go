@@ -647,6 +647,111 @@ func setupAudioTrack(
 	return nil, nil
 }
 
+// setupKLVDataChannel sets up KLV metadata transmission via WebRTC data channel
+func setupKLVDataChannel(
+	stream *stream.Stream,
+	reader stream.Reader,
+	pc *PeerConnection,
+) (format.Format, error) {
+	// Look for KLV format in the stream (using Generic format with KLV RTPMap)
+	var klvFormat format.Format
+	var klvMedia *description.Media
+
+	for _, media := range stream.Desc.Medias {
+		if media == nil {
+			continue
+		}
+		for _, forma := range media.Formats {
+			// Check for Generic format with KLV RTPMap
+			if genericFmt, ok := forma.(*format.Generic); ok {
+				if genericFmt.RTPMap() == "KLV/90000" {
+					klvFormat = genericFmt
+					klvMedia = media
+					break
+				}
+			}
+
+			// Check for KLV format (using type assertion)
+			if _, ok := forma.(*format.KLV); ok {
+				klvFormat = forma
+				klvMedia = media
+				break
+			}
+
+			// Also check for internal KLV format by codec name
+			if forma.Codec() == "KLV" {
+				klvFormat = forma
+				klvMedia = media
+				break
+			}
+		}
+		if klvFormat != nil {
+			break
+		}
+	}
+
+	if klvFormat == nil {
+		// No KLV format found, return nil without error
+		return nil, nil
+	}
+
+	if reader != nil {
+		reader.Log(logger.Info, "setting up KLV metadata transmission via WebRTC data channel")
+	}
+
+	// Setup the actual WebRTC data channel (with error recovery)
+	err := pc.setupKLVDataChannel()
+	if err != nil {
+		if reader != nil {
+			reader.Log(logger.Debug, "KLV data channel creation failed: %v", err)
+		}
+		// Return nil format to indicate KLV is not available, but don't fail the entire setup
+		return nil, nil
+	}
+
+	// Add reader for KLV data and send via data channel
+	stream.AddReader(
+		reader,
+		klvMedia,
+		klvFormat,
+		func(u unit.Unit) error {
+			// Handle both Generic and KLV units
+			var klvData []byte
+
+			switch tunit := u.(type) {
+			case *unit.Generic:
+				// Extract KLV data from Generic unit RTP packets
+				if tunit.RTPPackets != nil {
+					for _, pkt := range tunit.RTPPackets {
+						klvData = append(klvData, pkt.Payload...)
+					}
+				}
+			case *unit.KLV:
+				// Extract KLV data from KLV unit
+				if tunit.Unit != nil {
+					klvData = append(klvData, tunit.Unit...)
+				}
+			default:
+				return nil // Unknown unit type, skip
+			}
+
+			if len(klvData) == 0 {
+				return nil
+			}
+
+			// Send KLV data through WebRTC data channel
+			err := pc.SendKLVData(klvData)
+			if err != nil {
+				reader.Log(logger.Debug, "failed to send KLV data via data channel: %v", err)
+				// Don't return error to avoid breaking the stream
+			}
+
+			return nil
+		})
+
+	return klvFormat, nil
+}
+
 // FromStream maps a MediaMTX stream to a WebRTC connection
 func FromStream(
 	desc *description.Session,
@@ -665,6 +770,16 @@ func FromStream(
 
 	if videoFormat == nil && audioFormat == nil {
 		return errNoSupportedCodecsFrom
+	}
+
+	// Setup KLV metadata handling via data channel (non-blocking)
+	klvFormat, err := setupKLVDataChannel(stream, reader, pc)
+	if err != nil {
+		if reader != nil {
+			reader.Log(logger.Debug, "KLV data channel setup skipped: %v", err)
+		}
+		// Don't treat KLV setup failure as a fatal error
+		klvFormat = nil
 	}
 
 	setuppedFormats := r.Formats()
