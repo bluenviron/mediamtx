@@ -195,6 +195,8 @@ const init = () => {
 	loadStream();
 };
 
+// use load instead of DOMContentLoaded, otherwise, in Firefox,
+// the page gets stuck in the "loading" state.
 window.addEventListener('load', init);
 
 </script>
