@@ -80,7 +80,7 @@ const loadAttributesFromQuery = () => {
   defaultControls = video.controls;
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
   loadAttributesFromQuery();
 
   new MediaMTXWebRTCReader({
