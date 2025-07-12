@@ -100,7 +100,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.mr.msg.Type = rc.mr.c0.Type
 		rc.mr.msg.MessageStreamID = rc.mr.c0.MessageStreamID
 		rc.mr.msg.Body = rc.mr.c0.Body
-		return &rc.mr.msg, nil
+		return rc.mr.msg.clone(), nil
 
 	case 1:
 		if !rc.curTimestampAvailable {
@@ -139,7 +139,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.mr.msg.Type = rc.mr.c1.Type
 		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c1.Body
-		return &rc.mr.msg, nil
+		return rc.mr.msg.clone(), nil
 
 	case 2:
 		if !rc.curTimestampAvailable {
@@ -177,7 +177,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.mr.msg.Type = rc.curType
 		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c2.Body
-		return &rc.mr.msg, nil
+		return rc.mr.msg.clone(), nil
 
 	default: // 3
 		if rc.curBodyRecv != 0 {
@@ -204,7 +204,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			rc.mr.msg.Body = joinFragments(rc.curBodyFragments, rc.curBodyRecv)
 			rc.curBodyFragments = rc.curBodyFragments[:0]
 			rc.curBodyRecv = 0
-			return &rc.mr.msg, nil
+			return rc.mr.msg.clone(), nil
 		}
 
 		if !rc.curTimestampDeltaAvailable {
@@ -235,7 +235,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.mr.msg.Type = rc.curType
 		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c3.Body
-		return &rc.mr.msg, nil
+		return rc.mr.msg.clone(), nil
 	}
 }
 

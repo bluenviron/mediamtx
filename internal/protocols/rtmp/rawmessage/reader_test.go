@@ -2,6 +2,8 @@ package rawmessage
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -218,11 +220,18 @@ func TestReader(t *testing.T) {
 				hasExtendedTimestamp = chunkHasExtendedTimestamp(cach)
 			}
 
-			for _, camsg := range ca.messages {
+			var msgs []*Message
+
+			for {
 				msg, err := r.Read()
+				if errors.Is(err, io.EOF) {
+					break
+				}
 				require.NoError(t, err)
-				require.Equal(t, camsg, msg)
+				msgs = append(msgs, msg)
 			}
+
+			require.Equal(t, ca.messages, msgs)
 		})
 	}
 }
