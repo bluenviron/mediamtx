@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -59,9 +60,21 @@ type formatMPEGTS struct {
 	mw             *mpegts.Writer
 	hasVideo       bool
 	currentSegment *formatMPEGTSSegment
+	mu             sync.Mutex // protects all fields below
 }
 
 func (f *formatMPEGTS) initialize() bool {
+	// Check if this is an MPEG-TS passthrough stream
+	for _, media := range f.ri.stream.Desc.Medias {
+		for _, forma := range media.Formats {
+			if _, ok := forma.(*rtspformat.MPEGTS); ok {
+				f.ri.stream.AddReader(f.ri, media, forma, f.writePassthrough)
+				return true
+			}
+		}
+	}
+
+	// Normal MPEG-TS muxing for non-passthrough streams
 	var tracks []*mpegts.Track
 	var setuppedFormats []rtspformat.Format
 	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
@@ -436,9 +449,81 @@ func (f *formatMPEGTS) initialize() bool {
 }
 
 func (f *formatMPEGTS) close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Close the current segment if it exists
 	if f.currentSegment != nil {
 		f.currentSegment.close() //nolint:errcheck
+		f.currentSegment = nil
 	}
+
+	// Flush any remaining data in the buffer
+	if f.bw != nil {
+		_ = f.bw.Flush()
+	}
+}
+
+func (f *formatMPEGTS) writePassthrough(u unit.Unit) error {
+	tunit := u.(*unit.Generic)
+	if len(tunit.RTPPackets) == 0 {
+		return nil
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Initialize writers if needed
+	if f.dw == nil {
+		f.dw = &dynamicWriter{}
+	}
+	if f.bw == nil {
+		f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
+	}
+
+	for _, pkt := range tunit.RTPPackets {
+		if pkt.Payload == nil {
+			continue
+		}
+
+		// Create new segment if needed
+		if f.currentSegment == nil {
+			f.currentSegment = &formatMPEGTSSegment{
+				f:        f,
+				startDTS: timestampToDuration(int64(pkt.Timestamp), 90000),
+				startNTP: tunit.NTP,
+			}
+			f.currentSegment.initialize()
+		}
+
+		// Write to current segment
+		_, err := f.currentSegment.Write(pkt.Payload)
+		if err != nil {
+			f.ri.Log(logger.Warn, "error writing to segment: %v", err)
+			continue
+		}
+
+		// Update segment timing
+		f.currentSegment.lastDTS = timestampToDuration(int64(pkt.Timestamp), 90000)
+
+		// Check if we need to rotate the segment
+		if (f.currentSegment.lastDTS - f.currentSegment.startDTS) >= f.ri.segmentDuration {
+			// Close the current segment
+			if err := f.currentSegment.close(); err != nil {
+				f.ri.Log(logger.Error, "error closing segment: %v", err)
+			}
+			f.currentSegment = nil
+
+			// Flush the buffer writer
+			if f.bw != nil {
+				if err := f.bw.Flush(); err != nil {
+					f.ri.Log(logger.Error, "error flushing buffer: %v", err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (f *formatMPEGTS) write(
