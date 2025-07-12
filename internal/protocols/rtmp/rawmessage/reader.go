@@ -27,17 +27,16 @@ func joinFragments(fragments [][]byte, size uint32) []byte {
 }
 
 type readerChunkStream struct {
-	mr                         *Reader
-	curTimestamp               uint32
-	curTimestampAvailable      bool
-	curType                    uint8
-	curMessageStreamID         uint32
-	curBodyLen                 uint32
-	curBodyFragments           [][]byte
-	curBodyRecv                uint32
-	curTimestampDelta          uint32
-	curTimestampDeltaAvailable bool
-	hasExtendedTimestamp       bool
+	mr                    *Reader
+	curTimestamp          uint32
+	curTimestampAvailable bool
+	curType               uint8
+	curMessageStreamID    uint32
+	curBodyLen            uint32
+	curBodyFragments      [][]byte
+	curBodyRecv           uint32
+	curTimestampDelta     uint32
+	hasExtendedTimestamp  bool
 }
 
 func (rc *readerChunkStream) readChunk(c chunk.Chunk, bodySize uint32, hasExtendedTimestamp bool) error {
@@ -80,7 +79,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.curType = rc.mr.c0.Type
 		rc.curTimestamp = rc.mr.c0.Timestamp
 		rc.curTimestampAvailable = true
-		rc.curTimestampDeltaAvailable = false
+		rc.curTimestampDelta = 0
 		rc.curBodyLen = rc.mr.c0.BodyLen
 		rc.hasExtendedTimestamp = rc.mr.c0.Timestamp >= 0xFFFFFF
 
@@ -119,7 +118,6 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.curType = rc.mr.c1.Type
 		rc.curTimestamp += rc.mr.c1.TimestampDelta
 		rc.curTimestampDelta = rc.mr.c1.TimestampDelta
-		rc.curTimestampDeltaAvailable = true
 		rc.curBodyLen = rc.mr.c1.BodyLen
 		rc.hasExtendedTimestamp = rc.mr.c1.TimestampDelta >= 0xFFFFFF
 
@@ -162,7 +160,6 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 
 		rc.curTimestamp += rc.mr.c2.TimestampDelta
 		rc.curTimestampDelta = rc.mr.c2.TimestampDelta
-		rc.curTimestampDeltaAvailable = true
 		rc.hasExtendedTimestamp = rc.mr.c2.TimestampDelta >= 0xFFFFFF
 
 		le := uint32(len(rc.mr.c2.Body))
@@ -207,7 +204,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return rc.mr.msg.clone(), nil
 		}
 
-		if !rc.curTimestampDeltaAvailable {
+		if !rc.curTimestampAvailable {
 			return nil, fmt.Errorf("received type 3 chunk without previous chunk")
 		}
 
