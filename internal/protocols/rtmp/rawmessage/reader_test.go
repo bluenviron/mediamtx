@@ -2,6 +2,8 @@ package rawmessage
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -218,11 +220,90 @@ func TestReader(t *testing.T) {
 				hasExtendedTimestamp = chunkHasExtendedTimestamp(cach)
 			}
 
-			for _, camsg := range ca.messages {
+			var msgs []*Message
+
+			for {
 				msg, err := r.Read()
+				if errors.Is(err, io.EOF) {
+					break
+				}
 				require.NoError(t, err)
-				require.Equal(t, camsg, msg)
+				msgs = append(msgs, msg)
 			}
+
+			require.Equal(t, ca.messages, msgs)
+		})
+	}
+}
+
+func TestReaderAdditional(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		messages []*Message
+		chunks   []chunk.Chunk
+	}{
+		{
+			"(chunk0) + (chunk3)",
+			[]*Message{
+				{
+					ChunkStreamID:   27,
+					Timestamp:       4279383126000000,
+					Type:            6,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{5}, 15),
+				},
+				{
+					ChunkStreamID:   27,
+					Timestamp:       4279383126000000,
+					Type:            6,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{6}, 15),
+				},
+			},
+			[]chunk.Chunk{
+				&chunk.Chunk0{
+					ChunkStreamID:   27,
+					Timestamp:       4279383126,
+					Type:            6,
+					MessageStreamID: 3123,
+					BodyLen:         15,
+					Body:            bytes.Repeat([]byte{5}, 15),
+				},
+				&chunk.Chunk3{
+					ChunkStreamID: 27,
+					Body:          bytes.Repeat([]byte{6}, 15),
+				},
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			br := bytecounter.NewReader(&buf)
+			r := NewReader(br, br, func(_ uint32) error {
+				return nil
+			})
+
+			hasExtendedTimestamp := false
+
+			for _, cach := range ca.chunks {
+				buf2, err := cach.Marshal(hasExtendedTimestamp)
+				require.NoError(t, err)
+				buf.Write(buf2)
+				hasExtendedTimestamp = chunkHasExtendedTimestamp(cach)
+			}
+
+			var msgs []*Message
+
+			for {
+				msg, err := r.Read()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				require.NoError(t, err)
+				msgs = append(msgs, msg)
+			}
+
+			require.Equal(t, ca.messages, msgs)
 		})
 	}
 }
