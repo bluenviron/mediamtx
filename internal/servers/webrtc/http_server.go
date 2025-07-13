@@ -306,7 +306,11 @@ func (s *httpServer) onPage(ctx *gin.Context, pathName string, publish bool) {
 		return
 	}
 
-	ctx.Header("Cache-Control", "max-age=3600")
+	// Do not cache the HTML page.
+	// This prevents a bug in Firefox in which, when the page
+	// is loaded in an iframe and the iframe is deleted and recreated,
+	// WebRTC is unable to re-establish the connection.
+	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Content-Type", "text/html")
 	ctx.Writer.WriteHeader(http.StatusOK)
 
