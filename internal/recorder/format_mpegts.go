@@ -307,9 +307,7 @@ func (f *formatMPEGTS) initialize() bool {
 
 			case *rtspformat.MPEG4Audio:
 				co := forma.GetConfig()
-				if co == nil {
-					f.ri.Log(logger.Warn, "skipping MPEG-4 audio track: tracks without explicit configuration are not supported")
-				} else {
+				if co != nil {
 					track := addTrack(forma, &mpegts.CodecMPEG4Audio{
 						Config: *co,
 					})
