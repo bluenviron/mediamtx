@@ -17,5 +17,4 @@ RUN go build -o /mediamtx
 
 FROM alpine:3.20
 COPY --from=build-base /mediamtx /mediamtx
-COPY mediamtx.yml /mediamtx.yml
 ENTRYPOINT [ "/mediamtx" ]

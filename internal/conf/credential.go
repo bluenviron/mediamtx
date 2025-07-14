@@ -68,6 +68,8 @@ func (d Credential) IsHashed() bool {
 // Check returns true if the given value matches the credential.
 func (d Credential) Check(guess string) bool {
 	if d.IsSha256() {
+		fmt.Println("sha256:", string(d)[len("sha256:"):])
+		fmt.Println("guess:", sha256Base64(guess))
 		return string(d)[len("sha256:"):] == sha256Base64(guess)
 	}
 
