@@ -352,6 +352,8 @@ components:
           type: string
         recordPartDuration:
           type: string
+        recordMaxPartSize:
+          type: string
         recordSegmentDuration:
           type: string
         recordDeleteAfter:

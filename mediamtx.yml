@@ -492,6 +492,8 @@ pathDefaults:
   # When a system failure occurs, the last part gets lost.
   # Therefore, the part duration is equal to the RPO (recovery point objective).
   recordPartDuration: 1s
+  # This prevents RAM exhaustion.
+  recordMaxPartSize: 50M
   # Minimum duration of each segment.
   recordSegmentDuration: 1h
   # Delete segments after this timespan.
