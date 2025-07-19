@@ -9,7 +9,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/multicast"
-	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
@@ -137,7 +136,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 func (s *Source) runReader(pc net.PacketConn, sourceIP net.IP) error {
 	pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
 	pcr := &packetConnReader{pc: pc, sourceIP: sourceIP}
-	r := &mcmpegts.Reader{R: pcr}
+	r := &mpegts.EnhancedReader{R: pcr}
 	err := r.Initialize()
 	if err != nil {
 		return err
