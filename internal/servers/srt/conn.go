@@ -204,7 +204,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 
 func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	r := &mcmpegts.Reader{R: mcmpegts.NewBufferedReader(sconn)}
+	r := &mcmpegts.Reader{R: sconn}
 	err := r.Initialize()
 	if err != nil {
 		return err

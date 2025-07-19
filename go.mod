@@ -11,7 +11,7 @@ require (
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.2.1
 	github.com/bluenviron/gortsplib/v4 v4.15.0
-	github.com/bluenviron/mediacommon/v2 v2.3.0
+	github.com/bluenviron/mediacommon/v2 v2.3.1-0.20250719224410-a21827586f4a
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
@@ -98,3 +98,5 @@ require (
 replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.0.0-20250301104324-b2df7db9f75d
 
 replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.0.0-20250228091429-18796cd12b4f
+
+replace github.com/bluenviron/mediacommon/v2 => ./mediacommon
