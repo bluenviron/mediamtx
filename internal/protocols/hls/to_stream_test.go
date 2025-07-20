@@ -77,7 +77,7 @@ func TestToStream(t *testing.T) {
 		}),
 	}
 
-	ln, err := net.Listen("tcp", "localhost:5780")
+	ln, err := net.Listen("tcp", "localhost:5781")
 	require.NoError(t, err)
 
 	go s.Serve(ln)
@@ -90,7 +90,7 @@ func TestToStream(t *testing.T) {
 
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
-		URI: "http://localhost:5780/stream.m3u8",
+		URI: "http://localhost:5781/stream.m3u8",
 		OnTracks: func(tracks []*gohlslib.Track) error {
 			medias, err2 := ToStream(c, tracks, &strm)
 			require.NoError(t, err2)
