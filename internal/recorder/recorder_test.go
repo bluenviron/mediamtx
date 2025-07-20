@@ -41,7 +41,7 @@ func TestRecorder(t *testing.T) {
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
-				Config: &mpeg4audio.Config{
+				Config: &mpeg4audio.AudioSpecificConfig{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -258,7 +258,7 @@ func TestRecorder(t *testing.T) {
 							ID:        3,
 							TimeScale: 44100,
 							Codec: &mp4.CodecMPEG4Audio{
-								Config: mpeg4audio.Config{
+								Config: mpeg4audio.AudioSpecificConfig{
 									Type:         2,
 									SampleRate:   44100,
 									ChannelCount: 2,
@@ -328,7 +328,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
-				Config: &mpeg4audio.Config{
+				Config: &mpeg4audio.AudioSpecificConfig{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,

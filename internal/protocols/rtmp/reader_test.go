@@ -87,7 +87,7 @@ func TestReadTracks(t *testing.T) {
 				},
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   44100,
 						ChannelCount: 2,
@@ -148,7 +148,7 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err2 := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.AudioSpecificConfig{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -231,7 +231,7 @@ func TestReadTracks(t *testing.T) {
 				},
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   44100,
 						ChannelCount: 2,
@@ -266,7 +266,7 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err2 := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.AudioSpecificConfig{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -288,7 +288,7 @@ func TestReadTracks(t *testing.T) {
 				},
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   44100,
 						ChannelCount: 2,
@@ -341,7 +341,7 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err2 := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.AudioSpecificConfig{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -357,7 +357,7 @@ func TestReadTracks(t *testing.T) {
 			[]format.Format{
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   44100,
 						ChannelCount: 2,
@@ -377,7 +377,7 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err2 := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.AudioSpecificConfig{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -403,7 +403,7 @@ func TestReadTracks(t *testing.T) {
 			[]format.Format{
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   44100,
 						ChannelCount: 2,
@@ -459,7 +459,7 @@ func TestReadTracks(t *testing.T) {
 					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
-						enc, err2 := mpeg4audio.Config{
+						enc, err2 := mpeg4audio.AudioSpecificConfig{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -684,7 +684,7 @@ func TestReadTracks(t *testing.T) {
 				},
 				&format.MPEG4Audio{
 					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
+					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:         2,
 						SampleRate:   48000,
 						ChannelCount: 1,
