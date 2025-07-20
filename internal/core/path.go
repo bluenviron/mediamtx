@@ -775,6 +775,7 @@ func (pa *path) startRecording() {
 		PathFormat:      pa.conf.RecordPath,
 		Format:          pa.conf.RecordFormat,
 		PartDuration:    time.Duration(pa.conf.RecordPartDuration),
+		MaxPartSize:     pa.conf.RecordMaxPartSize,
 		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
 		PathName:        pa.name,
 		Stream:          pa.stream,

@@ -55,6 +55,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:               RecordFormatFMP4,
 			RecordPartDuration:         Duration(1 * time.Second),
+			RecordMaxPartSize:          50 * 1024 * 1024,
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			OverridePublisher:          true,

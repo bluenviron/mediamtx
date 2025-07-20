@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	mpegtsMaxBufferSize = 64 * 1024
+	mpegtsBufferSize = 64 * 1024
 )
 
 func multiplyAndDivide(v, m, d int64) int64 {
@@ -419,7 +419,7 @@ func (f *formatMPEGTS) initialize() bool {
 	}
 
 	f.dw = &dynamicWriter{}
-	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
+	f.bw = bufio.NewWriterSize(f.dw, mpegtsBufferSize)
 
 	f.mw = &mpegts.Writer{W: f.bw, Tracks: tracks}
 	err := f.mw.Initialize()

@@ -22,6 +22,7 @@ type recorderInstance struct {
 	pathFormat        string
 	format            conf.RecordFormat
 	partDuration      time.Duration
+	maxPartSize       conf.StringSize
 	segmentDuration   time.Duration
 	pathName          string
 	stream            *stream.Stream

@@ -20,6 +20,7 @@ type Recorder struct {
 	PathFormat        string
 	Format            conf.RecordFormat
 	PartDuration      time.Duration
+	MaxPartSize       conf.StringSize
 	SegmentDuration   time.Duration
 	PathName          string
 	Stream            *stream.Stream
@@ -56,6 +57,7 @@ func (r *Recorder) Initialize() {
 		pathFormat:        r.PathFormat,
 		format:            r.Format,
 		partDuration:      r.PartDuration,
+		maxPartSize:       r.MaxPartSize,
 		segmentDuration:   r.SegmentDuration,
 		pathName:          r.PathName,
 		stream:            r.Stream,
@@ -102,6 +104,7 @@ func (r *Recorder) run() {
 			pathFormat:        r.PathFormat,
 			format:            r.Format,
 			partDuration:      r.PartDuration,
+			maxPartSize:       r.MaxPartSize,
 			segmentDuration:   r.SegmentDuration,
 			pathName:          r.PathName,
 			stream:            r.Stream,
