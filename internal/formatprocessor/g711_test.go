@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestG711Encode(t *testing.T) {
+func TestG711ProcessUnit(t *testing.T) {
 	t.Run("alaw", func(t *testing.T) {
 		forma := &format.G711{
 			PayloadTyp:   8,

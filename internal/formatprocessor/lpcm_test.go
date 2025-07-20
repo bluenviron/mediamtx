@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLPCMEncode(t *testing.T) {
+func TestLPCMProcessUnit(t *testing.T) {
 	forma := &format.LPCM{
 		PayloadTyp:   96,
 		BitDepth:     16,

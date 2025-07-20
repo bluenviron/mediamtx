@@ -77,6 +77,7 @@ func (t *mpeg4Video) updateTrackParameters(frame []byte) {
 }
 
 func (t *mpeg4Video) remuxFrame(frame []byte) []byte {
+	// remove config
 	if bytes.HasPrefix(frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
 		end := bytes.Index(frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 		if end >= 0 {
@@ -84,6 +85,7 @@ func (t *mpeg4Video) remuxFrame(frame []byte) []byte {
 		}
 	}
 
+	// add config
 	if bytes.Contains(frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)}) {
 		f := make([]byte, len(t.Format.Config)+len(frame))
 		n := copy(f, t.Format.Config)
@@ -105,12 +107,11 @@ func (t *mpeg4Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		if err != nil {
 			return err
 		}
+		u.RTPPackets = pkts
 
 		for _, pkt := range u.RTPPackets {
 			pkt.Timestamp += t.randomStart + uint32(u.PTS)
 		}
-
-		u.RTPPackets = pkts
 	}
 
 	return nil

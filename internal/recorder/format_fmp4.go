@@ -26,6 +26,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+var av1DefaultSequenceHeader = []byte{
+	8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
+}
+
 func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
 	switch cm {
 	case mpeg1audio.ChannelModeStereo,
@@ -133,7 +137,7 @@ func (f *formatFMP4) initialize() bool {
 			switch forma := forma.(type) {
 			case *rtspformat.AV1:
 				codec := &mp4.CodecAV1{
-					SequenceHeader: formatprocessor.AV1DefaultSequenceHeader,
+					SequenceHeader: av1DefaultSequenceHeader,
 				}
 				track := addTrack(forma, codec)
 

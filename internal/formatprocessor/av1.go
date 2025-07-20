@@ -13,13 +13,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// AV1-related parameters
-var (
-	AV1DefaultSequenceHeader = []byte{
-		8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
-	}
-)
-
 type av1 struct {
 	RTPMaxPayloadSize  int
 	Format             *format.AV1

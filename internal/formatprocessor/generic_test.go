@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenericRemovePadding(t *testing.T) {
+func TestGenericProcessRTPPacket(t *testing.T) {
 	forma := &format.Generic{
 		PayloadTyp: 96,
 		RTPMa:      "private/90000",
@@ -37,6 +37,7 @@ func TestGenericRemovePadding(t *testing.T) {
 	_, err = p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
 	require.NoError(t, err)
 
+	// check that padding has been removed
 	require.Equal(t, &rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
