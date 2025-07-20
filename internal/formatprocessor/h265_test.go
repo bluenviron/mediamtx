@@ -15,7 +15,87 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func TestH265DynamicParams(t *testing.T) {
+func TestH265ProcessUnit(t *testing.T) {
+	forma := &format.H265{}
+
+	p, err := New(1450, forma, true, nil)
+	require.NoError(t, err)
+
+	u1 := &unit.H265{
+		Base: unit.Base{
+			PTS: 30000,
+		},
+		AU: [][]byte{
+			{byte(mch265.NALUType_VPS_NUT) << 1, 1, 2, 3},
+			{byte(mch265.NALUType_SPS_NUT) << 1, 4, 5, 6},
+			{byte(mch265.NALUType_PPS_NUT) << 1, 7, 8, 9},
+			{byte(mch265.NALUType_CRA_NUT) << 1, 0},
+		},
+	}
+
+	err = p.ProcessUnit(u1)
+	require.NoError(t, err)
+
+	require.Equal(t, [][]byte{
+		{byte(mch265.NALUType_VPS_NUT) << 1, 1, 2, 3},
+		{byte(mch265.NALUType_SPS_NUT) << 1, 4, 5, 6},
+		{byte(mch265.NALUType_PPS_NUT) << 1, 7, 8, 9},
+		{byte(mch265.NALUType_CRA_NUT) << 1, 0},
+	}, u1.AU)
+
+	u2 := &unit.H265{
+		Base: unit.Base{
+			PTS: 30000 * 2,
+		},
+		AU: [][]byte{
+			{byte(mch265.NALUType_CRA_NUT) << 1, 1},
+		},
+	}
+
+	err = p.ProcessUnit(u2)
+	require.NoError(t, err)
+
+	// test that params have been added to the SDP
+	require.Equal(t, []byte{byte(mch265.NALUType_VPS_NUT) << 1, 1, 2, 3}, forma.VPS)
+	require.Equal(t, []byte{byte(mch265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
+	require.Equal(t, []byte{byte(mch265.NALUType_PPS_NUT) << 1, 7, 8, 9}, forma.PPS)
+
+	// test that params have been added to the frame
+	require.Equal(t, [][]byte{
+		{byte(mch265.NALUType_VPS_NUT) << 1, 1, 2, 3},
+		{byte(mch265.NALUType_SPS_NUT) << 1, 4, 5, 6},
+		{byte(mch265.NALUType_PPS_NUT) << 1, 7, 8, 9},
+		{byte(mch265.NALUType_CRA_NUT) << 1, 1},
+	}, u2.AU)
+
+	// test that timestamp had increased
+	require.Equal(t, u1.RTPPackets[0].Timestamp+30000, u2.RTPPackets[0].Timestamp)
+}
+
+func TestH265ProcessUnitEmpty(t *testing.T) {
+	forma := &format.H265{
+		PayloadTyp: 96,
+	}
+
+	p, err := New(1450, forma, true, nil)
+	require.NoError(t, err)
+
+	unit := &unit.H265{
+		AU: [][]byte{
+			{byte(mch265.NALUType_VPS_NUT) << 1, 10, 11, 12}, // VPS
+			{byte(mch265.NALUType_SPS_NUT) << 1, 13, 14, 15}, // SPS
+			{byte(mch265.NALUType_PPS_NUT) << 1, 16, 17, 18}, // PPS
+		},
+	}
+
+	err = p.ProcessUnit(unit)
+	require.NoError(t, err)
+
+	// if all NALUs have been removed, no RTP packets shall be generated.
+	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
+}
+
+func TestH265ProcessRTPPacketUpdateParams(t *testing.T) {
 	for _, ca := range []string{"standard", "aggregated"} {
 		t.Run(ca, func(t *testing.T) {
 			forma := &format.H265{
@@ -88,7 +168,7 @@ func TestH265DynamicParams(t *testing.T) {
 	}
 }
 
-func TestH265OversizedPackets(t *testing.T) {
+func TestH265ProcessRTPPacketOversized(t *testing.T) {
 	forma := &format.H265{
 		PayloadTyp: 96,
 		VPS:        []byte{byte(mch265.NALUType_VPS_NUT) << 1, 10, 11, 12},
@@ -182,29 +262,6 @@ func TestH265OversizedPackets(t *testing.T) {
 	}, out)
 
 	require.True(t, logged)
-}
-
-func TestH265EmptyPacket(t *testing.T) {
-	forma := &format.H265{
-		PayloadTyp: 96,
-	}
-
-	p, err := New(1450, forma, true, nil)
-	require.NoError(t, err)
-
-	unit := &unit.H265{
-		AU: [][]byte{
-			{byte(mch265.NALUType_VPS_NUT) << 1, 10, 11, 12}, // VPS
-			{byte(mch265.NALUType_SPS_NUT) << 1, 13, 14, 15}, // SPS
-			{byte(mch265.NALUType_PPS_NUT) << 1, 16, 17, 18}, // PPS
-		},
-	}
-
-	err = p.ProcessUnit(unit)
-	require.NoError(t, err)
-
-	// if all NALUs have been removed, no RTP packets must be generated.
-	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
 }
 
 func FuzzRTPH265ExtractParams(f *testing.F) {
