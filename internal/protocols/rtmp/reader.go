@@ -75,7 +75,7 @@ func h264TrackFromConfig(data []byte) (*format.H264, error) {
 }
 
 func mpeg4AudioTrackFromConfig(data []byte) (*format.MPEG4Audio, error) {
-	var mpegConf mpeg4audio.Config
+	var mpegConf mpeg4audio.AudioSpecificConfig
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
