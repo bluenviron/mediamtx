@@ -135,6 +135,14 @@ func New(
 			Parent:             parent,
 		}
 
+	case *format.MPEG4AudioLATM:
+		proc = &mpeg4AudioLATM{
+			RTPMaxPayloadSize:  rtpMaxPayloadSize,
+			Format:             forma,
+			GenerateRTPPackets: generateRTPPackets,
+			Parent:             parent,
+		}
+
 	case *format.MPEG1Audio:
 		proc = &mpeg1Audio{
 			RTPMaxPayloadSize:  rtpMaxPayloadSize,

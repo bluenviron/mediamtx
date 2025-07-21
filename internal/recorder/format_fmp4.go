@@ -640,10 +640,43 @@ func (f *formatFMP4) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Audio:
-				co := forma.GetConfig()
-				if co != nil {
+				codec := &mp4.CodecMPEG4Audio{
+					Config: *forma.Config,
+				}
+				track := addTrack(forma, codec)
+
+				f.ri.stream.AddReader(
+					f.ri,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+						if tunit.AUs == nil {
+							return nil
+						}
+
+						for i, au := range tunit.AUs {
+							pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+
+							err := track.write(&sample{
+								Sample: &fmp4.Sample{
+									Payload: au,
+								},
+								dts: pts,
+								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
+							})
+							if err != nil {
+								return err
+							}
+						}
+
+						return nil
+					})
+
+			case *rtspformat.MPEG4AudioLATM:
+				if !forma.CPresent {
 					codec := &mp4.CodecMPEG4Audio{
-						Config: *co,
+						Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 					}
 					track := addTrack(forma, codec)
 
@@ -652,27 +685,25 @@ func (f *formatFMP4) initialize() bool {
 						media,
 						forma,
 						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4Audio)
-							if tunit.AUs == nil {
+							tunit := u.(*unit.MPEG4AudioLATM)
+							if tunit.Element == nil {
 								return nil
 							}
 
-							for i, au := range tunit.AUs {
-								pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
-
-								err := track.write(&sample{
-									Sample: &fmp4.Sample{
-										Payload: au,
-									},
-									dts: pts,
-									ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
-								})
-								if err != nil {
-									return err
-								}
+							var ame mpeg4audio.AudioMuxElement
+							ame.StreamMuxConfig = forma.StreamMuxConfig
+							err := ame.Unmarshal(tunit.Element)
+							if err != nil {
+								return err
 							}
 
-							return nil
+							return track.write(&sample{
+								Sample: &fmp4.Sample{
+									Payload: ame.Payloads[0][0][0],
+								},
+								dts: tunit.PTS,
+								ntp: tunit.NTP,
+							})
 						})
 				}
 

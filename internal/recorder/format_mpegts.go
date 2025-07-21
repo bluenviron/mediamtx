@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
@@ -306,10 +307,38 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Audio:
-				co := forma.GetConfig()
-				if co != nil {
+				track := addTrack(forma, &mpegts.CodecMPEG4Audio{
+					Config: *forma.Config,
+				})
+
+				f.ri.stream.AddReader(
+					f.ri,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+						if tunit.AUs == nil {
+							return nil
+						}
+
+						return f.write(
+							timestampToDuration(tunit.PTS, clockRate),
+							tunit.NTP,
+							false,
+							true,
+							func() error {
+								return f.mw.WriteMPEG4Audio(
+									track,
+									multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+									tunit.AUs)
+							},
+						)
+					})
+
+			case *rtspformat.MPEG4AudioLATM:
+				if !forma.CPresent {
 					track := addTrack(forma, &mpegts.CodecMPEG4Audio{
-						Config: *co,
+						Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 					})
 
 					f.ri.stream.AddReader(
@@ -317,9 +346,16 @@ func (f *formatMPEGTS) initialize() bool {
 						media,
 						forma,
 						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4Audio)
-							if tunit.AUs == nil {
+							tunit := u.(*unit.MPEG4AudioLATM)
+							if tunit.Element == nil {
 								return nil
+							}
+
+							var ame mpeg4audio.AudioMuxElement
+							ame.StreamMuxConfig = forma.StreamMuxConfig
+							err := ame.Unmarshal(tunit.Element)
+							if err != nil {
+								return err
 							}
 
 							return f.write(
@@ -331,7 +367,7 @@ func (f *formatMPEGTS) initialize() bool {
 									return f.mw.WriteMPEG4Audio(
 										track,
 										multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-										tunit.AUs)
+										[][]byte{ame.Payloads[0][0][0]})
 								},
 							)
 						})

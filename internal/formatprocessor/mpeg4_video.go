@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4video"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpfragmented"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/pion/rtp"
 
@@ -33,8 +33,8 @@ type mpeg4Video struct {
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpmpeg4video.Encoder
-	decoder     *rtpmpeg4video.Decoder
+	encoder     *rtpfragmented.Encoder
+	decoder     *rtpfragmented.Decoder
 	randomStart uint32
 }
 
@@ -55,7 +55,7 @@ func (t *mpeg4Video) initialize() error {
 }
 
 func (t *mpeg4Video) createEncoder() error {
-	t.encoder = &rtpmpeg4video.Encoder{
+	t.encoder = &rtpfragmented.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
@@ -154,7 +154,7 @@ func (t *mpeg4Video) ProcessRTPPacket( //nolint:dupl
 
 		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpmpeg4video.ErrMorePacketsNeeded) {
+			if errors.Is(err, rtpfragmented.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

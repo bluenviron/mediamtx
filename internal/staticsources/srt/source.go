@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -70,7 +69,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(sconn srt.Conn) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	r := &mcmpegts.Reader{R: sconn}
+	r := &mpegts.EnhancedReader{R: sconn}
 	err := r.Initialize()
 	if err != nil {
 		return err
