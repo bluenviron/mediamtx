@@ -379,6 +379,11 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 		return
 	}
 
+	if req.ConfToCompare != nil && !pathConf.Equal(req.ConfToCompare) {
+		req.Res <- defs.PathAddPublisherRes{Err: fmt.Errorf("configuration has changed")}
+		return
+	}
+
 	if !req.AccessRequest.SkipAuth {
 		err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 		if err != nil {
@@ -520,19 +525,19 @@ func (pm *pathManager) Describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // AddPublisher is called by a publisher.
-func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
+func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
 	req.Res = make(chan defs.PathAddPublisherRes)
 	select {
 	case pm.chAddPublisher <- req:
 		res := <-req.Res
 		if res.Err != nil {
-			return nil, res.Err
+			return nil, nil, res.Err
 		}
 
 		return res.Path.(*path).addPublisher(req)
 
 	case <-pm.ctx.Done():
-		return nil, fmt.Errorf("terminated")
+		return nil, nil, fmt.Errorf("terminated")
 	}
 }
 

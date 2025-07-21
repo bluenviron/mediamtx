@@ -137,25 +137,20 @@ func (s *session) runInner2() (int, error) {
 func (s *session) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	req := defs.PathAccessRequest{
-		Name:        s.req.pathName,
-		Query:       s.req.httpRequest.URL.RawQuery,
-		Publish:     true,
-		Proto:       auth.ProtocolWebRTC,
-		ID:          &s.uuid,
-		Credentials: httpp.Credentials(s.req.httpRequest),
-		IP:          net.ParseIP(ip),
-	}
-
-	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:        s,
-		AccessRequest: req,
+	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		AccessRequest: defs.PathAccessRequest{
+			Name:        s.req.pathName,
+			Query:       s.req.httpRequest.URL.RawQuery,
+			Publish:     true,
+			Proto:       auth.ProtocolWebRTC,
+			ID:          &s.uuid,
+			Credentials: httpp.Credentials(s.req.httpRequest),
+			IP:          net.ParseIP(ip),
+		},
 	})
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-
-	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
 	iceServers, err := s.parent.generateICEServers(false)
 	if err != nil {
@@ -173,7 +168,7 @@ func (s *session) runPublish() (int, error) {
 		TrackGatherTimeout:    s.trackGatherTimeout,
 		STUNGatherTimeout:     s.stunGatherTimeout,
 		Publish:               false,
-		UseAbsoluteTimestamp:  path.SafeConf().UseAbsoluteTimestamp,
+		UseAbsoluteTimestamp:  pathConf.UseAbsoluteTimestamp,
 		Log:                   s,
 	}
 	err = pc.Start()
@@ -230,14 +225,24 @@ func (s *session) runPublish() (int, error) {
 		return 0, err
 	}
 
-	stream, err = path.StartPublisher(defs.PathStartPublisherReq{
+	var path defs.Path
+	path, stream, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             s,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: false,
+		ConfToCompare:      pathConf,
+		AccessRequest: defs.PathAccessRequest{
+			Name:     s.req.pathName,
+			Query:    s.req.httpRequest.URL.RawQuery,
+			Publish:  true,
+			SkipAuth: true,
+		},
 	})
 	if err != nil {
 		return 0, err
 	}
+
+	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
 	pc.StartReading()
 

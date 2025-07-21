@@ -57,13 +57,6 @@ func (pa *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 	return nil
 }
 
-func (pa *dummyPath) StartPublisher(_ defs.PathStartPublisherReq) (*stream.Stream, error) {
-	return nil, fmt.Errorf("unimplemented")
-}
-
-func (pa *dummyPath) StopPublisher(_ defs.PathStopPublisherReq) {
-}
-
 func (pa *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
