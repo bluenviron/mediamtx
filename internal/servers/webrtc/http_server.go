@@ -124,17 +124,15 @@ func (s *httpServer) close() {
 }
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
-	req := defs.PathAccessRequest{
-		Name:        pathName,
-		Query:       ctx.Request.URL.RawQuery,
-		Publish:     publish,
-		Proto:       auth.ProtocolWebRTC,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
-	}
-
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
-		AccessRequest: req,
+		AccessRequest: defs.PathAccessRequest{
+			Name:        pathName,
+			Query:       ctx.Request.URL.RawQuery,
+			Publish:     publish,
+			Proto:       auth.ProtocolWebRTC,
+			Credentials: httpp.Credentials(ctx.Request),
+			IP:          net.ParseIP(ctx.ClientIP()),
+		},
 	})
 	if err != nil {
 		var terr auth.Error

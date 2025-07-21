@@ -20,10 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type dummyPath struct {
-	stream        *stream.Stream
-	streamCreated chan struct{}
-}
+type dummyPath struct{}
 
 func (p *dummyPath) Name() string {
 	return "teststream"
@@ -37,26 +34,6 @@ func (p *dummyPath) ExternalCmdEnv() externalcmd.Environment {
 	return externalcmd.Environment{}
 }
 
-func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
-	p.stream = &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               req.Desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
-	}
-	err := p.stream.Initialize()
-	if err != nil {
-		return nil, err
-	}
-
-	close(p.streamCreated)
-	return p.stream, nil
-}
-
-func (p *dummyPath) StopPublisher(_ defs.PathStopPublisherReq) {
-}
-
 func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
@@ -66,22 +43,22 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 func TestServerPublish(t *testing.T) {
 	for _, ca := range []string{"basic", "digest", "basic+digest"} {
 		t.Run(ca, func(t *testing.T) {
-			path := &dummyPath{
-				streamCreated: make(chan struct{}),
-			}
-
+			var strm *stream.Stream
+			streamCreated := make(chan struct{})
 			n := 0
 
 			pathManager := &test.PathManager{
-				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, error) {
+				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+
 					if ca == "basic" {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return nil, auth.Error{Message: "", AskCredentials: true}
 						}
-						require.Equal(t, "teststream", req.AccessRequest.Name)
-						require.Equal(t, "param=value", req.AccessRequest.Query)
+
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 						require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 					} else {
@@ -94,7 +71,26 @@ func TestServerPublish(t *testing.T) {
 						require.True(t, ok)
 					}
 
-					return path, nil
+					return &conf.Path{}, nil
+				},
+				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+					require.True(t, req.AccessRequest.SkipAuth)
+
+					strm = &stream.Stream{
+						WriteQueueSize:     512,
+						RTPMaxPayloadSize:  1450,
+						Desc:               req.Desc,
+						GenerateRTPPackets: true,
+						Parent:             test.NilLogger,
+					}
+					err := strm.Initialize()
+					require.NoError(t, err)
+
+					close(streamCreated)
+
+					return &dummyPath{}, strm, nil
 				},
 			}
 
@@ -132,16 +128,16 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer source.Close()
 
-			<-path.streamCreated
+			<-streamCreated
 
 			reader := test.NilLogger
 
 			recv := make(chan struct{})
 
-			path.stream.AddReader(
+			strm.AddReader(
 				reader,
-				path.stream.Desc.Medias[0],
-				path.stream.Desc.Medias[0].Formats[0],
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
 				func(u unit.Unit) error {
 					require.Equal(t, [][]byte{
 						test.FormatH264.SPS,
@@ -152,8 +148,8 @@ func TestServerPublish(t *testing.T) {
 					return nil
 				})
 
-			path.stream.StartReader(reader)
-			defer path.stream.RemoveReader(reader)
+			strm.StartReader(reader)
+			defer strm.RemoveReader(reader)
 
 			err = source.WritePacketRTP(media0, &rtp.Packet{
 				Header: rtp.Header{
@@ -188,19 +184,20 @@ func TestServerRead(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: strm}
 			n := 0
 
 			pathManager := &test.PathManager{
 				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+
 					if ca == "basic" {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
 						}
-						require.Equal(t, "teststream", req.AccessRequest.Name)
-						require.Equal(t, "param=value", req.AccessRequest.Query)
+
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 						require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 					} else {
@@ -214,17 +211,17 @@ func TestServerRead(t *testing.T) {
 					}
 
 					return defs.PathDescribeRes{
-						Path:   path,
-						Stream: path.stream,
+						Path:   &dummyPath{},
+						Stream: strm,
 						Err:    nil,
 					}
 				},
 				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					require.Equal(t, "param=value", req.AccessRequest.Query)
+
 					if ca == "basic" {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
-
-						require.Equal(t, "teststream", req.AccessRequest.Name)
-						require.Equal(t, "param=value", req.AccessRequest.Query)
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 						require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 					} else {
@@ -232,7 +229,7 @@ func TestServerRead(t *testing.T) {
 						require.True(t, ok)
 					}
 
-					return path, path.stream, nil
+					return &dummyPath{}, strm, nil
 				},
 			}
 
@@ -334,8 +331,6 @@ func TestServerRedirect(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 
-			path := &dummyPath{stream: strm}
-
 			pathManager := &test.PathManager{
 				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 					if req.AccessRequest.Name == "path1" {
@@ -359,9 +354,8 @@ func TestServerRedirect(t *testing.T) {
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 
 					return defs.PathDescribeRes{
-						Path:   path,
-						Stream: path.stream,
-						Err:    nil,
+						Path:   &dummyPath{},
+						Stream: strm,
 					}
 				},
 			}
