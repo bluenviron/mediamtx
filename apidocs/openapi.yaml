@@ -456,7 +456,7 @@ components:
           type: string
         rpiCameraLevel:
           type: string
-        rpiCameraJPEGQuality:
+        rpiCameraMJPEGQuality:
           type: integer
 
         # Hooks

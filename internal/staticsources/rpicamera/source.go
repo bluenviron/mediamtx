@@ -76,7 +76,7 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 		SecondaryWidth:    uint32(cnf.RPICameraSecondaryWidth),
 		SecondaryHeight:   uint32(cnf.RPICameraSecondaryHeight),
 		SecondaryFPS:      float32(cnf.RPICameraSecondaryFPS),
-		SecondaryQuality:  uint32(cnf.RPICameraSecondaryJPEGQuality),
+		SecondaryQuality:  uint32(cnf.RPICameraSecondaryMJPEGQuality),
 	}
 }
 

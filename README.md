@@ -722,7 +722,7 @@ paths:
     # Codec. in case of secondary streams, it defaults to M-JPEG.
     rpiCameraCodec: auto
     # JPEG quality.
-    rpiCameraJPEGQuality: 60
+    rpiCameraMJPEGQuality: 60
 ```
 
 The secondary stream is available in path `/secondary`.
