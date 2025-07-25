@@ -611,7 +611,8 @@ pathDefaults:
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
   # Codec (auto, hardwareH264, softwareH264 or mjpeg).
-  # When auto, hardwareH264 is used if the Raspberry has a H264 encoder, otherwise softwareH264.
+  # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
+  # When is "auto" and stream is secondary, it defaults to mjpeg.
   rpiCameraCodec: auto
   # Period between IDR frames (when codec is hardwareH264 or softwareH264).
   rpiCameraIDRPeriod: 60
@@ -621,8 +622,8 @@ pathDefaults:
   rpiCameraProfile: main
   # H264 level (4.0, 4.1 or 4.2).
   rpiCameraLevel: '4.1'
-  # JPEG quality.
-  rpiCameraJPEGQuality: 60
+  # M-JPEG JPEG quality (when codec is mjpeg).
+  rpiCameraMJPEGQuality: 60
 
   ###############################################
   # Default path settings -> Hooks
