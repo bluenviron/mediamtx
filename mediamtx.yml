@@ -622,6 +622,10 @@ pathDefaults:
   rpiCameraHardwareH264Profile: main
   # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
   rpiCameraHardwareH264Level: '4.1'
+  # Software H264 profile (baseline, main or high) (when codec is softwareH264).
+  rpiCameraSoftwareH264Profile: baseline
+  # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
+  rpiCameraSoftwareH264Level: '4.1'
   # M-JPEG JPEG quality (when codec is mjpeg).
   rpiCameraMJPEGQuality: 60
 

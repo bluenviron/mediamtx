@@ -195,6 +195,8 @@ type Path struct {
 	RPICameraLevel                 *string   `json:"rpiCameraLevel,omitempty"`   // deprecated
 	RPICameraHardwareH264Profile   string    `json:"rpiCameraHardwareH264Profile"`
 	RPICameraHardwareH264Level     string    `json:"rpiCameraHardwareH264Level"`
+	RPICameraSoftwareH264Profile   string    `json:"rpiCameraSoftwareH264Profile"`
+	RPICameraSoftwareH264Level     string    `json:"rpiCameraSoftwareH264Level"`
 	RPICameraJPEGQuality           *uint     `json:"rpiCameraJPEGQuality,omitempty"` // deprecated
 	RPICameraMJPEGQuality          uint      `json:"rpiCameraMJPEGQuality"`
 	RPICameraPrimaryName           string    `json:"-"` // filled by Check()
@@ -259,6 +261,8 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraBitrate = 5000000
 	pconf.RPICameraHardwareH264Profile = "main"
 	pconf.RPICameraHardwareH264Level = "4.1"
+	pconf.RPICameraSoftwareH264Profile = "baseline"
+	pconf.RPICameraSoftwareH264Level = "4.1"
 	pconf.RPICameraMJPEGQuality = 60
 
 	// Hooks
@@ -519,6 +523,18 @@ func (pconf *Path) validate(
 		case "4.0", "4.1", "4.2":
 		default:
 			return fmt.Errorf("invalid 'rpiCameraHardwareH264Level' value")
+		}
+
+		switch pconf.RPICameraSoftwareH264Profile {
+		case "baseline", "main", "high":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraSoftwareH264Profile' value")
+		}
+
+		switch pconf.RPICameraSoftwareH264Level {
+		case "4.0", "4.1", "4.2":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraSoftwareH264Level' value")
 		}
 
 		if pconf.RPICameraJPEGQuality != nil {

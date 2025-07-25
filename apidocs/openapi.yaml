@@ -456,6 +456,10 @@ components:
           type: string
         rpiCameraHardwareH264Level:
           type: string
+        rpiCameraSoftwareH264Profile:
+          type: string
+        rpiCameraSoftwareH264Level:
+          type: string
         rpiCameraMJPEGQuality:
           type: integer
 
