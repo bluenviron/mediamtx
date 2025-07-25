@@ -452,9 +452,9 @@ components:
           type: integer
         rpiCameraBitrate:
           type: integer
-        rpiCameraProfile:
+        rpiCameraHardwareH264Profile:
           type: string
-        rpiCameraLevel:
+        rpiCameraHardwareH264Level:
           type: string
         rpiCameraMJPEGQuality:
           type: integer

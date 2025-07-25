@@ -618,10 +618,10 @@ pathDefaults:
   rpiCameraIDRPeriod: 60
   # Bitrate (when codec is hardwareH264 or softwareH264).
   rpiCameraBitrate: 5000000
-  # H264 profile (baseline, main or high).
-  rpiCameraProfile: main
-  # H264 level (4.0, 4.1 or 4.2).
-  rpiCameraLevel: '4.1'
+  # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
+  rpiCameraHardwareH264Profile: main
+  # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
+  rpiCameraHardwareH264Level: '4.1'
   # M-JPEG JPEG quality (when codec is mjpeg).
   rpiCameraMJPEGQuality: 60
 
