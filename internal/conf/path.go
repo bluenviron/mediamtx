@@ -494,6 +494,18 @@ func (pconf *Path) validate(
 			return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
 		}
 
+		switch pconf.RPICameraProfile {
+		case "baseline", "main", "high":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraProfile' value")
+		}
+
+		switch pconf.RPICameraLevel {
+		case "4.0", "4.1", "4.2":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraLevel' value")
+		}
+
 		if !pconf.RPICameraSecondary {
 			switch pconf.RPICameraCodec {
 			case "auto", "hardwareH264", "softwareH264":
