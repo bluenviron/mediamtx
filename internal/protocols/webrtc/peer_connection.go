@@ -108,6 +108,10 @@ type PeerConnection struct {
 	ctx               context.Context
 	ctxCancel         context.CancelFunc
 	incomingTracks    []*IncomingTrack
+
+	// KLV data channel support
+	klvDataChannel  *webrtc.DataChannel
+	klvChannelReady chan struct{}
 }
 
 // Start starts the peer connection.
@@ -239,6 +243,7 @@ func (co *PeerConnection) Start() error {
 	co.closed = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
 	co.incomingTrack = make(chan trackRecvPair)
+	// klvChannelReady will be created only when needed
 
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
@@ -250,7 +255,10 @@ func (co *PeerConnection) Start() error {
 				return err
 			}
 		}
+
+		// KLV data channel will be set up later if needed
 	} else {
+		// KLV data channel will be set up later if needed
 		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 			Direction: webrtc.RTPTransceiverDirectionRecvonly,
 		})
@@ -346,6 +354,16 @@ func (co *PeerConnection) Close() {
 		track.close()
 	}
 
+	// Ensure KLV channel is closed to prevent hanging
+	if co.klvChannelReady != nil {
+		select {
+		case <-co.klvChannelReady:
+			// Already closed
+		default:
+			close(co.klvChannelReady)
+		}
+	}
+
 	co.ctxCancel()
 	co.wr.GracefulClose() //nolint:errcheck
 
@@ -354,6 +372,102 @@ func (co *PeerConnection) Close() {
 	// since it is executed in an uncontrolled goroutine.
 	// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
 	<-co.closed
+}
+
+// setupKLVDataChannel sets up a data channel for KLV metadata transmission
+func (co *PeerConnection) setupKLVDataChannel() error {
+	// Check if peer connection is in a valid state
+	if co.wr == nil {
+		return fmt.Errorf("peer connection not initialized")
+	}
+
+	// Create the ready channel only when needed
+	if co.klvChannelReady == nil {
+		co.klvChannelReady = make(chan struct{})
+	}
+
+	// Create data channel for KLV metadata with minimal configuration
+	dataChannelInit := &webrtc.DataChannelInit{
+		Ordered: &[]bool{false}[0], // Use unordered for better performance
+	}
+
+	var err error
+	co.klvDataChannel, err = co.wr.CreateDataChannel("klv", dataChannelInit)
+	if err != nil {
+		// Close the channel to prevent hanging
+		select {
+		case <-co.klvChannelReady:
+			// Already closed
+		default:
+			close(co.klvChannelReady)
+		}
+		return fmt.Errorf("failed to create KLV data channel: %w", err)
+	}
+
+	// Set up data channel event handlers
+	co.klvDataChannel.OnOpen(func() {
+		co.Log.Log(logger.Info, "KLV data channel opened")
+		select {
+		case <-co.klvChannelReady:
+			// Already closed
+		default:
+			close(co.klvChannelReady)
+		}
+	})
+
+	co.klvDataChannel.OnClose(func() {
+		co.Log.Log(logger.Info, "KLV data channel closed")
+	})
+
+	co.klvDataChannel.OnError(func(err error) {
+		co.Log.Log(logger.Warn, "KLV data channel error: %v", err)
+		// Close the channel on error to prevent hanging
+		select {
+		case <-co.klvChannelReady:
+			// Already closed
+		default:
+			close(co.klvChannelReady)
+		}
+	})
+
+	return nil
+}
+
+// SendKLVData sends KLV metadata through the data channel
+func (co *PeerConnection) SendKLVData(klvData []byte) error {
+	if co.klvDataChannel == nil || co.klvChannelReady == nil {
+		// No data channel or ready channel, silently skip
+		return nil
+	}
+
+	// Check if channel is ready without blocking
+	select {
+	case <-co.klvChannelReady:
+		// Channel is ready, proceed
+	default:
+		// Channel not ready, silently skip to avoid blocking
+		return nil
+	}
+
+	// Check if channel is still open
+	if co.klvDataChannel.ReadyState() != webrtc.DataChannelStateOpen {
+		// Channel not open, silently skip
+		return nil
+	}
+
+	// Send the KLV data
+	err := co.klvDataChannel.Send(klvData)
+	if err != nil {
+		// Don't return error, just skip to avoid breaking the stream
+		return nil //nolint:nilerr // Intentionally ignoring error to make KLV non-blocking
+	}
+
+	return nil
+}
+
+// KLVChannelReady returns a channel that closes when the KLV data channel is ready
+func (co *PeerConnection) KLVChannelReady() <-chan struct{} {
+	return co.klvChannelReady
 }
 
 // CreatePartialOffer creates a partial offer.
