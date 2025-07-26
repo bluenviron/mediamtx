@@ -32,7 +32,8 @@ func TestPathAutoDeletion(t *testing.T) {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" {
-					u, err := base.ParseURL("rtsp://localhost:8554/mypath")
+					var u *base.URL
+					u, err = base.ParseURL("rtsp://localhost:8554/mypath")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -50,7 +51,8 @@ func TestPathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					u, err := base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
+					var u *base.URL
+					u, err = base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{

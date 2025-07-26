@@ -25,7 +25,8 @@ func dumpTar(src io.Reader) error {
 	tr := tar.NewReader(uncompressed)
 
 	for {
-		header, err := tr.Next()
+		var header *tar.Header
+		header, err = tr.Next()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -41,7 +42,8 @@ func dumpTar(src io.Reader) error {
 			}
 
 		case tar.TypeReg:
-			f, err := os.OpenFile(header.Name, os.O_WRONLY|os.O_CREATE, header.FileInfo().Mode())
+			var f *os.File
+			f, err = os.OpenFile(header.Name, os.O_WRONLY|os.O_CREATE, header.FileInfo().Mode())
 			if err != nil {
 				return err
 			}

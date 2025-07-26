@@ -73,14 +73,14 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			n, _, err := sender.Read(buf)
-			if err != nil {
+			n, _, err2 := sender.Read(buf)
+			if err2 != nil {
 				return
 			}
 
-			_, err = rtcp.Unmarshal(buf[:n])
-			if err != nil {
-				panic(err)
+			_, err2 = rtcp.Unmarshal(buf[:n])
+			if err2 != nil {
+				panic(err2)
 			}
 		}
 	}()

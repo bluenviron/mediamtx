@@ -224,7 +224,7 @@ func (pa *path) run() {
 			if !pa.conf.SourceOnDemand || pa.onDemandStaticSourceState != pathOnDemandStateInitial {
 				source.Close("path is closing")
 			}
-		} else if source, ok := pa.source.(defs.Publisher); ok {
+		} else if source, ok2 := pa.source.(defs.Publisher); ok2 {
 			source.Close()
 		}
 	}

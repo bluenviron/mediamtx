@@ -375,7 +375,7 @@ func TestOnGet(t *testing.T) {
 				for _, track := range p.Tracks {
 					var samples [][]byte
 					for _, sample := range track.Samples {
-						buf, err := sample.GetPayload()
+						buf, err = sample.GetPayload()
 						require.NoError(t, err)
 						samples = append(samples, buf)
 						sample.GetPayload = nil

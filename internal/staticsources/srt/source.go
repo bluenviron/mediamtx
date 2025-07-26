@@ -53,7 +53,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-readDone:
+		case err = <-readDone:
 			sconn.Close()
 			return err
 
@@ -116,7 +116,7 @@ func (s *Source) runReader(sconn srt.Conn) error {
 
 	for {
 		sconn.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-		err := r.Read()
+		err = r.Read()
 		if err != nil {
 			return err
 		}

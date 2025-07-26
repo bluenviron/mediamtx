@@ -226,7 +226,8 @@ func TestH264ProcessRTPPacketOversized(t *testing.T) {
 			Payload: []byte{0x1c, 0b01000000, 0x01, 0x02, 0x03, 0x04},
 		},
 	} {
-		data, err := p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
+		var data unit.Unit
+		data, err = p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
 		require.NoError(t, err)
 
 		out = append(out, data.GetRTPPackets()...)

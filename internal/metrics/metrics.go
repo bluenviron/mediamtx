@@ -168,7 +168,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
-		data, err := m.hlsServer.APIMuxersList()
+		var data *defs.APIHLSMuxerList
+		data, err = m.hlsServer.APIMuxersList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{name=\"" + i.Path + "\"}"
@@ -183,7 +184,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
 		func() {
-			data, err := m.rtspServer.APIConnsList()
+			var data *defs.APIRTSPConnsList
+			data, err = m.rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
@@ -199,7 +201,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			data, err := m.rtspServer.APISessionsList()
+			var data *defs.APIRTSPSessionList
+			data, err = m.rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -233,7 +236,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
 		func() {
-			data, err := m.rtspsServer.APIConnsList()
+			var data *defs.APIRTSPConnsList
+			data, err = m.rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
@@ -249,7 +253,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			data, err := m.rtspsServer.APISessionsList()
+			var data *defs.APIRTSPSessionList
+			data, err = m.rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -282,7 +287,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		data, err := m.rtmpServer.APIConnsList()
+		var data *defs.APIRTMPConnList
+		data, err = m.rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -298,7 +304,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpsServer) {
-		data, err := m.rtmpsServer.APIConnsList()
+		var data *defs.APIRTMPConnList
+		data, err = m.rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -314,7 +321,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.srtServer) {
-		data, err := m.srtServer.APIConnsList()
+		var data *defs.APISRTConnList
+		data, err = m.srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -428,7 +436,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.webRTCServer) {
-		data, err := m.webRTCServer.APISessionsList()
+		var data *defs.APIWebRTCSessionList
+		data, err = m.webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"

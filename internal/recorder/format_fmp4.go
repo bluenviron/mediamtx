@@ -149,6 +149,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AV1)
+
 						if tunit.TU == nil {
 							return nil
 						}
@@ -215,6 +216,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.VP9)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -305,6 +307,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H265)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -393,6 +396,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H264)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -473,6 +477,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -482,10 +487,10 @@ func (f *formatFMP4) initialize() bool {
 						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
 							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 							if end >= 0 {
-								config := tunit.Frame[:end+4]
+								config2 := tunit.Frame[:end+4]
 
-								if !bytes.Equal(codec.Config, config) {
-									codec.Config = config
+								if !bytes.Equal(codec.Config, config2) {
+									codec.Config = config2
 									f.updateCodecParams()
 								}
 							}
@@ -526,6 +531,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -579,6 +585,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MJPEG)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -615,6 +622,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.Opus)
+
 						if tunit.Packets == nil {
 							return nil
 						}
@@ -651,6 +659,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Audio)
+
 						if tunit.AUs == nil {
 							return nil
 						}
@@ -686,6 +695,7 @@ func (f *formatFMP4) initialize() bool {
 						forma,
 						func(u unit.Unit) error {
 							tunit := u.(*unit.MPEG4AudioLATM)
+
 							if tunit.Element == nil {
 								return nil
 							}
@@ -722,6 +732,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Audio)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -781,6 +792,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AC3)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -886,6 +898,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.LPCM)
+
 						if tunit.Samples == nil {
 							return nil
 						}

@@ -243,7 +243,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-cameraErr:
+		case err = <-cameraErr:
 			return err
 
 		case cnf := <-params.ReloadConf:
@@ -301,7 +301,7 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	defer origStream.RemoveReader(s)
 
 	select {
-	case err := <-origStream.ReaderError(s):
+	case err = <-origStream.ReaderError(s):
 		return err
 
 	case <-r.ctx.Done():

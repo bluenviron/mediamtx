@@ -174,7 +174,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 	}()
 
 	select {
-	case err := <-readerErr:
+	case err = <-readerErr:
 		sconn.Close()
 		return err
 

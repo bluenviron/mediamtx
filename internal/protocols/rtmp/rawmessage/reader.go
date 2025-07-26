@@ -51,7 +51,7 @@ func (rc *readerChunkStream) readChunk(c chunk.Chunk, bodySize uint32, hasExtend
 		diff := count - rc.mr.lastAckCount
 
 		if diff > (rc.mr.ackWindowSize) {
-			err := rc.mr.onAckNeeded(count)
+			err = rc.mr.onAckNeeded(count)
 			if err != nil {
 				return err
 			}

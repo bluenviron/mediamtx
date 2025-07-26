@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 )
 
@@ -51,7 +52,8 @@ func gitDescribeTags(repo *git.Repository) (string, error) {
 	i := 0
 
 	for {
-		commit, err := cIter.Next()
+		var commit *object.Commit
+		commit, err = cIter.Next()
 		if err != nil {
 			return "", fmt.Errorf("failed to get next commit: %w", err)
 		}

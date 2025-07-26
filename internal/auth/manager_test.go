@@ -242,7 +242,7 @@ func TestAuthHTTP(t *testing.T) {
 			}
 
 			if outcome == "ok" {
-				err := m.Authenticate(&Request{
+				err = m.Authenticate(&Request{
 					Action:   conf.AuthActionPublish,
 					Path:     "teststream",
 					Query:    "param=value",
@@ -255,7 +255,7 @@ func TestAuthHTTP(t *testing.T) {
 				})
 				require.NoError(t, err)
 			} else {
-				err := m.Authenticate(&Request{
+				err = m.Authenticate(&Request{
 					Action:   conf.AuthActionPublish,
 					Path:     "teststream",
 					Query:    "param=value",
@@ -548,7 +548,8 @@ func TestAuthJWTRefresh(t *testing.T) {
 
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 		token.Header[jwkset.HeaderKID] = "test-key-id"
-		ss, err := token.SignedString(key)
+		var ss string
+		ss, err = token.SignedString(key)
 		require.NoError(t, err)
 
 		err = m.Authenticate(&Request{
