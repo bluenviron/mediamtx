@@ -162,6 +162,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out += metric("paths", tags, 1)
 			out += metric("paths_bytes_received", tags, int64(i.BytesReceived))
 			out += metric("paths_bytes_sent", tags, int64(i.BytesSent))
+			out += metric("paths_readers", tags, int64(len(i.Readers)))
 		}
 	} else {
 		out += metric("paths", "", 0)

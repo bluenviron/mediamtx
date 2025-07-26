@@ -336,21 +336,27 @@ webrtc_sessions_bytes_sent 0
 			`^paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
 				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+

@@ -2135,6 +2135,7 @@ Obtaining:
 paths{name="[path_name]",state="[state]"} 1
 paths_bytes_received{name="[path_name]",state="[state]"} 1234
 paths_bytes_sent{name="[path_name]",state="[state]"} 1234
+paths_readers{name="[path_name]",state="[state]"} 1234
 
 # metrics of every HLS muxer
 hls_muxers{name="[name]"} 1
