@@ -210,7 +210,7 @@ func (c *conn) runRead() error {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err := <-stream.ReaderError(c):
+	case err = <-stream.ReaderError(c):
 		return err
 	}
 }
@@ -275,7 +275,7 @@ func (c *conn) runPublish() error {
 
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-		err := r.Read()
+		err = r.Read()
 		if err != nil {
 			return err
 		}

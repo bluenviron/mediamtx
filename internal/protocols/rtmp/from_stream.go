@@ -147,6 +147,7 @@ func setupAudio(
 			audioFormatMPEG4AudioLATM,
 			func(u unit.Unit) error {
 				tunit := u.(*unit.MPEG4AudioLATM)
+
 				if tunit.Element == nil {
 					return nil
 				}

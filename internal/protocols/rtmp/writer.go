@@ -137,12 +137,13 @@ func (w *Writer) writeTracks() error {
 
 	if track, ok := w.AudioTrack.(*format.MPEG4Audio); ok {
 		audioConf = track.Config
-	} else if track, ok := w.AudioTrack.(*format.MPEG4AudioLATM); ok {
+	} else if track, ok2 := w.AudioTrack.(*format.MPEG4AudioLATM); ok2 {
 		audioConf = track.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig
 	}
 
 	if audioConf != nil {
-		enc, err := audioConf.Marshal()
+		var enc []byte
+		enc, err = audioConf.Marshal()
 		if err != nil {
 			return err
 		}

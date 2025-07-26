@@ -31,7 +31,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 	rt := prv.Type().Elem()
 
 	if i, ok := prv.Interface().(Unmarshaler); ok {
-		if ev, ok := env[prefix]; ok {
+		if ev, ok2 := env[prefix]; ok2 {
 			if prv.IsNil() {
 				prv.Set(reflect.New(rt))
 				i = prv.Interface().(Unmarshaler)

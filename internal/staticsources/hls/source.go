@@ -113,7 +113,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-waitErr:
+		case err = <-waitErr:
 			c.Close()
 			return err
 

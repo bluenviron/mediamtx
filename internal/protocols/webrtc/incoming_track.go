@@ -299,14 +299,14 @@ func (t *IncomingTrack) start() {
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			n, _, err := t.receiver.Read(buf)
-			if err != nil {
+			n, _, err2 := t.receiver.Read(buf)
+			if err2 != nil {
 				return
 			}
 
-			pkts, err := rtcp.Unmarshal(buf[:n])
-			if err != nil {
-				panic(err)
+			pkts, err2 := rtcp.Unmarshal(buf[:n])
+			if err2 != nil {
+				panic(err2)
 			}
 
 			for _, pkt := range pkts {
@@ -324,12 +324,12 @@ func (t *IncomingTrack) start() {
 			defer keyframeTicker.Stop()
 
 			for range keyframeTicker.C {
-				err := t.writeRTCP([]rtcp.Packet{
+				err2 := t.writeRTCP([]rtcp.Packet{
 					&rtcp.PictureLossIndication{
 						MediaSSRC: uint32(t.track.SSRC()),
 					},
 				})
-				if err != nil {
+				if err2 != nil {
 					return
 				}
 			}
@@ -342,8 +342,8 @@ func (t *IncomingTrack) start() {
 		reorderer.Initialize()
 
 		for {
-			pkt, _, err := t.track.ReadRTP()
-			if err != nil {
+			pkt, _, err2 := t.track.ReadRTP()
+			if err2 != nil {
 				return
 			}
 
@@ -353,9 +353,9 @@ func (t *IncomingTrack) start() {
 				// do not return
 			}
 
-			err = t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
-			if err != nil {
-				t.log.Log(logger.Warn, err.Error())
+			err2 = t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
+			if err2 != nil {
+				t.log.Log(logger.Warn, err2.Error())
 				continue
 			}
 

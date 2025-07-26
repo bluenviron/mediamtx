@@ -206,7 +206,7 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		if resBody, err := io.ReadAll(res.Body); err == nil && len(resBody) != 0 {
+		if resBody, err2 := io.ReadAll(res.Body); err2 == nil && len(resBody) != 0 {
 			return fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
 

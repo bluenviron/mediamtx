@@ -88,8 +88,8 @@ func setupVideoTrack(
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.TU)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.TU)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 
@@ -139,8 +139,8 @@ func setupVideoTrack(
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.Frame)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.Frame)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 
@@ -188,8 +188,8 @@ func setupVideoTrack(
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.Frame)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.Frame)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 
@@ -248,8 +248,8 @@ func setupVideoTrack(
 				}
 				lastPTS = tunit.PTS
 
-				packets, err := encoder.Encode(tunit.AU)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.AU)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 
@@ -308,8 +308,8 @@ func setupVideoTrack(
 				}
 				lastPTS = tunit.PTS
 
-				packets, err := encoder.Encode(tunit.AU)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.AU)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 
@@ -535,8 +535,8 @@ func setupAudioTrack(
 						lpcm = al
 					}
 
-					packets, err := encoder.Encode(lpcm)
-					if err != nil {
+					packets, err2 := encoder.Encode(lpcm)
+					if err2 != nil {
 						return nil //nolint:nilerr
 					}
 
@@ -613,8 +613,8 @@ func setupAudioTrack(
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.Samples)
-				if err != nil {
+				packets, err2 := encoder.Encode(tunit.Samples)
+				if err2 != nil {
 					return nil //nolint:nilerr
 				}
 

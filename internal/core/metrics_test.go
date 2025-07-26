@@ -176,9 +176,9 @@ webrtc_sessions_bytes_sent 0
 		go func() {
 			defer wg.Done()
 			source := gortsplib.Client{}
-			err := source.StartRecording("rtsp://localhost:8554/rtsp_path",
+			err2 := source.StartRecording("rtsp://localhost:8554/rtsp_path",
 				&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
-			require.NoError(t, err)
+			require.NoError(t, err2)
 			defer source.Close()
 			<-terminate
 		}()
@@ -186,9 +186,9 @@ webrtc_sessions_bytes_sent 0
 		go func() {
 			defer wg.Done()
 			source2 := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
-			err := source2.StartRecording("rtsps://localhost:8322/rtsps_path",
+			err2 := source2.StartRecording("rtsps://localhost:8322/rtsps_path",
 				&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
-			require.NoError(t, err)
+			require.NoError(t, err2)
 			defer source2.Close()
 			<-terminate
 		}()
@@ -196,26 +196,26 @@ webrtc_sessions_bytes_sent 0
 		go func() {
 			defer wg.Done()
 
-			u, err := url.Parse("rtmp://localhost:1935/rtmp_path")
-			require.NoError(t, err)
+			u, err2 := url.Parse("rtmp://localhost:1935/rtmp_path")
+			require.NoError(t, err2)
 
 			conn := &rtmp.Client{
 				URL:     u,
 				Publish: true,
 			}
-			err = conn.Initialize(context.Background())
-			require.NoError(t, err)
+			err2 = conn.Initialize(context.Background())
+			require.NoError(t, err2)
 			defer conn.Close()
 
 			w := &rtmp.Writer{
 				Conn:       conn,
 				VideoTrack: test.FormatH264,
 			}
-			err = w.Initialize()
-			require.NoError(t, err)
+			err2 = w.Initialize()
+			require.NoError(t, err2)
 
-			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
-			require.NoError(t, err)
+			err2 = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			require.NoError(t, err2)
 
 			<-terminate
 		}()
@@ -223,27 +223,27 @@ webrtc_sessions_bytes_sent 0
 		go func() {
 			defer wg.Done()
 
-			u, err := url.Parse("rtmps://localhost:1936/rtmps_path")
-			require.NoError(t, err)
+			u, err2 := url.Parse("rtmps://localhost:1936/rtmps_path")
+			require.NoError(t, err2)
 
 			conn := &rtmp.Client{
 				URL:       u,
 				TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				Publish:   true,
 			}
-			err = conn.Initialize(context.Background())
-			require.NoError(t, err)
+			err2 = conn.Initialize(context.Background())
+			require.NoError(t, err2)
 			defer conn.Close()
 
 			w := &rtmp.Writer{
 				Conn:       conn,
 				VideoTrack: test.FormatH264,
 			}
-			err = w.Initialize()
-			require.NoError(t, err)
+			err2 = w.Initialize()
+			require.NoError(t, err2)
 
-			err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
-			require.NoError(t, err)
+			err2 = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			require.NoError(t, err2)
 
 			<-terminate
 		}()
@@ -251,12 +251,12 @@ webrtc_sessions_bytes_sent 0
 		go func() {
 			defer wg.Done()
 
-			su, err := url.Parse("http://localhost:8889/webrtc_path/whip")
-			require.NoError(t, err)
+			su, err2 := url.Parse("http://localhost:8889/webrtc_path/whip")
+			require.NoError(t, err2)
 
-			tr := &http.Transport{}
-			defer tr.CloseIdleConnections()
-			hc2 := &http.Client{Transport: tr}
+			tr2 := &http.Transport{}
+			defer tr2.CloseIdleConnections()
+			hc2 := &http.Client{Transport: tr2}
 
 			track := &webrtc.OutgoingTrack{
 				Caps: pwebrtc.RTPCodecCapability{
@@ -274,11 +274,11 @@ webrtc_sessions_bytes_sent 0
 				OutgoingTracks: []*webrtc.OutgoingTrack{track},
 			}
 
-			err = s.Initialize(context.Background())
-			require.NoError(t, err)
+			err2 = s.Initialize(context.Background())
+			require.NoError(t, err2)
 			defer checkClose(t, s.Close)
 
-			err = track.WriteRTP(&rtp.Packet{
+			err2 = track.WriteRTP(&rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
 					Marker:         true,
@@ -289,7 +289,7 @@ webrtc_sessions_bytes_sent 0
 				},
 				Payload: []byte{1},
 			})
-			require.NoError(t, err)
+			require.NoError(t, err2)
 			<-terminate
 		}()
 
@@ -297,14 +297,14 @@ webrtc_sessions_bytes_sent 0
 			defer wg.Done()
 
 			srtConf := srt.DefaultConfig()
-			address, err := srtConf.UnmarshalURL("srt://localhost:8890?streamid=publish:srt_path")
-			require.NoError(t, err)
+			address, err2 := srtConf.UnmarshalURL("srt://localhost:8890?streamid=publish:srt_path")
+			require.NoError(t, err2)
 
-			err = srtConf.Validate()
-			require.NoError(t, err)
+			err2 = srtConf.Validate()
+			require.NoError(t, err2)
 
-			publisher, err := srt.Dial("srt", address, srtConf)
-			require.NoError(t, err)
+			publisher, err2 := srt.Dial("srt", address, srtConf)
+			require.NoError(t, err2)
 			defer publisher.Close()
 
 			track := &mpegts.Track{
@@ -313,18 +313,18 @@ webrtc_sessions_bytes_sent 0
 
 			bw := bufio.NewWriter(publisher)
 			w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
-			err = w.Initialize()
-			require.NoError(t, err)
+			err2 = w.Initialize()
+			require.NoError(t, err2)
 
-			err = w.WriteH264(track, 0, 0, [][]byte{
+			err2 = w.WriteH264(track, 0, 0, [][]byte{
 				test.FormatH264.SPS,
 				test.FormatH264.PPS,
 				{0x05, 1}, // IDR
 			})
-			require.NoError(t, err)
+			require.NoError(t, err2)
 
-			err = bw.Flush()
-			require.NoError(t, err)
+			err2 = bw.Flush()
+			require.NoError(t, err2)
 			<-terminate
 		}()
 

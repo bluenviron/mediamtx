@@ -356,7 +356,7 @@ func (s *session) runRead() (int, error) {
 	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
 
-	case err := <-stream.ReaderError(s):
+	case err = <-stream.ReaderError(s):
 		return 0, err
 
 	case <-s.ctx.Done():

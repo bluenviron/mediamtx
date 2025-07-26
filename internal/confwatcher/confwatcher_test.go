@@ -25,7 +25,8 @@ func TestWrite(t *testing.T) {
 	defer w.Close()
 
 	func() {
-		f, err := os.Create(fpath)
+		var f *os.File
+		f, err = os.Create(fpath)
 		require.NoError(t, err)
 		defer f.Close()
 
@@ -51,23 +52,23 @@ func TestWriteMultipleTimes(t *testing.T) {
 	defer w.Close()
 
 	func() {
-		f, err := os.Create(fpath)
-		require.NoError(t, err)
+		f, err2 := os.Create(fpath)
+		require.NoError(t, err2)
 		defer f.Close()
 
-		_, err = f.Write([]byte("{}"))
-		require.NoError(t, err)
+		_, err2 = f.Write([]byte("{}"))
+		require.NoError(t, err2)
 	}()
 
 	time.Sleep(10 * time.Millisecond)
 
 	func() {
-		f, err := os.Create(fpath)
-		require.NoError(t, err)
+		f, err2 := os.Create(fpath)
+		require.NoError(t, err2)
 		defer f.Close()
 
-		_, err = f.Write([]byte("{}"))
-		require.NoError(t, err)
+		_, err2 = f.Write([]byte("{}"))
+		require.NoError(t, err2)
 	}()
 
 	select {
@@ -98,7 +99,8 @@ func TestDeleteCreate(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	func() {
-		f, err := os.Create(fpath)
+		var f *os.File
+		f, err = os.Create(fpath)
 		require.NoError(t, err)
 		defer f.Close()
 
@@ -129,12 +131,12 @@ func TestSymlinkDeleteCreate(t *testing.T) {
 	os.Remove(fpath)
 
 	func() {
-		f, err := os.Create(fpath)
-		require.NoError(t, err)
+		f, err2 := os.Create(fpath)
+		require.NoError(t, err2)
 		defer f.Close()
 
-		_, err = f.Write([]byte("{}"))
-		require.NoError(t, err)
+		_, err2 = f.Write([]byte("{}"))
+		require.NoError(t, err2)
 	}()
 
 	select {

@@ -64,6 +64,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H265)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -106,6 +107,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H264)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -149,6 +151,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -183,6 +186,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -216,6 +220,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.Opus)
+
 						if tunit.Packets == nil {
 							return nil
 						}
@@ -243,6 +248,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.KLV)
+
 						if tunit.Unit == nil {
 							return nil
 						}
@@ -266,6 +272,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Audio)
+
 						if tunit.AUs == nil {
 							return nil
 						}
@@ -291,6 +298,7 @@ func FromStream(
 						track,
 						func(u unit.Unit) error {
 							tunit := u.(*unit.MPEG4AudioLATM)
+
 							if tunit.Element == nil {
 								return nil
 							}
@@ -330,6 +338,7 @@ func FromStream(
 						track,
 						func(u unit.Unit) error {
 							tunit := u.(*unit.MPEG4AudioLATM)
+
 							if tunit.Element == nil {
 								return nil
 							}
@@ -355,6 +364,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Audio)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -379,6 +389,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AC3)
+
 						if tunit.Frames == nil {
 							return nil
 						}

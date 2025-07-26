@@ -20,15 +20,15 @@ func TestSource(t *testing.T) {
 	defer ln.Close()
 
 	go func() {
-		req, err := ln.Accept2()
-		require.NoError(t, err)
+		req, err2 := ln.Accept2()
+		require.NoError(t, err2)
 
 		require.Equal(t, "sidname", req.StreamId())
-		err = req.SetPassphrase("ttest1234567")
-		require.NoError(t, err)
+		err2 = req.SetPassphrase("ttest1234567")
+		require.NoError(t, err2)
 
-		conn, err := req.Accept()
-		require.NoError(t, err)
+		conn, err2 := req.Accept()
+		require.NoError(t, err2)
 		defer conn.Close()
 
 		track := &mpegts.Track{
@@ -37,16 +37,16 @@ func TestSource(t *testing.T) {
 
 		bw := bufio.NewWriter(conn)
 		w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
-		err = w.Initialize()
-		require.NoError(t, err)
+		err2 = w.Initialize()
+		require.NoError(t, err2)
 
-		err = w.WriteH264(track, 0, 0, [][]byte{{ // IDR
+		err2 = w.WriteH264(track, 0, 0, [][]byte{{ // IDR
 			5, 1,
 		}})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 
-		err = bw.Flush()
-		require.NoError(t, err)
+		err2 = bw.Flush()
+		require.NoError(t, err2)
 
 		// wait for internal SRT queue to be written
 		time.Sleep(500 * time.Millisecond)

@@ -325,7 +325,8 @@ func (c *ServerConn) Accept() error {
 	}
 
 	for {
-		cmd, err := readCommand(c.mrw)
+		var cmd *message.CommandAMF0
+		cmd, err = readCommand(c.mrw)
 		if err != nil {
 			return err
 		}

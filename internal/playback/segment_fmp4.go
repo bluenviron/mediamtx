@@ -275,7 +275,7 @@ func segmentFMP4ReadDurationFromParts(
 
 outer:
 	for {
-		_, err := io.ReadFull(r, buf)
+		_, err = io.ReadFull(r, buf)
 		if err != nil {
 			return 0, err
 		}

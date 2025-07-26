@@ -392,7 +392,8 @@ func TestServerConn(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				msg, err := mrw.Read()
+				var msg message.Message
+				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.SetWindowAckSize{
 					Value: 2500000,
