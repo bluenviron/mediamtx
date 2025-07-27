@@ -16,6 +16,7 @@ import (
 type openAPIProperty struct {
 	Ref      string           `json:"$ref"`
 	Type     string           `json:"type"`
+	Format   string           `json:"format"`
 	Nullable bool             `json:"nullable"`
 	Items    *openAPIProperty `json:"items"`
 }
@@ -157,7 +158,10 @@ func TestAPIDocs(t *testing.T) {
 						content2.Properties[js] = openAPIProperty{Type: "string"}
 
 					case sf.Type == reflect.TypeOf(int(0)):
-						content2.Properties[js] = openAPIProperty{Type: "integer"}
+						content2.Properties[js] = openAPIProperty{Type: "integer", Format: "int64"}
+
+					case sf.Type == reflect.TypeOf(float64(0)):
+						content2.Properties[js] = openAPIProperty{Type: "number", Format: "float64"}
 
 					case sf.Type == reflect.TypeOf(false):
 						content2.Properties[js] = openAPIProperty{Type: "boolean"}
