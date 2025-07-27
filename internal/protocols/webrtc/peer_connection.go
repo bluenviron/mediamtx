@@ -130,8 +130,6 @@ type PeerConnection struct {
 	rtpPacketsSent     *uint64
 	rtpPacketsLost     *uint64
 	statsInterceptor   *statsInterceptor
-	// rtcpPacketsReceived *uint64
-	// rtcpPacketsSent     *uint64
 }
 
 // Start starts the peer connection.
