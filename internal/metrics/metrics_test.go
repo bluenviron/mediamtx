@@ -20,7 +20,7 @@ type dummyPathManager struct{}
 
 func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 	return &defs.APIPathList{
-		ItemCount: 20,
+		ItemCount: 1,
 		PageCount: 1,
 		Items: []*defs.APIPath{{
 			Name:     "mypath",
@@ -45,6 +45,25 @@ func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 }
 
 func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
+	panic("unused")
+}
+
+type dummyHLSServer struct{}
+
+func (dummyHLSServer) APIMuxersList() (*defs.APIHLSMuxerList, error) {
+	return &defs.APIHLSMuxerList{
+		ItemCount: 1,
+		PageCount: 1,
+		Items: []*defs.APIHLSMuxer{{
+			Path:        "mypath",
+			Created:     time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			LastRequest: time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			BytesSent:   789,
+		}},
+	}, nil
+}
+
+func (dummyHLSServer) APIMuxersGet(string) (*defs.APIHLSMuxer, error) {
 	panic("unused")
 }
 
@@ -98,6 +117,7 @@ func TestMetrics(t *testing.T) {
 	defer m.Close()
 
 	m.SetPathManager(&dummyPathManager{})
+	m.SetHLSServer(&dummyHLSServer{})
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -114,6 +134,8 @@ func TestMetrics(t *testing.T) {
 		`paths{name="mypath",state="ready"} 1`+"\n"+
 			`paths_bytes_received{name="mypath",state="ready"} 123`+"\n"+
 			`paths_bytes_sent{name="mypath",state="ready"} 456`+"\n"+
-			`paths_readers{name="mypath",state="ready"} 1`+"\n",
+			`paths_readers{name="mypath",state="ready"} 1`+"\n"+
+			`hls_muxers{name="mypath"} 1`+"\n"+
+			`hls_muxers_bytes_sent{name="mypath"} 789`+"\n",
 		string(byts))
 }
