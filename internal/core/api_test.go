@@ -761,6 +761,12 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"remoteAddr":                out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
 							"remoteCandidate":           out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteCandidate"],
 							"state":                     "read",
+							"rtcpPacketsReceived":       float64(0),
+							"rtcpPacketsSent":           float64(2),
+							"rtpPacketsJitter":          float64(0),
+							"rtpPacketsLost":            float64(0),
+							"rtpPacketsReceived":        float64(0),
+							"rtpPacketsSent":            float64(1),
 						},
 					},
 				}, out1)

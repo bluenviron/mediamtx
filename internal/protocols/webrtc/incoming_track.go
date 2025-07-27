@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/rtcpreceiver"
@@ -244,6 +245,8 @@ type IncomingTrack struct {
 	receiver             *webrtc.RTPReceiver
 	writeRTCP            func([]rtcp.Packet) error
 	log                  logger.Writer
+	rtpPacketsReceived   *uint64
+	rtpPacketsLost       *uint64
 
 	packetsLost  *counterdumper.CounterDumper
 	rtcpReceiver *rtcpreceiver.RTCPReceiver
@@ -295,7 +298,8 @@ func (t *IncomingTrack) start() {
 		panic(err)
 	}
 
-	// incoming RTCP packets must always be read to make interceptors work
+	// read incoming RTCP packets.
+	// incoming RTCP packets must always be read to make interceptors work.
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -336,7 +340,7 @@ func (t *IncomingTrack) start() {
 		}()
 	}
 
-	// read incoming RTP packets
+	// read incoming RTP packets.
 	go func() {
 		reorderer := &rtpreorderer.Reorderer{}
 		reorderer.Initialize()
@@ -349,9 +353,12 @@ func (t *IncomingTrack) start() {
 
 			packets, lost := reorderer.Process(pkt)
 			if lost != 0 {
+				atomic.AddUint64(t.rtpPacketsLost, uint64(lost))
 				t.packetsLost.Add(uint64(lost))
 				// do not return
 			}
+
+			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
 
 			err2 = t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
 			if err2 != nil {
