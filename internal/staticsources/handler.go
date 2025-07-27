@@ -43,6 +43,12 @@ func resolveSource(s string, matches []string, query string) string {
 	return s
 }
 
+type staticSource interface {
+	logger.Writer
+	Run(defs.StaticSourceRunParams) error
+	APISourceDescribe() defs.APIPathSourceOrReader
+}
+
 type handlerPathManager interface {
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
@@ -67,7 +73,7 @@ type Handler struct {
 
 	ctx       context.Context
 	ctxCancel func()
-	instance  defs.StaticSource
+	instance  staticSource
 	running   bool
 	query     string
 

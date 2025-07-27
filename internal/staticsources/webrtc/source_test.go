@@ -123,17 +123,29 @@ func TestSource(t *testing.T) {
 	go httpServ.Serve(ln)
 	defer httpServ.Shutdown(context.Background())
 
-	te := test.NewSourceTester(
-		func(p defs.StaticSourceParent) defs.StaticSource {
-			return &Source{
-				ReadTimeout: conf.Duration(10 * time.Second),
-				Parent:      p,
-			}
-		},
-		"whep://localhost:9003/my/resource",
-		&conf.Path{},
-	)
-	defer te.Close()
+	p := &test.StaticSourceParent{}
+	p.Initialize()
+	defer p.Close()
 
-	<-te.Unit
+	so := &Source{
+		ReadTimeout: conf.Duration(10 * time.Second),
+		Parent:      p,
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	go func() {
+		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+			Context:        ctx,
+			ResolvedSource: "whep://localhost:9003/my/resource",
+			Conf:           &conf.Path{},
+		})
+		close(done)
+	}()
+
+	<-p.Unit
 }

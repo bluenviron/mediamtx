@@ -12,9 +12,9 @@ import (
 
 // Source is an entity that can provide a stream.
 // it can be:
-// - publisher
+// - Publisher
 // - staticsources.Handler
-// - redirectSource
+// - core.sourceRedirect
 type Source interface {
 	logger.Writer
 	APISourceDescribe() APIPathSourceOrReader

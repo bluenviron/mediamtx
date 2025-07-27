@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"os"
@@ -104,23 +105,34 @@ func TestSource(t *testing.T) {
 
 				source += "localhost/teststream"
 
-				te := test.NewSourceTester(
-					func(p defs.StaticSourceParent) defs.StaticSource {
-						return &Source{
-							ReadTimeout:  conf.Duration(10 * time.Second),
-							WriteTimeout: conf.Duration(10 * time.Second),
-							Parent:       p,
-						}
-					},
-					source,
-					&conf.Path{
-						SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
-					},
-				)
+				p := &test.StaticSourceParent{}
+				p.Initialize()
+				defer p.Close()
 
-				defer te.Close()
+				so := &Source{
+					ReadTimeout:  conf.Duration(10 * time.Second),
+					WriteTimeout: conf.Duration(10 * time.Second),
+					Parent:       p,
+				}
 
-				<-te.Unit
+				done := make(chan struct{})
+				defer func() { <-done }()
+
+				ctx, ctxCancel := context.WithCancel(context.Background())
+				defer ctxCancel()
+
+				go func() {
+					so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+						Context:        ctx,
+						ResolvedSource: source,
+						Conf: &conf.Path{
+							SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
+						},
+					})
+					close(done)
+				}()
+
+				<-p.Unit
 			})
 		}
 	}

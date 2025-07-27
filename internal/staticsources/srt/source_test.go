@@ -2,6 +2,7 @@ package srt
 
 import (
 	"bufio"
+	"context"
 	"testing"
 	"time"
 
@@ -52,17 +53,29 @@ func TestSource(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 	}()
 
-	te := test.NewSourceTester(
-		func(p defs.StaticSourceParent) defs.StaticSource {
-			return &Source{
-				ReadTimeout: conf.Duration(10 * time.Second),
-				Parent:      p,
-			}
-		},
-		"srt://127.0.0.1:9002?streamid=sidname&passphrase=ttest1234567",
-		&conf.Path{},
-	)
-	defer te.Close()
+	p := &test.StaticSourceParent{}
+	p.Initialize()
+	defer p.Close()
 
-	<-te.Unit
+	so := &Source{
+		ReadTimeout: conf.Duration(10 * time.Second),
+		Parent:      p,
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	go func() {
+		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+			Context:        ctx,
+			ResolvedSource: "srt://127.0.0.1:9002?streamid=sidname&passphrase=ttest1234567",
+			Conf:           &conf.Path{},
+		})
+		close(done)
+	}()
+
+	<-p.Unit
 }
