@@ -18,10 +18,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+type parent interface {
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
+}
+
 // Source is a WebRTC static source.
 type Source struct {
 	ReadTimeout conf.Duration
-	Parent      defs.StaticSourceParent
+	Parent      parent
 }
 
 // Log implements logger.Writer.

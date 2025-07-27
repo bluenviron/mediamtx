@@ -101,7 +101,9 @@ func (*secondaryReader) APIReaderDescribe() defs.APIPathSourceOrReader {
 }
 
 type parent interface {
-	defs.StaticSourceParent
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
