@@ -356,6 +356,10 @@ hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
+# The base URL used to prefix every entry in the playlist.
+# Useful to generate playlists with absolute paths.
+# (e.g https://cdn.example.com)
+hlsBaseURL:
 
 ###############################################
 # Global settings -> WebRTC server

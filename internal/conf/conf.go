@@ -260,6 +260,7 @@ type Conf struct {
 	HLSEncryption      bool       `json:"hlsEncryption"`
 	HLSServerKey       string     `json:"hlsServerKey"`
 	HLSServerCert      string     `json:"hlsServerCert"`
+	HLSBaseURL         string     `json:"hlsBaseURL"`
 	HLSAllowOrigin     string     `json:"hlsAllowOrigin"`
 	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
 	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
