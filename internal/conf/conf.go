@@ -408,6 +408,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
+	conf.HLSBaseURL = ""
 
 	// WebRTC server
 	conf.WebRTC = true
