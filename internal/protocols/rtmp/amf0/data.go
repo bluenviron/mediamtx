@@ -366,7 +366,7 @@ func marshalItem(item interface{}, buf []byte) int {
 		n := 5
 
 		for _, entry := range item {
-			le := len(entry.Key)
+			le = len(entry.Key)
 			buf[n] = byte(le >> 8)
 			buf[n+1] = byte(le)
 			copy(buf[n+2:], entry.Key)

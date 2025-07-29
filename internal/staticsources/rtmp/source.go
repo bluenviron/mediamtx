@@ -18,11 +18,17 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+type parent interface {
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
+}
+
 // Source is a RTMP static source.
 type Source struct {
 	ReadTimeout  conf.Duration
 	WriteTimeout conf.Duration
-	Parent       defs.StaticSourceParent
+	Parent       parent
 }
 
 // Log implements logger.Writer.
@@ -58,7 +64,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-readDone:
+		case err = <-readDone:
 			ctxCancel()
 			return err
 
@@ -124,9 +130,9 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 	go func() {
 		for {
 			conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-			err := r.Read()
-			if err != nil {
-				readerErr <- err
+			err2 := r.Read()
+			if err2 != nil {
+				readerErr <- err2
 				return
 			}
 		}
@@ -138,7 +144,7 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 		<-readerErr
 		return fmt.Errorf("terminated")
 
-	case err := <-readerErr:
+	case err = <-readerErr:
 		return err
 	}
 }

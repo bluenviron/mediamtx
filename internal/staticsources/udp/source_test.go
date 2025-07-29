@@ -2,6 +2,7 @@ package udp
 
 import (
 	"bufio"
+	"context"
 	"net"
 	"testing"
 	"time"
@@ -52,17 +53,29 @@ func TestSource(t *testing.T) {
 				src = "udp://127.0.0.1:9001?source=127.0.1.1"
 			}
 
-			te := test.NewSourceTester(
-				func(p defs.StaticSourceParent) defs.StaticSource {
-					return &Source{
-						ReadTimeout: conf.Duration(10 * time.Second),
-						Parent:      p,
-					}
-				},
-				src,
-				&conf.Path{},
-			)
-			defer te.Close()
+			p := &test.StaticSourceParent{}
+			p.Initialize()
+			defer p.Close()
+
+			so := &Source{
+				ReadTimeout: conf.Duration(10 * time.Second),
+				Parent:      p,
+			}
+
+			done := make(chan struct{})
+			defer func() { <-done }()
+
+			ctx, ctxCancel := context.WithCancel(context.Background())
+			defer ctxCancel()
+
+			go func() {
+				so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+					Context:        ctx,
+					ResolvedSource: src,
+					Conf:           &conf.Path{},
+				})
+				close(done)
+			}()
 
 			time.Sleep(50 * time.Millisecond)
 
@@ -117,7 +130,7 @@ func TestSource(t *testing.T) {
 			err = bw.Flush()
 			require.NoError(t, err)
 
-			<-te.Unit
+			<-p.Unit
 		})
 	}
 }

@@ -35,7 +35,7 @@ func writeSegment1(t *testing.T, fpath string) {
 				ID:        2,
 				TimeScale: 48000,
 				Codec: &mp4.CodecMPEG4Audio{
-					Config: mpeg4audio.Config{
+					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
 						ChannelCount: 2,
@@ -113,7 +113,7 @@ func writeSegment2(t *testing.T, fpath string) {
 				ID:        2,
 				TimeScale: 48000,
 				Codec: &mp4.CodecMPEG4Audio{
-					Config: mpeg4audio.Config{
+					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
 						ChannelCount: 2,
@@ -375,7 +375,7 @@ func TestOnGet(t *testing.T) {
 				for _, track := range p.Tracks {
 					var samples [][]byte
 					for _, sample := range track.Samples {
-						buf, err := sample.GetPayload()
+						buf, err = sample.GetPayload()
 						require.NoError(t, err)
 						samples = append(samples, buf)
 						sample.GetPayload = nil
@@ -419,7 +419,7 @@ func TestOnGet(t *testing.T) {
 							TimeScale:  48000,
 							TimeOffset: 48000,
 							Codec: &mp4.CodecMPEG4Audio{
-								Config: mpeg4audio.Config{
+								Config: mpeg4audio.AudioSpecificConfig{
 									Type:         mpeg4audio.ObjectTypeAACLC,
 									SampleRate:   48000,
 									ChannelCount: 2,

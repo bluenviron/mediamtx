@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -233,11 +234,41 @@ func setupAudioTracks(
 					})
 
 			case *format.MPEG4Audio:
-				co := forma.GetConfig()
-				if co != nil {
+				track := &gohlslib.Track{
+					Codec: &codecs.MPEG4Audio{
+						Config: *forma.Config,
+					},
+					ClockRate: forma.ClockRate(),
+				}
+
+				addTrack(
+					media,
+					forma,
+					track,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+
+						if tunit.AUs == nil {
+							return nil
+						}
+
+						err := muxer.WriteMPEG4Audio(
+							track,
+							tunit.NTP,
+							tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+							tunit.AUs)
+						if err != nil {
+							return fmt.Errorf("muxer error: %w", err)
+						}
+
+						return nil
+					})
+
+			case *format.MPEG4AudioLATM:
+				if !forma.CPresent {
 					track := &gohlslib.Track{
 						Codec: &codecs.MPEG4Audio{
-							Config: *co,
+							Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 						},
 						ClockRate: forma.ClockRate(),
 					}
@@ -247,22 +278,24 @@ func setupAudioTracks(
 						forma,
 						track,
 						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4Audio)
+							tunit := u.(*unit.MPEG4AudioLATM)
 
-							if tunit.AUs == nil {
+							if tunit.Element == nil {
 								return nil
 							}
 
-							err := muxer.WriteMPEG4Audio(
+							var ame mpeg4audio.AudioMuxElement
+							ame.StreamMuxConfig = forma.StreamMuxConfig
+							err := ame.Unmarshal(tunit.Element)
+							if err != nil {
+								return err
+							}
+
+							return muxer.WriteMPEG4Audio(
 								track,
 								tunit.NTP,
 								tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-								tunit.AUs)
-							if err != nil {
-								return fmt.Errorf("muxer error: %w", err)
-							}
-
-							return nil
+								[][]byte{ame.Payloads[0][0][0]})
 						})
 				}
 			}

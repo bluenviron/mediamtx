@@ -492,6 +492,8 @@ pathDefaults:
   # When a system failure occurs, the last part gets lost.
   # Therefore, the part duration is equal to the RPO (recovery point objective).
   recordPartDuration: 1s
+  # This prevents RAM exhaustion.
+  recordMaxPartSize: 50M
   # Minimum duration of each segment.
   recordSegmentDuration: 1h
   # Delete segments after this timespan.
@@ -560,22 +562,20 @@ pathDefaults:
   # values: normal, short, long, custom.
   rpiCameraExposure: normal
   # Auto-white-balance mode.
-  # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom.
+  # (auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy or custom).
   rpiCameraAWB: auto
   # Auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
   # format: [red,blue].
   rpiCameraAWBGains: [0, 0]
-  # Denoise operating mode.
-  # values: off, cdn_off, cdn_fast, cdn_hq.
+  # Denoise operating mode (off, cdn_off, cdn_fast, cdn_hq).
   rpiCameraDenoise: "off"
   # Fixed shutter speed, in microseconds.
   rpiCameraShutter: 0
-  # Metering mode of the AEC/AGC algorithm.
-  # values: centre, spot, matrix, custom.
+  # Metering mode of the AEC/AGC algorithm (centre, spot, matrix or custom).
   rpiCameraMetering: centre
   # Fixed gain.
   rpiCameraGain: 0
-  # EV compensation of the image [-10, 10].
+  # EV compensation of the image in range [-10, 10].
   rpiCameraEV: 0
   # Region of interest, in format x,y,width,height (all normalized between 0 and 1).
   rpiCameraROI:
@@ -588,14 +588,11 @@ pathDefaults:
   rpiCameraMode:
   # frames per second.
   rpiCameraFPS: 30
-  # Autofocus mode.
-  # values: auto, manual, continuous.
+  # Autofocus mode (auto, manual or continuous).
   rpiCameraAfMode: continuous
-  # Autofocus range.
-  # values: normal, macro, full.
+  # Autofocus range (normal, macro or full).
   rpiCameraAfRange: normal
-  # Autofocus speed.
-  # values: normal, fast.
+  # Autofocus speed (normal or fast).
   rpiCameraAfSpeed: normal
   # Lens position (for manual autofocus only), will be set to focus to a specific distance
   # calculated by the following formula: d = 1 / value
@@ -603,7 +600,7 @@ pathDefaults:
   #           0.5 moves the lens to focus on objects 2m away.
   #           2 moves the lens to focus on objects 50cm away.
   rpiCameraLensPosition: 0.0
-  # Specifies the autofocus window, in the form x,y,width,height where the coordinates
+  # Autofocus window, in the form x,y,width,height where the coordinates
   # are given as a proportion of the entire image.
   rpiCameraAfWindow:
   # Manual flicker correction period, in microseconds.
@@ -613,18 +610,24 @@ pathDefaults:
   # Text that is printed on each frame.
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
-  # Codec. Available values: auto, hardwareH264, softwareH264, mjpeg.
+  # Codec (auto, hardwareH264, softwareH264 or mjpeg).
+  # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
+  # When is "auto" and stream is secondary, it defaults to mjpeg.
   rpiCameraCodec: auto
-  # Period between H264 IDR frames.
+  # Period between IDR frames (when codec is hardwareH264 or softwareH264).
   rpiCameraIDRPeriod: 60
-  # H264 Bitrate.
+  # Bitrate (when codec is hardwareH264 or softwareH264).
   rpiCameraBitrate: 5000000
-  # H264 profile.
-  rpiCameraProfile: main
-  # H264 level.
-  rpiCameraLevel: '4.1'
-  # JPEG quality.
-  rpiCameraJPEGQuality: 60
+  # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
+  rpiCameraHardwareH264Profile: main
+  # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
+  rpiCameraHardwareH264Level: '4.1'
+  # Software H264 profile (baseline, main or high) (when codec is softwareH264).
+  rpiCameraSoftwareH264Profile: baseline
+  # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
+  rpiCameraSoftwareH264Level: '4.1'
+  # M-JPEG JPEG quality (when codec is mjpeg).
+  rpiCameraMJPEGQuality: 60
 
   ###############################################
   # Default path settings -> Hooks

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4video"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpfragmented"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/pion/rtp"
 
@@ -33,8 +33,8 @@ type mpeg4Video struct {
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpmpeg4video.Encoder
-	decoder     *rtpmpeg4video.Decoder
+	encoder     *rtpfragmented.Encoder
+	decoder     *rtpfragmented.Decoder
 	randomStart uint32
 }
 
@@ -55,7 +55,7 @@ func (t *mpeg4Video) initialize() error {
 }
 
 func (t *mpeg4Video) createEncoder() error {
-	t.encoder = &rtpmpeg4video.Encoder{
+	t.encoder = &rtpfragmented.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
@@ -77,6 +77,7 @@ func (t *mpeg4Video) updateTrackParameters(frame []byte) {
 }
 
 func (t *mpeg4Video) remuxFrame(frame []byte) []byte {
+	// remove config
 	if bytes.HasPrefix(frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
 		end := bytes.Index(frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 		if end >= 0 {
@@ -84,6 +85,7 @@ func (t *mpeg4Video) remuxFrame(frame []byte) []byte {
 		}
 	}
 
+	// add config
 	if bytes.Contains(frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)}) {
 		f := make([]byte, len(t.Format.Config)+len(frame))
 		n := copy(f, t.Format.Config)
@@ -105,12 +107,11 @@ func (t *mpeg4Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		if err != nil {
 			return err
 		}
+		u.RTPPackets = pkts
 
 		for _, pkt := range u.RTPPackets {
 			pkt.Timestamp += t.randomStart + uint32(u.PTS)
 		}
-
-		u.RTPPackets = pkts
 	}
 
 	return nil
@@ -153,7 +154,7 @@ func (t *mpeg4Video) ProcessRTPPacket( //nolint:dupl
 
 		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpmpeg4video.ErrMorePacketsNeeded) {
+			if errors.Is(err, rtpfragmented.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

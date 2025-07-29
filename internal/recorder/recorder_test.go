@@ -44,7 +44,7 @@ func TestRecorder(t *testing.T) {
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
-				Config: &mpeg4audio.Config{
+				Config: &mpeg4audio.AudioSpecificConfig{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -168,6 +168,7 @@ func TestRecorder(t *testing.T) {
 				PathFormat:      recordPath,
 				Format:          f,
 				PartDuration:    100 * time.Millisecond,
+				MaxPartSize:     50 * 1024 * 1024,
 				SegmentDuration: 1 * time.Second,
 				PathName:        "mypath",
 				Stream:          strm,
@@ -260,7 +261,7 @@ func TestRecorder(t *testing.T) {
 							ID:        3,
 							TimeScale: 44100,
 							Codec: &mp4.CodecMPEG4Audio{
-								Config: mpeg4audio.Config{
+								Config: mpeg4audio.AudioSpecificConfig{
 									Type:         2,
 									SampleRate:   44100,
 									ChannelCount: 2,
@@ -330,7 +331,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
-				Config: &mpeg4audio.Config{
+				Config: &mpeg4audio.AudioSpecificConfig{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -363,6 +364,7 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
 		SegmentDuration: 1 * time.Second,
 		PathName:        "mypath",
 		Stream:          strm,
@@ -468,6 +470,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 				PathFormat:      recordPath,
 				Format:          fo,
 				PartDuration:    100 * time.Millisecond,
+				MaxPartSize:     50 * 1024 * 1024,
 				SegmentDuration: 1 * time.Second,
 				PathName:        "mypath",
 				Stream:          strm,
@@ -529,6 +532,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 				PathFormat:      recordPath,
 				Format:          fo,
 				PartDuration:    100 * time.Millisecond,
+				MaxPartSize:     50 * 1024 * 1024,
 				SegmentDuration: 1 * time.Second,
 				PathName:        "mypath",
 				Stream:          strm,
@@ -733,6 +737,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 		PathFormat:      filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
 		SegmentDuration: 1 * time.Second,
 		PathName:        "mypath",
 		Stream:          strm,

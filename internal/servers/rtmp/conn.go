@@ -22,13 +22,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-type connState int
-
-const (
-	connStateRead connState = iota + 1
-	connStatePublish
-)
-
 type conn struct {
 	parentCtx           context.Context
 	isTLS               bool
@@ -50,7 +43,7 @@ type conn struct {
 	created   time.Time
 	mutex     sync.RWMutex
 	rconn     *rtmp.ServerConn
-	state     connState
+	state     defs.APIRTMPConnState
 	pathName  string
 	query     string
 }
@@ -60,6 +53,7 @@ func (c *conn) initialize() {
 
 	c.uuid = uuid.New()
 	c.created = time.Now()
+	c.state = defs.APIRTMPConnStateIdle
 
 	c.Log(logger.Info, "opened")
 
@@ -183,7 +177,7 @@ func (c *conn) runRead() error {
 	defer path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
 	c.mutex.Lock()
-	c.state = connStateRead
+	c.state = defs.APIRTMPConnStateRead
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
@@ -216,7 +210,7 @@ func (c *conn) runRead() error {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err := <-stream.ReaderError(c):
+	case err = <-stream.ReaderError(c):
 		return err
 	}
 }
@@ -225,8 +219,26 @@ func (c *conn) runPublish() error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
-	path, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author: c,
+	r := &rtmp.Reader{
+		Conn: c.rconn,
+	}
+	err := r.Initialize()
+	if err != nil {
+		return err
+	}
+
+	var stream *stream.Stream
+
+	medias, err := rtmp.ToStream(r, &stream)
+	if err != nil {
+		return err
+	}
+
+	var path defs.Path
+	path, stream, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+		Author:             c,
+		Desc:               &description.Session{Medias: medias},
+		GenerateRTPPackets: true,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    pathName,
 			Query:   c.rconn.URL.RawQuery,
@@ -253,41 +265,17 @@ func (c *conn) runPublish() error {
 	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
 
 	c.mutex.Lock()
-	c.state = connStatePublish
+	c.state = defs.APIRTMPConnStatePublish
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
-
-	r := &rtmp.Reader{
-		Conn: c.rconn,
-	}
-	err = r.Initialize()
-	if err != nil {
-		return err
-	}
-
-	var stream *stream.Stream
-
-	medias, err := rtmp.ToStream(r, &stream)
-	if err != nil {
-		return err
-	}
-
-	stream, err = path.StartPublisher(defs.PathStartPublisherReq{
-		Author:             c,
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-	})
-	if err != nil {
-		return err
-	}
 
 	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
 
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-		err := r.Read()
+		err = r.Read()
 		if err != nil {
 			return err
 		}
@@ -325,21 +313,10 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 	}
 
 	return &defs.APIRTMPConn{
-		ID:         c.uuid,
-		Created:    c.created,
-		RemoteAddr: c.remoteAddr().String(),
-		State: func() defs.APIRTMPConnState {
-			switch c.state {
-			case connStateRead:
-				return defs.APIRTMPConnStateRead
-
-			case connStatePublish:
-				return defs.APIRTMPConnStatePublish
-
-			default:
-				return defs.APIRTMPConnStateIdle
-			}
-		}(),
+		ID:            c.uuid,
+		Created:       c.created,
+		RemoteAddr:    c.remoteAddr().String(),
+		State:         c.state,
 		Path:          c.pathName,
 		Query:         c.query,
 		BytesReceived: bytesReceived,

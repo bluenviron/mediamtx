@@ -67,6 +67,9 @@ linters:
       disable:
       - fieldalignment
       - reflectvaluecompare
+      settings:
+        shadow:
+          strict: true
 
 formatters:
   enable:

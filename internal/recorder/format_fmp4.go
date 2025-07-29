@@ -26,6 +26,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+var av1DefaultSequenceHeader = []byte{
+	8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
+}
+
 func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
 	switch cm {
 	case mpeg1audio.ChannelModeStereo,
@@ -133,7 +137,7 @@ func (f *formatFMP4) initialize() bool {
 			switch forma := forma.(type) {
 			case *rtspformat.AV1:
 				codec := &mp4.CodecAV1{
-					SequenceHeader: formatprocessor.AV1DefaultSequenceHeader,
+					SequenceHeader: av1DefaultSequenceHeader,
 				}
 				track := addTrack(forma, codec)
 
@@ -145,6 +149,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AV1)
+
 						if tunit.TU == nil {
 							return nil
 						}
@@ -211,6 +216,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.VP9)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -301,6 +307,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H265)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -389,6 +396,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H264)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -469,6 +477,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -478,10 +487,10 @@ func (f *formatFMP4) initialize() bool {
 						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
 							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 							if end >= 0 {
-								config := tunit.Frame[:end+4]
+								config2 := tunit.Frame[:end+4]
 
-								if !bytes.Equal(codec.Config, config) {
-									codec.Config = config
+								if !bytes.Equal(codec.Config, config2) {
+									codec.Config = config2
 									f.updateCodecParams()
 								}
 							}
@@ -522,6 +531,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -575,6 +585,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MJPEG)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -611,6 +622,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.Opus)
+
 						if tunit.Packets == nil {
 							return nil
 						}
@@ -636,10 +648,44 @@ func (f *formatFMP4) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Audio:
-				co := forma.GetConfig()
-				if co != nil {
+				codec := &mp4.CodecMPEG4Audio{
+					Config: *forma.Config,
+				}
+				track := addTrack(forma, codec)
+
+				f.ri.stream.AddReader(
+					f.ri,
+					media,
+					forma,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+
+						if tunit.AUs == nil {
+							return nil
+						}
+
+						for i, au := range tunit.AUs {
+							pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+
+							err := track.write(&sample{
+								Sample: &fmp4.Sample{
+									Payload: au,
+								},
+								dts: pts,
+								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
+							})
+							if err != nil {
+								return err
+							}
+						}
+
+						return nil
+					})
+
+			case *rtspformat.MPEG4AudioLATM:
+				if !forma.CPresent {
 					codec := &mp4.CodecMPEG4Audio{
-						Config: *co,
+						Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 					}
 					track := addTrack(forma, codec)
 
@@ -648,27 +694,26 @@ func (f *formatFMP4) initialize() bool {
 						media,
 						forma,
 						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4Audio)
-							if tunit.AUs == nil {
+							tunit := u.(*unit.MPEG4AudioLATM)
+
+							if tunit.Element == nil {
 								return nil
 							}
 
-							for i, au := range tunit.AUs {
-								pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
-
-								err := track.write(&sample{
-									Sample: &fmp4.Sample{
-										Payload: au,
-									},
-									dts: pts,
-									ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
-								})
-								if err != nil {
-									return err
-								}
+							var ame mpeg4audio.AudioMuxElement
+							ame.StreamMuxConfig = forma.StreamMuxConfig
+							err := ame.Unmarshal(tunit.Element)
+							if err != nil {
+								return err
 							}
 
-							return nil
+							return track.write(&sample{
+								Sample: &fmp4.Sample{
+									Payload: ame.Payloads[0][0][0],
+								},
+								dts: tunit.PTS,
+								ntp: tunit.NTP,
+							})
 						})
 				}
 
@@ -687,6 +732,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Audio)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -746,6 +792,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AC3)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -851,6 +898,7 @@ func (f *formatFMP4) initialize() bool {
 					forma,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.LPCM)
+
 						if tunit.Samples == nil {
 							return nil
 						}

@@ -236,7 +236,7 @@ func (s *Stream) ReaderFormats(reader Reader) []format.Format {
 		for forma, sf := range sm.formats {
 			if _, ok := sf.pausedReaders[sr]; ok {
 				formats = append(formats, forma)
-			} else if _, ok := sf.runningReaders[sr]; ok {
+			} else if _, ok = sf.runningReaders[sr]; ok {
 				formats = append(formats, forma)
 			}
 		}

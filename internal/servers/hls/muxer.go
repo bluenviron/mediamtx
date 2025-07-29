@@ -184,7 +184,7 @@ func (m *muxer) runInner() error {
 		case req := <-m.chGetInstance:
 			req.res <- mi
 
-		case err := <-instanceError:
+		case err = <-instanceError:
 			if m.remoteAddr != "" {
 				return err
 			}
@@ -208,7 +208,7 @@ func (m *muxer) runInner() error {
 				bytesSent:       m.bytesSent,
 				parent:          m,
 			}
-			err := mi.initialize()
+			err = mi.initialize()
 			if err != nil {
 				m.Log(logger.Error, err.Error())
 				mi = nil

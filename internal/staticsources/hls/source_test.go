@@ -22,7 +22,7 @@ func TestSource(t *testing.T) {
 
 	track2 := &mpegts.Track{
 		Codec: &mpegts.CodecMPEG4Audio{
-			Config: mpeg4audio.Config{
+			Config: mpeg4audio.AudioSpecificConfig{
 				Type:         2,
 				SampleRate:   44100,
 				ChannelCount: 2,
@@ -88,16 +88,28 @@ func TestSource(t *testing.T) {
 	go s.Serve(ln)
 	defer s.Shutdown(context.Background())
 
-	te := test.NewSourceTester(
-		func(p defs.StaticSourceParent) defs.StaticSource {
-			return &Source{
-				Parent: p,
-			}
-		},
-		"http://localhost:5780/stream.m3u8",
-		&conf.Path{},
-	)
-	defer te.Close()
+	p := &test.StaticSourceParent{}
+	p.Initialize()
+	defer p.Close()
 
-	<-te.Unit
+	so := &Source{
+		Parent: p,
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	go func() {
+		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+			Context:        ctx,
+			ResolvedSource: "http://localhost:5780/stream.m3u8",
+			Conf:           &conf.Path{},
+		})
+		close(done)
+	}()
+
+	<-p.Unit
 }

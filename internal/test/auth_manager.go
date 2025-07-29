@@ -1,3 +1,4 @@
+// Package test contains test utilities.
 package test
 
 import "github.com/bluenviron/mediamtx/internal/auth"

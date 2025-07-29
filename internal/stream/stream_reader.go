@@ -31,7 +31,7 @@ func (w *streamReader) start() {
 
 	w.discardedFrames = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			w.parent.Log(logger.Warn, "connection is too slow, discarding %d %s",
+			w.parent.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,
 				func() string {
 					if val == 1 {

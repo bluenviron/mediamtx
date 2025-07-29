@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/rtcpsender"
@@ -23,9 +24,10 @@ var multichannelOpusSDP = map[int]string{
 type OutgoingTrack struct {
 	Caps webrtc.RTPCodecCapability
 
-	track      *webrtc.TrackLocalStaticRTP
-	ssrc       uint32
-	rtcpSender *rtcpsender.RTCPSender
+	track          *webrtc.TrackLocalStaticRTP
+	ssrc           uint32
+	rtcpSender     *rtcpsender.RTCPSender
+	rtpPacketsSent *uint64
 }
 
 func (t *OutgoingTrack) isVideo() bool {
@@ -67,20 +69,20 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	}
 	t.rtcpSender.Initialize()
 
-	p.wr.GetSenders()
+	t.rtpPacketsSent = p.rtpPacketsSent
 
 	// incoming RTCP packets must always be read to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			n, _, err := sender.Read(buf)
-			if err != nil {
+			n, _, err2 := sender.Read(buf)
+			if err2 != nil {
 				return
 			}
 
-			_, err = rtcp.Unmarshal(buf[:n])
-			if err != nil {
-				panic(err)
+			_, err2 = rtcp.Unmarshal(buf[:n])
+			if err2 != nil {
+				panic(err2)
 			}
 		}
 	}()
@@ -105,6 +107,8 @@ func (t *OutgoingTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
 	pkt.SSRC = t.ssrc
 
 	t.rtcpSender.ProcessPacket(pkt, ntp, true)
+
+	atomic.AddUint64(t.rtpPacketsSent, 1)
 
 	return t.track.WriteRTP(pkt)
 }

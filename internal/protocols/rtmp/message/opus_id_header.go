@@ -8,7 +8,7 @@ import (
 var magicSignature = []byte{'O', 'p', 'u', 's', 'H', 'e', 'a', 'd'}
 
 // OpusIDHeader is an Opus identification header.
-// Specification: https://datatracker.ietf.org/doc/html/rfc7845#section-5.1
+// Specification: RFC7845, section 5.1
 type OpusIDHeader struct {
 	Version              uint8
 	ChannelCount         uint8

@@ -3,10 +3,13 @@ package mpegts
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -20,7 +23,7 @@ var errNoSupportedCodecs = errors.New(
 
 // ToStream maps a MPEG-TS stream to a MediaMTX stream.
 func ToStream(
-	r *mpegts.Reader,
+	r *EnhancedReader,
 	stream **stream.Stream,
 	l logger.Writer,
 ) ([]*description.Media, error) {
@@ -181,6 +184,64 @@ func ToStream(
 					},
 					AUs: aus,
 				})
+				return nil
+			})
+
+		case *mpegts.CodecMPEG4AudioLATM:
+			// We are dealing with a LATM stream with in-band configuration.
+			// Although in theory this can be streamed with RTSP (RFC6416 with cpresent=1),
+			// in practice there is no player that supports it.
+			// Therefore, convert the stream to a LATM stream with out-of-band configuration.
+			streamMuxConfig := r.latmConfigs[track.PID]
+			medi = &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG4AudioLATM{
+					PayloadTyp:      96,
+					CPresent:        false,
+					ProfileLevelID:  30,
+					StreamMuxConfig: streamMuxConfig,
+				}},
+			}
+			clockRate := medi.Formats[0].ClockRate()
+
+			r.OnDataMPEG4AudioLATM(track, func(pts int64, els [][]byte) error {
+				pts = td.Decode(pts)
+
+				pts = multiplyAndDivide(pts, int64(clockRate), 90000)
+
+				for _, el := range els {
+					var elIn mpeg4audio.AudioMuxElement
+					elIn.MuxConfigPresent = true
+					elIn.StreamMuxConfig = streamMuxConfig
+					err := elIn.Unmarshal(el)
+					if err != nil {
+						return err
+					}
+
+					if !reflect.DeepEqual(elIn.StreamMuxConfig, streamMuxConfig) {
+						return fmt.Errorf("dynamic stream mux config is not supported")
+					}
+
+					var elOut mpeg4audio.AudioMuxElement
+					elOut.MuxConfigPresent = false
+					elOut.StreamMuxConfig = streamMuxConfig
+					elOut.Payloads = elIn.Payloads
+					buf, err := elOut.Marshal()
+					if err != nil {
+						return err
+					}
+
+					(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioLATM{
+						Base: unit.Base{
+							NTP: time.Now(),
+							PTS: pts,
+						},
+						Element: buf,
+					})
+
+					pts += mpeg4audio.SamplesPerAccessUnit
+				}
+
 				return nil
 			})
 

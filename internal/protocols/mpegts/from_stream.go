@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 
@@ -63,6 +64,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H265)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -105,6 +107,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.H264)
+
 						if tunit.AU == nil {
 							return nil
 						}
@@ -148,6 +151,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG4Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -182,6 +186,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Video)
+
 						if tunit.Frame == nil {
 							return nil
 						}
@@ -215,6 +220,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.Opus)
+
 						if tunit.Packets == nil {
 							return nil
 						}
@@ -242,6 +248,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.KLV)
+
 						if tunit.Unit == nil {
 							return nil
 						}
@@ -255,27 +262,92 @@ func FromStream(
 					})
 
 			case *format.MPEG4Audio:
-				co := forma.GetConfig()
-				if co != nil {
-					track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4Audio{
-						Config: *co,
-					}}
+				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4Audio{
+					Config: *forma.Config,
+				}}
 
+				addTrack(
+					media,
+					forma,
+					track,
+					func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4Audio)
+
+						if tunit.AUs == nil {
+							return nil
+						}
+
+						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						err := (*w).WriteMPEG4Audio(
+							track,
+							multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+							tunit.AUs)
+						if err != nil {
+							return err
+						}
+						return bw.Flush()
+					})
+
+			case *format.MPEG4AudioLATM:
+				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4AudioLATM{}}
+
+				if !forma.CPresent {
 					addTrack(
 						media,
 						forma,
 						track,
 						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4Audio)
-							if tunit.AUs == nil {
+							tunit := u.(*unit.MPEG4AudioLATM)
+
+							if tunit.Element == nil {
+								return nil
+							}
+
+							var elIn mpeg4audio.AudioMuxElement
+							elIn.MuxConfigPresent = false
+							elIn.StreamMuxConfig = forma.StreamMuxConfig
+							err := elIn.Unmarshal(tunit.Element)
+							if err != nil {
+								return err
+							}
+
+							var elOut mpeg4audio.AudioMuxElement
+							elOut.MuxConfigPresent = true
+							elOut.StreamMuxConfig = forma.StreamMuxConfig
+							elOut.UseSameStreamMux = false
+							elOut.Payloads = elIn.Payloads
+							buf, err := elOut.Marshal()
+							if err != nil {
+								return err
+							}
+
+							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							err = (*w).WriteMPEG4AudioLATM(
+								track,
+								multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+								[][]byte{buf})
+							if err != nil {
+								return err
+							}
+							return bw.Flush()
+						})
+				} else {
+					addTrack(
+						media,
+						forma,
+						track,
+						func(u unit.Unit) error {
+							tunit := u.(*unit.MPEG4AudioLATM)
+
+							if tunit.Element == nil {
 								return nil
 							}
 
 							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-							err := (*w).WriteMPEG4Audio(
+							err := (*w).WriteMPEG4AudioLATM(
 								track,
 								multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-								tunit.AUs)
+								[][]byte{tunit.Element})
 							if err != nil {
 								return err
 							}
@@ -292,6 +364,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.MPEG1Audio)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -316,6 +389,7 @@ func FromStream(
 					track,
 					func(u unit.Unit) error {
 						tunit := u.(*unit.AC3)
+
 						if tunit.Frames == nil {
 							return nil
 						}
@@ -353,10 +427,5 @@ func FromStream(
 	}
 
 	w = &mcmpegts.Writer{W: bw, Tracks: tracks}
-	err := w.Initialize()
-	if err != nil {
-		panic(err)
-	}
-
-	return nil
+	return w.Initialize()
 }

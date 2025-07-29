@@ -75,7 +75,7 @@ func h264TrackFromConfig(data []byte) (*format.H264, error) {
 }
 
 func mpeg4AudioTrackFromConfig(data []byte) (*format.MPEG4Audio, error) {
-	var mpegConf mpeg4audio.Config
+	var mpegConf mpeg4audio.AudioSpecificConfig
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
@@ -453,13 +453,13 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 			}
 
 		case *message.AudioExSequenceStart:
-			err := handleAudioSequenceStart(0, msg)
+			err = handleAudioSequenceStart(0, msg)
 			if err != nil {
 				return nil, nil, err
 			}
 
 		case *message.AudioExCodedFrames:
-			err := handleAudioCodedFrames(0, msg)
+			err = handleAudioCodedFrames(0, msg)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -471,13 +471,13 @@ func (r *Reader) readTracks() (map[uint8]format.Format, map[uint8]format.Format,
 
 			switch wmsg := msg.Wrapped.(type) {
 			case *message.AudioExSequenceStart:
-				err := handleAudioSequenceStart(msg.TrackID, wmsg)
+				err = handleAudioSequenceStart(msg.TrackID, wmsg)
 				if err != nil {
 					return nil, nil, err
 				}
 
 			case *message.AudioExCodedFrames:
-				err := handleAudioCodedFrames(msg.TrackID, wmsg)
+				err = handleAudioCodedFrames(msg.TrackID, wmsg)
 				if err != nil {
 					return nil, nil, err
 				}

@@ -61,12 +61,18 @@ func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 	}
 }
 
+type parent interface {
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
+}
+
 // Source is a RTSP static source.
 type Source struct {
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
 	WriteQueueSize int
-	Parent         defs.StaticSourceParent
+	Parent         parent
 }
 
 // Log implements logger.Writer.
@@ -150,14 +156,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	readErr := make(chan error)
 	go func() {
 		readErr <- func() error {
-			desc, _, err := c.Describe(u)
-			if err != nil {
-				return err
+			desc, _, err2 := c.Describe(u)
+			if err2 != nil {
+				return err2
 			}
 
-			err = c.SetupAll(desc.BaseURL, desc.Medias)
-			if err != nil {
-				return err
+			err2 = c.SetupAll(desc.BaseURL, desc.Medias)
+			if err2 != nil {
+				return err2
 			}
 
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
@@ -177,14 +183,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 				res.Stream,
 				s)
 
-			rangeHeader, err := createRangeHeader(params.Conf)
-			if err != nil {
-				return err
+			rangeHeader, err2 := createRangeHeader(params.Conf)
+			if err2 != nil {
+				return err2
 			}
 
-			_, err = c.Play(rangeHeader)
-			if err != nil {
-				return err
+			_, err2 = c.Play(rangeHeader)
+			if err2 != nil {
+				return err2
 			}
 
 			return c.Wait()
@@ -193,7 +199,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-readErr:
+		case err = <-readErr:
 			return err
 
 		case <-params.ReloadConf:

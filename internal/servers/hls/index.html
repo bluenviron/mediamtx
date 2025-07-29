@@ -161,9 +161,9 @@ const loadStream = () => {
 	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
 		// since it's not possible to detect timeout errors in iOS,
 		// wait for the playlist to be available before starting the stream
-		fetch('index.m3u8')
+		fetch('index.m3u8' + window.location.search)
 			.then(() => {
-				video.src = 'index.m3u8';
+				video.src = 'index.m3u8' + window.location.search;
 				video.play();
 			});
 	}
@@ -195,7 +195,9 @@ const init = () => {
 	loadStream();
 };
 
-window.addEventListener('DOMContentLoaded', init);
+// use load instead of DOMContentLoaded, otherwise, in Firefox,
+// the page gets stuck in the "loading" state.
+window.addEventListener('load', init);
 
 </script>
 

@@ -36,11 +36,12 @@ type session struct {
 
 	uuid            uuid.UUID
 	created         time.Time
+	pathConf        *conf.Path // record only
 	path            defs.Path
 	stream          *stream.Stream
 	onUnreadHook    func()
 	mutex           sync.Mutex
-	state           gortsplib.ServerSessionState
+	state           defs.APIRTSPSessionState
 	transport       *gortsplib.Transport
 	pathName        string
 	query           string
@@ -52,6 +53,7 @@ type session struct {
 func (s *session) initialize() {
 	s.uuid = uuid.New()
 	s.created = time.Now()
+	s.state = defs.APIRTSPSessionStateIdle
 
 	s.packetsLost = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
@@ -83,7 +85,7 @@ func (s *session) initialize() {
 
 	s.discardedFrames = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "connection is too slow, discarding %d %s",
+			s.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,
 				func() string {
 					if val == 1 {
@@ -126,7 +128,7 @@ func (s *session) onClose(err error) {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
 		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
-	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
+	case gortsplib.ServerSessionStateRecord:
 		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 	}
 
@@ -154,20 +156,17 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}
 	}
 
-	req := defs.PathAccessRequest{
-		Name:             ctx.Path,
-		Query:            ctx.Query,
-		Publish:          true,
-		Proto:            auth.ProtocolRTSP,
-		ID:               &c.uuid,
-		Credentials:      rtsp.Credentials(ctx.Request),
-		IP:               c.ip(),
-		CustomVerifyFunc: customVerifyFunc,
-	}
-
-	path, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:        s,
-		AccessRequest: req,
+	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		AccessRequest: defs.PathAccessRequest{
+			Name:             ctx.Path,
+			Query:            ctx.Query,
+			Publish:          true,
+			Proto:            auth.ProtocolRTSP,
+			ID:               &c.uuid,
+			Credentials:      rtsp.Credentials(ctx.Request),
+			IP:               c.ip(),
+			CustomVerifyFunc: customVerifyFunc,
+		},
 	})
 	if err != nil {
 		var terr auth.Error
@@ -180,10 +179,9 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}, err
 	}
 
-	s.path = path
+	s.pathConf = pathConf
 
 	s.mutex.Lock()
-	s.state = gortsplib.ServerSessionStatePreRecord
 	s.pathName = ctx.Path
 	s.query = ctx.Query
 	s.mutex.Unlock()
@@ -226,19 +224,17 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		req := defs.PathAccessRequest{
-			Name:             ctx.Path,
-			Query:            ctx.Query,
-			Proto:            auth.ProtocolRTSP,
-			ID:               &c.uuid,
-			Credentials:      rtsp.Credentials(ctx.Request),
-			IP:               c.ip(),
-			CustomVerifyFunc: customVerifyFunc,
-		}
-
 		path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-			Author:        s,
-			AccessRequest: req,
+			Author: s,
+			AccessRequest: defs.PathAccessRequest{
+				Name:             ctx.Path,
+				Query:            ctx.Query,
+				Proto:            auth.ProtocolRTSP,
+				ID:               &c.uuid,
+				Credentials:      rtsp.Credentials(ctx.Request),
+				IP:               c.ip(),
+				CustomVerifyFunc: customVerifyFunc,
+			},
 		})
 		if err != nil {
 			var terr auth.Error
@@ -263,7 +259,6 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		s.stream = stream
 
 		s.mutex.Lock()
-		s.state = gortsplib.ServerSessionStatePrePlay
 		s.pathName = ctx.Path
 		s.query = ctx.Query
 		s.mutex.Unlock()
@@ -306,7 +301,7 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 		})
 
 		s.mutex.Lock()
-		s.state = gortsplib.ServerSessionStatePlay
+		s.state = defs.APIRTSPSessionStateRead
 		s.transport = s.rsession.SetuppedTransport()
 		s.mutex.Unlock()
 	}
@@ -319,10 +314,17 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	stream, err := s.path.StartPublisher(defs.PathStartPublisherReq{
+	path, stream, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             s,
 		Desc:               s.rsession.AnnouncedDescription(),
 		GenerateRTPPackets: false,
+		ConfToCompare:      s.pathConf,
+		AccessRequest: defs.PathAccessRequest{
+			Name:     s.pathName,
+			Query:    s.query,
+			Publish:  true,
+			SkipAuth: true,
+		},
 	})
 	if err != nil {
 		return &base.Response{
@@ -330,6 +332,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		}, err
 	}
 
+	s.path = path
 	s.stream = stream
 
 	rtsp.ToStream(
@@ -340,7 +343,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		s)
 
 	s.mutex.Lock()
-	s.state = gortsplib.ServerSessionStateRecord
+	s.state = defs.APIRTSPSessionStatePublish
 	s.transport = s.rsession.SetuppedTransport()
 	s.mutex.Unlock()
 
@@ -356,14 +359,14 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 		s.onUnreadHook()
 
 		s.mutex.Lock()
-		s.state = gortsplib.ServerSessionStatePrePlay
+		s.state = defs.APIRTSPSessionStateIdle
 		s.mutex.Unlock()
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.StopPublisher(defs.PathStopPublisherReq{Author: s})
+		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
 		s.mutex.Lock()
-		s.state = gortsplib.ServerSessionStatePreRecord
+		s.state = defs.APIRTSPSessionStateIdle
 		s.mutex.Unlock()
 	}
 
@@ -416,20 +419,9 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 		ID:         s.uuid,
 		Created:    s.created,
 		RemoteAddr: s.remoteAddr().String(),
-		State: func() defs.APIRTSPSessionState {
-			switch s.state {
-			case gortsplib.ServerSessionStatePrePlay,
-				gortsplib.ServerSessionStatePlay:
-				return defs.APIRTSPSessionStateRead
-
-			case gortsplib.ServerSessionStatePreRecord,
-				gortsplib.ServerSessionStateRecord:
-				return defs.APIRTSPSessionStatePublish
-			}
-			return defs.APIRTSPSessionStateIdle
-		}(),
-		Path:  s.pathName,
-		Query: s.query,
+		State:      s.state,
+		Path:       s.pathName,
+		Query:      s.query,
 		Transport: func() *string {
 			if s.transport == nil {
 				return nil

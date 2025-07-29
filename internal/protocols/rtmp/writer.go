@@ -95,7 +95,7 @@ func (w *Writer) writeTracks() error {
 						case *format.MPEG1Audio:
 							return message.CodecMPEG1Audio
 
-						case *format.MPEG4Audio:
+						case *format.MPEG4Audio, *format.MPEG4AudioLATM:
 							return message.CodecMPEG4Audio
 
 						default:
@@ -133,14 +133,17 @@ func (w *Writer) writeTracks() error {
 		}
 	}
 
-	var audioConfig *mpeg4audio.AudioSpecificConfig
+	var audioConf *mpeg4audio.AudioSpecificConfig
 
 	if track, ok := w.AudioTrack.(*format.MPEG4Audio); ok {
-		audioConfig = track.GetConfig()
+		audioConf = track.Config
+	} else if track, ok2 := w.AudioTrack.(*format.MPEG4AudioLATM); ok2 {
+		audioConf = track.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig
 	}
 
-	if audioConfig != nil {
-		enc, err := audioConfig.Marshal()
+	if audioConf != nil {
+		var enc []byte
+		enc, err = audioConf.Marshal()
 		if err != nil {
 			return err
 		}

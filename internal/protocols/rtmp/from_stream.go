@@ -137,6 +137,38 @@ func setupAudio(
 		return audioFormatMPEG4Audio
 	}
 
+	var audioFormatMPEG4AudioLATM *format.MPEG4AudioLATM
+	audioMedia = str.Desc.FindFormat(&audioFormatMPEG4AudioLATM)
+
+	if audioMedia != nil && !audioFormatMPEG4AudioLATM.CPresent {
+		str.AddReader(
+			reader,
+			audioMedia,
+			audioFormatMPEG4AudioLATM,
+			func(u unit.Unit) error {
+				tunit := u.(*unit.MPEG4AudioLATM)
+
+				if tunit.Element == nil {
+					return nil
+				}
+
+				var ame mpeg4audio.AudioMuxElement
+				ame.StreamMuxConfig = audioFormatMPEG4AudioLATM.StreamMuxConfig
+				err := ame.Unmarshal(tunit.Element)
+				if err != nil {
+					return err
+				}
+
+				nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				return (*w).WriteMPEG4Audio(
+					timestampToDuration(tunit.PTS, audioFormatMPEG4AudioLATM.ClockRate()),
+					ame.Payloads[0][0][0],
+				)
+			})
+
+		return audioFormatMPEG4AudioLATM
+	}
+
 	var audioFormatMPEG1 *format.MPEG1Audio
 	audioMedia = str.Desc.FindFormat(&audioFormatMPEG1)
 

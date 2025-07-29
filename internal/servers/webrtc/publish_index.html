@@ -411,7 +411,7 @@ const loadValuesFromQuery = () => {
   }
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
   if (navigator.mediaDevices === undefined) {
     setMessage(`can't access webcams or microphones. Make sure that WebRTC encryption is enabled.`);
     return;

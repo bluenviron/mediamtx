@@ -26,7 +26,7 @@ func writeBenchInit(f io.WriteSeeker) {
 				ID:        2,
 				TimeScale: 90000,
 				Codec: &mp4.CodecMPEG4Audio{
-					Config: mpeg4audio.Config{
+					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
 						ChannelCount: 2,

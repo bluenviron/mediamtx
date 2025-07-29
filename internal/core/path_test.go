@@ -79,7 +79,8 @@ func TestPathRunOnDemand(t *testing.T) {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" || ca == "describe and setup" {
-					u, err := base.ParseURL("rtsp://localhost:8554/ondemand?param=value")
+					var u *base.URL
+					u, err = base.ParseURL("rtsp://localhost:8554/ondemand?param=value")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -107,7 +108,8 @@ func TestPathRunOnDemand(t *testing.T) {
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := base.ParseURL(control)
+					var u *base.URL
+					u, err = base.ParseURL(control)
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -190,7 +192,7 @@ func TestPathRunOnConnect(t *testing.T) {
 
 					c := gortsplib.Client{}
 
-					err := c.StartRecording(
+					err = c.StartRecording(
 						"rtsp://localhost:8554/test",
 						&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 					require.NoError(t, err)
@@ -201,7 +203,7 @@ func TestPathRunOnConnect(t *testing.T) {
 
 					c := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 
-					err := c.StartRecording(
+					err = c.StartRecording(
 						"rtsps://localhost:8322/test",
 						&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 					require.NoError(t, err)
@@ -210,7 +212,8 @@ func TestPathRunOnConnect(t *testing.T) {
 				case "rtmp":
 					connType = "rtmpConn"
 
-					u, err := url.Parse("rtmp://127.0.0.1:1935/test")
+					var u *url.URL
+					u, err = url.Parse("rtmp://127.0.0.1:1935/test")
 					require.NoError(t, err)
 
 					conn := &rtmp.Client{
@@ -224,7 +227,8 @@ func TestPathRunOnConnect(t *testing.T) {
 				case "rtmps":
 					connType = "rtmpsConn"
 
-					u, err := url.Parse("rtmps://127.0.0.1:1936/test")
+					var u *url.URL
+					u, err = url.Parse("rtmps://127.0.0.1:1936/test")
 					require.NoError(t, err)
 
 					conn := &rtmp.Client{
@@ -240,13 +244,15 @@ func TestPathRunOnConnect(t *testing.T) {
 					connType = "srtConn"
 
 					conf := srt.DefaultConfig()
-					address, err := conf.UnmarshalURL("srt://localhost:8890?streamid=publish:test")
+					var address string
+					address, err = conf.UnmarshalURL("srt://localhost:8890?streamid=publish:test")
 					require.NoError(t, err)
 
 					err = conf.Validate()
 					require.NoError(t, err)
 
-					c, err := srt.Dial("srt", address, conf)
+					var c srt.Conn
+					c, err = srt.Dial("srt", address, conf)
 					require.NoError(t, err)
 					defer c.Close()
 				}
@@ -254,7 +260,8 @@ func TestPathRunOnConnect(t *testing.T) {
 				time.Sleep(500 * time.Millisecond)
 			}()
 
-			byts, err := os.ReadFile(onConnect)
+			var byts []byte
+			byts, err = os.ReadFile(onConnect)
 			require.NoError(t, err)
 			fields := strings.Split(string(byts[:len(byts)-1]), " ")
 			require.Equal(t, connType, fields[0])
@@ -359,7 +366,7 @@ func TestPathRunOnRead(t *testing.T) {
 
 				source := gortsplib.Client{}
 
-				err := source.StartRecording(
+				err = source.StartRecording(
 					"rtsp://localhost:8554/test",
 					&description.Session{Medias: []*description.Media{media0}})
 				require.NoError(t, err)
@@ -398,7 +405,8 @@ func TestPathRunOnRead(t *testing.T) {
 
 				switch ca {
 				case "rtsp":
-					u, err := base.ParseURL("rtsp://127.0.0.1:8554/test?query=value")
+					var u *base.URL
+					u, err = base.ParseURL("rtsp://127.0.0.1:8554/test?query=value")
 					require.NoError(t, err)
 
 					reader := gortsplib.Client{
@@ -410,7 +418,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer reader.Close()
 
-					desc, _, err := reader.Describe(u)
+					var desc *description.Session
+					desc, _, err = reader.Describe(u)
 					require.NoError(t, err)
 
 					err = reader.SetupAll(desc.BaseURL, desc.Medias)
@@ -420,7 +429,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 
 				case "rtsps":
-					u, err := base.ParseURL("rtsps://127.0.0.1:8322/test?query=value")
+					var u *base.URL
+					u, err = base.ParseURL("rtsps://127.0.0.1:8322/test?query=value")
 					require.NoError(t, err)
 
 					reader := gortsplib.Client{
@@ -433,7 +443,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer reader.Close()
 
-					desc, _, err := reader.Describe(u)
+					var desc *description.Session
+					desc, _, err = reader.Describe(u)
 					require.NoError(t, err)
 
 					err = reader.SetupAll(desc.BaseURL, desc.Medias)
@@ -443,7 +454,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 
 				case "rtmp":
-					u, err := url.Parse("rtmp://127.0.0.1:1935/test?query=value")
+					var u *url.URL
+					u, err = url.Parse("rtmp://127.0.0.1:1935/test?query=value")
 					require.NoError(t, err)
 
 					conn := &rtmp.Client{
@@ -461,7 +473,8 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 
 				case "rtmps":
-					u, err := url.Parse("rtmps://127.0.0.1:1936/test?query=value")
+					var u *url.URL
+					u, err = url.Parse("rtmps://127.0.0.1:1936/test?query=value")
 					require.NoError(t, err)
 
 					conn := &rtmp.Client{
@@ -498,13 +511,15 @@ func TestPathRunOnRead(t *testing.T) {
 
 				case "srt":
 					conf := srt.DefaultConfig()
-					address, err := conf.UnmarshalURL("srt://localhost:8890?streamid=read:test:query=value")
+					var address string
+					address, err = conf.UnmarshalURL("srt://localhost:8890?streamid=read:test:query=value")
 					require.NoError(t, err)
 
 					err = conf.Validate()
 					require.NoError(t, err)
 
-					reader, err := srt.Dial("srt", address, conf)
+					var reader srt.Conn
+					reader, err = srt.Dial("srt", address, conf)
 					require.NoError(t, err)
 					defer reader.Close()
 
@@ -513,7 +528,8 @@ func TestPathRunOnRead(t *testing.T) {
 					defer tr.CloseIdleConnections()
 					hc := &http.Client{Transport: tr}
 
-					u, err := url.Parse("http://localhost:8889/test/whep?query=value")
+					var u *url.URL
+					u, err = url.Parse("http://localhost:8889/test/whep?query=value")
 					require.NoError(t, err)
 
 					c := &whip.Client{
@@ -547,7 +563,8 @@ func TestPathRunOnRead(t *testing.T) {
 				readerType = "webRTCSession"
 			}
 
-			byts, err := os.ReadFile(onRead)
+			var byts []byte
+			byts, err = os.ReadFile(onRead)
 			require.NoError(t, err)
 			fields := strings.Split(string(byts[:len(byts)-1]), " ")
 			require.Equal(t, "test", fields[0])
@@ -656,7 +673,8 @@ func TestPathMaxReaders(t *testing.T) {
 	defer source.Close()
 
 	for i := 0; i < 2; i++ {
-		u, err := base.ParseURL("rtsp://127.0.0.1:8554/mystream")
+		var u *base.URL
+		u, err = base.ParseURL("rtsp://127.0.0.1:8554/mystream")
 		require.NoError(t, err)
 
 		reader := gortsplib.Client{
@@ -668,7 +686,8 @@ func TestPathMaxReaders(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		desc, _, err := reader.Describe(u)
+		var desc *description.Session
+		desc, _, err = reader.Describe(u)
 		require.NoError(t, err)
 
 		err = reader.SetupAll(desc.BaseURL, desc.Medias)

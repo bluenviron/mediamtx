@@ -37,46 +37,48 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) params {
 			}
 			return "error"
 		}(),
-		CameraID:          uint32(cnf.RPICameraCamID),
-		Width:             uint32(cnf.RPICameraWidth),
-		Height:            uint32(cnf.RPICameraHeight),
-		HFlip:             cnf.RPICameraHFlip,
-		VFlip:             cnf.RPICameraVFlip,
-		Brightness:        float32(cnf.RPICameraBrightness),
-		Contrast:          float32(cnf.RPICameraContrast),
-		Saturation:        float32(cnf.RPICameraSaturation),
-		Sharpness:         float32(cnf.RPICameraSharpness),
-		Exposure:          cnf.RPICameraExposure,
-		AWB:               cnf.RPICameraAWB,
-		AWBGainRed:        float32(cnf.RPICameraAWBGains[0]),
-		AWBGainBlue:       float32(cnf.RPICameraAWBGains[1]),
-		Denoise:           cnf.RPICameraDenoise,
-		Shutter:           uint32(cnf.RPICameraShutter),
-		Metering:          cnf.RPICameraMetering,
-		Gain:              float32(cnf.RPICameraGain),
-		EV:                float32(cnf.RPICameraEV),
-		ROI:               cnf.RPICameraROI,
-		HDR:               cnf.RPICameraHDR,
-		TuningFile:        cnf.RPICameraTuningFile,
-		Mode:              cnf.RPICameraMode,
-		FPS:               float32(cnf.RPICameraFPS),
-		AfMode:            cnf.RPICameraAfMode,
-		AfRange:           cnf.RPICameraAfRange,
-		AfSpeed:           cnf.RPICameraAfSpeed,
-		LensPosition:      float32(cnf.RPICameraLensPosition),
-		AfWindow:          cnf.RPICameraAfWindow,
-		FlickerPeriod:     uint32(cnf.RPICameraFlickerPeriod),
-		TextOverlayEnable: cnf.RPICameraTextOverlayEnable,
-		TextOverlay:       cnf.RPICameraTextOverlay,
-		Codec:             cnf.RPICameraCodec,
-		IDRPeriod:         uint32(cnf.RPICameraIDRPeriod),
-		Bitrate:           uint32(cnf.RPICameraBitrate),
-		Profile:           cnf.RPICameraProfile,
-		Level:             cnf.RPICameraLevel,
-		SecondaryWidth:    uint32(cnf.RPICameraSecondaryWidth),
-		SecondaryHeight:   uint32(cnf.RPICameraSecondaryHeight),
-		SecondaryFPS:      float32(cnf.RPICameraSecondaryFPS),
-		SecondaryQuality:  uint32(cnf.RPICameraSecondaryJPEGQuality),
+		CameraID:              uint32(cnf.RPICameraCamID),
+		Width:                 uint32(cnf.RPICameraWidth),
+		Height:                uint32(cnf.RPICameraHeight),
+		HFlip:                 cnf.RPICameraHFlip,
+		VFlip:                 cnf.RPICameraVFlip,
+		Brightness:            float32(cnf.RPICameraBrightness),
+		Contrast:              float32(cnf.RPICameraContrast),
+		Saturation:            float32(cnf.RPICameraSaturation),
+		Sharpness:             float32(cnf.RPICameraSharpness),
+		Exposure:              cnf.RPICameraExposure,
+		AWB:                   cnf.RPICameraAWB,
+		AWBGainRed:            float32(cnf.RPICameraAWBGains[0]),
+		AWBGainBlue:           float32(cnf.RPICameraAWBGains[1]),
+		Denoise:               cnf.RPICameraDenoise,
+		Shutter:               uint32(cnf.RPICameraShutter),
+		Metering:              cnf.RPICameraMetering,
+		Gain:                  float32(cnf.RPICameraGain),
+		EV:                    float32(cnf.RPICameraEV),
+		ROI:                   cnf.RPICameraROI,
+		HDR:                   cnf.RPICameraHDR,
+		TuningFile:            cnf.RPICameraTuningFile,
+		Mode:                  cnf.RPICameraMode,
+		FPS:                   float32(cnf.RPICameraFPS),
+		AfMode:                cnf.RPICameraAfMode,
+		AfRange:               cnf.RPICameraAfRange,
+		AfSpeed:               cnf.RPICameraAfSpeed,
+		LensPosition:          float32(cnf.RPICameraLensPosition),
+		AfWindow:              cnf.RPICameraAfWindow,
+		FlickerPeriod:         uint32(cnf.RPICameraFlickerPeriod),
+		TextOverlayEnable:     cnf.RPICameraTextOverlayEnable,
+		TextOverlay:           cnf.RPICameraTextOverlay,
+		Codec:                 cnf.RPICameraCodec,
+		IDRPeriod:             uint32(cnf.RPICameraIDRPeriod),
+		Bitrate:               uint32(cnf.RPICameraBitrate),
+		HardwareH264Profile:   cnf.RPICameraHardwareH264Profile,
+		HardwareH264Level:     cnf.RPICameraHardwareH264Level,
+		SoftwareH264Profile:   cnf.RPICameraSoftwareH264Profile,
+		SoftwareH264Level:     cnf.RPICameraSoftwareH264Level,
+		SecondaryWidth:        uint32(cnf.RPICameraSecondaryWidth),
+		SecondaryHeight:       uint32(cnf.RPICameraSecondaryHeight),
+		SecondaryFPS:          float32(cnf.RPICameraSecondaryFPS),
+		SecondaryMJPEGQuality: uint32(cnf.RPICameraSecondaryMJPEGQuality),
 	}
 }
 
@@ -99,7 +101,9 @@ func (*secondaryReader) APIReaderDescribe() defs.APIPathSourceOrReader {
 }
 
 type parent interface {
-	defs.StaticSourceParent
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
@@ -241,7 +245,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-cameraErr:
+		case err = <-cameraErr:
 			return err
 
 		case cnf := <-params.ReloadConf:
@@ -299,7 +303,7 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	defer origStream.RemoveReader(s)
 
 	select {
-	case err := <-origStream.ReaderError(s):
+	case err = <-origStream.ReaderError(s):
 		return err
 
 	case <-r.ctx.Done():

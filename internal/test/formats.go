@@ -43,7 +43,7 @@ var FormatH265 = &format.H265{
 // FormatMPEG4Audio is a dummy MPEG-4 audio format.
 var FormatMPEG4Audio = &format.MPEG4Audio{
 	PayloadTyp: 96,
-	Config: &mpeg4audio.Config{
+	Config: &mpeg4audio.AudioSpecificConfig{
 		Type:         2,
 		SampleRate:   44100,
 		ChannelCount: 2,

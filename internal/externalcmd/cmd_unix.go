@@ -35,12 +35,12 @@ func (e *Cmd) runOSSpecific(env []string) error {
 	cmdDone := make(chan int)
 	go func() {
 		cmdDone <- func() int {
-			err := cmd.Wait()
-			if err == nil {
+			err2 := cmd.Wait()
+			if err2 == nil {
 				return 0
 			}
 			var ee *exec.ExitError
-			if errors.As(err, &ee) {
+			if errors.As(err2, &ee) {
 				ee.ExitCode()
 			}
 			return 0

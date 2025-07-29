@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpusEncode(t *testing.T) {
+func TestOpusProcessUnit(t *testing.T) {
 	forma := &format.Opus{
 		PayloadTyp:   96,
 		ChannelCount: 2,

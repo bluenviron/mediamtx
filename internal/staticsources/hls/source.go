@@ -17,10 +17,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+type parent interface {
+	logger.Writer
+	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
+	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
+}
+
 // Source is a HLS static source.
 type Source struct {
 	ReadTimeout conf.Duration
-	Parent      defs.StaticSourceParent
+	Parent      parent
 }
 
 // Log implements logger.Writer.
@@ -113,7 +119,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	for {
 		select {
-		case err := <-waitErr:
+		case err = <-waitErr:
 			c.Close()
 			return err
 

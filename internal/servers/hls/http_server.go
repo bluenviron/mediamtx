@@ -147,17 +147,15 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		return
 	}
 
-	req := defs.PathAccessRequest{
-		Name:        dir,
-		Query:       ctx.Request.URL.RawQuery,
-		Publish:     false,
-		Proto:       auth.ProtocolHLS,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
-	}
-
 	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
-		AccessRequest: req,
+		AccessRequest: defs.PathAccessRequest{
+			Name:        dir,
+			Query:       ctx.Request.URL.RawQuery,
+			Publish:     false,
+			Proto:       auth.ProtocolHLS,
+			Credentials: httpp.Credentials(ctx.Request),
+			IP:          net.ParseIP(ctx.ClientIP()),
+		},
 	})
 	if err != nil {
 		var terr auth.Error
@@ -189,7 +187,8 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		ctx.Writer.Write(hlsIndex)
 
 	default:
-		mux, err := s.parent.getMuxer(serverGetMuxerReq{
+		var mux *muxer
+		mux, err = s.parent.getMuxer(serverGetMuxerReq{
 			path:           dir,
 			remoteAddr:     httpp.RemoteAddr(ctx),
 			query:          ctx.Request.URL.RawQuery,
