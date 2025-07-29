@@ -189,6 +189,10 @@ func (a *API) Initialize() error {
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
 
+	group.POST("/recording/start-all", a.onRecordingStartAll)
+	group.POST("/recording/stop-all", a.onRecordingStopAll)
+	group.GET("/recording/status", a.onRecordingStatus)
+
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
 	a.httpServer = &httpp.Server{
@@ -1127,6 +1131,35 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+}
+
+func (a *API) onRecordingStartAll(ctx *gin.Context) {
+	err := a.PathManager.StartRecordingAll()
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "recording started for all active paths",
+	})
+}
+
+func (a *API) onRecordingStopAll(ctx *gin.Context) {
+	err := a.PathManager.StopRecordingAll()
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "recording stopped for all active paths",
+	})
+}
+
+func (a *API) onRecordingStatus(ctx *gin.Context) {
+	status := a.PathManager.GetRecordingStatus()
+	ctx.JSON(http.StatusOK, status)
 }
 
 // ReloadConf is called by core.

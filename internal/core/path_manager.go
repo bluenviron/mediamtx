@@ -628,3 +628,69 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, fmt.Errorf("terminated")
 	}
 }
+
+// StartRecordingAll starts recording for all active paths.
+func (pm *pathManager) StartRecordingAll() error {
+	pm.Log(logger.Info, "operation started: recording start command received")
+
+	count := 0
+	for pathName, pathData := range pm.paths {
+		if pathData.ready {
+			// Create a copy of the current configuration with recording enabled
+			newConf := pathData.path.conf.Clone()
+			newConf.Record = true
+
+			// Send the configuration update to the path
+			go pathData.path.reloadConf(newConf)
+			count++
+			pm.Log(logger.Info, "recording started for path: %s", pathName)
+		}
+	}
+
+	pm.Log(logger.Info, "operation completed: recording started for %d active paths", count)
+	return nil
+}
+
+// StopRecordingAll stops recording for all active paths.
+func (pm *pathManager) StopRecordingAll() error {
+	pm.Log(logger.Info, "operation started: recording stop command received")
+
+	count := 0
+	for pathName, pathData := range pm.paths {
+		if pathData.ready && pathData.path.recorder != nil {
+			// Create a copy of the current configuration with recording disabled
+			newConf := pathData.path.conf.Clone()
+			newConf.Record = false
+
+			// Send the configuration update to the path
+			go pathData.path.reloadConf(newConf)
+			count++
+			pm.Log(logger.Info, "recording stopped for path: %s", pathName)
+		}
+	}
+
+	pm.Log(logger.Info, "operation completed: recording stopped for %d active paths", count)
+	return nil
+}
+
+// GetRecordingStatus returns the current recording status of all paths.
+func (pm *pathManager) GetRecordingStatus() *defs.APIRecordingStatus {
+	status := &defs.APIRecordingStatus{
+		RecordingList: make([]string, 0),
+	}
+
+	for pathName, pathData := range pm.paths {
+		status.TotalPaths++
+
+		if pathData.ready {
+			status.ReadyPaths++
+
+			if pathData.path.recorder != nil {
+				status.RecordingPaths++
+				status.RecordingList = append(status.RecordingList, pathName)
+			}
+		}
+	}
+
+	return status
+}
