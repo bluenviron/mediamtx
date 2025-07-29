@@ -433,13 +433,28 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	peerConnectionEstablished := false
 	localCandidate := ""
 	remoteCandidate := ""
-	var stats *webrtc.Stats
+	bytesReceived := uint64(0)
+	bytesSent := uint64(0)
+	rtpPacketsReceived := uint64(0)
+	rtpPacketsSent := uint64(0)
+	rtpPacketsLost := uint64(0)
+	rtpPacketsJitter := float64(0)
+	rtcpPacketsReceived := uint64(0)
+	rtcpPacketsSent := uint64(0)
 
 	if s.pc != nil {
 		peerConnectionEstablished = true
 		localCandidate = s.pc.LocalCandidate()
 		remoteCandidate = s.pc.RemoteCandidate()
-		stats = s.pc.Stats()
+		stats := s.pc.Stats()
+		bytesReceived = stats.BytesReceived
+		bytesSent = stats.BytesSent
+		rtpPacketsReceived = stats.RTPPacketsReceived
+		rtpPacketsSent = stats.RTPPacketsSent
+		rtpPacketsLost = stats.RTPPacketsLost
+		rtpPacketsJitter = stats.RTPPacketsJitter
+		rtcpPacketsReceived = stats.RTCPPacketsReceived
+		rtcpPacketsSent = stats.RTCPPacketsSent
 	}
 
 	return &defs.APIWebRTCSession{
@@ -457,13 +472,13 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		}(),
 		Path:                s.req.pathName,
 		Query:               s.req.httpRequest.URL.RawQuery,
-		BytesReceived:       stats.BytesReceived,
-		BytesSent:           stats.BytesSent,
-		RTPPacketsReceived:  stats.RTPPacketsReceived,
-		RTPPacketsSent:      stats.RTPPacketsSent,
-		RTPPacketsLost:      stats.RTPPacketsLost,
-		RTPPacketsJitter:    stats.RTPPacketsJitter,
-		RTCPPacketsReceived: stats.RTCPPacketsReceived,
-		RTCPPacketsSent:     stats.RTCPPacketsSent,
+		BytesReceived:       bytesReceived,
+		BytesSent:           bytesSent,
+		RTPPacketsReceived:  rtpPacketsReceived,
+		RTPPacketsSent:      rtpPacketsSent,
+		RTPPacketsLost:      rtpPacketsLost,
+		RTPPacketsJitter:    rtpPacketsJitter,
+		RTCPPacketsReceived: rtcpPacketsReceived,
+		RTCPPacketsSent:     rtcpPacketsSent,
 	}
 }
