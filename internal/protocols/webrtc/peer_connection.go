@@ -61,6 +61,11 @@ func registerInterceptors(
 	return nil
 }
 
+func candidateLabel(c *webrtc.ICECandidate) string {
+	return c.Typ.String() + "/" + c.Protocol.String() + "/" +
+		c.Address + "/" + strconv.FormatInt(int64(c.Port), 10)
+}
+
 // TracksAreValid checks whether tracks in the SDP are valid
 func TracksAreValid(medias []*sdp.MediaDescription) error {
 	videoTrack := false
@@ -545,28 +550,6 @@ func (co *PeerConnection) GatheringDone() <-chan struct{} {
 	return co.gatheringDone
 }
 
-// LocalCandidate returns the local candidate.
-func (co *PeerConnection) LocalCandidate() string {
-	var cid string
-	for _, stats := range co.wr.GetStats() {
-		if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
-			cid = tstats.LocalCandidateID
-			break
-		}
-	}
-
-	if cid != "" {
-		for _, stats := range co.wr.GetStats() {
-			if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
-				return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
-					tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
-			}
-		}
-	}
-
-	return ""
-}
-
 // IncomingTracks returns incoming tracks.
 func (co *PeerConnection) IncomingTracks() []*IncomingTrack {
 	return co.incomingTracks
@@ -580,26 +563,34 @@ func (co *PeerConnection) StartReading() {
 	atomic.StoreInt64(co.startedReading, 1)
 }
 
+// LocalCandidate returns the local candidate.
+func (co *PeerConnection) LocalCandidate() string {
+	receivers := co.wr.GetReceivers()
+	if len(receivers) < 1 {
+		return ""
+	}
+
+	cp, err := receivers[0].Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil {
+		return ""
+	}
+
+	return candidateLabel(cp.Local)
+}
+
 // RemoteCandidate returns the remote candidate.
 func (co *PeerConnection) RemoteCandidate() string {
-	var cid string
-	for _, stats := range co.wr.GetStats() {
-		if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
-			cid = tstats.RemoteCandidateID
-			break
-		}
+	receivers := co.wr.GetReceivers()
+	if len(receivers) < 1 {
+		return ""
 	}
 
-	if cid != "" {
-		for _, stats := range co.wr.GetStats() {
-			if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
-				return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
-					tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
-			}
-		}
+	cp, err := receivers[0].Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil {
+		return ""
 	}
 
-	return ""
+	return candidateLabel(cp.Remote)
 }
 
 func bytesStats(wr *webrtc.PeerConnection) (uint64, uint64) {
