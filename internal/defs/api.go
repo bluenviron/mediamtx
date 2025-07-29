@@ -8,10 +8,21 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
+// APIRecordingStatus represents the recording status of all paths.
+type APIRecordingStatus struct {
+	TotalPaths     int      `json:"totalPaths"`
+	ReadyPaths     int      `json:"readyPaths"`
+	RecordingPaths int      `json:"recordingPaths"`
+	RecordingList  []string `json:"recordingList"`
+}
+
 // APIPathManager contains methods used by the API and Metrics server.
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	StartRecordingAll() error
+	StopRecordingAll() error
+	GetRecordingStatus() *APIRecordingStatus
 }
 
 // APIHLSServer contains methods used by the API and Metrics server.
