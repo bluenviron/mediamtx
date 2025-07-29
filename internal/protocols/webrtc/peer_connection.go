@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/ice/v4"
@@ -31,17 +32,33 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-// skip ConfigureRTCPReports
-func registerInterceptors(mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry) error {
-	if err := webrtc.ConfigureNack(mediaEngine, interceptorRegistry); err != nil {
+// * skip ConfigureRTCPReports
+// * add statsInterceptor
+func registerInterceptors(
+	mediaEngine *webrtc.MediaEngine,
+	interceptorRegistry *interceptor.Registry,
+	onStatsInterceptor func(s *statsInterceptor),
+) error {
+	err := webrtc.ConfigureNack(mediaEngine, interceptorRegistry)
+	if err != nil {
 		return err
 	}
 
-	if err := webrtc.ConfigureSimulcastExtensionHeaders(mediaEngine); err != nil {
+	err = webrtc.ConfigureSimulcastExtensionHeaders(mediaEngine)
+	if err != nil {
 		return err
 	}
 
-	return webrtc.ConfigureTWCCSender(mediaEngine, interceptorRegistry)
+	err = webrtc.ConfigureTWCCSender(mediaEngine, interceptorRegistry)
+	if err != nil {
+		return err
+	}
+
+	interceptorRegistry.Add(&statsInterceptorFactory{
+		onCreate: onStatsInterceptor,
+	})
+
+	return nil
 }
 
 // TracksAreValid checks whether tracks in the SDP are valid
@@ -97,17 +114,24 @@ type PeerConnection struct {
 	UseAbsoluteTimestamp  bool
 	Log                   logger.Writer
 
-	wr                *webrtc.PeerConnection
-	stateChangeMutex  sync.Mutex
-	newLocalCandidate chan *webrtc.ICECandidateInit
-	connected         chan struct{}
-	failed            chan struct{}
-	closed            chan struct{}
-	gatheringDone     chan struct{}
-	incomingTrack     chan trackRecvPair
-	ctx               context.Context
-	ctxCancel         context.CancelFunc
-	incomingTracks    []*IncomingTrack
+	wr                 *webrtc.PeerConnection
+	stateChangeMutex   sync.Mutex
+	newLocalCandidate  chan *webrtc.ICECandidateInit
+	connected          chan struct{}
+	failed             chan struct{}
+	closed             chan struct{}
+	gatheringDone      chan struct{}
+	incomingTrack      chan trackRecvPair
+	ctx                context.Context
+	ctxCancel          context.CancelFunc
+	incomingTracks     []*IncomingTrack
+	startedReading     *int64
+	rtpPacketsReceived *uint64
+	rtpPacketsSent     *uint64
+	rtpPacketsLost     *uint64
+	statsInterceptor   *statsInterceptor
+	// rtcpPacketsReceived *uint64
+	// rtcpPacketsSent     *uint64
 }
 
 // Start starts the peer connection.
@@ -216,7 +240,13 @@ func (co *PeerConnection) Start() error {
 
 	interceptorRegistry := &interceptor.Registry{}
 
-	err := registerInterceptors(mediaEngine, interceptorRegistry)
+	err := registerInterceptors(
+		mediaEngine,
+		interceptorRegistry,
+		func(s *statsInterceptor) {
+			co.statsInterceptor = s
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -241,6 +271,11 @@ func (co *PeerConnection) Start() error {
 	co.incomingTrack = make(chan trackRecvPair)
 
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
+
+	co.startedReading = new(int64)
+	co.rtpPacketsReceived = new(uint64)
+	co.rtpPacketsSent = new(uint64)
+	co.rtpPacketsLost = new(uint64)
 
 	if co.Publish {
 		for _, tr := range co.OutgoingTracks {
@@ -473,6 +508,8 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) error {
 				receiver:             pair.receiver,
 				writeRTCP:            co.wr.WriteRTCP,
 				log:                  co.Log,
+				rtpPacketsReceived:   co.rtpPacketsReceived,
+				rtpPacketsLost:       co.rtpPacketsLost,
 			}
 			t.initialize()
 			co.incomingTracks = append(co.incomingTracks, t)
@@ -542,6 +579,7 @@ func (co *PeerConnection) StartReading() {
 	for _, track := range co.incomingTracks {
 		track.start()
 	}
+	atomic.StoreInt64(co.startedReading, 1)
 }
 
 // RemoteCandidate returns the remote candidate.
@@ -566,26 +604,48 @@ func (co *PeerConnection) RemoteCandidate() string {
 	return ""
 }
 
-// BytesReceived returns received bytes.
-func (co *PeerConnection) BytesReceived() uint64 {
-	for _, stats := range co.wr.GetStats() {
+func bytesStats(wr *webrtc.PeerConnection) (uint64, uint64) {
+	for _, stats := range wr.GetStats() {
 		if tstats, ok := stats.(webrtc.TransportStats); ok {
 			if tstats.ID == "iceTransport" {
-				return tstats.BytesReceived
+				return tstats.BytesReceived, tstats.BytesSent
 			}
 		}
 	}
-	return 0
+	return 0, 0
 }
 
-// BytesSent returns sent bytes.
-func (co *PeerConnection) BytesSent() uint64 {
-	for _, stats := range co.wr.GetStats() {
-		if tstats, ok := stats.(webrtc.TransportStats); ok {
-			if tstats.ID == "iceTransport" {
-				return tstats.BytesSent
+// Stats returns statistics.
+func (co *PeerConnection) Stats() *Stats {
+	bytesReceived, bytesSent := bytesStats(co.wr)
+
+	v := float64(0)
+	n := float64(0)
+
+	if atomic.LoadInt64(co.startedReading) == 1 {
+		for _, tr := range co.incomingTracks {
+			if recvStats := tr.rtcpReceiver.Stats(); recvStats != nil {
+				v += recvStats.Jitter
+				n++
 			}
 		}
 	}
-	return 0
+
+	var rtpPacketsJitter float64
+	if n != 0 {
+		rtpPacketsJitter = v / n
+	} else {
+		rtpPacketsJitter = 0
+	}
+
+	return &Stats{
+		BytesReceived:       bytesReceived,
+		BytesSent:           bytesSent,
+		RTPPacketsReceived:  atomic.LoadUint64(co.rtpPacketsReceived),
+		RTPPacketsSent:      atomic.LoadUint64(co.rtpPacketsSent),
+		RTPPacketsLost:      atomic.LoadUint64(co.rtpPacketsLost),
+		RTPPacketsJitter:    rtpPacketsJitter,
+		RTCPPacketsReceived: atomic.LoadUint64(co.statsInterceptor.rtcpPacketsReceived),
+		RTCPPacketsSent:     atomic.LoadUint64(co.statsInterceptor.rtcpPacketsSent),
+	}
 }
