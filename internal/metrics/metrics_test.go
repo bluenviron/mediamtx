@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,6 +68,42 @@ func (dummyHLSServer) APIMuxersGet(string) (*defs.APIHLSMuxer, error) {
 	panic("unused")
 }
 
+type dummyWebRTCServer struct{}
+
+func (dummyWebRTCServer) APISessionsList() (*defs.APIWebRTCSessionList, error) {
+	return &defs.APIWebRTCSessionList{
+		ItemCount: 1,
+		PageCount: 1,
+		Items: []*defs.APIWebRTCSession{{
+			ID:                        uuid.MustParse("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
+			Created:                   time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			RemoteAddr:                "127.0.0.1:3455",
+			PeerConnectionEstablished: true,
+			LocalCandidate:            "local",
+			RemoteCandidate:           "remote",
+			State:                     defs.APIWebRTCSessionStateRead,
+			Path:                      "mypath",
+			Query:                     "myquery",
+			BytesReceived:             123,
+			BytesSent:                 456,
+			RTPPacketsReceived:        789,
+			RTPPacketsSent:            123,
+			RTPPacketsLost:            456,
+			RTPPacketsJitter:          789,
+			RTCPPacketsReceived:       123,
+			RTCPPacketsSent:           456,
+		}},
+	}, nil
+}
+
+func (dummyWebRTCServer) APISessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error) {
+	panic("unused")
+}
+
+func (dummyWebRTCServer) APISessionsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 func TestPreflightRequest(t *testing.T) {
 	m := Metrics{
 		Address:     "localhost:9998",
@@ -118,6 +155,7 @@ func TestMetrics(t *testing.T) {
 
 	m.SetPathManager(&dummyPathManager{})
 	m.SetHLSServer(&dummyHLSServer{})
+	m.SetWebRTCServer(&dummyWebRTCServer{})
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -136,6 +174,24 @@ func TestMetrics(t *testing.T) {
 			`paths_bytes_sent{name="mypath",state="ready"} 456`+"\n"+
 			`paths_readers{name="mypath",state="ready"} 1`+"\n"+
 			`hls_muxers{name="mypath"} 1`+"\n"+
-			`hls_muxers_bytes_sent{name="mypath"} 789`+"\n",
+			`hls_muxers_bytes_sent{name="mypath"} 789`+"\n"+
+			`webrtc_sessions{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 1`+"\n"+
+			`webrtc_sessions_bytes_received{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_bytes_sent{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
+			`webrtc_sessions_rtp_packets_received{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 789`+"\n"+
+			`webrtc_sessions_rtp_packets_sent{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_rtp_packets_lost{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
+			`webrtc_sessions_rtp_packets_jitter{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 789`+"\n"+
+			`webrtc_sessions_rtcp_packets_received{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_rtcp_packets_sent{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n",
 		string(byts))
 }

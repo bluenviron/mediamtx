@@ -513,11 +513,23 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out += metric("webrtc_sessions", ta, 1)
 				out += metric("webrtc_sessions_bytes_received", ta, int64(i.BytesReceived))
 				out += metric("webrtc_sessions_bytes_sent", ta, int64(i.BytesSent))
+				out += metric("webrtc_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
+				out += metric("webrtc_sessions_rtp_packets_sent", ta, int64(i.RTPPacketsSent))
+				out += metric("webrtc_sessions_rtp_packets_lost", ta, int64(i.RTPPacketsLost))
+				out += metricFloat("webrtc_sessions_rtp_packets_jitter", ta, i.RTPPacketsJitter)
+				out += metric("webrtc_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
+				out += metric("webrtc_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
 			}
 		} else {
 			out += metric("webrtc_sessions", "", 0)
 			out += metric("webrtc_sessions_bytes_received", "", 0)
 			out += metric("webrtc_sessions_bytes_sent", "", 0)
+			out += metric("webrtc_sessions_rtp_packets_received", "", 0)
+			out += metric("webrtc_sessions_rtp_packets_sent", "", 0)
+			out += metric("webrtc_sessions_rtp_packets_lost", "", 0)
+			out += metricFloat("webrtc_sessions_rtp_packets_jitter", "", 0)
+			out += metric("webrtc_sessions_rtcp_packets_received", "", 0)
+			out += metric("webrtc_sessions_rtcp_packets_sent", "", 0)
 		}
 	}
 

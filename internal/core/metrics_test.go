@@ -165,6 +165,12 @@ srt_conns_packets_received_loss_rate 0
 webrtc_sessions 0
 webrtc_sessions_bytes_received 0
 webrtc_sessions_bytes_sent 0
+webrtc_sessions_rtp_packets_received 0
+webrtc_sessions_rtp_packets_sent 0
+webrtc_sessions_rtp_packets_lost 0
+webrtc_sessions_rtp_packets_jitter 0
+webrtc_sessions_rtcp_packets_received 0
+webrtc_sessions_rtcp_packets_sent 0
 `, string(bo))
 	})
 
@@ -458,6 +464,12 @@ webrtc_sessions_bytes_sent 0
 				`webrtc_sessions\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
 				`webrtc_sessions_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtcp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_rtcp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				"$",
 			string(bo))
 
