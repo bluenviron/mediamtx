@@ -23,6 +23,7 @@ type Recorder struct {
 	MaxPartSize       conf.StringSize
 	SegmentDuration   time.Duration
 	PathName          string
+	ShipName          string
 	Stream            *stream.Stream
 	OnSegmentCreate   OnSegmentCreateFunc
 	OnSegmentComplete OnSegmentCompleteFunc
@@ -60,6 +61,7 @@ func (r *Recorder) Initialize() {
 		maxPartSize:       r.MaxPartSize,
 		segmentDuration:   r.SegmentDuration,
 		pathName:          r.PathName,
+		shipName:          r.ShipName,
 		stream:            r.Stream,
 		onSegmentCreate:   r.OnSegmentCreate,
 		onSegmentComplete: r.OnSegmentComplete,
@@ -107,6 +109,7 @@ func (r *Recorder) run() {
 			maxPartSize:       r.MaxPartSize,
 			segmentDuration:   r.SegmentDuration,
 			pathName:          r.PathName,
+			shipName:          r.ShipName,
 			stream:            r.Stream,
 			onSegmentCreate:   r.OnSegmentCreate,
 			onSegmentComplete: r.OnSegmentComplete,

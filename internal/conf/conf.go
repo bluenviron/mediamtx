@@ -162,6 +162,7 @@ type Conf struct {
 	LogDestinations     LogDestinations `json:"logDestinations"`
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
+	ShipName            string          `json:"shipName"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
@@ -320,6 +321,7 @@ func (conf *Conf) setDefaults() {
 	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
 	conf.LogFile = "mediamtx.log"
 	conf.SysLogPrefix = "mediamtx"
+	conf.ShipName = "ship-1"
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512

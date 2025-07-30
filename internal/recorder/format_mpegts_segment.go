@@ -47,7 +47,11 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
+		s.path = recordstore.Path{
+			Start:    s.startNTP,
+			Path:     s.f.ri.pathName,
+			ShipName: s.f.ri.shipName,
+		}.Encode(s.f.ri.pathFormat2)
 		s.f.ri.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)

@@ -5,3 +5,5 @@
 /internal/core/VERSION
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*/
+/recordings
+/mediamtx

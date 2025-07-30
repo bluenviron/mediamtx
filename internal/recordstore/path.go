@@ -106,8 +106,9 @@ func CommonPath(v string) string {
 
 // Path is a path of a recording segment.
 type Path struct {
-	Start time.Time
-	Path  string
+	Start    time.Time
+	Path     string
+	ShipName string
 }
 
 // Decode decodes a Path.
@@ -134,6 +135,7 @@ func (p *Path) Decode(format string, v string) bool {
 	}
 
 	re = strings.ReplaceAll(re, "%path", "(.*?)")
+	re = strings.ReplaceAll(re, "%ship_name", "(.*?)")
 	re = strings.ReplaceAll(re, "%Y", "([0-9]{4})")
 	re = strings.ReplaceAll(re, "%m", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%d", "([0-9]{2})")
@@ -157,6 +159,7 @@ func (p *Path) Decode(format string, v string) bool {
 
 		for _, va := range []string{
 			"%path",
+			"%ship_name",
 			"%Y",
 			"%m",
 			"%d",
@@ -200,6 +203,10 @@ func (p *Path) Decode(format string, v string) bool {
 		switch k {
 		case "%path":
 			p.Path = v
+
+		case "%ship_name":
+			// Store the ship name in the Path struct
+			p.ShipName = v
 
 		case "%Y":
 			tmp, _ := strconv.ParseInt(v, 10, 64)
@@ -249,6 +256,7 @@ func (p *Path) Decode(format string, v string) bool {
 // Encode encodes a path.
 func (p Path) Encode(format string) string {
 	format = strings.ReplaceAll(format, "%path", p.Path)
+	format = strings.ReplaceAll(format, "%ship_name", p.ShipName)
 	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(p.Start.Year()), 10))
 	format = strings.ReplaceAll(format, "%m", leadingZeros(int(p.Start.Month()), 2))
 	format = strings.ReplaceAll(format, "%d", leadingZeros(p.Start.Day(), 2))
