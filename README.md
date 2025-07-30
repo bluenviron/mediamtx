@@ -1412,6 +1412,12 @@ Only clients that provide username and passwords will be able to perform a certa
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://myuser:mypass@localhost:8554/mystream
 ```
 
+For RTMP, use GET parameters (in most shell you need to escape the "&" with a slash "\"):
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystream?user=myuser\&pass=mypass
+```
+
 If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported. To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
 ```
