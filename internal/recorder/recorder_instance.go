@@ -1,7 +1,6 @@
 package recorder
 
 import (
-	"strings"
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
@@ -25,6 +24,7 @@ type recorderInstance struct {
 	maxPartSize       conf.StringSize
 	segmentDuration   time.Duration
 	pathName          string
+	shipName          string
 	stream            *stream.Stream
 	onSegmentCreate   OnSegmentCreateFunc
 	onSegmentComplete OnSegmentCompleteFunc
@@ -47,7 +47,7 @@ func (ri *recorderInstance) initialize() {
 	ri.pathFormat2 = ri.pathFormat
 
 	ri.pathFormat2 = recordstore.PathAddExtension(
-		strings.ReplaceAll(ri.pathFormat2, "%path", ri.pathName),
+		ri.pathFormat2,
 		ri.format,
 	)
 

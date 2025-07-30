@@ -66,6 +66,7 @@ type pathAPIPathsGetReq struct {
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
+	shipName          string
 	rtspAddress       string
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
@@ -596,6 +597,7 @@ func (pa *path) ExternalCmdEnv() externalcmd.Environment {
 		"MTX_PATH":  pa.name,
 		"RTSP_PATH": pa.name, // deprecated
 		"RTSP_PORT": port,
+		"SHIP_NAME": pa.shipName,
 	}
 
 	if len(pa.matches) > 1 {
@@ -752,6 +754,7 @@ func (pa *path) startRecording() {
 		MaxPartSize:     pa.conf.RecordMaxPartSize,
 		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
 		PathName:        pa.name,
+		ShipName:        pa.shipName,
 		Stream:          pa.stream,
 		OnSegmentCreate: func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentCreate != "" {

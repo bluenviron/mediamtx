@@ -366,6 +366,7 @@ func (p *Core) createResources(initial bool) error {
 
 		p.pathManager = &pathManager{
 			logLevel:          p.conf.LogLevel,
+			shipName:          p.conf.ShipName,
 			authManager:       p.authManager,
 			rtspAddress:       p.conf.RTSPAddress,
 			readTimeout:       p.conf.ReadTimeout,

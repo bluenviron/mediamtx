@@ -65,6 +65,7 @@ type pathManagerParent interface {
 
 type pathManager struct {
 	logLevel          conf.LogLevel
+	shipName          string
 	authManager       *auth.Manager
 	rtspAddress       string
 	readTimeout       conf.Duration
@@ -429,6 +430,7 @@ func (pm *pathManager) createPath(
 	pa := &path{
 		parentCtx:         pm.ctx,
 		logLevel:          pm.logLevel,
+		shipName:          pm.shipName,
 		rtspAddress:       pm.rtspAddress,
 		readTimeout:       pm.readTimeout,
 		writeTimeout:      pm.writeTimeout,

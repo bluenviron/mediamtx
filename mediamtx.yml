@@ -15,6 +15,9 @@ logFile: mediamtx.log
 # If "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
 
+# Name of the ship. This is available as SHIP environment variable in hooks.
+shipName: ship-1
+
 # Timeout of read operations.
 readTimeout: 10s
 # Timeout of write operations.
@@ -32,6 +35,7 @@ udpMaxPayloadSize: 1472
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
 # * RTSP_PORT: RTSP server port
+# * SHIP_NAME: ship name
 runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: no
@@ -481,7 +485,7 @@ pathDefaults:
   record: no
   # Path of recording segments.
   # Extension is added automatically.
-  # Available variables are %path (path name), %Y %m %d (year, month, day),
+  # Available variables are %path (path name), %ship_name (ship name), %Y %m %d (year, month, day),
   # %H %M %S (hours, minutes, seconds), %f (microseconds), %z (time zone), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   # Format of recorded segments.
@@ -637,6 +641,7 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnInit:
@@ -651,6 +656,7 @@ pathDefaults:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by first reader)
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnDemand:
@@ -675,6 +681,7 @@ pathDefaults:
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnReady:
@@ -692,6 +699,7 @@ pathDefaults:
   # * MTX_READER_TYPE: reader type
   # * MTX_READER_ID: reader ID
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnRead:
@@ -706,6 +714,7 @@ pathDefaults:
   # * MTX_PATH: path name
   # * MTX_SEGMENT_PATH: segment file path
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnRecordSegmentCreate:
@@ -716,6 +725,7 @@ pathDefaults:
   # * MTX_SEGMENT_PATH: segment file path
   # * MTX_SEGMENT_DURATION: segment duration
   # * RTSP_PORT: RTSP server port
+  # * SHIP_NAME: ship name
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
   runOnRecordSegmentComplete:
