@@ -571,7 +571,7 @@ func (co *PeerConnection) LocalCandidate() string {
 	}
 
 	cp, err := receivers[0].Transport().ICETransport().GetSelectedCandidatePair()
-	if err != nil {
+	if err != nil || cp == nil {
 		return ""
 	}
 
@@ -586,7 +586,7 @@ func (co *PeerConnection) RemoteCandidate() string {
 	}
 
 	cp, err := receivers[0].Transport().ICETransport().GetSelectedCandidatePair()
-	if err != nil {
+	if err != nil || cp == nil {
 		return ""
 	}
 
