@@ -74,6 +74,9 @@ func TestMetrics(t *testing.T) {
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
 		require.Equal(t, `paths 0
+paths_bytes_received 0
+paths_bytes_sent 0
+paths_readers 0
 hls_muxers 0
 hls_muxers_bytes_sent 0
 rtsp_conns 0
@@ -490,6 +493,10 @@ webrtc_sessions_rtcp_packets_sent 0
 
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
-		require.Equal(t, "paths 0\n", string(bo))
+		require.Equal(t, "paths 0\n"+
+			"paths_bytes_received 0\n"+
+			"paths_bytes_sent 0\n"+
+			"paths_readers 0\n",
+			string(bo))
 	})
 }

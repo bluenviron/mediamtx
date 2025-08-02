@@ -2253,6 +2253,20 @@ webrtc_sessions_rtcp_packets_received{id="[id]",path="[path]",remoteAddr="[remot
 webrtc_sessions_rtcp_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 ```
 
+Metrics can be tuned and filtered by using query parameters:
+
+* `type=[TYPE]`: show metrics of a certain type only (where TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`)
+* `path=[PATH]`: show metrics belonging to a specific path only
+* `hls_muxer=[PATH]`: show metrics belonging to a specific HLS muxer only
+* `rtsp_conn=[ID]` show metrics belonging to a specific RTSP connection only
+* `rtsp_session=[SESSION]`: show metrics belonging to a specific RTSP session only
+* `rtsps_conn=[ID]` show metrics belonging to a specific RTSPS connection only
+* `rtsps_session=[SESSION]`: show metrics belonging to a specific RTSPS session only
+* `rtmp_conn=[ID]` show metrics belonging to a specific RTMP connection only
+* `rtmps_conn=[ID]` show metrics belonging to a specific RTMPS connection only
+* `srt_conn=[ID]` show metrics belonging to a specific SRT connection only
+* `webrtc_session=[ID]` show metrics belonging to a specific WebRTC session only
+
 ### pprof
 
 A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
