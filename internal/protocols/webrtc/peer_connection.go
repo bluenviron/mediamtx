@@ -154,6 +154,8 @@ func (co *PeerConnection) Start() error {
 	settingsEngine.SetNetworkTypes([]webrtc.NetworkType{
 		webrtc.NetworkTypeUDP4,
 		webrtc.NetworkTypeTCP4,
+		webrtc.NetworkTypeUDP6,
+		webrtc.NetworkTypeTCP6,
 	})
 
 	if co.ICEUDPMux != nil {
