@@ -2245,6 +2245,12 @@ srt_conns_packets_received_loss_rate{id="[id]",path="[path]",remoteAddr="[remote
 webrtc_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
 webrtc_sessions_bytes_received{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
 webrtc_sessions_bytes_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
+webrtc_sessions_rtp_packets_received{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+webrtc_sessions_rtp_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+webrtc_sessions_rtp_packets_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+webrtc_sessions_rtp_packets_jitter{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+webrtc_sessions_rtcp_packets_received{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+webrtc_sessions_rtcp_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 ```
 
 ### pprof
