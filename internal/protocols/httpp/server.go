@@ -67,23 +67,28 @@ func (s *Server) Initialize() error {
 		}
 	}
 
-	if strings.HasPrefix(s.Network, "tcp") {
-		var isunix bool
-		s.Address, isunix = strings.CutPrefix(s.Address, "unix://")
-		if isunix {
-			s.Network = "unix"
-			os.Remove(s.Address)
-		}
+	var network string
+	var address string
+
+	if strings.HasPrefix(s.Address, "unix://") {
+		network = "unix"
+		address = s.Address[len("unix://"):]
+	} else {
+		network, address = restrictnetwork.Restrict("tcp", s.Address)
+	}
+
+	if network == "unix" {
+		os.Remove(address)
 	}
 
 	var err error
-	s.ln, err = net.Listen(restrictnetwork.Restrict("tcp", s.Address))
+	s.ln, err = net.Listen(network, address)
 	if err != nil {
 		return err
 	}
 
-	if s.Network == "unix" {
-		os.Chmod(s.Address, 0775)
+	if network == "unix" {
+		os.Chmod(address, 0o755) //nolint:errcheck
 	}
 
 	h := s.Handler
