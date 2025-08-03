@@ -20,7 +20,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
-	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 //go:embed publish_index.html
@@ -94,11 +93,8 @@ func (s *httpServer) initialize() error {
 
 	router.Use(s.onRequest)
 
-	network, address := restrictnetwork.Restrict("tcp", s.address)
-
 	s.inner = &httpp.Server{
-		Network:     network,
-		Address:     address,
+		Address:     s.address,
 		ReadTimeout: time.Duration(s.readTimeout),
 		Encryption:  s.encryption,
 		ServerCert:  s.serverCert,

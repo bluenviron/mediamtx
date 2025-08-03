@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 type nilWriter struct{}
@@ -28,7 +29,6 @@ func (nilWriter) Write(p []byte) (int, error) {
 // - server header
 // - filtering of invalid requests
 type Server struct {
-	Network     string
 	Address     string
 	ReadTimeout time.Duration
 	Encryption  bool
@@ -66,7 +66,7 @@ func (s *Server) Initialize() error {
 	}
 
 	var err error
-	s.ln, err = net.Listen(s.Network, s.Address)
+	s.ln, err = net.Listen(restrictnetwork.Restrict("tcp", s.Address))
 	if err != nil {
 		return err
 	}

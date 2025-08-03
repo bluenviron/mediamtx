@@ -13,7 +13,6 @@ import (
 
 func TestFilterEmptyPath(t *testing.T) {
 	s := &Server{
-		Network:     "tcp",
 		Address:     "localhost:4555",
 		ReadTimeout: 10 * time.Second,
 		Parent:      test.NilLogger,

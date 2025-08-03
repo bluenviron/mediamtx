@@ -11,7 +11,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
-	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,11 +45,8 @@ func (s *Server) Initialize() error {
 	router.GET("/list", s.onList)
 	router.GET("/get", s.onGet)
 
-	network, address := restrictnetwork.Restrict("tcp", s.Address)
-
 	s.httpServer = &httpp.Server{
-		Network:     network,
-		Address:     address,
+		Address:     s.Address,
 		ReadTimeout: time.Duration(s.ReadTimeout),
 		Encryption:  s.Encryption,
 		ServerCert:  s.ServerCert,
@@ -63,7 +59,7 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.Log(logger.Info, "listener opened on "+address)
+	s.Log(logger.Info, "listener opened on "+s.Address)
 
 	return nil
 }

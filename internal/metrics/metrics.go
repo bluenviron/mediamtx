@@ -18,7 +18,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
-	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 func interfaceIsEmpty(i interface{}) bool {
@@ -103,11 +102,8 @@ func (m *Metrics) Initialize() error {
 
 	router.GET("/metrics", m.onMetrics)
 
-	network, address := restrictnetwork.Restrict("tcp", m.Address)
-
 	m.httpServer = &httpp.Server{
-		Network:     network,
-		Address:     address,
+		Address:     m.Address,
 		ReadTimeout: time.Duration(m.ReadTimeout),
 		Encryption:  m.Encryption,
 		ServerCert:  m.ServerCert,
@@ -120,7 +116,7 @@ func (m *Metrics) Initialize() error {
 		return err
 	}
 
-	m.Log(logger.Info, "listener opened on "+address)
+	m.Log(logger.Info, "listener opened on "+m.Address)
 
 	return nil
 }
