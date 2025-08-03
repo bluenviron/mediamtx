@@ -23,7 +23,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
-	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
@@ -189,11 +188,8 @@ func (a *API) Initialize() error {
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
 
-	network, address := restrictnetwork.Restrict("tcp", a.Address)
-
 	a.httpServer = &httpp.Server{
-		Network:     network,
-		Address:     address,
+		Address:     a.Address,
 		ReadTimeout: time.Duration(a.ReadTimeout),
 		Encryption:  a.Encryption,
 		ServerCert:  a.ServerCert,
@@ -206,7 +202,7 @@ func (a *API) Initialize() error {
 		return err
 	}
 
-	a.Log(logger.Info, "listener opened on "+address)
+	a.Log(logger.Info, "listener opened on "+a.Address)
 
 	return nil
 }
