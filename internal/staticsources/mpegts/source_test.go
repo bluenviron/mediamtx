@@ -1,4 +1,4 @@
-package udp
+package mpegts
 
 import (
 	"bufio"
@@ -41,16 +41,16 @@ func TestSource(t *testing.T) {
 
 			switch ca {
 			case "unicast":
-				src = "udp://127.0.0.1:9001"
+				src = "udp+mpegts://127.0.0.1:9001"
 
 			case "multicast":
-				src = "udp://238.0.0.1:9001"
+				src = "udp+mpegts://238.0.0.1:9001"
 
 			case "multicast with interface":
-				src = "udp://238.0.0.1:9001?interface=" + multicastCapableInterface(t)
+				src = "udp+mpegts://238.0.0.1:9001?interface=" + multicastCapableInterface(t)
 
 			case "unicast with source":
-				src = "udp://127.0.0.1:9001?source=127.0.1.1"
+				src = "udp+mpegts://127.0.0.1:9001?source=127.0.1.1"
 			}
 
 			p := &test.StaticSourceParent{}

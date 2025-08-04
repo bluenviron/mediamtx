@@ -1,5 +1,5 @@
-// Package udp contains the UDP static source.
-package udp
+// Package udmpegtsp contains the MPEG-TS static source.
+package mpegts
 
 import (
 	"fmt"
@@ -90,7 +90,7 @@ type parent interface {
 	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
 }
 
-// Source is a UDP static source.
+// Source is a MPEG-TS static source.
 type Source struct {
 	ReadTimeout conf.Duration
 	Parent      parent
@@ -98,7 +98,7 @@ type Source struct {
 
 // Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
-	s.Parent.Log(level, "[UDP source] "+format, args...)
+	s.Parent.Log(level, "[MPEG-TS source] "+format, args...)
 }
 
 // Run implements StaticSource.

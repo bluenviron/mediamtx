@@ -422,6 +422,12 @@ func (pconf *Path) validate(
 			return fmt.Errorf("'%s' is not a valid UDP URL", pconf.Source)
 		}
 
+	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
+		_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+		}
+
 	case strings.HasPrefix(pconf.Source, "srt://"):
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {

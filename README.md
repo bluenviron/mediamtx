@@ -29,7 +29,7 @@ Live streams can be published to the server with:
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
-|[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
+|[MPEG-TS](#mpeg-ts)|UDP|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
 Live streams can be read from the server with:
@@ -101,7 +101,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [RTMP clients](#rtmp-clients)
     * [RTMP cameras and servers](#rtmp-cameras-and-servers)
     * [HLS cameras and servers](#hls-cameras-and-servers)
-    * [UDP/MPEG-TS](#udpmpeg-ts)
+    * [MPEG-TS](#mpeg-ts)
 * [Read from the server](#read-from-the-server)
   * [By software](#by-software-1)
     * [FFmpeg](#ffmpeg-1)
@@ -275,7 +275,7 @@ Otherwise, [compile the server from source](#openwrt-1).
 
 #### FFmpeg
 
-FFmpeg can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS/UDP, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
@@ -291,7 +291,7 @@ The resulting stream is available in path `/mystream`.
 
 #### GStreamer
 
-GStreamer can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+GStreamer can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS/UDP, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```sh
 gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
@@ -885,9 +885,9 @@ paths:
 
 The resulting stream is available in path `/proxied`.
 
-#### UDP/MPEG-TS
+#### MPEG-TS
 
-The server supports ingesting UDP/MPEG-TS packets (i.e. MPEG-TS packets sent with UDP). Packets can be unicast, broadcast or multicast. For instance, you can generate a multicast UDP/MPEG-TS stream with GStreamer:
+The server supports ingesting MPEG-TS packets, shipped inside UDP packets. Packets can be unicast, broadcast or multicast. For instance, you can generate a UDP multicast-based MPEG-TS stream with GStreamer:
 
 ```sh
 gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
@@ -908,17 +908,17 @@ Edit `mediamtx.yml` and replace everything inside section `paths` with the follo
 ```yml
 paths:
   mypath:
-    source: udp://238.0.0.1:1234
+    source: udp+mpegts://238.0.0.1:1234
 ```
 
 The resulting stream is available in path `/mypath`.
 
-If the listening IP is a multicast IP, _MediaMTX_ listens for incoming multicast packets on the default interface picked by the operating system. It is possible to specify this interface manually by using the `interface` parameter:
+If the listening IP is a multicast IP, _MediaMTX_ will listen for incoming packets on the default multicast interface, picked by the operating system. It is possible to specify the interface manually by using the `interface` parameter:
 
 ```yml
 paths:
   mypath:
-    source: udp://238.0.0.1:1234?interface=eth0
+    source: udp+mpegts://238.0.0.1:1234?interface=eth0
 ```
 
 It is possible to restrict who can send packets by using the `source` parameter:
@@ -926,10 +926,10 @@ It is possible to restrict who can send packets by using the `source` parameter:
 ```yml
 paths:
   mypath:
-    source: udp://0.0.0.0:1234?source=192.168.3.5
+    source: udp+mpegts://0.0.0.0:1234?source=192.168.3.5
 ```
 
-Known clients that can publish with UDP/MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+Known clients that can publish with MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
 ## Read from the server
 
