@@ -24,6 +24,44 @@ const (
 	udpKernelReadBufferSize = 0x80000
 )
 
+func defaultInterfaceForMulticast(multicastAddr *net.UDPAddr) (*net.Interface, error) {
+	conn, err := net.Dial("udp4", multicastAddr.String())
+	if err != nil {
+		return nil, err
+	}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	conn.Close()
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, iface := range interfaces {
+		var addrs []net.Addr
+		addrs, err = iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip != nil && ip.Equal(localAddr.IP) {
+				return &iface, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("could not find any interface for using multicast address %s", multicastAddr)
+}
+
 type packetConnReader struct {
 	pc       net.PacketConn
 	sourceIP net.IP
@@ -90,22 +128,23 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var pc packetConn
 
 	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
+		var intf *net.Interface
+
 		if intfName := q.Get("interface"); intfName != "" {
-			var intf *net.Interface
 			intf, err = net.InterfaceByName(intfName)
 			if err != nil {
 				return err
 			}
-
-			pc, err = multicast.NewSingleConn(intf, addr.String(), net.ListenPacket)
-			if err != nil {
-				return err
-			}
 		} else {
-			pc, err = multicast.NewMultiConn(addr.String(), true, net.ListenPacket)
+			intf, err = defaultInterfaceForMulticast(addr)
 			if err != nil {
 				return err
 			}
+		}
+
+		pc, err = multicast.NewSingleConn(intf, addr.String(), net.ListenPacket)
+		if err != nil {
+			return err
 		}
 	} else {
 		var tmp net.PacketConn

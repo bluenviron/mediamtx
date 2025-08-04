@@ -913,7 +913,7 @@ paths:
 
 The resulting stream is available in path `/mypath`.
 
-If the listening IP is a multicast IP, _MediaMTX_ listens for incoming multicast packets on all network interfaces. It is possible to listen on a single interface only by using the `interface` parameter:
+If the listening IP is a multicast IP, _MediaMTX_ listens for incoming multicast packets on the default interface picked by the operating system. It is possible to specify this interface manually by using the `interface` parameter:
 
 ```yml
 paths:
