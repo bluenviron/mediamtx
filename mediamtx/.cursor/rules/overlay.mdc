@@ -1,0 +1,34 @@
+## Feature Descriptoin
+
+- Every 1 second, overlay the information on the video.
+- 모든 RTSP input에 대해 middleware의 형태로 overlay 하며, 따라서 모든 RTSP 비디오는 overaly를 가지고 있습니다.
+- 현재 서버는 Xavier NX이고 OpenCV Cuda가 설치되어 있으며 최대한 GPU를 사용해 delay를 최소화하세요.
+- GPS 정보는 1초마다 업데이트됩니다. 시간과 GPS가 변하는 프레임 시점은 늘 일정해야 합니다.
+
+### Overlay Text Format 
+
+```plaintext
+YYYY-MM-DD HH:MM:SS
+Latitude, Longitude
+Ship Name
+```
+
+For example,
+
+```plaintext
+2025-08-01 12:00:00
+12.345678, 123.456789
+My_Ship_Name
+```
+
+- Latitude, Longitude is in the format of "DD.DDDDDD"
+- Use minus sign for negative latitude and longitude.
+- Ship Name은 pathManager에서 가지고 오면 됩니다.
+- 현재 시간은 localtime에서 가져와줘.
+
+### GPS System
+
+- GPS 정보는 PostgreSQL 데이터베이스에 저장되어 있습니다.
+- 데이터베이스 정보는 .env 파일에서 불러옵니다.
+- DB Schema는 /data/mediamtx/apps/gps-simulator/init.sql 파일을 참고하세요.
+- GPS System은 Path Manager에 추가해주세요. Overlay Engine에서 Path Manager를 통해 가지고 오면 됩니다.

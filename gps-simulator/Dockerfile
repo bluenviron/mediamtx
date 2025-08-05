@@ -1,7 +1,7 @@
 FROM alpine:latest
 
-# 필요한 패키지 설치 (bash, coreutils)
-RUN apk add --no-cache bash coreutils
+# 필요한 패키지 설치 (bash, coreutils, postgresql-client, bc)
+RUN apk add --no-cache bash coreutils postgresql-client bc
 
 # 작업 디렉토리 설정
 WORKDIR /app

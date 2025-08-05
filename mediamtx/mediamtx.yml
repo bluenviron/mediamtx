@@ -425,6 +425,31 @@ srt: yes
 srtAddress: :8890
 
 ###############################################
+# Global settings -> Overlay
+
+# Enable video overlay functionality.
+overlayEnabled: no
+# PostgreSQL database connection settings for GPS data.
+overlayDatabaseHost: localhost
+overlayDatabasePort: 5432
+overlayDatabaseUser: gpsuser
+overlayDatabasePassword: gpspassword
+overlayDatabaseName: gpsdb
+# GPS data update interval.
+overlayUpdateInterval: 1s
+# Font settings for overlay text.
+overlayFontPath: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+overlayFontSize: 24
+# Text color in RGB format (e.g., "255,255,255" for white).
+overlayTextColor: "255,255,255"
+# Background color in RGBA format (e.g., "0,0,0,128" for semi-transparent black).
+overlayBackgroundColor: "0,0,0,128"
+# Position of overlay text. Available values: "top-left", "top-right", "bottom-left", "bottom-right".
+overlayPosition: "top-left"
+# Maximum number of database connections in the pool.
+overlayMaxConnections: 5
+
+###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,

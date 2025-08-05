@@ -1,3 +1,0 @@
-opencv-python>=4.8.0
-numpy>=1.21.0
-watchdog>=3.0.0 
