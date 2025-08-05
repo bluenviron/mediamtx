@@ -1,1 +1,5 @@
 PyYAML>=6.0 
+psycopg2-binary>=2.9.0
+python-box>=7.0.0
+python-dotenv>=1.0.0
+PyGObject>=3.42.0

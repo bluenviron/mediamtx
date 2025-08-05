@@ -2,3 +2,10 @@
 gpu-burn
 
 **/workspace
+
+/mediamtx.yml
+/overlay.yml
+**/.env
+/recordings
+/logs
+__pycache__

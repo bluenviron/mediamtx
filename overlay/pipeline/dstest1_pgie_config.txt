@@ -1,0 +1,77 @@
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+# Following properties are mandatory when engine files are not specified:
+#   int8-calib-file(Only in INT8)
+#   Caffemodel mandatory properties: model-file, proto-file, output-blob-names
+#   UFF: uff-file, input-dims, uff-input-blob-name, output-blob-names
+#   ONNX: onnx-file
+#
+# Mandatory properties for detectors:
+#   num-detected-classes
+#
+# Optional properties for detectors:
+#   cluster-mode(Default=Group Rectangles), interval(Primary mode only, Default=0)
+#   custom-lib-path,
+#   parse-bbox-func-name
+#
+# Mandatory properties for classifiers:
+#   classifier-threshold, is-classifier
+#
+# Optional properties for classifiers:
+#   classifier-async-mode(Secondary mode only, Default=false)
+#
+# Optional properties in secondary mode:
+#   operate-on-gie-id(Default=0), operate-on-class-ids(Defaults to all classes),
+#   input-object-min-width, input-object-min-height, input-object-max-width,
+#   input-object-max-height
+#
+# Following properties are always recommended:
+#   batch-size(Default=1)
+#
+# Other optional properties:
+#   net-scale-factor(Default=1), network-mode(Default=0 i.e FP32),
+#   model-color-format(Default=0 i.e. RGB) model-engine-file, labelfile-path,
+#   mean-file, gie-unique-id(Default=0), offsets, process-mode (Default=1 i.e. primary),
+#   custom-lib-path, network-mode(Default=0 i.e FP32)
+#
+# The values in the config file are overridden by values set through GObject
+# properties.
+
+[property]
+gpu-id=0
+net-scale-factor=0.0039215697906911373
+
+model-file=/opt/nvidia/deepstream/deepstream-6.3/samples/models/Primary_Detector/resnet10.caffemodel
+proto-file=/opt/nvidia/deepstream/deepstream-6.3/samples/models/Primary_Detector/resnet10.prototxt
+# model-engine-file=/opt/nvidia/deepstream/deepstream-6.3/samples/models/Primary_Detector/resnet10.caffemodel_b1_gpu0_int8.engine
+labelfile-path=/opt/nvidia/deepstream/deepstream-6.3/samples/models/Primary_Detector/labels.txt
+int8-calib-file=/opt/nvidia/deepstream/deepstream-6.3/samples/models/Primary_Detector/cal_trt.bin
+force-implicit-batch-dim=1
+batch-size=1
+network-mode=1
+num-detected-classes=4
+interval=0
+gie-unique-id=1
+output-blob-names=conv2d_bbox;conv2d_cov/Sigmoid
+#scaling-filter=0
+#scaling-compute-hw=0
+
+[class-attrs-all]
+pre-cluster-threshold=0.2
+eps=0.2
+group-threshold=1

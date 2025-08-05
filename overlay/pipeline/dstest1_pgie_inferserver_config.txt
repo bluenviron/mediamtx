@@ -1,0 +1,74 @@
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+infer_config {
+  unique_id: 5
+  gpu_ids: [0]
+  max_batch_size: 4
+  backend {
+    trt_is {
+      model_name: "ssd_inception_v2_coco_2018_01_28"
+      version: -1
+      model_repo {
+        root: "../../../../samples/trtis_model_repo"
+        log_level: 2
+        tf_gpu_memory_fraction: 0.4
+        tf_disable_soft_placement: 0
+      }
+    }
+  }
+
+  preprocess {
+    network_format: IMAGE_FORMAT_RGB
+    tensor_order: TENSOR_ORDER_NONE
+    maintain_aspect_ratio: 0
+    normalize {
+      scale_factor: 1.0
+      channel_offsets: [0, 0, 0]
+    }
+  }
+
+  postprocess {
+    labelfile_path: "../../../../samples/trtis_model_repo/ssd_inception_v2_coco_2018_01_28/labels.txt"
+    detection {
+      num_detected_classes: 91
+      custom_parse_bbox_func: "NvDsInferParseCustomTfSSD"
+      nms {
+        confidence_threshold: 0.5
+        iou_threshold: 0.3
+        topk : 20
+      }
+    }
+  }
+
+  extra {
+    copy_input_to_host_buffers: false
+  }
+
+  custom_lib {
+    path: "/opt/nvidia/deepstream/deepstream/lib/libnvds_infercustomparser.so"
+  }
+}
+input_control {
+  process_mode: PROCESS_MODE_FULL_FRAME
+  interval: 0
+}
+output_control {
+  output_tensor_meta: true
+}
+
+
