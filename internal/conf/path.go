@@ -144,6 +144,7 @@ type Path struct {
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
+	SRTPersistOnDisconnect   bool   `json:"srtPersistOnDisconnect"`
 
 	// RTSP source
 	RTSPTransport       RTSPTransport  `json:"rtspTransport"`
@@ -239,6 +240,7 @@ func (pconf *Path) setDefaults() {
 
 	// Publisher source
 	pconf.OverridePublisher = true
+	pconf.SRTPersistOnDisconnect = false
 
 	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920
