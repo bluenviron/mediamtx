@@ -428,6 +428,8 @@ func (pconf *Path) validate(
 			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
 		}
 
+	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
+
 	case strings.HasPrefix(pconf.Source, "srt://"):
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {

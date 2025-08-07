@@ -1,9 +1,10 @@
 package mpegts
 
 import (
-	"bufio"
 	"context"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func multicastCapableInterface(t *testing.T) string {
 	return ""
 }
 
-func TestSource(t *testing.T) {
+func TestSourceUDP(t *testing.T) {
 	for _, ca := range []string{
 		"unicast",
 		"multicast",
@@ -112,8 +113,7 @@ func TestSource(t *testing.T) {
 				Codec: &mpegts.CodecH264{},
 			}
 
-			bw := bufio.NewWriter(conn)
-			w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+			w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
 			err = w.Initialize()
 			require.NoError(t, err)
 
@@ -127,10 +127,77 @@ func TestSource(t *testing.T) {
 			}})
 			require.NoError(t, err)
 
-			err = bw.Flush()
-			require.NoError(t, err)
-
 			<-p.Unit
+		})
+	}
+}
+
+func TestSourceUnixSocket(t *testing.T) {
+	for _, ca := range []string{
+		"relative",
+		"absolute",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			var pa string
+			if ca == "relative" {
+				pa = "test.sock"
+			} else {
+				pa = filepath.Join(os.TempDir(), "test.sock")
+			}
+
+			func() {
+				p := &test.StaticSourceParent{}
+				p.Initialize()
+				defer p.Close()
+
+				so := &Source{
+					ReadTimeout: conf.Duration(10 * time.Second),
+					Parent:      p,
+				}
+
+				done := make(chan struct{})
+				defer func() { <-done }()
+
+				ctx, ctxCancel := context.WithCancel(context.Background())
+				defer ctxCancel()
+
+				go func() {
+					so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+						Context:        ctx,
+						ResolvedSource: "unix+mpegts://" + pa,
+						Conf:           &conf.Path{},
+					})
+					close(done)
+				}()
+
+				time.Sleep(50 * time.Millisecond)
+
+				_, err := os.Stat(pa)
+				require.NoError(t, err)
+
+				conn, err := net.Dial("unix", pa)
+				require.NoError(t, err)
+
+				track := &mpegts.Track{
+					Codec: &mpegts.CodecH264{},
+				}
+
+				w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
+				err = w.Initialize()
+				require.NoError(t, err)
+
+				err = w.WriteH264(track, 0, 0, [][]byte{{ // IDR
+					5, 1,
+				}})
+				require.NoError(t, err)
+
+				conn.Close() // trigger a flush
+
+				<-p.Unit
+			}()
+
+			_, err := os.Stat(pa)
+			require.Error(t, err)
 		})
 	}
 }

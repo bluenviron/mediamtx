@@ -1,4 +1,4 @@
-// Package udmpegtsp contains the MPEG-TS static source.
+// Package mpegts contains the MPEG-TS static source.
 package mpegts
 
 import (
@@ -8,81 +8,14 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/multicast"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
-	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
-
-const (
-	// same size as GStreamer's rtspsrc
-	udpKernelReadBufferSize = 0x80000
-)
-
-func defaultInterfaceForMulticast(multicastAddr *net.UDPAddr) (*net.Interface, error) {
-	conn, err := net.Dial("udp4", multicastAddr.String())
-	if err != nil {
-		return nil, err
-	}
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	conn.Close()
-
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, iface := range interfaces {
-		var addrs []net.Addr
-		addrs, err = iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-
-			if ip != nil && ip.Equal(localAddr.IP) {
-				return &iface, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("could not find any interface for using multicast address %s", multicastAddr)
-}
-
-type packetConnReader struct {
-	pc       net.PacketConn
-	sourceIP net.IP
-}
-
-func (r *packetConnReader) Read(p []byte) (int, error) {
-	for {
-		n, addr, err := r.pc.ReadFrom(p)
-
-		if r.sourceIP != nil && addr != nil && !addr.(*net.UDPAddr).IP.Equal(r.sourceIP) {
-			continue
-		}
-
-		return n, err
-	}
-}
-
-type packetConn interface {
-	net.PacketConn
-	SetReadBuffer(int) error
-}
 
 type parent interface {
 	logger.Writer
@@ -111,78 +44,43 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 	q := u.Query()
 
-	var sourceIP net.IP
+	var nc net.Conn
 
-	if src := q.Get("source"); src != "" {
-		sourceIP = net.ParseIP(src)
-		if sourceIP == nil {
-			return fmt.Errorf("invalid source IP")
-		}
-	}
-
-	addr, err := net.ResolveUDPAddr("udp", u.Host)
-	if err != nil {
-		return err
-	}
-
-	var pc packetConn
-
-	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
-		var intf *net.Interface
-
-		if intfName := q.Get("interface"); intfName != "" {
-			intf, err = net.InterfaceByName(intfName)
-			if err != nil {
-				return err
-			}
-		} else {
-			intf, err = defaultInterfaceForMulticast(addr)
-			if err != nil {
-				return err
-			}
-		}
-
-		pc, err = multicast.NewSingleConn(intf, addr.String(), net.ListenPacket)
+	switch u.Scheme {
+	case "unix+mpegts":
+		nc, err = createUnix(u)
 		if err != nil {
 			return err
 		}
-	} else {
-		var tmp net.PacketConn
-		tmp, err = net.ListenPacket(restrictnetwork.Restrict("udp", addr.String()))
+
+	default:
+		nc, err = createUDP(u.Host, q)
 		if err != nil {
 			return err
 		}
-		pc = tmp.(*net.UDPConn)
-	}
-
-	defer pc.Close()
-
-	err = pc.SetReadBuffer(udpKernelReadBufferSize)
-	if err != nil {
-		return err
 	}
 
 	readerErr := make(chan error)
 	go func() {
-		readerErr <- s.runReader(pc, sourceIP)
+		readerErr <- s.runReader(nc)
 	}()
 
 	select {
 	case err = <-readerErr:
+		nc.Close()
 		return err
 
 	case <-params.Context.Done():
-		pc.Close()
+		nc.Close()
 		<-readerErr
 		return fmt.Errorf("terminated")
 	}
 }
 
-func (s *Source) runReader(pc net.PacketConn, sourceIP net.IP) error {
-	pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	pcr := &packetConnReader{pc: pc, sourceIP: sourceIP}
-	r := &mpegts.EnhancedReader{R: pcr}
-	err := r.Initialize()
+func (s *Source) runReader(nc net.Conn) error {
+	nc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
+	mr := &mpegts.EnhancedReader{R: nc}
+	err := mr.Initialize()
 	if err != nil {
 		return err
 	}
@@ -203,13 +101,13 @@ func (s *Source) runReader(pc net.PacketConn, sourceIP net.IP) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	r.OnDecodeError(func(_ error) {
+	mr.OnDecodeError(func(_ error) {
 		decodeErrors.Increase()
 	})
 
 	var stream *stream.Stream
 
-	medias, err := mpegts.ToStream(r, &stream, s)
+	medias, err := mpegts.ToStream(mr, &stream, s)
 	if err != nil {
 		return err
 	}
@@ -227,8 +125,8 @@ func (s *Source) runReader(pc net.PacketConn, sourceIP net.IP) error {
 	stream = res.Stream
 
 	for {
-		pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-		err = r.Read()
+		nc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
+		err = mr.Read()
 		if err != nil {
 			return err
 		}
