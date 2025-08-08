@@ -8,6 +8,8 @@ The SRT Persistence feature addresses a common use case in live streaming where 
 
 ## Configuration
 
+### Static Configuration (YAML)
+
 Add the following configuration to your path settings:
 
 ```yaml
@@ -23,6 +25,48 @@ Or in the global path defaults:
 ```yaml
 pathDefaults:
   srtPersistOnDisconnect: yes  # Enable for all paths by default
+```
+
+### Dynamic Configuration (API)
+
+The `srtPersistOnDisconnect` field is fully supported via the REST API for dynamic path management:
+
+```bash
+# Create path with SRT persistence via API
+curl -X POST "http://localhost:9997/v3/config/paths/add/my_stream" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "source": "publisher",
+       "srtPersistOnDisconnect": true,
+       "srtPublishPassphrase": "optional_passphrase"
+     }'
+
+# Update existing path to enable/disable persistence
+curl -X PATCH "http://localhost:9997/v3/config/paths/patch/my_stream" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "srtPersistOnDisconnect": false
+     }'
+
+# Get path configuration to verify settings
+curl "http://localhost:9997/v3/config/paths/get/my_stream"
+```
+
+### Node.js/JavaScript Integration
+
+```javascript
+// Example for Waystream SRTManager integration
+const props = {
+    record: true,
+    recordPath: `${process.env.RECORDINGS_DIR}%path/%Y-%m-%d_%H-%M-%S-%f`,
+    recordFormat: 'fmp4',
+    runOnReady: ffmpegCmd,
+    srtPersistOnDisconnect: true,  // Enable persistence
+    srtPublishPassphrase: process.env.SRT_PASSPHRASE || ""
+};
+
+axios.post(`${process.env.MUXER_API_URL}config/paths/add/${streamPath}`, 
+           JSON.stringify(props));
 ```
 
 ## Behavior
