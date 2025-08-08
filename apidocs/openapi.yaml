@@ -594,7 +594,7 @@ components:
           - rtspsSession
           - srtConn
           - srtSource
-          - udpSource
+          - mpegtsSource
           - webRTCSession
           - webRTCSource
         id:
