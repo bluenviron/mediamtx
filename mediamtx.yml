@@ -510,6 +510,9 @@ pathDefaults:
   # When an SRT publisher disconnects, keep the stream alive by generating silence
   # until a reconnection is made or the path is explicitly destroyed.
   srtPersistOnDisconnect: no
+  # Maximum duration to maintain stream with silence after SRT publisher disconnects.
+  # After this timeout, the stream will be closed if publisher hasn't reconnected.
+  srtPersistTimeout: 20m
 
   ###############################################
   # Default path settings -> RTSP source (when source is a RTSP or a RTSPS URL)

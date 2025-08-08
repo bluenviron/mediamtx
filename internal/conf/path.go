@@ -141,10 +141,11 @@ type Path struct {
 	ReadIPs     *IPNetworks `json:"readIPs,omitempty"`     // deprecated
 
 	// Publisher source
-	OverridePublisher        bool   `json:"overridePublisher"`
-	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
-	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
-	SRTPersistOnDisconnect   bool   `json:"srtPersistOnDisconnect"`
+	OverridePublisher        bool     `json:"overridePublisher"`
+	DisablePublisherOverride *bool    `json:"disablePublisherOverride,omitempty"` // deprecated
+	SRTPublishPassphrase     string   `json:"srtPublishPassphrase"`
+	SRTPersistOnDisconnect   bool     `json:"srtPersistOnDisconnect"`
+	SRTPersistTimeout        Duration `json:"srtPersistTimeout"`
 
 	// RTSP source
 	RTSPTransport       RTSPTransport  `json:"rtspTransport"`
@@ -241,6 +242,7 @@ func (pconf *Path) setDefaults() {
 	// Publisher source
 	pconf.OverridePublisher = true
 	pconf.SRTPersistOnDisconnect = false
+	pconf.SRTPersistTimeout = 20 * 60 * Duration(time.Second) // 20 minutes default
 
 	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920
