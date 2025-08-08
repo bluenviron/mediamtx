@@ -1,0 +1,40 @@
+# Example MediaMTX configuration with SRT persistence enabled
+# This demonstrates the new srtPersistOnDisconnect feature
+
+# Basic server settings
+logLevel: info
+api: yes
+apiAddress: :9997
+
+# SRT server settings
+srt: yes
+srtAddress: :8890
+
+# Path configuration
+paths:
+  # Example path with SRT persistence enabled
+  live_stream:
+    # Allow publishing from SRT clients
+    source: publisher
+    
+    # Enable SRT persistence - when an SRT publisher disconnects,
+    # the stream will continue outputting silence to consumers
+    # until a reconnection is made or the path is explicitly destroyed
+    srtPersistOnDisconnect: yes
+    
+    # Optional: Set SRT publish passphrase for security
+    # srtPublishPassphrase: "your_secret_passphrase_here"
+    
+    # Enable recording if desired
+    record: no
+    
+  # Example path with SRT persistence disabled (default behavior)
+  normal_stream:
+    source: publisher
+    srtPersistOnDisconnect: no
+
+# Default path settings
+pathDefaults:
+  source: publisher
+  # SRT persistence is disabled by default
+  srtPersistOnDisconnect: no
