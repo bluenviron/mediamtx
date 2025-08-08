@@ -29,7 +29,7 @@ Live streams can be published to the server with:
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
-|[UDP/MPEG-TS](#udpmpeg-ts)|Unicast, broadcast, multicast|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
+|[MPEG-TS](#mpeg-ts)|MPEG-TS over UDP, MPEG-TS over Unix socket|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
 Live streams can be read from the server with:
@@ -54,7 +54,7 @@ Live streams be recorded and played back with:
 * Publish live streams to the server
 * Read live streams from the server
 * Streams are automatically converted from a protocol to another
-* Serve multiple streams at once in separate paths
+* Serve several streams at once in separate paths
 * Record streams to disk
 * Playback recorded streams
 * Authenticate users
@@ -101,7 +101,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [RTMP clients](#rtmp-clients)
     * [RTMP cameras and servers](#rtmp-cameras-and-servers)
     * [HLS cameras and servers](#hls-cameras-and-servers)
-    * [UDP/MPEG-TS](#udpmpeg-ts)
+    * [MPEG-TS](#mpeg-ts)
 * [Read from the server](#read-from-the-server)
   * [By software](#by-software-1)
     * [FFmpeg](#ffmpeg-1)
@@ -275,13 +275,13 @@ Otherwise, [compile the server from source](#openwrt-1).
 
 #### FFmpeg
 
-FFmpeg can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, MPEG-TS over Unix sockets, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
 ```
 
-The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag, for instance, in order to use TCP:
+The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag, for instance, in order to use TCP:
 
 ```sh
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:8554/mystream
@@ -291,7 +291,7 @@ The resulting stream is available in path `/mystream`.
 
 #### GStreamer
 
-GStreamer can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+GStreamer can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```sh
 gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
@@ -307,7 +307,7 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 ```
 
-The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `protocols` flag:
+The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `protocols` flag:
 
 ```sh
 gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
@@ -335,7 +335,7 @@ gst-launch-1.0 videotestsrc \
 
 #### OBS Studio
 
-OBS Studio can publish to the server in multiple ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+OBS Studio can publish to the server in several ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
 * Service: `Custom...`
 * Server: `rtmp://localhost/mystream`
@@ -819,7 +819,7 @@ Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gst
 
 #### RTSP cameras and servers
 
-Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant with ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or multiple existing RTSP servers and read their video streams:
+Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant with ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or several existing RTSP servers and read their video streams:
 
 ```yml
 paths:
@@ -861,7 +861,7 @@ Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gst
 
 #### RTMP cameras and servers
 
-You can use _MediaMTX_ to connect to one or multiple existing RTMP servers and read their video streams:
+You can use _MediaMTX_ to connect to one or several existing RTMP servers and read their video streams:
 
 ```yml
 paths:
@@ -874,7 +874,7 @@ The resulting stream is available in path `/proxied`.
 
 #### HLS cameras and servers
 
-HLS is a streaming protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to connect to one or multiple existing HLS servers and read their video streams:
+HLS is a streaming protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to connect to one or several existing HLS servers and read their video streams:
 
 ```yml
 paths:
@@ -885,9 +885,21 @@ paths:
 
 The resulting stream is available in path `/proxied`.
 
-#### UDP/MPEG-TS
+#### MPEG-TS
 
-The server supports ingesting UDP/MPEG-TS packets (i.e. MPEG-TS packets sent with UDP). Packets can be unicast, broadcast or multicast. For instance, you can generate a multicast UDP/MPEG-TS stream with GStreamer:
+The server supports ingesting MPEG-TS streams, shipped in several ways (UDP packets or Unix sockets).
+
+In order to read a UDP MPEG-TS stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  mypath:
+    source: udp+mpegts://238.0.0.1:1234
+```
+
+Where `238.0.0.1` is the IP for listening packets, in this case a multicast IP.
+
+You can generate a UDP multicast MPEG-TS stream with GStreamer:
 
 ```sh
 gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
@@ -903,22 +915,14 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 -f mpegts udp://238.0.0.1:1234?pkt_size=1316
 ```
 
-Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  mypath:
-    source: udp://238.0.0.1:1234
-```
-
 The resulting stream is available in path `/mypath`.
 
-If the listening IP is a multicast IP, _MediaMTX_ listens for incoming multicast packets on the default interface picked by the operating system. It is possible to specify this interface manually by using the `interface` parameter:
+If the listening IP is a multicast IP, _MediaMTX_ will listen for incoming packets on the default multicast interface, picked by the operating system. It is possible to specify the interface manually by using the `interface` parameter:
 
 ```yml
 paths:
   mypath:
-    source: udp://238.0.0.1:1234?interface=eth0
+    source: udp+mpegts://238.0.0.1:1234?interface=eth0
 ```
 
 It is possible to restrict who can send packets by using the `source` parameter:
@@ -926,10 +930,26 @@ It is possible to restrict who can send packets by using the `source` parameter:
 ```yml
 paths:
   mypath:
-    source: udp://0.0.0.0:1234?source=192.168.3.5
+    source: udp+mpegts://0.0.0.0:1234?source=192.168.3.5
 ```
 
-Known clients that can publish with UDP/MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+Known clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+
+Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+mpegts` scheme:
+
+```yml
+paths:
+  mypath:
+    source: unix+mpegts:///tmp/socket.sock
+```
+
+FFmpeg can generate such streams:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f mpegts unix:/tmp/socket.sock
+```
 
 ## Read from the server
 
@@ -937,13 +957,13 @@ Known clients that can publish with UDP/MPEG-TS are [FFmpeg](#ffmpeg) and [GStre
 
 #### FFmpeg
 
-FFmpeg can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+FFmpeg can read a stream from the server in several ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
 
-The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag:
+The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag:
 
 ```sh
 ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
@@ -951,13 +971,13 @@ ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
 
 #### GStreamer
 
-GStreamer can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+GStreamer can read a stream from the server in several ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
 ```
 
-The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can change the transport protocol by using the `protocols` flag:
+The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can change the transport protocol by using the `protocols` flag:
 
 ```sh
 gst-launch-1.0 rtspsrc protocols=tcp location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
@@ -997,13 +1017,13 @@ audio-caps="application/x-rtp,media=audio,encoding-name=OPUS,payload=111,clock-r
 
 #### VLC
 
-VLC can read a stream from the server in multiple ways (RTSP, RTMP, HLS, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+VLC can read a stream from the server in several ways (RTSP, RTMP, HLS, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 vlc --network-caching=50 rtsp://localhost:8554/mystream
 ```
 
-The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)).
+The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)).
 
 In order to use the TCP transport protocol, use the `--rtsp_tcp` flag:
 
@@ -1164,7 +1184,7 @@ In the _Hierarchy_ window, find or create a scene. Inside the scene, add a _Canv
 
 #### Web browsers
 
-Web browsers can read a stream from the server in multiple ways (WebRTC or HLS).
+Web browsers can read a stream from the server in several ways (WebRTC or HLS).
 
 You can read a stream by using the [WebRTC protocol](#webrtc-1) by visiting the web page:
 
@@ -2334,7 +2354,7 @@ When using WHIP or WHEP to establish a WebRTC connection, there are several ways
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
-Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, add the LAN address of the server. If clients are coming from the internet, add the public IP address of the server, or alternatively a DNS name, if you have one. You can add multiple values to support all scenarios:
+Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, add the LAN address of the server. If clients are coming from the internet, add the public IP address of the server, or alternatively a DNS name, if you have one. You can add several values to support all scenarios:
 
 ```yml
 webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
@@ -2476,7 +2496,7 @@ rtsps://localhost:8322/mystream
 
 #### Corrupted frames
 
-In some scenarios, when publishing or reading from the server with RTSP, frames can get corrupted. This can be caused by multiple reasons:
+In some scenarios, when publishing or reading from the server with RTSP, frames can get corrupted. This can be caused by several reasons:
 
 * the write queue of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
 
