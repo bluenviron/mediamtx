@@ -15,7 +15,7 @@ lint-mod-tidy:
 
 lint-apidocs:
 	echo "$$DOCKERFILE_APIDOCS_LINT" | docker build . -f - -t temp
-	docker run --rm -v "$(shell pwd)/apidocs:/s" -w /s temp \
+	docker run --rm -v "$(shell pwd)/api:/s" -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
 lint: lint-golangci lint-mod-tidy lint-apidocs

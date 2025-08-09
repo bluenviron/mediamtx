@@ -170,9 +170,9 @@ jobs:
 
     - run: make apidocs
 
-    - run: mv apidocs/*.html apidocs/index.html
+    - run: mv api/*.html api/index.html
 
     - uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./apidocs
+        publish_dir: ./api

@@ -33,7 +33,7 @@ type openAPI struct {
 }
 
 func TestAPIDocs(t *testing.T) {
-	byts, err := os.ReadFile("../../apidocs/openapi.yaml")
+	byts, err := os.ReadFile("../../api/openapi.yaml")
 	require.NoError(t, err)
 
 	var doc openAPI
