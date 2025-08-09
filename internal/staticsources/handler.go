@@ -15,6 +15,7 @@ import (
 	ssmpegts "github.com/bluenviron/mediamtx/internal/staticsources/mpegts"
 	ssrpicamera "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
 	ssrtmp "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
+	ssrtp "github.com/bluenviron/mediamtx/internal/staticsources/rtp"
 	ssrtsp "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
 	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
@@ -134,6 +135,13 @@ func (s *Handler) Initialize() {
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||
 		strings.HasPrefix(s.Conf.Source, "wheps://"):
 		s.instance = &sswebrtc.Source{
+			ReadTimeout: s.ReadTimeout,
+			Parent:      s,
+		}
+
+	case strings.HasPrefix(s.Conf.Source, "udp+rtp://") ||
+		strings.HasPrefix(s.Conf.Source, "unix+rtp://"):
+		s.instance = &ssrtp.Source{
 			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}

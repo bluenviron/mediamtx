@@ -440,6 +440,8 @@ pathDefaults:
   # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
   # * udp+mpegts://ip:port -> the stream is pulled from MPEG-TS over UDP, by listening on the specified address
   # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
+  # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
+  # * unix+rtp://socket -> the stream is pulled from RTP over Unix socket, by using the socket
   # * srt://existing-url -> the stream is pulled from another SRT server / camera
   # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
   # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
@@ -528,6 +530,12 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+
+  ###############################################
+  # Default path settings -> RTP source (when source is RTP)
+
+  # session description protocol (SDP) of the RTP stream.
+  rtpSDP:
 
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")

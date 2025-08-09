@@ -383,6 +383,10 @@ components:
         rtspRangeStart:
           type: string
 
+        # RTP source
+        rtpSDP:
+          type: string
+
         # Redirect source
         sourceRedirect:
           type: string
@@ -595,6 +599,7 @@ components:
           - srtConn
           - srtSource
           - mpegtsSource
+          - rtpSource
           - webRTCSession
           - webRTCSource
         id:

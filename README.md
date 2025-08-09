@@ -29,7 +29,8 @@ Live streams can be published to the server with:
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM|
 |[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, [H265](#supported-browsers-1), H264|Opus, MPEG-4 Audio (AAC)|
-|[MPEG-TS](#mpeg-ts)|MPEG-TS over UDP, MPEG-TS over Unix socket|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
+|[MPEG-TS](#mpeg-ts)|MPEG-TS over UDP, MPEG-TS over Unix sockets|H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3|
+|[RTP](#rtp)|RTP over UDP, RTP over Unix sockets|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec|
 |[Raspberry Pi Cameras](#raspberry-pi-cameras)||H264||
 
 Live streams can be read from the server with:
@@ -102,6 +103,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [RTMP cameras and servers](#rtmp-cameras-and-servers)
     * [HLS cameras and servers](#hls-cameras-and-servers)
     * [MPEG-TS](#mpeg-ts)
+    * [RTP](#rtp)
 * [Read from the server](#read-from-the-server)
   * [By software](#by-software-1)
     * [FFmpeg](#ffmpeg-1)
@@ -275,7 +277,7 @@ Otherwise, [compile the server from source](#openwrt-1).
 
 #### FFmpeg
 
-FFmpeg can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, MPEG-TS over Unix sockets, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, MPEG-TS over Unix sockets, WebRTC with WHIP, RTP over UDP, rtp over Unix sockets). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
@@ -291,7 +293,7 @@ The resulting stream is available in path `/mystream`.
 
 #### GStreamer
 
-GStreamer can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+GStreamer can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, WebRTC with WHIP, RTP over UDP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```sh
 gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
@@ -887,7 +889,7 @@ The resulting stream is available in path `/proxied`.
 
 #### MPEG-TS
 
-The server supports ingesting MPEG-TS streams, shipped in several ways (UDP packets or Unix sockets).
+The server supports ingesting MPEG-TS streams, shipped in two different ways (UDP packets or Unix sockets).
 
 In order to read a UDP MPEG-TS stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
@@ -949,6 +951,66 @@ FFmpeg can generate such streams:
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
 -f mpegts unix:/tmp/socket.sock
+```
+
+#### RTP
+
+The server supports ingesting RTP streams, shipped in two different ways (UDP packets or Unix sockets).
+
+In order to read a UDP RTP stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  mypath:
+    source: udp+rtp://238.0.0.1:1234
+    rtpSDP: |
+      v=0
+      o=- 123456789 123456789 IN IP4 192.168.1.100
+      s=H264 Video Stream
+      c=IN IP4 192.168.1.100
+      t=0 0
+      m=video 5004 RTP/AVP 96
+      a=rtpmap:96 H264/90000
+      a=fmtp:96 profile-level-id=42e01e;packetization-mode=1;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==
+```
+
+`rtpSDP` must contain a valid SDP, that is a description of the RTP session.
+
+FFmpeg can generate a RTP over UDP stream:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f rtp udp://238.0.0.1:1234?pkt_size=1316
+```
+
+The stream is available on path `/mypath`.
+
+Known clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+
+Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+rtp` scheme:
+
+```yml
+paths:
+  mypath:
+    source: unix+rtp:///tmp/socket.sock
+    rtpSDP: |
+      v=0
+      o=- 123456789 123456789 IN IP4 192.168.1.100
+      s=H264 Video Stream
+      c=IN IP4 192.168.1.100
+      t=0 0
+      m=video 5004 RTP/AVP 96
+      a=rtpmap:96 H264/90000
+      a=fmtp:96 profile-level-id=42e01e;packetization-mode=1;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==
+```
+
+FFmpeg can generate such streams:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f rtp unix:/tmp/socket.sock
 ```
 
 ## Read from the server

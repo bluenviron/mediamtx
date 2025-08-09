@@ -153,6 +153,9 @@ type Path struct {
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart      string         `json:"rtspRangeStart"`
 
+	// RTP source
+	RTPSDP string `json:"rtpSDP"`
+
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`
 
@@ -419,7 +422,7 @@ func (pconf *Path) validate(
 	case strings.HasPrefix(pconf.Source, "udp://"):
 		_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
@@ -429,6 +432,21 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
+
+	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
+		_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
+		}
+
+		if pconf.RTPSDP == "" {
+			return fmt.Errorf("`rtpSDP` was not provided")
+		}
+
+	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
+		if pconf.RTPSDP == "" {
+			return fmt.Errorf("`rtpSDP` was not provided")
+		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
 		_, err := gourl.Parse(pconf.Source)
