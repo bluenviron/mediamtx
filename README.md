@@ -2146,7 +2146,7 @@ To obtain a list of of active paths, run:
 curl http://127.0.0.1:9997/v3/paths/list
 ```
 
-Full documentation of the Control API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
+The control API is documented in the [OpenAPI / Swagger file](api/openapi.yaml) and in a [dedicated site](https://bluenviron.github.io/mediamtx/).
 
 Be aware that by default the Control API is accessible by localhost only; to increase visibility or add authentication, check [Authentication](#authentication).
 
