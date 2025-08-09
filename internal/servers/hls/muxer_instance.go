@@ -21,6 +21,7 @@ type muxerInstance struct {
 	partDuration    conf.Duration
 	segmentMaxSize  conf.StringSize
 	directory       string
+	baseURL         string
 	pathName        string
 	stream          *stream.Stream
 	bytesSent       *uint64
@@ -43,6 +44,7 @@ func (mi *muxerInstance) initialize() error {
 		PartMinDuration:    time.Duration(mi.partDuration),
 		SegmentMaxSize:     uint64(mi.segmentMaxSize),
 		Directory:          muxerDirectory,
+		BaseURL:            mi.baseURL,
 		OnEncodeError: func(err error) {
 			mi.Log(logger.Warn, err.Error())
 		},
