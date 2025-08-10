@@ -146,15 +146,20 @@ type Path struct {
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
 	// RTSP source
-	RTSPTransport       RTSPTransport  `json:"rtspTransport"`
-	RTSPAnyPort         bool           `json:"rtspAnyPort"`
-	SourceProtocol      *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
-	SourceAnyPortEnable *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
-	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
-	RTSPRangeStart      string         `json:"rtspRangeStart"`
+	RTSPTransport         RTSPTransport  `json:"rtspTransport"`
+	RTSPAnyPort           bool           `json:"rtspAnyPort"`
+	SourceProtocol        *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
+	SourceAnyPortEnable   *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
+	RTSPRangeType         RTSPRangeType  `json:"rtspRangeType"`
+	RTSPRangeStart        string         `json:"rtspRangeStart"`
+	RTSPUDPReadBufferSize uint           `json:"rtspUDPReadBufferSize"`
+
+	// MPEG-TS source
+	MPEGTSUDPReadBufferSize uint `json:"mpegtsUDPReadBufferSize"`
 
 	// RTP source
-	RTPSDP string `json:"rtpSDP"`
+	RTPSDP               string `json:"rtpSDP"`
+	RTPUDPReadBufferSize uint   `json:"rtpUDPReadBufferSize"`
 
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`

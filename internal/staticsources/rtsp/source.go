@@ -122,14 +122,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 
 	c := &gortsplib.Client{
-		Scheme:         u.Scheme,
-		Host:           u.Host,
-		Transport:      params.Conf.RTSPTransport.Transport,
-		TLSConfig:      tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
-		ReadTimeout:    time.Duration(s.ReadTimeout),
-		WriteTimeout:   time.Duration(s.WriteTimeout),
-		WriteQueueSize: s.WriteQueueSize,
-		AnyPortEnable:  params.Conf.RTSPAnyPort,
+		Scheme:            u.Scheme,
+		Host:              u.Host,
+		Transport:         params.Conf.RTSPTransport.Transport,
+		TLSConfig:         tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+		ReadTimeout:       time.Duration(s.ReadTimeout),
+		WriteTimeout:      time.Duration(s.WriteTimeout),
+		WriteQueueSize:    s.WriteQueueSize,
+		UDPReadBufferSize: int(params.Conf.RTSPUDPReadBufferSize),
+		AnyPortEnable:     params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},

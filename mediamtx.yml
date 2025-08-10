@@ -277,6 +277,10 @@ rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
+# Size of the UDP buffer of the RTSP server.
+# This can be increased to mitigate packet losses.
+# It defaults to the default value of the operating system.
+rtspUDPReadBufferSize: 0
 
 ###############################################
 # Global settings -> RTMP server
@@ -530,12 +534,28 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+  # Size of the UDP buffer of the RTSP client.
+  # This can be increased to mitigate packet losses.
+  # It defaults to the default value of the operating system.
+  rtspUDPReadBufferSize: 0
+
+  ###############################################
+  # Default path settings -> MPEG-TS source (when source is MPEG-TS)
+
+  # Size of the UDP buffer of the MPEG-TS client.
+  # This can be increased to mitigate packet losses.
+  # It defaults to the default value of the operating system.
+  mpegtsUDPReadBufferSize: 0
 
   ###############################################
   # Default path settings -> RTP source (when source is RTP)
 
   # session description protocol (SDP) of the RTP stream.
   rtpSDP:
+  # Size of the UDP buffer of the RTP client.
+  # This can be increased to mitigate packet losses.
+  # It defaults to the default value of the operating system.
+  rtpUDPReadBufferSize: 0
 
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")

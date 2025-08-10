@@ -1,4 +1,5 @@
-package rtp
+// Package unix contains utilities to work with Unix sockets.
+package unix
 
 import (
 	"fmt"
@@ -113,7 +114,8 @@ func (r *unixConn) SetWriteDeadline(_ time.Time) error {
 	panic("unimplemented")
 }
 
-func createUnix(u *url.URL) (net.Conn, error) {
+// CreateConn creates a Unix socket connection.
+func CreateConn(u *url.URL) (net.Conn, error) {
 	var pa string
 	if u.Path != "" {
 		pa = u.Path
