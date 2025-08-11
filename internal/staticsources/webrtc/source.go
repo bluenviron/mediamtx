@@ -2,6 +2,8 @@
 package webrtc
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -65,12 +67,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close() //nolint:errcheck
 
 	var stream *stream.Stream
 
 	medias, err := webrtc.ToStream(client.PeerConnection(), &stream)
 	if err != nil {
+		client.Close() //nolint:errcheck
 		return err
 	}
 
@@ -79,6 +81,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		GenerateRTPPackets: true,
 	})
 	if rres.Err != nil {
+		client.Close() //nolint:errcheck
 		return rres.Err
 	}
 
@@ -88,7 +91,26 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	client.StartReading()
 
-	return client.Wait(params.Context)
+	readErr := make(chan error)
+
+	go func() {
+		readErr <- client.Wait(context.Background())
+	}()
+
+	for {
+		select {
+		case err = <-readErr:
+			client.Close() //nolint:errcheck
+			return err
+
+		case <-params.ReloadConf:
+
+		case <-params.Context.Done():
+			client.Close() //nolint:errcheck
+			<-readErr
+			return fmt.Errorf("terminated")
+		}
+	}
 }
 
 // APISourceDescribe implements StaticSource.

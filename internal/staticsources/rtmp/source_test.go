@@ -51,46 +51,6 @@ func TestSource(t *testing.T) {
 
 				defer ln.Close()
 
-				go func() {
-					for {
-						nconn, err := ln.Accept()
-						require.NoError(t, err)
-						defer nconn.Close()
-
-						conn := &rtmp.ServerConn{
-							RW: nconn,
-						}
-						err = conn.Initialize()
-						require.NoError(t, err)
-
-						if auth == "auth" {
-							err = conn.CheckCredentials("myuser", "mypass")
-							if err != nil {
-								continue
-							}
-						}
-
-						err = conn.Accept()
-						require.NoError(t, err)
-
-						w := &rtmp.Writer{
-							Conn:       conn,
-							VideoTrack: test.FormatH264,
-							AudioTrack: test.FormatMPEG4Audio,
-						}
-						err = w.Initialize()
-						require.NoError(t, err)
-
-						err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
-						require.NoError(t, err)
-
-						err = w.WriteH264(3*time.Second, 3*time.Second, [][]byte{{5, 2, 3, 4}})
-						require.NoError(t, err)
-
-						break
-					}
-				}()
-
 				var source string
 
 				if encryption == "plain" {
@@ -121,6 +81,8 @@ func TestSource(t *testing.T) {
 				ctx, ctxCancel := context.WithCancel(context.Background())
 				defer ctxCancel()
 
+				reloadConf := make(chan *conf.Path)
+
 				go func() {
 					so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
 						Context:        ctx,
@@ -128,11 +90,53 @@ func TestSource(t *testing.T) {
 						Conf: &conf.Path{
 							SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
 						},
+						ReloadConf: reloadConf,
 					})
 					close(done)
 				}()
 
+				for {
+					nconn, err := ln.Accept()
+					require.NoError(t, err)
+					defer nconn.Close()
+
+					conn := &rtmp.ServerConn{
+						RW: nconn,
+					}
+					err = conn.Initialize()
+					require.NoError(t, err)
+
+					if auth == "auth" {
+						err = conn.CheckCredentials("myuser", "mypass")
+						if err != nil {
+							continue
+						}
+					}
+
+					err = conn.Accept()
+					require.NoError(t, err)
+
+					w := &rtmp.Writer{
+						Conn:       conn,
+						VideoTrack: test.FormatH264,
+						AudioTrack: test.FormatMPEG4Audio,
+					}
+					err = w.Initialize()
+					require.NoError(t, err)
+
+					err = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+					require.NoError(t, err)
+
+					err = w.WriteH264(3*time.Second, 3*time.Second, [][]byte{{5, 2, 3, 4}})
+					require.NoError(t, err)
+
+					break
+				}
+
 				<-p.Unit
+
+				// the source must be listening on ReloadConf
+				reloadConf <- nil
 			})
 		}
 	}

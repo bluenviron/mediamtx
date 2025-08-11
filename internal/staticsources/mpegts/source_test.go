@@ -69,11 +69,14 @@ func TestSourceUDP(t *testing.T) {
 			ctx, ctxCancel := context.WithCancel(context.Background())
 			defer ctxCancel()
 
+			reloadConf := make(chan *conf.Path)
+
 			go func() {
 				so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
 					Context:        ctx,
 					ResolvedSource: src,
 					Conf:           &conf.Path{},
+					ReloadConf:     reloadConf,
 				})
 				close(done)
 			}()
@@ -128,6 +131,9 @@ func TestSourceUDP(t *testing.T) {
 			require.NoError(t, err)
 
 			<-p.Unit
+
+			// the source must be listening on ReloadConf
+			reloadConf <- nil
 		})
 	}
 }

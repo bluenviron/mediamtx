@@ -102,14 +102,20 @@ func TestSource(t *testing.T) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 
+	reloadConf := make(chan *conf.Path)
+
 	go func() {
 		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
 			Context:        ctx,
 			ResolvedSource: "http://localhost:5780/stream.m3u8",
 			Conf:           &conf.Path{},
+			ReloadConf:     reloadConf,
 		})
 		close(done)
 	}()
 
 	<-p.Unit
+
+	// the source must be listening on ReloadConf
+	reloadConf <- nil
 }

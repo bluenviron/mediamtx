@@ -69,6 +69,8 @@ func TestSourceUDP(t *testing.T) {
 			ctx, ctxCancel := context.WithCancel(context.Background())
 			defer ctxCancel()
 
+			reloadConf := make(chan *conf.Path)
+
 			go func() {
 				so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
 					Context:        ctx,
@@ -83,6 +85,7 @@ func TestSourceUDP(t *testing.T) {
 							"a=rtpmap:96 H264/90000\n" +
 							"a=fmtp:96 profile-level-id=42e01e;packetization-mode=1\n",
 					},
+					ReloadConf: reloadConf,
 				})
 				close(done)
 			}()
@@ -139,6 +142,9 @@ func TestSourceUDP(t *testing.T) {
 			}
 
 			<-p.Unit
+
+			// the source must be listening on ReloadConf
+			reloadConf <- nil
 		})
 	}
 }

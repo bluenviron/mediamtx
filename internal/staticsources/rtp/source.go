@@ -80,15 +80,19 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		readerErr <- s.runReader(&desc, nc)
 	}()
 
-	select {
-	case err = <-readerErr:
-		nc.Close()
-		return err
+	for {
+		select {
+		case err = <-readerErr:
+			nc.Close()
+			return err
 
-	case <-params.Context.Done():
-		nc.Close()
-		<-readerErr
-		return fmt.Errorf("terminated")
+		case <-params.ReloadConf:
+
+		case <-params.Context.Done():
+			nc.Close()
+			<-readerErr
+			return fmt.Errorf("terminated")
+		}
 	}
 }
 
