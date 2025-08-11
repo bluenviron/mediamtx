@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
@@ -232,6 +233,161 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestPeerConnectionRead(t *testing.T) {
+	settingsEngine := webrtc.SettingEngine{}
+	settingsEngine.SetLocalRandomUDP(true)
+
+	api := webrtc.NewAPI(
+		webrtc.WithSettingEngine(settingsEngine))
+
+	pub, err := api.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(t, err)
+	defer pub.Close() //nolint:errcheck
+
+	videoTrack, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		"video",
+		"publisher")
+	require.NoError(t, err)
+
+	videoSender, err := pub.AddTrack(videoTrack)
+	require.NoError(t, err)
+
+	audioTrack, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeOpus,
+			ClockRate: 48000,
+		},
+		"audio",
+		"publisher")
+	require.NoError(t, err)
+
+	audioSender, err := pub.AddTrack(audioTrack)
+	require.NoError(t, err)
+
+	reader := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		Publish:            false,
+		Log:                test.NilLogger,
+	}
+	err = reader.Start()
+	require.NoError(t, err)
+	defer reader.Close()
+
+	offer, err := pub.CreateOffer(nil)
+	require.NoError(t, err)
+
+	err = pub.SetLocalDescription(offer)
+	require.NoError(t, err)
+
+	answer, err := reader.CreateFullAnswer(context.Background(), &offer)
+	require.NoError(t, err)
+
+	err = pub.SetRemoteDescription(*answer)
+	require.NoError(t, err)
+
+	err = reader.WaitUntilConnected(context.Background())
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+
+		err2 := videoTrack.WriteRTP(&rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    111,
+				SequenceNumber: 1123,
+				Timestamp:      45343,
+				SSRC:           563424,
+			},
+			Payload: []byte{5, 2},
+		})
+		require.NoError(t, err2)
+
+		err2 = audioTrack.WriteRTP(&rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    111,
+				SequenceNumber: 1123,
+				Timestamp:      45343,
+				SSRC:           563424,
+			},
+			Payload: []byte{5, 2},
+		})
+		require.NoError(t, err2)
+	}()
+
+	err = reader.GatherIncomingTracks(context.Background())
+	require.NoError(t, err)
+
+	codecs := gatherCodecs(reader.IncomingTracks())
+
+	sort.Slice(codecs, func(i, j int) bool {
+		return codecs[i].PayloadType < codecs[j].PayloadType
+	})
+
+	require.Equal(t, []webrtc.RTPCodecParameters{
+		{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeVP8,
+				ClockRate:    90000,
+				RTCPFeedback: codecs[0].RTCPFeedback,
+			},
+			PayloadType: 96,
+		},
+		{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeOpus,
+				ClockRate:    48000,
+				Channels:     2,
+				SDPFmtpLine:  "minptime=10;useinbandfec=1",
+				RTCPFeedback: codecs[1].RTCPFeedback,
+			},
+			PayloadType: 111,
+		},
+	}, codecs)
+
+	reader.StartReading()
+
+	pkts, _, err := videoSender.ReadRTCP()
+	require.NoError(t, err)
+	require.Equal(t, []rtcp.Packet{
+		&rtcp.ReceiverReport{
+			SSRC: pkts[0].(*rtcp.ReceiverReport).SSRC,
+			Reports: []rtcp.ReceptionReport{{
+				SSRC:               uint32(videoSender.GetParameters().Encodings[0].SSRC),
+				LastSequenceNumber: pkts[0].(*rtcp.ReceiverReport).Reports[0].LastSequenceNumber,
+				LastSenderReport:   pkts[0].(*rtcp.ReceiverReport).Reports[0].LastSenderReport,
+				Delay:              pkts[0].(*rtcp.ReceiverReport).Reports[0].Delay,
+			}},
+			ProfileExtensions: []byte{},
+		},
+	}, pkts)
+
+	pkts, _, err = audioSender.ReadRTCP()
+	require.NoError(t, err)
+	require.Equal(t, []rtcp.Packet{
+		&rtcp.ReceiverReport{
+			SSRC: pkts[0].(*rtcp.ReceiverReport).SSRC,
+			Reports: []rtcp.ReceptionReport{{
+				SSRC:               uint32(audioSender.GetParameters().Encodings[0].SSRC),
+				LastSequenceNumber: pkts[0].(*rtcp.ReceiverReport).Reports[0].LastSequenceNumber,
+				LastSenderReport:   pkts[0].(*rtcp.ReceiverReport).Reports[0].LastSenderReport,
+				Delay:              pkts[0].(*rtcp.ReceiverReport).Reports[0].Delay,
+			}},
+			ProfileExtensions: []byte{},
+		},
+	}, pkts)
 }
 
 func TestPeerConnectionPublishRead(t *testing.T) {
