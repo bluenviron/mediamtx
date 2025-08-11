@@ -3,3 +3,4 @@ psycopg2-binary>=2.9.0
 python-box>=7.0.0
 python-dotenv>=1.0.0
 PyGObject>=3.42.0
+opencv-python>=4.8.0

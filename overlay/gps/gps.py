@@ -15,7 +15,10 @@ import time
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(name)s: %(message)s',
+)
 logger = logging.getLogger(__name__)
 
 
@@ -148,6 +151,7 @@ class GPSManager:
         """Get current GPS data."""
         with self._lock:
             if self.current_data is None:
+                logger.warning("No GPS data available in database")
                 # Return default data if no GPS data available
                 return GPSData(
                     timestamp=datetime.now(),

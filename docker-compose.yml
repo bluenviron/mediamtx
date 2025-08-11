@@ -10,6 +10,7 @@ services:
       - ./mediamtx.yml:/mediamtx.yml:ro
     environment:
       POSTGRES_HOST: postgres
+      TZ: Asia/Seoul
     network_mode: host
     depends_on:
       - postgres

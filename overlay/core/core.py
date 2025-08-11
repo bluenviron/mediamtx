@@ -4,6 +4,58 @@ import time
 from gps.gps import initialize_gps_manager, GPSConfig, close_gps_manager
 from .conf import load_config, load_env_config
 from pipeline.pipeline import create_pipeline
+import logging
+from colorama import init, Fore, Back, Style
+
+# Initialize colorama for cross-platform colored output
+init(autoreset=True)
+
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter with colors for different log levels."""
+    
+    COLORS = {
+        'DEBUG': Fore.CYAN,
+        'INFO': Fore.GREEN,
+        'WARNING': Fore.YELLOW,
+        'ERROR': Fore.RED,
+        'CRITICAL': Fore.RED + Back.WHITE + Style.BRIGHT,
+    }
+    
+    def format(self, record):
+        # Get the original format
+        log_message = super().format(record)
+        
+        # Add color based on log level
+        level_name = record.levelname
+        if level_name in self.COLORS:
+            # Color only the level name part
+            colored_level = f"{self.COLORS[level_name]}[{level_name}]{Style.RESET_ALL}"
+            log_message = log_message.replace(f"[{level_name}]", colored_level)
+        
+        return log_message
+
+# Create a custom logger with colored output
+def setup_colored_logging():
+    """Setup colored logging configuration."""
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    
+    # Remove existing handlers
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # Create console handler with colored formatter
+    console_handler = logging.StreamHandler()
+    formatter = ColoredFormatter(
+        fmt='[%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+# Setup colored logging
+setup_colored_logging()
+logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description='MediaMTX Overlay Application')
@@ -19,9 +71,9 @@ def main():
 
     try:
         db_config = load_env_config()
-        print(f"Database configuration loaded: {db_config['host']}:{db_config['port']}")
+        logger.info(f"Database configuration loaded: {db_config['host']}:{db_config['port']}")
     except Exception as e:
-        print(f"Error loading environment configuration: {e}")
+        logger.error(f"Error loading environment configuration: {e}")
         return 1
 
     try:
@@ -34,65 +86,55 @@ def main():
         )
         
         gps_manager = initialize_gps_manager(gps_config)
-        print("GPS manager initialized successfully")
+        logger.info("GPS manager initialized successfully")
         
     except Exception as e:
-        print(f"Error initializing GPS manager: {e}")
+        logger.error(f"Error initializing GPS manager: {e}")
         raise
 
-    # Start GStreamer pipelines for each camera
+    # Start streaming pipelines for each camera
     pipelines = []
     if "paths" in config:
+        from pipeline.pipeline import create_pipelines_from_config
+        
         try:
-            for camera_name, camera_config in config["paths"].items():
-                if isinstance(camera_config, dict) and "source" in camera_config and "output" in camera_config:
-                    # Parse output URL to get host and port
-                    output_url = camera_config["output"]
-                    if output_url.startswith("udp://"):
-                        # Extract host and port from udp://host:port format
-                        host_port = output_url[6:]  # Remove "udp://"
-                        if ":" in host_port:
-                            host, port_str = host_port.split(":", 1)
-                            port = int(port_str)
-                        else:
-                            host = host_port
-                            port = 5000
-                    else:
-                        # Default values if not UDP format
-                        host = "127.0.0.1"
-                        port = 5000
-                    
-                    print(f"Starting overlay for {camera_name}: {camera_config['source']} -> {host}:{port}")
-                    pipeline = create_pipeline(
-                        input_uri=camera_config["source"],
-                        output_host=host,
-                        output_port=port
-                    )
-                    pipeline.start()
-                    pipelines.append(pipeline)
-                    print(f"GStreamer overlay started for {camera_name}")
+            pipelines = create_pipelines_from_config(config, gps_manager)
             
-            if pipelines:
-                print(f"Started {len(pipelines)} pipeline(s)")
+            if not pipelines:
+                logger.error("No valid pipelines found in configuration")
+                return 1
+            
+            logger.info(f"Starting {len(pipelines)} streaming pipelines...")
+            
+            # Start all pipelines
+            for i, pipeline in enumerate(pipelines):
+                if not pipeline.start():
+                    logger.error(f"Failed to start pipeline {i}")
+                    return 1
+            
+            logger.info("All pipelines started successfully")
+            
+            # Keep running until interrupted
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("Shutting down pipelines...")
+                for pipeline in pipelines:
+                    pipeline.stop()
+                logger.info("All pipelines stopped")
                 
-                # Keep running for overlays
-                try:
-                    while True:
-                        time.sleep(1)
-                except KeyboardInterrupt:
-                    print("\nStopping overlays...")
-                    for pipeline in pipelines:
-                        pipeline.stop()
-                    print("All overlays stopped.")
-            else:
-                print("No overlays configured")
         except Exception as e:
-            print(f"Error starting overlays: {e}")
+            logger.error(f"Error during pipeline execution: {e}")
+            # Stop all pipelines on error
+            for pipeline in pipelines:
+                pipeline.stop()
+            return 1
     
     try:
         close_gps_manager()
-        print("GPS manager closed")
+        logger.info("GPS manager closed")
     except Exception as e:
-        print(f"Error closing GPS manager: {e}")
+        logger.error(f"Error closing GPS manager: {e}")
 
     return 0

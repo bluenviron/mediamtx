@@ -1,6 +1,9 @@
 import yaml
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 def load_config(config_path):
     with open(config_path, 'r') as file:
@@ -19,13 +22,13 @@ def load_env_config():
     # Current working directory .env (medium priority)
     if os.path.exists(current_dir_env):
         load_dotenv(current_dir_env, override=False)
-        print(f"Loaded .env from current working directory: {current_dir_env}")
+        logger.info(f"Loaded .env from current working directory: {current_dir_env}")
     
     # Load .env files in order (lower priority files are loaded first)
     # Script directory .env (lowest priority)
     if os.path.exists(script_dir_env):
         load_dotenv(script_dir_env, override=False)
-        print(f"Loaded .env from script directory: {script_dir_env}")
+        logger.info(f"Loaded .env from script directory: {script_dir_env}")
     
     # System environment variables have highest priority (already loaded)
     
