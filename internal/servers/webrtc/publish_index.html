@@ -161,6 +161,7 @@ const video = document.getElementById('video');
 const controls = document.getElementById('controls');
 const message = document.getElementById('message');
 const publishButton = document.getElementById('publish-button');
+let publisher = null;
 
 const videoForm = {
   device: document.getElementById('video-device'),
@@ -185,7 +186,7 @@ const setMessage = (str) => {
 const onStream = (stream) => {
   video.srcObject = stream;
 
-  new MediaMTXWebRTCPublisher({
+  publisher = new MediaMTXWebRTCPublisher({
     url: new URL('whip', window.location.href) + window.location.search,
     stream,
     videoCodec: videoForm.codec.value,
@@ -419,6 +420,12 @@ window.addEventListener('load', () => {
 
   publishButton.addEventListener('click', onPublish);
   populateOptions();
+});
+
+window.addEventListener('beforeunload', () => {
+  if (publisher !== null) {
+    publisher.close();
+  }
 });
 
 </script>

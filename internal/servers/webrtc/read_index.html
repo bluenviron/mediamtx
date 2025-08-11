@@ -49,6 +49,7 @@ html, body {
 const video = document.getElementById('video');
 const message = document.getElementById('message');
 let defaultControls = false;
+let reader = null;
 
 const setMessage = (str) => {
   if (str !== '') {
@@ -83,7 +84,7 @@ const loadAttributesFromQuery = () => {
 window.addEventListener('load', () => {
   loadAttributesFromQuery();
 
-  new MediaMTXWebRTCReader({
+  reader = new MediaMTXWebRTCReader({
     url: new URL('whep', window.location.href) + window.location.search,
     onError: (err) => {
       setMessage(err);
@@ -93,6 +94,12 @@ window.addEventListener('load', () => {
       video.srcObject = evt.streams[0];
     },
   });
+});
+
+window.addEventListener('beforeunload', () => {
+  if (reader !== null) {
+    reader.close();
+  }
 });
 
 </script>
