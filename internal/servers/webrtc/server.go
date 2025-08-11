@@ -275,7 +275,9 @@ func (s *Server) Initialize() error {
 	if s.LocalTCPAddress != "" {
 		s.tcpMuxLn, err = net.Listen(restrictnetwork.Restrict("tcp", s.LocalTCPAddress))
 		if err != nil {
-			s.udpMuxLn.Close()
+			if s.udpMuxLn != nil {
+				s.udpMuxLn.Close()
+			}
 			s.httpServer.close()
 			ctxCancel()
 			return err
