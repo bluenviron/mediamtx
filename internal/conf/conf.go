@@ -220,29 +220,30 @@ type Conf struct {
 	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
 
 	// RTSP server
-	RTSP               bool             `json:"rtsp"`
-	RTSPDisable        *bool            `json:"rtspDisable,omitempty"` // deprecated
-	Protocols          *RTSPTransports  `json:"protocols,omitempty"`   // deprecated
-	RTSPTransports     RTSPTransports   `json:"rtspTransports"`
-	Encryption         *Encryption      `json:"encryption,omitempty"` // deprecated
-	RTSPEncryption     Encryption       `json:"rtspEncryption"`
-	RTSPAddress        string           `json:"rtspAddress"`
-	RTSPSAddress       string           `json:"rtspsAddress"`
-	RTPAddress         string           `json:"rtpAddress"`
-	RTCPAddress        string           `json:"rtcpAddress"`
-	MulticastIPRange   string           `json:"multicastIPRange"`
-	MulticastRTPPort   int              `json:"multicastRTPPort"`
-	MulticastRTCPPort  int              `json:"multicastRTCPPort"`
-	SRTPAddress        string           `json:"srtpAddress"`
-	SRTCPAddress       string           `json:"srtcpAddress"`
-	MulticastSRTPPort  int              `json:"multicastSRTPPort"`
-	MulticastSRTCPPort int              `json:"multicastSRTCPPort"`
-	ServerKey          *string          `json:"serverKey,omitempty"`
-	ServerCert         *string          `json:"serverCert,omitempty"`
-	RTSPServerKey      string           `json:"rtspServerKey"`
-	RTSPServerCert     string           `json:"rtspServerCert"`
-	AuthMethods        *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
-	RTSPAuthMethods    RTSPAuthMethods  `json:"rtspAuthMethods"`
+	RTSP                  bool             `json:"rtsp"`
+	RTSPDisable           *bool            `json:"rtspDisable,omitempty"` // deprecated
+	Protocols             *RTSPTransports  `json:"protocols,omitempty"`   // deprecated
+	RTSPTransports        RTSPTransports   `json:"rtspTransports"`
+	Encryption            *Encryption      `json:"encryption,omitempty"` // deprecated
+	RTSPEncryption        Encryption       `json:"rtspEncryption"`
+	RTSPAddress           string           `json:"rtspAddress"`
+	RTSPSAddress          string           `json:"rtspsAddress"`
+	RTPAddress            string           `json:"rtpAddress"`
+	RTCPAddress           string           `json:"rtcpAddress"`
+	MulticastIPRange      string           `json:"multicastIPRange"`
+	MulticastRTPPort      int              `json:"multicastRTPPort"`
+	MulticastRTCPPort     int              `json:"multicastRTCPPort"`
+	SRTPAddress           string           `json:"srtpAddress"`
+	SRTCPAddress          string           `json:"srtcpAddress"`
+	MulticastSRTPPort     int              `json:"multicastSRTPPort"`
+	MulticastSRTCPPort    int              `json:"multicastSRTCPPort"`
+	ServerKey             *string          `json:"serverKey,omitempty"`
+	ServerCert            *string          `json:"serverCert,omitempty"`
+	RTSPServerKey         string           `json:"rtspServerKey"`
+	RTSPServerCert        string           `json:"rtspServerCert"`
+	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
+	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
+	RTSPUDPReadBufferSize uint             `json:"rtspUDPReadBufferSize"`
 
 	// RTMP server
 	RTMP           bool       `json:"rtmp"`

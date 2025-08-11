@@ -15,6 +15,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/udp"
+	"github.com/bluenviron/mediamtx/internal/protocols/unix"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtp"
 )
@@ -56,19 +58,18 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
-	q := u.Query()
 
 	var nc net.Conn
 
 	switch u.Scheme {
 	case "unix+rtp":
-		nc, err = createUnix(u)
+		nc, err = unix.CreateConn(u)
 		if err != nil {
 			return err
 		}
 
 	default:
-		nc, err = createUDP(u.Host, q)
+		nc, err = udp.CreateConn(u, int(params.Conf.RTPUDPReadBufferSize))
 		if err != nil {
 			return err
 		}

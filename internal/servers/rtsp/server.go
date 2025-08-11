@@ -72,6 +72,7 @@ type serverParent interface {
 type Server struct {
 	Address             string
 	AuthMethods         []auth.VerifyMethod
+	UDPReadBufferSize   uint
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
@@ -113,12 +114,13 @@ func (s *Server) Initialize() error {
 	s.sessions = make(map[*gortsplib.ServerSession]*session)
 
 	s.srv = &gortsplib.Server{
-		Handler:        s,
-		ReadTimeout:    time.Duration(s.ReadTimeout),
-		WriteTimeout:   time.Duration(s.WriteTimeout),
-		WriteQueueSize: s.WriteQueueSize,
-		RTSPAddress:    s.Address,
-		AuthMethods:    s.AuthMethods,
+		Handler:           s,
+		ReadTimeout:       time.Duration(s.ReadTimeout),
+		WriteTimeout:      time.Duration(s.WriteTimeout),
+		UDPReadBufferSize: int(s.UDPReadBufferSize),
+		WriteQueueSize:    s.WriteQueueSize,
+		RTSPAddress:       s.Address,
+		AuthMethods:       s.AuthMethods,
 	}
 
 	if s.UseUDP {

@@ -1,19 +1,57 @@
-package rtp
+// Package udp contains utilities to work with the UDP protocol.
+package udp
 
 import (
 	"fmt"
 	"net"
 	"net/url"
+	"syscall"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/multicast"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
-const (
-	// same size as GStreamer's rtspsrc
-	udpKernelReadBufferSize = 0x80000
-)
+type packetConn interface {
+	net.PacketConn
+	SyscallConn() (syscall.RawConn, error)
+}
+
+func setAndVerifyReadBufferSize(pc packetConn, v int) error {
+	rawConn, err := pc.SyscallConn()
+	if err != nil {
+		panic(err)
+	}
+
+	var err2 error
+
+	err = rawConn.Control(func(fd uintptr) {
+		err2 = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, v)
+		if err2 != nil {
+			return
+		}
+
+		var v2 int
+		v2, err2 = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+		if err2 != nil {
+			return
+		}
+
+		if v2 != (v * 2) {
+			err2 = fmt.Errorf("unable to set read buffer size to %v - check that net.core.rmem_max is greater than %v", v, v)
+			return
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	if err2 != nil {
+		return err2
+	}
+
+	return nil
+}
 
 type udpConn struct {
 	pc       net.PacketConn
@@ -98,12 +136,9 @@ func defaultInterfaceForMulticast(multicastAddr *net.UDPAddr) (*net.Interface, e
 	return nil, fmt.Errorf("could not find any interface for using multicast address %s", multicastAddr)
 }
 
-type packetConn interface {
-	net.PacketConn
-	SetReadBuffer(int) error
-}
-
-func createUDP(host string, q url.Values) (net.Conn, error) {
+// CreateConn creates a UDP connection.
+func CreateConn(u *url.URL, udpReadBufferSize int) (net.Conn, error) {
+	q := u.Query()
 	var sourceIP net.IP
 
 	if src := q.Get("source"); src != "" {
@@ -113,7 +148,7 @@ func createUDP(host string, q url.Values) (net.Conn, error) {
 		}
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", host)
+	addr, err := net.ResolveUDPAddr("udp", u.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +183,12 @@ func createUDP(host string, q url.Values) (net.Conn, error) {
 		pc = tmp.(*net.UDPConn)
 	}
 
-	// defer pc.Close()
-
-	err = pc.SetReadBuffer(udpKernelReadBufferSize)
-	if err != nil {
-		pc.Close()
-		return nil, err
+	if udpReadBufferSize != 0 {
+		err = setAndVerifyReadBufferSize(pc, udpReadBufferSize)
+		if err != nil {
+			pc.Close()
+			return nil, err
+		}
 	}
 
 	return &udpConn{pc: pc, sourceIP: sourceIP}, nil
