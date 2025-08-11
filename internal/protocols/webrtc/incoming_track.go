@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/rtcpreceiver"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -287,8 +286,9 @@ func (t *IncomingTrack) start() {
 	t.packetsLost.Start()
 
 	t.rtcpReceiver = &rtcpreceiver.RTCPReceiver{
-		ClockRate: int(t.track.SSRC()),
-		Period:    1 * time.Second,
+		ClockRate:            int(t.track.SSRC()),
+		UnrealiableTransport: true,
+		Period:               1 * time.Second,
 		WritePacketRTCP: func(p rtcp.Packet) {
 			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
 		},
@@ -342,29 +342,24 @@ func (t *IncomingTrack) start() {
 
 	// read incoming RTP packets.
 	go func() {
-		reorderer := &rtpreorderer.Reorderer{}
-		reorderer.Initialize()
-
 		for {
 			pkt, _, err2 := t.track.ReadRTP()
 			if err2 != nil {
 				return
 			}
 
-			packets, lost := reorderer.Process(pkt)
-			if lost != 0 {
-				atomic.AddUint64(t.rtpPacketsLost, uint64(lost))
-				t.packetsLost.Add(uint64(lost))
-				// do not return
-			}
-
-			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
-
-			err2 = t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
+			packets, lost, err2 := t.rtcpReceiver.ProcessPacket2(pkt, time.Now(), true)
 			if err2 != nil {
 				t.log.Log(logger.Warn, err2.Error())
 				continue
 			}
+			if lost != 0 {
+				atomic.AddUint64(t.rtpPacketsLost, lost)
+				t.packetsLost.Add(lost)
+				// do not return
+			}
+
+			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
 
 			var ntp time.Time
 			if t.useAbsoluteTimestamp {
