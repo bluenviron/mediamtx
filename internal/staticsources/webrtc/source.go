@@ -2,7 +2,6 @@
 package webrtc
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -62,7 +61,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		URL:                  u,
 		Log:                  s,
 	}
-
 	err = client.Initialize(params.Context)
 	if err != nil {
 		return err
@@ -94,7 +92,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	readErr := make(chan error)
 
 	go func() {
-		readErr <- client.Wait(context.Background())
+		readErr <- client.Wait()
 	}()
 
 	for {

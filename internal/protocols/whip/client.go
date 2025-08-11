@@ -55,27 +55,47 @@ func (c *Client) Initialize(ctx context.Context) error {
 		UseAbsoluteTimestamp: c.UseAbsoluteTimestamp,
 		Log:                  c.Log,
 	}
-
 	err = c.pc.Start()
 	if err != nil {
 		return err
 	}
 
-	offer, err := c.pc.CreatePartialOffer()
+	initializeRes := make(chan error)
+
+	go func() {
+		initializeRes <- c.initializeInner(ctx)
+	}()
+
+	select {
+	case <-ctx.Done():
+		c.pc.Close()
+		<-initializeRes
+		return fmt.Errorf("terminated")
+
+	case err = <-initializeRes:
+	}
+
 	if err != nil {
 		c.pc.Close()
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) initializeInner(ctx context.Context) error {
+	offer, err := c.pc.CreatePartialOffer()
+	if err != nil {
 		return err
 	}
 
 	res, err := c.postOffer(ctx, offer)
 	if err != nil {
-		c.pc.Close()
 		return err
 	}
 
 	c.URL, err = c.URL.Parse(res.Location)
 	if err != nil {
-		c.pc.Close()
 		return err
 	}
 
@@ -84,14 +104,12 @@ func (c *Client) Initialize(ctx context.Context) error {
 		err = sdp.Unmarshal([]byte(res.Answer.SDP))
 		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
-			c.pc.Close()
 			return err
 		}
 
 		err = webrtc.TracksAreValid(sdp.MediaDescriptions)
 		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
-			c.pc.Close()
 			return err
 		}
 	}
@@ -99,7 +117,6 @@ func (c *Client) Initialize(ctx context.Context) error {
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
 		c.deleteSession(context.Background()) //nolint:errcheck
-		c.pc.Close()
 		return err
 	}
 
@@ -113,7 +130,6 @@ outer:
 			err = c.patchCandidate(ctx, offer, res.ETag, ca)
 			if err != nil {
 				c.deleteSession(context.Background()) //nolint:errcheck
-				c.pc.Close()
 				return err
 			}
 
@@ -124,16 +140,14 @@ outer:
 
 		case <-t.C:
 			c.deleteSession(context.Background()) //nolint:errcheck
-			c.pc.Close()
 			return fmt.Errorf("deadline exceeded while waiting connection")
 		}
 	}
 
 	if !c.Publish {
-		err = c.pc.GatherIncomingTracks(ctx)
+		err = c.pc.GatherIncomingTracks()
 		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
-			c.pc.Close()
 			return err
 		}
 	}
@@ -163,15 +177,10 @@ func (c *Client) Close() error {
 	return err
 }
 
-// Wait waits for client errors.
-func (c *Client) Wait(ctx context.Context) error {
-	select {
-	case <-c.pc.Failed():
-		return fmt.Errorf("peer connection closed")
-
-	case <-ctx.Done():
-		return fmt.Errorf("terminated")
-	}
+// Wait waits until a fatal error.
+func (c *Client) Wait() error {
+	<-c.pc.Failed()
+	return fmt.Errorf("peer connection closed")
 }
 
 func (c *Client) optionsICEServers(

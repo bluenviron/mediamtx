@@ -148,13 +148,6 @@ type PeerConnection struct {
 	Log                   logger.Writer
 
 	wr                 *webrtc.PeerConnection
-	stateChangeMutex   sync.Mutex
-	newLocalCandidate  chan *webrtc.ICECandidateInit
-	connected          chan struct{}
-	failed             chan struct{}
-	closed             chan struct{}
-	gatheringDone      chan struct{}
-	incomingTrack      chan trackRecvPair
 	ctx                context.Context
 	ctxCancel          context.CancelFunc
 	incomingTracks     []*IncomingTrack
@@ -163,6 +156,15 @@ type PeerConnection struct {
 	rtpPacketsSent     *uint64
 	rtpPacketsLost     *uint64
 	statsInterceptor   *statsInterceptor
+
+	newLocalCandidate chan *webrtc.ICECandidateInit
+	incomingTrack     chan trackRecvPair
+	connected         chan struct{}
+	failed            chan struct{}
+	closed            chan struct{}
+	gatheringDone     chan struct{}
+	done              chan struct{}
+	chStartReading    chan struct{}
 }
 
 // Start starts the peer connection.
@@ -289,19 +291,21 @@ func (co *PeerConnection) Start() error {
 		return err
 	}
 
-	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
-	co.connected = make(chan struct{})
-	co.failed = make(chan struct{})
-	co.closed = make(chan struct{})
-	co.gatheringDone = make(chan struct{})
-	co.incomingTrack = make(chan trackRecvPair)
-
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
 	co.startedReading = new(int64)
 	co.rtpPacketsReceived = new(uint64)
 	co.rtpPacketsSent = new(uint64)
 	co.rtpPacketsLost = new(uint64)
+
+	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
+	co.connected = make(chan struct{})
+	co.failed = make(chan struct{})
+	co.closed = make(chan struct{})
+	co.gatheringDone = make(chan struct{})
+	co.incomingTrack = make(chan trackRecvPair)
+	co.done = make(chan struct{})
+	co.chStartReading = make(chan struct{})
 
 	if co.Publish {
 		for _, tr := range co.OutgoingTracks {
@@ -336,9 +340,11 @@ func (co *PeerConnection) Start() error {
 		})
 	}
 
+	var stateChangeMutex sync.Mutex
+
 	co.wr.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		co.stateChangeMutex.Lock()
-		defer co.stateChangeMutex.Unlock()
+		stateChangeMutex.Lock()
+		defer stateChangeMutex.Unlock()
 
 		select {
 		case <-co.closed:
@@ -395,26 +401,49 @@ func (co *PeerConnection) Start() error {
 		}
 	})
 
+	go co.run()
+
 	return nil
 }
 
 // Close closes the connection.
 func (co *PeerConnection) Close() {
-	for _, track := range co.incomingTracks {
-		track.close()
-	}
-	for _, track := range co.OutgoingTracks {
-		track.close()
-	}
-
 	co.ctxCancel()
-	co.wr.GracefulClose() //nolint:errcheck
+	<-co.done
+}
 
-	// even if GracefulClose() should wait for any goroutine to return,
-	// we have to wait for OnConnectionStateChange to return anyway,
-	// since it is executed in an uncontrolled goroutine.
-	// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
-	<-co.closed
+func (co *PeerConnection) run() {
+	defer close(co.done)
+
+	defer func() {
+		for _, track := range co.incomingTracks {
+			track.close()
+		}
+		for _, track := range co.OutgoingTracks {
+			track.close()
+		}
+
+		co.wr.GracefulClose() //nolint:errcheck
+
+		// even if GracefulClose() should wait for any goroutine to return,
+		// we have to wait for OnConnectionStateChange to return anyway,
+		// since it is executed in an uncontrolled goroutine.
+		// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
+		<-co.closed
+	}()
+
+	for {
+		select {
+		case <-co.chStartReading:
+			for _, track := range co.incomingTracks {
+				track.start()
+			}
+			atomic.StoreInt64(co.startedReading, 1)
+
+		case <-co.ctx.Done():
+			return
+		}
+	}
 }
 
 func (co *PeerConnection) removeUnwantedCandidates(firstMedia *sdp.MediaDescription) error {
@@ -563,10 +592,7 @@ func (co *PeerConnection) AddRemoteCandidate(candidate *webrtc.ICECandidateInit)
 }
 
 // CreateFullAnswer creates a full answer.
-func (co *PeerConnection) CreateFullAnswer(
-	ctx context.Context,
-	offer *webrtc.SessionDescription,
-) (*webrtc.SessionDescription, error) {
+func (co *PeerConnection) CreateFullAnswer(offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	err := co.wr.SetRemoteDescription(*offer)
 	if err != nil {
 		return nil, err
@@ -586,7 +612,7 @@ func (co *PeerConnection) CreateFullAnswer(
 		return nil, err
 	}
 
-	err = co.waitGatheringDone(ctx)
+	err = co.waitGatheringDone()
 	if err != nil {
 		return nil, err
 	}
@@ -601,22 +627,20 @@ func (co *PeerConnection) CreateFullAnswer(
 	return answer, nil
 }
 
-func (co *PeerConnection) waitGatheringDone(ctx context.Context) error {
+func (co *PeerConnection) waitGatheringDone() error {
 	for {
 		select {
 		case <-co.NewLocalCandidate():
 		case <-co.GatheringDone():
 			return nil
-		case <-ctx.Done():
+		case <-co.ctx.Done():
 			return fmt.Errorf("terminated")
 		}
 	}
 }
 
 // WaitUntilConnected waits until connection is established.
-func (co *PeerConnection) WaitUntilConnected(
-	ctx context.Context,
-) error {
+func (co *PeerConnection) WaitUntilConnected() error {
 	t := time.NewTimer(time.Duration(co.HandshakeTimeout))
 	defer t.Stop()
 
@@ -629,7 +653,7 @@ outer:
 		case <-co.connected:
 			break outer
 
-		case <-ctx.Done():
+		case <-co.ctx.Done():
 			return fmt.Errorf("terminated")
 		}
 	}
@@ -638,7 +662,7 @@ outer:
 }
 
 // GatherIncomingTracks gathers incoming tracks.
-func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) error {
+func (co *PeerConnection) GatherIncomingTracks() error {
 	var sdp sdp.SessionDescription
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
@@ -675,7 +699,7 @@ func (co *PeerConnection) GatherIncomingTracks(ctx context.Context) error {
 		case <-co.Failed():
 			return fmt.Errorf("peer connection closed")
 
-		case <-ctx.Done():
+		case <-co.ctx.Done():
 			return fmt.Errorf("terminated")
 		}
 	}
@@ -706,12 +730,12 @@ func (co *PeerConnection) IncomingTracks() []*IncomingTrack {
 	return co.incomingTracks
 }
 
-// StartReading starts reading all incoming tracks.
+// StartReading starts reading incoming tracks.
 func (co *PeerConnection) StartReading() {
-	for _, track := range co.incomingTracks {
-		track.start()
+	select {
+	case co.chStartReading <- struct{}{}:
+	case <-co.ctx.Done():
 	}
-	atomic.StoreInt64(co.startedReading, 1)
 }
 
 // LocalCandidate returns the local candidate.
