@@ -286,7 +286,7 @@ func (t *IncomingTrack) start() {
 	t.packetsLost.Start()
 
 	t.rtcpReceiver = &rtcpreceiver.RTCPReceiver{
-		ClockRate:            int(t.track.SSRC()),
+		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
 		Period:               1 * time.Second,
 		WritePacketRTCP: func(p rtcp.Packet) {
