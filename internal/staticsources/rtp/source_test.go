@@ -42,16 +42,16 @@ func TestSourceUDP(t *testing.T) {
 
 			switch ca {
 			case "unicast":
-				src = "udp+rtp://127.0.0.1:9001"
+				src = "udp+rtp://127.0.0.1:9004"
 
 			case "multicast":
-				src = "udp+rtp://238.0.0.1:9001"
+				src = "udp+rtp://238.0.0.1:9004"
 
 			case "multicast with interface":
-				src = "udp+rtp://238.0.0.1:9001?interface=" + multicastCapableInterface(t)
+				src = "udp+rtp://238.0.0.1:9004?interface=" + multicastCapableInterface(t)
 
 			case "unicast with source":
-				src = "udp+rtp://127.0.0.1:9001?source=127.0.1.1"
+				src = "udp+rtp://127.0.0.1:9004?source=127.0.1.1"
 			}
 
 			p := &test.StaticSourceParent{}
@@ -93,16 +93,16 @@ func TestSourceUDP(t *testing.T) {
 
 			switch ca {
 			case "unicast":
-				dest = "127.0.0.1:9001"
+				dest = "127.0.0.1:9004"
 
 			case "multicast":
-				dest = "238.0.0.1:9001"
+				dest = "238.0.0.1:9004"
 
 			case "multicast with interface":
-				dest = "238.0.0.1:9001"
+				dest = "238.0.0.1:9004"
 
 			case "unicast with source":
-				dest = "127.0.0.1:9001"
+				dest = "127.0.0.1:9004"
 			}
 
 			udest, err := net.ResolveUDPAddr("udp", dest)
@@ -151,9 +151,9 @@ func TestSourceUnixSocket(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			var pa string
 			if ca == "relative" {
-				pa = "test.sock"
+				pa = "test_rtp.sock"
 			} else {
-				pa = filepath.Join(os.TempDir(), "test.sock")
+				pa = filepath.Join(os.TempDir(), "test_rtp.sock")
 			}
 
 			func() {

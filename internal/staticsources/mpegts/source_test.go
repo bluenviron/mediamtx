@@ -140,9 +140,9 @@ func TestSourceUnixSocket(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			var pa string
 			if ca == "relative" {
-				pa = "test.sock"
+				pa = "test_mpegts.sock"
 			} else {
-				pa = filepath.Join(os.TempDir(), "test.sock")
+				pa = filepath.Join(os.TempDir(), "test_mpegts.sock")
 			}
 
 			func() {
