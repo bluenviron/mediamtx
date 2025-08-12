@@ -491,48 +491,65 @@ func (co *PeerConnection) addAdditionalCandidates(firstMedia *sdp.MediaDescripti
 	}
 
 	for _, host := range co.AdditionalHosts {
-		newAttrs := append([]sdp.Attribute(nil), firstMedia.Attributes[:i]...)
-
-		if co.ICEUDPMux != nil {
-			port := strconv.FormatInt(int64(co.ICEUDPMux.GetListenAddresses()[0].(*net.UDPAddr).Port), 10)
-
-			tmp, err := randUint32()
+		var ips []string
+		if net.ParseIP(host) != nil {
+			ips = []string{host}
+		} else {
+			tmp, err := net.LookupIP(host)
 			if err != nil {
 				return err
 			}
-			id := strconv.FormatInt(int64(tmp), 10)
 
-			newAttrs = append(newAttrs, sdp.Attribute{
-				Key:   "candidate",
-				Value: id + " 1 udp 2130706431 " + host + " " + port + " typ host",
-			})
-			newAttrs = append(newAttrs, sdp.Attribute{
-				Key:   "candidate",
-				Value: id + " 2 udp 2130706431 " + host + " " + port + " typ host",
-			})
-		}
-
-		if co.ICETCPMux != nil {
-			port := strconv.FormatInt(int64(co.ICETCPMux.Ln.Addr().(*net.TCPAddr).Port), 10)
-
-			tmp, err := randUint32()
-			if err != nil {
-				return err
+			ips = make([]string, len(tmp))
+			for i, e := range tmp {
+				ips[i] = e.String()
 			}
-			id := strconv.FormatInt(int64(tmp), 10)
-
-			newAttrs = append(newAttrs, sdp.Attribute{
-				Key:   "candidate",
-				Value: id + " 1 tcp 1671430143 " + host + " " + port + " typ host tcptype passive",
-			})
-			newAttrs = append(newAttrs, sdp.Attribute{
-				Key:   "candidate",
-				Value: id + " 2 tcp 1671430143 " + host + " " + port + " typ host tcptype passive",
-			})
 		}
 
-		newAttrs = append(newAttrs, firstMedia.Attributes[i:]...)
-		firstMedia.Attributes = newAttrs
+		for _, ip := range ips {
+			newAttrs := append([]sdp.Attribute(nil), firstMedia.Attributes[:i]...)
+
+			if co.ICEUDPMux != nil {
+				port := strconv.FormatInt(int64(co.ICEUDPMux.GetListenAddresses()[0].(*net.UDPAddr).Port), 10)
+
+				tmp, err := randUint32()
+				if err != nil {
+					return err
+				}
+				id := strconv.FormatInt(int64(tmp), 10)
+
+				newAttrs = append(newAttrs, sdp.Attribute{
+					Key:   "candidate",
+					Value: id + " 1 udp 2130706431 " + ip + " " + port + " typ host",
+				})
+				newAttrs = append(newAttrs, sdp.Attribute{
+					Key:   "candidate",
+					Value: id + " 2 udp 2130706431 " + ip + " " + port + " typ host",
+				})
+			}
+
+			if co.ICETCPMux != nil {
+				port := strconv.FormatInt(int64(co.ICETCPMux.Ln.Addr().(*net.TCPAddr).Port), 10)
+
+				tmp, err := randUint32()
+				if err != nil {
+					return err
+				}
+				id := strconv.FormatInt(int64(tmp), 10)
+
+				newAttrs = append(newAttrs, sdp.Attribute{
+					Key:   "candidate",
+					Value: id + " 1 tcp 1671430143 " + ip + " " + port + " typ host tcptype passive",
+				})
+				newAttrs = append(newAttrs, sdp.Attribute{
+					Key:   "candidate",
+					Value: id + " 2 tcp 1671430143 " + ip + " " + port + " typ host tcptype passive",
+				})
+			}
+
+			newAttrs = append(newAttrs, firstMedia.Attributes[i:]...)
+			firstMedia.Attributes = newAttrs
+		}
 	}
 
 	return nil
