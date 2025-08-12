@@ -26,6 +26,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -211,7 +212,7 @@ type Server struct {
 	udpMuxLn         net.PacketConn
 	tcpMuxLn         net.Listener
 	iceUDPMux        ice.UDPMux
-	iceTCPMux        ice.TCPMux
+	iceTCPMux        *webrtc.TCPMuxWrapper
 	sessions         map[*session]struct{}
 	sessionsBySecret map[uuid.UUID]*session
 
@@ -282,7 +283,10 @@ func (s *Server) Initialize() error {
 			ctxCancel()
 			return err
 		}
-		s.iceTCPMux = pwebrtc.NewICETCPMux(webrtcNilLogger, s.tcpMuxLn, 8)
+		s.iceTCPMux = &webrtc.TCPMuxWrapper{
+			Mux: pwebrtc.NewICETCPMux(webrtcNilLogger, s.tcpMuxLn, 8),
+			Ln:  s.tcpMuxLn,
+		}
 	}
 
 	str := "listener opened on " + s.Address + " (HTTP)"

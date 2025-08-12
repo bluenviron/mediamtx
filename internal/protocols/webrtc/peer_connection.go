@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +25,40 @@ import (
 const (
 	webrtcStreamID = "mediamtx"
 )
+
+func interfaceIPs(interfaceList []string) ([]string, error) {
+	intfs, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	var ips []string
+
+	for _, intf := range intfs {
+		if len(interfaceList) == 0 || slices.Contains(interfaceList, intf.Name) {
+			var addrs []net.Addr
+			addrs, err = intf.Addrs()
+			if err == nil {
+				for _, addr := range addrs {
+					var ip net.IP
+
+					switch v := addr.(type) {
+					case *net.IPNet:
+						ip = v.IP
+					case *net.IPAddr:
+						ip = v.IP
+					}
+
+					if ip != nil {
+						ips = append(ips, ip.String())
+					}
+				}
+			}
+		}
+	}
+
+	return ips, nil
+}
 
 // * skip ConfigureRTCPReports
 // * add statsInterceptor
@@ -98,7 +134,7 @@ type trackRecvPair struct {
 type PeerConnection struct {
 	LocalRandomUDP        bool
 	ICEUDPMux             ice.UDPMux
-	ICETCPMux             ice.TCPMux
+	ICETCPMux             *TCPMuxWrapper
 	ICEServers            []webrtc.ICEServer
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
@@ -135,31 +171,24 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetIncludeLoopbackCandidate(true)
 
-	settingsEngine.SetInterfaceFilter(func(iface string) bool {
-		return co.IPsFromInterfaces && (len(co.IPsFromInterfacesList) == 0 ||
-			slices.Contains(co.IPsFromInterfacesList, iface))
-	})
-
-	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)
-
-	// always enable all networks since we might be the client of a remote TCP listener
-	settingsEngine.SetNetworkTypes([]webrtc.NetworkType{
-		webrtc.NetworkTypeUDP4,
+	// always enable TCP since we might be the client of a remote TCP listener
+	networkTypes := []webrtc.NetworkType{
 		webrtc.NetworkTypeTCP4,
-		webrtc.NetworkTypeUDP6,
 		webrtc.NetworkTypeTCP6,
-	})
+	}
+
+	if co.LocalRandomUDP || co.ICEUDPMux != nil || len(co.ICEServers) != 0 {
+		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4, webrtc.NetworkTypeUDP6)
+	}
+
+	settingsEngine.SetNetworkTypes(networkTypes)
 
 	if co.ICEUDPMux != nil {
 		settingsEngine.SetICEUDPMux(co.ICEUDPMux)
 	}
 
 	if co.ICETCPMux != nil {
-		settingsEngine.SetICETCPMux(co.ICETCPMux)
-	}
-
-	if co.LocalRandomUDP {
-		settingsEngine.SetLocalRandomUDP(true)
+		settingsEngine.SetICETCPMux(co.ICETCPMux.Mux)
 	}
 
 	settingsEngine.SetSTUNGatherTimeout(time.Duration(co.STUNGatherTimeout))
@@ -388,19 +417,139 @@ func (co *PeerConnection) Close() {
 	<-co.closed
 }
 
+func (co *PeerConnection) removeUnwantedCandidates(firstMedia *sdp.MediaDescription) error {
+	var allowedIPs []string
+	if co.IPsFromInterfaces {
+		var err error
+		allowedIPs, err = interfaceIPs(co.IPsFromInterfacesList)
+		if err != nil {
+			return err
+		}
+	}
+
+	var newAttributes []sdp.Attribute //nolint:prealloc
+
+	for _, attr := range firstMedia.Attributes {
+		if attr.Key == "candidate" {
+			parts := strings.Split(attr.Value, " ")
+
+			// hide random UDP candidates
+			if !co.LocalRandomUDP && co.ICEUDPMux == nil && parts[2] == "udp" && parts[7] == "host" {
+				continue
+			}
+
+			// hide disallowed IPs
+			if parts[7] == "host" && !slices.Contains(allowedIPs, parts[4]) {
+				continue
+			}
+		}
+
+		newAttributes = append(newAttributes, attr)
+	}
+
+	firstMedia.Attributes = newAttributes
+
+	return nil
+}
+
+func (co *PeerConnection) addAdditionalCandidates(firstMedia *sdp.MediaDescription) error {
+	i := 0
+	for _, attr := range firstMedia.Attributes {
+		if attr.Key == "end-of-candidates" {
+			break
+		}
+		i++
+	}
+
+	for _, host := range co.AdditionalHosts {
+		newAttrs := append([]sdp.Attribute(nil), firstMedia.Attributes[:i]...)
+
+		if co.ICEUDPMux != nil {
+			port := strconv.FormatInt(int64(co.ICEUDPMux.GetListenAddresses()[0].(*net.UDPAddr).Port), 10)
+
+			tmp, err := randUint32()
+			if err != nil {
+				return err
+			}
+			id := strconv.FormatInt(int64(tmp), 10)
+
+			newAttrs = append(newAttrs, sdp.Attribute{
+				Key:   "candidate",
+				Value: id + " 1 udp 2130706431 " + host + " " + port + " typ host",
+			})
+			newAttrs = append(newAttrs, sdp.Attribute{
+				Key:   "candidate",
+				Value: id + " 2 udp 2130706431 " + host + " " + port + " typ host",
+			})
+		}
+
+		if co.ICETCPMux != nil {
+			port := strconv.FormatInt(int64(co.ICETCPMux.Ln.Addr().(*net.TCPAddr).Port), 10)
+
+			tmp, err := randUint32()
+			if err != nil {
+				return err
+			}
+			id := strconv.FormatInt(int64(tmp), 10)
+
+			newAttrs = append(newAttrs, sdp.Attribute{
+				Key:   "candidate",
+				Value: id + " 1 tcp 1671430143 " + host + " " + port + " typ host tcptype passive",
+			})
+			newAttrs = append(newAttrs, sdp.Attribute{
+				Key:   "candidate",
+				Value: id + " 2 tcp 1671430143 " + host + " " + port + " typ host tcptype passive",
+			})
+		}
+
+		newAttrs = append(newAttrs, firstMedia.Attributes[i:]...)
+		firstMedia.Attributes = newAttrs
+	}
+
+	return nil
+}
+
+func (co *PeerConnection) filterLocalDescription(desc *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+	var psdp sdp.SessionDescription
+	psdp.Unmarshal([]byte(desc.SDP)) //nolint:errcheck
+
+	firstMedia := psdp.MediaDescriptions[0]
+
+	err := co.removeUnwantedCandidates(firstMedia)
+	if err != nil {
+		return nil, err
+	}
+
+	err = co.addAdditionalCandidates(firstMedia)
+	if err != nil {
+		return nil, err
+	}
+
+	out, _ := psdp.Marshal()
+	desc.SDP = string(out)
+
+	return desc, nil
+}
+
 // CreatePartialOffer creates a partial offer.
 func (co *PeerConnection) CreatePartialOffer() (*webrtc.SessionDescription, error) {
-	offer, err := co.wr.CreateOffer(nil)
+	tmp, err := co.wr.CreateOffer(nil)
+	if err != nil {
+		return nil, err
+	}
+	offer := &tmp
+
+	err = co.wr.SetLocalDescription(*offer)
 	if err != nil {
 		return nil, err
 	}
 
-	err = co.wr.SetLocalDescription(offer)
+	offer, err = co.filterLocalDescription(offer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &offer, nil
+	return offer, nil
 }
 
 // SetAnswer sets the answer.
@@ -423,15 +572,16 @@ func (co *PeerConnection) CreateFullAnswer(
 		return nil, err
 	}
 
-	answer, err := co.wr.CreateAnswer(nil)
+	tmp, err := co.wr.CreateAnswer(nil)
 	if err != nil {
 		if errors.Is(err, webrtc.ErrSenderWithNoCodecs) {
 			return nil, fmt.Errorf("codecs not supported by client")
 		}
 		return nil, err
 	}
+	answer := &tmp
 
-	err = co.wr.SetLocalDescription(answer)
+	err = co.wr.SetLocalDescription(*answer)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +591,14 @@ func (co *PeerConnection) CreateFullAnswer(
 		return nil, err
 	}
 
-	return co.wr.LocalDescription(), nil
+	answer = co.wr.LocalDescription()
+
+	answer, err = co.filterLocalDescription(answer)
+	if err != nil {
+		return nil, err
+	}
+
+	return answer, nil
 }
 
 func (co *PeerConnection) waitGatheringDone(ctx context.Context) error {
