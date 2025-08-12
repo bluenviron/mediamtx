@@ -1,7 +1,6 @@
 package webrtc
 
 import (
-	"context"
 	"net"
 	"regexp"
 	"sort"
@@ -131,7 +130,7 @@ func TestPeerConnectionCandidates(t *testing.T) {
 			require.NoError(t, err)
 			defer pc.Close()
 
-			answer, err := pc.CreateFullAnswer(context.Background(), &offer)
+			answer, err := pc.CreateFullAnswer(&offer)
 			require.NoError(t, err)
 
 			n := len(regexp.MustCompile("(?m)^a=candidate:.+? udp .+? typ host").FindAllString(answer.SDP, -1))
@@ -250,7 +249,7 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 				offer, err := clientPC.CreatePartialOffer()
 				require.NoError(t, err)
 
-				answer, err := serverPC.CreateFullAnswer(context.Background(), offer)
+				answer, err := serverPC.CreateFullAnswer(offer)
 				require.NoError(t, err)
 
 				require.Equal(t, 2, strings.Count(answer.SDP, "a=candidate:"))
@@ -271,7 +270,7 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 					}
 				}()
 
-				err = serverPC.WaitUntilConnected(context.Background())
+				err = serverPC.WaitUntilConnected()
 				require.NoError(t, err)
 			})
 		}
@@ -325,13 +324,13 @@ func TestPeerConnectionRead(t *testing.T) {
 	err = pub.SetLocalDescription(offer)
 	require.NoError(t, err)
 
-	answer, err := reader.CreateFullAnswer(context.Background(), &offer)
+	answer, err := reader.CreateFullAnswer(&offer)
 	require.NoError(t, err)
 
 	err = pub.SetRemoteDescription(*answer)
 	require.NoError(t, err)
 
-	err = reader.WaitUntilConnected(context.Background())
+	err = reader.WaitUntilConnected()
 	require.NoError(t, err)
 
 	go func() {
@@ -364,7 +363,7 @@ func TestPeerConnectionRead(t *testing.T) {
 		require.NoError(t, err2)
 	}()
 
-	err = reader.GatherIncomingTracks(context.Background())
+	err = reader.GatherIncomingTracks()
 	require.NoError(t, err)
 
 	codecs := gatherCodecs(reader.IncomingTracks())
@@ -470,16 +469,16 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 	offer, err := pc1.CreatePartialOffer()
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(context.Background(), offer)
+	answer, err := pc2.CreateFullAnswer(offer)
 	require.NoError(t, err)
 
 	err = pc1.SetAnswer(answer)
 	require.NoError(t, err)
 
-	err = pc1.WaitUntilConnected(context.Background())
+	err = pc1.WaitUntilConnected()
 	require.NoError(t, err)
 
-	err = pc2.WaitUntilConnected(context.Background())
+	err = pc2.WaitUntilConnected()
 	require.NoError(t, err)
 
 	for _, track := range pc2.OutgoingTracks {
@@ -497,7 +496,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = pc1.GatherIncomingTracks(context.Background())
+	err = pc1.GatherIncomingTracks()
 	require.NoError(t, err)
 
 	codecs := gatherCodecs(pc1.IncomingTracks())
@@ -564,7 +563,7 @@ func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	offer, err := pc1.CreatePartialOffer()
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(context.Background(), offer)
+	answer, err := pc2.CreateFullAnswer(offer)
 	require.NoError(t, err)
 
 	var s sdp.SessionDescription

@@ -175,7 +175,21 @@ func (s *session) runPublish() (int, error) {
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	defer pc.Close()
+
+	terminatorDone := make(chan struct{})
+	defer func() { <-terminatorDone }()
+
+	terminatorRun := make(chan struct{})
+	defer close(terminatorRun)
+
+	go func() {
+		defer close(terminatorDone)
+		select {
+		case <-s.ctx.Done():
+		case <-terminatorRun:
+		}
+		pc.Close()
+	}()
 
 	offer := whipOffer(s.req.offer)
 
@@ -195,7 +209,7 @@ func (s *session) runPublish() (int, error) {
 		return http.StatusNotAcceptable, err
 	}
 
-	answer, err := pc.CreateFullAnswer(s.ctx, offer)
+	answer, err := pc.CreateFullAnswer(offer)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -204,7 +218,7 @@ func (s *session) runPublish() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected(s.ctx)
+	err = pc.WaitUntilConnected()
 	if err != nil {
 		return 0, err
 	}
@@ -213,7 +227,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	err = pc.GatherIncomingTracks(s.ctx)
+	err = pc.GatherIncomingTracks()
 	if err != nil {
 		return 0, err
 	}
@@ -312,11 +326,25 @@ func (s *session) runRead() (int, error) {
 		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
 	}
-	defer pc.Close()
+
+	terminatorDone := make(chan struct{})
+	defer func() { <-terminatorDone }()
+
+	terminatorRun := make(chan struct{})
+	defer close(terminatorRun)
+
+	go func() {
+		defer close(terminatorDone)
+		select {
+		case <-s.ctx.Done():
+		case <-terminatorRun:
+		}
+		pc.Close()
+	}()
 
 	offer := whipOffer(s.req.offer)
 
-	answer, err := pc.CreateFullAnswer(s.ctx, offer)
+	answer, err := pc.CreateFullAnswer(offer)
 	if err != nil {
 		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
@@ -326,7 +354,7 @@ func (s *session) runRead() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected(s.ctx)
+	err = pc.WaitUntilConnected()
 	if err != nil {
 		stream.RemoveReader(s)
 		return 0, err
