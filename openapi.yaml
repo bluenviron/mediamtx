@@ -65,8 +65,10 @@ components:
           type: string
         writeQueueSize:
           type: integer
+          format: int64
         udpMaxPayloadSize:
           type: integer
+          format: int64
         runOnConnect:
           type: string
         runOnConnectRestart:
@@ -193,16 +195,20 @@ components:
           type: string
         multicastRTPPort:
           type: integer
+          format: int64
         multicastRTCPPort:
           type: integer
+          format: int64
         srtpAddress:
           type: string
         srtcpAddress:
           type: string
         multicastSRTPPort:
           type: integer
+          format: int64
         multicastSRTCPPort:
           type: integer
+          format: int64
         rtspServerKey:
           type: string
         rtspServerCert:
@@ -211,6 +217,9 @@ components:
           type: array
           items:
             type: string
+        rtspUDPReadBufferSize:
+          type: integer
+          format: int64
 
         # RTMP server
         rtmp:
@@ -249,6 +258,7 @@ components:
           type: string
         hlsSegmentCount:
           type: integer
+          format: int64
         hlsSegmentDuration:
           type: string
         hlsPartDuration:
@@ -336,6 +346,7 @@ components:
           type: string
         maxReaders:
           type: integer
+          format: int64
         srtReadPassphrase:
           type: string
         fallback:
@@ -374,6 +385,21 @@ components:
           type: string
         rtspRangeStart:
           type: string
+        rtspUDPReadBufferSize:
+          type: integer
+          format: int64
+
+        # MPEG-TS source
+        mpegtsUDPReadBufferSize:
+          type: integer
+          format: int64
+
+        # RTP source
+        rtpSDP:
+          type: string
+        rtpUDPReadBufferSize:
+          type: integer
+          format: int64
 
         # Redirect source
         sourceRedirect:
@@ -382,24 +408,31 @@ components:
         # Raspberry Pi Camera source
         rpiCameraCamID:
           type: integer
+          format: int64
         rpiCameraSecondary:
           type: boolean
         rpiCameraWidth:
           type: integer
+          format: int64
         rpiCameraHeight:
           type: integer
+          format: int64
         rpiCameraHFlip:
           type: boolean
         rpiCameraVFlip:
           type: boolean
         rpiCameraBrightness:
           type: number
+          format: float64
         rpiCameraContrast:
           type: number
+          format: float64
         rpiCameraSaturation:
           type: number
+          format: float64
         rpiCameraSharpness:
           type: number
+          format: float64
         rpiCameraExposure:
           type: string
         rpiCameraAWB:
@@ -410,16 +443,20 @@ components:
           maxItems: 2
           items:
             type: number
+            format: float64
         rpiCameraDenoise:
           type: string
         rpiCameraShutter:
           type: integer
+          format: int64
         rpiCameraMetering:
           type: string
         rpiCameraGain:
           type: number
+          format: float64
         rpiCameraEV:
           type: number
+          format: float64
         rpiCameraROI:
           type: string
         rpiCameraHDR:
@@ -430,6 +467,7 @@ components:
           type: string
         rpiCameraFPS:
           type: number
+          format: float64
         rpiCameraAfMode:
           type: string
         rpiCameraAfRange:
@@ -438,10 +476,12 @@ components:
           type: string
         rpiCameraLensPosition:
           type: number
+          format: float64
         rpiCameraAfWindow:
           type: string
         rpiCameraFlickerPeriod:
           type: integer
+          format: int64
         rpiCameraTextOverlayEnable:
           type: boolean
         rpiCameraTextOverlay:
@@ -450,14 +490,21 @@ components:
           type: string
         rpiCameraIDRPeriod:
           type: integer
+          format: int64
         rpiCameraBitrate:
           type: integer
-        rpiCameraProfile:
+          format: int64
+        rpiCameraHardwareH264Profile:
           type: string
-        rpiCameraLevel:
+        rpiCameraHardwareH264Level:
           type: string
-        rpiCameraJPEGQuality:
+        rpiCameraSoftwareH264Profile:
+          type: string
+        rpiCameraSoftwareH264Level:
+          type: string
+        rpiCameraMJPEGQuality:
           type: integer
+          format: int64
 
         # Hooks
         runOnInit:
@@ -496,8 +543,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -538,8 +587,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -561,7 +612,8 @@ components:
           - rtspsSession
           - srtConn
           - srtSource
-          - udpSource
+          - mpegtsSource
+          - rtpSource
           - webRTCSession
           - webRTCSource
         id:
@@ -600,8 +652,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -622,8 +676,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -663,8 +719,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -694,8 +752,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -756,8 +816,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -995,8 +1057,10 @@ components:
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
@@ -1030,14 +1094,34 @@ components:
         bytesSent:
           type: integer
           format: int64
+        rtpPacketsReceived:
+          type: integer
+          format: int64
+        rtpPacketsSent:
+          type: integer
+          format: int64
+        rtpPacketsLost:
+          type: integer
+          format: int64
+        rtpPacketsJitter:
+          type: number
+          format: float64
+        rtcpPacketsReceived:
+          type: integer
+          format: int64
+        rtcpPacketsSent:
+          type: integer
+          format: int64
 
     WebRTCSessionList:
       type: object
       properties:
         pageCount:
           type: integer
+          format: int64
         itemCount:
           type: integer
+          format: int64
         items:
           type: array
           items:
