@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -22,15 +23,6 @@ import (
 const (
 	webrtcStreamID = "mediamtx"
 )
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
 
 // * skip ConfigureRTCPReports
 // * add statsInterceptor
@@ -145,7 +137,7 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetInterfaceFilter(func(iface string) bool {
 		return co.IPsFromInterfaces && (len(co.IPsFromInterfacesList) == 0 ||
-			stringInSlice(iface, co.IPsFromInterfacesList))
+			slices.Contains(co.IPsFromInterfacesList, iface))
 	})
 
 	settingsEngine.SetAdditionalHosts(co.AdditionalHosts)

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -45,15 +46,6 @@ func firstThatExists(paths []string) string {
 		}
 	}
 	return ""
-}
-
-func contains(list []auth.VerifyMethod, item auth.VerifyMethod) bool {
-	for _, i := range list {
-		if i == item {
-			return true
-		}
-	}
-	return false
 }
 
 func copyStructFields(dest interface{}, source interface{}) {
@@ -632,7 +624,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l.Log(logger.Warn, "parameter 'authMethods' is deprecated and has been replaced with 'rtspAuthMethods'")
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
-	if contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
+	if slices.Contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
 		if conf.AuthMethod != AuthMethodInternal {
 			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 		}
