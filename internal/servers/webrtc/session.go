@@ -46,7 +46,7 @@ type session struct {
 	ipsFromInterfacesList []string
 	additionalHosts       []string
 	iceUDPMux             ice.UDPMux
-	iceTCPMux             ice.TCPMux
+	iceTCPMux             *webrtc.TCPMuxWrapper
 	handshakeTimeout      conf.Duration
 	trackGatherTimeout    conf.Duration
 	stunGatherTimeout     conf.Duration

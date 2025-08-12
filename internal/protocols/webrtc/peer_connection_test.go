@@ -3,6 +3,7 @@ package webrtc
 import (
 	"context"
 	"net"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -60,12 +61,59 @@ func TestPeerConnectionCloseImmediately(t *testing.T) {
 
 func TestPeerConnectionCandidates(t *testing.T) {
 	for _, ca := range []string{
+		"udp random",
 		"udp",
+		"tcp",
 		"stun",
 		"udp+stun",
+		"udp random+stun",
 	} {
 		t.Run(ca, func(t *testing.T) {
+			pc2, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+			require.NoError(t, err)
+			defer pc2.Close() //nolint:errcheck
+
+			track, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeVP8,
+					ClockRate: 90000,
+				},
+				"video",
+				"publisher",
+			)
+			require.NoError(t, err)
+
+			_, err = pc2.AddTrack(track)
+			require.NoError(t, err)
+
+			offer, err := pc2.CreateOffer(nil)
+			require.NoError(t, err)
+
+			var udpMux ice.UDPMux
+			if ca == "udp" || ca == "udp+stun" {
+				var ln net.PacketConn
+				ln, err = net.ListenPacket("udp", ":3454")
+				require.NoError(t, err)
+				defer ln.Close()
+				udpMux = webrtc.NewICEUDPMux(webrtcNilLogger, ln)
+			}
+
+			var tcpMux *TCPMuxWrapper
+			if ca == "tcp" {
+				var ln net.Listener
+				ln, err = net.Listen("tcp", ":3454")
+				require.NoError(t, err)
+				defer ln.Close()
+				tcpMux = &TCPMuxWrapper{
+					Mux: webrtc.NewICETCPMux(webrtcNilLogger, ln, 8),
+					Ln:  ln,
+				}
+			}
+
 			pc := &PeerConnection{
+				LocalRandomUDP:        (ca == "udp random" || ca == "udp random+stun"),
+				ICEUDPMux:             udpMux,
+				ICETCPMux:             tcpMux,
 				IPsFromInterfaces:     true,
 				IPsFromInterfacesList: []string{"lo"},
 				HandshakeTimeout:      conf.Duration(10 * time.Second),
@@ -73,33 +121,38 @@ func TestPeerConnectionCandidates(t *testing.T) {
 				Log:                   test.NilLogger,
 			}
 
-			if ca == "udp" || ca == "udp+stun" {
-				pc.LocalRandomUDP = true
-			}
-			if ca == "stun" || ca == "udp+stun" {
+			if ca == "stun" || ca == "udp+stun" || ca == "udp random+stun" {
 				pc.ICEServers = []webrtc.ICEServer{{
 					URLs: []string{"stun:stun.l.google.com:19302"},
 				}}
 			}
 
-			err := pc.Start()
+			err = pc.Start()
 			require.NoError(t, err)
 			defer pc.Close()
 
-			_, err = pc.CreatePartialOffer()
+			answer, err := pc.CreateFullAnswer(context.Background(), &offer)
 			require.NoError(t, err)
 
-			// convert partial offer into full offer
-			err = pc.waitGatheringDone(context.Background())
-			require.NoError(t, err)
-
-			offer := pc.wr.LocalDescription()
-
-			if ca == "udp" || ca == "udp+stun" {
-				require.Equal(t, 2, strings.Count(offer.SDP, "typ host"))
+			n := len(regexp.MustCompile("(?m)^a=candidate:.+? udp .+? typ host").FindAllString(answer.SDP, -1))
+			if ca == "udp" || ca == "udp random" || ca == "udp+stun" || ca == "udp random+stun" {
+				require.Equal(t, 2, n)
+			} else {
+				require.Equal(t, 0, n)
 			}
-			if ca == "stun" || ca == "udp+stun" {
-				require.Equal(t, 2, strings.Count(offer.SDP, "typ srflx"))
+
+			n = len(regexp.MustCompile("(?m)^a=candidate:.+? tcp .+? typ host tcptype passive").FindAllString(answer.SDP, -1))
+			if ca == "tcp" {
+				require.Equal(t, 2, n)
+			} else {
+				require.Equal(t, 0, n)
+			}
+
+			n = len(regexp.MustCompile("(?m)^a=candidate:.+? udp .+? typ srflx").FindAllString(answer.SDP, -1))
+			if ca == "stun" || ca == "udp+stun" || ca == "udp random+stun" {
+				require.Equal(t, 2, n)
+			} else {
+				require.Equal(t, 0, n)
 			}
 		})
 	}
@@ -117,7 +170,7 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 			"additional hosts",
 		} {
 			// LocalRandomUDP doesn't work with AdditionalHosts
-			// we do not care since currently we are not using them together
+			// we don't care since we are not currently using them together
 			if mode == "active udp" && ip == "additional hosts" {
 				continue
 			}
@@ -145,7 +198,7 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 				defer clientPC.Close()
 
 				var udpMux ice.UDPMux
-				var tcpMux ice.TCPMux
+				var tcpMux *TCPMuxWrapper
 
 				switch mode {
 				case "passive udp":
@@ -160,7 +213,10 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 					ln, err = net.Listen("tcp4", ":4458")
 					require.NoError(t, err)
 					defer ln.Close()
-					tcpMux = webrtc.NewICETCPMux(webrtcNilLogger, ln, 8)
+					tcpMux = &TCPMuxWrapper{
+						Mux: webrtc.NewICETCPMux(webrtcNilLogger, ln, 8),
+						Ln:  ln,
+					}
 				}
 
 				serverPC := &PeerConnection{
@@ -184,21 +240,17 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 					serverPC.IPsFromInterfaces = true
 					serverPC.IPsFromInterfacesList = []string{"lo"}
 				} else {
-					serverPC.AdditionalHosts = []string{"127.0.0.2"}
+					serverPC.AdditionalHosts = []string{"127.0.0.1"}
 				}
 
 				err = serverPC.Start()
 				require.NoError(t, err)
 				defer serverPC.Close()
 
-				_, err = clientPC.CreatePartialOffer()
+				offer, err := clientPC.CreatePartialOffer()
 				require.NoError(t, err)
 
-				// convert partial offer into full offer
-				err = clientPC.waitGatheringDone(context.Background())
-				require.NoError(t, err)
-
-				answer, err := serverPC.CreateFullAnswer(context.Background(), clientPC.wr.LocalDescription())
+				answer, err := serverPC.CreateFullAnswer(context.Background(), offer)
 				require.NoError(t, err)
 
 				require.Equal(t, 2, strings.Count(answer.SDP, "a=candidate:"))
@@ -206,43 +258,28 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 				err = clientPC.SetAnswer(answer)
 				require.NoError(t, err)
 
+				go func() {
+					for {
+						select {
+						case cd := <-clientPC.NewLocalCandidate():
+							err2 := serverPC.AddRemoteCandidate(cd)
+							require.NoError(t, err2)
+
+						case <-clientPC.Failed():
+							return
+						}
+					}
+				}()
+
 				err = serverPC.WaitUntilConnected(context.Background())
 				require.NoError(t, err)
-
-				switch mode {
-				case "passive udp":
-					if ip == "from interfaces" {
-						require.Regexp(t, "^host/udp/127\\.0\\.0\\.1/4458$", serverPC.LocalCandidate())
-					} else {
-						require.Regexp(t, "^host/udp/127\\.0\\.0\\.2/4458$", serverPC.LocalCandidate())
-					}
-
-				case "passive tcp":
-					if ip == "from interfaces" {
-						require.Regexp(t, "^host/tcp/127\\.0\\.0\\.1/4458$", serverPC.LocalCandidate())
-					} else {
-						require.Regexp(t, "^host/tcp/127\\.0\\.0\\.2/4458$", serverPC.LocalCandidate())
-					}
-
-				case "active udp":
-					require.Regexp(t, "^host/udp/127\\.0\\.0\\.1", serverPC.LocalCandidate())
-
-				case "active udp + stun":
-					require.Regexp(t, "^srflx/udp/", serverPC.LocalCandidate())
-				}
 			})
 		}
 	}
 }
 
 func TestPeerConnectionRead(t *testing.T) {
-	settingsEngine := webrtc.SettingEngine{}
-	settingsEngine.SetLocalRandomUDP(true)
-
-	api := webrtc.NewAPI(
-		webrtc.WithSettingEngine(settingsEngine))
-
-	pub, err := api.NewPeerConnection(webrtc.Configuration{})
+	pub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	defer pub.Close() //nolint:errcheck
 
