@@ -148,10 +148,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, fmt.Errorf("received type 2 chunk but expected type 3 chunk")
 		}
 
-		chunkBodyLen := rc.curBodyLen
-		if chunkBodyLen > rc.mr.chunkSize {
-			chunkBodyLen = rc.mr.chunkSize
-		}
+		chunkBodyLen := min(rc.curBodyLen, rc.mr.chunkSize)
 
 		err := rc.readChunk(&rc.mr.c2, chunkBodyLen, false)
 		if err != nil {
@@ -178,10 +175,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 
 	default: // 3
 		if rc.curBodyRecv != 0 {
-			chunkBodyLen := rc.curBodyLen - rc.curBodyRecv
-			if chunkBodyLen > rc.mr.chunkSize {
-				chunkBodyLen = rc.mr.chunkSize
-			}
+			chunkBodyLen := min(rc.curBodyLen-rc.curBodyRecv, rc.mr.chunkSize)
 
 			err := rc.readChunk(&rc.mr.c3, chunkBodyLen, rc.hasExtendedTimestamp)
 			if err != nil {
@@ -208,10 +202,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, fmt.Errorf("received type 3 chunk without previous chunk")
 		}
 
-		chunkBodyLen := rc.curBodyLen
-		if chunkBodyLen > rc.mr.chunkSize {
-			chunkBodyLen = rc.mr.chunkSize
-		}
+		chunkBodyLen := min(rc.curBodyLen, rc.mr.chunkSize)
 
 		err := rc.readChunk(&rc.mr.c3, chunkBodyLen, rc.hasExtendedTimestamp)
 		if err != nil {

@@ -40,10 +40,7 @@ func (c *Chunk1) Read(r io.Reader, maxBodyLen uint32, _ bool) error {
 		c.TimestampDelta = uint32(header[0])<<24 | uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3])
 	}
 
-	chunkBodyLen := (c.BodyLen)
-	if chunkBodyLen > maxBodyLen {
-		chunkBodyLen = maxBodyLen
-	}
+	chunkBodyLen := min((c.BodyLen), maxBodyLen)
 
 	c.Body = make([]byte, chunkBodyLen)
 	_, err = io.ReadFull(r, c.Body)

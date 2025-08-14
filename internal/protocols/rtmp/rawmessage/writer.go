@@ -63,10 +63,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 	}
 
 	for {
-		chunkBodyLen := bodyLen - pos
-		if chunkBodyLen > wc.mw.chunkSize {
-			chunkBodyLen = wc.mw.chunkSize
-		}
+		chunkBodyLen := min(bodyLen-pos, wc.mw.chunkSize)
 
 		if firstChunk {
 			firstChunk = false
