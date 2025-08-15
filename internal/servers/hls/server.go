@@ -85,6 +85,7 @@ type Server struct {
 	Directory       string
 	ReadTimeout     conf.Duration
 	MuxerCloseAfter conf.Duration
+	BaseURL         string
 	Metrics         serverMetrics
 	PathManager     serverPathManager
 	Parent          serverParent
@@ -259,6 +260,7 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 		partDuration:    s.PartDuration,
 		segmentMaxSize:  s.SegmentMaxSize,
 		directory:       s.Directory,
+		baseURL:         s.BaseURL,
 		wg:              &s.wg,
 		pathName:        pathName,
 		pathManager:     s.PathManager,

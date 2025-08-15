@@ -539,6 +539,7 @@ func (p *Core) createResources(initial bool) error {
 			Directory:       p.conf.HLSDirectory,
 			ReadTimeout:     p.conf.ReadTimeout,
 			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
+			BaseURL:         p.conf.HLSBaseURL,
 			Metrics:         p.metrics,
 			PathManager:     p.pathManager,
 			Parent:          p,
@@ -817,6 +818,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
+		newConf.HLSBaseURL != p.conf.HLSBaseURL ||
 		closePathManager ||
 		closeMetrics ||
 		closeLogger

@@ -253,6 +253,7 @@ type Conf struct {
 	HLSEncryption      bool       `json:"hlsEncryption"`
 	HLSServerKey       string     `json:"hlsServerKey"`
 	HLSServerCert      string     `json:"hlsServerCert"`
+	HLSBaseURL         string     `json:"hlsBaseURL"`
 	HLSAllowOrigin     string     `json:"hlsAllowOrigin"`
 	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
 	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
@@ -400,6 +401,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
+	conf.HLSBaseURL = ""
 
 	// WebRTC server
 	conf.WebRTC = true
