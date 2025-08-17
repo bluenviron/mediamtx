@@ -1,0 +1,41 @@
+---
+alwaysApply: false
+---
+## Environment
+
+- deepstream_python_apps 1.1.8
+- DeepStream SDK 6.3
+- Ubuntu 20.04
+- Python 3.8.10
+- Unable to use X11 for display (Only CLI is available)
+
+```
+Software part of jetson-stats 4.3.1 - (c) 2024, Raffaello Bonghi
+Jetpack missing!
+ - Model: NVIDIA Jetson Xavier NX Developer Kit
+ - L4T: 35.6.2
+NV Power Mode[2]: MODE_15W_6CORE
+Serial Number: [XXX Show with: jetson_release -s XXX]
+Hardware:
+ - P-Number: p3668-0001
+ - Module: NVIDIA Jetson Xavier NX
+Platform:
+ - Distribution: Ubuntu 20.04 focal
+ - Release: 5.10.216-tegra
+jtop:
+ - Version: 4.3.1
+ - Service: Active
+Libraries:
+ - CUDA: 11.4.315
+ - cuDNN: 8.6.0.166
+ - TensorRT: 8.5.2.2
+ - VPI: 2.4.8
+ - Vulkan: 1.3.204
+ - OpenCV: 4.12.0 - with CUDA: YES
+ ```
+
+## Rules
+
+- Do not create or update test code or script.
+- Do not create or update README.md file.
+- Except those things above, you can create or update any files.

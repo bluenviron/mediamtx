@@ -27,6 +27,28 @@ until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q' 2>/
 done
 echo "PostgreSQL connection established successfully."
 
+# 데이터베이스 정리 함수 (최신 10개 row만 유지)
+cleanup_database() {
+    echo "Cleaning up database - keeping only latest 10 rows..."
+    
+    # 최신 10개 row의 ID를 제외하고 나머지 삭제
+    local cleanup_sql="
+    DELETE FROM gps_data 
+    WHERE id NOT IN (
+        SELECT id FROM gps_data 
+        ORDER BY id DESC 
+        LIMIT 10
+    );"
+    
+    psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$cleanup_sql" -q 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "Database cleanup completed successfully."
+    else
+        echo "Error during database cleanup."
+    fi
+}
+
 # NMEA GPRMC 데이터 파싱 함수
 parse_gprmc() {
     local nmea_sentence="$1"
@@ -94,6 +116,7 @@ echo "GPS Simulator starting - Total $TOTAL_LINES lines"
 echo "Original file: $GPS_ORIGINAL_FILE"
 echo "Database: PostgreSQL ($POSTGRES_HOST:$POSTGRES_DB)"
 echo "Updating GPS data every 1 second..."
+echo "Database cleanup every 1000 insertions (keeping latest 10 rows)"
 echo "Press Ctrl+C to stop."
 
 # 현재 라인 번호 (1부터 시작)
@@ -115,6 +138,14 @@ while true; do
     if [ -n "$gps_data" ]; then
         if parse_gprmc "$gps_data"; then
             success_count=$((success_count + 1))
+            
+            # 1000번 insert 후 데이터베이스 정리
+            if [ $((success_count % 1000)) -eq 0 ]; then
+                echo "=== 1000 insertions completed. Cleaning up database... ==="
+                cleanup_database
+                echo "=== Database cleanup finished. Continuing... ==="
+            fi
+            
             # 100번에 한 번만 로그 출력
             if [ $((current_line % 100)) -eq 0 ]; then
                 echo "[$current_line/$TOTAL_LINES] Inserted: $gps_data (Success: $success_count, Errors: $error_count)"

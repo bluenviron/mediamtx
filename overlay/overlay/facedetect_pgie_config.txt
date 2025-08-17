@@ -1,0 +1,57 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+
+[property]
+gpu-id=0
+net-scale-factor=0.0039215697906911373
+tlt-model-key=nvidia_tlt
+tlt-encoded-model=./models/facedetect/model.etlt
+labelfile-path=facedetect_labels.txt
+int8-calib-file=./models/facedetect/int8_calibration.txt
+# 동적 배치 크기를 위해 엔진 파일명 변경 및 자동 생성 허용
+# model-engine-file=./models/facedetect/facedetect.etlt_b1_gpu0_fp16.engine
+model-engine-file=./models/facedetect/facedetect_dynamic_batch.engine
+infer-dims=3;416;736
+uff-input-order=0
+uff-input-blob-name=input_1
+batch-size=2
+process-mode=1
+model-color-format=0
+## 0=FP32, 1=INT8, 2=FP16 mode
+network-mode=2
+num-detected-classes=1
+interval=0
+gie-unique-id=1
+output-blob-names=output_bbox/BiasAdd;output_cov/Sigmoid
+# 🚀 TensorRT 최적화 설정 - explicit batch mode 사용
+force-implicit-batch-dim=0
+
+[class-attrs-all]
+pre-cluster-threshold=0.2
+group-threshold=1
+## Set eps=0.7 and minBoxes for cluster-mode=1(DBSCAN)
+eps=0.2
+#minBoxes=3
+
+[application]
+enable-perf-measurement=1
+perf-measurement-interval-sec=5

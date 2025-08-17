@@ -1,0 +1,36 @@
+.TH GPU-BURN "8" "January 2024" "gpu-burn  " "System Administration Utilities"
+.SH NAME
+gpu-burn \- Multi-GPU CUDA stress test
+.SH SYNOPSIS
+.B gpu-burn
+[\fI\,OPTIONS\/\fR] [\fI\,TIME\/\fR]
+.SH DESCRIPTION
+GPU Burn
+.PP
+\fB\-m\fR X    Use X MB of memory.
+.br
+\fB\-m\fR N%   Use N% of the available GPU memory.  Default is 90%
+.br
+\fB\-d\fR      Use doubles
+.br
+\fB\-tc\fR     Try to use Tensor cores
+.br
+\fB\-l\fR      Lists all GPUs in the system
+.br
+\fB\-i\fR N    Execute only on GPU N
+.br
+\fB\-c\fR FILE Use FILE as compare kernel.  Default is compare.ptx
+.br
+\fB\-stts\fR T Set timeout threshold to T seconds for using SIGTERM to abort child processes before using SIGKILL.  Default is 30
+.br
+\fB\-h\fR      Show this help message
+.SH EXAMPLES
+.IP
+gpu\-burn \-d 3600 # burns all GPUs with doubles for an hour
+.br
+gpu\-burn \-m 50% # burns using 50% of the available GPU memory
+.br
+gpu\-burn \-l # list GPUs
+.br
+gpu\-burn \-i 2 # burns only GPU of index 2
+.br

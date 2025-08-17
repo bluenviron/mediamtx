@@ -1,0 +1,18 @@
+# cam121:
+#   source: rtsp://admin:q1w2e3r4@192.168.1.121/streaming/channels/101
+#   output: udp://238.0.0.1:10121
+
+# cam122:
+#   source: rtsp://admin:q1w2e3r4@192.168.1.122/streaming/channels/101
+#   output: udp://238.0.0.1:10122
+
+#! 존재하지 않음
+# cam123:
+#   source: rtsp://admin:nemo7065!@192.168.1.123/ISAPI/streaming/channels/101
+
+# cam124:
+#   source: rtsp://admin:nemo7065!@192.168.1.124/ISAPI/streaming/channels/101
+
+cam102:
+  source: rtsp://root:root@192.168.1.102/cam0_0
+  output: udp://238.0.0.1:10102
