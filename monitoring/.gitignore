@@ -1,0 +1,7 @@
+.idea
+
+### macOS template
+*.DS_Store
+.AppleDouble
+.LSOverride
+._*

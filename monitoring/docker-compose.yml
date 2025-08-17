@@ -1,0 +1,31 @@
+services:
+  jetson-stats-collector:
+    build: .
+    container_name: jetson-stats-prometheus-collector
+    restart: unless-stopped
+    ports:
+      - "16379:8000"
+    volumes:
+      # jtop 소켓 마운트 (필수)
+      - /run/jtop.sock:/run/jtop.sock
+    # jtop 그룹 추가 (필요시 - 호스트에서 getent group jtop | awk -F: '{print $3}' 로 GID 확인)
+    # group_add:
+    #   - "${JTOP_GID:-1000}"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=utf-8
+    healthcheck:
+      test: ["CMD", "python3", "-c", "from jtop import jtop; j=jtop(); j.start(); print('OK' if j.ok() else 'FAIL'); j.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on: [] 
+    # 로그 드라이버 설정 (즉시 출력)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        mode: "non-blocking"
+        max-buffer-size: "4m" 

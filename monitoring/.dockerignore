@@ -1,0 +1,7 @@
+.git
+.gitignore
+*.md
+*.png
+*.service
+*.txt
+!requirements.txt 
