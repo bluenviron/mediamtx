@@ -187,6 +187,7 @@ const loadAttributesFromQuery = () => {
 	video.muted = parseBoolString(params.get('muted'), true);
 	video.autoplay = parseBoolString(params.get('autoplay'), true);
 	video.playsInline = parseBoolString(params.get('playsinline'), true);
+	video.disablepictureinpicture = parseBoolString(params.get('disablepictureinpicture'), false);
 	defaultControls = video.controls;
 };
 
