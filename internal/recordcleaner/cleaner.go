@@ -120,6 +120,7 @@ func (c *Cleaner) processPath(now time.Time, pathName string) error {
 
 func (c *Cleaner) deleteExpiredSegments(now time.Time, pathName string, pathConf *conf.Path) error {
 	end := now.Add(-time.Duration(pathConf.RecordDeleteAfter))
+
 	segments, err := recordstore.FindSegments(pathConf, pathName, nil, &end)
 	if err != nil {
 		return err
@@ -128,6 +129,32 @@ func (c *Cleaner) deleteExpiredSegments(now time.Time, pathName string, pathConf
 	for _, seg := range segments {
 		c.Log(logger.Debug, "removing %s", seg.Fpath)
 		os.Remove(seg.Fpath)
+	}
+
+	recordPath := strings.ReplaceAll(pathConf.RecordPath, "%path", pathName)
+	commonPath := recordstore.CommonPath(recordPath)
+
+	err = filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if !info.IsDir() {
+			fileInfo, infoErr := info.Info()
+			if infoErr != nil {
+				return infoErr
+			}
+
+			if fileInfo.ModTime().Before(end) {
+				c.Log(logger.Debug, "removing expired file %s", fpath)
+				os.Remove(fpath)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil
