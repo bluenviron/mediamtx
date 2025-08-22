@@ -93,7 +93,6 @@ func (s *Server) Initialize() error {
 
 	h := s.Handler
 	h = &handlerFilterRequests{h}
-	h = &handlerFilterRequests{h}
 	h = &handlerServerHeader{h}
 	h = &handlerLogger{h, s.Parent}
 	h = &handlerExitOnPanic{h}
