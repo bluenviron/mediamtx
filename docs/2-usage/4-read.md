@@ -17,6 +17,7 @@ We provide instructions for reading with the following software:
 - [FFmpeg](#ffmpeg)
 - [GStreamer](#gstreamer)
 - [VLC](#vlc)
+- [OBS Studio](#obs-studio)
 - [Unity](#unity)
 - [Web browsers](#web-browsers)
 
@@ -275,6 +276,18 @@ snap install vlc
 #### Encrypted streams compatibility
 
 At the moment VLC doesn't support reading encrypted RTSP streams. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a local _MediaMTX_ instance to decrypt streams before reading them.
+
+### OBS Studio
+
+OBS Studio can read streams from the server by using the [RTSP protocol](#rtsp).
+
+Open OBS, click on _Add Source_, _Media source_, _OK_, uncheck _Local file_, insert in _Input_:
+
+```
+rtsp://localhost:8554/stream
+```
+
+Then _Ok_.
 
 ### Unity
 
