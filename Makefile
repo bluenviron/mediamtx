@@ -14,8 +14,7 @@ help:
 	@echo "  test-32          run tests on a 32-bit system"
 	@echo "  test-e2e         run end-to-end tests"
 	@echo "  lint             run linters"
-	@echo "  apidocs          generate api docs HTML"
-	@echo "  binaries         build binaries for all platforms"
+	@echo "  binaries         build binaries for all supported platforms"
 	@echo "  dockerhub        build and push images to Docker Hub"
 	@echo ""
 
