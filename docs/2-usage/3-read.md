@@ -33,12 +33,6 @@ srt://localhost:8890?streamid=read:mystream
 
 Replace `mystream` with the path name.
 
-If credentials are enabled, append username and password to `streamid`:
-
-```
-srt://localhost:8890?streamid=read:mystream:user:pass
-```
-
 If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
 
 Known clients that can read with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
@@ -58,8 +52,6 @@ http://localhost:8889/mystream/whep
 ```
 
 Be aware that not all browsers can read any codec, check [Supported browsers](webrtc-specific-features#supported-browsers).
-
-Regarding authentication, read [Authenticating with WHIP/WHEP](webrtc-specific-features#authenticating-with-whipwhep).
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
 
@@ -89,12 +81,6 @@ RTMP is a protocol that allows to read and publish streams, but is less versatil
 
 ```
 rtmp://localhost/mystream
-```
-
-In case authentication is enabled, credentials can be passed to the server by using the `user` and `pass` query parameters:
-
-```
-rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
 
 Known clients that can read with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
@@ -439,7 +425,7 @@ This web page can be embedded into another web page by using an iframe:
 
 For more advanced setups, you can create and serve a custom web page by starting from the [source code of the WebRTC read page](internal/servers/webrtc/read_index.html). In particular, there's a ready-to-use, standalone JavaScript class for reading streams with WebRTC, available in [reader.js](internal/servers/webrtc/reader.js).
 
-Web browsers can also read a stream with the [HLS protocol](#hls). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like CloudFront or Cloudflare), and this allows to handle readers in the order of millions. Visit the web page:
+Web browsers can also read a stream with the [HLS protocol](#hls). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like Cloudflare or CloudFront), and this allows to handle an unlimited amount of readers. Visit the web page:
 
 ```
 http://localhost:8888/mystream
