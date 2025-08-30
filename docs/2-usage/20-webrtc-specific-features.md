@@ -26,30 +26,6 @@ ffmpeg -i rtsp://original-source \
 -f rtsp rtsp://localhost:8554/mystream
 ```
 
-## Authenticating with WHIP/WHEP
-
-When using WHIP or WHEP to establish a WebRTC connection, there are several ways to provide credentials.
-
-- If internal authentication or HTTP-based authentication is in use, username and password can be passed through the `Authorization: Basic` HTTP header:
-
-  ```
-  Authorization: Basic base64(user:pass)
-  ```
-
-  Where `base64(user:pass)` is the base64 encoding of "user:pass".
-
-  When the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio), credentials can be passed through the `Authorization: Bearer` header, where value is the concatenation of username and password, separated by a colon:
-
-  ```
-  Authorization: Bearer username:password
-  ```
-
-- If JWT-based authentication is in use, the JWT can be passed through the `Authorization: Bearer` header:
-
-  ```
-  Authorization: Bearer MY_JWT
-  ```
-
 ## Solving WebRTC connectivity issues
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.

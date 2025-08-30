@@ -45,12 +45,6 @@ srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 
 Replace `mystream` with any name you want. The resulting stream is available in path `/mystream`.
 
-If credentials are enabled, append username and password to `streamid`:
-
-```
-srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
-```
-
 If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
@@ -86,9 +80,7 @@ http://localhost:8889/mystream/whip
 
 Be aware that not all browsers can read any codec, check [Supported browsers](webrtc-specific-features#supported-browsers).
 
-Regarding authentication, read [Authenticating with WHIP/WHEP](webrtc-specific-features#authenticating-with-whipwhep).
-
-Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
+Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
 
 Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Unity](#unity) and [Web browsers](#web-browsers).
 
@@ -148,12 +140,6 @@ rtmp://localhost/mystream
 ```
 
 The resulting stream is available in path `/mystream`.
-
-In case authentication is enabled, credentials can be passed to the server by using the `user` and `pass` query parameters:
-
-```
-rtmp://localhost/mystream?user=myuser&pass=mypass
-```
 
 Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
@@ -539,12 +525,6 @@ OBS Studio can publish to the server in several ways (SRT client, RTMP client, W
 - Server: `rtmp://localhost/mystream`
 - Stream key: (empty)
 
-If credentials are in use, use the following parameters:
-
-- Service: `Custom...`
-- Server: `rtmp://localhost/mystream?user=myuser&pass=mypass`
-- Stream key: (empty)
-
 Save the configuration and click `Start streaming`.
 
 If you want to generate a stream that can be read with WebRTC, open `Settings -> Output -> Recording` and use the following parameters:
@@ -564,7 +544,6 @@ Recent versions of OBS Studio can also publish to the server with the [WebRTC / 
 
 - Service: `WHIP`
 - Server: `http://localhost:8889/mystream/whip`
-- Bearer Token: `myuser:mypass` (when internal authentication is enabled) or `JWT` (when JWT-based authentication is enabled)
 
 Save the configuration and click `Start streaming`.
 
