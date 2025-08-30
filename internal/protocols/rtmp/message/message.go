@@ -10,6 +10,26 @@ const (
 	ControlChunkStreamID = 2
 )
 
+// Common non-standard control chunk stream IDs used by various cameras
+var commonControlChunkStreamIDs = []byte{
+	2, // Standard RTMP
+	3, // Some cameras use this
+	4, // PTZ cameras and others
+	5, // Some IP cameras
+	6, // Alternative implementation
+}
+
+// isControlChunkStreamID checks if the given chunk stream ID is acceptable for control messages
+// This provides compatibility with various camera implementations that don't strictly follow RTMP spec
+func isControlChunkStreamID(chunkStreamID byte) bool {
+	for _, id := range commonControlChunkStreamIDs {
+		if chunkStreamID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // Type is a message type.
 type Type byte
 
