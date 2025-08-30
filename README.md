@@ -18,18 +18,27 @@
 
 _MediaMTX_ is a ready-to-use and zero-dependency real-time media server and media proxy that allows to publish, read, proxy, record and playback video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other.
 
-**Features**
+<div align="center">
 
-* Publish live streams to the server
-* Read live streams from the server
+  |[Installation](https://mediamtx.org/docs/kickoff/installation)|[Documentation](https://mediamtx.org/docs/kickoff/introduction)|
+  |-|-|
+
+</div>
+
+<h3>Features</h3>
+
+* [Publish](https://mediamtx.org/docs/usage/publish) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP
+* [Read](https://mediamtx.org/docs/usage/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS
 * Streams are automatically converted from a protocol to another
 * Serve several streams at once in separate paths
-* Record streams to disk
-* Playback recorded streams
-* Authenticate users
-* Redirect readers to other RTSP servers (load balancing)
-* Control the server through the Control API
+* [Record](https://mediamtx.org/docs/usage/record) streams to disk
+* [Playback](https://mediamtx.org/docs/usage/playback) recorded streams
+* [Authenticate](https://mediamtx.org/docs/usage/authentication) users
+* [Forward](https://mediamtx.org/docs/usage/forward) streams to other servers
+* [Proxy](https://mediamtx.org/docs/usage/proxy) requests to other servers
+* [Control](https://mediamtx.org/docs/usage/control-api) the server through the Control API
 * Reload the configuration without disconnecting existing clients (hot reloading)
-* Read Prometheus-compatible metrics
-* Run hooks (external commands) when clients connect, disconnect, read or publish streams
+* [Monitor](https://mediamtx.org/docs/usage/metrics) the server through Prometheus-compatible metrics
+* [Run hooks](https://mediamtx.org/docs/usage/hooks) (external commands) when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
+* ...and many [others](https://mediamtx.org/docs/kickoff/introduction).
