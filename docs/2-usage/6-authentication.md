@@ -166,6 +166,8 @@ These are the recommended methods for each client:
 | GStreamer    | RTMP     | Query parameter       |                                                                                                                                                                    |
 | any          | SRT      | unsupported           | SRT truncates passwords and query parameters to 512 characters, so it's impossible to use SRT+JWT. See [#3430](https://github.com/bluenviron/mediamtx/issues/3430) |
 
+### Keycloak setup
+
 Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs:
 
 1. Start Keycloak:
