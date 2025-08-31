@@ -1,3 +1,3 @@
-# Security Policy
+# Security
 
-Vulnerabilities can be reported privately by using the [Security Advisory](https://github.com/bluenviron/mediamtx/security/advisories/new) feature of GitHub.
+Check the [Security page](https://mediamtx.org/docs/other/security) on the website.
