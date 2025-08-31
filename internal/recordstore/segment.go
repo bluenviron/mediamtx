@@ -148,7 +148,7 @@ func FindSegments(
 			var pa Path
 			ok := pa.Decode(recordPath, fpath)
 
-			// gather all segments that starts before the end of the playback
+			// gather all segments that start before the end of the playback
 			if ok && (end == nil || !end.Before(pa.Start)) {
 				segments = append(segments, &Segment{
 					Fpath: fpath,

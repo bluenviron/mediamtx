@@ -2,7 +2,7 @@
 
 ## Overview
 
-MediaMTX can be configured to ask clients for credentials, either in the form of a username/password or a string-based token. These credentials are then validated through a chosen method.
+MediaMTX can be configured to ask clients for credentials, either in the form of username/password or a string-based token. These credentials are then validated through a chosen method.
 
 ## Credential validation
 
@@ -38,7 +38,7 @@ authInternalUsers:
         path:
 ```
 
-Only clients that provide username and passwords will be able to perform a certain action.
+Only clients that provide a valid username and password will be able to perform a certain action.
 
 If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported. To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
