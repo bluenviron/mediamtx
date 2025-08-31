@@ -2,6 +2,8 @@
 
 The server allows to specify commands that are executed when a certain event happens, allowing the propagation of events to external software.
 
+## runOnConnect
+
 `runOnConnect` allows to run a command when a client connects to the server:
 
 ```yml
@@ -16,6 +18,8 @@ runOnConnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn
 runOnConnectRestart: no
 ```
 
+## runOnDisconnect
+
 `runOnDisconnect` allows to run a command when a client disconnects from the server:
 
 ```yml
@@ -23,6 +27,8 @@ runOnConnectRestart: no
 # Environment variables are the same of runOnConnect.
 runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn_id=$MTX_CONN_ID
 ```
+
+## runOnInit
 
 `runOnInit` allows to run a command when a path is initialized. This can be used to publish a stream when the server is launched:
 
@@ -40,6 +46,8 @@ paths:
     # Restart the command if it exits.
     runOnInitRestart: no
 ```
+
+## runOnDemand
 
 `runOnDemand` allows to run a command when a path is requested by a reader. This can be used to publish a stream on demand:
 
@@ -59,6 +67,8 @@ pathDefaults:
   runOnDemandRestart: no
 ```
 
+## runOnUnDemand
+
 `runOnUnDemand` allows to run a command when there are no readers anymore:
 
 ```yml
@@ -67,6 +77,8 @@ pathDefaults:
   # Environment variables are the same of runOnDemand.
   runOnUnDemand:
 ```
+
+## runOnReady
 
 `runOnReady` allows to run a command when a stream is ready to be read:
 
@@ -88,6 +100,8 @@ pathDefaults:
   runOnReadyRestart: no
 ```
 
+## runOnNotReady
+
 `runOnNotReady` allows to run a command when a stream is not available anymore:
 
 ```yml
@@ -96,6 +110,8 @@ pathDefaults:
   # Environment variables are the same of runOnReady.
   runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
+
+## runOnRead
 
 `runOnRead` allows to run a command when a client starts reading:
 
@@ -116,6 +132,8 @@ pathDefaults:
   runOnReadRestart: no
 ```
 
+## runOnUnread
+
 `runOnUnread` allows to run a command when a client stops reading:
 
 ```yml
@@ -124,6 +142,8 @@ pathDefaults:
   # Environment variables are the same of runOnRead.
   runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
 ```
+
+## runOnRecordSegmentCreate
 
 `runOnRecordSegmentCreate` allows to run a command when a recording segment is created:
 
@@ -138,6 +158,8 @@ pathDefaults:
   #   a regular expression.
   runOnRecordSegmentCreate: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
+
+## runOnRecordSegmentComplete
 
 `runOnRecordSegmentComplete` allows to run a command when a recording segment is complete:
 
