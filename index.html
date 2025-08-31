@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Site Moved</title>
+    <meta http-equiv="refresh" content="0; URL=https://mediamtx.org">
+    <link rel="canonical" href="https://mediamtx.org">
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            max-width: 500px;
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+        a {
+            color: #ffd700;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Site Moved</h1>
+        <p>This site has permanently moved to <a href="https://mediamtx.org">mediamtx.org</a></p>
+        <p>You will be redirected automatically in a moment...</p>
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // Immediate redirect
+        window.location.replace("https://mediamtx.org");
+
+        // Fallback redirect after 3 seconds if the immediate redirect fails
+        setTimeout(function() {
+            window.location.href = "https://mediamtx.org";
+        }, 3000);
+    </script>
+</body>
+</html>
