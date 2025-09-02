@@ -10,9 +10,9 @@ Main features:
 * [Read](/docs/usage/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS
 * Streams are automatically converted from a protocol to another
 * Serve several streams at once in separate paths
-* [Record](/docs/usage/record) streams to disk
+* [Record](/docs/usage/record) streams to disk in fMP4 or MPEG-TS format
 * [Playback](/docs/usage/playback) recorded streams
-* [Authenticate](/docs/usage/authentication) users
+* [Authenticate](/docs/usage/authentication) users with internal, HTTP or JWT authentication
 * [Forward](/docs/usage/forward) streams to other servers
 * [Proxy](/docs/usage/proxy) requests to other servers
 * [Control](/docs/usage/control-api) the server through the Control API

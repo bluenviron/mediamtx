@@ -31,9 +31,9 @@ _MediaMTX_ is a ready-to-use and zero-dependency real-time media server and medi
 * [Read](https://mediamtx.org/docs/usage/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS
 * Streams are automatically converted from a protocol to another
 * Serve several streams at once in separate paths
-* [Record](https://mediamtx.org/docs/usage/record) streams to disk
+* [Record](https://mediamtx.org/docs/usage/record) streams to disk in fMP4 or MPEG-TS format
 * [Playback](https://mediamtx.org/docs/usage/playback) recorded streams
-* [Authenticate](https://mediamtx.org/docs/usage/authentication) users
+* [Authenticate](https://mediamtx.org/docs/usage/authentication) users with internal, HTTP or JWT authentication
 * [Forward](https://mediamtx.org/docs/usage/forward) streams to other servers
 * [Proxy](https://mediamtx.org/docs/usage/proxy) requests to other servers
 * [Control](https://mediamtx.org/docs/usage/control-api) the server through the Control API
