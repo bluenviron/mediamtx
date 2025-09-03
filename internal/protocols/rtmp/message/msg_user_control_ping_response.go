@@ -12,10 +12,6 @@ type UserControlPingResponse struct {
 }
 
 func (m *UserControlPingResponse) unmarshal(raw *rawmessage.Message) error {
-	if raw.ChunkStreamID != ControlChunkStreamID {
-		return fmt.Errorf("unexpected chunk stream ID")
-	}
-
 	if len(raw.Body) != 6 {
 		return fmt.Errorf("invalid body size")
 	}

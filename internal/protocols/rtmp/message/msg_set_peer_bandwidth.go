@@ -13,10 +13,6 @@ type SetPeerBandwidth struct {
 }
 
 func (m *SetPeerBandwidth) unmarshal(raw *rawmessage.Message) error {
-	if raw.ChunkStreamID != ControlChunkStreamID {
-		return fmt.Errorf("unexpected chunk stream ID")
-	}
-
 	if len(raw.Body) != 5 {
 		return fmt.Errorf("invalid body size")
 	}

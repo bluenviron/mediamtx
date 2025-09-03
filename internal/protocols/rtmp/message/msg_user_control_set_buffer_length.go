@@ -13,10 +13,6 @@ type UserControlSetBufferLength struct {
 }
 
 func (m *UserControlSetBufferLength) unmarshal(raw *rawmessage.Message) error {
-	if raw.ChunkStreamID != ControlChunkStreamID {
-		return fmt.Errorf("unexpected chunk stream ID")
-	}
-
 	if len(raw.Body) != 10 {
 		return fmt.Errorf("invalid body size")
 	}

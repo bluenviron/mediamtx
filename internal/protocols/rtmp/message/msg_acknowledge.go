@@ -12,10 +12,6 @@ type Acknowledge struct {
 }
 
 func (m *Acknowledge) unmarshal(raw *rawmessage.Message) error {
-	if raw.ChunkStreamID != ControlChunkStreamID {
-		return fmt.Errorf("unexpected chunk stream ID")
-	}
-
 	if len(raw.Body) != 4 {
 		return fmt.Errorf("unexpected body size")
 	}
