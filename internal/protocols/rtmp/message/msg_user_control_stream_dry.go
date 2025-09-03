@@ -12,12 +12,6 @@ type UserControlStreamDry struct {
 }
 
 func (m *UserControlStreamDry) unmarshal(raw *rawmessage.Message) error {
-	// Use flexible chunk stream ID validation for better camera compatibility
-	// Standard RTMP uses ControlChunkStreamID (2), but some cameras use other IDs like 4
-	if !isControlChunkStreamID(raw.ChunkStreamID) {
-		return fmt.Errorf("9999 unexpected chunk stream ID: %d", raw.ChunkStreamID)
-	}
-
 	if len(raw.Body) != 6 {
 		return fmt.Errorf("invalid body size")
 	}

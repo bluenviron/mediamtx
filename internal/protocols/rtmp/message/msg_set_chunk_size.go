@@ -12,11 +12,6 @@ type SetChunkSize struct {
 }
 
 func (m *SetChunkSize) unmarshal(raw *rawmessage.Message) error {
-	// Use flexible chunk stream ID validation for better camera compatibility
-	if !isControlChunkStreamID(raw.ChunkStreamID) {
-		return fmt.Errorf("unexpected chunk stream ID: %d", raw.ChunkStreamID)
-	}
-
 	if len(raw.Body) != 4 {
 		return fmt.Errorf("invalid body size")
 	}

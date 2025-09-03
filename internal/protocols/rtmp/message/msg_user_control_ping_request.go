@@ -12,12 +12,6 @@ type UserControlPingRequest struct {
 }
 
 func (m *UserControlPingRequest) unmarshal(raw *rawmessage.Message) error {
-	// Use flexible chunk stream ID validation for better camera compatibility
-	// Standard RTMP uses ControlChunkStreamID (2), but some cameras use other IDs like 4
-	if !isControlChunkStreamID(raw.ChunkStreamID) {
-		return fmt.Errorf("unexpected chunk stream ID: %d", raw.ChunkStreamID)
-	}
-
 	if len(raw.Body) != 6 {
 		return fmt.Errorf("invalid body size")
 	}
