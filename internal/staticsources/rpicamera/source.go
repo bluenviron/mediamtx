@@ -232,8 +232,8 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		onData:          onData,
 		onDataSecondary: onDataSecondary,
 	}
-	err = cam.initialize()
-	if err != nil {
+	err = cam.initialize() //nolint:staticcheck
+	if err != nil {        //nolint:staticcheck
 		return err
 	}
 	defer cam.close()
