@@ -645,6 +645,22 @@ func TestReader(t *testing.T) {
 	}
 }
 
+func TestReaderNonStandardControlChunkStreamID(t *testing.T) {
+	buf := []byte{
+		0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x04,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+		0x8a, 0xce,
+	}
+
+	bc := bytecounter.NewReader(bytes.NewReader(buf))
+	r := NewReader(bc, bc, nil)
+	dec, err := r.Read()
+	require.NoError(t, err)
+	require.Equal(t, &UserControlStreamDry{
+		StreamID: 35534,
+	}, dec)
+}
+
 func FuzzReader(f *testing.F) {
 	for _, ca := range readWriterCases {
 		f.Add(ca.enc)
