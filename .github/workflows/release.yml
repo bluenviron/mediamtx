@@ -43,7 +43,7 @@ jobs:
         name: binaries
         path: binaries
 
-    - uses: actions/github-script@v7
+    - uses: actions/github-script@v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/github-script@v7
+    - uses: actions/github-script@v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
