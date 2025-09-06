@@ -1,5 +1,5 @@
 BASE_IMAGE = golang:1.24-alpine3.20
-LINT_IMAGE = golangci/golangci-lint:v2.4.0
+GOLANGCI_LINT_IMAGE = golangci/golangci-lint:v2.4.0
 NODE_IMAGE = node:20-alpine3.20
 
 .PHONY: $(shell ls)
@@ -9,7 +9,7 @@ help:
 	@echo ""
 	@echo "available actions:"
 	@echo ""
-	@echo "  format           format source files"
+	@echo "  format           format code"
 	@echo "  test             run tests"
 	@echo "  test-32          run tests on a 32-bit system"
 	@echo "  test-e2e         run end-to-end tests"
