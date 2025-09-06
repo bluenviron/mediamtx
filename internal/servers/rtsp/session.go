@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -35,17 +34,17 @@ type session struct {
 	pathManager     serverPathManager
 	parent          logger.Writer
 
-	uuid            uuid.UUID
-	created         time.Time
-	pathConf        *conf.Path // record only
-	path            defs.Path
-	stream          *stream.Stream
-	onUnreadHook    func()
-	mutex           sync.Mutex
-	state           defs.APIRTSPSessionState
-	transport       *gortsplib.Transport
-	pathName        string
-	query           string
+	uuid         uuid.UUID
+	created      time.Time
+	pathConf     *conf.Path // record only
+	path         defs.Path
+	stream       *stream.Stream
+	onUnreadHook func()
+	//mutex           sync.Mutex
+	//state           defs.APIRTSPSessionState
+	//transport       *gortsplib.Transport
+	//pathName        string
+	//query           string
 	packetsLost     *counterdumper.CounterDumper
 	decodeErrors    *counterdumper.CounterDumper
 	discardedFrames *counterdumper.CounterDumper
@@ -54,7 +53,7 @@ type session struct {
 func (s *session) initialize() {
 	s.uuid = uuid.New()
 	s.created = time.Now()
-	s.state = defs.APIRTSPSessionStateIdle
+	//s.state = defs.APIRTSPSessionStateIdle
 
 	s.packetsLost = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
@@ -182,10 +181,10 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 
 	s.pathConf = pathConf
 
-	s.mutex.Lock()
-	s.pathName = ctx.Path
-	s.query = ctx.Query
-	s.mutex.Unlock()
+	//s.mutex.Lock()
+	//s.pathName = ctx.Path
+	//s.query = ctx.Query
+	//s.mutex.Unlock()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -259,10 +258,10 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		s.path = path
 		s.stream = stream
 
-		s.mutex.Lock()
-		s.pathName = ctx.Path
-		s.query = ctx.Query
-		s.mutex.Unlock()
+		//s.mutex.Lock()
+		//s.pathName = ctx.Path
+		//s.query = ctx.Query
+		//s.mutex.Unlock()
 
 		var rstream *gortsplib.ServerStream
 		if !s.isTLS {
@@ -301,10 +300,10 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 			Query:           s.rsession.SetuppedQuery(),
 		})
 
-		s.mutex.Lock()
-		s.state = defs.APIRTSPSessionStateRead
-		s.transport = s.rsession.SetuppedTransport()
-		s.mutex.Unlock()
+		//s.mutex.Lock()
+		//s.state = defs.APIRTSPSessionStateRead
+		//s.transport = s.rsession.SetuppedTransport()
+		//s.mutex.Unlock()
 	}
 
 	return &base.Response{
@@ -321,8 +320,8 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		GenerateRTPPackets: false,
 		ConfToCompare:      s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:     s.pathName,
-			Query:    s.query,
+			Name:     s.rsession.Path()[1:],
+			Query:    s.rsession.Query(),
 			Publish:  true,
 			SkipAuth: true,
 		},
@@ -343,10 +342,10 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		stream,
 		s)
 
-	s.mutex.Lock()
-	s.state = defs.APIRTSPSessionStatePublish
-	s.transport = s.rsession.SetuppedTransport()
-	s.mutex.Unlock()
+	//s.mutex.Lock()
+	//s.state = defs.APIRTSPSessionStatePublish
+	//s.transport = s.rsession.SetuppedTransport()
+	//s.mutex.Unlock()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -359,16 +358,16 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 	case gortsplib.ServerSessionStatePlay:
 		s.onUnreadHook()
 
-		s.mutex.Lock()
-		s.state = defs.APIRTSPSessionStateIdle
-		s.mutex.Unlock()
+		//s.mutex.Lock()
+		//s.state = defs.APIRTSPSessionStateIdle
+		//s.mutex.Unlock()
 
 	case gortsplib.ServerSessionStateRecord:
 		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
-		s.mutex.Lock()
-		s.state = defs.APIRTSPSessionStateIdle
-		s.mutex.Unlock()
+		//s.mutex.Lock()
+		//s.state = defs.APIRTSPSessionStateIdle
+		//s.mutex.Unlock()
 	}
 
 	return &base.Response{
@@ -411,8 +410,8 @@ func (s *session) onStreamWriteError(_ *gortsplib.ServerHandlerOnStreamWriteErro
 }
 
 func (s *session) apiItem() *defs.APIRTSPSession {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	//s.mutex.Lock()
+	//defer s.mutex.Unlock()
 
 	stats := s.rsession.Stats()
 
@@ -420,14 +419,27 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 		ID:         s.uuid,
 		Created:    s.created,
 		RemoteAddr: s.remoteAddr().String(),
-		State:      s.state,
-		Path:       s.pathName,
-		Query:      s.query,
+		State: func() defs.APIRTSPSessionState {
+			state := s.rsession.State()
+			switch state {
+			case gortsplib.ServerSessionStatePlay:
+				return defs.APIRTSPSessionStateRead
+
+			case gortsplib.ServerSessionStateRecord:
+				return defs.APIRTSPSessionStatePublish
+
+			default:
+				return defs.APIRTSPSessionStateIdle
+			}
+		}(),
+		Path:  s.rsession.Path()[1:],
+		Query: s.rsession.Query(),
 		Transport: func() *string {
-			if s.transport == nil {
+			transport := s.rsession.SetuppedTransport()
+			if transport == nil {
 				return nil
 			}
-			v := s.transport.String()
+			v := transport.String()
 			return &v
 		}(),
 		BytesReceived:       stats.BytesReceived,
