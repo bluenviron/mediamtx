@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gohlslib/v2"
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/auth"
 
 	"github.com/bluenviron/mediamtx/internal/conf/decrypt"
 	"github.com/bluenviron/mediamtx/internal/conf/env"
@@ -362,9 +362,9 @@ func (conf *Conf) setDefaults() {
 	// RTSP server
 	conf.RTSP = true
 	conf.RTSPTransports = RTSPTransports{
-		gortsplib.TransportUDP:          {},
-		gortsplib.TransportUDPMulticast: {},
-		gortsplib.TransportTCP:          {},
+		gortsplib.ProtocolUDP:          {},
+		gortsplib.ProtocolUDPMulticast: {},
+		gortsplib.ProtocolTCP:          {},
 	}
 	conf.RTSPAddress = ":8554"
 	conf.RTSPSAddress = ":8322"

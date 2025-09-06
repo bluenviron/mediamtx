@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 

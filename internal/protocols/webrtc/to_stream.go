@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -24,7 +24,7 @@ func ToStream(
 	stream **stream.Stream,
 ) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
-	timeDecoder := &rtptime.GlobalDecoder2{}
+	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
 
 	for _, track := range pc.incomingTracks {

@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
-	rtspauth "github.com/bluenviron/gortsplib/v4/pkg/auth"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v5"
+	rtspauth "github.com/bluenviron/gortsplib/v5/pkg/auth"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -110,7 +110,7 @@ func TestServerPublish(t *testing.T) {
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 512,
-				Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+				Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
 				PathManager:    pathManager,
 				Parent:         test.NilLogger,
 			}
@@ -249,7 +249,7 @@ func TestServerRead(t *testing.T) {
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 512,
-				Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+				Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
 				PathManager:    pathManager,
 				Parent:         test.NilLogger,
 			}
@@ -265,7 +265,7 @@ func TestServerRead(t *testing.T) {
 				Host:   u.Host,
 			}
 
-			err = reader.Start2()
+			err = reader.Start()
 			require.NoError(t, err)
 			defer reader.Close()
 
@@ -366,7 +366,7 @@ func TestServerRedirect(t *testing.T) {
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 512,
-				Transports:     conf.RTSPTransports{gortsplib.TransportTCP: {}},
+				Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
 				PathManager:    pathManager,
 				Parent:         test.NilLogger,
 			}
@@ -382,7 +382,7 @@ func TestServerRedirect(t *testing.T) {
 				Host:   u.Host,
 			}
 
-			err = reader.Start2()
+			err = reader.Start()
 			require.NoError(t, err)
 			defer reader.Close()
 

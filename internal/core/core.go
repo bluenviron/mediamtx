@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v5"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/api"
@@ -389,8 +389,8 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTSPEncryption == conf.EncryptionNo ||
 			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
 		p.rtspServer == nil {
-		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
-		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
+		_, useUDP := p.conf.RTSPTransports[gortsplib.ProtocolUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
@@ -430,8 +430,8 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTSPEncryption == conf.EncryptionStrict ||
 			p.conf.RTSPEncryption == conf.EncryptionOptional) &&
 		p.rtspsServer == nil {
-		_, useUDP := p.conf.RTSPTransports[gortsplib.TransportUDP]
-		_, useMulticast := p.conf.RTSPTransports[gortsplib.TransportUDPMulticast]
+		_, useUDP := p.conf.RTSPTransports[gortsplib.ProtocolUDP]
+		_, useMulticast := p.conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,

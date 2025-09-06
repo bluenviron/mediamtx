@@ -33,10 +33,10 @@ github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYh
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
 github.com/bluenviron/gohlslib/v2 v2.2.3 h1:1R/Jnh1kNR9UB09KAX6xjS2GcdKFRLuPd9wM/IRVyKQ=
 github.com/bluenviron/gohlslib/v2 v2.2.3/go.mod h1:z4Viks+Mdgcl7OcOVJ1fgSmuUwCCJBxYJPLN49n7Vnw=
-github.com/bluenviron/gortmplib v0.0.0-20250913092258-91acda098766 h1:i3Bu0Ou34hbxEyrmldAudvDm7T6qDCkaC0TrECVxXQM=
-github.com/bluenviron/gortmplib v0.0.0-20250913092258-91acda098766/go.mod h1:FyreWlRZNHSzCG7TkVT66+9n31w1uUBFgWg0G86YCfk=
-github.com/bluenviron/gortsplib/v4 v4.16.2 h1:10HaMsorjW13gscLp3R7Oj41ck2i1EHIUYCNWD2wpkI=
-github.com/bluenviron/gortsplib/v4 v4.16.2/go.mod h1:Vm07yUMys9XKnuZJLfTT8zluAN2n9ZOtz40Xb8RKh+8=
+github.com/bluenviron/gortmplib v0.0.0-20250916095243-72b6eaffb6a4 h1:ZDsCiFpmOoEy2eWcJBEhV8jb0sA9MxO/BzYmyrmm4hE=
+github.com/bluenviron/gortmplib v0.0.0-20250916095243-72b6eaffb6a4/go.mod h1:73VbUEJLkaixSRPRI/imEkVRkBccvR1GKrd6SUOdkrQ=
+github.com/bluenviron/gortsplib/v5 v5.0.0-20250916102828-1616c8c63415 h1:FErClZLSuXkZEPfIsAtD4DH6CKmQ6z7gtod1eHi4Efg=
+github.com/bluenviron/gortsplib/v5 v5.0.0-20250916102828-1616c8c63415/go.mod h1:un/XrjuE+yaglJw4Fd75OUXowPxioaHHqNOUC28byFA=
 github.com/bluenviron/mediacommon/v2 v2.4.2 h1:rggs61nTaqPcR1+RhlIE8/nDqfF5PO57QxpxBzSFfrw=
 github.com/bluenviron/mediacommon/v2 v2.4.2/go.mod h1:zy1fODPuS/kBd93ftgJS1Jhvjq7LFWfAo32KP7By9AE=
 github.com/bytedance/sonic v1.13.2 h1:8/H1FempDZqC4VqjptGo14QQlJx8VdZJegxs6wwfqpQ=
@@ -239,8 +239,8 @@ golang.org/x/crypto v0.42.0/go.mod h1:4+rDnOTJhQCx2q7/j6rAN5XDw8kPjeaXEUR2eL94ix
 golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 h1:2dVuKD2vS7b0QIHQbpyTISPd0LeHDbnYEryqj5Q1ug8=
 golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56/go.mod h1:M4RDyNAINzryxdtnbRXRL/OHtkFuWGRjvuhBJpk2IlY=
 golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
-golang.org/x/net v0.43.0 h1:lat02VYK2j4aLzMzecihNvTlJNQUq316m2Mr9rnM6YE=
-golang.org/x/net v0.43.0/go.mod h1:vhO1fvI4dGsIjh73sWfUVjj3N7CA9WkKJNQm2svM6Jg=
+golang.org/x/net v0.44.0 h1:evd8IRDyfNBMBTTY5XRF1vaZlD+EmWx6x8PkhR04H/I=
+golang.org/x/net v0.44.0/go.mod h1:ECOoLqd5U3Lhyeyo/QDCEVQ4sNgYsqvCZ722XogGieY=
 golang.org/x/sys v0.0.0-20190726091711-fc99dfbffb4e/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

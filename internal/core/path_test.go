@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
-	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/headers"
+	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -414,7 +414,7 @@ func TestPathRunOnRead(t *testing.T) {
 						Host:   u.Host,
 					}
 
-					err = reader.Start2()
+					err = reader.Start()
 					require.NoError(t, err)
 					defer reader.Close()
 
@@ -439,7 +439,7 @@ func TestPathRunOnRead(t *testing.T) {
 						TLSConfig: &tls.Config{InsecureSkipVerify: true},
 					}
 
-					err = reader.Start2()
+					err = reader.Start()
 					require.NoError(t, err)
 					defer reader.Close()
 
@@ -682,7 +682,7 @@ func TestPathMaxReaders(t *testing.T) {
 			Host:   u.Host,
 		}
 
-		err = reader.Start2()
+		err = reader.Start()
 		require.NoError(t, err)
 		defer reader.Close()
 
@@ -830,7 +830,7 @@ func TestPathFallback(t *testing.T) {
 				Host:   u.Host,
 			}
 
-			err = dest.Start2()
+			err = dest.Start()
 			require.NoError(t, err)
 			defer dest.Close()
 
@@ -897,7 +897,7 @@ func TestPathResolveSource(t *testing.T) {
 		Host:   u.Host,
 	}
 
-	err = reader.Start2()
+	err = reader.Start()
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -953,7 +953,7 @@ func TestPathOverridePublisher(t *testing.T) {
 				Host:   u.Host,
 			}
 
-			err = c.Start2()
+			err = c.Start()
 			require.NoError(t, err)
 			defer c.Close()
 

@@ -3,7 +3,7 @@ package stream
 import (
 	"fmt"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/ringbuffer"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )

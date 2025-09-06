@@ -10,8 +10,8 @@ require (
 	github.com/alecthomas/kong v1.12.1
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.2.3
-	github.com/bluenviron/gortmplib v0.0.0-20250913092258-91acda098766
-	github.com/bluenviron/gortsplib/v4 v4.16.2
+	github.com/bluenviron/gortmplib v0.0.0-20250916095243-72b6eaffb6a4
+	github.com/bluenviron/gortsplib/v5 v5.0.0-20250916102828-1616c8c63415
 	github.com/bluenviron/mediacommon/v2 v2.4.2
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -88,7 +88,7 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/arch v0.16.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect

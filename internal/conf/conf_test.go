@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v5"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 
@@ -138,7 +138,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
-	require.Equal(t, RTSPTransports{gortsplib.TransportTCP: {}}, conf.RTSPTransports)
+	require.Equal(t, RTSPTransports{gortsplib.ProtocolTCP: {}}, conf.RTSPTransports)
 	require.Equal(t, false, conf.RTMP)
 
 	pa, ok := conf.Paths["cam1"]

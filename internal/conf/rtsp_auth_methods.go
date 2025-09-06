@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 

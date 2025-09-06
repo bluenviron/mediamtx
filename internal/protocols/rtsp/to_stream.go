@@ -4,9 +4,9 @@ package rtsp
 import (
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -22,7 +22,7 @@ const (
 )
 
 type rtspSource interface {
-	PacketPTS2(*description.Media, *rtp.Packet) (int64, bool)
+	PacketPTS(*description.Media, *rtp.Packet) (int64, bool)
 	PacketNTP(*description.Media, *rtp.Packet) (time.Time, bool)
 	OnPacketRTP(*description.Media, format.Format, gortsplib.OnPacketRTPFunc)
 }
@@ -72,7 +72,7 @@ func ToStream(
 			}
 
 			source.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				pts, ok := source.PacketPTS2(cmedi, pkt)
+				pts, ok := source.PacketPTS(cmedi, pkt)
 				if !ok {
 					return
 				}
