@@ -28,7 +28,7 @@ var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
 		"AV1, VP9, VP8, H265, H264, Opus, G722, G711, LPCM")
 
-func uint16Ptr(v uint16) *uint16 {
+func ptrOf[T any](v T) *T {
 	return &v
 }
 
@@ -121,7 +121,7 @@ func setupVideoTrack(
 		encoder := &rtpvp9.Encoder{
 			PayloadType:      96,
 			PayloadMaxSize:   webrtcPayloadMaxSize,
-			InitialPictureID: uint16Ptr(8445),
+			InitialPictureID: ptrOf(uint16(8445)),
 		}
 		err := encoder.Init()
 		if err != nil {

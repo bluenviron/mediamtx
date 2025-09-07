@@ -8,27 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func stringPtr(v string) *string {
-	return &v
-}
-
-func intPtr(v int) *int {
-	return &v
-}
-
-func uintPtr(v uint) *uint {
-	return &v
-}
-
-func boolPtr(v bool) *bool {
-	return &v
-}
-
-func float64Ptr(v float64) *float64 {
-	return &v
-}
-
-func durationPtr(v time.Duration) *time.Duration {
+func ptrOf[T any](v T) *T {
 	return &v
 }
 
@@ -137,17 +117,17 @@ func TestLoad(t *testing.T) {
 
 	require.Equal(t, testStruct{
 		MyString:      "testcontent",
-		MyStringOpt:   stringPtr("testcontent2"),
+		MyStringOpt:   ptrOf("testcontent2"),
 		MyInt:         123,
-		MyIntOpt:      intPtr(456),
+		MyIntOpt:      ptrOf(456),
 		MyUint:        8910,
-		MyUintOpt:     uintPtr(112313),
+		MyUintOpt:     ptrOf(uint(112313)),
 		MyFloat:       15.2,
-		MyFloatOpt:    float64Ptr(16.2),
+		MyFloatOpt:    ptrOf(16.2),
 		MyBool:        true,
-		MyBoolOpt:     boolPtr(false),
+		MyBoolOpt:     ptrOf(false),
 		MyDuration:    22000000000,
-		MyDurationOpt: (*myDuration)(durationPtr(30000000000)),
+		MyDurationOpt: ptrOf(myDuration(30000000000)),
 		MyMap: map[string]*mapEntry{
 			"mykey": {
 				MyValue: "",
