@@ -20,7 +20,7 @@ const (
 	recreatePause    = 10 * time.Second
 )
 
-func int64Ptr(v int64) *int64 {
+func ptrOf[T any](v T) *T {
 	return &v
 }
 
@@ -78,7 +78,7 @@ func (m *muxer) initialize() {
 	m.ctx = ctx
 	m.ctxCancel = ctxCancel
 	m.created = time.Now()
-	m.lastRequestTime = int64Ptr(time.Now().UnixNano())
+	m.lastRequestTime = ptrOf(time.Now().UnixNano())
 	m.bytesSent = new(uint64)
 	m.chGetInstance = make(chan muxerGetInstanceReq)
 

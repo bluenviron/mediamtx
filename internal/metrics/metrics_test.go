@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func timePtr(t time.Time) *time.Time {
-	return &t
+func ptrOf[T any](v T) *T {
+	return &v
 }
 
 type dummyPathManager struct{}
@@ -31,7 +31,7 @@ func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 				ID:   "123324354",
 			},
 			Ready:         true,
-			ReadyTime:     timePtr(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
+			ReadyTime:     ptrOf(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
 			Tracks:        []string{"H264", "H265"},
 			BytesReceived: 123,
 			BytesSent:     456,

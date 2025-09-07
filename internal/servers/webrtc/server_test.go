@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func uint16Ptr(v uint16) *uint16 {
+func ptrOf[T any](v T) *T {
 	return &v
 }
 
@@ -682,7 +682,7 @@ func TestServerPatchNotFound(t *testing.T) {
 
 	frag, err := whip.ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{{
 		Candidate:     "mycandidate",
-		SDPMLineIndex: uint16Ptr(0),
+		SDPMLineIndex: ptrOf(uint16(0)),
 	}})
 	require.NoError(t, err)
 
