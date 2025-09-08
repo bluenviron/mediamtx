@@ -174,13 +174,13 @@ func (t *h264) remuxAccessUnit(au [][]byte) [][]byte {
 		typ := mch264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
-		case mch264.NALUTypeSPS, mch264.NALUTypePPS: // parameters: remove
+		case mch264.NALUTypeSPS, mch264.NALUTypePPS:
 			continue
 
-		case mch264.NALUTypeAccessUnitDelimiter: // AUD: remove
+		case mch264.NALUTypeAccessUnitDelimiter:
 			continue
 
-		case mch264.NALUTypeIDR: // key frame
+		case mch264.NALUTypeIDR:
 			if !isKeyFrame {
 				isKeyFrame = true
 
@@ -197,12 +197,12 @@ func (t *h264) remuxAccessUnit(au [][]byte) [][]byte {
 		return nil
 	}
 
-	filteredNALUs := make([][]byte, n)
+	filteredAU := make([][]byte, n)
 	i := 0
 
 	if isKeyFrame && t.Format.SPS != nil && t.Format.PPS != nil {
-		filteredNALUs[0] = t.Format.SPS
-		filteredNALUs[1] = t.Format.PPS
+		filteredAU[0] = t.Format.SPS
+		filteredAU[1] = t.Format.PPS
 		i = 2
 	}
 
@@ -217,11 +217,11 @@ func (t *h264) remuxAccessUnit(au [][]byte) [][]byte {
 			continue
 		}
 
-		filteredNALUs[i] = nalu
+		filteredAU[i] = nalu
 		i++
 	}
 
-	return filteredNALUs
+	return filteredAU
 }
 
 func (t *h264) ProcessUnit(uu unit.Unit) error {

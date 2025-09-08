@@ -727,3 +727,65 @@ func TestServerConnPath(t *testing.T) {
 		})
 	}
 }
+
+func TestServerConnFourCcList(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:9121")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		nconn, err2 := ln.Accept()
+		require.NoError(t, err2)
+		defer nconn.Close()
+
+		conn := &ServerConn{
+			RW: nconn,
+		}
+		err2 = conn.Initialize()
+		require.NoError(t, err2)
+
+		require.Equal(t, amf0.StrictArray{
+			"av01",
+			"Avc1",
+		}, conn.FourCcList)
+	}()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:9121")
+	require.NoError(t, err)
+	defer conn.Close()
+	bc := bytecounter.NewReadWriter(conn)
+
+	_, _, err = handshake.DoClient(bc, false, false)
+	require.NoError(t, err)
+
+	mrw := message.NewReadWriter(bc, bc, true)
+
+	err = mrw.Write(&message.CommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "connect",
+		CommandID:     1,
+		Arguments: []interface{}{
+			amf0.Object{
+				{Key: "app", Value: "stream?key=val"},
+				{Key: "flashVer", Value: "LNX 9,0,124,2"},
+				{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream?key=val"},
+				{Key: "fpad", Value: false},
+				{Key: "capabilities", Value: float64(15)},
+				{Key: "audioCodecs", Value: float64(4071)},
+				{Key: "videoCodecs", Value: float64(252)},
+				{Key: "videoFunction", Value: float64(1)},
+				{Key: "fourCcList", Value: amf0.StrictArray{
+					"av01",
+					"Avc1",
+				}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	<-done
+}

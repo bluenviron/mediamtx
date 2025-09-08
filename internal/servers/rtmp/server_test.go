@@ -128,14 +128,14 @@ func TestServerPublish(t *testing.T) {
 			defer conn.Close()
 
 			w := &rtmp.Writer{
-				Conn:       conn,
-				VideoTrack: test.FormatH264,
-				AudioTrack: test.FormatMPEG4Audio,
+				Conn:   conn,
+				Tracks: []format.Format{test.FormatH264, test.FormatMPEG4Audio},
 			}
 			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(
+				test.FormatH264,
 				2*time.Second, 2*time.Second, [][]byte{
 					{5, 2, 3, 4},
 				})
@@ -165,6 +165,7 @@ func TestServerPublish(t *testing.T) {
 			defer strm.RemoveReader(reader)
 
 			err = w.WriteH264(
+				test.FormatH264,
 				3*time.Second, 3*time.Second, [][]byte{
 					{5, 2, 3, 4},
 				})

@@ -119,20 +119,6 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 					return err
 				}
 			}
-
-			v1 := msg.MessageStreamID
-			wc.lastMessageStreamID = &v1
-			v2 := msg.Type
-			wc.lastType = &v2
-			v3 := bodyLen
-			wc.lastBodyLen = &v3
-			v4 := timestamp
-			wc.lastTimestamp = &v4
-
-			if timestampDelta != nil {
-				v5 := *timestampDelta
-				wc.lastTimestampDelta = &v5
-			}
 		} else {
 			err := wc.writeChunk(&chunk.Chunk3{
 				ChunkStreamID: msg.ChunkStreamID,
@@ -146,9 +132,21 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 		pos += chunkBodyLen
 
 		if (bodyLen - pos) == 0 {
-			return wc.mw.bw.Flush()
+			break
 		}
 	}
+
+	v1 := msg.MessageStreamID
+	wc.lastMessageStreamID = &v1
+	v2 := msg.Type
+	wc.lastType = &v2
+	v3 := bodyLen
+	wc.lastBodyLen = &v3
+	v4 := timestamp
+	wc.lastTimestamp = &v4
+	wc.lastTimestampDelta = timestampDelta
+
+	return wc.mw.bw.Flush()
 }
 
 // Writer is a raw message writer.

@@ -158,13 +158,9 @@ func (f *formatFMP4) initialize() bool {
 						paramsChanged := false
 
 						for _, obu := range tunit.TU {
-							var h av1.OBUHeader
-							err := h.Unmarshal(obu)
-							if err != nil {
-								return err
-							}
+							typ := av1.OBUType((obu[0] >> 3) & 0b1111)
 
-							if h.Type == av1.OBUTypeSequenceHeader {
+							if typ == av1.OBUTypeSequenceHeader {
 								if !bytes.Equal(codec.SequenceHeader, obu) {
 									codec.SequenceHeader = obu
 									paramsChanged = true
@@ -285,7 +281,6 @@ func (f *formatFMP4) initialize() bool {
 
 			case *rtspformat.H265:
 				vps, sps, pps := forma.SafeParams()
-
 				if vps == nil || sps == nil || pps == nil {
 					vps = formatprocessor.H265DefaultVPS
 					sps = formatprocessor.H265DefaultSPS
@@ -376,7 +371,6 @@ func (f *formatFMP4) initialize() bool {
 
 			case *rtspformat.H264:
 				sps, pps := forma.SafeParams()
-
 				if sps == nil || pps == nil {
 					sps = formatprocessor.H264DefaultSPS
 					pps = formatprocessor.H264DefaultPPS

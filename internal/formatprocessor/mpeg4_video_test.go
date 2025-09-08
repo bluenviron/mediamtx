@@ -66,6 +66,6 @@ func TestMPEG4VideoProcessUnit(t *testing.T) {
 		0, 0, 1, 0xF1,
 	}, u2.Frame)
 
-	// test that timestamp had increased
+	// test that timestamp has increased
 	require.Equal(t, u1.RTPPackets[0].Timestamp+30000, u2.RTPPackets[0].Timestamp)
 }

@@ -66,8 +66,8 @@ func TestClient(t *testing.T) {
 						require.NoError(t, err2)
 
 						switch authState {
-						case 0:
-							require.Equal(t, &message.CommandAMF0{
+						case 0: //nolint:dupl
+							require.Equal(t, &message.CommandAMF0{ //nolint:dupl
 								ChunkStreamID: 3,
 								Name:          "connect",
 								CommandID:     1,
@@ -76,17 +76,28 @@ func TestClient(t *testing.T) {
 										{Key: "app", Value: "stream"},
 										{Key: "flashVer", Value: "LNX 9,0,124,2"},
 										{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
+										{Key: "objectEncoding", Value: float64(0)},
 										{Key: "fpad", Value: false},
 										{Key: "capabilities", Value: float64(15)},
-										{Key: "audioCodecs", Value: float64(4071)},
-										{Key: "videoCodecs", Value: float64(252)},
-										{Key: "videoFunction", Value: float64(1)},
+										{Key: "audioCodecs", Value: float64(1413)},
+										{Key: "videoCodecs", Value: float64(128)},
+										{Key: "videoFunction", Value: float64(0)},
+										{Key: "fourCcList", Value: amf0.StrictArray{
+											"av01",
+											"vp09",
+											"hvc1",
+											"avc1",
+											"Opus",
+											"ac-3",
+											"mp4a",
+											".mp3",
+										}},
 									},
 								},
 							}, msg)
 
-						case 1:
-							require.Equal(t, &message.CommandAMF0{
+						case 1: //nolint:dupl
+							require.Equal(t, &message.CommandAMF0{ //nolint:dupl
 								ChunkStreamID: 3,
 								Name:          "connect",
 								CommandID:     1,
@@ -95,11 +106,22 @@ func TestClient(t *testing.T) {
 										{Key: "app", Value: "stream?authmod=adobe&user=myuser"},
 										{Key: "flashVer", Value: "LNX 9,0,124,2"},
 										{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream?authmod=adobe&user=myuser"},
+										{Key: "objectEncoding", Value: float64(0)},
 										{Key: "fpad", Value: false},
 										{Key: "capabilities", Value: float64(15)},
-										{Key: "audioCodecs", Value: float64(4071)},
-										{Key: "videoCodecs", Value: float64(252)},
-										{Key: "videoFunction", Value: float64(1)},
+										{Key: "audioCodecs", Value: float64(1413)},
+										{Key: "videoCodecs", Value: float64(128)},
+										{Key: "videoFunction", Value: float64(0)},
+										{Key: "fourCcList", Value: amf0.StrictArray{
+											"av01",
+											"vp09",
+											"hvc1",
+											"avc1",
+											"Opus",
+											"ac-3",
+											"mp4a",
+											".mp3",
+										}},
 									},
 								},
 							}, msg)
@@ -127,11 +149,22 @@ func TestClient(t *testing.T) {
 											Value: "rtmp://127.0.0.1:9121/stream?authmod=adobe&user=myuser&challenge=" +
 												clientChallenge + "&response=" + response,
 										},
+										{Key: "objectEncoding", Value: float64(0)},
 										{Key: "fpad", Value: false},
 										{Key: "capabilities", Value: float64(15)},
-										{Key: "audioCodecs", Value: float64(4071)},
-										{Key: "videoCodecs", Value: float64(252)},
-										{Key: "videoFunction", Value: float64(1)},
+										{Key: "audioCodecs", Value: float64(1413)},
+										{Key: "videoCodecs", Value: float64(128)},
+										{Key: "videoFunction", Value: float64(0)},
+										{Key: "fourCcList", Value: amf0.StrictArray{
+											"av01",
+											"vp09",
+											"hvc1",
+											"avc1",
+											"Opus",
+											"ac-3",
+											"mp4a",
+											".mp3",
+										}},
 									},
 								},
 							}, msg)
@@ -140,7 +173,7 @@ func TestClient(t *testing.T) {
 					case "read", "read nginx rtmp":
 						msg, err2 = mrw.Read()
 						require.NoError(t, err2)
-						require.Equal(t, &message.CommandAMF0{
+						require.Equal(t, &message.CommandAMF0{ //nolint:dupl
 							ChunkStreamID: 3,
 							Name:          "connect",
 							CommandID:     1,
@@ -149,11 +182,22 @@ func TestClient(t *testing.T) {
 									{Key: "app", Value: "stream"},
 									{Key: "flashVer", Value: "LNX 9,0,124,2"},
 									{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
+									{Key: "objectEncoding", Value: float64(0)},
 									{Key: "fpad", Value: false},
 									{Key: "capabilities", Value: float64(15)},
-									{Key: "audioCodecs", Value: float64(4071)},
-									{Key: "videoCodecs", Value: float64(252)},
-									{Key: "videoFunction", Value: float64(1)},
+									{Key: "audioCodecs", Value: float64(1413)},
+									{Key: "videoCodecs", Value: float64(128)},
+									{Key: "videoFunction", Value: float64(0)},
+									{Key: "fourCcList", Value: amf0.StrictArray{
+										"av01",
+										"vp09",
+										"hvc1",
+										"avc1",
+										"Opus",
+										"ac-3",
+										"mp4a",
+										".mp3",
+									}},
 								},
 							},
 						}, msg)
@@ -170,6 +214,7 @@ func TestClient(t *testing.T) {
 									{Key: "app", Value: "stream"},
 									{Key: "flashVer", Value: "LNX 9,0,124,2"},
 									{Key: "tcUrl", Value: "rtmp://127.0.0.1:9121/stream"},
+									{Key: "objectEncoding", Value: float64(0)},
 								},
 							},
 						}, msg)
@@ -408,11 +453,11 @@ func TestClient(t *testing.T) {
 			switch ca {
 			case "read", "read nginx rtmp":
 				require.Equal(t, uint64(3421), conn.BytesReceived())
-				require.Equal(t, uint64(3409), conn.BytesSent())
+				require.Equal(t, uint64(0xdb3), conn.BytesSent())
 
 			case "publish":
 				require.Equal(t, uint64(3427), conn.BytesReceived())
-				require.Equal(t, uint64(0xd27), conn.BytesSent())
+				require.Equal(t, uint64(0xd40), conn.BytesSent())
 			}
 
 			<-done

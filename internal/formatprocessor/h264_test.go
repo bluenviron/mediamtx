@@ -28,7 +28,31 @@ func Logger(cb func(logger.Level, string, ...interface{})) logger.Writer {
 	return &testLogger{cb: cb}
 }
 
-func TestH264ProcessUnit(t *testing.T) {
+func TestH264RemoveAUD(t *testing.T) {
+	forma := &format.H264{}
+
+	p, err := New(1450, forma, true, nil)
+	require.NoError(t, err)
+
+	u := &unit.H264{
+		Base: unit.Base{
+			PTS: 30000,
+		},
+		AU: [][]byte{
+			{9, 24}, // AUD
+			{5, 1},  // IDR
+		},
+	}
+
+	err = p.ProcessUnit(u)
+	require.NoError(t, err)
+
+	require.Equal(t, [][]byte{
+		{5, 1}, // IDR
+	}, u.AU)
+}
+
+func TestH264AddParams(t *testing.T) {
 	forma := &format.H264{}
 
 	p, err := New(1450, forma, true, nil)
@@ -77,11 +101,11 @@ func TestH264ProcessUnit(t *testing.T) {
 		{5, 2},       // IDR
 	}, u2.AU)
 
-	// test that timestamp had increased
+	// test that timestamp has increased
 	require.Equal(t, u1.RTPPackets[0].Timestamp+30000, u2.RTPPackets[0].Timestamp)
 }
 
-func TestH264ProcessUnitEmpty(t *testing.T) {
+func TestH264ProcessEmptyUnit(t *testing.T) {
 	forma := &format.H264{
 		PayloadTyp:        96,
 		PacketizationMode: 1,
@@ -104,7 +128,7 @@ func TestH264ProcessUnitEmpty(t *testing.T) {
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
 }
 
-func TestH264ProcessRTPPacketUpdateParams(t *testing.T) {
+func TestH264RTPExtractParams(t *testing.T) {
 	for _, ca := range []string{"standard", "aggregated"} {
 		t.Run(ca, func(t *testing.T) {
 			forma := &format.H264{
@@ -169,7 +193,7 @@ func TestH264ProcessRTPPacketUpdateParams(t *testing.T) {
 	}
 }
 
-func TestH264ProcessRTPPacketOversized(t *testing.T) {
+func TestH264RTPOversized(t *testing.T) {
 	forma := &format.H264{
 		PayloadTyp:        96,
 		SPS:               []byte{0x01, 0x02, 0x03, 0x04},

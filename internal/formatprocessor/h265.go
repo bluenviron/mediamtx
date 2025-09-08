@@ -205,13 +205,13 @@ func (t *h265) remuxAccessUnit(au [][]byte) [][]byte {
 		typ := mch265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
-		case mch265.NALUType_VPS_NUT, mch265.NALUType_SPS_NUT, mch265.NALUType_PPS_NUT: // parameters: remove
+		case mch265.NALUType_VPS_NUT, mch265.NALUType_SPS_NUT, mch265.NALUType_PPS_NUT:
 			continue
 
-		case mch265.NALUType_AUD_NUT: // AUD: remove
+		case mch265.NALUType_AUD_NUT:
 			continue
 
-		case mch265.NALUType_IDR_W_RADL, mch265.NALUType_IDR_N_LP, mch265.NALUType_CRA_NUT: // key frame
+		case mch265.NALUType_IDR_W_RADL, mch265.NALUType_IDR_N_LP, mch265.NALUType_CRA_NUT:
 			if !isKeyFrame {
 				isKeyFrame = true
 
@@ -228,13 +228,13 @@ func (t *h265) remuxAccessUnit(au [][]byte) [][]byte {
 		return nil
 	}
 
-	filteredNALUs := make([][]byte, n)
+	filteredAU := make([][]byte, n)
 	i := 0
 
 	if isKeyFrame && t.Format.VPS != nil && t.Format.SPS != nil && t.Format.PPS != nil {
-		filteredNALUs[0] = t.Format.VPS
-		filteredNALUs[1] = t.Format.SPS
-		filteredNALUs[2] = t.Format.PPS
+		filteredAU[0] = t.Format.VPS
+		filteredAU[1] = t.Format.SPS
+		filteredAU[2] = t.Format.PPS
 		i = 3
 	}
 
@@ -249,11 +249,11 @@ func (t *h265) remuxAccessUnit(au [][]byte) [][]byte {
 			continue
 		}
 
-		filteredNALUs[i] = nalu
+		filteredAU[i] = nalu
 		i++
 	}
 
-	return filteredNALUs
+	return filteredAU
 }
 
 func (t *h265) ProcessUnit(uu unit.Unit) error { //nolint:dupl

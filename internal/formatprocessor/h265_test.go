@@ -15,7 +15,31 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func TestH265ProcessUnit(t *testing.T) {
+func TestH265RemoveAUD(t *testing.T) {
+	forma := &format.H265{}
+
+	p, err := New(1450, forma, true, nil)
+	require.NoError(t, err)
+
+	u := &unit.H265{
+		Base: unit.Base{
+			PTS: 30000,
+		},
+		AU: [][]byte{
+			{byte(mch265.NALUType_AUD_NUT) << 1, 0},
+			{byte(mch265.NALUType_CRA_NUT) << 1, 0},
+		},
+	}
+
+	err = p.ProcessUnit(u)
+	require.NoError(t, err)
+
+	require.Equal(t, [][]byte{
+		{byte(mch265.NALUType_CRA_NUT) << 1, 0},
+	}, u.AU)
+}
+
+func TestH265AddParams(t *testing.T) {
 	forma := &format.H265{}
 
 	p, err := New(1450, forma, true, nil)
@@ -68,11 +92,11 @@ func TestH265ProcessUnit(t *testing.T) {
 		{byte(mch265.NALUType_CRA_NUT) << 1, 1},
 	}, u2.AU)
 
-	// test that timestamp had increased
+	// test that timestamp has increased
 	require.Equal(t, u1.RTPPackets[0].Timestamp+30000, u2.RTPPackets[0].Timestamp)
 }
 
-func TestH265ProcessUnitEmpty(t *testing.T) {
+func TestH265ProcessEmptyUnit(t *testing.T) {
 	forma := &format.H265{
 		PayloadTyp: 96,
 	}
@@ -95,7 +119,7 @@ func TestH265ProcessUnitEmpty(t *testing.T) {
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
 }
 
-func TestH265ProcessRTPPacketUpdateParams(t *testing.T) {
+func TestH265RTPExtractParams(t *testing.T) {
 	for _, ca := range []string{"standard", "aggregated"} {
 		t.Run(ca, func(t *testing.T) {
 			forma := &format.H265{
@@ -168,7 +192,7 @@ func TestH265ProcessRTPPacketUpdateParams(t *testing.T) {
 	}
 }
 
-func TestH265ProcessRTPPacketOversized(t *testing.T) {
+func TestH265RTPOversized(t *testing.T) {
 	forma := &format.H265{
 		PayloadTyp: 96,
 		VPS:        []byte{byte(mch265.NALUType_VPS_NUT) << 1, 10, 11, 12},
