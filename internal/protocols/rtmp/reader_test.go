@@ -2,6 +2,7 @@ package rtmp
 
 import (
 	"bytes"
+	"io"
 	"testing"
 	"time"
 
@@ -18,58 +19,40 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
+type dummyConn struct {
+	rw io.ReadWriter
+
+	bc  *bytecounter.ReadWriter
+	mrw *message.ReadWriter
+}
+
+func (c *dummyConn) initialize() {
+	c.bc = bytecounter.NewReadWriter(c.rw)
+	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
+}
+
+// BytesReceived returns the number of bytes received.
+func (c *dummyConn) BytesReceived() uint64 {
+	return c.bc.Reader.Count()
+}
+
+// BytesSent returns the number of bytes sent.
+func (c *dummyConn) BytesSent() uint64 {
+	return c.bc.Writer.Count()
+}
+
+func (c *dummyConn) Read() (message.Message, error) {
+	return c.mrw.Read()
+}
+
+func (c *dummyConn) Write(msg message.Message) error {
+	return c.mrw.Write(msg)
+}
+
 func TestReadTracks(t *testing.T) {
 	var spsp h265.SPS
 	err := spsp.Unmarshal(test.FormatH265.SPS)
 	require.NoError(t, err)
-
-	hvcc := &mp4.HvcC{
-		ConfigurationVersion:        1,
-		GeneralProfileIdc:           spsp.ProfileTierLevel.GeneralProfileIdc,
-		GeneralProfileCompatibility: spsp.ProfileTierLevel.GeneralProfileCompatibilityFlag,
-		GeneralConstraintIndicator: [6]uint8{
-			test.FormatH265.SPS[7], test.FormatH265.SPS[8], test.FormatH265.SPS[9],
-			test.FormatH265.SPS[10], test.FormatH265.SPS[11], test.FormatH265.SPS[12],
-		},
-		GeneralLevelIdc: spsp.ProfileTierLevel.GeneralLevelIdc,
-		// MinSpatialSegmentationIdc
-		// ParallelismType
-		ChromaFormatIdc:      uint8(spsp.ChromaFormatIdc),
-		BitDepthLumaMinus8:   uint8(spsp.BitDepthLumaMinus8),
-		BitDepthChromaMinus8: uint8(spsp.BitDepthChromaMinus8),
-		// AvgFrameRate
-		// ConstantFrameRate
-		NumTemporalLayers: 1,
-		// TemporalIdNested
-		LengthSizeMinusOne: 3,
-		NumOfNaluArrays:    3,
-		NaluArrays: []mp4.HEVCNaluArray{
-			{
-				NaluType: byte(h265.NALUType_VPS_NUT),
-				NumNalus: 1,
-				Nalus: []mp4.HEVCNalu{{
-					Length:  uint16(len(test.FormatH265.VPS)),
-					NALUnit: test.FormatH265.VPS,
-				}},
-			},
-			{
-				NaluType: byte(h265.NALUType_SPS_NUT),
-				NumNalus: 1,
-				Nalus: []mp4.HEVCNalu{{
-					Length:  uint16(len(test.FormatH265.SPS)),
-					NALUnit: test.FormatH265.SPS,
-				}},
-			},
-			{
-				NaluType: byte(h265.NALUType_PPS_NUT),
-				NumNalus: 1,
-				Nalus: []mp4.HEVCNalu{{
-					Length:  uint16(len(test.FormatH265.PPS)),
-					NALUnit: test.FormatH265.PPS,
-				}},
-			},
-		},
-	}
 
 	for _, ca := range []struct {
 		name     string
@@ -521,7 +504,7 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   4,
 					MessageStreamID: 0x1000000,
 					FourCC:          message.FourCCHEVC,
-					HEVCHeader:      hvcc,
+					HEVCHeader:      generateHvcC(test.FormatH265.VPS, test.FormatH265.SPS, test.FormatH265.PPS),
 				},
 				&message.VideoExCodedFrames{
 					ChunkStreamID:   4,
@@ -577,7 +560,7 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   4,
 					MessageStreamID: 0x1000000,
 					FourCC:          message.FourCCHEVC,
-					HEVCHeader:      hvcc,
+					HEVCHeader:      generateHvcC(test.FormatH265.VPS, test.FormatH265.SPS, test.FormatH265.PPS),
 				},
 				&message.VideoExCodedFrames{
 					ChunkStreamID:   6,

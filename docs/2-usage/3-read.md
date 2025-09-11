@@ -9,7 +9,7 @@ Live streams can be read from the server with the following protocols and codecs
 | [SRT](#srt)       |                                            | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
 | [WebRTC](#webrtc) | WHEP                                       | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
 | [RTSP](#rtsp)     | UDP, UDP-Multicast, TCP, RTSPS             | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
-| [RTMP](#rtmp)     | RTMP, RTMPS, Enhanced RTMP                 | H264                                                                                                      | MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)                                                                               |
+| [RTMP](#rtmp)     | RTMP, RTMPS, Enhanced RTMP                 | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
 | [HLS](#hls)       | Low-Latency HLS, MP4-based HLS, legacy HLS | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC)                                                                                               |
 
 We provide instructions for reading with the following software:
@@ -180,6 +180,18 @@ The RTSP protocol supports several underlying transport protocols, each with its
 
 ```sh
 ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
+```
+
+FFmpeg can also read a stream with RTMP:
+
+```sh
+ffmpeg -i rtmp://localhost/mystream -c copy output.mp4
+```
+
+In order to read AV1, VP9, H265, Opus, AC3 tracks and in order to read multiple video or audio tracks, the `-rtmp_enhanced_codecs` flag must be present:
+
+```sh
+ffmpeg -rtmp_enhanced_codecs ac-3,av01,avc1,ec-3,fLaC,hvc1,.mp3,mp4a,Opus,vp09 -i rtmp://localhost/mystream -c copy output.mp4
 ```
 
 ### GStreamer

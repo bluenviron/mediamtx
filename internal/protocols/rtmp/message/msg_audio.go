@@ -97,13 +97,10 @@ func (m *Audio) unmarshal(raw *rawmessage.Message) error {
 }
 
 func (m Audio) marshalBodySize() int {
-	var l int
-	if m.Codec == CodecMPEG1Audio {
-		l = 1 + len(m.Payload)
-	} else {
-		l = 2 + len(m.Payload)
+	if m.Codec == CodecMPEG4Audio {
+		return 2 + len(m.Payload)
 	}
-	return l
+	return 1 + len(m.Payload)
 }
 
 func (m Audio) marshal() (*rawmessage.Message, error) {

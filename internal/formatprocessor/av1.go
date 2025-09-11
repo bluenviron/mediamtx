@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
+	mcav1 "github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -48,8 +49,43 @@ func (t *av1) createEncoder() error {
 	return t.encoder.Init()
 }
 
+func (t *av1) remuxTemporalUnit(tu [][]byte) [][]byte {
+	n := 0
+
+	for _, obu := range tu {
+		typ := mcav1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == mcav1.OBUTypeTemporalDelimiter {
+			continue
+		}
+		n++
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	filteredTU := make([][]byte, n)
+	i := 0
+
+	for _, obu := range tu {
+		typ := mcav1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == mcav1.OBUTypeTemporalDelimiter {
+			continue
+		}
+
+		filteredTU[i] = obu
+		i++
+	}
+
+	return filteredTU
+}
+
 func (t *av1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.AV1)
+
+	u.TU = t.remuxTemporalUnit(u.TU)
 
 	pkts, err := t.encoder.Encode(u.TU)
 	if err != nil {
@@ -106,7 +142,7 @@ func (t *av1) ProcessRTPPacket( //nolint:dupl
 			return nil, err
 		}
 
-		u.TU = tu
+		u.TU = t.remuxTemporalUnit(tu)
 	}
 
 	// route packet as is

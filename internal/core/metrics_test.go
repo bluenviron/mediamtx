@@ -14,6 +14,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
@@ -217,13 +218,13 @@ webrtc_sessions_rtcp_packets_sent 0
 			defer conn.Close()
 
 			w := &rtmp.Writer{
-				Conn:       conn,
-				VideoTrack: test.FormatH264,
+				Conn:   conn,
+				Tracks: []format.Format{test.FormatH264},
 			}
 			err2 = w.Initialize()
 			require.NoError(t, err2)
 
-			err2 = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			err2 = w.WriteH264(test.FormatH264, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 			require.NoError(t, err2)
 
 			<-terminate
@@ -245,13 +246,13 @@ webrtc_sessions_rtcp_packets_sent 0
 			defer conn.Close()
 
 			w := &rtmp.Writer{
-				Conn:       conn,
-				VideoTrack: test.FormatH264,
+				Conn:   conn,
+				Tracks: []format.Format{test.FormatH264},
 			}
 			err2 = w.Initialize()
 			require.NoError(t, err2)
 
-			err2 = w.WriteH264(2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			err2 = w.WriteH264(test.FormatH264, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 			require.NoError(t, err2)
 
 			<-terminate

@@ -17,7 +17,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// RTMP 1.0 spec, section 7.2.1.1
+const (
+	supportSndNone  = 0x0001
+	supportSndMP3   = 0x0004
+	supportSndG711A = 0x0080
+	supportSndG711U = 0x0100
+	supportSndAAV   = 0x0400
+
+	supportVidH264 = 0x0080
+
+	encodingAMF0 = 0
+)
+
 var errAuth = errors.New("auth")
+
+func fourCCToString(c message.FourCC) string {
+	return string([]byte{byte(c >> 24), byte(c >> 16), byte(c >> 8), byte(c)})
+}
 
 func resultIsOK1(res *message.CommandAMF0) bool {
 	if len(res.Arguments) < 2 {
@@ -252,15 +269,45 @@ func (c *Client) initialize3() error {
 		{Key: "app", Value: app},
 		{Key: "flashVer", Value: "LNX 9,0,124,2"},
 		{Key: "tcUrl", Value: tcURL},
+		{Key: "objectEncoding", Value: float64(encodingAMF0)},
 	}
 
 	if !c.Publish {
 		connectArg = append(connectArg,
-			amf0.ObjectEntry{Key: "fpad", Value: false},
-			amf0.ObjectEntry{Key: "capabilities", Value: float64(15)},
-			amf0.ObjectEntry{Key: "audioCodecs", Value: float64(4071)},
-			amf0.ObjectEntry{Key: "videoCodecs", Value: float64(252)},
-			amf0.ObjectEntry{Key: "videoFunction", Value: float64(1)},
+			amf0.ObjectEntry{
+				Key:   "fpad",
+				Value: false,
+			},
+			amf0.ObjectEntry{
+				Key:   "capabilities",
+				Value: float64(15),
+			},
+			amf0.ObjectEntry{
+				Key: "audioCodecs",
+				Value: float64(
+					supportSndNone | supportSndMP3 | supportSndG711A | supportSndG711U | supportSndAAV),
+			},
+			amf0.ObjectEntry{
+				Key:   "videoCodecs",
+				Value: float64(supportVidH264),
+			},
+			amf0.ObjectEntry{
+				Key:   "videoFunction",
+				Value: float64(0),
+			},
+			amf0.ObjectEntry{
+				Key: "fourCcList",
+				Value: amf0.StrictArray{
+					fourCCToString(message.FourCCAV1),
+					fourCCToString(message.FourCCVP9),
+					fourCCToString(message.FourCCHEVC),
+					fourCCToString(message.FourCCAVC),
+					fourCCToString(message.FourCCOpus),
+					fourCCToString(message.FourCCAC3),
+					fourCCToString(message.FourCCMP4A),
+					fourCCToString(message.FourCCMP3),
+				},
+			},
 		)
 	}
 

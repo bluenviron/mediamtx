@@ -110,10 +110,11 @@ type ServerConn struct {
 	RW io.ReadWriter
 
 	// filled by Initialize
-	connectCmd    *message.CommandAMF0
-	connectObject amf0.Object
-	app           string
-	tcURL         string
+	connectChunkStreamID byte
+	connectCommandID     int
+	app                  string
+	tcURL                string
+	FourCcList           amf0.StrictArray
 
 	// filled by Accept
 	URL     *url.URL
@@ -144,39 +145,46 @@ func (c *ServerConn) Initialize() error {
 
 	c.mrw = message.NewReadWriter(rw, c.bc, false)
 
-	c.connectCmd, err = readCommand(c.mrw)
+	connectCmd, err := readCommand(c.mrw)
 	if err != nil {
 		return err
 	}
 
-	if c.connectCmd.Name != "connect" {
-		return fmt.Errorf("unexpected command: %+v", c.connectCmd)
+	if connectCmd.Name != "connect" {
+		return fmt.Errorf("unexpected command: %+v", connectCmd)
 	}
 
-	if len(c.connectCmd.Arguments) < 1 {
-		return fmt.Errorf("invalid connect command: %+v", c.connectCmd)
+	if len(connectCmd.Arguments) < 1 {
+		return fmt.Errorf("invalid connect command: %+v", connectCmd)
 	}
 
-	var ok bool
-	c.connectObject, ok = objectOrArray(c.connectCmd.Arguments[0])
+	c.connectChunkStreamID = connectCmd.ChunkStreamID
+	c.connectCommandID = connectCmd.CommandID
+
+	connectObject, ok := objectOrArray(connectCmd.Arguments[0])
 	if !ok {
-		return fmt.Errorf("invalid connect command: %+v", c.connectCmd)
+		return fmt.Errorf("invalid connect command: %+v", connectCmd)
 	}
 
-	c.app, ok = c.connectObject.GetString("app")
+	c.app, ok = connectObject.GetString("app")
 	if !ok {
-		return fmt.Errorf("invalid connect command: %+v", c.connectCmd)
+		return fmt.Errorf("invalid connect command: %+v", connectCmd)
 	}
 
-	c.tcURL, ok = c.connectObject.GetString("tcUrl")
+	c.tcURL, ok = connectObject.GetString("tcUrl")
 	if !ok {
-		c.tcURL, ok = c.connectObject.GetString("tcurl")
+		c.tcURL, ok = connectObject.GetString("tcurl")
 		if !ok {
-			return fmt.Errorf("invalid connect command: %+v", c.connectCmd)
+			return fmt.Errorf("invalid connect command: %+v", connectCmd)
 		}
 	}
-
 	c.tcURL = strings.Trim(c.tcURL, "'")
+
+	if raw, ok2 := connectObject.Get("fourCcList"); ok2 {
+		if arr, ok3 := raw.(amf0.StrictArray); ok3 {
+			c.FourCcList = arr
+		}
+	}
 
 	return nil
 }
@@ -186,9 +194,9 @@ func (c *ServerConn) CheckCredentials(expectedUser string, expectedPass string) 
 	i := strings.Index(c.app, "?authmod=adobe")
 	if i < 0 {
 		err := c.mrw.Write(&message.CommandAMF0{
-			ChunkStreamID: c.connectCmd.ChunkStreamID,
+			ChunkStreamID: c.connectChunkStreamID,
 			Name:          "_error",
-			CommandID:     c.connectCmd.CommandID,
+			CommandID:     c.connectCommandID,
 			Arguments: []interface{}{
 				nil,
 				amf0.Object{
@@ -218,9 +226,9 @@ func (c *ServerConn) CheckCredentials(expectedUser string, expectedPass string) 
 
 	if clientChallenge == "" || response == "" {
 		err := c.mrw.Write(&message.CommandAMF0{
-			ChunkStreamID: c.connectCmd.ChunkStreamID,
+			ChunkStreamID: c.connectChunkStreamID,
 			Name:          "_error",
-			CommandID:     c.connectCmd.CommandID,
+			CommandID:     c.connectCommandID,
 			Arguments: []interface{}{
 				nil,
 				amf0.Object{
@@ -244,9 +252,9 @@ func (c *ServerConn) CheckCredentials(expectedUser string, expectedPass string) 
 	expectedResponse := authResponse(expectedUser, expectedPass, serverSalt, "", serverChallenge, clientChallenge)
 	if expectedResponse != response {
 		err := c.mrw.Write(&message.CommandAMF0{
-			ChunkStreamID: c.connectCmd.ChunkStreamID,
+			ChunkStreamID: c.connectChunkStreamID,
 			Name:          "_error",
-			CommandID:     c.connectCmd.CommandID,
+			CommandID:     c.connectCommandID,
 			Arguments: []interface{}{
 				nil,
 				amf0.Object{
@@ -301,12 +309,10 @@ func (c *ServerConn) Accept() error {
 		return err
 	}
 
-	oe, _ := c.connectObject.GetFloat64("objectEncoding")
-
 	err = c.mrw.Write(&message.CommandAMF0{
-		ChunkStreamID: c.connectCmd.ChunkStreamID,
+		ChunkStreamID: c.connectChunkStreamID,
 		Name:          "_result",
-		CommandID:     c.connectCmd.CommandID,
+		CommandID:     c.connectCommandID,
 		Arguments: []interface{}{
 			amf0.Object{
 				{Key: "fmsVer", Value: "LNX 9,0,124,2"},
@@ -316,7 +322,7 @@ func (c *ServerConn) Accept() error {
 				{Key: "level", Value: "status"},
 				{Key: "code", Value: "NetConnection.Connect.Success"},
 				{Key: "description", Value: "Connection succeeded."},
-				{Key: "objectEncoding", Value: oe},
+				{Key: "objectEncoding", Value: float64(encodingAMF0)},
 			},
 		},
 	})

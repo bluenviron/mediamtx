@@ -60,6 +60,8 @@ func TestWriter(t *testing.T) {
 				require.Equal(t, cach, ch)
 				hasExtendedTimestamp = chunkHasExtendedTimestamp(cach)
 			}
+
+			require.Zero(t, buf.Len())
 		})
 	}
 }

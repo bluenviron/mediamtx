@@ -9,7 +9,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
@@ -96,7 +95,7 @@ func TestRecorder(t *testing.T) {
 					test.FormatH265.VPS,
 					test.FormatH265.SPS,
 					test.FormatH265.PPS,
-					{byte(h265.NALUType_CRA_NUT) << 1, 0}, // IDR
+					{0x26, 0x1, 0xaf, 0x8, 0x42, 0x23, 0x48, 0x8a, 0x43, 0xe2},
 				},
 			})
 

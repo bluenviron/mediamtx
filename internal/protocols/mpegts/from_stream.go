@@ -69,10 +69,8 @@ func FromStream(
 							return nil
 						}
 
-						randomAccess := h265.IsRandomAccess(tunit.AU)
-
 						if dtsExtractor == nil {
-							if !randomAccess {
+							if !h265.IsRandomAccess(tunit.AU) {
 								return nil
 							}
 							dtsExtractor = &h265.DTSExtractor{}

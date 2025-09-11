@@ -200,6 +200,67 @@ var cases = []struct {
 			},
 		},
 	},
+	{
+		"decreasing timestamp",
+		[]*Message{
+			{
+				ChunkStreamID:   27,
+				Timestamp:       16 * time.Second,
+				Type:            6,
+				MessageStreamID: 3123,
+				Body:            []byte{1, 2},
+			},
+			{
+				ChunkStreamID:   27,
+				Timestamp:       17 * time.Second,
+				Type:            6,
+				MessageStreamID: 3123,
+				Body:            []byte{3, 4},
+			},
+			{
+				ChunkStreamID:   27,
+				Timestamp:       16 * time.Second,
+				Type:            6,
+				MessageStreamID: 3123,
+				Body:            []byte{5, 6},
+			},
+			{
+				ChunkStreamID:   27,
+				Timestamp:       17 * time.Second,
+				Type:            6,
+				MessageStreamID: 3123,
+				Body:            []byte{7, 8},
+			},
+		},
+		[]chunk.Chunk{
+			&chunk.Chunk0{
+				ChunkStreamID:   27,
+				Timestamp:       16000,
+				Type:            6,
+				MessageStreamID: 3123,
+				BodyLen:         2,
+				Body:            []byte{1, 2},
+			},
+			&chunk.Chunk2{
+				ChunkStreamID:  27,
+				TimestampDelta: 1000,
+				Body:           []byte{3, 4},
+			},
+			&chunk.Chunk0{
+				ChunkStreamID:   27,
+				Timestamp:       16000,
+				Type:            6,
+				MessageStreamID: 3123,
+				BodyLen:         2,
+				Body:            []byte{5, 6},
+			},
+			&chunk.Chunk2{
+				ChunkStreamID:  27,
+				TimestampDelta: 1000,
+				Body:           []byte{7, 8},
+			},
+		},
+	},
 }
 
 func TestReader(t *testing.T) {
