@@ -1,29 +1,39 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1video"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type g711 struct {
+// MPEG-1 video related parameters
+var (
+	MPEG1VideoDefaultConfig = []byte{
+		0x00, 0x00, 0x01, 0xb3, 0x78, 0x04, 0x38, 0x35,
+		0xff, 0xff, 0xe0, 0x18, 0x00, 0x00, 0x01, 0xb5,
+		0x14, 0x4a, 0x00, 0x01, 0x00, 0x00,
+	}
+)
+
+type mpeg1Video struct {
 	RTPMaxPayloadSize  int
-	Format             *format.G711
+	Format             *format.MPEG1Video
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtplpcm.Encoder
-	decoder     *rtplpcm.Decoder
+	encoder     *rtpmpeg1video.Encoder
+	decoder     *rtpmpeg1video.Decoder
 	randomStart uint32
 }
 
-func (t *g711) initialize() error {
+func (t *mpeg1Video) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -39,20 +49,18 @@ func (t *g711) initialize() error {
 	return nil
 }
 
-func (t *g711) createEncoder() error {
-	t.encoder = &rtplpcm.Encoder{
+func (t *mpeg1Video) createEncoder() error {
+	t.encoder = &rtpmpeg1video.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
-		PayloadType:    t.Format.PayloadType(),
-		BitDepth:       8,
-		ChannelCount:   t.Format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
 
-func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.G711)
+func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.MPEG1Video)
 
-	pkts, err := t.encoder.Encode(u.Samples)
+	// encode into RTP
+	pkts, err := t.encoder.Encode(u.Frame)
 	if err != nil {
 		return err
 	}
@@ -65,13 +73,13 @@ func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *g711) ProcessRTPPacket( //nolint:dupl
+func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.G711{
+	u := &unit.MPEG1Video{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -98,12 +106,16 @@ func (t *g711) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		samples, err := t.decoder.Decode(pkt)
+		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
+			if errors.Is(err, rtpmpeg1video.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpmpeg1video.ErrMorePacketsNeeded) {
+				return u, nil
+			}
 			return nil, err
 		}
 
-		u.Samples = samples
+		u.Frame = frame
 	}
 
 	// route packet as is

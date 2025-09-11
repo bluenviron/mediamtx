@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
@@ -516,8 +516,8 @@ func TestWriter(t *testing.T) {
 					ChunkStreamID:   message.VideoChunkStreamID,
 					MessageStreamID: 0x1000000,
 					FourCC:          message.FourCCHEVC,
-					HEVCHeader: generateHvcC(formatprocessor.H265DefaultVPS,
-						formatprocessor.H265DefaultSPS, formatprocessor.H265DefaultPPS),
+					HEVCHeader: generateHvcC(codecprocessor.H265DefaultVPS,
+						codecprocessor.H265DefaultSPS, codecprocessor.H265DefaultPPS),
 				}, msg)
 
 				err = w.WriteH265(tracks[0].(*format.H265), 0, 0, [][]byte{{1, 2}})

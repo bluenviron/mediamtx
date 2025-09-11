@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg1audio"
 
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
@@ -383,9 +383,9 @@ func (w *Writer) writeTracks() error {
 		case *format.H265:
 			vps, sps, pps := track.SafeParams()
 			if vps == nil || sps == nil || pps == nil {
-				vps = formatprocessor.H265DefaultVPS
-				sps = formatprocessor.H265DefaultSPS
-				pps = formatprocessor.H265DefaultPPS
+				vps = codecprocessor.H265DefaultVPS
+				sps = codecprocessor.H265DefaultSPS
+				pps = codecprocessor.H265DefaultPPS
 			}
 
 			var msg message.Message = &message.VideoExSequenceStart{
@@ -411,8 +411,8 @@ func (w *Writer) writeTracks() error {
 		case *format.H264:
 			sps, pps := track.SafeParams()
 			if sps == nil || pps == nil {
-				sps = formatprocessor.H264DefaultSPS
-				pps = formatprocessor.H264DefaultPPS
+				sps = codecprocessor.H264DefaultSPS
+				pps = codecprocessor.H264DefaultPPS
 			}
 
 			if id == 0 {

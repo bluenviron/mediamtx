@@ -1,4 +1,4 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
 	"errors"
@@ -6,34 +6,25 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1video"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// MPEG-1 video related parameters
-var (
-	MPEG1VideoDefaultConfig = []byte{
-		0x00, 0x00, 0x01, 0xb3, 0x78, 0x04, 0x38, 0x35,
-		0xff, 0xff, 0xe0, 0x18, 0x00, 0x00, 0x01, 0xb5,
-		0x14, 0x4a, 0x00, 0x01, 0x00, 0x00,
-	}
-)
-
-type mpeg1Video struct {
+type vp9 struct {
 	RTPMaxPayloadSize  int
-	Format             *format.MPEG1Video
+	Format             *format.VP9
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpmpeg1video.Encoder
-	decoder     *rtpmpeg1video.Decoder
+	encoder     *rtpvp9.Encoder
+	decoder     *rtpvp9.Decoder
 	randomStart uint32
 }
 
-func (t *mpeg1Video) initialize() error {
+func (t *vp9) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -49,17 +40,17 @@ func (t *mpeg1Video) initialize() error {
 	return nil
 }
 
-func (t *mpeg1Video) createEncoder() error {
-	t.encoder = &rtpmpeg1video.Encoder{
+func (t *vp9) createEncoder() error {
+	t.encoder = &rtpvp9.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
+		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
 
-func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MPEG1Video)
+func (t *vp9) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.VP9)
 
-	// encode into RTP
 	pkts, err := t.encoder.Encode(u.Frame)
 	if err != nil {
 		return err
@@ -73,13 +64,13 @@ func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
+func (t *vp9) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.MPEG1Video{
+	u := &unit.VP9{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -108,8 +99,8 @@ func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 
 		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpmpeg1video.ErrNonStartingPacketAndNoPrevious) ||
-				errors.Is(err, rtpmpeg1video.ErrMorePacketsNeeded) {
+			if errors.Is(err, rtpvp9.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpvp9.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

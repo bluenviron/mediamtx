@@ -1,4 +1,4 @@
-package formatprocessor
+package codecprocessor //nolint:dupl
 
 import (
 	"errors"
@@ -6,25 +6,25 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpac3"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1audio"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type ac3 struct {
+type mpeg1Audio struct {
 	RTPMaxPayloadSize  int
-	Format             *format.AC3
+	Format             *format.MPEG1Audio
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpac3.Encoder
-	decoder     *rtpac3.Decoder
+	encoder     *rtpmpeg1audio.Encoder
+	decoder     *rtpmpeg1audio.Decoder
 	randomStart uint32
 }
 
-func (t *ac3) initialize() error {
+func (t *mpeg1Audio) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -40,15 +40,15 @@ func (t *ac3) initialize() error {
 	return nil
 }
 
-func (t *ac3) createEncoder() error {
-	t.encoder = &rtpac3.Encoder{
-		PayloadType: t.Format.PayloadTyp,
+func (t *mpeg1Audio) createEncoder() error {
+	t.encoder = &rtpmpeg1audio.Encoder{
+		PayloadMaxSize: t.RTPMaxPayloadSize,
 	}
 	return t.encoder.Init()
 }
 
-func (t *ac3) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.AC3)
+func (t *mpeg1Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.MPEG1Audio)
 
 	pkts, err := t.encoder.Encode(u.Frames)
 	if err != nil {
@@ -63,13 +63,13 @@ func (t *ac3) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *ac3) ProcessRTPPacket( //nolint:dupl
+func (t *mpeg1Audio) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.AC3{
+	u := &unit.MPEG1Audio{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -98,8 +98,8 @@ func (t *ac3) ProcessRTPPacket( //nolint:dupl
 
 		frames, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpac3.ErrNonStartingPacketAndNoPrevious) ||
-				errors.Is(err, rtpac3.ErrMorePacketsNeeded) {
+			if errors.Is(err, rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpmpeg1audio.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

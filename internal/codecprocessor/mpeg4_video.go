@@ -1,4 +1,4 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
 	"bytes"

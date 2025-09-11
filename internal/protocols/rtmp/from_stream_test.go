@@ -10,7 +10,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -329,15 +329,15 @@ func TestFromStream(t *testing.T) {
 					require.Equal(t, []format.Format{
 						&format.H265{
 							PayloadTyp: 96,
-							VPS:        formatprocessor.H265DefaultVPS,
-							SPS:        formatprocessor.H265DefaultSPS,
-							PPS:        formatprocessor.H265DefaultPPS,
+							VPS:        codecprocessor.H265DefaultVPS,
+							SPS:        codecprocessor.H265DefaultSPS,
+							PPS:        codecprocessor.H265DefaultPPS,
 						},
 						&format.H264{
 							PayloadTyp:        96,
 							PacketizationMode: 1,
-							SPS:               formatprocessor.H264DefaultSPS,
-							PPS:               formatprocessor.H264DefaultPPS,
+							SPS:               codecprocessor.H264DefaultSPS,
+							PPS:               codecprocessor.H264DefaultPPS,
 						},
 						&format.VP9{
 							PayloadTyp: 96,
@@ -576,17 +576,17 @@ func TestFromStream(t *testing.T) {
 			case "h265 + h264 + vp9 + av1 + opus + aac":
 				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.H265{
 					AU: [][]byte{
-						formatprocessor.H265DefaultVPS,
-						formatprocessor.H265DefaultSPS,
-						formatprocessor.H265DefaultPPS,
+						codecprocessor.H265DefaultVPS,
+						codecprocessor.H265DefaultSPS,
+						codecprocessor.H265DefaultPPS,
 						{0x26, 0x1, 0xaf, 0x8, 0x42, 0x23, 0x48, 0x8a, 0x43, 0xe2},
 					},
 				})
 
 				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.H264{
 					AU: [][]byte{
-						formatprocessor.H264DefaultSPS,
-						formatprocessor.H264DefaultPPS,
+						codecprocessor.H264DefaultSPS,
+						codecprocessor.H264DefaultPPS,
 						{5, 2}, // IDR
 					},
 				})
