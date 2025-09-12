@@ -130,7 +130,7 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		}
 
 		s.Log(logger.Info, "connection %v failed to authenticate: %v",
-			httpp.RemoteAddr(ctx), err.(*auth.Error).Message) //nolint:errorlint
+			httpp.RemoteAddr(ctx), err.(auth.Error).Message) //nolint:errorlint
 
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -319,4 +320,52 @@ func TestOnListCachedDuration(t *testing.T) {
 				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
+}
+
+func TestOnListAuthError(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	s := &Server{
+		Address:     "127.0.0.1:9996",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:       "mypath",
+				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+			},
+		},
+		AuthManager: &test.AuthManager{
+			AuthenticateImpl: func(_ *auth.Request) error {
+				return auth.Error{Wrapped: fmt.Errorf("auth error")}
+			},
+			RefreshJWTJWKSImpl: func() {
+			},
+		},
+		Parent: test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	u.RawQuery = v.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	require.NoError(t, err)
+
+	start := time.Now()
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Greater(t, time.Since(start), 2*time.Second)
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 }
