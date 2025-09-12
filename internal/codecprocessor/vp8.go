@@ -1,29 +1,30 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type lpcm struct {
+type vp8 struct {
 	RTPMaxPayloadSize  int
-	Format             *format.LPCM
+	Format             *format.VP8
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtplpcm.Encoder
-	decoder     *rtplpcm.Decoder
+	encoder     *rtpvp8.Encoder
+	decoder     *rtpvp8.Decoder
 	randomStart uint32
 }
 
-func (t *lpcm) initialize() error {
+func (t *vp8) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -39,20 +40,18 @@ func (t *lpcm) initialize() error {
 	return nil
 }
 
-func (t *lpcm) createEncoder() error {
-	t.encoder = &rtplpcm.Encoder{
+func (t *vp8) createEncoder() error {
+	t.encoder = &rtpvp8.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
-		BitDepth:       t.Format.BitDepth,
-		ChannelCount:   t.Format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
 
-func (t *lpcm) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.LPCM)
+func (t *vp8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.VP8)
 
-	pkts, err := t.encoder.Encode(u.Samples)
+	pkts, err := t.encoder.Encode(u.Frame)
 	if err != nil {
 		return err
 	}
@@ -65,13 +64,13 @@ func (t *lpcm) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *lpcm) ProcessRTPPacket( //nolint:dupl
+func (t *vp8) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.LPCM{
+	u := &unit.VP8{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -98,12 +97,16 @@ func (t *lpcm) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		samples, err := t.decoder.Decode(pkt)
+		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
+			if errors.Is(err, rtpvp8.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpvp8.ErrMorePacketsNeeded) {
+				return u, nil
+			}
 			return nil, err
 		}
 
-		u.Samples = samples
+		u.Frame = frame
 	}
 
 	// route packet as is

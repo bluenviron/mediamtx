@@ -8,8 +8,8 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -29,7 +29,7 @@ type streamFormat struct {
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
-	proc           formatprocessor.Processor
+	proc           codecprocessor.Processor
 	pausedReaders  map[*streamReader]ReadFunc
 	runningReaders map[*streamReader]ReadFunc
 }
@@ -39,7 +39,7 @@ func (sf *streamFormat) initialize() error {
 	sf.runningReaders = make(map[*streamReader]ReadFunc)
 
 	var err error
-	sf.proc, err = formatprocessor.New(sf.rtpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
+	sf.proc, err = codecprocessor.New(sf.rtpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
 	if err != nil {
 		return err
 	}

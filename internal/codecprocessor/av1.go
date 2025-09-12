@@ -1,4 +1,4 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
 	"errors"
@@ -6,25 +6,26 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
+	mcav1 "github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type vp9 struct {
+type av1 struct {
 	RTPMaxPayloadSize  int
-	Format             *format.VP9
+	Format             *format.AV1
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpvp9.Encoder
-	decoder     *rtpvp9.Decoder
+	encoder     *rtpav1.Encoder
+	decoder     *rtpav1.Decoder
 	randomStart uint32
 }
 
-func (t *vp9) initialize() error {
+func (t *av1) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -40,18 +41,53 @@ func (t *vp9) initialize() error {
 	return nil
 }
 
-func (t *vp9) createEncoder() error {
-	t.encoder = &rtpvp9.Encoder{
+func (t *av1) createEncoder() error {
+	t.encoder = &rtpav1.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
 
-func (t *vp9) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.VP9)
+func (t *av1) remuxTemporalUnit(tu [][]byte) [][]byte {
+	n := 0
 
-	pkts, err := t.encoder.Encode(u.Frame)
+	for _, obu := range tu {
+		typ := mcav1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == mcav1.OBUTypeTemporalDelimiter {
+			continue
+		}
+		n++
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	filteredTU := make([][]byte, n)
+	i := 0
+
+	for _, obu := range tu {
+		typ := mcav1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == mcav1.OBUTypeTemporalDelimiter {
+			continue
+		}
+
+		filteredTU[i] = obu
+		i++
+	}
+
+	return filteredTU
+}
+
+func (t *av1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.AV1)
+
+	u.TU = t.remuxTemporalUnit(u.TU)
+
+	pkts, err := t.encoder.Encode(u.TU)
 	if err != nil {
 		return err
 	}
@@ -64,13 +100,13 @@ func (t *vp9) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *vp9) ProcessRTPPacket( //nolint:dupl
+func (t *av1) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.VP9{
+	u := &unit.AV1{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -97,16 +133,16 @@ func (t *vp9) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		frame, err := t.decoder.Decode(pkt)
+		tu, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpvp9.ErrNonStartingPacketAndNoPrevious) ||
-				errors.Is(err, rtpvp9.ErrMorePacketsNeeded) {
+			if errors.Is(err, rtpav1.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpav1.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err
 		}
 
-		u.Frame = frame
+		u.TU = t.remuxTemporalUnit(tu)
 	}
 
 	// route packet as is

@@ -1,30 +1,31 @@
-package formatprocessor
+package codecprocessor
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpsimpleaudio"
-	mcopus "github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpfragmented"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4audio"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type opus struct {
+type mpeg4AudioLATM struct {
 	RTPMaxPayloadSize  int
-	Format             *format.Opus
+	Format             *format.MPEG4AudioLATM
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpsimpleaudio.Encoder
-	decoder     *rtpsimpleaudio.Decoder
+	encoder     *rtpfragmented.Encoder
+	decoder     *rtpfragmented.Decoder
 	randomStart uint32
 }
 
-func (t *opus) initialize() error {
+func (t *mpeg4AudioLATM) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -40,44 +41,37 @@ func (t *opus) initialize() error {
 	return nil
 }
 
-func (t *opus) createEncoder() error {
-	t.encoder = &rtpsimpleaudio.Encoder{
+func (t *mpeg4AudioLATM) createEncoder() error {
+	t.encoder = &rtpfragmented.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
 		PayloadType:    t.Format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
 
-func (t *opus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.Opus)
+func (t *mpeg4AudioLATM) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.MPEG4AudioLATM)
 
-	var rtpPackets []*rtp.Packet //nolint:prealloc
-	pts := u.PTS
-
-	for _, packet := range u.Packets {
-		pkt, err := t.encoder.Encode(packet)
-		if err != nil {
-			return err
-		}
-
-		pkt.Timestamp += t.randomStart + uint32(pts)
-
-		rtpPackets = append(rtpPackets, pkt)
-		pts += mcopus.PacketDuration2(packet)
+	pkts, err := t.encoder.Encode(u.Element)
+	if err != nil {
+		return err
 	}
+	u.RTPPackets = pkts
 
-	u.RTPPackets = rtpPackets
+	for _, pkt := range u.RTPPackets {
+		pkt.Timestamp += t.randomStart + uint32(u.PTS)
+	}
 
 	return nil
 }
 
-func (t *opus) ProcessRTPPacket(
+func (t *mpeg4AudioLATM) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.Opus{
+	u := &unit.MPEG4AudioLATM{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -104,12 +98,15 @@ func (t *opus) ProcessRTPPacket(
 			}
 		}
 
-		packet, err := t.decoder.Decode(pkt)
+		el, err := t.decoder.Decode(pkt)
 		if err != nil {
+			if errors.Is(err, rtpmpeg4audio.ErrMorePacketsNeeded) {
+				return u, nil
+			}
 			return nil, err
 		}
 
-		u.Packets = [][]byte{packet}
+		u.Element = el
 	}
 
 	// route packet as is

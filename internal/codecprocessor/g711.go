@@ -1,30 +1,29 @@
-package formatprocessor //nolint:dupl
+package codecprocessor //nolint:dupl
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmjpeg"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type mjpeg struct {
+type g711 struct {
 	RTPMaxPayloadSize  int
-	Format             *format.MJPEG
+	Format             *format.G711
 	GenerateRTPPackets bool
 	Parent             logger.Writer
 
-	encoder     *rtpmjpeg.Encoder
-	decoder     *rtpmjpeg.Decoder
+	encoder     *rtplpcm.Encoder
+	decoder     *rtplpcm.Decoder
 	randomStart uint32
 }
 
-func (t *mjpeg) initialize() error {
+func (t *g711) initialize() error {
 	if t.GenerateRTPPackets {
 		err := t.createEncoder()
 		if err != nil {
@@ -40,18 +39,20 @@ func (t *mjpeg) initialize() error {
 	return nil
 }
 
-func (t *mjpeg) createEncoder() error {
-	t.encoder = &rtpmjpeg.Encoder{
+func (t *g711) createEncoder() error {
+	t.encoder = &rtplpcm.Encoder{
 		PayloadMaxSize: t.RTPMaxPayloadSize,
+		PayloadType:    t.Format.PayloadType(),
+		BitDepth:       8,
+		ChannelCount:   t.Format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
 
-func (t *mjpeg) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MJPEG)
+func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.G711)
 
-	// encode into RTP
-	pkts, err := t.encoder.Encode(u.Frame)
+	pkts, err := t.encoder.Encode(u.Samples)
 	if err != nil {
 		return err
 	}
@@ -64,13 +65,13 @@ func (t *mjpeg) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	return nil
 }
 
-func (t *mjpeg) ProcessRTPPacket( //nolint:dupl
+func (t *g711) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts int64,
 	hasNonRTSPReaders bool,
 ) (unit.Unit, error) {
-	u := &unit.MJPEG{
+	u := &unit.G711{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
@@ -97,16 +98,12 @@ func (t *mjpeg) ProcessRTPPacket( //nolint:dupl
 			}
 		}
 
-		frame, err := t.decoder.Decode(pkt)
+		samples, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if errors.Is(err, rtpmjpeg.ErrNonStartingPacketAndNoPrevious) ||
-				errors.Is(err, rtpmjpeg.ErrMorePacketsNeeded) {
-				return u, nil
-			}
 			return nil, err
 		}
 
-		u.Frame = frame
+		u.Samples = samples
 	}
 
 	// route packet as is

@@ -1,4 +1,4 @@
-package formatprocessor
+package codecprocessor
 
 import (
 	"testing"

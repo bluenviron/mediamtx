@@ -1,5 +1,5 @@
-// Package formatprocessor cleans and normalizes streams.
-package formatprocessor
+// Package codecprocessor contains codec-specific processing.
+package codecprocessor
 
 import (
 	"crypto/rand"
@@ -21,7 +21,7 @@ func randUint32() (uint32, error) {
 	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]), nil
 }
 
-// Processor is the codec-dependent part of the processing that happens inside stream.Stream.
+// Processor is the codec-specific part of the processing that happens inside stream.Stream.
 type Processor interface {
 	// process a Unit.
 	ProcessUnit(unit.Unit) error
