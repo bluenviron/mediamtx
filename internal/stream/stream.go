@@ -252,11 +252,20 @@ func (s *Stream) WaitRunningReader() {
 
 // WriteUnit writes a Unit.
 func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u unit.Unit) {
-	sm := s.streamMedias[medi]
-	sf := sm.formats[forma]
-
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	
+	sm := s.streamMedias[medi]
+	if sm == nil {
+		// Stream being reconfigured, ignore write
+		return
+	}
+	
+	sf := sm.formats[forma]
+	if sf == nil {
+		// Format not available, ignore write
+		return
+	}
 
 	sf.writeUnit(s, medi, u)
 }
@@ -269,11 +278,20 @@ func (s *Stream) WriteRTPPacket(
 	ntp time.Time,
 	pts int64,
 ) {
-	sm := s.streamMedias[medi]
-	sf := sm.formats[forma]
-
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	
+	sm := s.streamMedias[medi]
+	if sm == nil {
+		// Stream being reconfigured, ignore write
+		return
+	}
+	
+	sf := sm.formats[forma]
+	if sf == nil {
+		// Format not available, ignore write
+		return
+	}
 
 	sf.writeRTPPacket(s, medi, pkt, ntp, pts)
 }
