@@ -1,6 +1,6 @@
-BASE_IMAGE = golang:1.24-alpine3.20
+BASE_IMAGE = golang:1.25-alpine3.22
 GOLANGCI_LINT_IMAGE = golangci/golangci-lint:v2.4.0
-NODE_IMAGE = node:20-alpine3.20
+NODE_IMAGE = node:20-alpine3.22
 
 .PHONY: $(shell ls)
 

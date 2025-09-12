@@ -2,7 +2,7 @@
 
 ## Standard method
 
-Install git and Go &ge; 1.24. Clone the repository, enter into the folder and start the building process:
+Install git and Go &ge; 1.25. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx
@@ -59,7 +59,7 @@ If you need to use a custom or external libcamera when interacting with the Rasp
 
 Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
 
-On the machine you want to use to compile, install git and Go &ge; 1.24. Clone the repository, enter into the folder and start the building process:
+On the machine you want to use to compile, install git and Go &ge; 1.25. Clone the repository, enter into the folder and start the building process:
 
 ```sh
 git clone https://github.com/bluenviron/mediamtx
