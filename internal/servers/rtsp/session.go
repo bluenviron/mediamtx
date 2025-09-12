@@ -102,10 +102,9 @@ func (s *session) initialize() {
 }
 
 // Close closes a Session.
+// this is not always called, so things that need to be released
+// must go in onClose().
 func (s *session) Close() {
-	s.discardedFrames.Stop()
-	s.decodeErrors.Stop()
-	s.packetsLost.Stop()
 	s.rsession.Close()
 }
 
@@ -135,6 +134,10 @@ func (s *session) onClose(err error) {
 
 	s.path = nil
 	s.stream = nil
+
+	s.discardedFrames.Stop()
+	s.decodeErrors.Stop()
+	s.packetsLost.Stop()
 
 	s.Log(logger.Info, "destroyed: %v", err)
 }
