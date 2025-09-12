@@ -1,5 +1,7 @@
 # RTSP-specific features
 
+RTSP is a protocol that can be used for publishing and reading streams. Features in these page are shared among both tasks. Regarding specific tasks, see [Publish](publish) and [Read](read).
+
 ## Transport protocols
 
 The RTSP protocol supports several underlying transport protocols, that are chosen by clients during the handshake with the server:
@@ -12,7 +14,7 @@ The default transport protocol is UDP. To change the transport protocol, you hav
 
 ## Encryption
 
-Incoming and outgoing RTSP streams can be encrypted with TLS, obtaining the RTSPS protocol. A TLS certificate is needed and can be generated with OpenSSL:
+Incoming and outgoing RTSP streams can be encrypted by using a secure protocol variant, called RTSPS, that replaces all the subprotocols that are normally used in RTSP with their secure variant (TLS, MIKEY, SRTP). A TLS certificate is needed and can be generated with OpenSSL:
 
 ```sh
 openssl genrsa -out server.key 2048

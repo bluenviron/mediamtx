@@ -59,7 +59,7 @@ Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg), [GStream
 
 ### RTSP
 
-RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and allows to encrypt streams in transit (see [RTSP-specific features](rtsp-specific-features)). In order to read a stream with the RTSP protocol, use this URL:
+RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and encryption (see [RTSP-specific features](rtsp-specific-features)). In order to read a stream with the RTSP protocol, use this URL:
 
 ```
 rtsp://localhost:8554/mystream
