@@ -435,7 +435,7 @@ This web page can be embedded into another web page by using an iframe:
 <iframe src="http://mediamtx-ip:8889/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced setups, you can create and serve a custom web page by starting from the [source code of the WebRTC read page](internal/servers/webrtc/read_index.html). In particular, there's a ready-to-use, standalone JavaScript class for reading streams with WebRTC, available in [reader.js](internal/servers/webrtc/reader.js).
+For more advanced setups, you can create and serve a custom web page by starting from the [source code of the WebRTC read page](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/webrtc/read_index.html). In particular, there's a ready-to-use, standalone JavaScript class for reading streams with WebRTC, available in [reader.js](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/webrtc/reader.js).
 
 Web browsers can also read a stream with the [HLS protocol](#hls). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like Cloudflare or CloudFront), and this allows to handle an unlimited amount of readers. Visit the web page:
 
@@ -449,4 +449,4 @@ This web page can be embedded into another web page by using an iframe:
 <iframe src="http://mediamtx-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced setups, you can create and serve a custom web page by starting from the [source code of the HLS read page](internal/servers/hls/index.html).
+For more advanced setups, you can create and serve a custom web page by starting from the [source code of the HLS read page](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/hls/index.html).
