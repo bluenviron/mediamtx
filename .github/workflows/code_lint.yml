@@ -17,7 +17,7 @@ jobs:
 
     - uses: actions/setup-go@v6
       with:
-        go-version: "1.24"
+        go-version: "1.25"
 
     - run: go generate ./...
 
@@ -33,7 +33,7 @@ jobs:
 
     - uses: actions/setup-go@v6
       with:
-        go-version: "1.24"
+        go-version: "1.25"
 
     - run: make lint-go-mod
 
