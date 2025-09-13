@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -118,7 +118,7 @@ func TestServerPublish(t *testing.T) {
 			u, err := url.Parse(rawURL)
 			require.NoError(t, err)
 
-			conn := &rtmp.Client{
+			conn := &gortmplib.Client{
 				URL:       u,
 				TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				Publish:   true,
@@ -127,7 +127,7 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer conn.Close()
 
-			w := &rtmp.Writer{
+			w := &gortmplib.Writer{
 				Conn:   conn,
 				Tracks: []format.Format{test.FormatH264, test.FormatMPEG4Audio},
 			}
@@ -249,7 +249,7 @@ func TestServerRead(t *testing.T) {
 			u, err := url.Parse(rawURL)
 			require.NoError(t, err)
 
-			conn := &rtmp.Client{
+			conn := &gortmplib.Client{
 				URL:       u,
 				TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				Publish:   false,
@@ -291,7 +291,7 @@ func TestServerRead(t *testing.T) {
 				})
 			}()
 
-			r := &rtmp.Reader{
+			r := &gortmplib.Reader{
 				Conn: conn,
 			}
 			err = r.Initialize()
@@ -300,7 +300,7 @@ func TestServerRead(t *testing.T) {
 			tracks := r.Tracks()
 			require.Equal(t, []format.Format{test.FormatH264}, tracks)
 
-			r.OnDataH264(tracks[0].(*format.H264), func(_ time.Duration, au [][]byte) {
+			r.OnDataH264(tracks[0].(*format.H264), func(_ time.Duration, _ time.Duration, au [][]byte) {
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,

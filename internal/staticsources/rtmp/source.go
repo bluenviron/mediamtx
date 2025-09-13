@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -80,7 +81,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) error {
 	connectCtx, connectCtxCancel := context.WithTimeout(ctx, time.Duration(s.ReadTimeout))
-	conn := &rtmp.Client{
+	conn := &gortmplib.Client{
 		URL:       u,
 		TLSConfig: tls.ConfigForFingerprint(fingerprint),
 		Publish:   false,
@@ -91,7 +92,7 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 		return err
 	}
 
-	r := &rtmp.Reader{
+	r := &gortmplib.Reader{
 		Conn: conn,
 	}
 	err = r.Initialize()

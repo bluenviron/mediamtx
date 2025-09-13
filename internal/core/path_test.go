@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -24,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -216,7 +216,7 @@ func TestPathRunOnConnect(t *testing.T) {
 					u, err = url.Parse("rtmp://127.0.0.1:1935/test")
 					require.NoError(t, err)
 
-					conn := &rtmp.Client{
+					conn := &gortmplib.Client{
 						URL:     u,
 						Publish: true,
 					}
@@ -231,7 +231,7 @@ func TestPathRunOnConnect(t *testing.T) {
 					u, err = url.Parse("rtmps://127.0.0.1:1936/test")
 					require.NoError(t, err)
 
-					conn := &rtmp.Client{
+					conn := &gortmplib.Client{
 						URL:       u,
 						Publish:   true,
 						TLSConfig: &tls.Config{InsecureSkipVerify: true},
@@ -458,7 +458,7 @@ func TestPathRunOnRead(t *testing.T) {
 					u, err = url.Parse("rtmp://127.0.0.1:1935/test?query=value")
 					require.NoError(t, err)
 
-					conn := &rtmp.Client{
+					conn := &gortmplib.Client{
 						URL:     u,
 						Publish: false,
 					}
@@ -466,7 +466,7 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 					defer conn.Close()
 
-					r := &rtmp.Reader{
+					r := &gortmplib.Reader{
 						Conn: conn,
 					}
 					err = r.Initialize()
@@ -477,7 +477,7 @@ func TestPathRunOnRead(t *testing.T) {
 					u, err = url.Parse("rtmps://127.0.0.1:1936/test?query=value")
 					require.NoError(t, err)
 
-					conn := &rtmp.Client{
+					conn := &gortmplib.Client{
 						URL:       u,
 						Publish:   false,
 						TLSConfig: &tls.Config{InsecureSkipVerify: true},
@@ -503,7 +503,7 @@ func TestPathRunOnRead(t *testing.T) {
 						}
 					}()
 
-					r := &rtmp.Reader{
+					r := &gortmplib.Reader{
 						Conn: conn,
 					}
 					err = r.Initialize()

@@ -4,10 +4,7 @@
 | ------------------------------------------------------------------------------------------------------------- | -------------- |
 | [RTSP / RTP / RTCP specifications](https://github.com/bluenviron/gortsplib#specifications)                    | RTSP           |
 | [HLS specifications](https://github.com/bluenviron/gohlslib#specifications)                                   | HLS            |
-| [Action Message Format - AMF 0](https://veovera.org/docs/legacy/amf0-file-format-spec.pdf)                    | RTMP           |
-| [FLV](https://veovera.org/docs/legacy/video-file-format-v10-1-spec.pdf)                                       | RTMP           |
-| [RTMP](https://veovera.org/docs/legacy/rtmp-v1-0-spec.pdf)                                                    | RTMP           |
-| [Enhanced RTMP v2](https://veovera.org/docs/enhanced/enhanced-rtmp-v2.pdf)                                    | RTMP           |
+| [RTMP specifications](https://github.com/bluenviron/gortmplib#specifications)                                 | RTMP           |
 | [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)                                  | WebRTC         |
 | [RFC8835, Transports for WebRTC](https://datatracker.ietf.org/doc/html/rfc8835)                               | WebRTC         |
 | [RFC7742, WebRTC Video Processing and Codec Requirements](https://datatracker.ietf.org/doc/html/rfc7742)      | WebRTC         |

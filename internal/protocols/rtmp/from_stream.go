@@ -1,12 +1,14 @@
+// Package rtmp provides RTMP utilities.
 package rtmp
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"slices"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
@@ -15,7 +17,6 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -38,12 +39,12 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func FromStream(
 	str *stream.Stream,
 	reader stream.Reader,
-	conn *ServerConn,
+	conn *gortmplib.ServerConn,
 	nconn net.Conn,
 	writeTimeout time.Duration,
 ) error {
 	var tracks []format.Format
-	var w *Writer
+	var w *gortmplib.Writer
 
 	for _, media := range str.Desc.Medias {
 		for _, forma := range media.Formats {
@@ -64,7 +65,6 @@ func FromStream(
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteAV1(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
 								timestampToDuration(tunit.PTS, forma.ClockRate()),
 								tunit.TU)
 						})
@@ -88,7 +88,6 @@ func FromStream(
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteVP9(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
 								timestampToDuration(tunit.PTS, forma.ClockRate()),
 								tunit.Frame)
 						})
@@ -306,15 +305,10 @@ func FromStream(
 								return err
 							}
 
-							if h.MPEG2 || h.Layer != 3 {
-								return fmt.Errorf("RTMP only supports MPEG-1 layer 3 audio")
-							}
-
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							err = (*w).WriteMPEG1Audio(
 								forma,
 								timestampToDuration(pts, forma.ClockRate()),
-								&h,
 								frame)
 							if err != nil {
 								return err
@@ -416,7 +410,7 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
-	w = &Writer{
+	w = &gortmplib.Writer{
 		Conn:   conn,
 		Tracks: tracks,
 	}
