@@ -1,6 +1,10 @@
-# Metrics
+# Extract metrics
 
-A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+MediaMTX provides several metrics through a dedicated HTTP server, in a format compatible with [Prometheus](https://prometheus.io/).
+
+This server can be enabled by setting `metrics: yes` in the configuration.
+
+Metrics can be extracted with Prometheus or with a simple HTTP request:
 
 ```
 curl localhost:9998/metrics
@@ -131,7 +135,7 @@ webrtc_sessions_rtcp_packets_received{id="[id]",path="[path]",remoteAddr="[remot
 webrtc_sessions_rtcp_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 ```
 
-Metrics can be tuned and filtered by using query parameters:
+Metrics can be filtered by using HTTP query parameters:
 
 - `type=[TYPE]`: show metrics of a certain type only (where TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`)
 - `path=[PATH]`: show metrics belonging to a specific path only
