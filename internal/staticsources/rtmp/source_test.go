@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -101,7 +101,7 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err)
 					defer nconn.Close()
 
-					conn := &rtmp.ServerConn{
+					conn := &gortmplib.ServerConn{
 						RW: nconn,
 					}
 					err = conn.Initialize()
@@ -117,7 +117,7 @@ func TestSource(t *testing.T) {
 					err = conn.Accept()
 					require.NoError(t, err)
 
-					w := &rtmp.Writer{
+					w := &gortmplib.Writer{
 						Conn:   conn,
 						Tracks: []format.Format{test.FormatH264, test.FormatMPEG4Audio},
 					}

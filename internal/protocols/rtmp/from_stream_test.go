@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/codecprocessor"
@@ -199,13 +200,13 @@ func TestFromStream(t *testing.T) {
 				u, err2 := url.Parse("rtmp://127.0.0.1:9121/stream")
 				require.NoError(t, err2)
 
-				c := &Client{
+				c := &gortmplib.Client{
 					URL: u,
 				}
 				err2 = c.Initialize(context.Background())
 				require.NoError(t, err2)
 
-				r := &Reader{
+				r := &gortmplib.Reader{
 					Conn: c,
 				}
 				err2 = r.Initialize()
@@ -366,7 +367,7 @@ func TestFromStream(t *testing.T) {
 			require.NoError(t, err)
 			defer nconn.Close()
 
-			conn := &ServerConn{
+			conn := &gortmplib.ServerConn{
 				RW: nconn,
 			}
 			err = conn.Initialize()
@@ -683,7 +684,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		u, err2 := url.Parse("rtmp://127.0.0.1:9121/stream")
 		require.NoError(t, err2)
 
-		c := &Client{
+		c := &gortmplib.Client{
 			URL: u,
 		}
 		err2 = c.Initialize(context.Background())
@@ -694,7 +695,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	require.NoError(t, err)
 	defer nconn.Close()
 
-	conn := &ServerConn{
+	conn := &gortmplib.ServerConn{
 		RW: nconn,
 	}
 	err = conn.Initialize()

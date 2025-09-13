@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/google/uuid"
 
@@ -42,7 +43,7 @@ type conn struct {
 	uuid      uuid.UUID
 	created   time.Time
 	mutex     sync.RWMutex
-	rconn     *rtmp.ServerConn
+	rconn     *gortmplib.ServerConn
 	state     defs.APIRTMPConnState
 	pathName  string
 	query     string
@@ -123,7 +124,7 @@ func (c *conn) runReader() error {
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 
-	conn := &rtmp.ServerConn{
+	conn := &gortmplib.ServerConn{
 		RW: c.nconn,
 	}
 	err := conn.Initialize()
@@ -219,7 +220,7 @@ func (c *conn) runPublish() error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
-	r := &rtmp.Reader{
+	r := &gortmplib.Reader{
 		Conn: c.rconn,
 	}
 	err := r.Initialize()

@@ -2,6 +2,7 @@
 
 - [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
 - [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
+- [gortmplib (RTMP library used internally)](https://github.com/bluenviron/gortmplib)
 - [mediacommon (codecs and formats library used internally)](https://github.com/bluenviron/mediacommon)
 - [mediamtx-rpicamera (Raspberry Pi Camera component)](https://github.com/bluenviron/mediamtx-rpicamera)
 - [datarhei/gosrt (SRT library used internally)](https://github.com/datarhei/gosrt)

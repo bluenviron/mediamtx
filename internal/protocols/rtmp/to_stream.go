@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -24,8 +26,12 @@ func durationToTimestamp(d time.Duration, clockRate int) int64 {
 	return multiplyAndDivide(int64(d), int64(clockRate), int64(time.Second))
 }
 
+func fourCCToString(c message.FourCC) string {
+	return string([]byte{byte(c >> 24), byte(c >> 16), byte(c >> 8), byte(c)})
+}
+
 // ToStream maps a RTMP stream to a MediaMTX stream.
-func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
+func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media, error) {
 	var medias []*description.Media
 
 	for _, track := range r.Tracks() {
@@ -73,7 +79,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 			}
 			medias = append(medias, medi)
 
-			r.OnDataH265(ttrack, func(pts time.Duration, au [][]byte) {
+			r.OnDataH265(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
 				(*stream).WriteUnit(medi, ctrack, &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
@@ -90,7 +96,7 @@ func ToStream(r *Reader, stream **stream.Stream) ([]*description.Media, error) {
 			}
 			medias = append(medias, medi)
 
-			r.OnDataH264(ttrack, func(pts time.Duration, au [][]byte) {
+			r.OnDataH264(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
 				(*stream).WriteUnit(medi, ctrack, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -24,7 +25,6 @@ import (
 	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -432,7 +432,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				u, err = url.Parse(rawURL)
 				require.NoError(t, err)
 
-				conn := &rtmp.Client{
+				conn := &gortmplib.Client{
 					URL:       u,
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 					Publish:   true,
@@ -441,7 +441,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
-				w := &rtmp.Writer{
+				w := &gortmplib.Writer{
 					Conn:   conn,
 					Tracks: []format.Format{test.FormatH264},
 				}
@@ -1026,7 +1026,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err = url.Parse("rtmp://localhost:1935/mypath")
 				require.NoError(t, err)
 
-				conn := &rtmp.Client{
+				conn := &gortmplib.Client{
 					URL:     u,
 					Publish: true,
 				}
@@ -1034,7 +1034,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
-				w := &rtmp.Writer{
+				w := &gortmplib.Writer{
 					Conn:   conn,
 					Tracks: []format.Format{test.FormatH264},
 				}
