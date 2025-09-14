@@ -8,7 +8,7 @@ MediaMTX can be configured to ask clients for credentials, either in the form of
 
 Credentials can be validated through one of these methods:
 
-- Internal database: users are stored in the configuration file
+- Internal database: credentials are stored in the configuration file
 - External HTTP server: an external HTTP URL is contacted to perform authentication
 - External JWT provider: an external identity server provides signed tokens that are then verified by the server
 
@@ -252,7 +252,7 @@ Authorization: Basic base64(user:pass)
 
 When using a web browser, a dialog is first shown to users, asking for credentials, and then the header is automatically inserted into every request.
 
-If the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio, which only allows to provide a "Bearer Token"), credentials can be passed through the `Authorization: Bearer` header (i.e. the "Bearer Token" in OBS), where value is the concatenation of username and password, separated by a colon:
+If the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio, which only allows to provide a "Bearer Token"), credentials can be passed through the `Authorization: Bearer` header (i.e. the "Bearer Token" in OBS), where the value is the concatenation of username and password, separated by a colon:
 
 ```
 Authorization: Bearer username:password
