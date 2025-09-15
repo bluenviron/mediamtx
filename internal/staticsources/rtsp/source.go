@@ -125,7 +125,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		Scheme:            u.Scheme,
 		Host:              u.Host,
 		Transport:         params.Conf.RTSPTransport.Transport,
-		TLSConfig:         tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		WriteQueueSize:    s.WriteQueueSize,

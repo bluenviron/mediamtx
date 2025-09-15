@@ -456,7 +456,7 @@ pathDefaults:
   # * $G1, $G2, ...: regular expression groups, if path name is
   #   a regular expression.
   source: publisher
-  # If the source is a URL, and the source certificate is self-signed
+  # If the source is a URL, and the source TLS certificate is self-signed
   # or invalid, you can provide the fingerprint of the certificate in order to
   # validate it anyway. It can be obtained by running:
   # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt

@@ -83,7 +83,7 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 	connectCtx, connectCtxCancel := context.WithTimeout(ctx, time.Duration(s.ReadTimeout))
 	conn := &gortmplib.Client{
 		URL:       u,
-		TLSConfig: tls.ConfigForFingerprint(fingerprint),
+		TLSConfig: tls.MakeConfig(u.Hostname(), fingerprint),
 		Publish:   false,
 	}
 	err := conn.Initialize(connectCtx)

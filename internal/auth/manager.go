@@ -273,8 +273,13 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	defer m.mutex.Unlock()
 
 	if now.Sub(m.jwksLastRefresh) >= jwksRefreshPeriod {
+		u, err := url.Parse(m.JWTJWKS)
+		if err != nil {
+			return nil, err
+		}
+
 		tr := &http.Transport{
-			TLSClientConfig: tls.ConfigForFingerprint(m.JWTJWKSFingerprint),
+			TLSClientConfig: tls.MakeConfig(u.Hostname(), m.JWTJWKSFingerprint),
 		}
 		defer tr.CloseIdleConnections()
 
