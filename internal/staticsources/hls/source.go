@@ -3,6 +3,7 @@ package hls
 
 import (
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/bluenviron/gohlslib/v2"
@@ -60,8 +61,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
+	u, err := url.Parse(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+
 	tr := &http.Transport{
-		TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 	}
 	defer tr.CloseIdleConnections()
 
@@ -88,9 +94,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			decodeErrors.Increase()
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err := hls.ToStream(c, tracks, &stream)
-			if err != nil {
-				return err
+			medias, err2 := hls.ToStream(c, tracks, &stream)
+			if err2 != nil {
+				return err2
 			}
 
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
@@ -107,7 +113,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	err := c.Start()
+	err = c.Start()
 	if err != nil {
 		return err
 	}

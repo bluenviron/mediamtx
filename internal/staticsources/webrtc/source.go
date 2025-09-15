@@ -48,17 +48,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
 	tr := &http.Transport{
-		TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 	}
 	defer tr.CloseIdleConnections()
 
 	client := whip.Client{
+		URL: u,
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
 		},
 		UseAbsoluteTimestamp: params.Conf.UseAbsoluteTimestamp,
-		URL:                  u,
 		Log:                  s,
 	}
 	err = client.Initialize(params.Context)
