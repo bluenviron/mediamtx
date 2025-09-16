@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/rtcpsender"
+	"github.com/bluenviron/gortsplib/v5/pkg/rtpsender"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -26,7 +26,7 @@ type OutgoingTrack struct {
 
 	track          *webrtc.TrackLocalStaticRTP
 	ssrc           uint32
-	rtcpSender     *rtcpsender.RTCPSender
+	rtcpSender     *rtpsender.Sender
 	rtpPacketsSent *uint64
 }
 
@@ -59,7 +59,7 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 
 	t.ssrc = uint32(sender.GetParameters().Encodings[0].SSRC)
 
-	t.rtcpSender = &rtcpsender.RTCPSender{
+	t.rtcpSender = &rtpsender.Sender{
 		ClockRate: int(t.track.Codec().ClockRate),
 		Period:    1 * time.Second,
 		TimeNow:   time.Now,

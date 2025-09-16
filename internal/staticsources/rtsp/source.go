@@ -4,9 +4,9 @@ package rtsp
 import (
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
@@ -124,7 +124,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	c := &gortsplib.Client{
 		Scheme:            u.Scheme,
 		Host:              u.Host,
-		Transport:         params.Conf.RTSPTransport.Transport,
+		Protocol:          params.Conf.RTSPTransport.Protocol,
 		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
@@ -148,7 +148,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	err = c.Start2()
+	err = c.Start()
 	if err != nil {
 		return err
 	}

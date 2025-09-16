@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 

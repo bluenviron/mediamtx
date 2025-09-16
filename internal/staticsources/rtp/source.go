@@ -7,10 +7,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
-	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
+	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -114,7 +114,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 	var stream *stream.Stream
 
-	timeDecoder := &rtptime.GlobalDecoder2{}
+	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
 
 	mediasByPayloadType := make(map[uint8]*description.Media)

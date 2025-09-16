@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/rtcpreceiver"
+	"github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -248,7 +248,7 @@ type IncomingTrack struct {
 	rtpPacketsLost       *uint64
 
 	packetsLost  *counterdumper.CounterDumper
-	rtcpReceiver *rtcpreceiver.RTCPReceiver
+	rtcpReceiver *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
@@ -285,7 +285,7 @@ func (t *IncomingTrack) start() {
 	}
 	t.packetsLost.Start()
 
-	t.rtcpReceiver = &rtcpreceiver.RTCPReceiver{
+	t.rtcpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
 		Period:               1 * time.Second,
@@ -348,7 +348,7 @@ func (t *IncomingTrack) start() {
 				return
 			}
 
-			packets, lost, err2 := t.rtcpReceiver.ProcessPacket2(pkt, time.Now(), true)
+			packets, lost, err2 := t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
 			if err2 != nil {
 				t.log.Log(logger.Warn, err2.Error())
 				continue

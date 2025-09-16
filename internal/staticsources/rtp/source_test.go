@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"

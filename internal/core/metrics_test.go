@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
-	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
