@@ -140,6 +140,7 @@ type APIRTSPConn struct {
 	BytesReceived uint64     `json:"bytesReceived"`
 	BytesSent     uint64     `json:"bytesSent"`
 	Session       *uuid.UUID `json:"session"`
+	Tunnel        string     `json:"tunnel"`
 }
 
 // APIRTSPConnsList is a list of RTSP connections.
@@ -168,6 +169,7 @@ type APIRTSPSession struct {
 	Path                string              `json:"path"`
 	Query               string              `json:"query"`
 	Transport           *string             `json:"transport"`
+	Profile             *string             `json:"profile"`
 	BytesReceived       uint64              `json:"bytesReceived"`
 	BytesSent           uint64              `json:"bytesSent"`
 	RTPPacketsReceived  uint64              `json:"rtpPacketsReceived"`

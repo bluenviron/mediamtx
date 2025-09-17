@@ -746,6 +746,8 @@ components:
         session:
           type: string
           nullable: true
+        tunnel:
+          type: string
 
     RTSPConnList:
       type: object
@@ -778,6 +780,9 @@ components:
         query:
           type: string
         transport:
+          type: string
+          nullable: true
+        profile:
           type: string
           nullable: true
         bytesReceived:
