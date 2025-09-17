@@ -438,6 +438,10 @@ pathDefaults:
   # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
   # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
   # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
+  # * rtsp+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTP tunneling
+  # * rtsps+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTPS tunneling
+  # * rtsp+ws://existing-url -> the stream is pulled from another RTSP server / camera, with WebSocket tunneling
+  # * rtsps+ws://existing-url -> the stream is pulled from another RTSP server / camera, with secure WebSocket tunneling
   # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
   # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
   # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera

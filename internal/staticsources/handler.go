@@ -95,7 +95,11 @@ func (s *Handler) Initialize() {
 
 	switch {
 	case strings.HasPrefix(s.Conf.Source, "rtsp://") ||
-		strings.HasPrefix(s.Conf.Source, "rtsps://"):
+		strings.HasPrefix(s.Conf.Source, "rtsps://") ||
+		strings.HasPrefix(s.Conf.Source, "rtsp+http://") ||
+		strings.HasPrefix(s.Conf.Source, "rtsps+http://") ||
+		strings.HasPrefix(s.Conf.Source, "rtsp+ws://") ||
+		strings.HasPrefix(s.Conf.Source, "rtsps+ws://"):
 		s.instance = &ssrtsp.Source{
 			ReadTimeout:    s.ReadTimeout,
 			WriteTimeout:   s.WriteTimeout,
