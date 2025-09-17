@@ -367,8 +367,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			switch ca {
 			case "rtsps conns", "rtsps sessions":
-				conf += "rtspTransports: [tcp]\n" +
-					"rtspEncryption: strict\n" +
+				conf += "rtspEncryption: strict\n" +
 					"rtspServerCert: " + serverCertFpath + "\n" +
 					"rtspServerKey: " + serverKeyFpath + "\n"
 
@@ -621,6 +620,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
 							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
 							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
+							"tunnel":        "none",
 						},
 					},
 				}, out1)
@@ -640,6 +640,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"remoteAddr":          out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
 							"state":               "publish",
 							"transport":           "UDP",
+							"profile":             "AVP",
 							"rtpPacketsReceived":  float64(0),
 							"rtpPacketsSent":      float64(0),
 							"rtpPacketsLost":      float64(0),
@@ -664,6 +665,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
 							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
 							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
+							"tunnel":        "none",
 						},
 					},
 				}, out1)
@@ -682,7 +684,8 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"query":               "key=val",
 							"remoteAddr":          out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
 							"state":               "publish",
-							"transport":           "TCP",
+							"transport":           "UDP",
+							"profile":             "SAVP",
 							"rtpPacketsReceived":  float64(0),
 							"rtpPacketsSent":      float64(0),
 							"rtpPacketsLost":      float64(0),

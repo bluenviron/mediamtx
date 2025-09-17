@@ -157,6 +157,12 @@ func TestAPIDocs(t *testing.T) {
 					case sf.Type == reflect.TypeOf(""):
 						content2.Properties[js] = openAPIProperty{Type: "string"}
 
+					case sf.Type == reflect.PointerTo(reflect.TypeOf("")):
+						content2.Properties[js] = openAPIProperty{
+							Type:     "string",
+							Nullable: true,
+						}
+
 					case sf.Type == reflect.TypeOf(int(0)):
 						content2.Properties[js] = openAPIProperty{Type: "integer", Format: "int64"}
 

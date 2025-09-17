@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	rtspauth "github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -23,6 +24,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
+
+func profileLabel(p headers.TransportProfile) string {
+	switch p {
+	case headers.TransportProfileSAVP:
+		return "SAVP"
+	case headers.TransportProfileAVP:
+		return "AVP"
+	}
+	return "unknown"
+}
 
 type session struct {
 	isTLS           bool
@@ -406,6 +417,14 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 				return nil
 			}
 			v := transport.Protocol.String()
+			return &v
+		}(),
+		Profile: func() *string {
+			transport := s.rsession.Transport()
+			if transport == nil {
+				return nil
+			}
+			v := profileLabel(transport.Profile)
 			return &v
 		}(),
 		BytesReceived:       stats.BytesReceived,

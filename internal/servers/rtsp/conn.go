@@ -43,6 +43,18 @@ func credentialsProvided(req *base.Request) bool {
 	return err == nil && auth.Username != ""
 }
 
+func tunnelLabel(t gortsplib.Tunnel) string {
+	switch t {
+	case gortsplib.TunnelHTTP:
+		return "http"
+	case gortsplib.TunnelWebSocket:
+		return "websocket"
+	case gortsplib.TunnelNone:
+		return "none"
+	}
+	return "unknown"
+}
+
 type connParent interface {
 	logger.Writer
 	findSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *session
@@ -229,5 +241,6 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 			}
 			return nil
 		}(),
+		Tunnel: tunnelLabel(c.rconn.Transport().Tunnel),
 	}
 }
