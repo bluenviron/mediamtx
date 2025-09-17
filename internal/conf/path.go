@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	gourl "net/url"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -372,8 +372,12 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
-		strings.HasPrefix(pconf.Source, "rtsps://"):
-		_, err := base.ParseURL(pconf.Source)
+		strings.HasPrefix(pconf.Source, "rtsps://") ||
+		strings.HasPrefix(pconf.Source, "rtsp+http://") ||
+		strings.HasPrefix(pconf.Source, "rtsps+http://") ||
+		strings.HasPrefix(pconf.Source, "rtsp+ws://") ||
+		strings.HasPrefix(pconf.Source, "rtsps+ws://"):
+		_, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
@@ -390,7 +394,7 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		u, err := gourl.Parse(pconf.Source)
+		u, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
@@ -406,12 +410,8 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		u, err := gourl.Parse(pconf.Source)
+		u, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-		}
-
-		if u.Scheme != "http" && u.Scheme != "https" {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
@@ -454,14 +454,14 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		_, err := gourl.Parse(pconf.Source)
+		_, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		_, err := gourl.Parse(pconf.Source)
+		_, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
