@@ -4,19 +4,19 @@
 
 Live streams can be published to the server with the following protocols and codecs:
 
-| protocol                                              | variants                                    | video codecs                                                                                              | audio codecs                                                                                                           |
-| ----------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [SRT clients](#srt-clients)                           |                                             | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [SRT cameras and servers](#srt-cameras-and-servers)   |                                             | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [WebRTC clients](#webrtc-clients)                     | WHIP                                        | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
-| [WebRTC servers](#webrtc-servers)                     | WHEP                                        | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
-| [RTSP clients](#rtsp-clients)                         | UDP, TCP, RTSPS                             | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
-| [RTSP cameras and servers](#rtsp-cameras-and-servers) | UDP, UDP-Multicast, TCP, RTSPS              | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
-| [RTMP clients](#rtmp-clients)                         | RTMP, RTMPS, Enhanced RTMP                  | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
-| [RTMP cameras and servers](#rtmp-cameras-and-servers) | RTMP, RTMPS, Enhanced RTMP                  | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
-| [HLS cameras and servers](#hls-cameras-and-servers)   | Low-Latency HLS, MP4-based HLS, legacy HLS  | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC)                                                                                               |
-| [MPEG-TS](#mpeg-ts)                                   | MPEG-TS over UDP, MPEG-TS over Unix sockets | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [RTP](#rtp)                                           | RTP over UDP, RTP over Unix sockets         | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
+| protocol                                              | variants                                   | video codecs                                                                                              | audio codecs                                                                                                           |
+| ----------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [SRT clients](#srt-clients)                           |                                            | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
+| [SRT cameras and servers](#srt-cameras-and-servers)   |                                            | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
+| [WebRTC clients](#webrtc-clients)                     | WHIP                                       | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
+| [WebRTC servers](#webrtc-servers)                     | WHEP                                       | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
+| [RTSP clients](#rtsp-clients)                         | UDP, TCP, RTSPS                            | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
+| [RTSP cameras and servers](#rtsp-cameras-and-servers) | UDP, UDP-Multicast, TCP, RTSPS             | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
+| [RTMP clients](#rtmp-clients)                         | RTMP, RTMPS, Enhanced RTMP                 | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
+| [RTMP cameras and servers](#rtmp-cameras-and-servers) | RTMP, RTMPS, Enhanced RTMP                 | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
+| [HLS cameras and servers](#hls-cameras-and-servers)   | Low-Latency HLS, MP4-based HLS, legacy HLS | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC)                                                                                               |
+| [MPEG-TS](#mpeg-ts)                                   | MPEG-TS over UDP, MPEG-TS over Unix socket | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
+| [RTP](#rtp)                                           | RTP over UDP, RTP over Unix socket         | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
 
 We provide instructions for publishing with the following devices:
 
@@ -48,7 +48,7 @@ If you need to use the standard stream ID syntax instead of the custom one in us
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
-Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
+Some clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 ### SRT cameras and servers
 
@@ -81,7 +81,7 @@ Be aware that not all browsers can read any codec, check [Supported browsers](we
 
 Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
 
-Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Unity](#unity) and [Web browsers](#web-browsers).
+Some clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Unity](#unity) and [Web browsers](#web-browsers).
 
 ### WebRTC servers
 
@@ -104,11 +104,11 @@ rtsp://localhost:8554/mystream
 
 The resulting stream is available in path `/mystream`.
 
-Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
+Some clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [OpenCV](#opencv).
 
 ### RTSP cameras and servers
 
-Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant with ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or several existing RTSP servers and read their video streams:
+Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant with ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or several existing RTSP servers and read their media streams:
 
 ```yml
 paths:
@@ -140,11 +140,11 @@ rtmp://localhost/mystream
 
 The resulting stream is available in path `/mystream`.
 
-Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
+Some clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 ### RTMP cameras and servers
 
-You can use _MediaMTX_ to connect to one or several existing RTMP servers and read their video streams:
+You can use _MediaMTX_ to connect to one or several existing RTMP servers and read their media streams:
 
 ```yml
 paths:
@@ -157,7 +157,7 @@ The resulting stream is available in path `/proxied`.
 
 ### HLS cameras and servers
 
-HLS is a streaming protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to connect to one or several existing HLS servers and read their video streams:
+HLS is a streaming protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to connect to one or several existing HLS servers and read their media streams:
 
 ```yml
 paths:
@@ -182,24 +182,6 @@ paths:
 
 Where `238.0.0.1` is the IP for listening packets, in this case a multicast IP.
 
-You can generate a UDP multicast MPEG-TS stream with GStreamer:
-
-```sh
-gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
-videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
-audiotestsrc ! audioconvert ! avenc_aac ! mux.
-```
-
-or FFmpeg:
-
-```sh
-ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
--f mpegts udp://238.0.0.1:1234?pkt_size=1316
-```
-
-The resulting stream is available in path `/mypath`.
-
 If the listening IP is a multicast IP, _MediaMTX_ will listen for incoming packets on the default multicast interface, picked by the operating system. It is possible to specify the interface manually by using the `interface` parameter:
 
 ```yml
@@ -216,7 +198,7 @@ paths:
     source: udp+mpegts://0.0.0.0:1234?source=192.168.3.5
 ```
 
-Known clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+Some clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
 Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+mpegts` scheme:
 
@@ -224,14 +206,6 @@ Unix sockets are more efficient than UDP packets and can be used as transport by
 paths:
   mypath:
     source: unix+mpegts:///tmp/socket.sock
-```
-
-FFmpeg can generate such streams:
-
-```sh
-ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
--f mpegts unix:/tmp/socket.sock
 ```
 
 ### RTP
@@ -257,17 +231,7 @@ paths:
 
 `rtpSDP` must contain a valid SDP, that is a description of the RTP session.
 
-FFmpeg can generate a RTP over UDP stream:
-
-```sh
-ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
--f rtp udp://238.0.0.1:1234?pkt_size=1316
-```
-
-The stream is available on path `/mypath`.
-
-Known clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
+Some clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
 Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+rtp` scheme:
 
@@ -284,14 +248,6 @@ paths:
       m=video 5004 RTP/AVP 96
       a=rtpmap:96 H264/90000
       a=fmtp:96 profile-level-id=42e01e;packetization-mode=1;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==
-```
-
-FFmpeg can generate such streams:
-
-```sh
-ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
--f rtp unix:/tmp/socket.sock
 ```
 
 ## Devices
@@ -458,23 +414,79 @@ The resulting stream is available in path `/cam`.
 
 ### FFmpeg
 
-FFmpeg can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, MPEG-TS over Unix sockets, WebRTC with WHIP, RTP over UDP, rtp over Unix sockets). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
 
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
-```
-
-The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag, for instance, in order to use TCP:
+#### FFmpeg and RTSP
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:8554/mystream
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
 ```
 
 The resulting stream is available in path `/mystream`.
 
+#### FFmpeg and RTMP
+
+```sh
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystream
+```
+
+#### FFmpeg and MPEG-TS over UDP
+
+In MediaMTX configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
+
+```sh
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://127.0.0.1:3356?pkt_size=1316'
+```
+
+#### FFmpeg and MPEG-TS over Unix socket
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f mpegts unix:/tmp/socket.sock
+```
+
+#### FFmpeg and RTP over UDP
+
+In MediaMTX configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](#rtp)). Then:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f rtp udp://238.0.0.1:1234?pkt_size=1316
+```
+
+#### FFmpeg and RTP over Unix socket
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-f rtp unix:/tmp/socket.sock
+```
+
+#### FFmpeg and SRT
+
+```sh
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'srt://localhost:8890?streamid=publish:stream&pkt_size=1316'
+```
+
+#### FFmpeg and WebRTC
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-f lavfi -i "sine=frequency=1000:sample_rate=48000" \
+-c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
+-c:a libopus -ar 48000 -ac 2 -b:a 128k \
+-f whip http://localhost:8889/stream/whip
+```
+
+WARNING: in case of FFmpeg 8.0, both a video track and an audio track must be present.
+
 ### GStreamer
 
-GStreamer can publish a stream to the server in several ways (SRT client, SRT server, RTSP client, RTMP client, MPEG-TS over UDP, WebRTC with WHIP, RTP over UDP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
+
+#### GStreamer and RTSP
 
 ```sh
 gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
@@ -490,23 +502,27 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 ```
 
-The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](rtsp-specific-features)). You can set the transport protocol by using the `protocols` flag:
-
-```sh
-gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
-d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream protocols=tcp
-```
-
-If encryption is enabled, the `tls-validation-flags` and `profiles` options must be specified too:
-
-```sh
-gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
-d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream tls-validation-flags=0 profiles=GST_RTSP_PROFILE_SAVP
-```
-
 The resulting stream is available in path `/mystream`.
 
-GStreamer can also publish a stream by using the [WebRTC / WHIP protocol](#webrtc-clients). Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
+#### GStreamer and RTMP
+
+```sh
+gst-launch-1.0 -v flvmux name=mux ! rtmpsink location=rtmp://localhost/stream \
+videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
+audiotestsrc ! audioconvert ! avenc_aac ! mux.
+```
+
+#### GStreamer and MPEG-TS over UDP
+
+```sh
+gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
+videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
+audiotestsrc ! audioconvert ! avenc_aac ! mux.
+```
+
+#### GStreamer and WebRTC
+
+Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
 
 ```
 gst-launch-1.0 videotestsrc \
@@ -518,7 +534,11 @@ gst-launch-1.0 videotestsrc \
 
 ### OBS Studio
 
-OBS Studio can publish to the server in several ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+OBS Studio can publish to the server in several ways. The recommended one consists in publishing with RTMP.
+
+#### OBS Studio and RTMP
+
+In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
 - Service: `Custom...`
 - Server: `rtmp://localhost/mystream`
@@ -539,6 +559,8 @@ If you want to generate a stream that can be read with WebRTC, open `Settings ->
 
 Then use the button `Start Recording` (instead of `Start Streaming`) to start streaming.
 
+#### OBS Studio and WebRTC
+
 Recent versions of OBS Studio can also publish to the server with the [WebRTC / WHIP protocol](#webrtc-clients) Use the following parameters:
 
 - Service: `WHIP`
@@ -550,7 +572,7 @@ The resulting stream is available in path `/mystream`.
 
 ### OpenCV
 
-Software which uses the OpenCV library can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with GStreamer support, by following this procedure:
+Software which uses the OpenCV library can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with support for GStreamer, by following this procedure:
 
 ```sh
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy

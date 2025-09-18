@@ -35,7 +35,7 @@ Replace `mystream` with the path name.
 
 If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
 
-Known clients that can read with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
+Some clients that can read with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
 
 ### WebRTC
 
@@ -55,7 +55,7 @@ Be aware that not all browsers can read any codec, check [Supported browsers](we
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
 
-Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [Unity](#unity) and [web browsers](#web-browsers).
+Some clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [Unity](#unity) and [web browsers](#web-browsers).
 
 ### RTSP
 
@@ -65,7 +65,7 @@ RTSP is a protocol that allows to publish and read streams. It supports differen
 rtsp://localhost:8554/mystream
 ```
 
-Known clients that can read with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
+Some clients that can read with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
 
 #### Latency
 
@@ -83,7 +83,7 @@ RTMP is a protocol that allows to read and publish streams, but is less versatil
 rtmp://localhost/mystream
 ```
 
-Known clients that can read with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
+Some clients that can read with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
 
 ### HLS
 
@@ -99,7 +99,7 @@ and can also be accessed without using the browsers, by software that supports t
 http://localhost:8888/mystream/index.m3u8
 ```
 
-Known clients that can read with HLS are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [VLC](#vlc) and [web browsers](#web-browsers).
+Some clients that can read with HLS are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [VLC](#vlc) and [web browsers](#web-browsers).
 
 #### LL-HLS
 
@@ -109,7 +109,7 @@ Low-Latency HLS is a recently standardized variant of the protocol that allows t
 hlsPartDuration: 500ms
 ```
 
-#### Supported browsers
+#### Codec support in browsers
 
 The server can produce HLS streams with a variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can read all codecs due to internal limitations that cannot be overcome by this or any other server.
 
@@ -170,19 +170,15 @@ To decrease the latency, you can:
 
 ### FFmpeg
 
-FFmpeg can read a stream from the server in several ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+FFmpeg can read a stream from the server in several ways. The recommended one consists in reading with RTSP.
+
+#### FFmpeg and RTSP
 
 ```sh
 ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
 
-The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](rtsp-specific-features)). You can set the transport protocol by using the `rtsp_transport` flag:
-
-```sh
-ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
-```
-
-FFmpeg can also read a stream with RTMP:
+#### FFmpeg and RTMP
 
 ```sh
 ffmpeg -i rtmp://localhost/mystream -c copy output.mp4
@@ -194,25 +190,23 @@ In order to read AV1, VP9, H265, Opus, AC3 tracks and in order to read multiple 
 ffmpeg -rtmp_enhanced_codecs ac-3,av01,avc1,ec-3,fLaC,hvc1,.mp3,mp4a,Opus,vp09 -i rtmp://localhost/mystream -c copy output.mp4
 ```
 
+#### FFmpeg and SRT
+
+```sh
+ffmpeg -i 'srt://localhost:8890?streamid=read:test' -f null -
+```
+
 ### GStreamer
 
-GStreamer can read a stream from the server in several ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+GStreamer can read a stream from the server in several way. The recommended one consists in reading with RTSP.
+
+#### GStreamer and RTSP
 
 ```sh
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
 ```
 
-The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](rtsp-specific-features)). You can change the transport protocol by using the `protocols` flag:
-
-```sh
-gst-launch-1.0 rtspsrc protocols=tcp location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
-```
-
-If encryption is enabled, set `tls-validation-flags` to `0`:
-
-```sh
-gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...
-```
+#### GStreamer and WebRTC
 
 GStreamer also supports reading streams with WebRTC/WHEP, although track codecs must be specified in advance through the `video-caps` and `audio-caps` parameters. Furthermore, if audio is not present, `audio-caps` must be set anyway and must point to a PCMU codec. For instance, the command for reading a video-only H264 stream is:
 
@@ -242,27 +236,13 @@ audio-caps="application/x-rtp,media=audio,encoding-name=OPUS,payload=111,clock-r
 
 ### VLC
 
-VLC can read a stream from the server in several ways (RTSP, RTMP, HLS, SRT). The recommended one consists in reading with [RTSP](#rtsp):
+VLC can read a stream from the server in several way. The recommended one consists in reading with RTSP:
 
 ```sh
 vlc --network-caching=50 rtsp://localhost:8554/mystream
 ```
 
-The RTSP protocol supports several underlying transport protocols, each with its own characteristics (see [RTSP-specific features](rtsp-specific-features)).
-
-In order to use the TCP transport protocol, use the `--rtsp_tcp` flag:
-
-```sh
-vlc --network-caching=50 --rtsp-tcp rtsp://localhost:8554/mystream
-```
-
-In order to use the UDP-multicast transport protocol, append `?vlcmulticast` to the URL:
-
-```sh
-vlc --network-caching=50 rtsp://localhost:8554/mystream?vlcmulticast
-```
-
-#### Ubuntu compatibility
+#### RTSP and Ubuntu compatibility
 
 The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license issue (see [here](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299) and [here](https://stackoverflow.com/questions/69766748/cvlc-cannot-play-rtsp-omxplayer-instead-can)). To fix the issue, remove the default VLC instance and install the snap version:
 
@@ -271,7 +251,7 @@ sudo apt purge -y vlc
 snap install vlc
 ```
 
-#### Encrypted streams compatibility
+#### Encrypted RTSP compatibility
 
 At the moment VLC doesn't support reading encrypted RTSP streams. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a local _MediaMTX_ instance to decrypt streams before reading them.
 
@@ -421,7 +401,9 @@ In the _Hierarchy_ window, find or create a scene. Inside the scene, add a _Canv
 
 ### Web browsers
 
-Web browsers can read a stream from the server in several ways (WebRTC or HLS).
+Web browsers can read a stream from the server in several ways.
+
+#### Web browsers and WebRTC
 
 You can read a stream by using the [WebRTC protocol](#webrtc) by visiting the web page:
 
@@ -436,6 +418,8 @@ This web page can be embedded into another web page by using an iframe:
 ```
 
 For more advanced setups, you can create and serve a custom web page by starting from the [source code of the WebRTC read page](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/webrtc/read_index.html). In particular, there's a ready-to-use, standalone JavaScript class for reading streams with WebRTC, available in [reader.js](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/webrtc/reader.js).
+
+#### Web browsers and HLS
 
 Web browsers can also read a stream with the [HLS protocol](#hls). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like Cloudflare or CloudFront), and this allows to handle an unlimited amount of readers. Visit the web page:
 
