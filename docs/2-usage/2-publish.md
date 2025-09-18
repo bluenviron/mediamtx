@@ -524,7 +524,7 @@ audiotestsrc ! audioconvert ! avenc_aac ! mux.
 
 Make sure that GStreamer version is at least 1.22, and that if the codec is H264, the profile is baseline. Use the `whipclientsink` element:
 
-```
+```sh
 gst-launch-1.0 videotestsrc \
 ! video/x-raw,width=1920,height=1080,format=I420 \
 ! x264enc speed-preset=ultrafast bitrate=2000 \

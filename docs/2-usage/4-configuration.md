@@ -8,7 +8,7 @@ There are several ways to change the configuration:
    - included into the release bundle
    - available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
 
-     ```
+     ```sh
      docker run --rm -it --network=host -v "$PWD/mediamtx.yml:/mediamtx.yml:ro" bluenviron/mediamtx
      ```
 

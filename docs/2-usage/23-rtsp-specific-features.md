@@ -75,6 +75,24 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream tls-validation-flags=0 profiles=GST_RTSP_PROFILE_SAVP
 ```
 
+## Tunneling
+
+In environments where HTTP is the only protocol available for exposing services (for instance, when there are mandatory API gateways or strict firewalls), the RTSP protocol can be tunneled inside HTTP. There are two standardized HTTP tunneling variants:
+
+- RTSP over WebSocket: more efficient, requires WebSocket support from the gateway / firewall
+- RTSP over HTTP: older variant, should work even in extreme cases
+
+_MediaMTX_ is automatically able to handle incoming HTTP tunneled connections, without any configuration required.
+
+In order to read a RTSP from an external server using HTTP tunneling, you can use the `rtsp+http` scheme:
+
+```yml
+paths:
+  source: rtsp+http://standard-rtsp-url
+```
+
+There are also the `rtsp+https`, `rtsp+ws`, `rtsp+wss` schemes to handle any variant.
+
 ## Decreasing corrupted frames
 
 In some scenarios, when publishing or reading from the server with RTSP, frames can get corrupted. This can be caused by several reasons:
