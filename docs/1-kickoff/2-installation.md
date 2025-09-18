@@ -16,7 +16,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 Download and launch the image:
 
-```
+```sh
 docker run --rm -it --network=host bluenviron/mediamtx:latest
 ```
 
@@ -33,7 +33,7 @@ The `--network=host` flag is mandatory for RTSP to work, since Docker can change
 
 If the `--network=host` cannot be used (for instance, it is not compatible with Windows or Kubernetes), you can disable the RTSP UDP transport protocol, add the server IP to `MTX_WEBRTCADDITIONALHOSTS` and expose ports manually:
 
-```
+```sh
 docker run --rm -it \
 -e MTX_RTSPTRANSPORTS=tcp \
 -e MTX_WEBRTCADDITIONALHOSTS=192.168.x.x \
@@ -60,7 +60,7 @@ makepkg -si
 
 Available via ports tree or using packages (2025Q2 and later) as listed below:
 
-```
+```sh
 cd /usr/ports/multimedia/mediamtx && make install clean
 pkg install mediamtx
 ```
