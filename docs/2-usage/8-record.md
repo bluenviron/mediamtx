@@ -11,7 +11,15 @@ Live streams be recorded and played back with the following file containers and 
 
 ## Usage
 
-To record available streams to disk, set the `record` and the `recordPath` parameter in the configuration file:
+To record available streams to disk, set the `record` parameter in the configuration file:
+
+```yml
+pathDefaults:
+  # Record streams to disk.
+  record: yes
+```
+
+It's also possible to specify additional parameters:
 
 ```yml
 pathDefaults:
@@ -22,11 +30,26 @@ pathDefaults:
   # Available variables are %path (path name), %Y %m %d (year, month, day),
   # %H %M %S (hours, minutes, seconds), %f (microseconds), %z (time zone), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  # Format of recorded segments.
+  # Available formats are "fmp4" (fragmented MP4) and "mpegts" (MPEG-TS).
+  recordFormat: fmp4
+  # fMP4 segments are concatenation of small MP4 files (parts), each with this duration.
+  # MPEG-TS segments are concatenation of 188-bytes packets, flushed to disk with this period.
+  # When a system failure occurs, the last part gets lost.
+  # Therefore, the part duration is equal to the RPO (recovery point objective).
+  recordPartDuration: 1s
+  # This prevents RAM exhaustion.
+  recordMaxPartSize: 50M
+  # Minimum duration of each segment.
+  recordSegmentDuration: 1h
+  # Delete segments after this timespan.
+  # Set to 0s to disable automatic deletion.
+  recordDeleteAfter: 1d
 ```
 
 All available recording parameters are listed in the [configuration file](/docs/references/configuration-file).
 
-Be aware that not all codecs can be saved with all formats, as described in the compatibility matrix at the beginning of the README.
+## Remote upload
 
 To upload recordings to a remote location, you can use _MediaMTX_ together with [rclone](https://github.com/rclone/rclone), a command line tool that provides file synchronization capabilities with a huge variety of services (including S3, FTP, SMB, Google Drive):
 
@@ -34,7 +57,7 @@ To upload recordings to a remote location, you can use _MediaMTX_ together with 
 
 2. Configure _rclone_:
 
-   ```
+   ```sh
    rclone config
    ```
 

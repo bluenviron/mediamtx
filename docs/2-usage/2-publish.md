@@ -119,16 +119,38 @@ paths:
 
 The resulting stream is available in path `/proxied`.
 
-The server supports any number of source streams (count is just limited by available hardware resources) it's enough to add additional entries to the paths section:
+It is possible to tune the connection by using some additional parameters:
 
 ```yml
 paths:
-  proxied1:
-    source: rtsp://url1
-
-  proxied2:
-    source: rtsp://url1
+  proxied:
+    # url of the source stream, in the format rtsp://user:pass@host:port/path
+    source: rtsp://original-url
+    # Transport protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
+    rtspTransport: automatic
+    # Support sources that don't provide server ports or use random server ports. This is a security issue
+    # and must be used only when interacting with sources that require it.
+    rtspAnyPort: no
+    # Range header to send to the source, in order to start streaming from the specified offset.
+    # available values:
+    # * clock: Absolute time
+    # * npt: Normal Play Time
+    # * smpte: SMPTE timestamps relative to the start of the recording
+    rtspRangeType:
+    # Available values:
+    # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
+    # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    rtspRangeStart:
+    # Size of the UDP buffer of the RTSP client.
+    # This can be increased to mitigate packet losses.
+    # It defaults to the default value of the operating system.
+    rtspUDPReadBufferSize: 0
 ```
+
+All available parameters are listed in the [configuration file](/docs/references/configuration-file).
+
+Advanced RTSP features are described in [RTSP-specific features](rtsp-specific-features).
 
 ### RTMP clients
 
@@ -278,6 +300,8 @@ If you want to run the standard (non-Docker) version of the server:
 
 The resulting stream is available in path `/cam`.
 
+The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](/docs/references/configuration-file).
+
 If you want to run the server inside Docker, you need to use the `latest-rpi` image and launch the container with some additional flags:
 
 ```sh
@@ -291,18 +315,6 @@ bluenviron/mediamtx:latest-rpi
 ```
 
 Be aware that precompiled binaries and Docker images are not compatible with cameras that require a custom `libcamera` (like some ArduCam products), since they come with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](/docs/other/compile#custom-libcamera).
-
-Camera settings can be changed by using the `rpiCamera*` parameters:
-
-```yml
-paths:
-  cam:
-    source: rpiCamera
-    rpiCameraWidth: 1920
-    rpiCameraHeight: 1080
-```
-
-All available parameters are listed in the [configuration file](/docs/references/configuration-file).
 
 #### Adding audio
 
@@ -480,7 +492,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 -f whip http://localhost:8889/stream/whip
 ```
 
-WARNING: in case of FFmpeg 8.0, both a video track and an audio track must be present.
+WARNING: in case of FFmpeg 8.0, a video track and an audio track must both be present.
 
 ### GStreamer
 
