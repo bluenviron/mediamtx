@@ -119,7 +119,7 @@ authHTTPExclude:
 #     }
 #   ]
 # }
-# Users are expected to pass the JWT in the Authorization header, password or query parameter.
+# Users are expected to pass the JWT in the Authorization header or as password.
 # This is the JWKS URL that will be used to pull (once) the public key that allows
 # to validate JWTs.
 authJWTJWKS:
@@ -135,7 +135,7 @@ authJWTClaimKey: mediamtx_permissions
 # Format is the same as the one of user permissions.
 authJWTExclude: []
 # allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
-# This is a security risk.
+# This is a security risk and will be disabled by default in the future.
 authJWTInHTTPQuery: true
 
 ###############################################
