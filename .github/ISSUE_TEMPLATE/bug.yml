@@ -40,22 +40,38 @@ body:
   - type: textarea
     id: description
     attributes:
+      label: Describe the issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: replica
+    attributes:
       label: Describe how to replicate the issue
       description: |
         The maintainers must be able to REPLICATE your issue to solve it - therefore, describe in a very detailed way how to replicate it.
       value: |
-        1. start the server
+        1. start the MediaMTX
         2. publish with ...
         3. read with ...
     validations:
       required: true
 
   - type: textarea
+    id: conf
+    attributes:
+      label: MediaMTX configuration
+      description: |
+        MediaMTX configuration is often required to replicate the issue.
+      placeholder: Paste or drag the configuration file here
+      # render: shell
+
+  - type: textarea
     id: logs
     attributes:
-      label: Server logs
+      label: MediaMTX logs
       description: |
-        Server logs are sometimes useful to identify the issue. If you think this is the case, set the parameter 'logLevel' to 'debug' and attach the server logs.
+        MediaMTX logs are often useful to identify the issue. If you think this is the case, set the parameter 'logLevel' to 'debug' and attach logs.
       placeholder: Paste or drag the log file here
       # render: shell
 

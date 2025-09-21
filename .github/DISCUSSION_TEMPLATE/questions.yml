@@ -2,19 +2,18 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please create a discussion FOR EACH question. Do not ask for multiple questions all at once, otherwise they'll probably never get all answered.
+        * Please create a discussion FOR EACH question. Do not ask for multiple questions all at once, otherwise they'll probably never get all answered.
+        * If you are asking for help because you're having trouble doing something, provide enough informations to replicate the problem. In particular, include in the question:
+
+          * MediaMTX version
+          * precise instructions on how to replicate the problem
+          * MediaMTX configuration
+          * MediaMTX logs with setting `logLevel` set to `debug`
+
+        * If you are asking for help and you think MediaMTX is misbehaving, open a bug report, NOT a discussion.
 
   - type: textarea
     attributes:
       label: Question
     validations:
       required: true
-
-  - type: markdown
-    attributes:
-      value: |
-        Note: If you are asking for help because you're having trouble doing something, provide enough informations to replicate the problem. In particular, include in the question:
-
-        * the server version you are using
-        * precise instructions on how to replicate the problem
-        * server logs with setting `logLevel` set to `debug`
