@@ -82,7 +82,7 @@ func TestAuthInternal(t *testing.T) {
 						},
 						IP: net.ParseIP("127.1.1.1"),
 					})
-					require.NoError(t, err)
+					require.Nil(t, err)
 
 				case "wrong user":
 					err := m.Authenticate(&Request{
@@ -181,7 +181,7 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 			err := m.Authenticate(req1)
 
 			if ca == "ok" {
-				require.NoError(t, err)
+				require.Nil(t, err)
 			} else {
 				require.Error(t, err)
 			}
@@ -253,7 +253,7 @@ func TestAuthHTTP(t *testing.T) {
 					},
 					IP: net.ParseIP("127.0.0.1"),
 				})
-				require.NoError(t, err)
+				require.Nil(t, err)
 			} else {
 				err = m.Authenticate(&Request{
 					Action:   conf.AuthActionPublish,
@@ -292,7 +292,7 @@ func TestAuthHTTPExclude(t *testing.T) {
 		},
 		IP: net.ParseIP("127.0.0.1"),
 	})
-	require.NoError(t, err)
+	require.Nil(t, err)
 }
 
 func TestAuthJWT(t *testing.T) {
@@ -373,7 +373,7 @@ func TestAuthJWT(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	}
 	err = m.Authenticate(req)
-	require.NoError(t, err)
+	require.Nil(t, err)
 }
 
 func TestAuthJWTAsString(t *testing.T) {
@@ -457,7 +457,7 @@ func TestAuthJWTAsString(t *testing.T) {
 		},
 		IP: net.ParseIP("127.0.0.1"),
 	})
-	require.NoError(t, err)
+	require.Nil(t, err)
 }
 
 func TestAuthJWTExclude(t *testing.T) {
@@ -477,7 +477,7 @@ func TestAuthJWTExclude(t *testing.T) {
 		Protocol: ProtocolRTSP,
 		IP:       net.ParseIP("127.0.0.1"),
 	})
-	require.NoError(t, err)
+	require.Nil(t, err)
 }
 
 func TestAuthJWTRefresh(t *testing.T) {
@@ -552,7 +552,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 		ss, err = token.SignedString(key)
 		require.NoError(t, err)
 
-		err = m.Authenticate(&Request{
+		err2 := m.Authenticate(&Request{
 			Action:   conf.AuthActionPublish,
 			Path:     "mypath",
 			Query:    "param=value",
@@ -562,7 +562,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 			},
 			IP: net.ParseIP("127.0.0.1"),
 		})
-		require.NoError(t, err)
+		require.Nil(t, err2)
 
 		m.RefreshJWTJWKS()
 	}

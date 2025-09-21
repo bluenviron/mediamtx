@@ -337,8 +337,8 @@ func TestOnListAuthError(t *testing.T) {
 			},
 		},
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(_ *auth.Request) error {
-				return auth.Error{Wrapped: fmt.Errorf("auth error")}
+			AuthenticateImpl: func(_ *auth.Request) *auth.Error {
+				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 			RefreshJWTJWKSImpl: func() {
 			},

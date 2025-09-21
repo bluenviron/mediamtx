@@ -16,7 +16,7 @@ import (
 )
 
 type pprofAuthManager interface {
-	Authenticate(req *auth.Request) error
+	Authenticate(req *auth.Request) *auth.Error
 }
 
 type pprofParent interface {
@@ -102,7 +102,7 @@ func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 
 	err := pp.AuthManager.Authenticate(req)
 	if err != nil {
-		if err.(auth.Error).AskCredentials { //nolint:errorlint
+		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return

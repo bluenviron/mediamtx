@@ -56,7 +56,7 @@ func TestServerPublish(t *testing.T) {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, auth.Error{Message: "", AskCredentials: true}
+							return nil, &auth.Error{AskCredentials: true}
 						}
 
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -66,7 +66,7 @@ func TestServerPublish(t *testing.T) {
 						if n == 0 {
 							require.False(t, ok)
 							n++
-							return nil, auth.Error{Message: "", AskCredentials: true}
+							return nil, &auth.Error{AskCredentials: true}
 						}
 						require.True(t, ok)
 					}
@@ -195,7 +195,7 @@ func TestServerRead(t *testing.T) {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
+							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
 						}
 
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -205,7 +205,7 @@ func TestServerRead(t *testing.T) {
 						if n == 0 {
 							require.False(t, ok)
 							n++
-							return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
+							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
 						}
 						require.True(t, ok)
 					}
@@ -345,7 +345,7 @@ func TestServerRedirect(t *testing.T) {
 					}
 
 					if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-						return defs.PathDescribeRes{Err: auth.Error{Message: "", AskCredentials: true}}
+						return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
 					}
 
 					require.Equal(t, "path2", req.AccessRequest.Name)

@@ -317,9 +317,9 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 		return
 	}
 
-	err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-	if err != nil {
-		req.Res <- defs.PathFindPathConfRes{Err: err}
+	err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+	if err2 != nil {
+		req.Res <- defs.PathFindPathConfRes{Err: err2}
 		return
 	}
 
@@ -333,9 +333,9 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-	if err != nil {
-		req.Res <- defs.PathDescribeRes{Err: err}
+	err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+	if err2 != nil {
+		req.Res <- defs.PathDescribeRes{Err: err2}
 		return
 	}
 
@@ -356,9 +356,9 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-		if err != nil {
-			req.Res <- defs.PathAddReaderRes{Err: err}
+		err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if err2 != nil {
+			req.Res <- defs.PathAddReaderRes{Err: err2}
 			return
 		}
 	}
@@ -385,9 +385,9 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-		if err != nil {
-			req.Res <- defs.PathAddPublisherRes{Err: err}
+		err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if err2 != nil {
+			req.Res <- defs.PathAddPublisherRes{Err: err2}
 			return
 		}
 	}
