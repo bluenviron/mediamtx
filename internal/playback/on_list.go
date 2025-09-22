@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/gin-gonic/gin"
+	"io"
 )
 
 type listEntryDuration time.Duration
@@ -57,27 +58,49 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 }
 
 func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
-	parsed := make([]*parsedSegment, len(segments))
-	ch := make(chan error)
+	parsed := make([]*parsedSegment, 0, len(segments))
+	ch := make(chan error, len(segments))
+	chSeg := make(chan *parsedSegment, len(segments))
 
 	// process segments in parallel.
 	// parallel random access should improve performance in most cases.
 	// ref: https://pkolaczk.github.io/disk-parallelism/
-	for i, seg := range segments {
-		go func(i int, seg *recordstore.Segment) {
+	for _, seg := range segments {
+		go func(seg *recordstore.Segment) {
+			var ps *parsedSegment
 			var err error
-			parsed[i], err = parseSegment(seg)
-			ch <- err
-		}(i, seg)
+			ps, err = parseSegment(seg)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					// Pass EOF errors silently
+					chSeg <- nil
+					ch <- nil
+					return
+				}
+				chSeg <- nil
+				ch <- err
+				return
+			}
+			chSeg <- ps
+			ch <- nil
+		}(seg)
 	}
 
 	var err error
 
-	for range segments {
+	for i := 0; i < len(segments); i++ {
+		ps := <-chSeg
+		if ps != nil {
+			parsed = append(parsed, ps) // Add to parsed only if not nil
+		}
 		err2 := <-ch
 		if err2 != nil {
 			err = err2
 		}
+	}
+
+	if len(parsed) == 0 && err == nil {
+		err = errors.New("No valid segments found") // Added error if no valid segments found
 	}
 
 	return parsed, err
