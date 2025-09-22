@@ -27,21 +27,6 @@ const (
 	jwksRefreshPeriod = 60 * 60 * time.Second
 )
 
-func isHTTPRequest(r *Request) bool {
-	switch r.Action {
-	case conf.AuthActionPlayback, conf.AuthActionAPI,
-		conf.AuthActionMetrics, conf.AuthActionPprof:
-		return true
-	}
-
-	switch r.Protocol {
-	case ProtocolHLS, ProtocolWebRTC:
-		return true
-	}
-
-	return false
-}
-
 func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bool {
 	for _, perm := range perms {
 		if perm.Action == req.Action {
@@ -223,7 +208,7 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	case req.Credentials.Pass != "":
 		encodedJWT = req.Credentials.Pass
 
-	case (!isHTTPRequest(req) || m.JWTInHTTPQuery):
+	case m.JWTInHTTPQuery:
 		var v url.Values
 		v, err = url.ParseQuery(req.Query)
 		if err != nil {
