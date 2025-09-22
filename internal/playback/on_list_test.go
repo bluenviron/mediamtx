@@ -57,6 +57,8 @@ func TestOnList(t *testing.T) {
 				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
 			}
 
+			checked := false
+
 			s := &Server{
 				Address:     "127.0.0.1:9996",
 				ReadTimeout: conf.Duration(10 * time.Second),
@@ -66,8 +68,16 @@ func TestOnList(t *testing.T) {
 						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 					},
 				},
-				AuthManager: test.NilAuthManager,
-				Parent:      test.NilLogger,
+				AuthManager: &test.AuthManager{
+					AuthenticateImpl: func(req *auth.Request) *auth.Error {
+						require.Equal(t, conf.AuthActionPlayback, req.Action)
+						require.Equal(t, "myuser", req.Credentials.User)
+						require.Equal(t, "mypass", req.Credentials.Pass)
+						checked = true
+						return nil
+					},
+				},
+				Parent: test.NilLogger,
 			}
 			err = s.Initialize()
 			require.NoError(t, err)
@@ -174,6 +184,8 @@ func TestOnList(t *testing.T) {
 					},
 				}, out)
 			}
+
+			require.True(t, checked)
 		})
 	}
 }
@@ -320,52 +332,4 @@ func TestOnListCachedDuration(t *testing.T) {
 				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
-}
-
-func TestOnListAuthError(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathConfs: map[string]*conf.Path{
-			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
-			},
-		},
-		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(_ *auth.Request) *auth.Error {
-				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
-			},
-			RefreshJWTJWKSImpl: func() {
-			},
-		},
-		Parent: test.NilLogger,
-	}
-	err = s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
-	require.NoError(t, err)
-
-	v := url.Values{}
-	v.Set("path", "mypath")
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	require.NoError(t, err)
-
-	start := time.Now()
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Greater(t, time.Since(start), 2*time.Second)
-
-	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 }

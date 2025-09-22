@@ -162,6 +162,8 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 			return
 		}
 
+		m.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
+
 		// wait some seconds to mitigate brute force attacks
 		<-time.After(auth.PauseAfterError)
 

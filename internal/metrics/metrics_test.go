@@ -1,13 +1,16 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -224,12 +227,22 @@ func TestPreflightRequest(t *testing.T) {
 }
 
 func TestMetrics(t *testing.T) {
+	checked := false
+
 	m := Metrics{
 		Address:     "localhost:9998",
 		AllowOrigin: "*",
 		ReadTimeout: conf.Duration(10 * time.Second),
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
+		AuthManager: &test.AuthManager{
+			AuthenticateImpl: func(req *auth.Request) *auth.Error {
+				require.Equal(t, conf.AuthActionMetrics, req.Action)
+				require.Equal(t, "myuser", req.Credentials.User)
+				require.Equal(t, "mypass", req.Credentials.Pass)
+				checked = true
+				return nil
+			},
+		},
+		Parent: test.NilLogger,
 	}
 	err := m.Initialize()
 	require.NoError(t, err)
@@ -247,9 +260,11 @@ func TestMetrics(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	res, err := hc.Get("http://localhost:9998/metrics")
+	res, err := hc.Get("http://myuser:mypass@localhost:9998/metrics")
 	require.NoError(t, err)
 	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
 
 	byts, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
@@ -342,9 +357,59 @@ func TestMetrics(t *testing.T) {
 			`webrtc_sessions_rtcp_packets_sent{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n",
 		string(byts))
+
+	require.True(t, checked)
 }
 
-func TestMetricsFilter(t *testing.T) {
+func TestAuthError(t *testing.T) {
+	n := 0
+
+	m := Metrics{
+		Address:     "localhost:9998",
+		AllowOrigin: "*",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		AuthManager: &test.AuthManager{
+			AuthenticateImpl: func(req *auth.Request) *auth.Error {
+				if req.Credentials.User == "" {
+					return &auth.Error{AskCredentials: true}
+				}
+				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
+			},
+		},
+		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+			if l == logger.Info {
+				if n == 1 {
+					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
+				}
+				n++
+			}
+		}),
+	}
+	err := m.Initialize()
+	require.NoError(t, err)
+	defer m.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	res, err := hc.Get("http://localhost:9998/metrics")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+
+	res, err = hc.Get("http://myuser:mypass@localhost:9998/metrics")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+	require.Equal(t, 2, n)
+}
+
+func TestFilter(t *testing.T) {
 	for _, ca := range []string{
 		"path",
 		"hls_muxer",
