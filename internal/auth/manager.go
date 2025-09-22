@@ -42,18 +42,6 @@ func isHTTPRequest(r *Request) bool {
 	return false
 }
 
-// Error is a authentication error.
-type Error struct {
-	Wrapped        error
-	Message        string
-	AskCredentials bool
-}
-
-// Error implements the error interface.
-func (e Error) Error() string {
-	return "authentication failed: " + e.Wrapped.Error()
-}
-
 func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bool {
 	for _, perm := range perms {
 		if perm.Action == req.Action {
@@ -108,7 +96,7 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 }
 
 // Authenticate authenticates a request.
-func (m *Manager) Authenticate(req *Request) error {
+func (m *Manager) Authenticate(req *Request) *Error {
 	var err error
 
 	switch m.Method {
@@ -123,7 +111,7 @@ func (m *Manager) Authenticate(req *Request) error {
 	}
 
 	if err != nil {
-		return Error{
+		return &Error{
 			Wrapped:        err,
 			AskCredentials: m.Method != conf.AuthMethodJWT && req.Credentials.User == "" && req.Credentials.Pass == "",
 		}

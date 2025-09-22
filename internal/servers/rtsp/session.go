@@ -177,7 +177,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			return c.handleAuthError(ctx.Request)
 		}
@@ -240,7 +240,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			},
 		})
 		if err != nil {
-			var terr auth.Error
+			var terr *auth.Error
 			if errors.As(err, &terr) {
 				res, err2 := c.handleAuthError(ctx.Request)
 				return res, nil, err2

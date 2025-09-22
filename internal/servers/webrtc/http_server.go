@@ -131,7 +131,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 		},
 	})
 	if err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
@@ -139,7 +139,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 				return false
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)
@@ -193,7 +193,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		httpRequest: ctx.Request,
 	})
 	if res.err != nil {
-		var terr auth.Error
+		var terr *auth.Error
 		if errors.As(err, &terr) {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
@@ -201,7 +201,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 				return
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(auth.PauseAfterError)

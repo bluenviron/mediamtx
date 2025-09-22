@@ -727,7 +727,7 @@ func TestAuthJWKSRefresh(t *testing.T) {
 		Address:     "localhost:9997",
 		ReadTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(_ *auth.Request) error {
+			AuthenticateImpl: func(_ *auth.Request) *auth.Error {
 				return nil
 			},
 			RefreshJWTJWKSImpl: func() {
