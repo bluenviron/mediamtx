@@ -164,7 +164,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
-			// wait some seconds to mitigate brute force attacks
+			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
