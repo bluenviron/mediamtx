@@ -113,7 +113,7 @@ func (m *Manager) Authenticate(req *Request) *Error {
 	if err != nil {
 		return &Error{
 			Wrapped:        err,
-			AskCredentials: m.Method != conf.AuthMethodJWT && req.Credentials.User == "" && req.Credentials.Pass == "",
+			AskCredentials: (req.Credentials.User == "" && req.Credentials.Pass == "" && req.Credentials.Token == ""),
 		}
 	}
 
