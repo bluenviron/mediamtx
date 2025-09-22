@@ -351,6 +351,7 @@ func (pa *path) doOnDemandPublisherCloseTimer() {
 
 func (pa *path) doReloadConf(newConf *conf.Path) {
 	pa.confMutex.Lock()
+	oldConf := pa.conf
 	pa.conf = newConf
 	pa.confMutex.Unlock()
 
@@ -358,13 +359,20 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
 	}
 
-	if pa.conf.Record {
-		if pa.stream != nil && pa.recorder == nil {
-			pa.startRecording()
-		}
-	} else if pa.recorder != nil {
+	if pa.recorder != nil &&
+		(newConf.Record != oldConf.Record ||
+			newConf.RecordPath != oldConf.RecordPath ||
+			newConf.RecordFormat != oldConf.RecordFormat ||
+			newConf.RecordPartDuration != oldConf.RecordPartDuration ||
+			newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
+			newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
+			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
 		pa.recorder.Close()
 		pa.recorder = nil
+	}
+
+	if newConf.Record && pa.stream != nil && pa.recorder == nil {
+		pa.startRecording()
 	}
 }
 
