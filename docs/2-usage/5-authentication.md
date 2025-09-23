@@ -148,48 +148,54 @@ The JWT is expected to contain a claim, with a list of permissions in the same f
 
 #### Keycloak setup
 
-Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs:
+Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs.
 
 1. Start Keycloak:
 
+   ```sh
+   docker run --name=keycloak -p 8080:8080 \
+   -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
+   quay.io/keycloak/keycloak:23.0.7 start-dev
    ```
-   docker run --name=keycloak -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:23.0.7 start-dev
-   ```
 
-2. Open the Keycloak administration console on http://localhost:8080, click on _master_ in the top left corner, _create realm_, set realm name to `mediamtx`, Save
+2. Open the Keycloak web UI on http://localhost:8080, click on _Administration Console_ and log in.
 
-3. Open page _Client scopes_, _create client scope_, set name to `mediamtx`, Save
+3. Click on _master_ in the top left corner, _Create realm_, set realm name to `mediamtx`, _Create_.
 
-4. Open tab _Mappers_, _Configure a new Mapper_, _User Attribute_
+4. Open page _Client scopes_, _Create client scope_, set name to `mediamtx`, _Save_.
+
+5. Open tab _Mappers_, _Configure a new Mapper_, _User Attribute_:
    - Name: `mediamtx_permissions`
    - User Attribute: `mediamtx_permissions`
    - Token Claim Name: `mediamtx_permissions`
    - Claim JSON Type: `JSON`
    - Multivalued: `On`
 
-   Save
+   Save.
 
-5. Open page _Clients_, _Create client_, set Client ID to `mediamtx`, Next, Client authentication `On`, Next, Save
+6. Open page _Clients_, _Create client_, set Client ID to `mediamtx`, _Next_, _Client authentication_ `On`, _Next_, _Save_.
 
-6. Open tab _Credentials_, copy client secret somewhere
+7. Open tab _Credentials_, copy client secret somewhere.
 
-7. Open tab _Client scopes_, _Add client scope_, Select `mediamtx`, Add, Default
+8. Open tab _Client scopes_, set _Assigned type_ of all existing client scopes to _Optional_. This decreases the length of the JWT, since many clients impose limits on it.
 
-8. Open page _Users_, _Add user_, Username `testuser`, Tab credentials, _Set password_, pick a password, Save
+9. In tab _Client scopes_, _Add client scope_, Select `mediamtx`, _Add_, _Default_.
 
-9. Open tab _Attributes_, _Add an attribute_
-   - Key: `mediamtx_permissions`
-   - Value: `{"action":"publish", "path": ""}`
+10. Open page _Users_, _Add user_, Username `testuser`, _Create_, Tab _Credentials_, _Set password_, pick a password, _Save_.
 
-   You can add as many attributes with key `mediamtx_permissions` as you want, each with a single permission in it
+11. Open tab _Attributes_, _Add an attribute_:
+    - Key: `mediamtx_permissions`
+    - Value: `{"action":"publish", "path": ""}`
 
-10. In MediaMTX, use the following URL:
+    You can add as many attributes with key `mediamtx_permissions` as you want, each with a single permission in it.
+
+12. In MediaMTX, use the following JWKS URL:
 
     ```yml
     authJWTJWKS: http://localhost:8080/realms/mediamtx/protocol/openid-connect/certs
     ```
 
-11. Perform authentication on Keycloak:
+13. Perform authentication on Keycloak:
 
     ```
     curl \
