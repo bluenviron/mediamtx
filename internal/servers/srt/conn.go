@@ -148,7 +148,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 	if err != nil {
 		var terr *auth.Error
 		if errors.As(err, &terr) {
-			// wait some seconds to mitigate brute force attacks
+			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 			c.connReq.Reject(srt.REJ_PEER)
 			return terr
@@ -272,7 +272,7 @@ func (c *conn) runRead(streamID *streamID) error {
 	if err != nil {
 		var terr *auth.Error
 		if errors.As(err, &terr) {
-			// wait some seconds to mitigate brute force attacks
+			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 			c.connReq.Reject(srt.REJ_PEER)
 			return terr

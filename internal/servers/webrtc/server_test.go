@@ -3,6 +3,7 @@ package webrtc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,9 +13,11 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -63,9 +66,6 @@ func initializeTestServer(t *testing.T) *Server {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
 		AllowOrigin:           "*",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
@@ -78,7 +78,6 @@ func initializeTestServer(t *testing.T) *Server {
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
 		STUNGatherTimeout:     conf.Duration(5 * time.Second),
-		ExternalCmdPool:       nil,
 		PathManager:           pm,
 		Parent:                test.NilLogger,
 	}
@@ -148,10 +147,6 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -167,7 +162,6 @@ func TestServerOptionsICEServer(t *testing.T) {
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
 		STUNGatherTimeout:  conf.Duration(5 * time.Second),
-		ExternalCmdPool:    nil,
 		PathManager:        pathManager,
 		Parent:             test.NilLogger,
 	}
@@ -234,10 +228,6 @@ func TestServerPublish(t *testing.T) {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -249,7 +239,6 @@ func TestServerPublish(t *testing.T) {
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
 		STUNGatherTimeout:     conf.Duration(5 * time.Second),
-		ExternalCmdPool:       nil,
 		PathManager:           pathManager,
 		Parent:                test.NilLogger,
 	}
@@ -523,11 +512,6 @@ func TestServerRead(t *testing.T) {
 
 			s := &Server{
 				Address:               "127.0.0.1:8886",
-				Encryption:            false,
-				ServerKey:             "",
-				ServerCert:            "",
-				AllowOrigin:           "",
-				TrustedProxies:        conf.IPNetworks{},
 				ReadTimeout:           conf.Duration(10 * time.Second),
 				LocalUDPAddress:       "127.0.0.1:8887",
 				LocalTCPAddress:       "127.0.0.1:8887",
@@ -538,7 +522,6 @@ func TestServerRead(t *testing.T) {
 				HandshakeTimeout:      conf.Duration(10 * time.Second),
 				TrackGatherTimeout:    conf.Duration(2 * time.Second),
 				STUNGatherTimeout:     conf.Duration(5 * time.Second),
-				ExternalCmdPool:       nil,
 				PathManager:           pathManager,
 				Parent:                test.NilLogger,
 			}
@@ -612,10 +595,6 @@ func TestServerReadNotFound(t *testing.T) {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		Encryption:            false,
-		ServerKey:             "",
-		ServerCert:            "",
-		AllowOrigin:           "",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -627,7 +606,6 @@ func TestServerReadNotFound(t *testing.T) {
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
 		STUNGatherTimeout:     conf.Duration(5 * time.Second),
-		ExternalCmdPool:       nil,
 		PathManager:           pm,
 		Parent:                test.NilLogger,
 	}
@@ -753,4 +731,58 @@ func TestICEServerClientOnly(t *testing.T) {
 	serverICEServers, err := s.generateICEServers(false)
 	require.NoError(t, err)
 	require.Empty(t, serverICEServers)
+}
+
+func TestAuthError(t *testing.T) {
+	n := 0
+
+	s := &Server{
+		Address:     "127.0.0.1:8886",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		PathManager: &test.PathManager{
+			FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+					return nil, &auth.Error{AskCredentials: true}
+				}
+
+				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+			},
+		},
+		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+			if l == logger.Info {
+				if n == 1 {
+					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
+				}
+				n++
+			}
+		}),
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8886/stream/publish", nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+
+	req, err = http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8886/stream/publish", nil)
+	require.NoError(t, err)
+
+	start := time.Now()
+
+	res, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Greater(t, time.Since(start), 2*time.Second)
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+	require.Equal(t, 2, n)
 }

@@ -110,7 +110,7 @@ func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 
 		pp.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
 
-		// wait some seconds to mitigate brute force attacks
+		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
 		ctx.AbortWithStatus(http.StatusUnauthorized)

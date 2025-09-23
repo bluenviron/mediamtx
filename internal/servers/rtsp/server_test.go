@@ -1,6 +1,8 @@
 package rtsp
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -392,4 +395,55 @@ func TestServerRedirect(t *testing.T) {
 			require.Equal(t, desc.Medias[0].Formats, desc2.Medias[0].Formats)
 		})
 	}
+}
+
+func TestAuthError(t *testing.T) {
+	pathManager := &test.PathManager{
+		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+			if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+				return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
+			}
+
+			return defs.PathDescribeRes{Err: &auth.Error{Wrapped: fmt.Errorf("auth error")}}
+		},
+	}
+
+	n := new(int64)
+	done := make(chan struct{})
+
+	s := &Server{
+		Address:        "127.0.0.1:8557",
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		PathManager:    pathManager,
+		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+			if l == logger.Info {
+				if atomic.AddInt64(n, 1) == 3 {
+					require.Regexp(t, "authentication failed: auth error$", fmt.Sprintf(s, i...))
+					close(done)
+				}
+			}
+		}),
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/teststream?param=value")
+	require.NoError(t, err)
+
+	reader := gortsplib.Client{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+	}
+
+	err = reader.Start()
+	require.NoError(t, err)
+	defer reader.Close()
+
+	_, _, err = reader.Describe(u)
+	require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
+
+	<-done
 }

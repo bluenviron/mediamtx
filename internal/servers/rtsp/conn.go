@@ -11,7 +11,6 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	rtspauth "github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
-	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 	"github.com/bluenviron/gortsplib/v5/pkg/liberrors"
 	"github.com/google/uuid"
 
@@ -35,12 +34,6 @@ func absoluteURL(req *base.Request, v string) string {
 	}
 
 	return v
-}
-
-func credentialsProvided(req *base.Request) bool {
-	var auth headers.Authorization
-	err := auth.Unmarshal(req.Header["Authorization"])
-	return err == nil && auth.Username != ""
 }
 
 func tunnelLabel(t gortsplib.Tunnel) string {
@@ -175,7 +168,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	if res.Err != nil {
 		var terr *auth.Error
 		if errors.As(res.Err, &terr) {
-			res, err2 := c.handleAuthError(ctx.Request)
+			res, err2 := c.handleAuthError(terr)
 			return res, nil, err2
 		}
 
@@ -212,17 +205,19 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}, stream, nil
 }
 
-func (c *conn) handleAuthError(req *base.Request) (*base.Response, error) {
-	if credentialsProvided(req) {
-		// wait some seconds to mitigate brute force attacks
-		<-time.After(auth.PauseAfterError)
+func (c *conn) handleAuthError(err *auth.Error) (*base.Response, error) {
+	if err.AskCredentials {
+		return &base.Response{
+			StatusCode: base.StatusUnauthorized,
+		}, liberrors.ErrServerAuth{}
 	}
 
-	// let gortsplib decide whether connection should be terminated,
-	// depending on whether credentials have been provided or not.
+	// wait some seconds to delay brute force attacks
+	<-time.After(auth.PauseAfterError)
+
 	return &base.Response{
 		StatusCode: base.StatusUnauthorized,
-	}, liberrors.ErrServerAuth{}
+	}, err
 }
 
 func (c *conn) apiItem() *defs.APIRTSPConn {
