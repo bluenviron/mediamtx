@@ -24,6 +24,4 @@ var NilAuthManager = &AuthManager{
 	AuthenticateImpl: func(_ *auth.Request) *auth.Error {
 		return nil
 	},
-	RefreshJWTJWKSImpl: func() {
-	},
 }
