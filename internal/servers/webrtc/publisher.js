@@ -13,6 +13,9 @@
  * @typedef Conf
  * @type {object}
  * @property {string} url - absolute URL of the WHIP endpoint.
+ * @property {string} user - username.
+ * @property {string} pass - password.
+ * @property {string} token - token.
  * @property {MediaStream} stream - stream that contains outgoing tracks.
  * @property {string} videoCodec - outgoing video codec.
  * @property {number} videoBitrate - outgoing video bitrate.
@@ -276,9 +279,23 @@ class MediaMTXWebRTCPublisher {
     }
   }
 
+  #authHeader() {
+    if (this.conf.user !== undefined && this.conf.user !== '') {
+      const credentials = btoa(`${this.conf.user}:${this.conf.pass}`);
+      return {'Authorization': `Basic ${credentials}`};
+    }
+    if (this.conf.token !== undefined && this.conf.token !== '') {
+      return {'Authorization': `Bearer ${this.conf.token}`};
+    }
+    return {};
+  }
+
   #requestICEServers() {
     return fetch(this.conf.url, {
       method: 'OPTIONS',
+      headers: {
+        ...this.#authHeader(),
+      },
     })
       .then((res) => MediaMTXWebRTCPublisher.#linkToIceServers(res.headers.get('Link')));
   }
@@ -325,6 +342,7 @@ class MediaMTXWebRTCPublisher {
     return fetch(this.conf.url, {
       method: 'POST',
       headers: {
+        ...this.#authHeader(),
         'Content-Type': 'application/sdp',
       },
       body: offer,
