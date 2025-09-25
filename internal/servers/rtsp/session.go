@@ -409,7 +409,13 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 				return defs.APIRTSPSessionStateIdle
 			}
 		}(),
-		Path:  s.rsession.Path()[1:],
+		Path: func() string {
+			pa := s.rsession.Path()
+			if len(pa) >= 1 {
+				return pa[1:]
+			}
+			return ""
+		}(),
 		Query: s.rsession.Query(),
 		Transport: func() *string {
 			transport := s.rsession.Transport()
