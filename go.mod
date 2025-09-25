@@ -11,7 +11,7 @@ require (
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.2.3
 	github.com/bluenviron/gortmplib v0.1.0
-	github.com/bluenviron/gortsplib/v5 v5.0.0
+	github.com/bluenviron/gortsplib/v5 v5.0.1
 	github.com/bluenviron/mediacommon/v2 v2.4.3
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
