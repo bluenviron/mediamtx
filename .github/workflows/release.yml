@@ -65,13 +65,13 @@ jobs:
             + `Binaries are compiled from source through the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml) without human intervention,`
             + ` preventing any external interference.\n`
             + `\n`
-            + 'You can verify that binaries have been produced by the workflow by using [GitHub Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds):\n'
+            + 'You can verify that binaries have been produced by the workflow by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations):\n'
             + `\n`
             + '```\n'
             + `ls mediamtx_* | xargs -L1 gh attestation verify --repo bluenviron/mediamtx\n`
             + '```\n'
             + `\n`
-            + 'You can verify the binaries checksum by downloading `checksums.sha256` and running:\n'
+            + 'You can verify checksums of binaries by downloading `checksums.sha256` and running:\n'
             + `\n`
             + '```\n'
             + `cat checksums.sha256 | grep "$(ls mediamtx_*)" | sha256sum --check\n`
