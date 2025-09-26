@@ -44,6 +44,9 @@ var version []byte
 var defaultConfPaths = []string{
 	"rtsp-simple-server.yml",
 	"mediamtx.yml",
+}
+
+var defaultConfPathsNotWin = []string{
 	"/usr/local/etc/mediamtx.yml",
 	"/usr/etc/mediamtx.yml",
 	"/etc/mediamtx/mediamtx.yml",
@@ -143,7 +146,12 @@ func New(args []string) (*Core, bool) {
 
 	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "", "")
 
-	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths, tempLogger)
+	confPaths := append([]string(nil), defaultConfPaths...)
+	if runtime.GOOS != "windows" {
+		confPaths = append(confPaths, defaultConfPathsNotWin...)
+	}
+
+	p.conf, p.confPath, err = conf.Load(cli.Confpath, confPaths, tempLogger)
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return nil, false
