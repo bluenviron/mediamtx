@@ -52,7 +52,7 @@ Some clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstre
 
 ### SRT cameras and servers
 
-In order to ingest into the server a SRT stream from an existing server, camera or client in listening mode (i.e. with `mode=listener` appended to the URL), add the corresponding URL into the `source` parameter of a path:
+In order to ingest a SRT stream from a remote server, camera or client in listening mode (i.e. with `mode=listener` appended to the URL), add the corresponding URL into the `source` parameter of a path:
 
 ```yml
 paths:
@@ -85,13 +85,21 @@ Some clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStre
 
 ### WebRTC servers
 
-In order to ingest into the server a WebRTC stream from an existing server, add the corresponding WHEP URL into the `source` parameter of a path:
+In order to ingest a WebRTC stream from a remote server, add the corresponding WHEP URL into the `source` parameter of a path:
 
 ```yml
 paths:
   proxied:
     # url of the source stream, in the format whep://host:port/path (HTTP) or wheps:// (HTTPS)
     source: wheps://host:port/path
+```
+
+If the remote server is a MediaMTX instance, remember to add a `/whep` suffix after the stream name, since in MediaMTX [it's part of the WHEP URL](read#webrtc):
+
+```yml
+paths:
+  proxied:
+    source: whep://host:port/mystream/whep
 ```
 
 ### RTSP clients
