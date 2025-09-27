@@ -91,9 +91,12 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	}
 
 	for sr, onData := range sf.onDatas {
+		csr := sr
 		cOnData := onData
 		sr.push(func() error {
-			atomic.AddUint64(s.bytesSent, size)
+			if !csr.SkipBytesSent {
+				atomic.AddUint64(s.bytesSent, size)
+			}
 			return cOnData(u)
 		})
 	}

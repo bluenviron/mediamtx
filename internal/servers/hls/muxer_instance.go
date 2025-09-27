@@ -49,7 +49,10 @@ func (mi *muxerInstance) initialize() error {
 		},
 	}
 
-	mi.reader = &stream.Reader{Parent: mi}
+	mi.reader = &stream.Reader{
+		SkipBytesSent: true,
+		Parent:        mi,
+	}
 
 	err := hls.FromStream(mi.stream.Desc, mi.reader, mi.hmuxer)
 	if err != nil {

@@ -50,7 +50,10 @@ func (ri *recorderInstance) initialize() {
 		strings.ReplaceAll(ri.pathFormat2, "%path", ri.pathName),
 		ri.format,
 	)
-	ri.reader = &stream.Reader{Parent: ri}
+	ri.reader = &stream.Reader{
+		SkipBytesSent: true,
+		Parent:        ri,
+	}
 
 	ri.terminate = make(chan struct{})
 	ri.done = make(chan struct{})
