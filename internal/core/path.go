@@ -84,6 +84,8 @@ type path struct {
 	source                         defs.Source
 	publisherQuery                 string
 	stream                         *stream.Stream
+	silenceGenerator               *stream.SilenceGenerator
+	silencePersistTimer            *time.Timer
 	recorder                       *recorder.Recorder
 	readyTime                      time.Time
 	onUnDemandHook                 func(string)
@@ -141,6 +143,18 @@ func (pa *path) initialize() {
 }
 
 func (pa *path) close() {
+	// Stop silence generator if running
+	if pa.silenceGenerator != nil && pa.silenceGenerator.IsRunning() {
+		pa.silenceGenerator.Stop()
+		pa.silenceGenerator = nil
+	}
+	
+	// Stop persistence timer if running
+	if pa.silencePersistTimer != nil {
+		pa.silencePersistTimer.Stop()
+		pa.silencePersistTimer = nil
+	}
+	
 	pa.ctxCancel()
 }
 
@@ -446,8 +460,23 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 }
 
 func (pa *path) doRemovePublisher(req defs.PathRemovePublisherReq) {
-	if pa.source == req.Author {
-		pa.executeRemovePublisher()
+	// Handle timeout-triggered removal (Author is nil)
+	if req.Author == nil {
+		// This is a timeout - clean up the stream
+		if pa.silenceGenerator != nil && pa.silenceGenerator.IsRunning() {
+			pa.silenceGenerator.Stop()
+			pa.silenceGenerator = nil
+		}
+		if pa.silencePersistTimer != nil {
+			pa.silencePersistTimer.Stop()
+			pa.silencePersistTimer = nil
+		}
+		if pa.stream != nil {
+			pa.setNotReady()
+		}
+		pa.source = nil
+	} else if pa.source == req.Author {
+		pa.executeRemovePublisher(req.Author)
 	}
 	close(req.Res)
 }
@@ -460,6 +489,24 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		return
 	}
 
+	// Check if we have a silence generator running (indicating SRT persistence)
+	isSRTReconnection := false
+	if pa.source == nil && pa.silenceGenerator != nil && pa.silenceGenerator.IsRunning() {
+		// Check if this is an SRT publisher trying to reconnect
+		if sourceDesc := req.Author.APISourceDescribe(); sourceDesc.Type == "srtConn" {
+			isSRTReconnection = true
+			pa.Log(logger.Info, "SRT publisher reconnecting, stopping silence generation")
+			pa.silenceGenerator.Stop()
+			pa.silenceGenerator = nil
+			
+			// Cancel the persistence timeout timer
+			if pa.silencePersistTimer != nil {
+				pa.silencePersistTimer.Stop()
+				pa.silencePersistTimer = nil
+			}
+		}
+	}
+
 	if pa.source != nil {
 		if !pa.conf.OverridePublisher {
 			req.Res <- defs.PathAddPublisherRes{Err: fmt.Errorf("someone is already publishing to path '%s'", pa.name)}
@@ -468,13 +515,20 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 		pa.Log(logger.Info, "closing existing publisher")
 		pa.source.(defs.Publisher).Close()
-		pa.executeRemovePublisher()
+		pa.executeRemovePublisher(pa.source.(defs.Publisher))
 	}
 
 	pa.source = req.Author
 	pa.publisherQuery = req.AccessRequest.Query
 
-	err := pa.setReady(req.Desc, req.GenerateRTPPackets)
+	// If this is an SRT reconnection, we already have a stream ready
+	var err error
+	if isSRTReconnection && pa.stream != nil {
+		// Stream is already ready, just update the source
+		err = nil
+	} else {
+		err = pa.setReady(req.Desc, req.GenerateRTPPackets)
+	}
 	if err != nil {
 		pa.source = nil
 		req.Res <- defs.PathAddPublisherRes{Err: err}
@@ -799,9 +853,63 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 	delete(pa.readers, r)
 }
 
-func (pa *path) executeRemovePublisher() {
+func (pa *path) executeRemovePublisher(author defs.Publisher) {
+	// Check if this is an SRT publisher and persistence is enabled
+	isSRTPublisher := false
+	if sourceDesc := author.APISourceDescribe(); sourceDesc.Type == "srtConn" {
+		isSRTPublisher = true
+	}
+	
+	if isSRTPublisher && pa.conf.SRTPersistOnDisconnect && pa.stream != nil {
+		// Don't set stream to not ready, instead start silence generation
+		pa.Log(logger.Info, "SRT publisher disconnected, maintaining stream with silence generation for %v", 
+			time.Duration(pa.conf.SRTPersistTimeout))
+		
+		// Create and start silence generator if not already running
+		if pa.silenceGenerator == nil || !pa.silenceGenerator.IsRunning() {
+			pa.silenceGenerator = stream.NewSilenceGenerator(pa.stream, pa.stream.Desc, pa)
+			pa.silenceGenerator.Start()
+		}
+		
+		// Cancel any existing timer
+		if pa.silencePersistTimer != nil {
+			pa.silencePersistTimer.Stop()
+		}
+		
+		// Start timeout timer
+		pa.silencePersistTimer = time.AfterFunc(time.Duration(pa.conf.SRTPersistTimeout), func() {
+			pa.Log(logger.Info, "SRT persistence timeout reached, closing stream")
+			// Execute in path's goroutine context
+			select {
+			case pa.chRemovePublisher <- defs.PathRemovePublisherReq{
+				Author: nil, // Indicate this is a timeout-triggered removal
+				Res:    make(chan struct{}),
+			}:
+				// The path will handle the cleanup
+			case <-pa.ctx.Done():
+				// Path is already closing
+			}
+		})
+		
+		// Clear source but keep stream alive
+		pa.source = nil
+		return
+	}
+	
+	// Standard behavior for non-SRT or when persistence is disabled
 	if pa.stream != nil {
 		pa.setNotReady()
+	}
+	
+	// Stop silence generator and timer if running
+	if pa.silenceGenerator != nil && pa.silenceGenerator.IsRunning() {
+		pa.silenceGenerator.Stop()
+		pa.silenceGenerator = nil
+	}
+	
+	if pa.silencePersistTimer != nil {
+		pa.silencePersistTimer.Stop()
+		pa.silencePersistTimer = nil
 	}
 
 	pa.source = nil
