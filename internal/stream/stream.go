@@ -103,10 +103,11 @@ func (s *Stream) BytesReceived() uint64 {
 
 // BytesSent returns sent bytes.
 func (s *Stream) BytesSent() uint64 {
+	bytesSent := atomic.LoadUint64(s.bytesSent)
+
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	bytesSent := atomic.LoadUint64(s.bytesSent)
 	if s.rtspStream != nil {
 		stats := s.rtspStream.Stats()
 		bytesSent += stats.BytesSent
@@ -115,6 +116,7 @@ func (s *Stream) BytesSent() uint64 {
 		stats := s.rtspsStream.Stats()
 		bytesSent += stats.BytesSent
 	}
+
 	return bytesSent
 }
 
