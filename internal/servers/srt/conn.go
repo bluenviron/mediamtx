@@ -255,7 +255,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 }
 
 func (c *conn) runRead(streamID *streamID) error {
-	path, stream, err := c.pathManager.AddReader(defs.PathAddReaderReq{
+	path, strm, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  streamID.path,
@@ -297,7 +297,9 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))
 
-	err = mpegts.FromStream(stream, c, bw, sconn, time.Duration(c.writeTimeout))
+	r := &stream.Reader{Parent: c}
+
+	err = mpegts.FromStream(strm.Desc, r, bw, sconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}
@@ -310,7 +312,7 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.mutex.Unlock()
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(stream.ReaderFormats(c)))
+		path.Name(), defs.FormatsInfo(r.Formats()))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
@@ -325,14 +327,14 @@ func (c *conn) runRead(streamID *streamID) error {
 	// disable read deadline
 	sconn.SetReadDeadline(time.Time{})
 
-	stream.StartReader(c)
-	defer stream.RemoveReader(c)
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
 
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err = <-stream.ReaderError(c):
+	case err = <-r.Error():
 		return err
 	}
 }

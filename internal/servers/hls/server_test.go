@@ -324,7 +324,7 @@ func TestServerRead(t *testing.T) {
 
 				s.PathReady(&dummyPath{})
 
-				strm.WaitRunningReader()
+				time.Sleep(500 * time.Millisecond)
 
 				for i := range 4 {
 					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{

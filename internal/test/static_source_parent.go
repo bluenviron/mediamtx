@@ -10,7 +10,7 @@ import (
 // StaticSourceParent is a dummy static source parent.
 type StaticSourceParent struct {
 	stream *stream.Stream
-	reader stream.Reader
+	reader *stream.Reader
 	Unit   chan unit.Unit
 }
 
@@ -41,15 +41,18 @@ func (p *StaticSourceParent) SetReady(req defs.PathSourceStaticSetReadyReq) defs
 		panic(err)
 	}
 
-	p.reader = NilLogger
+	p.reader = &stream.Reader{Parent: NilLogger}
 
-	p.stream.AddReader(p.reader, req.Desc.Medias[0], req.Desc.Medias[0].Formats[0], func(u unit.Unit) error {
-		p.Unit <- u
-		close(p.Unit)
-		return nil
-	})
+	p.reader.OnData(
+		req.Desc.Medias[0],
+		req.Desc.Medias[0].Formats[0],
+		func(u unit.Unit) error {
+			p.Unit <- u
+			close(p.Unit)
+			return nil
+		})
 
-	p.stream.StartReader(p.reader)
+	p.stream.AddReader(p.reader)
 
 	return defs.PathSourceStaticSetReadyRes{Stream: p.stream}
 }

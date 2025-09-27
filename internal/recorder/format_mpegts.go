@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	rtspformat "github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -64,17 +65,12 @@ type formatMPEGTS struct {
 
 func (f *formatMPEGTS) initialize() bool {
 	var tracks []*mpegts.Track
-	var setuppedFormats []rtspformat.Format
-	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
 
-	addTrack := func(format rtspformat.Format, codec mpegts.Codec) *mpegts.Track {
+	addTrack := func(codec mpegts.Codec) *mpegts.Track {
 		track := &mpegts.Track{
 			Codec: codec,
 		}
-
 		tracks = append(tracks, track)
-		setuppedFormats = append(setuppedFormats, format)
-		setuppedFormatsMap[format] = struct{}{}
 		return track
 	}
 
@@ -84,12 +80,11 @@ func (f *formatMPEGTS) initialize() bool {
 
 			switch forma := forma.(type) {
 			case *rtspformat.H265: //nolint:dupl
-				track := addTrack(forma, &mpegts.CodecH265{})
+				track := addTrack(&mpegts.CodecH265{})
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -130,12 +125,11 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.H264: //nolint:dupl
-				track := addTrack(forma, &mpegts.CodecH264{})
+				track := addTrack(&mpegts.CodecH264{})
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -176,13 +170,12 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Video:
-				track := addTrack(forma, &mpegts.CodecMPEG4Video{})
+				track := addTrack(&mpegts.CodecMPEG4Video{})
 
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -216,13 +209,12 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG1Video:
-				track := addTrack(forma, &mpegts.CodecMPEG1Video{})
+				track := addTrack(&mpegts.CodecMPEG1Video{})
 
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -256,12 +248,11 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.Opus:
-				track := addTrack(forma, &mpegts.CodecOpus{
+				track := addTrack(&mpegts.CodecOpus{
 					ChannelCount: forma.ChannelCount,
 				})
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -286,12 +277,11 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.KLV:
-				track := addTrack(forma, &mpegts.CodecKLV{
+				track := addTrack(&mpegts.CodecKLV{
 					Synchronous: true,
 				})
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -313,12 +303,11 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Audio:
-				track := addTrack(forma, &mpegts.CodecMPEG4Audio{
+				track := addTrack(&mpegts.CodecMPEG4Audio{
 					Config: *forma.Config,
 				})
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -344,12 +333,11 @@ func (f *formatMPEGTS) initialize() bool {
 
 			case *rtspformat.MPEG4AudioLATM:
 				if !forma.CPresent {
-					track := addTrack(forma, &mpegts.CodecMPEG4Audio{
+					track := addTrack(&mpegts.CodecMPEG4Audio{
 						Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 					})
 
-					f.ri.stream.AddReader(
-						f.ri,
+					f.ri.reader.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -382,10 +370,9 @@ func (f *formatMPEGTS) initialize() bool {
 				}
 
 			case *rtspformat.MPEG1Audio:
-				track := addTrack(forma, &mpegts.CodecMPEG1Audio{})
+				track := addTrack(&mpegts.CodecMPEG1Audio{})
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -410,10 +397,9 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.AC3:
-				track := addTrack(forma, &mpegts.CodecAC3{})
+				track := addTrack(&mpegts.CodecAC3{})
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -449,15 +435,17 @@ func (f *formatMPEGTS) initialize() bool {
 		}
 	}
 
-	if len(setuppedFormats) == 0 {
+	if len(tracks) == 0 {
 		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return false
 	}
 
+	setuppedFormats := f.ri.reader.Formats()
+
 	n := 1
 	for _, medi := range f.ri.stream.Desc.Medias {
 		for _, forma := range medi.Formats {
-			if _, ok := setuppedFormatsMap[forma]; !ok {
+			if !slices.Contains(setuppedFormats, forma) {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++

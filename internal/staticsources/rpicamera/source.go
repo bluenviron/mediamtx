@@ -282,8 +282,9 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 		return res.Err
 	}
 
-	origStream.AddReader(
-		s,
+	rdr := &stream.Reader{Parent: s}
+
+	rdr.OnData(
 		origStream.Desc.Medias[1],
 		origStream.Desc.Medias[1].Formats[0],
 		func(u unit.Unit) error {
@@ -299,11 +300,11 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 			return nil
 		})
 
-	origStream.StartReader(s)
-	defer origStream.RemoveReader(s)
+	origStream.AddReader(rdr)
+	defer origStream.RemoveReader(rdr)
 
 	select {
-	case err = <-origStream.ReaderError(s):
+	case err = <-rdr.Error():
 		return err
 
 	case <-r.ctx.Done():

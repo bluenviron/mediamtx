@@ -281,7 +281,7 @@ func (s *session) runRead() (int, error) {
 		IP:          net.ParseIP(ip),
 	}
 
-	path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
+	path, strm, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author:        s,
 		AccessRequest: req,
 	})
@@ -316,14 +316,15 @@ func (s *session) runRead() (int, error) {
 		Log:                   s,
 	}
 
-	err = webrtc.FromStream(stream, s, pc)
+	r := &stream.Reader{Parent: s}
+
+	err = webrtc.FromStream(strm.Desc, r, pc)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
 	err = pc.Start()
 	if err != nil {
-		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
 	}
 
@@ -346,7 +347,6 @@ func (s *session) runRead() (int, error) {
 
 	answer, err := pc.CreateFullAnswer(offer)
 	if err != nil {
-		stream.RemoveReader(s)
 		return http.StatusBadRequest, err
 	}
 
@@ -356,7 +356,6 @@ func (s *session) runRead() (int, error) {
 
 	err = pc.WaitUntilConnected()
 	if err != nil {
-		stream.RemoveReader(s)
 		return 0, err
 	}
 
@@ -365,7 +364,7 @@ func (s *session) runRead() (int, error) {
 	s.mutex.Unlock()
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(stream.ReaderFormats(s)))
+		path.Name(), defs.FormatsInfo(r.Formats()))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,
@@ -377,14 +376,14 @@ func (s *session) runRead() (int, error) {
 	})
 	defer onUnreadHook()
 
-	stream.StartReader(s)
-	defer stream.RemoveReader(s)
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
 
 	select {
 	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
 
-	case err = <-stream.ReaderError(s):
+	case err = <-r.Error():
 		return 0, err
 
 	case <-s.ctx.Done():

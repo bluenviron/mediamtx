@@ -29,14 +29,12 @@ type streamFormat struct {
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
-	proc           codecprocessor.Processor
-	pausedReaders  map[*streamReader]ReadFunc
-	runningReaders map[*streamReader]ReadFunc
+	proc    codecprocessor.Processor
+	onDatas map[*Reader]OnDataFunc
 }
 
 func (sf *streamFormat) initialize() error {
-	sf.pausedReaders = make(map[*streamReader]ReadFunc)
-	sf.runningReaders = make(map[*streamReader]ReadFunc)
+	sf.onDatas = make(map[*Reader]OnDataFunc)
 
 	var err error
 	sf.proc, err = codecprocessor.New(sf.rtpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
@@ -45,22 +43,6 @@ func (sf *streamFormat) initialize() error {
 	}
 
 	return nil
-}
-
-func (sf *streamFormat) addReader(sr *streamReader, cb ReadFunc) {
-	sf.pausedReaders[sr] = cb
-}
-
-func (sf *streamFormat) removeReader(sr *streamReader) {
-	delete(sf.pausedReaders, sr)
-	delete(sf.runningReaders, sr)
-}
-
-func (sf *streamFormat) startReader(sr *streamReader) {
-	if cb, ok := sf.pausedReaders[sr]; ok {
-		delete(sf.pausedReaders, sr)
-		sf.runningReaders[sr] = cb
-	}
 }
 
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Unit) {
@@ -80,7 +62,7 @@ func (sf *streamFormat) writeRTPPacket(
 	ntp time.Time,
 	pts int64,
 ) {
-	hasNonRTSPReaders := len(sf.pausedReaders) > 0 || len(sf.runningReaders) > 0
+	hasNonRTSPReaders := len(sf.onDatas) > 0
 
 	u, err := sf.proc.ProcessRTPPacket(pkt, ntp, pts, hasNonRTSPReaders)
 	if err != nil {
@@ -108,11 +90,14 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 		}
 	}
 
-	for sr, cb := range sf.runningReaders {
-		ccb := cb
+	for sr, onData := range sf.onDatas {
+		csr := sr
+		cOnData := onData
 		sr.push(func() error {
-			atomic.AddUint64(s.bytesSent, size)
-			return ccb(u)
+			if !csr.SkipBytesSent {
+				atomic.AddUint64(s.bytesSent, size)
+			}
+			return cOnData(u)
 		})
 	}
 }

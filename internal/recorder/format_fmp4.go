@@ -3,6 +3,7 @@ package recorder
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"time"
 
 	rtspformat "github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -108,8 +109,6 @@ type formatFMP4 struct {
 
 func (f *formatFMP4) initialize() bool {
 	nextID := 1
-	var setuppedFormats []rtspformat.Format
-	setuppedFormatsMap := make(map[rtspformat.Format]struct{})
 
 	addTrack := func(format rtspformat.Format, codec mp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
@@ -125,8 +124,6 @@ func (f *formatFMP4) initialize() bool {
 		}
 
 		f.tracks = append(f.tracks, track)
-		setuppedFormats = append(setuppedFormats, format)
-		setuppedFormatsMap[format] = struct{}{}
 		return track
 	}
 
@@ -143,8 +140,7 @@ func (f *formatFMP4) initialize() bool {
 
 				firstReceived := false
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -206,8 +202,7 @@ func (f *formatFMP4) initialize() bool {
 
 				firstReceived := false
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -296,8 +291,7 @@ func (f *formatFMP4) initialize() bool {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -384,8 +378,7 @@ func (f *formatFMP4) initialize() bool {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -465,8 +458,7 @@ func (f *formatFMP4) initialize() bool {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -519,8 +511,7 @@ func (f *formatFMP4) initialize() bool {
 				firstReceived := false
 				var lastPTS int64
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -573,8 +564,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -610,8 +600,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -647,8 +636,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -683,8 +671,7 @@ func (f *formatFMP4) initialize() bool {
 					}
 					track := addTrack(forma, codec)
 
-					f.ri.stream.AddReader(
-						f.ri,
+					f.ri.reader.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -720,8 +707,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -780,8 +766,7 @@ func (f *formatFMP4) initialize() bool {
 
 				parsed := false
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -846,8 +831,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -886,8 +870,7 @@ func (f *formatFMP4) initialize() bool {
 				}
 				track := addTrack(forma, codec)
 
-				f.ri.stream.AddReader(
-					f.ri,
+				f.ri.reader.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -909,15 +892,17 @@ func (f *formatFMP4) initialize() bool {
 		}
 	}
 
-	if len(setuppedFormats) == 0 {
+	if len(f.tracks) == 0 {
 		f.ri.Log(logger.Warn, "no supported tracks found, skipping recording")
 		return false
 	}
 
+	setuppedFormats := f.ri.reader.Formats()
+
 	n := 1
 	for _, medi := range f.ri.stream.Desc.Medias {
 		for _, forma := range medi.Formats {
-			if _, ok := setuppedFormatsMap[forma]; !ok {
+			if !slices.Contains(setuppedFormats, forma) {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++

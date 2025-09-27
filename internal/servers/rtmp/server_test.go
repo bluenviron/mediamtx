@@ -145,10 +145,9 @@ func TestServerPublish(t *testing.T) {
 
 			recv := make(chan struct{})
 
-			reader := test.NilLogger
+			r := &stream.Reader{Parent: test.NilLogger}
 
-			strm.AddReader(
-				reader,
+			r.OnData(
 				strm.Desc.Medias[0],
 				strm.Desc.Medias[0].Formats[0],
 				func(u unit.Unit) error {
@@ -161,8 +160,8 @@ func TestServerPublish(t *testing.T) {
 					return nil
 				})
 
-			strm.StartReader(reader)
-			defer strm.RemoveReader(reader)
+			strm.AddReader(r)
+			defer strm.RemoveReader(r)
 
 			err = w.WriteH264(
 				test.FormatH264,
@@ -259,7 +258,7 @@ func TestServerRead(t *testing.T) {
 			defer conn.Close()
 
 			go func() {
-				strm.WaitRunningReader()
+				time.Sleep(500 * time.Millisecond)
 
 				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 					Base: unit.Base{

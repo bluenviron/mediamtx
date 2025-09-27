@@ -3,6 +3,7 @@ package mpegts
 import (
 	"bufio"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -27,28 +28,26 @@ func multiplyAndDivide(v, m, d int64) int64 {
 
 // FromStream maps a MediaMTX stream to a MPEG-TS writer.
 func FromStream(
-	strea *stream.Stream,
-	reader stream.Reader,
+	desc *description.Session,
+	r *stream.Reader,
 	bw *bufio.Writer,
 	sconn srt.Conn,
 	writeTimeout time.Duration,
 ) error {
 	var w *mcmpegts.Writer
 	var tracks []*mcmpegts.Track
-	setuppedFormats := make(map[format.Format]struct{})
 
 	addTrack := func(
 		media *description.Media,
 		forma format.Format,
 		track *mcmpegts.Track,
-		readFunc stream.ReadFunc,
+		onData stream.OnDataFunc,
 	) {
 		tracks = append(tracks, track)
-		setuppedFormats[forma] = struct{}{}
-		strea.AddReader(reader, media, forma, readFunc)
+		r.OnData(media, forma, onData)
 	}
 
-	for _, media := range strea.Desc.Medias {
+	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
 			clockRate := forma.ClockRate()
 
@@ -233,6 +232,7 @@ func FromStream(
 						}
 						return bw.Flush()
 					})
+
 			case *format.KLV:
 				track := &mcmpegts.Track{
 					Codec: &mcmpegts.CodecKLV{
@@ -414,11 +414,13 @@ func FromStream(
 		return errNoSupportedCodecs
 	}
 
+	setuppedFormats := r.Formats()
+
 	n := 1
-	for _, medi := range strea.Desc.Medias {
+	for _, medi := range desc.Medias {
 		for _, forma := range medi.Formats {
-			if _, ok := setuppedFormats[forma]; !ok {
-				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+			if !slices.Contains(setuppedFormats, forma) {
+				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++
 		}
