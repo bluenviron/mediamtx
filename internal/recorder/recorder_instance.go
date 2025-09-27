@@ -33,6 +33,7 @@ type recorderInstance struct {
 	pathFormat2 string
 	format2     format
 	skip        bool
+	reader      *stream.Reader
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -45,11 +46,11 @@ func (ri *recorderInstance) Log(level logger.Level, format string, args ...inter
 
 func (ri *recorderInstance) initialize() {
 	ri.pathFormat2 = ri.pathFormat
-
 	ri.pathFormat2 = recordstore.PathAddExtension(
 		strings.ReplaceAll(ri.pathFormat2, "%path", ri.pathName),
 		ri.format,
 	)
+	ri.reader = &stream.Reader{Parent: ri}
 
 	ri.terminate = make(chan struct{})
 	ri.done = make(chan struct{})
@@ -71,7 +72,7 @@ func (ri *recorderInstance) initialize() {
 	}
 
 	if !ri.skip {
-		ri.stream.StartReader(ri)
+		ri.stream.AddReader(ri.reader)
 	}
 
 	go ri.run()
@@ -87,13 +88,13 @@ func (ri *recorderInstance) run() {
 
 	if !ri.skip {
 		select {
-		case err := <-ri.stream.ReaderError(ri):
+		case err := <-ri.reader.Error():
 			ri.Log(logger.Error, err.Error())
 
 		case <-ri.terminate:
 		}
 
-		ri.stream.RemoveReader(ri)
+		ri.stream.RemoveReader(ri.reader)
 	} else {
 		<-ri.terminate
 	}

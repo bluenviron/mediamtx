@@ -16,14 +16,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// Reader is a stream reader.
-type Reader interface {
-	logger.Writer
-}
-
-// ReadFunc is the callback passed to AddReader().
-type ReadFunc func(unit.Unit) error
-
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, converting it when needed.
 type Stream struct {
@@ -35,23 +27,20 @@ type Stream struct {
 
 	bytesReceived    *uint64
 	bytesSent        *uint64
-	streamMedias     map[*description.Media]*streamMedia
+	medias           map[*description.Media]*streamMedia
 	mutex            sync.RWMutex
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
-	streamReaders    map[Reader]*streamReader
+	readers          map[*Reader]struct{}
 	processingErrors *counterdumper.CounterDumper
-
-	readerRunning chan struct{}
 }
 
 // Initialize initializes a Stream.
 func (s *Stream) Initialize() error {
 	s.bytesReceived = new(uint64)
 	s.bytesSent = new(uint64)
-	s.streamMedias = make(map[*description.Media]*streamMedia)
-	s.streamReaders = make(map[Reader]*streamReader)
-	s.readerRunning = make(chan struct{})
+	s.medias = make(map[*description.Media]*streamMedia)
+	s.readers = make(map[*Reader]struct{})
 
 	s.processingErrors = &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
@@ -68,14 +57,14 @@ func (s *Stream) Initialize() error {
 	s.processingErrors.Start()
 
 	for _, media := range s.Desc.Medias {
-		s.streamMedias[media] = &streamMedia{
+		s.medias[media] = &streamMedia{
 			rtpMaxPayloadSize:  s.RTPMaxPayloadSize,
 			media:              media,
 			generateRTPPackets: s.GenerateRTPPackets,
 			processingErrors:   s.processingErrors,
 			parent:             s.Parent,
 		}
-		err := s.streamMedias[media].initialize()
+		err := s.medias[media].initialize()
 		if err != nil {
 			return err
 		}
@@ -158,103 +147,48 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 
 // AddReader adds a reader.
 // Used by all protocols except RTSP.
-func (s *Stream) AddReader(reader Reader, medi *description.Media, forma format.Format, cb ReadFunc) {
+func (s *Stream) AddReader(r *Reader) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	sr, ok := s.streamReaders[reader]
-	if !ok {
-		sr = &streamReader{
-			queueSize: s.WriteQueueSize,
-			parent:    reader,
-		}
-		sr.initialize()
+	s.readers[r] = struct{}{}
 
-		s.streamReaders[reader] = sr
+	for medi, formats := range r.onDatas {
+		sm := s.medias[medi]
+
+		for forma, onData := range formats {
+			sf := sm.formats[forma]
+			sf.onDatas[r] = onData
+		}
 	}
 
-	sm := s.streamMedias[medi]
-	sf := sm.formats[forma]
-	sf.addReader(sr, cb)
+	r.queueSize = s.WriteQueueSize
+	r.start()
 }
 
 // RemoveReader removes a reader.
 // Used by all protocols except RTSP.
-func (s *Stream) RemoveReader(reader Reader) {
+func (s *Stream) RemoveReader(r *Reader) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	sr := s.streamReaders[reader]
+	r.stop()
 
-	for _, sm := range s.streamMedias {
-		for _, sf := range sm.formats {
-			sf.removeReader(sr)
+	for medi, formats := range r.onDatas {
+		sm := s.medias[medi]
+
+		for forma := range formats {
+			sf := sm.formats[forma]
+			delete(sf.onDatas, r)
 		}
 	}
 
-	delete(s.streamReaders, reader)
-
-	sr.stop()
-}
-
-// StartReader starts a reader.
-// Used by all protocols except RTSP.
-func (s *Stream) StartReader(reader Reader) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	sr := s.streamReaders[reader]
-
-	sr.start()
-
-	for _, sm := range s.streamMedias {
-		for _, sf := range sm.formats {
-			sf.startReader(sr)
-		}
-	}
-
-	select {
-	case <-s.readerRunning:
-	default:
-		close(s.readerRunning)
-	}
-}
-
-// ReaderError returns whenever there's an error.
-func (s *Stream) ReaderError(reader Reader) chan error {
-	sr := s.streamReaders[reader]
-	return sr.error()
-}
-
-// ReaderFormats returns all formats that a reader is reading.
-func (s *Stream) ReaderFormats(reader Reader) []format.Format {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	sr := s.streamReaders[reader]
-	var formats []format.Format
-
-	for _, sm := range s.streamMedias {
-		for forma, sf := range sm.formats {
-			if _, ok := sf.pausedReaders[sr]; ok {
-				formats = append(formats, forma)
-			} else if _, ok = sf.runningReaders[sr]; ok {
-				formats = append(formats, forma)
-			}
-		}
-	}
-
-	return formats
-}
-
-// WaitRunningReader waits for a running reader.
-func (s *Stream) WaitRunningReader() {
-	<-s.readerRunning
+	delete(s.readers, r)
 }
 
 // WriteUnit writes a Unit.
 func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u unit.Unit) {
-	sm := s.streamMedias[medi]
+	sm := s.medias[medi]
 	sf := sm.formats[forma]
 
 	s.mutex.RLock()
@@ -271,7 +205,7 @@ func (s *Stream) WriteRTPPacket(
 	ntp time.Time,
 	pts int64,
 ) {
-	sm := s.streamMedias[medi]
+	sm := s.medias[medi]
 	sf := sm.formats[forma]
 
 	s.mutex.RLock()

@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortmplib/pkg/message"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
@@ -37,8 +38,8 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 
 // FromStream maps a MediaMTX stream to a RTMP stream.
 func FromStream(
-	str *stream.Stream,
-	reader stream.Reader,
+	desc *description.Session,
+	r *stream.Reader,
 	conn *gortmplib.ServerConn,
 	nconn net.Conn,
 	writeTimeout time.Duration,
@@ -46,13 +47,12 @@ func FromStream(
 	var tracks []format.Format
 	var w *gortmplib.Writer
 
-	for _, media := range str.Desc.Medias {
+	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.AV1:
 				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCAV1))) {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -74,8 +74,7 @@ func FromStream(
 
 			case *format.VP9:
 				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCVP9))) {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -99,8 +98,7 @@ func FromStream(
 				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCHEVC))) {
 					var videoDTSExtractor *h265.DTSExtractor
 
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -137,8 +135,7 @@ func FromStream(
 			case *format.H264:
 				var videoDTSExtractor *h264.DTSExtractor
 
-				str.AddReader(
-					reader,
+				r.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -191,8 +188,7 @@ func FromStream(
 
 			case *format.Opus:
 				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCOpus))) {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -225,8 +221,7 @@ func FromStream(
 				}
 
 			case *format.MPEG4Audio:
-				str.AddReader(
-					reader,
+				r.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -257,8 +252,7 @@ func FromStream(
 
 			case *format.MPEG4AudioLATM:
 				if !forma.CPresent {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -289,8 +283,7 @@ func FromStream(
 			case *format.MPEG1Audio:
 				// TODO: check sample rate and layer,
 				// unfortunately they are not available at this stage.
-				str.AddReader(
-					reader,
+				r.OnData(
 					media,
 					forma,
 					func(u unit.Unit) error {
@@ -325,8 +318,7 @@ func FromStream(
 
 			case *format.AC3:
 				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCAC3))) {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -353,8 +345,7 @@ func FromStream(
 
 			case *format.G711:
 				if forma.SampleRate == 8000 {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -381,8 +372,7 @@ func FromStream(
 						forma.SampleRate == 11025 ||
 						forma.SampleRate == 22050 ||
 						forma.SampleRate == 44100) {
-					str.AddReader(
-						reader,
+					r.OnData(
 						media,
 						forma,
 						func(u unit.Unit) error {
@@ -420,10 +410,10 @@ func FromStream(
 	}
 
 	n := 1
-	for _, media := range str.Desc.Medias {
+	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
 			if !slices.Contains(tracks, forma) {
-				reader.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++
 		}

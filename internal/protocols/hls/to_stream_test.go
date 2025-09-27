@@ -86,7 +86,7 @@ func TestToStream(t *testing.T) {
 	var strm *stream.Stream
 	done := make(chan struct{})
 
-	reader := test.NilLogger
+	r := &stream.Reader{Parent: test.NilLogger}
 
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
@@ -112,8 +112,7 @@ func TestToStream(t *testing.T) {
 			err2 = strm.Initialize()
 			require.NoError(t, err2)
 
-			strm.AddReader(
-				reader,
+			r.OnData(
 				medias[0],
 				medias[0].Formats[0],
 				func(u unit.Unit) error {
@@ -122,7 +121,7 @@ func TestToStream(t *testing.T) {
 					return nil
 				})
 
-			strm.StartReader(reader)
+			strm.AddReader(r)
 
 			return nil
 		},
@@ -133,6 +132,6 @@ func TestToStream(t *testing.T) {
 
 	<-done
 
-	strm.RemoveReader(reader)
+	strm.RemoveReader(r)
 	strm.Close()
 }

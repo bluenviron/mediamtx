@@ -151,7 +151,7 @@ func (c *conn) runRead() error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
-	path, stream, err := c.pathManager.AddReader(defs.PathAddReaderReq{
+	path, strm, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  pathName,
@@ -183,13 +183,15 @@ func (c *conn) runRead() error {
 	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
 
-	err = rtmp.FromStream(stream, c, c.rconn, c.nconn, time.Duration(c.writeTimeout))
+	r := &stream.Reader{Parent: c}
+
+	err = rtmp.FromStream(strm.Desc, r, c.rconn, c.nconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(stream.ReaderFormats(c)))
+		path.Name(), defs.FormatsInfo(r.Formats()))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
@@ -204,14 +206,14 @@ func (c *conn) runRead() error {
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
-	stream.StartReader(c)
-	defer stream.RemoveReader(c)
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
 
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
-	case err = <-stream.ReaderError(c):
+	case err = <-r.Error():
 		return err
 	}
 }

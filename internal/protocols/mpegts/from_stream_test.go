@@ -13,60 +13,47 @@ import (
 )
 
 func TestFromStreamNoSupportedCodecs(t *testing.T) {
-	strm := &stream.Stream{
-		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
-		Desc: &description.Session{Medias: []*description.Media{{
-			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.VP8{}},
-		}}},
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeVideo,
+		Formats: []format.Format{&format.VP8{}},
+	}}}
+
+	r := &stream.Reader{
+		Parent: test.Logger(func(logger.Level, string, ...interface{}) {
+			t.Error("should not happen")
+		}),
 	}
-	err := strm.Initialize()
-	require.NoError(t, err)
 
-	l := test.Logger(func(logger.Level, string, ...interface{}) {
-		t.Error("should not happen")
-	})
-
-	err = FromStream(strm, l, nil, nil, 0)
+	err := FromStream(desc, r, nil, nil, 0)
 	require.Equal(t, errNoSupportedCodecs, err)
 }
 
 func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
-	strm := &stream.Stream{
-		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
-		Desc: &description.Session{Medias: []*description.Media{
-			{
-				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{}},
-			},
-			{
-				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.VP8{}},
-			},
-		}},
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
-	}
-	err := strm.Initialize()
-	require.NoError(t, err)
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{&format.H265{}},
+		},
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{&format.VP8{}},
+		},
+	}}
 
 	n := 0
 
-	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
-		require.Equal(t, logger.Warn, l)
-		if n == 0 {
-			require.Equal(t, "skipping track 2 (VP8)", fmt.Sprintf(format, args...))
-		}
-		n++
-	})
+	r := &stream.Reader{
+		Parent: test.Logger(func(l logger.Level, format string, args ...interface{}) {
+			require.Equal(t, logger.Warn, l)
+			if n == 0 {
+				require.Equal(t, "skipping track 2 (VP8)", fmt.Sprintf(format, args...))
+			}
+			n++
+		}),
+	}
 
-	err = FromStream(strm, l, nil, nil, 0)
+	err := FromStream(desc, r, nil, nil, 0)
 	require.NoError(t, err)
-	defer strm.RemoveReader(l)
 
 	require.Equal(t, 1, n)
 }
