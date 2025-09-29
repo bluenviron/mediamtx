@@ -3,12 +3,15 @@ package webrtc
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,4 +81,121 @@ func TestFromStream(t *testing.T) {
 			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
 		})
 	}
+}
+
+func TestFromStreamResampleOpus(t *testing.T) {
+	strm := &stream.Stream{
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Desc: &description.Session{Medias: []*description.Media{
+			{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
+					ChannelCount: 2,
+				}},
+			},
+		}},
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+
+	pc1 := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		Publish:            false,
+		Log:                test.NilLogger,
+	}
+	err = pc1.Start()
+	require.NoError(t, err)
+	defer pc1.Close()
+
+	pc2 := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		Publish:            true,
+		Log:                test.NilLogger,
+	}
+
+	r := &stream.Reader{Parent: nil}
+
+	err = FromStream(strm.Desc, r, pc2)
+	require.NoError(t, err)
+
+	err = pc2.Start()
+	require.NoError(t, err)
+	defer pc2.Close()
+
+	offer, err := pc1.CreatePartialOffer()
+	require.NoError(t, err)
+
+	answer, err := pc2.CreateFullAnswer(offer)
+	require.NoError(t, err)
+
+	err = pc1.SetAnswer(answer)
+	require.NoError(t, err)
+
+	err = pc1.WaitUntilConnected()
+	require.NoError(t, err)
+
+	err = pc2.WaitUntilConnected()
+	require.NoError(t, err)
+
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
+
+	strm.WriteRTPPacket(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1123,
+			Timestamp:      45343,
+			SSRC:           563424,
+		},
+		Payload: []byte{1},
+	}, time.Now(), 0)
+
+	strm.WriteRTPPacket(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1124,
+			Timestamp:      45343,
+			SSRC:           563424,
+		},
+		Payload: []byte{1},
+	}, time.Now(), 0)
+
+	err = pc1.GatherIncomingTracks()
+	require.NoError(t, err)
+
+	tracks := pc1.IncomingTracks()
+
+	done := make(chan struct{})
+	n := 0
+	var ts uint32
+
+	tracks[0].OnPacketRTP = func(pkt *rtp.Packet, _ time.Time) {
+		n++
+
+		switch n {
+		case 1:
+			ts = pkt.Timestamp
+
+		case 2:
+			require.Equal(t, uint32(960), pkt.Timestamp-ts)
+			close(done)
+		}
+	}
+
+	pc1.StartReading()
+
+	<-done
 }
