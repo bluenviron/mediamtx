@@ -45,6 +45,10 @@ func TestAPIDocs(t *testing.T) {
 		goStruct   any
 	}{
 		{
+			"Info",
+			defs.APIInfo{},
+		},
+		{
 			"AuthInternalUser",
 			conf.AuthInternalUser{},
 		},

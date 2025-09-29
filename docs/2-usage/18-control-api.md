@@ -1,6 +1,6 @@
 # Control API
 
-The server can be queried and controlled with an API, that can be enabled by setting the `api` parameter in the configuration:
+The server can be queried and controlled with an API, that can be enabled by toggling the `api` parameter in the configuration:
 
 ```yml
 api: yes

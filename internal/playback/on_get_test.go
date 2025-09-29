@@ -264,7 +264,7 @@ func TestOnGet(t *testing.T) {
 
 			v := url.Values{}
 			v.Set("path", "mypath")
-			v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+			v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
 			v.Set("duration", "3")
 			v.Set("format", format)
 			u.RawQuery = v.Encode()
@@ -488,7 +488,7 @@ func TestOnGetDifferentInit(t *testing.T) {
 
 	v := url.Values{}
 	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
 	v.Set("duration", "2")
 	v.Set("format", "fmp4")
 	u.RawQuery = v.Encode()
@@ -566,7 +566,7 @@ func TestOnGetNTPCompensation(t *testing.T) {
 
 	v := url.Values{}
 	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
 	v.Set("duration", "3")
 	v.Set("format", "fmp4")
 	u.RawQuery = v.Encode()

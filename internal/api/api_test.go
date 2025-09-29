@@ -117,6 +117,34 @@ func TestPreflightRequest(t *testing.T) {
 	require.Equal(t, byts, []byte{})
 }
 
+func TestInfo(t *testing.T) {
+	cnf := tempConf(t, "api: yes\n")
+
+	api := API{
+		Version:     "v1.2.3",
+		Started:     time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local),
+		Address:     "localhost:9997",
+		ReadTimeout: conf.Duration(10 * time.Second),
+		Conf:        cnf,
+		AuthManager: test.NilAuthManager,
+		Parent:      &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/info", nil, &out)
+	require.Equal(t, map[string]interface{}{
+		"started": time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+		"version": "v1.2.3",
+	}, out)
+}
+
 func TestConfigGlobalGet(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 	checked := false
@@ -621,10 +649,10 @@ func TestRecordingsList(t *testing.T) {
 				"name": "mypath1",
 				"segments": []interface{}{
 					map[string]interface{}{
-						"start": time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start": time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 					},
 					map[string]interface{}{
-						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
+						"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
 			},
@@ -632,7 +660,7 @@ func TestRecordingsList(t *testing.T) {
 				"name": "mypath2",
 				"segments": []interface{}{
 					map[string]interface{}{
-						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
+						"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
 			},
@@ -680,10 +708,10 @@ func TestRecordingsGet(t *testing.T) {
 		"name": "mypath1",
 		"segments": []interface{}{
 			map[string]interface{}{
-				"start": time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339Nano),
+				"start": time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local).Format(time.RFC3339Nano),
 			},
 			map[string]interface{}{
-				"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
+				"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 			},
 		},
 	}, out)
@@ -725,7 +753,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 
 	v := url.Values{}
 	v.Set("path", "mypath1")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)

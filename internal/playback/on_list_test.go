@@ -91,18 +91,18 @@ func TestOnList(t *testing.T) {
 
 			switch ca {
 			case "filtered":
-				v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano))
-				v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("start", time.Date(2008, 11, 7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("end", time.Date(2009, 11, 7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
 
 			case "filtered and gap":
-				v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
-				v.Set("end", time.Date(2009, 11, 0o7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("start", time.Date(2008, 11, 7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("end", time.Date(2009, 11, 7, 11, 23, 4, 500000000, time.Local).Format(time.RFC3339Nano))
 
 			case "start after duration":
-				v.Set("start", time.Date(2010, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("start", time.Date(2010, 11, 7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
 
 			case "start before first":
-				v.Set("start", time.Date(2007, 11, 0o7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
+				v.Set("start", time.Date(2007, 11, 7, 11, 23, 20, 500000000, time.Local).Format(time.RFC3339Nano))
 			}
 
 			u.RawQuery = v.Encode()
@@ -130,15 +130,15 @@ func TestOnList(t *testing.T) {
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
 						"duration": float64(66),
-						"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=66&path=mypath&start=" +
-							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 					map[string]interface{}{
 						"duration": float64(4),
-						"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
-							url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
 
@@ -146,15 +146,15 @@ func TestOnList(t *testing.T) {
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
 						"duration": float64(65),
-						"start":    time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2008, 11, 7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
-							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 					map[string]interface{}{
 						"duration": float64(2),
-						"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=2&path=mypath&start=" +
-							url.QueryEscape(time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
 
@@ -162,9 +162,9 @@ func TestOnList(t *testing.T) {
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
 						"duration": float64(4),
-						"start":    time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2008, 11, 7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
-							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
 
@@ -172,15 +172,15 @@ func TestOnList(t *testing.T) {
 				require.Equal(t, []interface{}{
 					map[string]interface{}{
 						"duration": float64(62),
-						"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
-							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 					map[string]interface{}{
 						"duration": float64(1),
-						"start":    time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"start":    time.Date(2008, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
-							url.QueryEscape(time.Date(2008, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
 			}
@@ -327,9 +327,9 @@ func TestOnListCachedDuration(t *testing.T) {
 	require.Equal(t, []interface{}{
 		map[string]interface{}{
 			"duration": float64(50),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+			"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 			"url": "http://localhost:9996/get?duration=50&path=mypath&start=" +
-				url.QueryEscape(time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+				url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
 }
