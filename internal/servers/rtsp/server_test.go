@@ -133,12 +133,11 @@ func TestServerPublish(t *testing.T) {
 
 			<-streamCreated
 
-			reader := test.NilLogger
+			r := &stream.Reader{Parent: test.NilLogger}
 
 			recv := make(chan struct{})
 
-			strm.AddReader(
-				reader,
+			r.OnData(
 				strm.Desc.Medias[0],
 				strm.Desc.Medias[0].Formats[0],
 				func(u unit.Unit) error {
@@ -151,8 +150,8 @@ func TestServerPublish(t *testing.T) {
 					return nil
 				})
 
-			strm.StartReader(reader)
-			defer strm.RemoveReader(reader)
+			strm.AddReader(r)
+			defer strm.RemoveReader(r)
 
 			err = source.WritePacketRTP(media0, &rtp.Packet{
 				Header: rtp.Header{

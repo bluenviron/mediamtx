@@ -27,6 +27,7 @@ type muxerInstance struct {
 	parent          logger.Writer
 
 	hmuxer *gohlslib.Muxer
+	reader *stream.Reader
 }
 
 func (mi *muxerInstance) initialize() error {
@@ -48,21 +49,25 @@ func (mi *muxerInstance) initialize() error {
 		},
 	}
 
-	err := hls.FromStream(mi.stream, mi, mi.hmuxer)
+	mi.reader = &stream.Reader{
+		SkipBytesSent: true,
+		Parent:        mi,
+	}
+
+	err := hls.FromStream(mi.stream.Desc, mi.reader, mi.hmuxer)
 	if err != nil {
 		return err
 	}
 
 	err = mi.hmuxer.Start()
 	if err != nil {
-		mi.stream.RemoveReader(mi)
 		return err
 	}
 
 	mi.Log(logger.Info, "is converting into HLS, %s",
-		defs.FormatsInfo(mi.stream.ReaderFormats(mi)))
+		defs.FormatsInfo(mi.reader.Formats()))
 
-	mi.stream.StartReader(mi)
+	mi.stream.AddReader(mi.reader)
 
 	return nil
 }
@@ -73,7 +78,7 @@ func (mi *muxerInstance) Log(level logger.Level, format string, args ...interfac
 }
 
 func (mi *muxerInstance) close() {
-	mi.stream.RemoveReader(mi)
+	mi.stream.RemoveReader(mi.reader)
 	mi.hmuxer.Close()
 	if mi.hmuxer.Directory != "" {
 		os.Remove(mi.hmuxer.Directory)
@@ -81,7 +86,7 @@ func (mi *muxerInstance) close() {
 }
 
 func (mi *muxerInstance) errorChan() chan error {
-	return mi.stream.ReaderError(mi)
+	return mi.reader.Error()
 }
 
 func (mi *muxerInstance) handleRequest(ctx *gin.Context) {
