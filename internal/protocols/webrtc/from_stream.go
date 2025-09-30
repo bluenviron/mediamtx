@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -377,7 +378,12 @@ func setupAudioTrack(
 			media,
 			opusFormat,
 			func(u unit.Unit) error {
-				for _, pkt := range u.GetRTPPackets() {
+				for _, orig := range u.GetRTPPackets() {
+					pkt := &rtp.Packet{
+						Header:  orig.Header,
+						Payload: orig.Payload,
+					}
+
 					// recompute timestamp from scratch.
 					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
 					pkt.Timestamp = curTimestamp
@@ -488,7 +494,12 @@ func setupAudioTrack(
 				media,
 				g711Format,
 				func(u unit.Unit) error {
-					for _, pkt := range u.GetRTPPackets() {
+					for _, orig := range u.GetRTPPackets() {
+						pkt := &rtp.Packet{
+							Header:  orig.Header,
+							Payload: orig.Payload,
+						}
+
 						// recompute timestamp from scratch.
 						// Chrome requires a precise timestamp that FFmpeg doesn't provide.
 						pkt.Timestamp = curTimestamp
