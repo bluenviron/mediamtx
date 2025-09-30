@@ -21,6 +21,14 @@ components:
         error:
           type: string
 
+    Info:
+      type: object
+      properties:
+        version:
+          type: string
+        started:
+          type: string
+
     AuthInternalUser:
       type: object
       properties:
@@ -1133,6 +1141,25 @@ components:
             $ref: '#/components/schemas/WebRTCSession'
 
 paths:
+
+  /v3/info:
+    get:
+      operationId: info
+      tags: [General]
+      summary: returns informations about the instance.
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v3/auth/jwks/refresh:
     post:

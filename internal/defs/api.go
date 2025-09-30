@@ -55,6 +55,12 @@ type APIError struct {
 	Error string `json:"error"`
 }
 
+// APIInfo is a info response.
+type APIInfo struct {
+	Version string    `json:"version"`
+	Started time.Time `json:"started"`
+}
+
 // APIPathConfList is a list of path configurations.
 type APIPathConfList struct {
 	ItemCount int          `json:"itemCount"`
