@@ -1,4 +1,4 @@
-# Installation
+# Install
 
 There are several installation methods available: standalone binary, Docker image, Arch Linux package, FreeBSD Ports Collection or package and OpenWrt binary.
 

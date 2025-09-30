@@ -55,8 +55,9 @@ var defaultConfPathsNotWin = []string{
 }
 
 var cli struct {
-	Version  bool   `help:"print version"`
 	Confpath string `arg:"" default:""`
+	Version  bool   `help:"print version"`
+	Upgrade  bool   `help:"upgrade executable to the latest version"`
 }
 
 func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
@@ -134,6 +135,15 @@ func New(args []string) (*Core, bool) {
 
 	if cli.Version {
 		fmt.Println(string(version))
+		os.Exit(0)
+	}
+
+	if cli.Upgrade {
+		err = upgrade()
+		if err != nil {
+			fmt.Printf("ERR: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
