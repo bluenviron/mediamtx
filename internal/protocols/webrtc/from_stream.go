@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -367,11 +368,21 @@ func setupAudioTrack(
 		}
 		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
+		curTimestamp, err := randUint32()
+		if err != nil {
+			return nil, err
+		}
+
 		r.OnData(
 			media,
 			opusFormat,
 			func(u unit.Unit) error {
 				for _, pkt := range u.GetRTPPackets() {
+					// recompute timestamp from scratch.
+					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
+					pkt.Timestamp = curTimestamp
+					curTimestamp += uint32(opus.PacketDuration2(pkt.Payload))
+
 					ntp := u.GetNTP().Add(timestampToDuration(int64(pkt.Timestamp-u.GetRTPPackets()[0].Timestamp), 48000))
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
