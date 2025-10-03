@@ -32,6 +32,7 @@ type PPROF struct {
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	AuthManager    pprofAuthManager
 	Parent         pprofParent
 
@@ -49,13 +50,14 @@ func (pp *PPROF) Initialize() error {
 	pprof.Register(router)
 
 	pp.httpServer = &httpp.Server{
-		Address:     pp.Address,
-		ReadTimeout: time.Duration(pp.ReadTimeout),
-		Encryption:  pp.Encryption,
-		ServerCert:  pp.ServerCert,
-		ServerKey:   pp.ServerKey,
-		Handler:     router,
-		Parent:      pp,
+		Address:      pp.Address,
+		ReadTimeout:  time.Duration(pp.ReadTimeout),
+		WriteTimeout: time.Duration(pp.WriteTimeout),
+		Encryption:   pp.Encryption,
+		ServerCert:   pp.ServerCert,
+		ServerKey:    pp.ServerKey,
+		Handler:      router,
+		Parent:       pp,
 	}
 	err := pp.httpServer.Initialize()
 	if err != nil {

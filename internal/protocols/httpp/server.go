@@ -31,13 +31,14 @@ func (nilWriter) Write(p []byte) (int, error) {
 // - server header
 // - filtering of invalid requests
 type Server struct {
-	Address     string
-	ReadTimeout time.Duration
-	Encryption  bool
-	ServerCert  string
-	ServerKey   string
-	Handler     http.Handler
-	Parent      logger.Writer
+	Address      string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	Encryption   bool
+	ServerCert   string
+	ServerKey    string
+	Handler      http.Handler
+	Parent       logger.Writer
 
 	ln     net.Listener
 	inner  *http.Server
@@ -46,6 +47,13 @@ type Server struct {
 
 // Initialize initializes a Server.
 func (s *Server) Initialize() error {
+	if s.ReadTimeout == 0 {
+		return fmt.Errorf("invalid ReadTimeout")
+	}
+	if s.WriteTimeout == 0 {
+		return fmt.Errorf("invalid WriteTimeout")
+	}
+
 	var tlsConfig *tls.Config
 	if s.Encryption {
 		if s.ServerCert == "" {
@@ -96,12 +104,19 @@ func (s *Server) Initialize() error {
 	h = &handlerServerHeader{h}
 	h = &handlerLogger{h, s.Parent}
 	h = &handlerExitOnPanic{h}
+	h = &handlerWriteTimeout{h, s.WriteTimeout}
 
 	s.inner = &http.Server{
-		Handler:           h,
-		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: s.ReadTimeout,
-		ErrorLog:          log.New(&nilWriter{}, "", 0),
+		Handler:   h,
+		TLSConfig: tlsConfig,
+
+		// applied before reading any request
+		ReadTimeout: s.ReadTimeout,
+
+		// applied after HTTP handler has returned
+		IdleTimeout: 30 * time.Second,
+
+		ErrorLog: log.New(&nilWriter{}, "", 0),
 	}
 
 	if tlsConfig != nil {

@@ -45,7 +45,7 @@ func (w *loggerWriter) dump() string {
 
 // log requests and responses.
 type handlerLogger struct {
-	http.Handler
+	h   http.Handler
 	log logger.Writer
 }
 
@@ -55,7 +55,7 @@ func (h *handlerLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logw := &loggerWriter{w: w}
 
-	h.Handler.ServeHTTP(logw, r)
+	h.h.ServeHTTP(logw, r)
 
 	h.log.Log(logger.Debug, "[conn %v] [s->c] %s", r.RemoteAddr, logw.dump())
 }

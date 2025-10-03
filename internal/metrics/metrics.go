@@ -77,6 +77,7 @@ type Metrics struct {
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	AuthManager    metricsAuthManager
 	Parent         metricsParent
 
@@ -103,13 +104,14 @@ func (m *Metrics) Initialize() error {
 	router.GET("/metrics", m.onMetrics)
 
 	m.httpServer = &httpp.Server{
-		Address:     m.Address,
-		ReadTimeout: time.Duration(m.ReadTimeout),
-		Encryption:  m.Encryption,
-		ServerCert:  m.ServerCert,
-		ServerKey:   m.ServerKey,
-		Handler:     router,
-		Parent:      m,
+		Address:      m.Address,
+		ReadTimeout:  time.Duration(m.ReadTimeout),
+		WriteTimeout: time.Duration(m.WriteTimeout),
+		Encryption:   m.Encryption,
+		ServerCert:   m.ServerCert,
+		ServerKey:    m.ServerKey,
+		Handler:      router,
+		Parent:       m,
 	}
 	err := m.httpServer.Initialize()
 	if err != nil {

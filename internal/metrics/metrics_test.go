@@ -191,11 +191,12 @@ func (dummyWebRTCServer) APISessionsKick(uuid.UUID) error {
 
 func TestPreflightRequest(t *testing.T) {
 	m := Metrics{
-		Address:     "localhost:9998",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		AuthManager: test.NilAuthManager,
-		Parent:      test.NilLogger,
+		Address:      "localhost:9998",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       test.NilLogger,
 	}
 	err := m.Initialize()
 	require.NoError(t, err)
@@ -230,9 +231,10 @@ func TestMetrics(t *testing.T) {
 	checked := false
 
 	m := Metrics{
-		Address:     "localhost:9998",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "localhost:9998",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				require.Equal(t, conf.AuthActionMetrics, req.Action)
@@ -365,9 +367,10 @@ func TestAuthError(t *testing.T) {
 	n := 0
 
 	m := Metrics{
-		Address:     "localhost:9998",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "localhost:9998",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				if req.Credentials.User == "" {
@@ -424,11 +427,12 @@ func TestFilter(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			m := Metrics{
-				Address:     "localhost:9998",
-				AllowOrigin: "*",
-				ReadTimeout: conf.Duration(10 * time.Second),
-				AuthManager: test.NilAuthManager,
-				Parent:      test.NilLogger,
+				Address:      "localhost:9998",
+				AllowOrigin:  "*",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				Parent:       test.NilLogger,
 			}
 			err := m.Initialize()
 			require.NoError(t, err)

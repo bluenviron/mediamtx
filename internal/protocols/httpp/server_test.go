@@ -15,9 +15,10 @@ import (
 
 func TestFilterEmptyPath(t *testing.T) {
 	s := &Server{
-		Address:     "localhost:4555",
-		ReadTimeout: 10 * time.Second,
-		Parent:      test.NilLogger,
+		Address:      "localhost:4555",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Parent:       test.NilLogger,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
@@ -44,9 +45,10 @@ func TestFilterEmptyPath(t *testing.T) {
 
 func TestUnixSocket(t *testing.T) {
 	s := &Server{
-		Address:     "unix://http.sock",
-		ReadTimeout: 10 * time.Second,
-		Parent:      test.NilLogger,
+		Address:      "unix://http.sock",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Parent:       test.NilLogger,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),

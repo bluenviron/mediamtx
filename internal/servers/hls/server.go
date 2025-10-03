@@ -84,6 +84,7 @@ type Server struct {
 	SegmentMaxSize  conf.StringSize
 	Directory       string
 	ReadTimeout     conf.Duration
+	WriteTimeout    conf.Duration
 	MuxerCloseAfter conf.Duration
 	Metrics         serverMetrics
 	PathManager     serverPathManager
@@ -126,6 +127,7 @@ func (s *Server) Initialize() error {
 		allowOrigin:    s.AllowOrigin,
 		trustedProxies: s.TrustedProxies,
 		readTimeout:    s.ReadTimeout,
+		writeTimeout:   s.WriteTimeout,
 		pathManager:    s.PathManager,
 		parent:         s,
 	}

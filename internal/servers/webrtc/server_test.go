@@ -69,6 +69,7 @@ func initializeTestServer(t *testing.T) *Server {
 		AllowOrigin:           "*",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -149,6 +150,7 @@ func TestServerOptionsICEServer(t *testing.T) {
 		Address:               "127.0.0.1:8886",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -230,6 +232,7 @@ func TestServerPublish(t *testing.T) {
 		Address:               "127.0.0.1:8886",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -512,6 +515,7 @@ func TestServerRead(t *testing.T) {
 			s := &Server{
 				Address:               "127.0.0.1:8886",
 				ReadTimeout:           conf.Duration(10 * time.Second),
+				WriteTimeout:          conf.Duration(10 * time.Second),
 				LocalUDPAddress:       "127.0.0.1:8887",
 				LocalTCPAddress:       "127.0.0.1:8887",
 				IPsFromInterfaces:     true,
@@ -596,6 +600,7 @@ func TestServerReadNotFound(t *testing.T) {
 		Address:               "127.0.0.1:8886",
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
 		LocalUDPAddress:       "127.0.0.1:8887",
 		LocalTCPAddress:       "127.0.0.1:8887",
 		IPsFromInterfaces:     true,
@@ -736,8 +741,9 @@ func TestAuthError(t *testing.T) {
 	n := 0
 
 	s := &Server{
-		Address:     "127.0.0.1:8886",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:8886",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		PathManager: &test.PathManager{
 			FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {

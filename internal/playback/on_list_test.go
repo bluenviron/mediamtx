@@ -60,8 +60,9 @@ func TestOnList(t *testing.T) {
 			checked := false
 
 			s := &Server{
-				Address:     "127.0.0.1:9996",
-				ReadTimeout: conf.Duration(10 * time.Second),
+				Address:      "127.0.0.1:9996",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
 						Name:       "mypath",
@@ -289,8 +290,9 @@ func TestOnListCachedDuration(t *testing.T) {
 	}()
 
 	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
 				Name:       "mypath",

@@ -67,11 +67,12 @@ func (pa *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 
 func TestServerPreflightRequest(t *testing.T) {
 	s := &Server{
-		Address:     "127.0.0.1:8888",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		PathManager: &dummyPathManager{},
-		Parent:      test.NilLogger,
+		Address:      "127.0.0.1:8888",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  &dummyPathManager{},
+		Parent:       test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -134,6 +135,7 @@ func TestServerNotFound(t *testing.T) {
 				TrustedProxies:  conf.IPNetworks{},
 				Directory:       "",
 				ReadTimeout:     conf.Duration(10 * time.Second),
+				WriteTimeout:    conf.Duration(10 * time.Second),
 				PathManager:     pm,
 				Parent:          test.NilLogger,
 			}
@@ -224,6 +226,7 @@ func TestServerRead(t *testing.T) {
 					SegmentMaxSize:  50 * 1024 * 1024,
 					TrustedProxies:  conf.IPNetworks{},
 					ReadTimeout:     conf.Duration(10 * time.Second),
+					WriteTimeout:    conf.Duration(10 * time.Second),
 					PathManager:     pm,
 					Parent:          test.NilLogger,
 				}
@@ -315,6 +318,7 @@ func TestServerRead(t *testing.T) {
 					SegmentMaxSize:  50 * 1024 * 1024,
 					TrustedProxies:  conf.IPNetworks{},
 					ReadTimeout:     conf.Duration(10 * time.Second),
+					WriteTimeout:    conf.Duration(10 * time.Second),
 					PathManager:     pm,
 					Parent:          test.NilLogger,
 				}
@@ -441,6 +445,7 @@ func TestServerDirectory(t *testing.T) {
 		TrustedProxies:  conf.IPNetworks{},
 		Directory:       filepath.Join(dir, "mydir"),
 		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager:     pm,
 		Parent:          test.NilLogger,
 	}
@@ -493,6 +498,7 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 		PartDuration:    conf.Duration(200 * time.Millisecond),
 		SegmentMaxSize:  50 * 1024 * 1024,
 		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager:     pm,
 		Parent:          test.NilLogger,
 	}
@@ -518,6 +524,7 @@ func TestAuthError(t *testing.T) {
 		PartDuration:    conf.Duration(200 * time.Millisecond),
 		SegmentMaxSize:  50 * 1024 * 1024,
 		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
 			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
