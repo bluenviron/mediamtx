@@ -82,11 +82,12 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 
 func TestPreflightRequest(t *testing.T) {
 	api := API{
-		Address:     "localhost:9997",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -121,13 +122,14 @@ func TestInfo(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Version:     "v1.2.3",
-		Started:     time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local),
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Version:      "v1.2.3",
+		Started:      time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local),
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -150,9 +152,10 @@ func TestConfigGlobalGet(t *testing.T) {
 	checked := false
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				require.Equal(t, conf.AuthActionAPI, req.Action)
@@ -183,11 +186,12 @@ func TestConfigGlobalPatch(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -219,11 +223,12 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -256,11 +261,12 @@ func TestConfigPathDefaultsGet(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -279,11 +285,12 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -316,11 +323,12 @@ func TestConfigPathsList(t *testing.T) {
 		"    readPass: mypass2\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -358,11 +366,12 @@ func TestConfigPathsGet(t *testing.T) {
 		"    readPass: mypass\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -382,11 +391,12 @@ func TestConfigPathsAdd(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -416,11 +426,12 @@ func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -453,11 +464,12 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -493,11 +505,12 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -533,11 +546,12 @@ func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -565,11 +579,12 @@ func TestConfigPathsDelete(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -610,11 +625,12 @@ func TestRecordingsList(t *testing.T) {
 		"  all_others:\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err = api.Initialize()
 	require.NoError(t, err)
@@ -679,11 +695,12 @@ func TestRecordingsGet(t *testing.T) {
 		"  all_others:\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err = api.Initialize()
 	require.NoError(t, err)
@@ -728,11 +745,12 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 		"  all_others:\n")
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
-		AuthManager: test.NilAuthManager,
-		Parent:      &testParent{},
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
 	}
 	err = api.Initialize()
 	require.NoError(t, err)
@@ -769,8 +787,9 @@ func TestAuthJWKSRefresh(t *testing.T) {
 	ok := false
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(_ *auth.Request) *auth.Error {
 				return nil
@@ -808,9 +827,10 @@ func TestAuthError(t *testing.T) {
 	n := 0
 
 	api := API{
-		Address:     "localhost:9997",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Conf:        cnf,
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				if req.Credentials.User == "" {

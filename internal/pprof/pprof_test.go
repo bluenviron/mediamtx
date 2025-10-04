@@ -16,10 +16,11 @@ import (
 
 func TestPreflightRequest(t *testing.T) {
 	s := &PPROF{
-		Address:     "127.0.0.1:9999",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
-		Parent:      test.NilLogger,
+		Address:      "127.0.0.1:9999",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Parent:       test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -54,9 +55,10 @@ func TestPprof(t *testing.T) {
 	checked := false
 
 	s := &PPROF{
-		Address:     "127.0.0.1:9999",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:9999",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				require.Equal(t, conf.AuthActionPprof, req.Action)
@@ -96,9 +98,10 @@ func TestAuthError(t *testing.T) {
 	n := 0
 
 	s := &PPROF{
-		Address:     "127.0.0.1:9999",
-		AllowOrigin: "*",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:9999",
+		AllowOrigin:  "*",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				if req.Credentials.User == "" {

@@ -192,6 +192,7 @@ type Server struct {
 	AllowOrigin           string
 	TrustedProxies        conf.IPNetworks
 	ReadTimeout           conf.Duration
+	WriteTimeout          conf.Duration
 	LocalUDPAddress       string
 	LocalTCPAddress       string
 	IPsFromInterfaces     bool
@@ -254,6 +255,7 @@ func (s *Server) Initialize() error {
 		allowOrigin:    s.AllowOrigin,
 		trustedProxies: s.TrustedProxies,
 		readTimeout:    s.ReadTimeout,
+		writeTimeout:   s.WriteTimeout,
 		pathManager:    s.PathManager,
 		parent:         s,
 	}

@@ -316,6 +316,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigin:    p.conf.MetricsAllowOrigin,
 			TrustedProxies: p.conf.MetricsTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
+			WriteTimeout:   p.conf.WriteTimeout,
 			AuthManager:    p.authManager,
 			Parent:         p,
 		}
@@ -336,6 +337,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigin:    p.conf.PPROFAllowOrigin,
 			TrustedProxies: p.conf.PPROFTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
+			WriteTimeout:   p.conf.WriteTimeout,
 			AuthManager:    p.authManager,
 			Parent:         p,
 		}
@@ -365,6 +367,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigin:    p.conf.PlaybackAllowOrigin,
 			TrustedProxies: p.conf.PlaybackTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
+			WriteTimeout:   p.conf.WriteTimeout,
 			PathConfs:      p.conf.Paths,
 			AuthManager:    p.authManager,
 			Parent:         p,
@@ -548,6 +551,7 @@ func (p *Core) createResources(initial bool) error {
 			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
 			Directory:       p.conf.HLSDirectory,
 			ReadTimeout:     p.conf.ReadTimeout,
+			WriteTimeout:    p.conf.WriteTimeout,
 			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
 			Metrics:         p.metrics,
 			PathManager:     p.pathManager,
@@ -570,6 +574,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigin:           p.conf.WebRTCAllowOrigin,
 			TrustedProxies:        p.conf.WebRTCTrustedProxies,
 			ReadTimeout:           p.conf.ReadTimeout,
+			WriteTimeout:          p.conf.WriteTimeout,
 			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
 			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
@@ -626,6 +631,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigin:    p.conf.APIAllowOrigin,
 			TrustedProxies: p.conf.APITrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
+			WriteTimeout:   p.conf.WriteTimeout,
 			Conf:           p.conf,
 			AuthManager:    p.authManager,
 			PathManager:    p.pathManager,
@@ -687,6 +693,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.MetricsAllowOrigin != p.conf.MetricsAllowOrigin ||
 		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeAuthManager ||
 		closeLogger
 
@@ -699,6 +706,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.PPROFAllowOrigin != p.conf.PPROFAllowOrigin ||
 		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeAuthManager ||
 		closeLogger
 
@@ -718,6 +726,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.PlaybackAllowOrigin != p.conf.PlaybackAllowOrigin ||
 		!reflect.DeepEqual(newConf.PlaybackTrustedProxies, p.conf.PlaybackTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeAuthManager ||
 		closeLogger
 	if !closePlaybackServer && p.playbackServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -828,6 +837,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
 		closePathManager ||
 		closeMetrics ||
@@ -842,6 +852,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
@@ -877,6 +888,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.APIAllowOrigin != p.conf.APIAllowOrigin ||
 		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeAuthManager ||
 		closePathManager ||
 		closeRTSPServer ||

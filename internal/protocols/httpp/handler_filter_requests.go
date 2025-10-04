@@ -6,7 +6,7 @@ import (
 
 // reject requests with empty paths.
 type handlerFilterRequests struct {
-	http.Handler
+	h http.Handler
 }
 
 func (h *handlerFilterRequests) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -14,5 +14,5 @@ func (h *handlerFilterRequests) ServeHTTP(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	h.Handler.ServeHTTP(w, r)
+	h.h.ServeHTTP(w, r)
 }

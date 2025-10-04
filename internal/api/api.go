@@ -97,6 +97,7 @@ type API struct {
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    defs.APIPathManager
@@ -193,13 +194,14 @@ func (a *API) Initialize() error {
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
 
 	a.httpServer = &httpp.Server{
-		Address:     a.Address,
-		ReadTimeout: time.Duration(a.ReadTimeout),
-		Encryption:  a.Encryption,
-		ServerCert:  a.ServerCert,
-		ServerKey:   a.ServerKey,
-		Handler:     router,
-		Parent:      a,
+		Address:      a.Address,
+		ReadTimeout:  time.Duration(a.ReadTimeout),
+		WriteTimeout: time.Duration(a.WriteTimeout),
+		Encryption:   a.Encryption,
+		ServerCert:   a.ServerCert,
+		ServerKey:    a.ServerKey,
+		Handler:      router,
+		Parent:       a,
 	}
 	err := a.httpServer.Initialize()
 	if err != nil {

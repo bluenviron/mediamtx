@@ -244,8 +244,9 @@ func TestOnGet(t *testing.T) {
 			writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000.mp4"))
 
 			s := &Server{
-				Address:     "127.0.0.1:9996",
-				ReadTimeout: conf.Duration(10 * time.Second),
+				Address:      "127.0.0.1:9996",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
 						Name:       "mypath",
@@ -468,8 +469,9 @@ func TestOnGetDifferentInit(t *testing.T) {
 	writeSegment3(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
 
 	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
 				Name:       "mypath",
@@ -546,8 +548,9 @@ func TestOnGetNTPCompensation(t *testing.T) {
 	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4")) // remove 0.5 secs
 
 	s := &Server{
-		Address:     "127.0.0.1:9996",
-		ReadTimeout: conf.Duration(10 * time.Second),
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
 				Name:       "mypath",
@@ -732,8 +735,9 @@ func TestOnGetInMiddleOfLastSample(t *testing.T) {
 			}()
 
 			s := &Server{
-				Address:     "127.0.0.1:9996",
-				ReadTimeout: conf.Duration(10 * time.Second),
+				Address:      "127.0.0.1:9996",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
 						Name:       "mypath",
@@ -858,8 +862,9 @@ func TestOnGetBetweenSegments(t *testing.T) {
 			}()
 
 			s := &Server{
-				Address:     "127.0.0.1:9996",
-				ReadTimeout: conf.Duration(10 * time.Second),
+				Address:      "127.0.0.1:9996",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
 						Name:       "mypath",

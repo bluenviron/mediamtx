@@ -27,6 +27,7 @@ type Server struct {
 	AllowOrigin    string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	PathConfs      map[string]*conf.Path
 	AuthManager    serverAuthManager
 	Parent         logger.Writer
@@ -46,13 +47,14 @@ func (s *Server) Initialize() error {
 	router.GET("/get", s.onGet)
 
 	s.httpServer = &httpp.Server{
-		Address:     s.Address,
-		ReadTimeout: time.Duration(s.ReadTimeout),
-		Encryption:  s.Encryption,
-		ServerCert:  s.ServerCert,
-		ServerKey:   s.ServerKey,
-		Handler:     router,
-		Parent:      s,
+		Address:      s.Address,
+		ReadTimeout:  time.Duration(s.ReadTimeout),
+		WriteTimeout: time.Duration(s.WriteTimeout),
+		Encryption:   s.Encryption,
+		ServerCert:   s.ServerCert,
+		ServerKey:    s.ServerKey,
+		Handler:      router,
+		Parent:       s,
 	}
 	err := s.httpServer.Initialize()
 	if err != nil {
