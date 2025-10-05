@@ -25,7 +25,7 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream protocols=tcp
 ```
 
-VLC allows to use the TCP transport protocol, use the `--rtsp_tcp` flag:
+VLC allows to use the TCP transport protocol through the `--rtsp_tcp` flag:
 
 ```sh
 vlc --network-caching=50 --rtsp-tcp rtsp://localhost:8554/mystream
@@ -39,7 +39,7 @@ vlc --network-caching=50 rtsp://localhost:8554/mystream?vlcmulticast
 
 ## Encryption
 
-Incoming and outgoing RTSP streams can be encrypted by using a secure protocol variant, called RTSPS, that replaces all the subprotocols that are normally used in RTSP with their secure variant (TLS, MIKEY, SRTP). A TLS certificate is needed and can be generated with OpenSSL:
+Incoming and outgoing RTSP streams can be encrypted by using a secure protocol variant, called RTSPS, that replaces all the subprotocols that are normally used in RTSP with their secure variant (TLS, SRTP, SRTCP). A TLS certificate is needed and can be generated with OpenSSL:
 
 ```sh
 openssl genrsa -out server.key 2048
