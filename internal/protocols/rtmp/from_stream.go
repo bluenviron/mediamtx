@@ -55,18 +55,16 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.AV1)
-
-							if tunit.TU == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteAV1(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
-								tunit.TU)
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								u.Payload.(unit.PayloadAV1))
 						})
 
 					tracks = append(tracks, forma)
@@ -77,18 +75,16 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.VP9)
-
-							if tunit.Frame == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteVP9(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
-								tunit.Frame)
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								u.Payload.(unit.PayloadVP9))
 						})
 
 					tracks = append(tracks, forma)
@@ -101,22 +97,20 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.H265)
-
-							if tunit.AU == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							if videoDTSExtractor == nil {
-								if !h265.IsRandomAccess(tunit.AU) {
+								if !h265.IsRandomAccess(u.Payload.(unit.PayloadH265)) {
 									return nil
 								}
 								videoDTSExtractor = &h265.DTSExtractor{}
 								videoDTSExtractor.Initialize()
 							}
 
-							dts, err := videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
+							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 							if err != nil {
 								return err
 							}
@@ -124,9 +118,9 @@ func FromStream(
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteH265(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
+								timestampToDuration(u.PTS, forma.ClockRate()),
 								timestampToDuration(dts, forma.ClockRate()),
-								tunit.AU)
+								u.Payload.(unit.PayloadH265))
 						})
 
 					tracks = append(tracks, forma)
@@ -138,17 +132,15 @@ func FromStream(
 				r.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H264)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						idrPresent := false
 						nonIDRPresent := false
 
-						for _, nalu := range tunit.AU {
+						for _, nalu := range u.Payload.(unit.PayloadH264) {
 							typ := h264.NALUType(nalu[0] & 0x1F)
 							switch typ {
 							case h264.NALUTypeIDR:
@@ -171,7 +163,7 @@ func FromStream(
 							return nil
 						}
 
-						dts, err := videoDTSExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
 							return err
 						}
@@ -179,9 +171,9 @@ func FromStream(
 						nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						return (*w).WriteH264(
 							forma,
-							timestampToDuration(tunit.PTS, forma.ClockRate()),
+							timestampToDuration(u.PTS, forma.ClockRate()),
 							timestampToDuration(dts, forma.ClockRate()),
-							tunit.AU)
+							u.Payload.(unit.PayloadH264))
 					})
 
 				tracks = append(tracks, forma)
@@ -191,16 +183,14 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.Opus)
-
-							if tunit.Packets == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
-							pts := tunit.PTS
+							pts := u.PTS
 
-							for _, pkt := range tunit.Packets {
+							for _, pkt := range u.Payload.(unit.PayloadOpus) {
 								nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 								err := (*w).WriteOpus(
 									forma,
@@ -224,15 +214,13 @@ func FromStream(
 				r.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-
-						if tunit.AUs == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						for i, au := range tunit.AUs {
-							pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+						for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
+							pts := u.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							err := (*w).WriteMPEG4Audio(
@@ -255,16 +243,14 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							var ame mpeg4audio.AudioMuxElement
 							ame.StreamMuxConfig = forma.StreamMuxConfig
-							err := ame.Unmarshal(tunit.Element)
+							err := ame.Unmarshal(u.Payload.(unit.PayloadMPEG4AudioLATM))
 							if err != nil {
 								return err
 							}
@@ -272,7 +258,7 @@ func FromStream(
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteMPEG4Audio(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
+								timestampToDuration(u.PTS, forma.ClockRate()),
 								ame.Payloads[0][0][0],
 							)
 						})
@@ -286,12 +272,14 @@ func FromStream(
 				r.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Audio)
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
+							return nil
+						}
 
-						pts := tunit.PTS
+						pts := u.PTS
 
-						for _, frame := range tunit.Frames {
+						for _, frame := range u.Payload.(unit.PayloadMPEG1Audio) {
 							var h mpeg1audio.FrameHeader
 							err := h.Unmarshal(frame)
 							if err != nil {
@@ -321,11 +309,13 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.AC3)
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
+							}
 
-							for i, frame := range tunit.Frames {
-								pts := tunit.PTS + int64(i)*ac3.SamplesPerFrame
+							for i, frame := range u.Payload.(unit.PayloadAC3) {
+								pts := u.PTS + int64(i)*ac3.SamplesPerFrame
 
 								nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 								err := (*w).WriteAC3(
@@ -348,18 +338,16 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.G711)
-
-							if tunit.Samples == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteG711(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
-								tunit.Samples,
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								u.Payload.(unit.PayloadG711),
 							)
 						})
 
@@ -375,18 +363,16 @@ func FromStream(
 					r.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.LPCM)
-
-							if tunit.Samples == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							return (*w).WriteLPCM(
 								forma,
-								timestampToDuration(tunit.PTS, forma.ClockRate()),
-								tunit.Samples,
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								u.Payload.(unit.PayloadLPCM),
 							)
 						})
 

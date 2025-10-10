@@ -35,7 +35,7 @@ func TestStream(t *testing.T) {
 
 	recv := make(chan struct{})
 
-	r.OnData(desc.Medias[0], desc.Medias[0].Formats[0], func(_ unit.Unit) error {
+	r.OnData(desc.Medias[0], desc.Medias[0].Formats[0], func(_ *unit.Unit) error {
 		close(recv)
 		return nil
 	})
@@ -43,11 +43,9 @@ func TestStream(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			PTS: 30000 * 2,
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: 30000 * 2,
+		Payload: unit.PayloadH264{
 			{5, 2}, // IDR
 		},
 	})
@@ -86,7 +84,7 @@ func TestStreamSkipBytesSent(t *testing.T) {
 
 	recv := make(chan struct{})
 
-	r.OnData(desc.Medias[0], desc.Medias[0].Formats[0], func(_ unit.Unit) error {
+	r.OnData(desc.Medias[0], desc.Medias[0].Formats[0], func(_ *unit.Unit) error {
 		close(recv)
 		return nil
 	})
@@ -94,11 +92,9 @@ func TestStreamSkipBytesSent(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			PTS: 30000 * 2,
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: 30000 * 2,
+		Payload: unit.PayloadH264{
 			{5, 2}, // IDR
 		},
 	})

@@ -3,11 +3,9 @@ package codecprocessor
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmpeg4audio"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -51,10 +49,8 @@ func (t *mpeg4Audio) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *mpeg4Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MPEG4Audio)
-
-	pkts, err := t.encoder.Encode(u.AUs)
+func (t *mpeg4Audio) ProcessUnit(u *unit.Unit) error { //nolint:dupl
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadMPEG4Audio))
 	if err != nil {
 		return err
 	}
@@ -68,25 +64,17 @@ func (t *mpeg4Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 }
 
 func (t *mpeg4Audio) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.MPEG4Audio{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -96,21 +84,20 @@ func (t *mpeg4Audio) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
 		aus, err := t.decoder.Decode(pkt)
 		if err != nil {
 			if errors.Is(err, rtpmpeg4audio.ErrMorePacketsNeeded) {
-				return u, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 
-		u.AUs = aus
+		u.Payload = unit.PayloadMPEG4Audio(aus)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }

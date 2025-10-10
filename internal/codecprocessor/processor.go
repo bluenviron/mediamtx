@@ -3,10 +3,8 @@ package codecprocessor
 
 import (
 	"crypto/rand"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -24,15 +22,13 @@ func randUint32() (uint32, error) {
 // Processor is the codec-specific part of the processing that happens inside stream.Stream.
 type Processor interface {
 	// process a Unit.
-	ProcessUnit(unit.Unit) error
+	ProcessUnit(*unit.Unit) error
 
-	// process a RTP packet and convert it into a unit.
+	// process a RTP packet.
 	ProcessRTPPacket(
-		pkt *rtp.Packet,
-		ntp time.Time,
-		pts int64,
+		u *unit.Unit,
 		hasNonRTSPReaders bool,
-	) (unit.Unit, error)
+	) error
 
 	initialize() error
 }

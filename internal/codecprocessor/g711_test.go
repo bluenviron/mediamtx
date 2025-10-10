@@ -21,8 +21,8 @@ func TestG711ProcessUnit(t *testing.T) {
 		p, err := New(1450, forma, true, nil)
 		require.NoError(t, err)
 
-		unit := &unit.G711{
-			Samples: []byte{1, 2, 3, 4},
+		unit := &unit.Unit{
+			Payload: unit.PayloadG711{1, 2, 3, 4},
 		}
 
 		err = p.ProcessUnit(unit)
@@ -50,8 +50,8 @@ func TestG711ProcessUnit(t *testing.T) {
 		p, err := New(1450, forma, true, nil)
 		require.NoError(t, err)
 
-		unit := &unit.G711{
-			Samples: []byte{1, 2, 3, 4},
+		unit := &unit.Unit{
+			Payload: unit.PayloadG711{1, 2, 3, 4},
 		}
 
 		err = p.ProcessUnit(unit)

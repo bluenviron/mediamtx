@@ -48,18 +48,16 @@ func setupVideoTrack(
 			videoMedia,
 			videoFormatAV1,
 			track,
-			func(u unit.Unit) error {
-				tunit := u.(*unit.AV1)
-
-				if tunit.TU == nil {
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
 					return nil
 				}
 
 				err := muxer.WriteAV1(
 					track,
-					tunit.NTP,
-					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-					tunit.TU)
+					u.NTP,
+					u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					u.Payload.(unit.PayloadAV1))
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -83,18 +81,16 @@ func setupVideoTrack(
 			videoMedia,
 			videoFormatVP9,
 			track,
-			func(u unit.Unit) error {
-				tunit := u.(*unit.VP9)
-
-				if tunit.Frame == nil {
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
 					return nil
 				}
 
 				err := muxer.WriteVP9(
 					track,
-					tunit.NTP,
-					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-					tunit.Frame)
+					u.NTP,
+					u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					u.Payload.(unit.PayloadVP9))
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -123,18 +119,16 @@ func setupVideoTrack(
 			videoMedia,
 			videoFormatH265,
 			track,
-			func(u unit.Unit) error {
-				tunit := u.(*unit.H265)
-
-				if tunit.AU == nil {
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
 					return nil
 				}
 
 				err := muxer.WriteH265(
 					track,
-					tunit.NTP,
-					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-					tunit.AU)
+					u.NTP,
+					u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					u.Payload.(unit.PayloadH265))
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -162,18 +156,16 @@ func setupVideoTrack(
 			videoMedia,
 			videoFormatH264,
 			track,
-			func(u unit.Unit) error {
-				tunit := u.(*unit.H264)
-
-				if tunit.AU == nil {
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
 					return nil
 				}
 
 				err := muxer.WriteH264(
 					track,
-					tunit.NTP,
-					tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-					tunit.AU)
+					u.NTP,
+					u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+					u.Payload.(unit.PayloadH264))
 				if err != nil {
 					return fmt.Errorf("muxer error: %w", err)
 				}
@@ -215,14 +207,12 @@ func setupAudioTracks(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.Opus)
-
+					func(u *unit.Unit) error {
 						err := muxer.WriteOpus(
 							track,
-							tunit.NTP,
-							tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-							tunit.Packets)
+							u.NTP,
+							u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+							u.Payload.(unit.PayloadOpus))
 						if err != nil {
 							return fmt.Errorf("muxer error: %w", err)
 						}
@@ -242,18 +232,16 @@ func setupAudioTracks(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-
-						if tunit.AUs == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						err := muxer.WriteMPEG4Audio(
 							track,
-							tunit.NTP,
-							tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
-							tunit.AUs)
+							u.NTP,
+							u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+							u.Payload.(unit.PayloadMPEG4Audio))
 						if err != nil {
 							return fmt.Errorf("muxer error: %w", err)
 						}
@@ -274,24 +262,22 @@ func setupAudioTracks(
 						media,
 						forma,
 						track,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							var ame mpeg4audio.AudioMuxElement
 							ame.StreamMuxConfig = forma.StreamMuxConfig
-							err := ame.Unmarshal(tunit.Element)
+							err := ame.Unmarshal(u.Payload.(unit.PayloadMPEG4AudioLATM))
 							if err != nil {
 								return err
 							}
 
 							return muxer.WriteMPEG4Audio(
 								track,
-								tunit.NTP,
-								tunit.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+								u.NTP,
+								u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
 								[][]byte{ame.Payloads[0][0][0]})
 						})
 				}

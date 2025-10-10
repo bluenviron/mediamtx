@@ -11,7 +11,7 @@ import (
 type StaticSourceParent struct {
 	stream *stream.Stream
 	reader *stream.Reader
-	Unit   chan unit.Unit
+	Unit   chan *unit.Unit
 }
 
 // Log implements logger.Writer.
@@ -19,7 +19,7 @@ func (*StaticSourceParent) Log(logger.Level, string, ...interface{}) {}
 
 // Initialize initializes StaticSourceParent.
 func (p *StaticSourceParent) Initialize() {
-	p.Unit = make(chan unit.Unit)
+	p.Unit = make(chan *unit.Unit)
 }
 
 // Close closes StaticSourceParent.
@@ -46,7 +46,7 @@ func (p *StaticSourceParent) SetReady(req defs.PathSourceStaticSetReadyReq) defs
 	p.reader.OnData(
 		req.Desc.Medias[0],
 		req.Desc.Medias[0].Formats[0],
-		func(u unit.Unit) error {
+		func(u *unit.Unit) error {
 			p.Unit <- u
 			close(p.Unit)
 			return nil

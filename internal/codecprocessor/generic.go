@@ -2,10 +2,8 @@ package codecprocessor
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -26,32 +24,24 @@ func (t *generic) initialize() error {
 	return nil
 }
 
-func (t *generic) ProcessUnit(_ unit.Unit) error {
+func (t *generic) ProcessUnit(_ *unit.Unit) error {
 	return fmt.Errorf("using a generic unit without RTP is not supported")
 }
 
 func (t *generic) ProcessRTPPacket(
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	_ bool,
-) (unit.Unit, error) {
-	u := &unit.Generic{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
-	return u, nil
+	return nil
 }

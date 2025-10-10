@@ -12,7 +12,7 @@ import (
 )
 
 // OnDataFunc is the callback passed to OnData().
-type OnDataFunc func(unit.Unit) error
+type OnDataFunc func(*unit.Unit) error
 
 // Reader is a stream reader.
 type Reader struct {

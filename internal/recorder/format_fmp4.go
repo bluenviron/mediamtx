@@ -143,17 +143,15 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.AV1)
-
-						if tunit.TU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						randomAccess := false
 						paramsChanged := false
 
-						for _, obu := range tunit.TU {
+						for _, obu := range u.Payload.(unit.PayloadAV1) {
 							typ := av1.OBUType((obu[0] >> 3) & 0b1111)
 
 							if typ == av1.OBUTypeSequenceHeader {
@@ -177,15 +175,15 @@ func (f *formatFMP4) initialize() bool {
 						}
 
 						var sampl fmp4.Sample
-						err := sampl.FillAV1(tunit.TU)
+						err := sampl.FillAV1(u.Payload.(unit.PayloadAV1))
 						if err != nil {
 							return err
 						}
 
 						return track.write(&sample{
 							Sample: &sampl,
-							dts:    tunit.PTS,
-							ntp:    tunit.NTP,
+							dts:    u.PTS,
+							ntp:    u.NTP,
 						})
 					})
 
@@ -205,15 +203,13 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.VP9)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						var h vp9.Header
-						err := h.Unmarshal(tunit.Frame)
+						err := h.Unmarshal(u.Payload.(unit.PayloadVP9))
 						if err != nil {
 							return err
 						}
@@ -264,10 +260,10 @@ func (f *formatFMP4) initialize() bool {
 						return track.write(&sample{
 							Sample: &fmp4.Sample{
 								IsNonSyncSample: !randomAccess,
-								Payload:         tunit.Frame,
+								Payload:         u.Payload.(unit.PayloadVP9),
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -294,17 +290,15 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H265)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						randomAccess := false
 						paramsChanged := false
 
-						for _, nalu := range tunit.AU {
+						for _, nalu := range u.Payload.(unit.PayloadH265) {
 							typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 							switch typ {
@@ -343,15 +337,13 @@ func (f *formatFMP4) initialize() bool {
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 						if err != nil {
 							return err
 						}
 
 						var sampl fmp4.Sample
-						err = sampl.FillH265(
-							int32(tunit.PTS-dts),
-							tunit.AU)
+						err = sampl.FillH265(int32(u.PTS-dts), u.Payload.(unit.PayloadH265))
 						if err != nil {
 							return err
 						}
@@ -359,7 +351,7 @@ func (f *formatFMP4) initialize() bool {
 						return track.write(&sample{
 							Sample: &sampl,
 							dts:    dts,
-							ntp:    tunit.NTP,
+							ntp:    u.NTP,
 						})
 					})
 
@@ -381,17 +373,15 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H264)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						randomAccess := false
 						paramsChanged := false
 
-						for _, nalu := range tunit.AU {
+						for _, nalu := range u.Payload.(unit.PayloadH264) {
 							typ := h264.NALUType(nalu[0] & 0x1F)
 							switch typ {
 							case h264.NALUTypeSPS:
@@ -423,15 +413,13 @@ func (f *formatFMP4) initialize() bool {
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
 							return err
 						}
 
 						var sampl fmp4.Sample
-						err = sampl.FillH264(
-							int32(tunit.PTS-dts),
-							tunit.AU)
+						err = sampl.FillH264(int32(u.PTS-dts), u.Payload.(unit.PayloadH264))
 						if err != nil {
 							return err
 						}
@@ -439,7 +427,7 @@ func (f *formatFMP4) initialize() bool {
 						return track.write(&sample{
 							Sample: &sampl,
 							dts:    dts,
-							ntp:    tunit.NTP,
+							ntp:    u.NTP,
 						})
 					})
 
@@ -461,19 +449,20 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+						randomAccess := bytes.Contains(u.Payload.(unit.PayloadMPEG4Video),
+							[]byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 
-						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
-							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+						if bytes.HasPrefix(u.Payload.(unit.PayloadMPEG4Video),
+							[]byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
+							end := bytes.Index(u.Payload.(unit.PayloadMPEG4Video)[4:],
+								[]byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 							if end >= 0 {
-								config2 := tunit.Frame[:end+4]
+								config2 := u.Payload.(unit.PayloadMPEG4Video)[:end+4]
 
 								if !bytes.Equal(codec.Config, config2) {
 									codec.Config = config2
@@ -487,18 +476,18 @@ func (f *formatFMP4) initialize() bool {
 								return nil
 							}
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
 						return track.write(&sample{
 							Sample: &fmp4.Sample{
-								Payload:         tunit.Frame,
+								Payload:         u.Payload.(unit.PayloadMPEG4Video),
 								IsNonSyncSample: !randomAccess,
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -514,19 +503,17 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
+						randomAccess := bytes.Contains(u.Payload.(unit.PayloadMPEG1Video), []byte{0, 0, 1, 0xB8})
 
-						if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, 0xB3}) {
-							end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, 0xB8})
+						if bytes.HasPrefix(u.Payload.(unit.PayloadMPEG1Video), []byte{0, 0, 1, 0xB3}) {
+							end := bytes.Index(u.Payload.(unit.PayloadMPEG1Video)[4:], []byte{0, 0, 1, 0xB8})
 							if end >= 0 {
-								config := tunit.Frame[:end+4]
+								config := u.Payload.(unit.PayloadMPEG1Video)[:end+4]
 
 								if !bytes.Equal(codec.Config, config) {
 									codec.Config = config
@@ -540,18 +527,18 @@ func (f *formatFMP4) initialize() bool {
 								return nil
 							}
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
 						return track.write(&sample{
 							Sample: &fmp4.Sample{
-								Payload:         tunit.Frame,
+								Payload:         u.Payload.(unit.PayloadMPEG1Video),
 								IsNonSyncSample: !randomAccess,
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -567,16 +554,14 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MJPEG)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if !parsed {
 							parsed = true
-							width, height, err := jpegExtractSize(tunit.Frame)
+							width, height, err := jpegExtractSize(u.Payload.(unit.PayloadMJPEG))
 							if err != nil {
 								return err
 							}
@@ -587,10 +572,10 @@ func (f *formatFMP4) initialize() bool {
 
 						return track.write(&sample{
 							Sample: &fmp4.Sample{
-								Payload: tunit.Frame,
+								Payload: u.Payload.(unit.PayloadMJPEG),
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -603,22 +588,20 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.Opus)
-
-						if tunit.Packets == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						pts := tunit.PTS
+						pts := u.PTS
 
-						for _, packet := range tunit.Packets {
+						for _, packet := range u.Payload.(unit.PayloadOpus) {
 							err := track.write(&sample{
 								Sample: &fmp4.Sample{
 									Payload: packet,
 								},
 								dts: pts,
-								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
+								ntp: u.NTP.Add(timestampToDuration(pts-u.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
@@ -639,22 +622,20 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-
-						if tunit.AUs == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						for i, au := range tunit.AUs {
-							pts := tunit.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+						for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
+							pts := u.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
 
 							err := track.write(&sample{
 								Sample: &fmp4.Sample{
 									Payload: au,
 								},
 								dts: pts,
-								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
+								ntp: u.NTP.Add(timestampToDuration(pts-u.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
@@ -674,16 +655,14 @@ func (f *formatFMP4) initialize() bool {
 					f.ri.reader.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							var ame mpeg4audio.AudioMuxElement
 							ame.StreamMuxConfig = forma.StreamMuxConfig
-							err := ame.Unmarshal(tunit.Element)
+							err := ame.Unmarshal(u.Payload.(unit.PayloadMPEG4AudioLATM))
 							if err != nil {
 								return err
 							}
@@ -692,8 +671,8 @@ func (f *formatFMP4) initialize() bool {
 								Sample: &fmp4.Sample{
 									Payload: ame.Payloads[0][0][0],
 								},
-								dts: tunit.PTS,
-								ntp: tunit.NTP,
+								dts: u.PTS,
+								ntp: u.NTP,
 							})
 						})
 				}
@@ -710,16 +689,14 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Audio)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						var dt time.Duration
 
-						for _, frame := range tunit.Frames {
+						for _, frame := range u.Payload.(unit.PayloadMPEG1Audio) {
 							var h mpeg1audio.FrameHeader
 							err := h.Unmarshal(frame)
 							if err != nil {
@@ -737,8 +714,8 @@ func (f *formatFMP4) initialize() bool {
 								Sample: &fmp4.Sample{
 									Payload: frame,
 								},
-								dts: tunit.PTS + tunit.PTS,
-								ntp: tunit.NTP,
+								dts: u.PTS + u.PTS,
+								ntp: u.NTP,
 							})
 							if err != nil {
 								return err
@@ -769,14 +746,12 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.AC3)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						for i, frame := range tunit.Frames {
+						for i, frame := range u.Payload.(unit.PayloadAC3) {
 							var syncInfo ac3.SyncInfo
 							err := syncInfo.Unmarshal(frame)
 							if err != nil {
@@ -802,14 +777,14 @@ func (f *formatFMP4) initialize() bool {
 								f.updateCodecParams()
 							}
 
-							pts := tunit.PTS + int64(i)*ac3.SamplesPerFrame
+							pts := u.PTS + int64(i)*ac3.SamplesPerFrame
 
 							err = track.write(&sample{
 								Sample: &fmp4.Sample{
 									Payload: frame,
 								},
 								dts: pts,
-								ntp: tunit.NTP.Add(timestampToDuration(pts-tunit.PTS, clockRate)),
+								ntp: u.NTP.Add(timestampToDuration(pts-u.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
@@ -834,21 +809,19 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.G711)
-
-						if tunit.Samples == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						var lpcm []byte
 						if forma.MULaw {
 							var mu g711.Mulaw
-							mu.Unmarshal(tunit.Samples)
+							mu.Unmarshal(u.Payload.(unit.PayloadG711))
 							lpcm = mu
 						} else {
 							var al g711.Alaw
-							al.Unmarshal(tunit.Samples)
+							al.Unmarshal(u.Payload.(unit.PayloadG711))
 							lpcm = al
 						}
 
@@ -856,8 +829,8 @@ func (f *formatFMP4) initialize() bool {
 							Sample: &fmp4.Sample{
 								Payload: lpcm,
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -873,19 +846,17 @@ func (f *formatFMP4) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.LPCM)
-
-						if tunit.Samples == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return track.write(&sample{
 							Sample: &fmp4.Sample{
-								Payload: tunit.Samples,
+								Payload: u.Payload.(unit.PayloadLPCM),
 							},
-							dts: tunit.PTS,
-							ntp: tunit.NTP,
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 			}

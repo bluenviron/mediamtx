@@ -2,11 +2,9 @@ package codecprocessor
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpklv"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -47,52 +45,39 @@ func (t *klv) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *klv) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.KLV)
-
-	if u.Unit != nil {
-		// ensure the format processor's encoder is initialized
-		if t.encoder == nil {
-			err := t.createEncoder()
-			if err != nil {
-				return err
-			}
-		}
-
-		pkts, err := t.encoder.Encode(u.Unit)
+func (t *klv) ProcessUnit(u *unit.Unit) error { //nolint:dupl
+	if t.encoder == nil {
+		err := t.createEncoder()
 		if err != nil {
 			return err
 		}
-		u.RTPPackets = pkts
+	}
 
-		for _, pkt := range u.RTPPackets {
-			pkt.Timestamp += t.randomStart + uint32(u.PTS)
-		}
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadKLV))
+	if err != nil {
+		return err
+	}
+	u.RTPPackets = pkts
+
+	for _, pkt := range u.RTPPackets {
+		pkt.Timestamp += t.randomStart + uint32(u.PTS)
 	}
 
 	return nil
 }
 
 func (t *klv) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.KLV{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -102,18 +87,17 @@ func (t *klv) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
-		unit, err := t.decoder.Decode(pkt)
+		un, err := t.decoder.Decode(pkt)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		u.Unit = unit
+		u.Payload = unit.PayloadKLV(un)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }

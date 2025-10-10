@@ -14,9 +14,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func unitSize(u unit.Unit) uint64 {
+func unitSize(u *unit.Unit) uint64 {
 	n := uint64(0)
-	for _, pkt := range u.GetRTPPackets() {
+	for _, pkt := range u.RTPPackets {
 		n += uint64(pkt.MarshalSize())
 	}
 	return n
@@ -45,7 +45,7 @@ func (sf *streamFormat) initialize() error {
 	return nil
 }
 
-func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Unit) {
+func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u *unit.Unit) {
 	err := sf.proc.ProcessUnit(u)
 	if err != nil {
 		sf.processingErrors.Increase()
@@ -64,7 +64,13 @@ func (sf *streamFormat) writeRTPPacket(
 ) {
 	hasNonRTSPReaders := len(sf.onDatas) > 0
 
-	u, err := sf.proc.ProcessRTPPacket(pkt, ntp, pts, hasNonRTSPReaders)
+	u := &unit.Unit{
+		PTS:        pts,
+		NTP:        ntp,
+		RTPPackets: []*rtp.Packet{pkt},
+	}
+
+	err := sf.proc.ProcessRTPPacket(u, hasNonRTSPReaders)
 	if err != nil {
 		sf.processingErrors.Increase()
 		return
@@ -73,20 +79,20 @@ func (sf *streamFormat) writeRTPPacket(
 	sf.writeUnitInner(s, medi, u)
 }
 
-func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u unit.Unit) {
+func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *unit.Unit) {
 	size := unitSize(u)
 
 	atomic.AddUint64(s.bytesReceived, size)
 
 	if s.rtspStream != nil {
-		for _, pkt := range u.GetRTPPackets() {
-			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, u.GetNTP()) //nolint:errcheck
+		for _, pkt := range u.RTPPackets {
+			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, u.NTP) //nolint:errcheck
 		}
 	}
 
 	if s.rtspsStream != nil {
-		for _, pkt := range u.GetRTPPackets() {
-			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, u.GetNTP()) //nolint:errcheck
+		for _, pkt := range u.RTPPackets {
+			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, u.NTP) //nolint:errcheck
 		}
 	}
 

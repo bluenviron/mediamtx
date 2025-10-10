@@ -3,11 +3,9 @@ package codecprocessor //nolint:dupl
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmpeg1video"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -56,11 +54,9 @@ func (t *mpeg1Video) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MPEG1Video)
-
+func (t *mpeg1Video) ProcessUnit(u *unit.Unit) error { //nolint:dupl
 	// encode into RTP
-	pkts, err := t.encoder.Encode(u.Frame)
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadMPEG1Video))
 	if err != nil {
 		return err
 	}
@@ -74,25 +70,17 @@ func (t *mpeg1Video) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 }
 
 func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.MPEG1Video{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -102,7 +90,7 @@ func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -110,14 +98,13 @@ func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 		if err != nil {
 			if errors.Is(err, rtpmpeg1video.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtpmpeg1video.ErrMorePacketsNeeded) {
-				return u, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 
-		u.Frame = frame
+		u.Payload = unit.PayloadMPEG1Video(frame)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }

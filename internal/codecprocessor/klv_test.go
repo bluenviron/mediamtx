@@ -2,7 +2,6 @@ package codecprocessor
 
 import (
 	"testing"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -30,15 +29,11 @@ func TestKlvProcessUnit(t *testing.T) {
 	require.NoError(t, err)
 
 	// create test Unit
-	theTime := time.Now()
 	when := int64(5000000000) // 5 seconds in nanoseconds
-	u := unit.KLV{
-		Base: unit.Base{
-			RTPPackets: nil,
-			NTP:        theTime,
-			PTS:        when,
-		},
-		Unit: []byte{1, 2, 3, 4},
+	u := unit.Unit{
+		RTPPackets: nil,
+		PTS:        when,
+		Payload:    unit.PayloadKLV{1, 2, 3, 4},
 	}
 	uu := &u
 
@@ -67,7 +62,8 @@ func TestKlvProcessRTPPacket(t *testing.T) {
 		Payload:     []byte{1, 2, 3, 4},
 		PaddingSize: 20,
 	}
-	_, err = p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
+	u := &unit.Unit{RTPPackets: []*rtp.Packet{pkt}}
+	err = p.ProcessRTPPacket(u, false)
 	require.NoError(t, err)
 
 	require.Equal(t, &rtp.Packet{

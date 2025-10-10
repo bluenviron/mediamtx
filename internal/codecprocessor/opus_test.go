@@ -18,8 +18,8 @@ func TestOpusProcessUnit(t *testing.T) {
 	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
-	unit := &unit.Opus{
-		Packets: [][]byte{
+	unit := &unit.Unit{
+		Payload: unit.PayloadOpus{
 			{
 				0xfc, 0x1e, 0x61, 0x96, 0xfc, 0xf7, 0x9b, 0x23,
 				0x5b, 0xc9, 0x56, 0xad, 0x05, 0x12, 0x2f, 0x6c,

@@ -1,20 +1,29 @@
-// Package unit contains the Unit definition.
+// Package unit contains the unit definition.
 package unit
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/pion/rtp"
 )
 
-// Unit is the elementary data unit routed across the server.
-type Unit interface {
-	// returns RTP packets contained into the unit.
-	GetRTPPackets() []*rtp.Packet
+// Unit is an atomic unit of a stream.
+type Unit struct {
+	// relative time
+	PTS int64
 
-	// returns the NTP timestamp of the unit.
-	GetNTP() time.Time
+	// absolute time
+	NTP time.Time
 
-	// returns the PTS of the unit.
-	GetPTS() int64
+	// RTP packets
+	RTPPackets []*rtp.Packet
+
+	// codec-dependent payload
+	Payload Payload
+}
+
+// NilPayload checks whether the payload is nil.
+func (u Unit) NilPayload() bool {
+	return u.Payload == nil || reflect.ValueOf(u.Payload).IsNil()
 }

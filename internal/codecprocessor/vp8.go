@@ -3,11 +3,9 @@ package codecprocessor //nolint:dupl
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -48,10 +46,8 @@ func (t *vp8) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *vp8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.VP8)
-
-	pkts, err := t.encoder.Encode(u.Frame)
+func (t *vp8) ProcessUnit(u *unit.Unit) error { //nolint:dupl
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadVP8))
 	if err != nil {
 		return err
 	}
@@ -65,25 +61,17 @@ func (t *vp8) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 }
 
 func (t *vp8) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.VP8{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -93,7 +81,7 @@ func (t *vp8) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -101,14 +89,13 @@ func (t *vp8) ProcessRTPPacket( //nolint:dupl
 		if err != nil {
 			if errors.Is(err, rtpvp8.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtpvp8.ErrMorePacketsNeeded) {
-				return u, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 
-		u.Frame = frame
+		u.Payload = unit.PayloadVP8(frame)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }

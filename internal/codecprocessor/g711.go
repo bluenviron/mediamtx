@@ -2,11 +2,9 @@ package codecprocessor //nolint:dupl
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtplpcm"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -49,10 +47,8 @@ func (t *g711) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.G711)
-
-	pkts, err := t.encoder.Encode(u.Samples)
+func (t *g711) ProcessUnit(u *unit.Unit) error { //nolint:dupl
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadG711))
 	if err != nil {
 		return err
 	}
@@ -66,25 +62,17 @@ func (t *g711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 }
 
 func (t *g711) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.G711{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -94,18 +82,17 @@ func (t *g711) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
 		samples, err := t.decoder.Decode(pkt)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		u.Samples = samples
+		u.Payload = unit.PayloadG711(samples)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }
