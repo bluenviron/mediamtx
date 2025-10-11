@@ -225,6 +225,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		Author:             c,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: true,
+		FillNTP:            true,
 		ConfToCompare:      pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     streamID.path,

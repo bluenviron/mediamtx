@@ -149,6 +149,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               desc,
 				GenerateRTPPackets: false,
+				FillNTP:            true,
 			})
 			if res.Err != nil {
 				return res.Err
@@ -171,7 +172,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 			continue
 		}
 
-		stream.WriteRTPPacket(media, forma, &pkt, time.Now(), pts)
+		stream.WriteRTPPacket(media, forma, &pkt, time.Time{}, pts)
 	}
 }
 

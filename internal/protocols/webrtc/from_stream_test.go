@@ -182,7 +182,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	n := 0
 	var ts uint32
 
-	tracks[0].OnPacketRTP = func(pkt *rtp.Packet, _ time.Time) {
+	tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
 		n++
 
 		switch n {

@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -26,11 +27,13 @@ type streamFormat struct {
 	rtpMaxPayloadSize  int
 	format             format.Format
 	generateRTPPackets bool
+	fillNTP            bool
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
-	proc    codecprocessor.Processor
-	onDatas map[*Reader]OnDataFunc
+	proc         codecprocessor.Processor
+	ntpEstimator *ntpestimator.Estimator
+	onDatas      map[*Reader]OnDataFunc
 }
 
 func (sf *streamFormat) initialize() error {
@@ -40,6 +43,10 @@ func (sf *streamFormat) initialize() error {
 	sf.proc, err = codecprocessor.New(sf.rtpMaxPayloadSize, sf.format, sf.generateRTPPackets, sf.parent)
 	if err != nil {
 		return err
+	}
+
+	sf.ntpEstimator = &ntpestimator.Estimator{
+		ClockRate: sf.format.ClockRate(),
 	}
 
 	return nil
@@ -80,6 +87,10 @@ func (sf *streamFormat) writeRTPPacket(
 }
 
 func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *unit.Unit) {
+	if sf.fillNTP {
+		u.NTP = sf.ntpEstimator.Estimate(u.PTS)
+	}
+
 	size := unitSize(u)
 
 	atomic.AddUint64(s.bytesReceived, size)

@@ -267,8 +267,6 @@ func FromStream(
 				}
 
 			case *format.MPEG1Audio:
-				// TODO: check sample rate and layer,
-				// unfortunately they are not available at this stage.
 				r.OnData(
 					media,
 					forma,

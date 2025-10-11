@@ -237,22 +237,21 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 
 // IncomingTrack is an incoming track.
 type IncomingTrack struct {
-	OnPacketRTP func(*rtp.Packet, time.Time)
+	OnPacketRTP func(*rtp.Packet)
 
-	useAbsoluteTimestamp bool
-	track                *webrtc.TrackRemote
-	receiver             *webrtc.RTPReceiver
-	writeRTCP            func([]rtcp.Packet) error
-	log                  logger.Writer
-	rtpPacketsReceived   *uint64
-	rtpPacketsLost       *uint64
+	track              *webrtc.TrackRemote
+	receiver           *webrtc.RTPReceiver
+	writeRTCP          func([]rtcp.Packet) error
+	log                logger.Writer
+	rtpPacketsReceived *uint64
+	rtpPacketsLost     *uint64
 
 	packetsLost  *counterdumper.CounterDumper
 	rtcpReceiver *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
-	t.OnPacketRTP = func(*rtp.Packet, time.Time) {}
+	t.OnPacketRTP = func(*rtp.Packet) {}
 }
 
 // Codec returns the track codec.
@@ -361,28 +360,21 @@ func (t *IncomingTrack) start() {
 
 			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
 
-			var ntp time.Time
-			if t.useAbsoluteTimestamp {
-				var avail bool
-				ntp, avail = t.rtcpReceiver.PacketNTP(pkt.Timestamp)
-				if !avail {
-					t.log.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
-					continue
-				}
-			} else {
-				ntp = time.Now()
-			}
-
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.
 				if len(pkt.Payload) == 0 {
 					continue
 				}
 
-				t.OnPacketRTP(pkt, ntp)
+				t.OnPacketRTP(pkt)
 			}
 		}
 	}()
+}
+
+// PacketNTP returns the packet NTP.
+func (t *IncomingTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
+	return t.rtcpReceiver.PacketNTP(pkt.Timestamp)
 }
 
 func (t *IncomingTrack) close() {

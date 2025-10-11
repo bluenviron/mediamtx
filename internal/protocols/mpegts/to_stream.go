@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -24,7 +23,7 @@ var errNoSupportedCodecs = errors.New(
 // ToStream maps a MPEG-TS stream to a MediaMTX stream.
 func ToStream(
 	r *EnhancedReader,
-	stream **stream.Stream,
+	strm **stream.Stream,
 	l logger.Writer,
 ) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
@@ -48,8 +47,7 @@ func ToStream(
 			r.OnDataH265(track, func(pts int64, _ int64, au [][]byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					Payload: unit.PayloadH265(au),
 				})
@@ -68,8 +66,7 @@ func ToStream(
 			r.OnDataH264(track, func(pts int64, _ int64, au [][]byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					Payload: unit.PayloadH264(au),
 				})
@@ -87,8 +84,7 @@ func ToStream(
 			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					Payload: unit.PayloadMPEG4Video(frame),
 				})
@@ -104,8 +100,7 @@ func ToStream(
 			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					Payload: unit.PayloadMPEG1Video(frame),
 				})
@@ -124,8 +119,7 @@ func ToStream(
 			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), 90000),
 					Payload: unit.PayloadOpus(packets),
 				})
@@ -142,8 +136,7 @@ func ToStream(
 			r.OnDataKLV(track, func(pts int64, uni []byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts,
 					Payload: unit.PayloadKLV(uni),
 				})
@@ -165,8 +158,7 @@ func ToStream(
 			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), 90000),
 					Payload: unit.PayloadMPEG4Audio(aus),
 				})
@@ -217,8 +209,7 @@ func ToStream(
 						return err
 					}
 
-					(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-						NTP:     time.Now(),
+					(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 						PTS:     pts,
 						Payload: unit.PayloadMPEG4AudioLATM(buf),
 					})
@@ -238,8 +229,7 @@ func ToStream(
 			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     pts, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 					Payload: unit.PayloadMPEG1Audio(frames),
 				})
@@ -259,8 +249,7 @@ func ToStream(
 			r.OnDataAC3(track, func(pts int64, frame []byte) error {
 				pts = td.Decode(pts)
 
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
-					NTP:     time.Now(),
+				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					PTS:     multiplyAndDivide(pts, int64(medi.Formats[0].ClockRate()), 90000),
 					Payload: unit.PayloadAC3{frame},
 				})

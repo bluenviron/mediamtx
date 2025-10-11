@@ -144,7 +144,6 @@ type PeerConnection struct {
 	STUNGatherTimeout     conf.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
-	UseAbsoluteTimestamp  bool
 	Log                   logger.Writer
 
 	wr                 *webrtc.PeerConnection
@@ -698,13 +697,12 @@ func (co *PeerConnection) GatherIncomingTracks() error {
 
 		case pair := <-co.incomingTrack:
 			t := &IncomingTrack{
-				useAbsoluteTimestamp: co.UseAbsoluteTimestamp,
-				track:                pair.track,
-				receiver:             pair.receiver,
-				writeRTCP:            co.wr.WriteRTCP,
-				log:                  co.Log,
-				rtpPacketsReceived:   co.rtpPacketsReceived,
-				rtpPacketsLost:       co.rtpPacketsLost,
+				track:              pair.track,
+				receiver:           pair.receiver,
+				writeRTCP:          co.wr.WriteRTCP,
+				log:                co.Log,
+				rtpPacketsReceived: co.rtpPacketsReceived,
+				rtpPacketsLost:     co.rtpPacketsLost,
 			}
 			t.initialize()
 			co.incomingTracks = append(co.incomingTracks, t)

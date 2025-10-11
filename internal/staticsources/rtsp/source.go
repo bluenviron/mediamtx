@@ -195,6 +195,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               desc,
 				GenerateRTPPackets: false,
+				FillNTP:            !params.Conf.UseAbsoluteTimestamp,
 			})
 			if res.Err != nil {
 				return res.Err
