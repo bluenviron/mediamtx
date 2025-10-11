@@ -242,6 +242,7 @@ func (c *conn) runPublish() error {
 		Author:             c,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: true,
+		FillNTP:            true,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    pathName,
 			Query:   c.rconn.URL.RawQuery,

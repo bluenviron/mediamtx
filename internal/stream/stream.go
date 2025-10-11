@@ -23,6 +23,7 @@ type Stream struct {
 	RTPMaxPayloadSize  int
 	Desc               *description.Session
 	GenerateRTPPackets bool
+	FillNTP            bool
 	Parent             logger.Writer
 
 	bytesReceived    *uint64
@@ -61,6 +62,7 @@ func (s *Stream) Initialize() error {
 			rtpMaxPayloadSize:  s.RTPMaxPayloadSize,
 			media:              media,
 			generateRTPPackets: s.GenerateRTPPackets,
+			fillNTP:            s.FillNTP,
 			processingErrors:   s.processingErrors,
 			parent:             s.Parent,
 		}

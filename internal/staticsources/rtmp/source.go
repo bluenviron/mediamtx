@@ -117,6 +117,7 @@ func (s *Source) runReader(ctx context.Context, u *url.URL, fingerprint string) 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: true,
+		FillNTP:            true,
 	})
 	if res.Err != nil {
 		conn.Close()

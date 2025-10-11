@@ -67,6 +67,7 @@ type PathAddPublisherReq struct {
 	Author             Publisher
 	Desc               *description.Session
 	GenerateRTPPackets bool
+	FillNTP            bool
 	ConfToCompare      *conf.Path
 	AccessRequest      PathAccessRequest
 	Res                chan PathAddPublisherRes
@@ -108,6 +109,7 @@ type PathSourceStaticSetReadyRes struct {
 type PathSourceStaticSetReadyReq struct {
 	Desc               *description.Session
 	GenerateRTPPackets bool
+	FillNTP            bool
 	Res                chan PathSourceStaticSetReadyRes
 }
 

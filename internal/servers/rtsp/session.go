@@ -311,6 +311,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		Author:             s,
 		Desc:               s.rsession.AnnouncedDescription(),
 		GenerateRTPPackets: false,
+		FillNTP:            !s.pathConf.UseAbsoluteTimestamp,
 		ConfToCompare:      s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.rsession.Path()[1:],

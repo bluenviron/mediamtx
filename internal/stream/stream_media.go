@@ -11,6 +11,7 @@ type streamMedia struct {
 	rtpMaxPayloadSize  int
 	media              *description.Media
 	generateRTPPackets bool
+	fillNTP            bool
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
@@ -25,6 +26,7 @@ func (sm *streamMedia) initialize() error {
 			rtpMaxPayloadSize:  sm.rtpMaxPayloadSize,
 			format:             forma,
 			generateRTPPackets: sm.generateRTPPackets,
+			fillNTP:            sm.fillNTP,
 			processingErrors:   sm.processingErrors,
 			parent:             sm.parent,
 		}

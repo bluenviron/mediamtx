@@ -168,7 +168,6 @@ func (s *session) runPublish() (int, error) {
 		TrackGatherTimeout:    s.trackGatherTimeout,
 		STUNGatherTimeout:     s.stunGatherTimeout,
 		Publish:               false,
-		UseAbsoluteTimestamp:  pathConf.UseAbsoluteTimestamp,
 		Log:                   s,
 	}
 	err = pc.Start()
@@ -234,7 +233,7 @@ func (s *session) runPublish() (int, error) {
 
 	var stream *stream.Stream
 
-	medias, err := webrtc.ToStream(pc, &stream)
+	medias, err := webrtc.ToStream(pc, pathConf, &stream, s)
 	if err != nil {
 		return 0, err
 	}
@@ -244,6 +243,7 @@ func (s *session) runPublish() (int, error) {
 		Author:             s,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: false,
+		FillNTP:            !pathConf.UseAbsoluteTimestamp,
 		ConfToCompare:      pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.req.pathName,
@@ -312,7 +312,6 @@ func (s *session) runRead() (int, error) {
 		TrackGatherTimeout:    s.trackGatherTimeout,
 		STUNGatherTimeout:     s.stunGatherTimeout,
 		Publish:               true,
-		UseAbsoluteTimestamp:  path.SafeConf().UseAbsoluteTimestamp,
 		Log:                   s,
 	}
 
