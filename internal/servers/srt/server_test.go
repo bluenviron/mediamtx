@@ -132,12 +132,12 @@ func TestServerPublish(t *testing.T) {
 	r.OnData(
 		strm.Desc.Medias[0],
 		strm.Desc.Medias[0].Formats[0],
-		func(u unit.Unit) error {
-			require.Equal(t, [][]byte{
+		func(u *unit.Unit) error {
+			require.Equal(t, unit.PayloadH264{
 				test.FormatH264.SPS,
 				test.FormatH264.PPS,
 				{0x05, 1}, // IDR
-			}, u.(*unit.H264).AU)
+			}, u.Payload)
 			close(recv)
 			return nil
 		})
@@ -215,11 +215,9 @@ func TestServerRead(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			NTP: time.Time{},
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		NTP: time.Time{},
+		Payload: unit.PayloadH264{
 			{5, 1}, // IDR
 		},
 	})
@@ -247,11 +245,9 @@ func TestServerRead(t *testing.T) {
 		return nil
 	})
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			NTP: time.Time{},
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		NTP: time.Time{},
+		Payload: unit.PayloadH264{
 			{5, 2},
 		},
 	})

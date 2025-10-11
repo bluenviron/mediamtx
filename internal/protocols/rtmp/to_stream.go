@@ -46,12 +46,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataAV1(ttrack, func(pts time.Duration, tu [][]byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.AV1{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					TU: tu,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadAV1(tu),
 				})
 			})
 
@@ -63,12 +61,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataVP9(ttrack, func(pts time.Duration, frame []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.VP9{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Frame: frame,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadVP9(frame),
 				})
 			})
 
@@ -80,12 +76,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataH265(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.H265{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					AU: au,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadH265(au),
 				})
 			})
 
@@ -97,12 +91,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataH264(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.H264{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					AU: au,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadH264(au),
 				})
 			})
 
@@ -114,12 +106,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataOpus(ttrack, func(pts time.Duration, packet []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.Opus{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Packets: [][]byte{packet},
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadOpus{packet},
 				})
 			})
 
@@ -131,12 +121,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataMPEG4Audio(ttrack, func(pts time.Duration, au []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.MPEG4Audio{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					AUs: [][]byte{au},
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadMPEG4Audio{au},
 				})
 			})
 
@@ -148,12 +136,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataMPEG1Audio(ttrack, func(pts time.Duration, frame []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.MPEG1Audio{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Frames: [][]byte{frame},
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadMPEG1Audio{frame},
 				})
 			})
 
@@ -165,12 +151,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataAC3(ttrack, func(pts time.Duration, frame []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.AC3{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Frames: [][]byte{frame},
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadAC3{frame},
 				})
 			})
 
@@ -182,12 +166,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataG711(ttrack, func(pts time.Duration, samples []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.G711{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Samples: samples,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadG711(samples),
 				})
 			})
 
@@ -199,12 +181,10 @@ func ToStream(r *gortmplib.Reader, stream **stream.Stream) ([]*description.Media
 			medias = append(medias, medi)
 
 			r.OnDataLPCM(ttrack, func(pts time.Duration, samples []byte) {
-				(*stream).WriteUnit(medi, ctrack, &unit.LPCM{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: durationToTimestamp(pts, ctrack.ClockRate()),
-					},
-					Samples: samples,
+				(*stream).WriteUnit(medi, ctrack, &unit.Unit{
+					NTP:     time.Now(),
+					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+					Payload: unit.PayloadLPCM(samples),
 				})
 			})
 

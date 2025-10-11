@@ -115,8 +115,8 @@ func TestToStream(t *testing.T) {
 			r.OnData(
 				medias[0],
 				medias[0].Formats[0],
-				func(u unit.Unit) error {
-					require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.GetNTP())
+				func(u *unit.Unit) error {
+					require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
 					close(done)
 					return nil
 				})

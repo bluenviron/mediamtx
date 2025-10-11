@@ -2,9 +2,9 @@ package codecprocessor
 
 import (
 	"testing"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +34,8 @@ func TestGenericProcessRTPPacket(t *testing.T) {
 		PaddingSize: 20,
 	}
 
-	_, err = p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
+	u := &unit.Unit{RTPPackets: []*rtp.Packet{pkt}}
+	err = p.ProcessRTPPacket(u, false)
 	require.NoError(t, err)
 
 	// check that padding has been removed

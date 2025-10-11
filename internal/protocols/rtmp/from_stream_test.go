@@ -419,31 +419,25 @@ func TestFromStream(t *testing.T) {
 
 			switch ca {
 			case "h264 + aac":
-				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.H264{
-					Base: unit.Base{
-						PTS: 0,
-					},
-					AU: [][]byte{
+				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					PTS: 0,
+					Payload: unit.PayloadH264{
 						{5, 2}, // IDR
 					},
 				})
 
-				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.MPEG4Audio{
-					Base: unit.Base{
-						PTS: 90000 * 5,
-					},
-					AUs: [][]byte{
+				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
+					PTS: 90000 * 5,
+					Payload: unit.PayloadMPEG4Audio{
 						{3, 4},
 					},
 				})
 
 			case "av1":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.AV1{
-						Base: unit.Base{
-							PTS: 90000 * 2 * int64(i),
-						},
-						TU: [][]byte{{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 2 * int64(i),
+						Payload: unit.PayloadAV1{{
 							0x0a, 0x0e, 0x00, 0x00, 0x00, 0x4a, 0xab, 0xbf,
 							0xc3, 0x77, 0x6b, 0xe4, 0x40, 0x40, 0x40, 0x41,
 						}},
@@ -452,21 +446,17 @@ func TestFromStream(t *testing.T) {
 
 			case "vp9":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.VP9{
-						Base: unit.Base{
-							PTS: 90000 * 2 * int64(i),
-						},
-						Frame: []byte{1, 2},
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS:     90000 * 2 * int64(i),
+						Payload: unit.PayloadVP9{1, 2},
 					})
 				}
 
 			case "h265":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.H265{
-						Base: unit.Base{
-							PTS: 90000 * 2 * int64(i),
-						},
-						AU: [][]byte{{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 2 * int64(i),
+						Payload: unit.PayloadH265{{
 							0x2a, 0x01, 0xad, 0xe0, 0xf5, 0x34, 0x11, 0x0b,
 							0x41, 0xe8,
 						}},
@@ -475,11 +465,9 @@ func TestFromStream(t *testing.T) {
 
 			case "h264":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.H264{
-						Base: unit.Base{
-							PTS: 90000 * 2 * int64(i),
-						},
-						AU: [][]byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 2 * int64(i),
+						Payload: unit.PayloadH264{
 							{5, 2}, // IDR
 						},
 					})
@@ -487,11 +475,9 @@ func TestFromStream(t *testing.T) {
 
 			case "opus":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Opus{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						Packets: [][]byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadOpus{
 							{3, 4},
 						},
 					})
@@ -499,11 +485,9 @@ func TestFromStream(t *testing.T) {
 
 			case "aac":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.MPEG4Audio{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						AUs: [][]byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadMPEG4Audio{
 							{3, 4},
 						},
 					})
@@ -511,11 +495,9 @@ func TestFromStream(t *testing.T) {
 
 			case "mp3":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.MPEG1Audio{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						Frames: [][]byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadMPEG1Audio{
 							{
 								0xff, 0xfa, 0x52, 0x04, 0x00,
 							},
@@ -525,11 +507,9 @@ func TestFromStream(t *testing.T) {
 
 			case "ac-3":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.AC3{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						Frames: [][]byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadAC3{
 							{
 								0x0b, 0x77, 0x47, 0x11, 0x0c, 0x40, 0x2f, 0x84,
 								0x2b, 0xc1, 0x07, 0x7a, 0xb0, 0xfa, 0xbb, 0xea,
@@ -586,11 +566,9 @@ func TestFromStream(t *testing.T) {
 
 			case "pcma", "pcmu":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.G711{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						Samples: []byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadG711{
 							3, 4,
 						},
 					})
@@ -598,19 +576,17 @@ func TestFromStream(t *testing.T) {
 
 			case "lpcm":
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.LPCM{
-						Base: unit.Base{
-							PTS: 90000 * 5 * int64(i),
-						},
-						Samples: []byte{
+					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS: 90000 * 5 * int64(i),
+						Payload: unit.PayloadLPCM{
 							3, 4, 5, 6,
 						},
 					})
 				}
 
 			case "h265 + h264 + vp9 + av1 + opus + aac":
-				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.H265{
-					AU: [][]byte{
+				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					Payload: unit.PayloadH265{
 						{
 							0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x60,
 							0x00, 0x00, 0x03, 0x00, 0x90, 0x00, 0x00, 0x03,
@@ -634,36 +610,34 @@ func TestFromStream(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.H264{
-					AU: [][]byte{
+				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
+					Payload: unit.PayloadH264{
 						codecprocessor.H264DefaultSPS,
 						codecprocessor.H264DefaultPPS,
 						{5, 2}, // IDR
 					},
 				})
 
-				strm.WriteUnit(medias[2], medias[2].Formats[0], &unit.VP9{
-					Frame: []byte{1, 2},
+				strm.WriteUnit(medias[2], medias[2].Formats[0], &unit.Unit{
+					Payload: unit.PayloadVP9{1, 2},
 				})
 
-				strm.WriteUnit(medias[3], medias[3].Formats[0], &unit.AV1{
-					TU: [][]byte{{
+				strm.WriteUnit(medias[3], medias[3].Formats[0], &unit.Unit{
+					Payload: unit.PayloadAV1{{
 						0x0a, 0x0e, 0x00, 0x00, 0x00, 0x4a, 0xab, 0xbf,
 						0xc3, 0x77, 0x6b, 0xe4, 0x40, 0x40, 0x40, 0x41,
 					}},
 				})
 
-				strm.WriteUnit(medias[4], medias[4].Formats[0], &unit.Opus{
-					Packets: [][]byte{
+				strm.WriteUnit(medias[4], medias[4].Formats[0], &unit.Unit{
+					Payload: unit.PayloadOpus{
 						{3, 4},
 					},
 				})
 
-				strm.WriteUnit(medias[5], medias[5].Formats[0], &unit.MPEG4Audio{
-					Base: unit.Base{
-						PTS: 90000 * 5,
-					},
-					AUs: [][]byte{
+				strm.WriteUnit(medias[5], medias[5].Formats[0], &unit.Unit{
+					PTS: 90000 * 5,
+					Payload: unit.PayloadMPEG4Audio{
 						{3, 4},
 					},
 				})

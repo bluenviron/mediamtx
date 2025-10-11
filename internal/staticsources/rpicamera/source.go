@@ -287,8 +287,8 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	rdr.OnData(
 		origStream.Desc.Medias[1],
 		origStream.Desc.Medias[1].Formats[0],
-		func(u unit.Unit) error {
-			pkt := u.GetRTPPackets()[0]
+		func(u *unit.Unit) error {
+			pkt := u.RTPPackets[0]
 
 			newPkt := &rtp.Packet{
 				Header:  pkt.Header,
@@ -296,7 +296,7 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 			}
 			newPkt.PayloadType = 26
 
-			res.Stream.WriteRTPPacket(media, media.Formats[0], newPkt, u.GetNTP(), u.GetPTS())
+			res.Stream.WriteRTPPacket(media, media.Formats[0], newPkt, u.NTP, u.PTS)
 			return nil
 		})
 

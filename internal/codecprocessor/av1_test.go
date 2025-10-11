@@ -15,11 +15,9 @@ func TestAV1RemoveTUD(t *testing.T) {
 	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
-	u := &unit.AV1{
-		Base: unit.Base{
-			PTS: 30000,
-		},
-		TU: [][]byte{
+	u := &unit.Unit{
+		PTS: 30000,
+		Payload: unit.PayloadAV1{
 			{byte(mcav1.OBUTypeTemporalDelimiter) << 3},
 			{5},
 		},
@@ -28,7 +26,7 @@ func TestAV1RemoveTUD(t *testing.T) {
 	err = p.ProcessUnit(u)
 	require.NoError(t, err)
 
-	require.Equal(t, [][]byte{
+	require.Equal(t, unit.PayloadAV1{
 		{5},
-	}, u.TU)
+	}, u.Payload)
 }

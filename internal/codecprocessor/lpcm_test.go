@@ -20,8 +20,8 @@ func TestLPCMProcessUnit(t *testing.T) {
 	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
-	unit := &unit.LPCM{
-		Samples: []byte{1, 2, 3, 4},
+	unit := &unit.Unit{
+		Payload: unit.PayloadLPCM{1, 2, 3, 4},
 	}
 
 	err = p.ProcessUnit(unit)

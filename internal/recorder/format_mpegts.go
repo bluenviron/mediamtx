@@ -87,14 +87,12 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H265)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						randomAccess := h265.IsRandomAccess(tunit.AU)
+						randomAccess := h265.IsRandomAccess(u.Payload.(unit.PayloadH265))
 
 						if dtsExtractor == nil {
 							if !randomAccess {
@@ -104,22 +102,22 @@ func (f *formatMPEGTS) initialize() bool {
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 						if err != nil {
 							return err
 						}
 
 						return f.write(
 							timestampToDuration(dts, clockRate),
-							tunit.NTP,
+							u.NTP,
 							true,
 							randomAccess,
 							func() error {
 								return f.mw.WriteH265(
 									track,
-									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
-									tunit.AU)
+									u.Payload.(unit.PayloadH265))
 							},
 						)
 					})
@@ -132,14 +130,12 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H264)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						randomAccess := h264.IsRandomAccess(tunit.AU)
+						randomAccess := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
 
 						if dtsExtractor == nil {
 							if !randomAccess {
@@ -149,22 +145,22 @@ func (f *formatMPEGTS) initialize() bool {
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
 							return err
 						}
 
 						return f.write(
 							timestampToDuration(dts, clockRate),
-							tunit.NTP,
+							u.NTP,
 							true,
 							randomAccess,
 							func() error {
 								return f.mw.WriteH264(
 									track,
-									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 									dts,
-									tunit.AU)
+									u.Payload.(unit.PayloadH264))
 							},
 						)
 					})
@@ -178,32 +174,31 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if !firstReceived {
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
-						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+						randomAccess := bytes.Contains(u.Payload.(unit.PayloadMPEG4Video),
+							[]byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							true,
 							randomAccess,
 							func() error {
 								return f.mw.WriteMPEG4Video(
 									track,
-									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-									tunit.Frame)
+									u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									u.Payload.(unit.PayloadMPEG4Video))
 							},
 						)
 					})
@@ -217,32 +212,30 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if !firstReceived {
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
-						randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
+						randomAccess := bytes.Contains(u.Payload.(unit.PayloadMPEG1Video), []byte{0, 0, 1, 0xB8})
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							true,
 							randomAccess,
 							func() error {
 								return f.mw.WriteMPEG1Video(
 									track,
-									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-									tunit.Frame)
+									u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									u.Payload.(unit.PayloadMPEG1Video))
 							},
 						)
 					})
@@ -255,23 +248,21 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.Opus)
-
-						if tunit.Packets == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							false,
 							true,
 							func() error {
 								return f.mw.WriteOpus(
 									track,
-									multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-									tunit.Packets)
+									multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
+									u.Payload.(unit.PayloadOpus))
 							},
 						)
 					})
@@ -284,20 +275,18 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.KLV)
-
-						if tunit.Unit == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return f.write(
-							timestampToDuration(tunit.PTS, 90000),
-							tunit.NTP,
+							timestampToDuration(u.PTS, 90000),
+							u.NTP,
 							false,
 							true,
 							func() error {
-								return f.mw.WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Unit)
+								return f.mw.WriteKLV(track, multiplyAndDivide(u.PTS, 90000, 90000), u.Payload.(unit.PayloadKLV))
 							},
 						)
 					})
@@ -310,23 +299,21 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-
-						if tunit.AUs == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							false,
 							true,
 							func() error {
 								return f.mw.WriteMPEG4Audio(
 									track,
-									multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-									tunit.AUs)
+									multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
+									u.Payload.(unit.PayloadMPEG4Audio))
 							},
 						)
 					})
@@ -340,29 +327,27 @@ func (f *formatMPEGTS) initialize() bool {
 					f.ri.reader.OnData(
 						media,
 						forma,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							var ame mpeg4audio.AudioMuxElement
 							ame.StreamMuxConfig = forma.StreamMuxConfig
-							err := ame.Unmarshal(tunit.Element)
+							err := ame.Unmarshal(u.Payload.(unit.PayloadMPEG4AudioLATM))
 							if err != nil {
 								return err
 							}
 
 							return f.write(
-								timestampToDuration(tunit.PTS, clockRate),
-								tunit.NTP,
+								timestampToDuration(u.PTS, clockRate),
+								u.NTP,
 								false,
 								true,
 								func() error {
 									return f.mw.WriteMPEG4Audio(
 										track,
-										multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+										multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
 										[][]byte{ame.Payloads[0][0][0]})
 								},
 							)
@@ -375,23 +360,21 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Audio)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							false,
 							true,
 							func() error {
 								return f.mw.WriteMPEG1Audio(
 									track,
-									tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-									tunit.Frames)
+									u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+									u.Payload.(unit.PayloadMPEG1Audio))
 							},
 						)
 					})
@@ -402,21 +385,19 @@ func (f *formatMPEGTS) initialize() bool {
 				f.ri.reader.OnData(
 					media,
 					forma,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.AC3)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						return f.write(
-							timestampToDuration(tunit.PTS, clockRate),
-							tunit.NTP,
+							timestampToDuration(u.PTS, clockRate),
+							u.NTP,
 							false,
 							true,
 							func() error {
-								for i, frame := range tunit.Frames {
-									framePTS := tunit.PTS + int64(i)*ac3.SamplesPerFrame
+								for i, frame := range u.Payload.(unit.PayloadAC3) {
+									framePTS := u.PTS + int64(i)*ac3.SamplesPerFrame
 
 									err := f.mw.WriteAC3(
 										track,

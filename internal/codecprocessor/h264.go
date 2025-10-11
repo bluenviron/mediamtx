@@ -3,12 +3,10 @@ package codecprocessor
 import (
 	"bytes"
 	"errors"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -138,7 +136,7 @@ func (t *h264) updateTrackParametersFromRTPPacket(payload []byte) {
 	}
 }
 
-func (t *h264) updateTrackParametersFromAU(au [][]byte) {
+func (t *h264) updateTrackParametersFromAU(au unit.PayloadH264) {
 	sps := t.Format.SPS
 	pps := t.Format.PPS
 	update := false
@@ -166,7 +164,7 @@ func (t *h264) updateTrackParametersFromAU(au [][]byte) {
 	}
 }
 
-func (t *h264) remuxAccessUnit(au [][]byte) [][]byte {
+func (t *h264) remuxAccessUnit(au unit.PayloadH264) unit.PayloadH264 {
 	isKeyFrame := false
 	n := 0
 
@@ -224,14 +222,12 @@ func (t *h264) remuxAccessUnit(au [][]byte) [][]byte {
 	return filteredAU
 }
 
-func (t *h264) ProcessUnit(uu unit.Unit) error {
-	u := uu.(*unit.H264)
+func (t *h264) ProcessUnit(u *unit.Unit) error {
+	t.updateTrackParametersFromAU(u.Payload.(unit.PayloadH264))
+	u.Payload = t.remuxAccessUnit(u.Payload.(unit.PayloadH264))
 
-	t.updateTrackParametersFromAU(u.AU)
-	u.AU = t.remuxAccessUnit(u.AU)
-
-	if u.AU != nil {
-		pkts, err := t.encoder.Encode(u.AU)
+	if !u.NilPayload() {
+		pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadH264))
 		if err != nil {
 			return err
 		}
@@ -246,18 +242,10 @@ func (t *h264) ProcessUnit(uu unit.Unit) error {
 }
 
 func (t *h264) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.H264{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	t.updateTrackParametersFromRTPPacket(pkt.Payload)
 
@@ -274,7 +262,7 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 			v2 := pkt.SequenceNumber
 			err := t.createEncoder(&v1, &v2)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -285,7 +273,7 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -298,24 +286,24 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 		if err != nil {
 			if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtph264.ErrMorePacketsNeeded) {
-				return u, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 
-		u.AU = t.remuxAccessUnit(au)
+		u.Payload = t.remuxAccessUnit(au)
 	}
 
 	// route packet as is
 	if t.encoder == nil {
-		return u, nil
+		return nil
 	}
 
 	// encode into RTP
-	if len(u.AU) != 0 {
-		pkts, err := t.encoder.Encode(u.AU)
+	if !u.NilPayload() {
+		pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadH264))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		u.RTPPackets = pkts
 
@@ -324,5 +312,5 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 		}
 	}
 
-	return u, nil
+	return nil
 }

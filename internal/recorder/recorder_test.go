@@ -75,23 +75,19 @@ func TestRecorder(t *testing.T) {
 			pts := startDTS + int64(i)*100*90000/1000
 			ntp := startNTP.Add(time.Duration(i*60) * time.Second)
 
-			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-				Base: unit.Base{
-					PTS: pts,
-					NTP: ntp,
-				},
-				AU: [][]byte{
+			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				PTS: pts,
+				NTP: ntp,
+				Payload: unit.PayloadH264{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
 					{5}, // IDR
 				},
 			})
 
-			strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.H265{
-				Base: unit.Base{
-					PTS: pts,
-				},
-				AU: [][]byte{
+			strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+				PTS: pts,
+				Payload: unit.PayloadH265{
 					test.FormatH265.VPS,
 					test.FormatH265.SPS,
 					test.FormatH265.PPS,
@@ -99,25 +95,19 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			strm.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
-				Base: unit.Base{
-					PTS: pts * int64(desc.Medias[2].Formats[0].ClockRate()) / 90000,
-				},
-				AUs: [][]byte{{1, 2, 3, 4}},
+			strm.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.Unit{
+				PTS:     pts * int64(desc.Medias[2].Formats[0].ClockRate()) / 90000,
+				Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
 			})
 
-			strm.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
-				Base: unit.Base{
-					PTS: pts * int64(desc.Medias[3].Formats[0].ClockRate()) / 90000,
-				},
-				Samples: []byte{1, 2, 3, 4},
+			strm.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.Unit{
+				PTS:     pts * int64(desc.Medias[3].Formats[0].ClockRate()) / 90000,
+				Payload: unit.PayloadG711{1, 2, 3, 4},
 			})
 
-			strm.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.LPCM{
-				Base: unit.Base{
-					PTS: pts * int64(desc.Medias[4].Formats[0].ClockRate()) / 90000,
-				},
-				Samples: []byte{1, 2, 3, 4},
+			strm.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.Unit{
+				PTS:     pts * int64(desc.Medias[4].Formats[0].ClockRate()) / 90000,
+				Payload: unit.PayloadLPCM{1, 2, 3, 4},
 			})
 		}
 	}
@@ -208,11 +198,9 @@ func TestRecorder(t *testing.T) {
 				time.Date(2008, 5, 20, 22, 16, 25, 0, time.UTC))
 
 			// simulate a write error
-			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-				Base: unit.Base{
-					PTS: 0,
-				},
-				AU: [][]byte{
+			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				PTS: 0,
+				Payload: unit.PayloadH264{
 					{5}, // IDR
 				},
 			})
@@ -369,23 +357,19 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	w.Initialize()
 
 	for i := 0; i < 3; i++ {
-		strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-			Base: unit.Base{
-				PTS: -50*90000/1000 + (int64(i) * 200 * 90000 / 1000),
-				NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
-			},
-			AU: [][]byte{
+		strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			PTS: -50*90000/1000 + (int64(i) * 200 * 90000 / 1000),
+			NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+			Payload: unit.PayloadH264{
 				test.FormatH264.SPS,
 				test.FormatH264.PPS,
 				{5}, // IDR
 			},
 		})
 
-		strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{
-			Base: unit.Base{
-				PTS: -100*44100/1000 + (int64(i) * 200 * 44100 / 1000),
-			},
-			AUs: [][]byte{{1, 2, 3, 4}},
+		strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+			PTS:     -100*44100/1000 + (int64(i) * 200 * 44100 / 1000),
+			Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
 		})
 	}
 
@@ -595,12 +579,10 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts := 50 * time.Second
 	ntp := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			PTS: int64(pts) * 90000 / int64(time.Second),
-			NTP: ntp,
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: int64(pts) * 90000 / int64(time.Second),
+		NTP: ntp,
+		Payload: unit.PayloadH264{
 			{5}, // IDR
 		},
 	})
@@ -608,23 +590,19 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 700 * time.Millisecond
 	ntp = ntp.Add(700 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{ // segment switch should happen here
-		Base: unit.Base{
-			PTS: int64(pts) * 44100 / int64(time.Second),
-			NTP: ntp,
-		},
-		AUs: [][]byte{{1, 2}},
+	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{ // segment switch should happen here
+		PTS:     int64(pts) * 44100 / int64(time.Second),
+		NTP:     ntp,
+		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
 	pts += 400 * time.Millisecond
 	ntp = ntp.Add(400 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			PTS: int64(pts) * 90000 / int64(time.Second),
-			NTP: ntp,
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: int64(pts) * 90000 / int64(time.Second),
+		NTP: ntp,
+		Payload: unit.PayloadH264{
 			{5}, // IDR
 		},
 	})
@@ -632,23 +610,19 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 100 * time.Millisecond
 	ntp = ntp.Add(100 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{
-		Base: unit.Base{
-			PTS: int64(pts) * 44100 / int64(time.Second),
-			NTP: ntp,
-		},
-		AUs: [][]byte{{3, 4}},
+	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+		PTS:     int64(pts) * 44100 / int64(time.Second),
+		NTP:     ntp,
+		Payload: unit.PayloadMPEG4Audio{{3, 4}},
 	})
 
 	pts += 400 * time.Millisecond
 	ntp = ntp.Add(400 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			PTS: int64(pts) * 90000 / int64(time.Second),
-			NTP: ntp,
-		},
-		AU: [][]byte{
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: int64(pts) * 90000 / int64(time.Second),
+		NTP: ntp,
+		Payload: unit.PayloadH264{
 			{5}, // IDR
 		},
 	})

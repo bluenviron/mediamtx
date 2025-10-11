@@ -286,21 +286,17 @@ func TestServerRead(t *testing.T) {
 				time.Sleep(100 * time.Millisecond)
 
 				for i := 0; i < 4; i++ {
-					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
-						Base: unit.Base{
-							NTP: time.Time{},
-							PTS: int64(i) * 90000,
-						},
-						AU: [][]byte{
+					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
+						NTP: time.Time{},
+						PTS: int64(i) * 90000,
+						Payload: unit.PayloadH264{
 							{5, 1}, // IDR
 						},
 					})
-					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.MPEG4Audio{
-						Base: unit.Base{
-							NTP: time.Time{},
-							PTS: int64(i) * 44100,
-						},
-						AUs: [][]byte{{1, 2}},
+					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
+						NTP:     time.Time{},
+						PTS:     int64(i) * 44100,
+						Payload: unit.PayloadMPEG4Audio{{1, 2}},
 					})
 				}
 
@@ -331,21 +327,17 @@ func TestServerRead(t *testing.T) {
 				time.Sleep(500 * time.Millisecond)
 
 				for i := range 4 {
-					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
-						Base: unit.Base{
-							NTP: time.Time{},
-							PTS: int64(i) * 90000,
-						},
-						AU: [][]byte{
+					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
+						NTP: time.Time{},
+						PTS: int64(i) * 90000,
+						Payload: unit.PayloadH264{
 							{5, 1}, // IDR
 						},
 					})
-					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.MPEG4Audio{
-						Base: unit.Base{
-							NTP: time.Time{},
-							PTS: int64(i) * 44100,
-						},
-						AUs: [][]byte{{1, 2}},
+					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
+						NTP:     time.Time{},
+						PTS:     int64(i) * 44100,
+						Payload: unit.PayloadMPEG4Audio{{1, 2}},
 					})
 				}
 

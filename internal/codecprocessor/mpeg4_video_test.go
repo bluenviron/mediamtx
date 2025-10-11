@@ -17,11 +17,9 @@ func TestMPEG4VideoProcessUnit(t *testing.T) {
 	p, err := New(1450, forma, true, nil)
 	require.NoError(t, err)
 
-	u1 := &unit.MPEG4Video{
-		Base: unit.Base{
-			PTS: 30000,
-		},
-		Frame: []byte{
+	u1 := &unit.Unit{
+		PTS: 30000,
+		Payload: unit.PayloadMPEG4Video{
 			0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode),
 			0, 0, 1, 0xFF,
 			0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode),
@@ -32,18 +30,16 @@ func TestMPEG4VideoProcessUnit(t *testing.T) {
 	err = p.ProcessUnit(u1)
 	require.NoError(t, err)
 
-	require.Equal(t, []byte{
+	require.Equal(t, unit.PayloadMPEG4Video{
 		0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode),
 		0, 0, 1, 0xFF,
 		0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode),
 		0, 0, 1, 0xF0,
-	}, u1.Frame)
+	}, u1.Payload)
 
-	u2 := &unit.MPEG4Video{
-		Base: unit.Base{
-			PTS: 30000 * 2,
-		},
-		Frame: []byte{
+	u2 := &unit.Unit{
+		PTS: 30000 * 2,
+		Payload: unit.PayloadMPEG4Video{
 			0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode),
 			0, 0, 1, 0xF1,
 		},
@@ -59,12 +55,12 @@ func TestMPEG4VideoProcessUnit(t *testing.T) {
 	}, forma.Config)
 
 	// test that params have been added to the frame
-	require.Equal(t, []byte{
+	require.Equal(t, unit.PayloadMPEG4Video{
 		0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode),
 		0, 0, 1, 0xFF,
 		0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode),
 		0, 0, 1, 0xF1,
-	}, u2.Frame)
+	}, u2.Payload)
 
 	// test that timestamp has increased
 	require.Equal(t, u1.RTPPackets[0].Timestamp+30000, u2.RTPPackets[0].Timestamp)

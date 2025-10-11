@@ -3,12 +3,10 @@ package codecprocessor //nolint:dupl
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpav1"
 	mcav1 "github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
-	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -49,7 +47,7 @@ func (t *av1) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *av1) remuxTemporalUnit(tu [][]byte) [][]byte {
+func (t *av1) remuxTemporalUnit(tu unit.PayloadAV1) unit.PayloadAV1 {
 	n := 0
 
 	for _, obu := range tu {
@@ -82,12 +80,10 @@ func (t *av1) remuxTemporalUnit(tu [][]byte) [][]byte {
 	return filteredTU
 }
 
-func (t *av1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.AV1)
+func (t *av1) ProcessUnit(u *unit.Unit) error { //nolint:dupl
+	u.Payload = t.remuxTemporalUnit(u.Payload.(unit.PayloadAV1))
 
-	u.TU = t.remuxTemporalUnit(u.TU)
-
-	pkts, err := t.encoder.Encode(u.TU)
+	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadAV1))
 	if err != nil {
 		return err
 	}
@@ -101,25 +97,17 @@ func (t *av1) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 }
 
 func (t *av1) ProcessRTPPacket( //nolint:dupl
-	pkt *rtp.Packet,
-	ntp time.Time,
-	pts int64,
+	u *unit.Unit,
 	hasNonRTSPReaders bool,
-) (unit.Unit, error) {
-	u := &unit.AV1{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-			NTP:        ntp,
-			PTS:        pts,
-		},
-	}
+) error {
+	pkt := u.RTPPackets[0]
 
 	// remove padding
 	pkt.Padding = false
 	pkt.PaddingSize = 0
 
 	if len(pkt.Payload) > t.RTPMaxPayloadSize {
-		return nil, fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
+		return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 			len(pkt.Payload), t.RTPMaxPayloadSize)
 	}
 
@@ -129,7 +117,7 @@ func (t *av1) ProcessRTPPacket( //nolint:dupl
 			var err error
 			t.decoder, err = t.Format.CreateDecoder()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -137,14 +125,13 @@ func (t *av1) ProcessRTPPacket( //nolint:dupl
 		if err != nil {
 			if errors.Is(err, rtpav1.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtpav1.ErrMorePacketsNeeded) {
-				return u, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 
-		u.TU = t.remuxTemporalUnit(tu)
+		u.Payload = t.remuxTemporalUnit(tu)
 	}
 
-	// route packet as is
-	return u, nil
+	return nil
 }

@@ -61,22 +61,20 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H265)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if dtsExtractor == nil {
-							if !h265.IsRandomAccess(tunit.AU) {
+							if !h265.IsRandomAccess(u.Payload.(unit.PayloadH265)) {
 								return nil
 							}
 							dtsExtractor = &h265.DTSExtractor{}
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 						if err != nil {
 							return err
 						}
@@ -84,9 +82,9 @@ func FromStream(
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err = (*w).WriteH265(
 							track,
-							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
-							tunit.AU)
+							u.Payload.(unit.PayloadH265))
 						if err != nil {
 							return err
 						}
@@ -102,14 +100,12 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.H264)
-
-						if tunit.AU == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						idrPresent := h264.IsRandomAccess(tunit.AU)
+						idrPresent := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
 
 						if dtsExtractor == nil {
 							if !idrPresent {
@@ -119,7 +115,7 @@ func FromStream(
 							dtsExtractor.Initialize()
 						}
 
-						dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
 							return err
 						}
@@ -127,9 +123,9 @@ func FromStream(
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err = (*w).WriteH264(
 							track,
-							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
 							dts,
-							tunit.AU)
+							u.Payload.(unit.PayloadH264))
 						if err != nil {
 							return err
 						}
@@ -146,25 +142,23 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if !firstReceived {
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err := (*w).WriteMPEG4Video(
 							track,
-							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-							tunit.Frame)
+							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+							u.Payload.(unit.PayloadMPEG4Video))
 						if err != nil {
 							return err
 						}
@@ -181,25 +175,23 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Video)
-
-						if tunit.Frame == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						if !firstReceived {
 							firstReceived = true
-						} else if tunit.PTS < lastPTS {
+						} else if u.PTS < lastPTS {
 							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
 						}
-						lastPTS = tunit.PTS
+						lastPTS = u.PTS
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err := (*w).WriteMPEG1Video(
 							track,
-							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-							tunit.Frame)
+							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+							u.Payload.(unit.PayloadMPEG1Video))
 						if err != nil {
 							return err
 						}
@@ -215,18 +207,16 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.Opus)
-
-						if tunit.Packets == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err := (*w).WriteOpus(
 							track,
-							multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-							tunit.Packets)
+							multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
+							u.Payload.(unit.PayloadOpus))
 						if err != nil {
 							return err
 						}
@@ -244,15 +234,13 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.KLV)
-
-						if tunit.Unit == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						err := (*w).WriteKLV(track, multiplyAndDivide(tunit.PTS, 90000, 90000), tunit.Unit)
+						err := (*w).WriteKLV(track, multiplyAndDivide(u.PTS, 90000, 90000), u.Payload.(unit.PayloadKLV))
 						if err != nil {
 							return err
 						}
@@ -268,18 +256,16 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4Audio)
-
-						if tunit.AUs == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err := (*w).WriteMPEG4Audio(
 							track,
-							multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-							tunit.AUs)
+							multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
+							u.Payload.(unit.PayloadMPEG4Audio))
 						if err != nil {
 							return err
 						}
@@ -294,17 +280,15 @@ func FromStream(
 						media,
 						forma,
 						track,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							var elIn mpeg4audio.AudioMuxElement
 							elIn.MuxConfigPresent = false
 							elIn.StreamMuxConfig = forma.StreamMuxConfig
-							err := elIn.Unmarshal(tunit.Element)
+							err := elIn.Unmarshal(u.Payload.(unit.PayloadMPEG4AudioLATM))
 							if err != nil {
 								return err
 							}
@@ -322,7 +306,7 @@ func FromStream(
 							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							err = (*w).WriteMPEG4AudioLATM(
 								track,
-								multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
+								multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
 								[][]byte{buf})
 							if err != nil {
 								return err
@@ -334,18 +318,16 @@ func FromStream(
 						media,
 						forma,
 						track,
-						func(u unit.Unit) error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-
-							if tunit.Element == nil {
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
 							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							err := (*w).WriteMPEG4AudioLATM(
 								track,
-								multiplyAndDivide(tunit.PTS, 90000, int64(clockRate)),
-								[][]byte{tunit.Element})
+								multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
+								[][]byte{u.Payload.(unit.PayloadMPEG4AudioLATM)})
 							if err != nil {
 								return err
 							}
@@ -360,18 +342,16 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG1Audio)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						err := (*w).WriteMPEG1Audio(
 							track,
-							tunit.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
-							tunit.Frames)
+							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
+							u.Payload.(unit.PayloadMPEG1Audio))
 						if err != nil {
 							return err
 						}
@@ -385,15 +365,13 @@ func FromStream(
 					media,
 					forma,
 					track,
-					func(u unit.Unit) error {
-						tunit := u.(*unit.AC3)
-
-						if tunit.Frames == nil {
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
 							return nil
 						}
 
-						for i, frame := range tunit.Frames {
-							framePTS := tunit.PTS + int64(i)*ac3.SamplesPerFrame
+						for i, frame := range u.Payload.(unit.PayloadAC3) {
+							framePTS := u.PTS + int64(i)*ac3.SamplesPerFrame
 
 							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							err := (*w).WriteAC3(

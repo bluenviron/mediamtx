@@ -187,7 +187,7 @@ func (s *Stream) RemoveReader(r *Reader) {
 }
 
 // WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u unit.Unit) {
+func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u *unit.Unit) {
 	sm := s.medias[medi]
 	sf := sm.formats[forma]
 
