@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestToStreamNoSupportedCodecs(t *testing.T) {
-	_, err := ToStream(nil, []*gohlslib.Track{}, nil)
+	_, err := ToStream(nil, []*gohlslib.Track{}, &conf.Path{}, nil)
 	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 
@@ -92,8 +93,11 @@ func TestToStream(t *testing.T) {
 	c = &gohlslib.Client{
 		URI: "http://localhost:5781/stream.m3u8",
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err2 := ToStream(c, tracks, &strm)
+			medias, err2 := ToStream(c, tracks, &conf.Path{
+				UseAbsoluteTimestamp: true,
+			}, &strm)
 			require.NoError(t, err2)
+
 			require.Equal(t, []*description.Media{{
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H264{

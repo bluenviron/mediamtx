@@ -3,8 +3,8 @@
 Some streaming protocols allow to route absolute timestamps, associated with each frame, that are useful for synchronizing several video or data streams together. In particular, _MediaMTX_ supports receiving absolute timestamps with the following protocols and devices:
 
 - HLS
-- RTSP (when the `useAbsoluteTimestamp` parameter is `true`)
-- WebRTC (when the `useAbsoluteTimestamp` parameter is `true`)
+- RTSP
+- WebRTC
 - Raspberry Pi Camera
 
 and supports sending absolute timestamps with the following protocols:
@@ -12,6 +12,14 @@ and supports sending absolute timestamps with the following protocols:
 - HLS
 - RTSP
 - WebRTC
+
+By default, absolute timestamps of incoming frames are not used, instead they are replaced with the current timestamp. This prevents users from arbitrarily changing recording dates, and also allows to support sources that do not send absolute timestamps. It is possible to preserve original absolute timestamps by toggling the `useAbsoluteTimestamp` parameter:
+
+```yml
+pathDefaults:
+  # Use absolute timestamp of frames, instead of replacing them with the current time.
+  useAbsoluteTimestamp: false
+```
 
 ## Absolute timestamp in HLS
 
