@@ -15,7 +15,7 @@ import (
 
 func TestToStreamNoSupportedCodecs(t *testing.T) {
 	pc := &PeerConnection{}
-	_, err := ToStream(pc, nil)
+	_, err := ToStream(pc, &conf.Path{}, nil, nil)
 	require.Equal(t, errNoSupportedCodecsTo, err)
 }
 
@@ -406,7 +406,7 @@ func TestToStream(t *testing.T) {
 			require.NoError(t, err)
 
 			var stream *stream.Stream
-			medias, err := ToStream(pc2, &stream)
+			medias, err := ToStream(pc2, &conf.Path{}, &stream, nil)
 			require.NoError(t, err)
 			require.Equal(t, ca.out, medias[0].Formats[0])
 		})

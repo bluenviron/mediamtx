@@ -377,7 +377,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 }
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
-	err := pa.setReady(req.Desc, req.GenerateRTPPackets)
+	err := pa.setReady(req.Desc, req.GenerateRTPPackets, req.FillNTP)
 	if err != nil {
 		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 		return
@@ -474,7 +474,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	pa.source = req.Author
 	pa.publisherQuery = req.AccessRequest.Query
 
-	err := pa.setReady(req.Desc, req.GenerateRTPPackets)
+	err := pa.setReady(req.Desc, req.GenerateRTPPackets, req.FillNTP)
 	if err != nil {
 		pa.source = nil
 		req.Res <- defs.PathAddPublisherRes{Err: err}
@@ -684,12 +684,13 @@ func (pa *path) onDemandPublisherStop(reason string) {
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
-func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
+func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fillNTP bool) error {
 	pa.stream = &stream.Stream{
 		WriteQueueSize:     pa.writeQueueSize,
 		RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
 		Desc:               desc,
-		GenerateRTPPackets: allocateEncoder,
+		GenerateRTPPackets: generateRTPPackets,
+		FillNTP:            fillNTP,
 		Parent:             pa.source,
 	}
 	err := pa.stream.Initialize()

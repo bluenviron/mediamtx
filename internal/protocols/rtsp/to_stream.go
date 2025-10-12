@@ -49,7 +49,7 @@ func ToStream(
 			handleNTP := func(pkt *rtp.Packet) (time.Time, bool) {
 				switch ntpStat {
 				case ntpStateReplace:
-					return time.Now(), true
+					return time.Time{}, true
 
 				case ntpStateInitial:
 					ntp, avail := source.PacketNTP(cmedi, pkt)
