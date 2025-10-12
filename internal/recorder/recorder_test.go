@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	amp4 "github.com/abema/go-mp4"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	rtspformat "github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -269,6 +271,13 @@ func TestRecorder(t *testing.T) {
 								SampleRate:   44100,
 								ChannelCount: 2,
 							},
+						},
+					},
+					UserData: []amp4.IBox{
+						&recordstore.Mtxi{
+							StreamID: init.UserData[0].(*recordstore.Mtxi).StreamID,
+							DTS:      50000000000,
+							NTP:      1211321725000000000,
 						},
 					},
 				}, init)

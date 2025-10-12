@@ -468,11 +468,16 @@ func (f *formatMPEGTS) write(
 	switch {
 	case f.currentSegment == nil:
 		f.currentSegment = &formatMPEGTSSegment{
-			f:        f,
-			startDTS: dts,
-			startNTP: ntp,
+			pathFormat2:       f.ri.pathFormat2,
+			flush:             f.bw.Flush,
+			onSegmentCreate:   f.ri.onSegmentCreate,
+			onSegmentComplete: f.ri.onSegmentComplete,
+			startDTS:          dts,
+			startNTP:          ntp,
+			log:               f.ri,
 		}
 		f.currentSegment.initialize()
+		f.dw.setTarget(f.currentSegment)
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
 		(dts-f.currentSegment.startDTS) >= f.ri.segmentDuration:
@@ -483,11 +488,16 @@ func (f *formatMPEGTS) write(
 		}
 
 		f.currentSegment = &formatMPEGTSSegment{
-			f:        f,
-			startDTS: dts,
-			startNTP: ntp,
+			pathFormat2:       f.ri.pathFormat2,
+			flush:             f.bw.Flush,
+			onSegmentCreate:   f.ri.onSegmentCreate,
+			onSegmentComplete: f.ri.onSegmentComplete,
+			startDTS:          dts,
+			startNTP:          ntp,
+			log:               f.ri,
 		}
 		f.currentSegment.initialize()
+		f.dw.setTarget(f.currentSegment)
 
 	case (dts - f.currentSegment.lastFlush) >= f.ri.partDuration:
 		err := f.bw.Flush()

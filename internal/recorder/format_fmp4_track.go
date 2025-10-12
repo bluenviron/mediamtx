@@ -67,8 +67,10 @@ func (t *formatFMP4Track) write(sample *sample) error {
 			f:        t.f,
 			startDTS: dts,
 			startNTP: sample.ntp,
+			number:   t.f.nextSegmentNumber,
 		}
 		t.f.currentSegment.initialize()
+		t.f.nextSegmentNumber++
 	} else if (dts - t.f.currentSegment.startDTS) < 0 { // BaseTime is negative, this is not supported by fMP4
 		t.f.ri.Log(logger.Warn, "sample of track %d received too late, discarding", t.initTrack.ID)
 		return nil
@@ -95,8 +97,10 @@ func (t *formatFMP4Track) write(sample *sample) error {
 			f:        t.f,
 			startDTS: oldestDTS,
 			startNTP: oldestNTP,
+			number:   t.f.nextSegmentNumber,
 		}
 		t.f.currentSegment.initialize()
+		t.f.nextSegmentNumber++
 	}
 
 	return nil
