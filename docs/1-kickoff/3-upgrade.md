@@ -1,6 +1,6 @@
 # Upgrade
 
-If you have an existing MediaMTX installation and want to upgrade it to the latest version, the procedure depends on how MediaMTX was installed.
+If you have an existing MediaMTX installation, you can upgrade it to the latest version. The procedure depends on how MediaMTX was installed.
 
 ## Standalone binary
 
