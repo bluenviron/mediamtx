@@ -103,10 +103,11 @@ type formatFMP4Segment struct {
 	startDTS time.Duration
 	startNTP time.Time
 
-	path    string
-	fi      *os.File
-	curPart *formatFMP4Part
-	endDTS  time.Duration
+	path               string
+	fi                 *os.File
+	curPart            *formatFMP4Part
+	endDTS             time.Duration
+	nextSequenceNumber uint32
 }
 
 func (s *formatFMP4Segment) initialize() {
@@ -152,11 +153,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts ti
 	if s.curPart == nil {
 		s.curPart = &formatFMP4Part{
 			s:              s,
-			sequenceNumber: s.f.nextSequenceNumber,
+			sequenceNumber: s.nextSequenceNumber,
 			startDTS:       dts,
 		}
 		s.curPart.initialize()
-		s.f.nextSequenceNumber++
+		s.nextSequenceNumber++
 	} else if s.curPart.duration() >= s.f.ri.partDuration {
 		err := s.curPart.close()
 		s.curPart = nil
@@ -167,11 +168,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts ti
 
 		s.curPart = &formatFMP4Part{
 			s:              s,
-			sequenceNumber: s.f.nextSequenceNumber,
+			sequenceNumber: s.nextSequenceNumber,
 			startDTS:       dts,
 		}
 		s.curPart.initialize()
-		s.f.nextSequenceNumber++
+		s.nextSequenceNumber++
 	}
 
 	return s.curPart.write(track, sample, dts)

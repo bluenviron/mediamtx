@@ -101,10 +101,9 @@ func jpegExtractSize(image []byte) (int, int, error) {
 type formatFMP4 struct {
 	ri *recorderInstance
 
-	tracks             []*formatFMP4Track
-	hasVideo           bool
-	currentSegment     *formatFMP4Segment
-	nextSequenceNumber uint32
+	tracks         []*formatFMP4Track
+	hasVideo       bool
+	currentSegment *formatFMP4Segment
 }
 
 func (f *formatFMP4) initialize() bool {
