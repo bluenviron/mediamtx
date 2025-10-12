@@ -29,4 +29,8 @@ func TestEstimator(t *testing.T) {
 	timeNow = func() time.Time { return time.Date(2003, 11, 4, 23, 15, 15, 0, time.UTC) }
 	ntp = e.Estimate(5 * 90000)
 	require.Equal(t, time.Date(2003, 11, 4, 23, 15, 10, 0, time.UTC), ntp)
+
+	timeNow = func() time.Time { return time.Date(2003, 11, 4, 23, 15, 20, 0, time.UTC) }
+	ntp = e.Estimate(6 * 90000)
+	require.Equal(t, time.Date(2003, 11, 4, 23, 15, 20, 0, time.UTC), ntp)
 }
