@@ -12,8 +12,8 @@ require (
 	github.com/asticode/go-astits v1.13.0
 	github.com/bluenviron/gohlslib/v2 v2.2.3
 	github.com/bluenviron/gortmplib v0.1.0
-	github.com/bluenviron/gortsplib/v5 v5.0.1
-	github.com/bluenviron/mediacommon/v2 v2.4.4-0.20251012155238-8c0b4c88a199
+	github.com/bluenviron/gortsplib/v5 v5.1.0
+	github.com/bluenviron/mediacommon/v2 v2.5.0
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
@@ -35,7 +35,7 @@ require (
 	github.com/pion/sdp/v3 v3.0.16
 	github.com/pion/webrtc/v4 v4.1.4
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.43.0
 	golang.org/x/sys v0.37.0
 	golang.org/x/term v0.36.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -78,7 +78,7 @@ require (
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.8.39 // indirect
-	github.com/pion/srtp/v3 v3.0.7 // indirect
+	github.com/pion/srtp/v3 v3.0.8 // indirect
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect
 	github.com/pion/turn/v4 v4.1.1 // indirect
@@ -96,9 +96,9 @@ require (
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
