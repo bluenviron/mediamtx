@@ -1,4 +1,4 @@
-# Installation
+# Install
 
 There are several installation methods available: standalone binary, Docker image, Arch Linux package, FreeBSD Ports Collection or package and OpenWrt binary.
 
@@ -17,17 +17,21 @@ There are several installation methods available: standalone binary, Docker imag
 Download and launch the image:
 
 ```sh
-docker run --rm -it --network=host bluenviron/mediamtx:latest
+docker run --rm -it --network=host bluenviron/mediamtx:1
 ```
 
-Available images:
+The `1` tag corresponds to the latest `v1.x.x` release, that should guarantee backward compatibility when upgrading.
 
-| name                                  | FFmpeg included    | RPI Camera support |
-| ------------------------------------- | ------------------ | ------------------ |
-| bluenviron/mediamtx:latest            | :x:                | :x:                |
-| bluenviron/mediamtx:latest-ffmpeg     | :heavy_check_mark: | :x:                |
-| bluenviron/mediamtx:latest-rpi        | :x:                | :heavy_check_mark: |
-| bluenviron/mediamtx:latest-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
+It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
+
+There are four image variants:
+
+| name                             | FFmpeg included    | RPI Camera support |
+| -------------------------------- | ------------------ | ------------------ |
+| bluenviron/mediamtx:1            | :x:                | :x:                |
+| bluenviron/mediamtx:1-ffmpeg     | :heavy_check_mark: | :x:                |
+| bluenviron/mediamtx:1-rpi        | :x:                | :heavy_check_mark: |
+| bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
 
 The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets.
 

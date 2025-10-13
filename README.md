@@ -20,7 +20,7 @@ _MediaMTX_ is a ready-to-use and zero-dependency real-time media server and medi
 
 <div align="center">
 
-  |[Installation](https://mediamtx.org/docs/kickoff/installation)|[Documentation](https://mediamtx.org/docs/kickoff/introduction)|
+  |[Install](https://mediamtx.org/docs/kickoff/install)|[Documentation](https://mediamtx.org/docs/kickoff/introduction)|
   |-|-|
 
 </div>
