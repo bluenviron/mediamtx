@@ -482,7 +482,7 @@ pathDefaults:
   # If the stream is not available, redirect readers to this path.
   # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   fallback:
-  # Route original absolute timestamps of RTSP and WebRTC frames, instead of replacing them.
+  # Use absolute timestamp of frames, instead of replacing them with the current time.
   useAbsoluteTimestamp: false
 
   ###############################################

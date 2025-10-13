@@ -94,7 +94,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			decodeErrors.Increase()
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err2 := hls.ToStream(c, tracks, &stream)
+			medias, err2 := hls.ToStream(c, tracks, params.Conf, &stream)
 			if err2 != nil {
 				return err2
 			}

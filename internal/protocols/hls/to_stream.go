@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -20,7 +21,7 @@ const (
 	ntpStateInitial ntpState = iota
 	ntpStateUnavailable
 	ntpStateAvailable
-	ntpStateDegraded
+	ntpStateReplace
 )
 
 func multiplyAndDivide(v, m, d int64) int64 {
@@ -33,10 +34,15 @@ func multiplyAndDivide(v, m, d int64) int64 {
 func ToStream(
 	c *gohlslib.Client,
 	tracks []*gohlslib.Track,
+	pathConf *conf.Path,
 	strm **stream.Stream,
 ) ([]*description.Media, error) {
 	var ntpStat ntpState
 	var ntpStatMutex sync.Mutex
+
+	if !pathConf.UseAbsoluteTimestamp {
+		ntpStat = ntpStateReplace
+	}
 
 	var medias []*description.Media //nolint:prealloc
 
@@ -69,11 +75,11 @@ func ToStream(
 				_, avail := c.AbsoluteTime(ctrack)
 				if avail {
 					(*strm).Parent.Log(logger.Warn, "absolute timestamp appeared after stream started, we are not using it")
-					ntpStat = ntpStateDegraded
+					ntpStat = ntpStateReplace
 				}
 				return ntpEstimator.Estimate(pts)
 
-			default: // ntpStateDegraded
+			default: // ntpStateReplace
 				return ntpEstimator.Estimate(pts)
 			}
 		}
