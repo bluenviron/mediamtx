@@ -48,30 +48,32 @@ func seekAndMux(
 	m muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
-		var firstInit *fmp4.Init
-		var segmentEnd time.Time
-
 		f, err := os.Open(segments[0].Fpath)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		firstInit, _, err = segmentFMP4ReadHeader(f)
+		firstInit, _, err := segmentFMP4ReadHeader(f)
 		if err != nil {
 			return err
 		}
 
-		m.writeInit(firstInit)
+		m.writeInit(&fmp4.Init{
+			Tracks: firstInit.Tracks,
+		})
 
-		segmentStartOffset := segments[0].Start.Sub(start) // this is negative
+		firstMtxi := findMtxi(firstInit.UserData)
+		startOffset := segments[0].Start.Sub(start) // this is negative
+		dts := startOffset
+		prevInit := firstInit
 
-		segmentDuration, err := segmentFMP4MuxParts(f, segmentStartOffset, duration, firstInit.Tracks, m)
+		segmentDuration, err := segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
 		if err != nil {
 			return err
 		}
 
-		segmentEnd = start.Add(segmentDuration)
+		segmentEnd := segments[0].Start.Add(segmentDuration)
 
 		for _, seg := range segments[1:] {
 			f, err = os.Open(seg.Fpath)
@@ -86,18 +88,24 @@ func seekAndMux(
 				return err
 			}
 
-			if !segmentFMP4CanBeConcatenated(firstInit, segmentEnd, init, seg.Start) {
+			if !segmentFMP4CanBeConcatenated(prevInit, segmentEnd, init, seg.Start) {
 				break
 			}
 
-			segmentStartOffset = seg.Start.Sub(start) // this is positive
+			if firstMtxi != nil {
+				mtxi := findMtxi(init.UserData)
+				dts = time.Duration(mtxi.DTS-firstMtxi.DTS) + startOffset
+			} else { // legacy method
+				dts = seg.Start.Sub(start) // this is positive
+			}
 
-			segmentDuration, err = segmentFMP4MuxParts(f, segmentStartOffset, duration, firstInit.Tracks, m)
+			segmentDuration, err = segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
 			if err != nil {
 				return err
 			}
 
-			segmentEnd = start.Add(segmentDuration)
+			segmentEnd = seg.Start.Add(segmentDuration)
+			prevInit = init
 		}
 
 		err = m.flush()

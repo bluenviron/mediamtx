@@ -20,9 +20,7 @@ Download and launch the image:
 docker run --rm -it --network=host bluenviron/mediamtx:1
 ```
 
-The `1` tag corresponds to the latest `v1.x.x` release, that should guarantee backward compatibility when upgrading.
-
-It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
+The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
 
 There are four image variants:
 
