@@ -1,0 +1,105 @@
+name: discussion_lock
+on:
+  schedule:
+    - cron: '40 16 * * *'
+  workflow_dispatch:
+
+jobs:
+  discussion_lock:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { repo: { owner, repo } } = context;
+            const now = new Date();
+            const twoYearsAgo = new Date(now.getTime() - 1000*60*60*24*365*2);
+
+            const query = `
+              query($owner: String!, $repo: String!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  discussions(first: 100, after: $cursor, filterBy: {locked: false}) {
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    nodes {
+                      id
+                      number
+                      title
+                      closed
+                      closedAt
+                      updatedAt
+                      category {
+                        isAnswerable
+                      }
+                      answer {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            let hasNextPage = true;
+            let cursor = null;
+
+            while (hasNextPage) {
+              const result = await github.graphql(query, {
+                owner,
+                repo,
+                cursor
+              });
+
+              const discussions = result.repository.discussions;
+              hasNextPage = discussions.pageInfo.hasNextPage;
+              cursor = discussions.pageInfo.endCursor;
+
+              for (const discussion of discussions.nodes) {
+                const lastUpdateDate = new Date(discussion.updatedAt);
+                const closedDate = discussion.closedAt ? new Date(discussion.closedAt) : null;
+                const relevantDate = closedDate || lastUpdateDate;
+
+                if (relevantDate > twoYearsAgo) {
+                  continue;
+                }
+
+                const addCommentMutation = `
+                  mutation($discussionId: ID!, $body: String!) {
+                    addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
+                      comment {
+                        id
+                      }
+                    }
+                  }
+                `;
+
+                await github.graphql(addCommentMutation, {
+                  discussionId: discussion.id,
+                  body: `This discussion is being locked automatically because the last update was more than 2 years ago.\n`+
+                    `\n`+
+                    `**Do not use the content of this discussion as reference since it's probably outdated!**\n`+
+                    `\n`+
+                    `The official documentation is the only place in which you can find up-to-date answers.\n`,
+                });
+
+                const lockMutation = `
+                  mutation($discussionId: ID!) {
+                    lockLockable(input: {lockableId: $discussionId}) {
+                      lockedRecord {
+                        locked
+                      }
+                    }
+                  }
+                `;
+
+                await github.graphql(lockMutation, {
+                  discussionId: discussion.id
+                });
+
+                process.exit(0);
+              }
+            }
