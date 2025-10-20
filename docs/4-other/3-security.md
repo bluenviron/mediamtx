@@ -2,15 +2,13 @@
 
 ## Security of released binaries
 
-Binaries published in the [Releases](https://github.com/bluenviron/mediamtx/releases) section of GitHub are the output of a process which has been designed with a security-first approach. Every step from source code to the intended final destination of binaries is fully visible, immune from external interference and can be independently verified.
-
-This is the process:
+Binaries published in the [Releases](https://github.com/bluenviron/mediamtx/releases) section of GitHub are the output of a process which has been designed with a security-first approach. Every step from source code to the intended final destination of binaries is fully visible, immune from external interferences and independently verifiable. This is the process:
 
 1. During every release, the [Release workflow](https://github.com/bluenviron/mediamtx/actions/workflows/release.yml) is triggered on GitHub.
 
 2. The release workflow pulls the source code and builds binaries.
 
-3. The release workflow computes SHA256 checksums of binaries and publishes them on the Sigstore Public Good Instance through [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations).
+3. The release workflow computes SHA256 checksums of binaries and publishes them to the Sigstore Public Good Instance through [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations).
 
 4. Checksums and binaries are published on the Release page.
 
