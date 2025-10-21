@@ -203,7 +203,6 @@ func (c *conn) runRead() error {
 	})
 	defer onUnreadHook()
 
-	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
 	strm.AddReader(r)
@@ -274,7 +273,6 @@ func (c *conn) runPublish() error {
 	c.query = c.rconn.URL.RawQuery
 	c.mutex.Unlock()
 
-	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
 
 	for {
