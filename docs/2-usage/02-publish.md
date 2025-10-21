@@ -524,6 +524,8 @@ d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 
 The resulting stream is available in path `/mystream`.
 
+For advanced options, see [RTSP-specific features](rtsp-specific-features).
+
 #### GStreamer and RTMP
 
 ```sh
@@ -539,6 +541,8 @@ gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1
 videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
+
+For advanced options, see [RTSP-specific features](rtsp-specific-features).
 
 #### GStreamer and WebRTC
 
