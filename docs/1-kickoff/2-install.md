@@ -14,26 +14,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 ## Docker image
 
-Download and launch the image:
-
-```sh
-docker run --rm -it --network=host bluenviron/mediamtx:1
-```
-
-The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
-
-There are four image variants:
-
-| name                             | FFmpeg included    | RPI Camera support |
-| -------------------------------- | ------------------ | ------------------ |
-| bluenviron/mediamtx:1            | :x:                | :x:                |
-| bluenviron/mediamtx:1-ffmpeg     | :heavy_check_mark: | :x:                |
-| bluenviron/mediamtx:1-rpi        | :x:                | :heavy_check_mark: |
-| bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
-
-The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets.
-
-If the `--network=host` cannot be used (for instance, it is not compatible with Windows or Kubernetes), you can disable the RTSP UDP transport protocol, add the server IP to `MTX_WEBRTCADDITIONALHOSTS` and expose ports manually:
+Download and launch the `bluenviron/mediamtx:1` image with the following environment variables and ports:
 
 ```sh
 docker run --rm -it \
@@ -45,12 +26,31 @@ docker run --rm -it \
 -p 8889:8889 \
 -p 8890:8890/udp \
 -p 8189:8189/udp \
-bluenviron/mediamtx
+bluenviron/mediamtx:1
 ```
+
+Fill the `MTX_WEBRTCADDITIONALHOSTS` environment variable with the IP that will be used to connect to the server.
+
+The `MTX_RTSPTRANSPORTS=tcp` environment variable is meant to disable the RTSP UDP transport protocol. If you want to use it, you also need `--network=host` (which is not compatible with Windows, macOS and Kubernetes):
+
+```sh
+docker run --rm -it --network=host bluenviron/mediamtx:1
+```
+
+There are four image variants:
+
+| name                             | FFmpeg included    | RPI Camera support |
+| -------------------------------- | ------------------ | ------------------ |
+| bluenviron/mediamtx:1            | :x:                | :x:                |
+| bluenviron/mediamtx:1-ffmpeg     | :heavy_check_mark: | :x:                |
+| bluenviron/mediamtx:1-rpi        | :x:                | :heavy_check_mark: |
+| bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
+
+The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
 
 ## Arch Linux package
 
-If you are running the Arch Linux distribution, run:
+If you are running the Arch Linux distribution, launch:
 
 ```sh
 git clone https://aur.archlinux.org/mediamtx.git
