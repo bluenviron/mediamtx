@@ -77,7 +77,7 @@ vlc --network-caching=50 rtsp://...
 
 ### RTMP
 
-RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP and WebRTC (doesn't support UDP, doesn't support most RTSP codecs, doesn't support feedback mechanism). Streams can be read from the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](rtmp-specific-features). Streams can be read from the server by using the URL:
 
 ```
 rtmp://localhost/mystream
