@@ -58,7 +58,14 @@ func (t *formatFMP4Track) write(sample *sample) error {
 	if sample == nil {
 		return nil
 	}
-	sample.Duration = uint32(t.nextSample.dts - sample.dts)
+
+	duration := t.nextSample.dts - sample.dts
+	if duration < 0 {
+		t.nextSample.dts = sample.dts
+		duration = 0
+	}
+
+	sample.Duration = uint32(duration)
 
 	dts := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
 
