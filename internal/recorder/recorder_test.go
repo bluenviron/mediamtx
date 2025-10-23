@@ -311,7 +311,7 @@ func TestRecorder(t *testing.T) {
 	}
 }
 
-func TestRecorderFMP4NegativeDTS(t *testing.T) {
+func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
@@ -398,13 +398,111 @@ func TestRecorderFMP4NegativeDTS(t *testing.T) {
 	for _, part := range parts {
 		for _, track := range part.Tracks {
 			if track.ID == 2 {
-				require.Less(t, track.BaseTime, uint64(1*90000))
+				require.Equal(t, uint64(6615), track.BaseTime)
 				found = true
 			}
 		}
 	}
 
 	require.True(t, found)
+}
+
+func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.AudioSpecificConfig{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			}},
+		},
+	}}
+
+	strm := &stream.Stream{
+		WriteQueueSize:     512,
+		RTPMaxPayloadSize:  1450,
+		Desc:               desc,
+		GenerateRTPPackets: true,
+		Parent:             test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	dir, err := os.MkdirTemp("", "mediamtx-agent")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	w := &Recorder{
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 2 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		Parent:          test.NilLogger,
+	}
+	w.Initialize()
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     44100,
+		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		Payload: unit.PayloadMPEG4Audio{{1, 2}},
+	})
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     3 * 44100,
+		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		Payload: unit.PayloadMPEG4Audio{{1, 2}},
+	})
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     2 * 44100,
+		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		Payload: unit.PayloadMPEG4Audio{{1, 2}},
+	})
+
+	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     4 * 44100,
+		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		Payload: unit.PayloadMPEG4Audio{{1, 2}},
+	})
+
+	time.Sleep(50 * time.Millisecond)
+
+	w.Close()
+
+	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(byts)
+	require.NoError(t, err)
+
+	require.Equal(t, fmp4.Parts{{
+		Tracks: []*fmp4.PartTrack{{
+			ID: 1,
+			Samples: []*fmp4.Sample{
+				{
+					Payload: []byte{1, 2},
+				},
+				{
+					Duration: 44100,
+					Payload:  []byte{1, 2},
+				},
+			},
+		}},
+	}}, parts)
 }
 
 func TestRecorderSkipTracksPartial(t *testing.T) {
