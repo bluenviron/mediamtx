@@ -132,6 +132,7 @@ type trackRecvPair struct {
 
 // PeerConnection is a wrapper around webrtc.PeerConnection.
 type PeerConnection struct {
+	UDPReadBufferSize     uint
 	LocalRandomUDP        bool
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             *TCPMuxWrapper
@@ -194,6 +195,15 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetSTUNGatherTimeout(time.Duration(co.STUNGatherTimeout))
 
+	webrtcNet := &webrtcNet{
+		udpReadBufferSize: int(co.UDPReadBufferSize),
+	}
+	err := webrtcNet.initialize()
+	if err != nil {
+		return err
+	}
+	settingsEngine.SetNet(webrtcNet)
+
 	mediaEngine := &webrtc.MediaEngine{}
 
 	if co.Publish {
@@ -226,7 +236,7 @@ func (co *PeerConnection) Start() error {
 				codecType = webrtc.RTPCodecTypeAudio
 			}
 
-			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			err = mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: tr.Caps,
 				PayloadType:        webrtc.PayloadType(96 + i),
 			}, codecType)
@@ -238,7 +248,7 @@ func (co *PeerConnection) Start() error {
 		// When video is not used, a track must not be added but a codec has to present.
 		// Otherwise audio is muted on Firefox and Chrome.
 		if !videoSetupped {
-			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			err = mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
 					MimeType:  webrtc.MimeTypeVP8,
 					ClockRate: 90000,
@@ -251,14 +261,14 @@ func (co *PeerConnection) Start() error {
 		}
 	} else {
 		for _, codec := range incomingVideoCodecs {
-			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
+			err = mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
 			if err != nil {
 				return err
 			}
 		}
 
 		for _, codec := range incomingAudioCodecs {
-			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
+			err = mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
 			if err != nil {
 				return err
 			}
@@ -267,7 +277,7 @@ func (co *PeerConnection) Start() error {
 
 	interceptorRegistry := &interceptor.Registry{}
 
-	err := registerInterceptors(
+	err = registerInterceptors(
 		mediaEngine,
 		interceptorRegistry,
 		func(s *statsInterceptor) {

@@ -22,6 +22,7 @@ import (
 	"github.com/pion/logging"
 	pwebrtc "github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -193,6 +194,7 @@ type Server struct {
 	TrustedProxies        conf.IPNetworks
 	ReadTimeout           conf.Duration
 	WriteTimeout          conf.Duration
+	UDPReadBufferSize     uint
 	LocalUDPAddress       string
 	LocalTCPAddress       string
 	IPsFromInterfaces     bool
@@ -272,6 +274,17 @@ func (s *Server) Initialize() error {
 			ctxCancel()
 			return err
 		}
+
+		if s.UDPReadBufferSize != 0 {
+			err = readbuffer.SetReadBuffer(s.udpMuxLn.(*net.UDPConn), int(s.UDPReadBufferSize))
+			if err != nil {
+				s.udpMuxLn.Close()
+				s.httpServer.close()
+				ctxCancel()
+				return err
+			}
+		}
+
 		s.iceUDPMux = pwebrtc.NewICEUDPMux(webrtcNilLogger, s.udpMuxLn)
 	}
 
@@ -285,6 +298,7 @@ func (s *Server) Initialize() error {
 			ctxCancel()
 			return err
 		}
+
 		s.iceTCPMux = &webrtc.TCPMuxWrapper{
 			Mux: pwebrtc.NewICETCPMux(webrtcNilLogger, s.tcpMuxLn, 8),
 			Ln:  s.tcpMuxLn,
@@ -336,6 +350,7 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
+				udpReadBufferSize:     s.UDPReadBufferSize,
 				parentCtx:             s.ctx,
 				ipsFromInterfaces:     s.IPsFromInterfaces,
 				ipsFromInterfacesList: s.IPsFromInterfacesList,
