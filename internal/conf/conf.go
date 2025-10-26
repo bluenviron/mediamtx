@@ -159,6 +159,7 @@ type Conf struct {
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
+	UDPReadBufferSize   uint            `json:"udpReadBufferSize"`
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
@@ -235,7 +236,7 @@ type Conf struct {
 	RTSPServerCert        string           `json:"rtspServerCert"`
 	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
 	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
-	RTSPUDPReadBufferSize uint             `json:"rtspUDPReadBufferSize"`
+	RTSPUDPReadBufferSize *uint            `json:"rtspUDPReadBufferSize,omitempty"` // deprecated
 
 	// RTMP server
 	RTMP           bool       `json:"rtmp"`

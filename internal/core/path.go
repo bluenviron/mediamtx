@@ -70,6 +70,7 @@ type path struct {
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
+	udpReadBufferSize uint
 	rtpMaxPayloadSize int
 	conf              *conf.Path
 	name              string
@@ -174,6 +175,7 @@ func (pa *path) run() {
 			ReadTimeout:       pa.readTimeout,
 			WriteTimeout:      pa.writeTimeout,
 			WriteQueueSize:    pa.writeQueueSize,
+			UDPReadBufferSize: pa.udpReadBufferSize,
 			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
 			Matches:           pa.matches,
 			PathManager:       pa.parent,
