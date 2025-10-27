@@ -9,7 +9,7 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.7.0
 	github.com/abema/go-mp4 v1.4.1
 	github.com/alecthomas/kong v1.12.1
-	github.com/asticode/go-astits v1.13.0
+	github.com/asticode/go-astits v1.14.0
 	github.com/bluenviron/gohlslib/v2 v2.2.3
 	github.com/bluenviron/gortmplib v0.1.1
 	github.com/bluenviron/gortsplib/v5 v5.1.1
