@@ -31,7 +31,7 @@ There are four image variants:
 | bluenviron/mediamtx:1-rpi        | :x:                | :heavy_check_mark: |
 | bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
 
-The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets.
+The `--network=host` flag is mandatory for RTSP to work, since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to identify the senders of the packets. On macOS or Windows, --network=host has limited effect, so you must also bind the necessary ports using -p as below.
 
 If the `--network=host` cannot be used (for instance, it is not compatible with Windows or Kubernetes), you can disable the RTSP UDP transport protocol, add the server IP to `MTX_WEBRTCADDITIONALHOSTS` and expose ports manually:
 
