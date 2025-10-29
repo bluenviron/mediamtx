@@ -11,12 +11,19 @@ sudo mv mediamtx /usr/local/bin/
 sudo mv mediamtx.yml /usr/local/etc/
 ```
 
+Enable the _network-online_ service:
+
+```sh
+sudo systemctl enable systemd-networkd-wait-online.service
+```
+
 Create a _systemd_ service:
 
 ```sh
 sudo tee /etc/systemd/system/mediamtx.service >/dev/null << EOF
 [Unit]
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
 [Service]
 ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx.yml
 [Install]
