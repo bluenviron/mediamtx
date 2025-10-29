@@ -12,7 +12,7 @@ require (
 	github.com/asticode/go-astits v1.14.0
 	github.com/bluenviron/gohlslib/v2 v2.2.3
 	github.com/bluenviron/gortmplib v0.1.1
-	github.com/bluenviron/gortsplib/v5 v5.1.1
+	github.com/bluenviron/gortsplib/v5 v5.1.2-0.20251026101219-59474a8fa3ab
 	github.com/bluenviron/mediacommon/v2 v2.5.1
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -33,6 +33,7 @@ require (
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/rtp v1.8.23
 	github.com/pion/sdp/v3 v3.0.16
+	github.com/pion/transport/v3 v3.0.8
 	github.com/pion/webrtc/v4 v4.1.6
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.43.0
@@ -80,7 +81,6 @@ require (
 	github.com/pion/sctp v1.8.40 // indirect
 	github.com/pion/srtp/v3 v3.0.8 // indirect
 	github.com/pion/stun/v3 v3.0.0 // indirect
-	github.com/pion/transport/v3 v3.0.8 // indirect
 	github.com/pion/turn/v4 v4.1.1 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

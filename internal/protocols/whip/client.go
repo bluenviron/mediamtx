@@ -26,11 +26,12 @@ const (
 
 // Client is a WHIP client.
 type Client struct {
-	URL            *url.URL
-	Publish        bool
-	OutgoingTracks []*webrtc.OutgoingTrack
-	HTTPClient     *http.Client
-	Log            logger.Writer
+	URL               *url.URL
+	Publish           bool
+	OutgoingTracks    []*webrtc.OutgoingTrack
+	HTTPClient        *http.Client
+	UDPReadBufferSize uint
+	Log               logger.Writer
 
 	pc               *webrtc.PeerConnection
 	patchIsSupported bool
@@ -44,6 +45,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	c.pc = &webrtc.PeerConnection{
+		UDPReadBufferSize:  c.UDPReadBufferSize,
 		LocalRandomUDP:     true,
 		ICEServers:         iceServers,
 		IPsFromInterfaces:  true,

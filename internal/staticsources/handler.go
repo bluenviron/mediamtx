@@ -142,8 +142,9 @@ func (s *Handler) Initialize() {
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||
 		strings.HasPrefix(s.Conf.Source, "wheps://"):
 		s.instance = &sswebrtc.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			UDPReadBufferSize: s.UDPReadBufferSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "udp+rtp://") ||

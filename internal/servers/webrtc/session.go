@@ -41,6 +41,7 @@ type sessionParent interface {
 }
 
 type session struct {
+	udpReadBufferSize     uint
 	parentCtx             context.Context
 	ipsFromInterfaces     bool
 	ipsFromInterfacesList []string
@@ -158,6 +159,7 @@ func (s *session) runPublish() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		UDPReadBufferSize:     s.udpReadBufferSize,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,
@@ -302,6 +304,7 @@ func (s *session) runRead() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		UDPReadBufferSize:     s.udpReadBufferSize,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,

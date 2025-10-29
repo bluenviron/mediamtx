@@ -150,23 +150,10 @@ func CreateConn(u *url.URL, udpReadBufferSize int) (net.Conn, error) {
 	}
 
 	if udpReadBufferSize != 0 {
-		err = pc.SetReadBuffer(udpReadBufferSize)
+		err = readbuffer.SetReadBuffer(pc, udpReadBufferSize)
 		if err != nil {
 			pc.Close()
 			return nil, err
-		}
-
-		var v int
-		v, err = readbuffer.ReadBuffer(pc)
-		if err != nil {
-			pc.Close()
-			return nil, err
-		}
-
-		if v != udpReadBufferSize {
-			pc.Close()
-			return nil, fmt.Errorf("unable to set read buffer size to %v, check that the operating system allows that",
-				udpReadBufferSize)
 		}
 	}
 
