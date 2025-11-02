@@ -124,8 +124,10 @@ components:
           type: string
         apiServerCert:
           type: string
-        apiAllowOrigin:
-          type: string
+        apiAllowOrigins:
+          type: array
+          items:
+            type: string
         apiTrustedProxies:
           type: array
           items:

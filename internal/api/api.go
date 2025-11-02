@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -76,6 +78,71 @@ func recordingsOfPath(
 	return ret
 }
 
+var errOriginNotAllowed = errors.New("origin not allowed")
+
+func isOriginAllowed(origin string, allowOrigins []string) (string, error) {
+	if len(allowOrigins) == 0 {
+		return "", errOriginNotAllowed
+	}
+
+	for _, o := range allowOrigins {
+		if o == "*" {
+			return o, nil
+		}
+	}
+
+	if origin == "" {
+		return "", errOriginNotAllowed
+	}
+
+	originURL, err := url.Parse(origin)
+	if err != nil || originURL.Scheme == "" {
+		return "", errOriginNotAllowed
+	}
+
+	if originURL.Port() == "" && originURL.Scheme != "" {
+		switch originURL.Scheme {
+		case "http":
+			originURL.Host = net.JoinHostPort(originURL.Host, "80")
+		case "https":
+			originURL.Host = net.JoinHostPort(originURL.Host, "443")
+		}
+	}
+
+	for _, o := range allowOrigins {
+		allowedURL, errAllowed := url.Parse(o)
+		if errAllowed != nil {
+			continue
+		}
+
+		if allowedURL.Port() == "" {
+			switch allowedURL.Scheme {
+			case "http":
+				allowedURL.Host = net.JoinHostPort(allowedURL.Host, "80")
+			case "https":
+				allowedURL.Host = net.JoinHostPort(allowedURL.Host, "443")
+			}
+		}
+
+		if allowedURL.Scheme == originURL.Scheme &&
+			allowedURL.Host == originURL.Host &&
+			allowedURL.Port() == originURL.Port() {
+			return origin, nil
+		}
+
+		if strings.Contains(allowedURL.Host, "*") {
+			pattern := strings.ReplaceAll(allowedURL.Host, "*.", "(.*\\.)?")
+			pattern = strings.ReplaceAll(pattern, "*", ".*")
+			matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
+			if errMatched == nil && matched {
+				return origin, nil
+			}
+		}
+	}
+
+	return "", errOriginNotAllowed
+}
+
 type apiAuthManager interface {
 	Authenticate(req *auth.Request) *auth.Error
 	RefreshJWTJWKS()
@@ -94,7 +161,7 @@ type API struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
-	AllowOrigin    string
+	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
@@ -235,7 +302,12 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 }
 
 func (a *API) middlewareOrigin(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", a.AllowOrigin)
+	origin, err := isOriginAllowed(ctx.Request.Header.Get("Origin"), a.AllowOrigins)
+	if err != nil {
+		return
+	}
+
+	ctx.Header("Access-Control-Allow-Origin", origin)
 	ctx.Header("Access-Control-Allow-Credentials", "true")
 
 	// preflight requests

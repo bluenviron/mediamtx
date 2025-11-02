@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -650,7 +651,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.APIEncryption,
 			ServerKey:      p.conf.APIServerKey,
 			ServerCert:     p.conf.APIServerCert,
-			AllowOrigin:    p.conf.APIAllowOrigin,
+			AllowOrigins:   p.conf.APIAllowOrigins,
 			TrustedProxies: p.conf.APITrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -911,7 +912,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.APIEncryption != p.conf.APIEncryption ||
 		newConf.APIServerKey != p.conf.APIServerKey ||
 		newConf.APIServerCert != p.conf.APIServerCert ||
-		newConf.APIAllowOrigin != p.conf.APIAllowOrigin ||
+		slices.Equal(newConf.APIAllowOrigins, p.conf.APIAllowOrigins) ||
 		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

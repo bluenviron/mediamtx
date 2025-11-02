@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -83,7 +84,7 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 func TestPreflightRequest(t *testing.T) {
 	api := API{
 		Address:      "localhost:9997",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
@@ -116,6 +117,98 @@ func TestPreflightRequest(t *testing.T) {
 	require.Equal(t, "OPTIONS, GET, POST, PATCH, DELETE", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Content-Type", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
+}
+
+func TestMiddlewareOrigin(t *testing.T) {
+	allowOrigins := []string{}
+	origin := ""
+	allowedOrigin, err := isOriginAllowed(origin, allowOrigins)
+	if err == nil {
+		t.Fatalf("expected error for empty origin, got nil")
+	}
+	if allowedOrigin != "" {
+		t.Fatalf("expected empty allowed origin, got %s", allowedOrigin)
+	}
+
+	allowOrigins = []string{"http://example.com"}
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err == nil {
+		t.Fatalf("expected error for empty origin with allowed origins, got nil")
+	}
+	if allowedOrigin != "" {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	allowOrigins = []string{"*"}
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for wildcard origin: %v", err)
+	}
+	if allowedOrigin != "*" {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	origin = "http://example.com"
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for matching wildcard: %v", err)
+	}
+	if allowedOrigin != "*" {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	allowOrigins = []string{"http://example.com", "https://example.org"}
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for matching origin: %v", err)
+	}
+	if allowedOrigin != origin {
+		t.Fatalf("expected empty allowed origin, got %s", allowedOrigin)
+	}
+
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for matching origin: %v", err)
+	}
+	if allowedOrigin != origin {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	origin = "https://example.org"
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for matching origin: %v", err)
+	}
+	if allowedOrigin != origin {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	allowedOrigin, err = isOriginAllowed("http://notallowed.com", allowOrigins)
+	if !errors.Is(err, errOriginNotAllowed) {
+		t.Fatalf("expected errOriginNotAllowed for disallowed origin, got %v", err)
+	}
+	if allowedOrigin != "" {
+		t.Fatalf("expected empty allowed origin, got %s", allowedOrigin)
+	}
+
+	allowOrigins = []string{"http://*.example.com"}
+	origin = "http://test.example.com"
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for wildcard subdomain: %v", err)
+	}
+	if allowedOrigin != origin {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
+
+	origin = "http://example.com"
+	allowedOrigin, err = isOriginAllowed(origin, allowOrigins)
+	if err != nil {
+		t.Fatalf("unexpected error for exact subdomain match: %v", err)
+	}
+	if allowedOrigin != origin {
+		t.Fatalf("unexpected allowed origin: %s", allowedOrigin)
+	}
 }
 
 func TestInfo(t *testing.T) {
