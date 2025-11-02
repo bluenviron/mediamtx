@@ -182,7 +182,8 @@ type Conf struct {
 	APIEncryption     bool       `json:"apiEncryption"`
 	APIServerKey      string     `json:"apiServerKey"`
 	APIServerCert     string     `json:"apiServerCert"`
-	APIAllowOrigin    string     `json:"apiAllowOrigin"`
+	APIAllowOrigin    *string    `json:"apiAllowOrigin,omitempty"` // deprecated
+	APIAllowOrigins   []string   `json:"apiAllowOrigins"`
 	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
 
 	// Metrics
@@ -340,7 +341,7 @@ func (conf *Conf) setDefaults() {
 	conf.APIAddress = ":9997"
 	conf.APIServerKey = "server.key"
 	conf.APIServerCert = "server.crt"
-	conf.APIAllowOrigin = "*"
+	conf.APIAllowOrigins = []string{"*"}
 
 	// Metrics
 	conf.MetricsAddress = ":9998"
@@ -605,6 +606,13 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		if conf.AuthJWTClaimKey == "" {
 			return fmt.Errorf("'authJWTClaimKey' is empty")
 		}
+	}
+
+	// Control API
+
+	if conf.APIAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'apiAllowOrigin' is deprecated and has been replaced with 'apiAllowOrigins'")
+		conf.APIAllowOrigins = []string{*conf.APIAllowOrigin}
 	}
 
 	// RTSP
