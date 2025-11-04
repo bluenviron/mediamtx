@@ -26,20 +26,22 @@ type Stream struct {
 	FillNTP            bool
 	Parent             logger.Writer
 
-	bytesReceived    *uint64
-	bytesSent        *uint64
-	medias           map[*description.Media]*streamMedia
-	mutex            sync.RWMutex
-	rtspStream       *gortsplib.ServerStream
-	rtspsStream      *gortsplib.ServerStream
-	readers          map[*Reader]struct{}
-	processingErrors *counterdumper.CounterDumper
+	bytesReceived     *uint64
+	bytesSent         *uint64
+	lastRTPTimestamp  *int64 // Unix timestamp in nanoseconds
+	medias            map[*description.Media]*streamMedia
+	mutex             sync.RWMutex
+	rtspStream        *gortsplib.ServerStream
+	rtspsStream       *gortsplib.ServerStream
+	readers           map[*Reader]struct{}
+	processingErrors  *counterdumper.CounterDumper
 }
 
 // Initialize initializes a Stream.
 func (s *Stream) Initialize() error {
 	s.bytesReceived = new(uint64)
 	s.bytesSent = new(uint64)
+	s.lastRTPTimestamp = new(int64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 
@@ -109,6 +111,11 @@ func (s *Stream) BytesSent() uint64 {
 	}
 
 	return bytesSent
+}
+
+// LastRTPTimestamp returns the timestamp of the last RTP packet received (Unix timestamp in nanoseconds).
+func (s *Stream) LastRTPTimestamp() int64 {
+	return atomic.LoadInt64(s.lastRTPTimestamp)
 }
 
 // RTSPStream returns the RTSP stream.

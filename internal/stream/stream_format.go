@@ -95,6 +95,11 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *un
 
 	atomic.AddUint64(s.bytesReceived, size)
 
+	// Update last RTP packet timestamp if we have RTP packets
+	if len(u.RTPPackets) > 0 && !u.NTP.IsZero() {
+		atomic.StoreInt64(s.lastRTPTimestamp, u.NTP.UnixNano())
+	}
+
 	if s.rtspStream != nil {
 		for _, pkt := range u.RTPPackets {
 			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, u.NTP) //nolint:errcheck

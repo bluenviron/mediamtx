@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"sync"
@@ -24,6 +25,11 @@ func emptyTimer() *time.Timer {
 	t := time.NewTimer(0)
 	<-t.C
 	return t
+}
+
+type bitrateDataPoint struct {
+	bytes     uint64
+	timestamp time.Time
 }
 
 type pathParent interface {
@@ -86,6 +92,8 @@ type path struct {
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
 	readyTime                      time.Time
+	bitrateHistory                 []bitrateDataPoint
+	bitrateMutex                   sync.Mutex
 	onUnDemandHook                 func(string)
 	onNotReadyHook                 func()
 	readers                        map[defs.Reader]struct{}
@@ -544,6 +552,54 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 }
 
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
+	var bytesReceived uint64
+	if pa.isReady() {
+		bytesReceived = pa.stream.BytesReceived()
+	}
+
+	// Calculate 4-second average bitrate in Kbps (rounded)
+	pa.bitrateMutex.Lock()
+	now := time.Now()
+	bitrateReceived := float64(0)
+
+	if pa.isReady() {
+		// Add current data point
+		pa.bitrateHistory = append(pa.bitrateHistory, bitrateDataPoint{
+			bytes:     bytesReceived,
+			timestamp: now,
+		})
+
+		// Remove data points older than 4 seconds
+		fourSecondsAgo := now.Add(-4 * time.Second)
+		validStart := 0
+		for i, point := range pa.bitrateHistory {
+			if point.timestamp.After(fourSecondsAgo) || point.timestamp.Equal(fourSecondsAgo) {
+				validStart = i
+				break
+			}
+		}
+		if validStart > 0 {
+			pa.bitrateHistory = pa.bitrateHistory[validStart:]
+		}
+
+		// Calculate average bitrate over the last 4 seconds
+		if len(pa.bitrateHistory) >= 2 {
+			oldest := pa.bitrateHistory[0]
+			newest := pa.bitrateHistory[len(pa.bitrateHistory)-1]
+			if newest.bytes >= oldest.bytes {
+				timeDelta := newest.timestamp.Sub(oldest.timestamp).Seconds()
+				if timeDelta > 0 {
+					bitsPerSecond := float64(newest.bytes-oldest.bytes) / timeDelta * 8
+					bitrateReceived = math.Round(bitsPerSecond / 1000) // Convert to Kbps and round
+				}
+			}
+		}
+	} else {
+		// Clear history when path is not ready
+		pa.bitrateHistory = nil
+	}
+	pa.bitrateMutex.Unlock()
+
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
 			Name:     pa.name,
@@ -569,12 +625,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
-			BytesReceived: func() uint64 {
-				if !pa.isReady() {
-					return 0
-				}
-				return pa.stream.BytesReceived()
-			}(),
+			BytesReceived: bytesReceived,
 			BytesSent: func() uint64 {
 				if !pa.isReady() {
 					return 0
@@ -587,6 +638,17 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 					ret = append(ret, r.APIReaderDescribe())
 				}
 				return ret
+			}(),
+			BitrateReceived:  bitrateReceived,
+			LastRTPTimestamp: func() *int64 {
+				if !pa.isReady() {
+					return nil
+				}
+				ts := pa.stream.LastRTPTimestamp()
+				if ts == 0 {
+					return nil
+				}
+				return &ts
 			}(),
 		},
 	}
