@@ -27,8 +27,9 @@ type parent interface {
 
 // Source is a WebRTC static source.
 type Source struct {
-	ReadTimeout conf.Duration
-	Parent      parent
+	ReadTimeout       conf.Duration
+	UDPReadBufferSize uint
+	Parent            parent
 }
 
 // Log implements logger.Writer.
@@ -58,7 +59,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
 		},
-		Log: s,
+		UDPReadBufferSize: s.UDPReadBufferSize,
+		Log:               s,
 	}
 	err = client.Initialize(params.Context)
 	if err != nil {

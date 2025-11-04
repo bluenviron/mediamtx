@@ -399,6 +399,7 @@ func (p *Core) createResources(initial bool) error {
 			readTimeout:       p.conf.ReadTimeout,
 			writeTimeout:      p.conf.WriteTimeout,
 			writeQueueSize:    p.conf.WriteQueueSize,
+			udpReadBufferSize: p.conf.UDPReadBufferSize,
 			rtpMaxPayloadSize: rtpMaxPayloadSize,
 			pathConfs:         p.conf.Paths,
 			externalCmdPool:   p.externalCmdPool,
@@ -415,10 +416,15 @@ func (p *Core) createResources(initial bool) error {
 		_, useUDP := p.conf.RTSPTransports[gortsplib.ProtocolUDP]
 		_, useMulticast := p.conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]
 
+		udpReadBufferSize := p.conf.UDPReadBufferSize
+		if p.conf.RTSPUDPReadBufferSize != nil {
+			udpReadBufferSize = *p.conf.RTSPUDPReadBufferSize
+		}
+
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
 			AuthMethods:         p.conf.RTSPAuthMethods,
-			UDPReadBufferSize:   p.conf.RTSPUDPReadBufferSize,
+			UDPReadBufferSize:   udpReadBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -456,10 +462,15 @@ func (p *Core) createResources(initial bool) error {
 		_, useUDP := p.conf.RTSPTransports[gortsplib.ProtocolUDP]
 		_, useMulticast := p.conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]
 
+		udpReadBufferSize := p.conf.UDPReadBufferSize
+		if p.conf.RTSPUDPReadBufferSize != nil {
+			udpReadBufferSize = *p.conf.RTSPUDPReadBufferSize
+		}
+
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
 			AuthMethods:         p.conf.RTSPAuthMethods,
-			UDPReadBufferSize:   p.conf.RTSPUDPReadBufferSize,
+			UDPReadBufferSize:   udpReadBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -585,6 +596,7 @@ func (p *Core) createResources(initial bool) error {
 			TrustedProxies:        p.conf.WebRTCTrustedProxies,
 			ReadTimeout:           p.conf.ReadTimeout,
 			WriteTimeout:          p.conf.WriteTimeout,
+			UDPReadBufferSize:     p.conf.UDPReadBufferSize,
 			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
 			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
@@ -749,6 +761,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
@@ -764,6 +777,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -787,6 +801,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -863,6 +878,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||

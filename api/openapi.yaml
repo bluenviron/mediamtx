@@ -77,6 +77,9 @@ components:
         udpMaxPayloadSize:
           type: integer
           format: int64
+        udpReadBufferSize:
+          type: integer
+          format: int64
         runOnConnect:
           type: string
         runOnConnectRestart:
@@ -225,9 +228,6 @@ components:
           type: array
           items:
             type: string
-        rtspUDPReadBufferSize:
-          type: integer
-          format: int64
 
         # RTMP server
         rtmp:
@@ -393,21 +393,10 @@ components:
           type: string
         rtspRangeStart:
           type: string
-        rtspUDPReadBufferSize:
-          type: integer
-          format: int64
-
-        # MPEG-TS source
-        mpegtsUDPReadBufferSize:
-          type: integer
-          format: int64
 
         # RTP source
         rtpSDP:
           type: string
-        rtpUDPReadBufferSize:
-          type: integer
-          format: int64
 
         # Redirect source
         sourceRedirect:

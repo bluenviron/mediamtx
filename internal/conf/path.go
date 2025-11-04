@@ -153,14 +153,14 @@ type Path struct {
 	SourceAnyPortEnable   *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
 	RTSPRangeType         RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart        string         `json:"rtspRangeStart"`
-	RTSPUDPReadBufferSize uint           `json:"rtspUDPReadBufferSize"`
+	RTSPUDPReadBufferSize *uint          `json:"rtspUDPReadBufferSize,omitempty"` // deprecated
 
 	// MPEG-TS source
-	MPEGTSUDPReadBufferSize uint `json:"mpegtsUDPReadBufferSize"`
+	MPEGTSUDPReadBufferSize *uint `json:"mpegtsUDPReadBufferSize,omitempty"` // deprecated
 
 	// RTP source
 	RTPSDP               string `json:"rtpSDP"`
-	RTPUDPReadBufferSize uint   `json:"rtpUDPReadBufferSize"`
+	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty"` // deprecated
 
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`

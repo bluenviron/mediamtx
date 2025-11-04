@@ -71,10 +71,11 @@ type parent interface {
 
 // Source is a RTSP static source.
 type Source struct {
-	ReadTimeout    conf.Duration
-	WriteTimeout   conf.Duration
-	WriteQueueSize int
-	Parent         parent
+	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
+	WriteQueueSize    int
+	UDPReadBufferSize uint
+	Parent            parent
 }
 
 // Log implements logger.Writer.
@@ -145,6 +146,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
+	udpReadBufferSize := s.UDPReadBufferSize
+	if params.Conf.RTSPUDPReadBufferSize != nil {
+		udpReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
+	}
+
 	c := &gortsplib.Client{
 		Scheme:            scheme,
 		Host:              u.Host,
@@ -154,7 +160,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		WriteQueueSize:    s.WriteQueueSize,
-		UDPReadBufferSize: int(params.Conf.RTSPUDPReadBufferSize),
+		UDPReadBufferSize: int(udpReadBufferSize),
 		AnyPortEnable:     params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
