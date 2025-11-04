@@ -222,29 +222,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					if i.LastRTPTimestamp != nil {
 						out += metric("paths_last_rtp_timestamp", ta, *i.LastRTPTimestamp)
 					}
-					out += metric("paths_key_frames_count", ta, int64(i.KeyFramesCount))
-					if i.LastKeyFrameTimestamp != nil {
-						out += metric("paths_last_key_frame_timestamp", ta, *i.LastKeyFrameTimestamp)
-					}
-					for codec, count := range i.KeyFramesCountPerCodec {
-						taCodec := tags(map[string]string{
-							"name":  i.Name,
-							"state": state,
-							"codec": codec,
-						})
-						out += metric("paths_key_frames_count", taCodec, int64(count))
-						if ts, ok := i.LastKeyFrameTimestampPerCodec[codec]; ok && ts != nil {
-							out += metric("paths_last_key_frame_timestamp", taCodec, *ts)
-						}
-						if gopSize, ok := i.LastGOPSizePerCodec[codec]; ok && gopSize != nil {
-							// Convert nanoseconds to milliseconds
-							gopSizeMs := float64(*gopSize) / 1e6
-							out += metricFloat("paths_last_gop_size_ms", taCodec, gopSizeMs)
-						}
-						if fps, ok := i.FPSPerCodec[codec]; ok {
-							out += metricFloat("paths_fps", taCodec, fps)
-						}
-					}
 					out += metric("paths_bytes_sent", ta, int64(i.BytesSent))
 					out += metric("paths_readers", ta, int64(len(i.Readers)))
 				}
@@ -254,10 +231,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out += metric("paths_bytes_received", "", 0)
 			out += metricFloat("paths_bitrate_received_kbps", "", 0)
 			out += metric("paths_last_rtp_timestamp", "", 0)
-			out += metric("paths_key_frames_count", "", 0)
-			out += metric("paths_last_key_frame_timestamp", "", 0)
-			out += metricFloat("paths_last_gop_size_ms", "", 0)
-			out += metricFloat("paths_fps", "", 0)
 			out += metric("paths_bytes_sent", "", 0)
 			out += metric("paths_readers", "", 0)
 		}

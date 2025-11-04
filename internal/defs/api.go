@@ -87,13 +87,6 @@ type APIPath struct {
 	Readers         []APIPathSourceOrReader `json:"readers"`
 	BitrateReceived      float64                 `json:"bitrateReceived"`
 	LastRTPTimestamp     *int64                  `json:"lastRTPTimestamp"`
-	KeyFramesCount       uint64                  `json:"keyFramesCount"`
-	KeyFramesCountPerCodec map[string]uint64      `json:"keyFramesCountPerCodec"`
-	LastKeyFrameTimestamp *int64                  `json:"lastKeyFrameTimestamp"`
-	LastKeyFrameTimestampPerCodec map[string]*int64 `json:"lastKeyFrameTimestampPerCodec"`
-	LastGOPSizePerCodec  map[string]*int64        `json:"lastGOPSizePerCodec"`
-	FPSPerCodec          map[string]float64       `json:"fpsPerCodec"`
-	VideoCodecs          []string                `json:"videoCodecs"`
 }
 
 // APIPathList is a list of paths.
