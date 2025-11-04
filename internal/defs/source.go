@@ -52,19 +52,6 @@ func MediasToCodecs(medias []*description.Media) []string {
 	return FormatsToCodecs(formats)
 }
 
-// MediasToVideoCodecs returns the name of video codecs from given medias.
-func MediasToVideoCodecs(medias []*description.Media) []string {
-	var codecs []string
-	for _, media := range medias {
-		if media.Type == description.MediaTypeVideo {
-			for _, forma := range media.Formats {
-				codecs = append(codecs, forma.Codec())
-			}
-		}
-	}
-	return codecs
-}
-
 // MediasInfo returns a description of medias.
 func MediasInfo(medias []*description.Media) string {
 	var formats []format.Format
