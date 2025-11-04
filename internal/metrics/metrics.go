@@ -218,6 +218,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					})
 					out += metric("paths", ta, 1)
 					out += metric("paths_bytes_received", ta, int64(i.BytesReceived))
+					out += metricFloat("paths_bitrate_received_kbps", ta, i.BitrateReceived)
+					if i.LastRTPTimestamp != nil {
+						out += metric("paths_last_rtp_timestamp", ta, *i.LastRTPTimestamp)
+					}
 					out += metric("paths_bytes_sent", ta, int64(i.BytesSent))
 					out += metric("paths_readers", ta, int64(len(i.Readers)))
 				}
@@ -225,6 +229,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		} else if pathFilter == "" {
 			out += metric("paths", "", 0)
 			out += metric("paths_bytes_received", "", 0)
+			out += metricFloat("paths_bitrate_received_kbps", "", 0)
+			out += metric("paths_last_rtp_timestamp", "", 0)
 			out += metric("paths_bytes_sent", "", 0)
 			out += metric("paths_readers", "", 0)
 		}

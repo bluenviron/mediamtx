@@ -81,10 +81,12 @@ type APIPath struct {
 	Source        *APIPathSourceOrReader  `json:"source"`
 	Ready         bool                    `json:"ready"`
 	ReadyTime     *time.Time              `json:"readyTime"`
-	Tracks        []string                `json:"tracks"`
-	BytesReceived uint64                  `json:"bytesReceived"`
-	BytesSent     uint64                  `json:"bytesSent"`
-	Readers       []APIPathSourceOrReader `json:"readers"`
+	Tracks          []string                `json:"tracks"`
+	BytesReceived   uint64                  `json:"bytesReceived"`
+	BytesSent       uint64                  `json:"bytesSent"`
+	Readers         []APIPathSourceOrReader `json:"readers"`
+	BitrateReceived      float64                 `json:"bitrateReceived"`
+	LastRTPTimestamp     *int64                  `json:"lastRTPTimestamp"`
 }
 
 // APIPathList is a list of paths.
