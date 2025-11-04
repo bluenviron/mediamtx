@@ -557,10 +557,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 		bytesReceived = pa.stream.BytesReceived()
 	}
 
-	// Calculate 4-second average bitrate in Kbps (rounded)
+	// Calculate bitrate using configured window (default 4 seconds) in Kbps (rounded)
 	pa.bitrateMutex.Lock()
 	now := time.Now()
 	bitrateReceived := float64(0)
+	windowDuration := time.Duration(pa.conf.CalcBitrateWindow)
 
 	if pa.isReady() {
 		// Add current data point
@@ -569,11 +570,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 			timestamp: now,
 		})
 
-		// Remove data points older than 4 seconds
-		fourSecondsAgo := now.Add(-4 * time.Second)
+		// Remove data points older than the configured window
+		windowStart := now.Add(-windowDuration)
 		validStart := 0
 		for i, point := range pa.bitrateHistory {
-			if point.timestamp.After(fourSecondsAgo) || point.timestamp.Equal(fourSecondsAgo) {
+			if point.timestamp.After(windowStart) || point.timestamp.Equal(windowStart) {
 				validStart = i
 				break
 			}
@@ -582,7 +583,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 			pa.bitrateHistory = pa.bitrateHistory[validStart:]
 		}
 
-		// Calculate average bitrate over the last 4 seconds
+		// Calculate average bitrate over the configured window
 		if len(pa.bitrateHistory) >= 2 {
 			oldest := pa.bitrateHistory[0]
 			newest := pa.bitrateHistory[len(pa.bitrateHistory)-1]

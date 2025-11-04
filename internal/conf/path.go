@@ -121,6 +121,7 @@ type Path struct {
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
 	Fallback                   string   `json:"fallback"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
+	CalcBitrateWindow          Duration `json:"calcBitrateWindow"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -236,6 +237,7 @@ func (pconf *Path) setDefaults() {
 	pconf.Source = "publisher"
 	pconf.SourceOnDemandStartTimeout = 10 * Duration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
+	pconf.CalcBitrateWindow = 4 * Duration(time.Second)
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
