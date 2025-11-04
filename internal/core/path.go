@@ -650,66 +650,6 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return &ts
 			}(),
-			KeyFramesCount: func() uint64 {
-				if !pa.isReady() {
-					return 0
-				}
-				return pa.stream.KeyFramesCount("")
-			}(),
-			KeyFramesCountPerCodec: func() map[string]uint64 {
-				if !pa.isReady() {
-					return map[string]uint64{}
-				}
-				return pa.stream.KeyFramesCountPerCodec()
-			}(),
-			LastKeyFrameTimestamp: func() *int64 {
-				if !pa.isReady() {
-					return nil
-				}
-				ts := pa.stream.LastKeyFrameTimestamp("")
-				if ts == 0 {
-					return nil
-				}
-				return &ts
-			}(),
-			LastKeyFrameTimestampPerCodec: func() map[string]*int64 {
-				if !pa.isReady() {
-					return map[string]*int64{}
-				}
-				result := make(map[string]*int64)
-				for codec, ts := range pa.stream.LastKeyFrameTimestampPerCodec() {
-					if ts > 0 {
-						tsVal := ts
-						result[codec] = &tsVal
-					}
-				}
-				return result
-			}(),
-			LastGOPSizePerCodec: func() map[string]*int64 {
-				if !pa.isReady() {
-					return map[string]*int64{}
-				}
-				result := make(map[string]*int64)
-				for codec, gopSize := range pa.stream.LastGOPSizePerCodec() {
-					if gopSize > 0 {
-						gopSizeVal := gopSize
-						result[codec] = &gopSizeVal
-					}
-				}
-				return result
-			}(),
-			FPSPerCodec: func() map[string]float64 {
-				if !pa.isReady() {
-					return map[string]float64{}
-				}
-				return pa.stream.FPSPerCodec()
-			}(),
-			VideoCodecs: func() []string {
-				if !pa.isReady() {
-					return []string{}
-				}
-				return defs.MediasToVideoCodecs(pa.stream.Desc.Medias)
-			}(),
 		},
 	}
 }
