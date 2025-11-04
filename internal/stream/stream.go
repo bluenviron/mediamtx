@@ -29,6 +29,13 @@ type Stream struct {
 	bytesReceived     *uint64
 	bytesSent         *uint64
 	lastRTPTimestamp  *int64 // Unix timestamp in nanoseconds
+	keyFramesCount    map[string]*uint64 // per codec key frame count
+	lastKeyFrameTS    map[string]*int64  // per codec last key frame timestamp (Unix nanoseconds)
+	prevKeyFrameTS    map[string]*int64  // per codec previous key frame timestamp (Unix nanoseconds)
+	lastGOPSize       map[string]*int64   // per codec last GOP size in nanoseconds
+	frameTimestamps   map[string][]int64  // per codec frame timestamps for FPS calculation (sliding window)
+	fpsMutex          sync.RWMutex        // mutex for frame timestamps
+	keyFramesMutex    sync.RWMutex
 	medias            map[*description.Media]*streamMedia
 	mutex             sync.RWMutex
 	rtspStream        *gortsplib.ServerStream
@@ -42,6 +49,11 @@ func (s *Stream) Initialize() error {
 	s.bytesReceived = new(uint64)
 	s.bytesSent = new(uint64)
 	s.lastRTPTimestamp = new(int64)
+	s.keyFramesCount = make(map[string]*uint64)
+	s.lastKeyFrameTS = make(map[string]*int64)
+	s.prevKeyFrameTS = make(map[string]*int64)
+	s.lastGOPSize = make(map[string]*int64)
+	s.frameTimestamps = make(map[string][]int64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 
@@ -116,6 +128,107 @@ func (s *Stream) BytesSent() uint64 {
 // LastRTPTimestamp returns the timestamp of the last RTP packet received (Unix timestamp in nanoseconds).
 func (s *Stream) LastRTPTimestamp() int64 {
 	return atomic.LoadInt64(s.lastRTPTimestamp)
+}
+
+// KeyFramesCount returns the count of key frames received for a specific codec.
+// If codec is empty, returns total count across all codecs.
+func (s *Stream) KeyFramesCount(codec string) uint64 {
+	s.keyFramesMutex.RLock()
+	defer s.keyFramesMutex.RUnlock()
+	
+	if codec == "" {
+		total := uint64(0)
+		for _, count := range s.keyFramesCount {
+			total += atomic.LoadUint64(count)
+		}
+		return total
+	}
+	
+	if count, ok := s.keyFramesCount[codec]; ok {
+		return atomic.LoadUint64(count)
+	}
+	return 0
+}
+
+// KeyFramesCountPerCodec returns a map of codec to key frame count.
+func (s *Stream) KeyFramesCountPerCodec() map[string]uint64 {
+	s.keyFramesMutex.RLock()
+	defer s.keyFramesMutex.RUnlock()
+	
+	result := make(map[string]uint64)
+	for codec, count := range s.keyFramesCount {
+		result[codec] = atomic.LoadUint64(count)
+	}
+	return result
+}
+
+// LastKeyFrameTimestamp returns the timestamp of the last key frame received for a specific codec.
+// If codec is empty, returns the most recent timestamp across all codecs.
+func (s *Stream) LastKeyFrameTimestamp(codec string) int64 {
+	s.keyFramesMutex.RLock()
+	defer s.keyFramesMutex.RUnlock()
+	
+	if codec == "" {
+		var maxTS int64
+		for _, ts := range s.lastKeyFrameTS {
+			if tsVal := atomic.LoadInt64(ts); tsVal > maxTS {
+				maxTS = tsVal
+			}
+		}
+		return maxTS
+	}
+	
+	if ts, ok := s.lastKeyFrameTS[codec]; ok {
+		return atomic.LoadInt64(ts)
+	}
+	return 0
+}
+
+// LastKeyFrameTimestampPerCodec returns a map of codec to last key frame timestamp.
+func (s *Stream) LastKeyFrameTimestampPerCodec() map[string]int64 {
+	s.keyFramesMutex.RLock()
+	defer s.keyFramesMutex.RUnlock()
+	
+	result := make(map[string]int64)
+	for codec, ts := range s.lastKeyFrameTS {
+		result[codec] = atomic.LoadInt64(ts)
+	}
+	return result
+}
+
+// LastGOPSizePerCodec returns a map of codec to last GOP size in nanoseconds.
+func (s *Stream) LastGOPSizePerCodec() map[string]int64 {
+	s.keyFramesMutex.RLock()
+	defer s.keyFramesMutex.RUnlock()
+	
+	result := make(map[string]int64)
+	for codec, gopSize := range s.lastGOPSize {
+		result[codec] = atomic.LoadInt64(gopSize)
+	}
+	return result
+}
+
+// FPSPerCodec returns a map of codec to FPS (frames per second).
+// Calculated based on frames received in the last second.
+func (s *Stream) FPSPerCodec() map[string]float64 {
+	s.fpsMutex.RLock()
+	defer s.fpsMutex.RUnlock()
+	
+	result := make(map[string]float64)
+	now := time.Now().UnixNano()
+	oneSecondAgo := now - int64(time.Second)
+	
+	for codec, timestamps := range s.frameTimestamps {
+		// Count frames in the last second
+		count := 0
+		for _, ts := range timestamps {
+			if ts >= oneSecondAgo {
+				count++
+			}
+		}
+		result[codec] = float64(count)
+	}
+	return result
 }
 
 // RTSPStream returns the RTSP stream.
