@@ -246,8 +246,8 @@ type IncomingTrack struct {
 	rtpPacketsReceived *uint64
 	rtpPacketsLost     *uint64
 
-	packetsLost  *counterdumper.CounterDumper
-	rtcpReceiver *rtpreceiver.Receiver
+	packetsLost *counterdumper.CounterDumper
+	rtpReceiver *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
@@ -284,7 +284,7 @@ func (t *IncomingTrack) start() {
 	}
 	t.packetsLost.Start()
 
-	t.rtcpReceiver = &rtpreceiver.Receiver{
+	t.rtpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
 		Period:               1 * time.Second,
@@ -292,7 +292,7 @@ func (t *IncomingTrack) start() {
 			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
 		},
 	}
-	err := t.rtcpReceiver.Initialize()
+	err := t.rtpReceiver.Initialize()
 	if err != nil {
 		panic(err)
 	}
@@ -314,7 +314,7 @@ func (t *IncomingTrack) start() {
 
 			for _, pkt := range pkts {
 				if sr, ok := pkt.(*rtcp.SenderReport); ok {
-					t.rtcpReceiver.ProcessSenderReport(sr, time.Now())
+					t.rtpReceiver.ProcessSenderReport(sr, time.Now())
 				}
 			}
 		}
@@ -347,7 +347,7 @@ func (t *IncomingTrack) start() {
 				return
 			}
 
-			packets, lost, err2 := t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
+			packets, lost, err2 := t.rtpReceiver.ProcessPacket(pkt, time.Now(), true)
 			if err2 != nil {
 				t.log.Log(logger.Warn, err2.Error())
 				continue
@@ -374,14 +374,14 @@ func (t *IncomingTrack) start() {
 
 // PacketNTP returns the packet NTP.
 func (t *IncomingTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
-	return t.rtcpReceiver.PacketNTP(pkt.Timestamp)
+	return t.rtpReceiver.PacketNTP(pkt.Timestamp)
 }
 
 func (t *IncomingTrack) close() {
 	if t.packetsLost != nil {
 		t.packetsLost.Stop()
 	}
-	if t.rtcpReceiver != nil {
-		t.rtcpReceiver.Close()
+	if t.rtpReceiver != nil {
+		t.rtpReceiver.Close()
 	}
 }
