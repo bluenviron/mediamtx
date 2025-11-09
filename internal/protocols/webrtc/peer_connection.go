@@ -813,7 +813,7 @@ func (co *PeerConnection) Stats() *Stats {
 
 	if atomic.LoadInt64(co.startedReading) == 1 {
 		for _, tr := range co.incomingTracks {
-			if recvStats := tr.rtcpReceiver.Stats(); recvStats != nil {
+			if recvStats := tr.rtpReceiver.Stats(); recvStats != nil {
 				v += recvStats.Jitter
 				n++
 			}
