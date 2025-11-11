@@ -288,7 +288,6 @@ func TestServerRead(t *testing.T) {
 						SequenceNumber: p.SequenceNumber,
 						Timestamp:      p.Timestamp,
 						SSRC:           p.SSRC,
-						CSRC:           []uint32{},
 					},
 					Payload: []byte{
 						0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
