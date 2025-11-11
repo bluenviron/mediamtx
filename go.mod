@@ -33,7 +33,7 @@ require (
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/rtp v1.8.23
 	github.com/pion/sdp/v3 v3.0.16
-	github.com/pion/transport/v3 v3.0.8
+	github.com/pion/transport/v3 v3.1.0
 	github.com/pion/webrtc/v4 v4.1.6
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.43.0
