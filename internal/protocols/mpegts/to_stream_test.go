@@ -168,7 +168,7 @@ func TestToStreamNoSupportedCodecs(t *testing.T) {
 	err = r.Initialize()
 	require.NoError(t, err)
 
-	l := test.Logger(func(logger.Level, string, ...interface{}) {
+	l := test.Logger(func(logger.Level, string, ...any) {
 		t.Error("should not happen")
 	})
 	_, err = ToStream(r, nil, l)
@@ -202,7 +202,7 @@ func TestToStreamSkipUnsupportedTracks(t *testing.T) {
 
 	n := 0
 
-	l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+	l := test.Logger(func(l logger.Level, format string, args ...any) {
 		require.Equal(t, logger.Warn, l)
 		if n == 0 {
 			require.Equal(t, "skipping track 1 (unsupported codec)", fmt.Sprintf(format, args...))

@@ -73,7 +73,7 @@ func (mi *muxerInstance) initialize() error {
 }
 
 // Log implements logger.Writer.
-func (mi *muxerInstance) Log(level logger.Level, format string, args ...interface{}) {
+func (mi *muxerInstance) Log(level logger.Level, format string, args ...any) {
 	mi.parent.Log(level, format, args...)
 }
 

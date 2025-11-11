@@ -8,10 +8,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func convertKeys(i interface{}) (interface{}, error) {
+func convertKeys(i any) (any, error) {
 	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
+	case map[any]any:
+		m2 := map[string]any{}
 		for k, v := range x {
 			ks, ok := k.(string)
 			if !ok {
@@ -26,8 +26,8 @@ func convertKeys(i interface{}) (interface{}, error) {
 		}
 		return m2, nil
 
-	case []interface{}:
-		a2 := make([]interface{}, len(x))
+	case []any:
+		a2 := make([]any, len(x))
 		for i, v := range x {
 			var err error
 			a2[i], err = convertKeys(v)
@@ -42,12 +42,12 @@ func convertKeys(i interface{}) (interface{}, error) {
 }
 
 // Unmarshal loads the configuration from YAML.
-func Unmarshal(buf []byte, dest interface{}) error {
+func Unmarshal(buf []byte, dest any) error {
 	// load YAML into a generic map
 	// from documentation:
 	// "UnmarshalStrict is like Unmarshal except that any fields that are found in the data
 	// that do not have corresponding struct members, or mapping keys that are duplicates, will result in an error."
-	var temp interface{}
+	var temp any
 	err := yaml.UnmarshalStrict(buf, &temp)
 	if err != nil {
 		return err

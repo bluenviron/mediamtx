@@ -482,7 +482,7 @@ webrtc_sessions_rtcp_packets_sent 0
 	})
 
 	t.Run("servers disabled", func(t *testing.T) {
-		httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]interface{}{
+		httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]any{
 			"rtsp":   false,
 			"rtmp":   false,
 			"srt":    false,

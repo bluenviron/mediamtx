@@ -88,9 +88,9 @@ func (s *session) initialize() {
 }
 
 // Log implements logger.Writer.
-func (s *session) Log(level logger.Level, format string, args ...interface{}) {
+func (s *session) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(s.uuid[:4])
-	s.parent.Log(level, "[session %v] "+format, append([]interface{}{id}, args...)...)
+	s.parent.Log(level, "[session %v] "+format, append([]any{id}, args...)...)
 }
 
 func (s *session) Close() {

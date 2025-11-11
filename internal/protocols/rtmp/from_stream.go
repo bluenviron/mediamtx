@@ -51,7 +51,7 @@ func FromStream(
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.AV1:
-				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCAV1))) {
+				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCAV1))) {
 					r.OnData(
 						media,
 						forma,
@@ -71,7 +71,7 @@ func FromStream(
 				}
 
 			case *format.VP9:
-				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCVP9))) {
+				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCVP9))) {
 					r.OnData(
 						media,
 						forma,
@@ -91,7 +91,7 @@ func FromStream(
 				}
 
 			case *format.H265:
-				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCHEVC))) {
+				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCHEVC))) {
 					var videoDTSExtractor *h265.DTSExtractor
 
 					r.OnData(
@@ -179,7 +179,7 @@ func FromStream(
 				tracks = append(tracks, forma)
 
 			case *format.Opus:
-				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCOpus))) {
+				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCOpus))) {
 					r.OnData(
 						media,
 						forma,
@@ -303,7 +303,7 @@ func FromStream(
 				tracks = append(tracks, forma)
 
 			case *format.AC3:
-				if slices.Contains(conn.FourCcList, interface{}(fourCCToString(message.FourCCAC3))) {
+				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCAC3))) {
 					r.OnData(
 						media,
 						forma,

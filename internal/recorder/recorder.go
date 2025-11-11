@@ -71,7 +71,7 @@ func (r *Recorder) Initialize() {
 }
 
 // Log implements logger.Writer.
-func (r *Recorder) Log(level logger.Level, format string, args ...interface{}) {
+func (r *Recorder) Log(level logger.Level, format string, args ...any) {
 	r.Parent.Log(level, "[recorder] "+format, args...)
 }
 

@@ -100,8 +100,8 @@ func (c *conn) initialize() {
 }
 
 // Log implements logger.Writer.
-func (c *conn) Log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.rconn.NetConn().RemoteAddr()}, args...)...)
+func (c *conn) Log(level logger.Level, format string, args ...any) {
+	c.parent.Log(level, "[conn %v] "+format, append([]any{c.rconn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.

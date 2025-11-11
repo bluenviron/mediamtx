@@ -414,7 +414,7 @@ func TestAuthError(t *testing.T) {
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 512,
 		PathManager:    pathManager,
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if atomic.AddInt64(n, 1) == 3 {
 					require.Regexp(t, "authentication failed: auth error$", fmt.Sprintf(s, i...))

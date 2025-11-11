@@ -431,7 +431,7 @@ func segmentFMP4MuxParts(
 	var segmentDuration time.Duration
 	breakAtNextMdat := false
 
-	_, err := amp4.ReadBoxStructure(r, func(h *amp4.ReadHandle) (interface{}, error) {
+	_, err := amp4.ReadBoxStructure(r, func(h *amp4.ReadHandle) (any, error) {
 		switch h.BoxInfo.Type.String() {
 		case "moof":
 			moofOffset = h.BoxInfo.Offset

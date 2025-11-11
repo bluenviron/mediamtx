@@ -30,7 +30,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
-func interfaceIsEmpty(i interface{}) bool {
+func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
 }
 
@@ -220,7 +220,7 @@ func (a *API) Close() {
 }
 
 // Log implements logger.Writer.
-func (a *API) Log(level logger.Level, format string, args ...interface{}) {
+func (a *API) Log(level logger.Level, format string, args ...any) {
 	a.Parent.Log(level, "[API] "+format, args...)
 }
 

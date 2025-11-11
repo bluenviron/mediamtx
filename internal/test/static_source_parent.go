@@ -15,7 +15,7 @@ type StaticSourceParent struct {
 }
 
 // Log implements logger.Writer.
-func (*StaticSourceParent) Log(logger.Level, string, ...interface{}) {}
+func (*StaticSourceParent) Log(logger.Level, string, ...any) {}
 
 // Initialize initializes StaticSourceParent.
 func (p *StaticSourceParent) Initialize() {

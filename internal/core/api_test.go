@@ -34,7 +34,7 @@ func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
 }
 
-func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in interface{}, out interface{}) {
+func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any, out any) {
 	buf := func() io.Reader {
 		if in == nil {
 			return nil
@@ -66,10 +66,10 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in int
 }
 
 func checkError(t *testing.T, msg string, body io.Reader) {
-	var resErr map[string]interface{}
+	var resErr map[string]any
 	err := json.NewDecoder(body).Decode(&resErr)
 	require.NoError(t, err)
-	require.Equal(t, map[string]interface{}{"error": msg}, resErr)
+	require.Equal(t, map[string]any{"error": msg}, resErr)
 }
 
 func TestAPIPathsList(t *testing.T) {
@@ -462,7 +462,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 
-					for i := 0; i < 3; i++ {
+					for i := range 3 {
 						/*source.WritePacketRTP(medi, &rtp.Packet{
 							Header: rtp.Header{
 								Version:        2,
@@ -604,40 +604,40 @@ func TestAPIProtocolListGet(t *testing.T) {
 				pa = "srtconns"
 			}
 
-			var out1 interface{}
+			var out1 any
 			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out1)
 
 			switch ca {
 			case "rtsp conns":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesReceived": out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesReceived"],
-							"bytesSent":     out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
-							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
-							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
+					"items": []any{
+						map[string]any{
+							"bytesReceived": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
+							"bytesSent":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
+							"remoteAddr":    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
+							"session":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["session"],
 							"tunnel":        "none",
 						},
 					},
 				}, out1)
 
 			case "rtsp sessions":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
+					"items": []any{
+						map[string]any{
 							"bytesReceived":       float64(0),
-							"bytesSent":           out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":             out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":                  out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
+							"bytesSent":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":                  out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
 							"path":                "mypath",
 							"query":               "key=val",
-							"remoteAddr":          out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"remoteAddr":          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":               "publish",
 							"transport":           "UDP",
 							"profile":             "AVP",
@@ -654,35 +654,35 @@ func TestAPIProtocolListGet(t *testing.T) {
 				}, out1)
 
 			case "rtsps conns":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesReceived": out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesReceived"],
-							"bytesSent":     out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
-							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
-							"session":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["session"],
+					"items": []any{
+						map[string]any{
+							"bytesReceived": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
+							"bytesSent":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
+							"remoteAddr":    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
+							"session":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["session"],
 							"tunnel":        "none",
 						},
 					},
 				}, out1)
 
 			case "rtsps sessions":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
+					"items": []any{
+						map[string]any{
 							"bytesReceived":       float64(0),
-							"bytesSent":           out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":             out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":                  out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
+							"bytesSent":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":                  out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
 							"path":                "mypath",
 							"query":               "key=val",
-							"remoteAddr":          out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"remoteAddr":          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":               "publish",
 							"transport":           "UDP",
 							"profile":             "SAVP",
@@ -699,71 +699,71 @@ func TestAPIProtocolListGet(t *testing.T) {
 				}, out1)
 
 			case "rtmp":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesReceived": out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesReceived"],
-							"bytesSent":     out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
+					"items": []any{
+						map[string]any{
+							"bytesReceived": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
+							"bytesSent":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
 							"path":          "mypath",
 							"query":         "key=val",
-							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"remoteAddr":    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":         "publish",
 						},
 					},
 				}, out1)
 
 			case "rtmps":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"pageCount": float64(1),
 					"itemCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesReceived": out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesReceived"],
-							"bytesSent":     out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
+					"items": []any{
+						map[string]any{
+							"bytesReceived": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
+							"bytesSent":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
 							"path":          "mypath",
 							"query":         "key=val",
-							"remoteAddr":    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"remoteAddr":    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":         "publish",
 						},
 					},
 				}, out1)
 
 			case "hls":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"itemCount": float64(1),
 					"pageCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesSent":   out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":     out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"lastRequest": out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["lastRequest"],
+					"items": []any{
+						map[string]any{
+							"bytesSent":   out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"lastRequest": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["lastRequest"],
 							"path":        "mypath",
 						},
 					},
 				}, out1)
 
 			case "webrtc":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"itemCount": float64(1),
 					"pageCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
-							"bytesReceived":             out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesReceived"],
-							"bytesSent":                 out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["bytesSent"],
-							"created":                   out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":                        out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
-							"localCandidate":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["localCandidate"],
+					"items": []any{
+						map[string]any{
+							"bytesReceived":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
+							"bytesSent":                 out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
+							"created":                   out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":                        out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
+							"localCandidate":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["localCandidate"],
 							"path":                      "mypath",
 							"peerConnectionEstablished": true,
 							"query":                     "key=val",
-							"remoteAddr":                out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
-							"remoteCandidate":           out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteCandidate"],
+							"remoteAddr":                out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
+							"remoteCandidate":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteCandidate"],
 							"state":                     "read",
 							"rtcpPacketsReceived":       float64(0),
 							"rtcpPacketsSent":           float64(2),
@@ -776,11 +776,11 @@ func TestAPIProtocolListGet(t *testing.T) {
 				}, out1)
 
 			case "srt":
-				require.Equal(t, map[string]interface{}{
+				require.Equal(t, map[string]any{
 					"itemCount": float64(1),
 					"pageCount": float64(1),
-					"items": []interface{}{
-						map[string]interface{}{
+					"items": []any{
+						map[string]any{
 							"byteMSS":                       float64(1500),
 							"bytesAvailReceiveBuf":          float64(0),
 							"bytesAvailSendBuf":             float64(0),
@@ -797,13 +797,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"bytesSendDrop":                 float64(0),
 							"bytesSent":                     float64(0),
 							"bytesSentUnique":               float64(0),
-							"created":                       out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["created"],
-							"id":                            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"],
+							"created":                       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"id":                            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
 							"mbpsLinkCapacity":              float64(0),
 							"mbpsMaxBW":                     float64(-1),
 							"mbpsReceiveRate":               float64(0),
 							"mbpsSendRate":                  float64(0),
-							"msRTT":                         out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["msRTT"],
+							"msRTT":                         out1.(map[string]any)["items"].([]any)[0].(map[string]any)["msRTT"],
 							"msReceiveBuf":                  float64(0),
 							"msReceiveTsbPdDelay":           float64(120),
 							"msSendBuf":                     float64(0),
@@ -812,7 +812,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"packetsFlowWindow":             float64(25600),
 							"packetsReceiveBuf":             float64(0),
 							"packetsReceived":               float64(1),
-							"packetsReceivedACK":            out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["packetsReceivedACK"],
+							"packetsReceivedACK":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsReceivedACK"],
 							"packetsReceivedAvgBelatedTime": float64(0),
 							"packetsReceivedBelated":        float64(0),
 							"packetsReceivedDrop":           float64(0),
@@ -830,13 +830,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"packetsSendLoss":               float64(0),
 							"packetsSendLossRate":           float64(0),
 							"packetsSent":                   float64(0),
-							"packetsSentACK":                out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["packetsSentACK"],
+							"packetsSentACK":                out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsSentACK"],
 							"packetsSentKM":                 float64(0),
 							"packetsSentNAK":                float64(0),
 							"packetsSentUnique":             float64(0),
 							"path":                          "mypath",
 							"query":                         "key=val",
-							"remoteAddr":                    out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["remoteAddr"],
+							"remoteAddr":                    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":                         "publish",
 							"usPacketsSendPeriod":           float64(10.967254638671875),
 							"usSndDuration":                 float64(0),
@@ -845,19 +845,19 @@ func TestAPIProtocolListGet(t *testing.T) {
 				}, out1)
 			}
 
-			var out2 interface{}
+			var out2 any
 
 			if ca == "hls" {
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+
-					out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["path"].(string),
+					out1.(map[string]any)["items"].([]any)[0].(map[string]any)["path"].(string),
 					nil, &out2)
 			} else {
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+
-					out1.(map[string]interface{})["items"].([]interface{})[0].(map[string]interface{})["id"].(string),
+					out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"].(string),
 					nil, &out2)
 			}
 
-			require.Equal(t, out1.(map[string]interface{})["items"].([]interface{})[0], out2)
+			require.Equal(t, out1.(map[string]any)["items"].([]any)[0], out2)
 		})
 	}
 }

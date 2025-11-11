@@ -48,13 +48,13 @@ func firstThatExists(paths []string) string {
 	return ""
 }
 
-func copyStructFields(dest interface{}, source interface{}) {
+func copyStructFields(dest any, source any) {
 	rvsource := reflect.ValueOf(source).Elem()
 	rvdest := reflect.ValueOf(dest)
 	nf := rvsource.NumField()
 	var zero reflect.Value
 
-	for i := 0; i < nf; i++ {
+	for i := range nf {
 		fnew := rvsource.Field(i)
 		f := rvdest.Elem().FieldByName(rvsource.Type().Field(i).Name)
 		if f == zero {
@@ -508,7 +508,7 @@ func (conf Conf) Clone() *Conf {
 
 type nilLogger struct{}
 
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
+func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
 }
 
 // Validate checks the configuration for errors.
