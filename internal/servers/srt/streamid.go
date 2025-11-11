@@ -24,7 +24,7 @@ func (s *streamID) unmarshal(raw string) error {
 	// standard syntax
 	// https://github.com/Haivision/srt/blob/master/docs/features/access-control.md
 	if strings.HasPrefix(raw, "#!::") {
-		for _, kv := range strings.Split(raw[len("#!::"):], ",") {
+		for kv := range strings.SplitSeq(raw[len("#!::"):], ",") {
 			kv2 := strings.SplitN(kv, "=", 2)
 			if len(kv2) != 2 {
 				return fmt.Errorf("invalid value")

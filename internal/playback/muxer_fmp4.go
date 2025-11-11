@@ -80,10 +80,7 @@ func (w *muxerFMP4) writeSample(
 				w.curTrack.samples = w.curTrack.samples[:0]
 			}
 		} else {
-			duration := dts - w.curTrack.lastDTS
-			if duration < 0 {
-				duration = 0
-			}
+			duration := max(dts-w.curTrack.lastDTS, 0)
 			w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(duration)
 		}
 
@@ -128,10 +125,7 @@ func (w *muxerFMP4) writeSample(
 
 func (w *muxerFMP4) writeFinalDTS(dts int64) {
 	if len(w.curTrack.samples) != 0 && w.curTrack.firstDTS >= 0 {
-		duration := dts - w.curTrack.lastDTS
-		if duration < 0 {
-			duration = 0
-		}
+		duration := max(dts-w.curTrack.lastDTS, 0)
 		w.curTrack.samples[len(w.curTrack.samples)-1].Duration = uint32(duration)
 	}
 }

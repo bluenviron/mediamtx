@@ -122,20 +122,20 @@ func TestOnList(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, res.StatusCode)
 
-			var out interface{}
+			var out any
 			err = json.NewDecoder(res.Body).Decode(&out)
 			require.NoError(t, err)
 
 			switch ca {
 			case "unfiltered", "start before first":
-				require.Equal(t, []interface{}{
-					map[string]interface{}{
+				require.Equal(t, []any{
+					map[string]any{
 						"duration": float64(66),
 						"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=66&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"duration": float64(4),
 						"start":    time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
@@ -144,14 +144,14 @@ func TestOnList(t *testing.T) {
 				}, out)
 
 			case "filtered":
-				require.Equal(t, []interface{}{
-					map[string]interface{}{
+				require.Equal(t, []any{
+					map[string]any{
 						"duration": float64(65),
 						"start":    time.Date(2008, 11, 7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=65&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 1, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"duration": float64(2),
 						"start":    time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=2&path=mypath&start=" +
@@ -160,8 +160,8 @@ func TestOnList(t *testing.T) {
 				}, out)
 
 			case "filtered and gap":
-				require.Equal(t, []interface{}{
-					map[string]interface{}{
+				require.Equal(t, []any{
+					map[string]any{
 						"duration": float64(4),
 						"start":    time.Date(2008, 11, 7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
@@ -170,14 +170,14 @@ func TestOnList(t *testing.T) {
 				}, out)
 
 			case "different init":
-				require.Equal(t, []interface{}{
-					map[string]interface{}{
+				require.Equal(t, []any{
+					map[string]any{
 						"duration": float64(62),
 						"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"duration": float64(1),
 						"start":    time.Date(2008, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=1&path=mypath&start=" +
@@ -322,12 +322,12 @@ func TestOnListCachedDuration(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
-	var out interface{}
+	var out any
 	err = json.NewDecoder(res.Body).Decode(&out)
 	require.NoError(t, err)
 
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
+	require.Equal(t, []any{
+		map[string]any{
 			"duration": float64(50),
 			"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 			"url": "http://localhost:9996/get?duration=50&path=mypath&start=" +

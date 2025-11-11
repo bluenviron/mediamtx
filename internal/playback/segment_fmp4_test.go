@@ -59,7 +59,7 @@ func BenchmarkFMP4ReadHeader(b *testing.B) {
 	writeBenchInit(f)
 	f.Close()
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		func() {
 			f, err = os.Open(f.Name())
 			if err != nil {

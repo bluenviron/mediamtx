@@ -28,7 +28,7 @@ type Source struct {
 }
 
 // Log implements logger.Writer.
-func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[SRT source] "+format, args...)
 }
 

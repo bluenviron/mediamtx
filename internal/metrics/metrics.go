@@ -20,7 +20,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
-func interfaceIsEmpty(i interface{}) bool {
+func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
 }
 
@@ -130,7 +130,7 @@ func (m *Metrics) Close() {
 }
 
 // Log implements logger.Writer.
-func (m *Metrics) Log(level logger.Level, format string, args ...interface{}) {
+func (m *Metrics) Log(level logger.Level, format string, args ...any) {
 	m.Parent.Log(level, "[metrics] "+format, args...)
 }
 

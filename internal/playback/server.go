@@ -73,7 +73,7 @@ func (s *Server) Close() {
 }
 
 // Log implements logger.Writer.
-func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Server) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[playback] "+format, args...)
 }
 

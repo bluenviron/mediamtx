@@ -211,7 +211,7 @@ func (s *Handler) Stop(reason string) {
 }
 
 // Log implements logger.Writer.
-func (s *Handler) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Handler) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, format, args...)
 }
 

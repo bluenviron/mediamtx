@@ -113,7 +113,7 @@ func (s *httpServer) initialize() error {
 }
 
 // Log implements logger.Writer.
-func (s *httpServer) Log(level logger.Level, format string, args ...interface{}) {
+func (s *httpServer) Log(level logger.Level, format string, args ...any) {
 	s.parent.Log(level, format, args...)
 }
 

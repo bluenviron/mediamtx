@@ -134,13 +134,13 @@ func TestPathConfigurationHotReload(t *testing.T) {
 	require.Equal(t, "all", pathData.ConfName)
 
 	// Check the current configuration via API
-	var allConfig map[string]interface{}
+	var allConfig map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/all", nil, &allConfig)
 	require.Equal(t, false, allConfig["record"]) // Should be false from "all" config
 
 	// Add a new specific configuration for "undefined_stream" with record enabled
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/undefined_stream",
-		map[string]interface{}{
+		map[string]any{
 			"record": true,
 		}, nil)
 
@@ -154,7 +154,7 @@ func TestPathConfigurationHotReload(t *testing.T) {
 	require.Equal(t, "undefined_stream", pathData.ConfName) // Should now use the specific config
 
 	// Check the new configuration via API
-	var newConfig map[string]interface{}
+	var newConfig map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/undefined_stream", nil, &newConfig)
 	require.Equal(t, true, newConfig["record"]) // Should be true from new config
 

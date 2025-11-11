@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
@@ -39,12 +40,7 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 }
 
 func (d *LogDestinations) contains(v logger.Destination) bool {
-	for _, item := range *d {
-		if item == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*d, v)
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

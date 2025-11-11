@@ -12,6 +12,7 @@ linters:
   - gocritic
   - lll
   - misspell
+  - modernize
   - nilerr
   - prealloc
   - predeclared
@@ -70,6 +71,12 @@ linters:
       settings:
         shadow:
           strict: true
+
+    modernize:
+      disable:
+      - reflecttypefor
+      - stringsbuilder
+      - testingcontext
 
 formatters:
   enable:

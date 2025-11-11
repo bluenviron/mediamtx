@@ -73,7 +73,7 @@ func TestRecorder(t *testing.T) {
 	}}
 
 	writeToStream := func(strm *stream.Stream, startDTS int64, startNTP time.Time) {
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			pts := startDTS + int64(i)*100*90000/1000
 			ntp := startNTP.Add(time.Duration(i*60) * time.Second)
 
@@ -207,7 +207,7 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				<-segCreated
 				<-segDone
 			}
@@ -365,7 +365,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	}
 	w.Initialize()
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 			PTS: -50*90000/1000 + (int64(i) * 200 * 90000 / 1000),
 			NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
@@ -538,7 +538,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 
 			n := 0
 
-			l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+			l := test.Logger(func(l logger.Level, format string, args ...any) {
 				if n == 0 {
 					require.Equal(t, logger.Warn, l)
 					require.Equal(t, "[recorder] skipping track 2 (VP8)", fmt.Sprintf(format, args...))
@@ -600,7 +600,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 
 			n := 0
 
-			l := test.Logger(func(l logger.Level, format string, args ...interface{}) {
+			l := test.Logger(func(l logger.Level, format string, args ...any) {
 				if n == 0 {
 					require.Equal(t, logger.Warn, l)
 					require.Equal(t, "[recorder] no supported tracks found, skipping recording", fmt.Sprintf(format, args...))

@@ -149,7 +149,7 @@ func (pm *pathManager) close() {
 }
 
 // Log implements logger.Writer.
-func (pm *pathManager) Log(level logger.Level, format string, args ...interface{}) {
+func (pm *pathManager) Log(level logger.Level, format string, args ...any) {
 	pm.parent.Log(level, format, args...)
 }
 
