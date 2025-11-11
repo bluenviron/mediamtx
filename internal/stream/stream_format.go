@@ -28,12 +28,16 @@ type streamFormat struct {
 	format             format.Format
 	generateRTPPackets bool
 	fillNTP            bool
+	dropNonKeyframes   bool
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
 	proc         codecprocessor.Processor
 	ntpEstimator *ntpestimator.Estimator
 	onDatas      map[*Reader]OnDataFunc
+
+	// For codec-agnostic keyframe detection using RTP-level indicators
+	lastRTPTimestamp uint32
 }
 
 func (sf *streamFormat) initialize() error {
@@ -86,9 +90,44 @@ func (sf *streamFormat) writeRTPPacket(
 	sf.writeUnitInner(s, medi, u)
 }
 
+
 func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *unit.Unit) {
 	if sf.fillNTP {
 		u.NTP = sf.ntpEstimator.Estimate(u.PTS)
+	}
+
+	// Drop non-keyframes if configured
+	if sf.dropNonKeyframes && medi.Type == description.MediaTypeVideo {
+		// Codec-agnostic keyframe detection using RTP-level indicators:
+		// - Marker bit: indicates the last packet of a frame (complete frame)
+		// - Timestamp change: indicates a new frame
+		// Keyframe heuristic: marker bit set on a new frame (timestamp changed)
+		if len(u.RTPPackets) > 0 {
+			firstPkt := u.RTPPackets[0]
+			isNewFrame := firstPkt.Timestamp != sf.lastRTPTimestamp
+
+			// Check if any packet has marker bit set (complete frame)
+			hasMarker := false
+			for _, pkt := range u.RTPPackets {
+				if pkt.Marker {
+					hasMarker = true
+					break
+				}
+			}
+
+			// Keyframe: complete frame (marker bit) on a new timestamp
+			isKeyFrame := hasMarker && isNewFrame
+
+			// Update last timestamp if this is a new frame
+			if isNewFrame {
+				sf.lastRTPTimestamp = firstPkt.Timestamp
+			}
+
+			// If no keyframe detected, drop this unit
+			if !isKeyFrame {
+				return
+			}
+		}
 	}
 
 	size := unitSize(u)

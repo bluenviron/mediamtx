@@ -122,6 +122,7 @@ type Path struct {
 	Fallback                   string   `json:"fallback"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 	CalcBitrateWindow          Duration `json:"calcBitrateWindow"`
+	DropNonKeyframes           bool     `json:"dropNonKeyframes"`
 
 	// Record
 	Record                bool         `json:"record"`
