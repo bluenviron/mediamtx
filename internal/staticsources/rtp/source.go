@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
 	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -103,6 +102,22 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 }
 
 func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
+	packetsLost := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d RTP %s lost",
+				val,
+				func() string {
+					if val == 1 {
+						return "packet"
+					}
+					return "packets"
+				}())
+		},
+	}
+
+	packetsLost.Start()
+	defer packetsLost.Stop()
+
 	decodeErrors := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d decode %s",
@@ -123,13 +138,22 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
 
-	mediasByPayloadType := make(map[uint8]*description.Media)
-	formatsByPayloadType := make(map[uint8]format.Format)
+	mediasByPayloadType := make(map[uint8]*rtpMedia)
+	formatsByPayloadType := make(map[uint8]*rtpFormat)
 
-	for _, media := range desc.Medias {
-		for _, forma := range media.Formats {
-			mediasByPayloadType[forma.PayloadType()] = media
-			formatsByPayloadType[forma.PayloadType()] = forma
+	for _, descMedia := range desc.Medias {
+		rtpMedia := &rtpMedia{
+			desc: descMedia,
+		}
+
+		for _, descFormat := range descMedia.Formats {
+			rtpFormat := &rtpFormat{
+				desc: descFormat,
+			}
+			rtpFormat.initialize()
+
+			mediasByPayloadType[descFormat.PayloadType()] = rtpMedia
+			formatsByPayloadType[descFormat.PayloadType()] = rtpFormat
 		}
 	}
 
@@ -173,12 +197,20 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 		forma := formatsByPayloadType[pkt.PayloadType]
 
-		pts, ok := timeDecoder.Decode(forma, &pkt)
-		if !ok {
-			continue
+		pkts, lost := forma.rtpReceiver.ProcessPacket2(&pkt, time.Now(), forma.desc.PTSEqualsDTS(&pkt))
+
+		if lost != 0 {
+			packetsLost.Add(lost)
 		}
 
-		stream.WriteRTPPacket(media, forma, &pkt, time.Time{}, pts)
+		for _, pkt := range pkts {
+			pts, ok2 := timeDecoder.Decode(forma.desc, pkt)
+			if !ok2 {
+				continue
+			}
+
+			stream.WriteRTPPacket(media.desc, forma.desc, pkt, time.Time{}, pts)
+		}
 	}
 }
 
