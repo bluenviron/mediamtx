@@ -132,6 +132,10 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
+	group.POST("/paths/keepalive/add/*name", a.onKeepaliveAdd)
+	group.DELETE("/paths/keepalive/remove/:id", a.onKeepaliveRemove)
+	group.GET("/paths/keepalive/list", a.onKeepalivesList)
+	group.GET("/paths/keepalive/get/:id", a.onKeepalivesGet)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
@@ -282,6 +286,7 @@ func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
 	a.AuthManager.RefreshJWTJWKS()
 	a.writeOK(ctx)
 }
+
 
 // ReloadConf is called by core.
 func (a *API) ReloadConf(conf *conf.Conf) {

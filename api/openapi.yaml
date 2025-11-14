@@ -668,6 +668,7 @@ components:
           - rtspsSession
           - srtConn
           - webRTCSession
+          - keepalive
         id:
           type: string
 
@@ -727,6 +728,36 @@ components:
       properties:
         start:
           type: string
+
+    Keepalive:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created:
+          type: string
+          format: date-time
+        path:
+          type: string
+        creatorUser:
+          type: string
+        creatorIP:
+          type: string
+
+    KeepaliveList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+          format: int64
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Keepalive'
 
     RTMPConn:
       type: object
@@ -1748,6 +1779,170 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/keepalive/add/{name}:
+    post:
+      operationId: keepaliveAdd
+      tags: [Paths]
+      summary: adds a keepalive to a path.
+      description: 'A keepalive is a synthetic reader that keeps a path and its on-demand source active even without real viewers. The authenticated user must have read permission for the path. Returns a unique keepalive ID.'
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: unauthorized - user does not have read permission for this path.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/keepalive/remove/{id}:
+    delete:
+      operationId: keepaliveRemove
+      tags: [Paths]
+      summary: removes a keepalive.
+      description: 'Only the creator of the keepalive can remove it, unless the user has admin permissions.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the keepalive (UUID).
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: the request was successful.
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: forbidden - only the creator can remove this keepalive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: keepalive not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/keepalive/list:
+    get:
+      operationId: keepalivesList
+      tags: [Paths]
+      summary: returns all keepalives.
+      description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: integer
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeepaliveList'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/keepalive/get/{id}:
+    get:
+      operationId: keepalivesGet
+      tags: [Paths]
+      summary: returns a keepalive.
+      description: ''
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the keepalive (UUID).
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Keepalive'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: keepalive not found.
           content:
             application/json:
               schema:

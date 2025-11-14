@@ -12,6 +12,10 @@ import (
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	APIKeepaliveAdd(PathAccessRequest) (uuid.UUID, error)
+	APIKeepaliveRemove(uuid.UUID, PathAccessRequest) error
+	APIKeepalivesList() (*APIKeepaliveList, error)
+	APIKeepalivesGet(uuid.UUID) (*APIKeepalive, error)
 }
 
 // APIHLSServer contains methods used by the API and Metrics server.
@@ -412,4 +416,20 @@ type APIRecordingList struct {
 	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
 	Items     []APIRecording `json:"items"`
+}
+
+// APIKeepalive is a keepalive.
+type APIKeepalive struct {
+	ID          uuid.UUID `json:"id"`
+	Created     time.Time `json:"created"`
+	Path        string    `json:"path"`
+	CreatorUser string    `json:"creatorUser"`
+	CreatorIP   string    `json:"creatorIP"`
+}
+
+// APIKeepaliveList is a list of keepalives.
+type APIKeepaliveList struct {
+	ItemCount int             `json:"itemCount"`
+	PageCount int             `json:"pageCount"`
+	Items     []*APIKeepalive `json:"items"`
 }
