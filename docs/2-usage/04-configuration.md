@@ -31,9 +31,9 @@ There are several ways to change the configuration:
    ```
    MTX_PATHS_TEST_SOURCE=rtsp://myurl ./mediamtx
    ```
-   
-   Parameters in lists can be overridden by the list index, same way as parameters in maps. This is especially usefull if you want to use internal users but define credentials trough enviroment variables:
-   
+
+   Parameters in lists can be overridden by the list index, same way as parameters in maps. This is especially useful if you want to use internal users but define credentials trough enviroment variables:
+
    ```
    MTX_AUTHINTERNALUSERS_0_USER=username
    MTX_AUTHINTERNALUSERS_0_PASS=password
@@ -45,4 +45,4 @@ There are several ways to change the configuration:
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx
    ```
 
-4. By using the [Control API](control-api).
+3. By using the [Control API](control-api).
