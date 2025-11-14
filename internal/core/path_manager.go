@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -83,24 +85,29 @@ type pathManager struct {
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	hlsServer *hls.Server
-	paths     map[string]*pathData
+	ctx        context.Context
+	ctxCancel  func()
+	wg         sync.WaitGroup
+	hlsServer  *hls.Server
+	paths      map[string]*pathData
+	keepalives map[uuid.UUID]*keepalive
 
 	// in
-	chReloadConf   chan map[string]*conf.Path
-	chSetHLSServer chan pathSetHLSServerReq
-	chClosePath    chan *path
-	chPathReady    chan *path
-	chPathNotReady chan *path
-	chFindPathConf chan defs.PathFindPathConfReq
-	chDescribe     chan defs.PathDescribeReq
-	chAddReader    chan defs.PathAddReaderReq
-	chAddPublisher chan defs.PathAddPublisherReq
-	chAPIPathsList chan pathAPIPathsListReq
-	chAPIPathsGet  chan pathAPIPathsGetReq
+	chReloadConf      chan map[string]*conf.Path
+	chSetHLSServer    chan pathSetHLSServerReq
+	chClosePath       chan *path
+	chPathReady       chan *path
+	chPathNotReady    chan *path
+	chFindPathConf    chan defs.PathFindPathConfReq
+	chDescribe        chan defs.PathDescribeReq
+	chAddReader       chan defs.PathAddReaderReq
+	chAddPublisher    chan defs.PathAddPublisherReq
+	chAPIPathsList    chan pathAPIPathsListReq
+	chAPIPathsGet     chan pathAPIPathsGetReq
+	chKeepaliveAdd    chan pathKeepaliveAddReq
+	chKeepaliveRemove chan pathKeepaliveRemoveReq
+	chKeepalivesList  chan pathKeepalivesListReq
+	chKeepalivesGet   chan pathKeepalivesGetReq
 }
 
 func (pm *pathManager) initialize() {
@@ -109,6 +116,7 @@ func (pm *pathManager) initialize() {
 	pm.ctx = ctx
 	pm.ctxCancel = ctxCancel
 	pm.paths = make(map[string]*pathData)
+	pm.keepalives = make(map[uuid.UUID]*keepalive)
 	pm.chReloadConf = make(chan map[string]*conf.Path)
 	pm.chSetHLSServer = make(chan pathSetHLSServerReq)
 	pm.chClosePath = make(chan *path)
@@ -120,6 +128,10 @@ func (pm *pathManager) initialize() {
 	pm.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pm.chAPIPathsList = make(chan pathAPIPathsListReq)
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pm.chKeepaliveAdd = make(chan pathKeepaliveAddReq)
+	pm.chKeepaliveRemove = make(chan pathKeepaliveRemoveReq)
+	pm.chKeepalivesList = make(chan pathKeepalivesListReq)
+	pm.chKeepalivesGet = make(chan pathKeepalivesGetReq)
 
 	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
@@ -192,6 +204,18 @@ outer:
 
 		case req := <-pm.chAPIPathsGet:
 			pm.doAPIPathsGet(req)
+
+		case req := <-pm.chKeepaliveAdd:
+			pm.doKeepaliveAdd(req)
+
+		case req := <-pm.chKeepaliveRemove:
+			pm.doKeepaliveRemove(req)
+
+		case req := <-pm.chKeepalivesList:
+			pm.doKeepalivesList(req)
+
+		case req := <-pm.chKeepalivesGet:
+			pm.doKeepalivesGet(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -459,6 +483,14 @@ func (pm *pathManager) createPath(
 
 func (pm *pathManager) removePath(pa *path) {
 	delete(pm.paths, pa.name)
+
+	// clean up any keepalives for this path
+	for id, ka := range pm.keepalives {
+		if ka.pathName == pa.name {
+			pm.Log(logger.Info, "removing keepalive %s for closed path '%s'", id, pa.name)
+			delete(pm.keepalives, id)
+		}
+	}
 }
 
 // ReloadPathConfs is called by core.
@@ -631,6 +663,259 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 
 		data, err := res.path.APIPathsGet(req)
 		return data, err
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+type pathKeepaliveAddReq struct {
+	accessRequest defs.PathAccessRequest
+	res           chan pathKeepaliveAddRes
+}
+
+type pathKeepaliveAddRes struct {
+	id  uuid.UUID
+	err error
+}
+
+type pathKeepaliveRemoveReq struct {
+	id            uuid.UUID
+	accessRequest defs.PathAccessRequest
+	res           chan error
+}
+
+type pathKeepalivesListReq struct {
+	res chan pathKeepalivesListRes
+}
+
+type pathKeepalivesListRes struct {
+	keepalives map[uuid.UUID]*keepalive
+}
+
+type pathKeepalivesGetReq struct {
+	id  uuid.UUID
+	res chan pathKeepalivesGetRes
+}
+
+type pathKeepalivesGetRes struct {
+	keepalive *keepalive
+	err       error
+}
+
+func (pm *pathManager) doKeepaliveAdd(req pathKeepaliveAddReq) {
+	// authenticate the request
+	_, _, err := conf.FindPathConf(pm.pathConfs, req.accessRequest.Name)
+	if err != nil {
+		req.res <- pathKeepaliveAddRes{err: err}
+		return
+	}
+
+	err2 := pm.authManager.Authenticate(req.accessRequest.ToAuthRequest())
+	if err2 != nil {
+		req.res <- pathKeepaliveAddRes{err: err2}
+		return
+	}
+
+	// extract user from credentials for ownership tracking
+	user := ""
+	if req.accessRequest.Credentials != nil && req.accessRequest.Credentials.User != "" {
+		user = req.accessRequest.Credentials.User
+	}
+
+	// create keepalive reader with creator info
+	ka := newKeepalive(req.accessRequest.Name, user, req.accessRequest.IP)
+	pm.keepalives[ka.id] = ka
+
+	pm.Log(logger.Info, "keepalive %s created for path '%s' by user '%s' from %s",
+		ka.id, req.accessRequest.Name, user, req.accessRequest.IP)
+
+	// setup close callback to remove from path manager
+	ka.onClose = func() {
+		pm.Log(logger.Debug, "keepalive %s closed", ka.id)
+	}
+
+	// Create path if it doesn't exist (mirroring doAddReader logic)
+	pathConf, pathMatches, err3 := conf.FindPathConf(pm.pathConfs, req.accessRequest.Name)
+	if err3 != nil {
+		delete(pm.keepalives, ka.id)
+		req.res <- pathKeepaliveAddRes{err: err3}
+		return
+	}
+
+	if _, ok := pm.paths[req.accessRequest.Name]; !ok {
+		pm.createPath(pathConf, req.accessRequest.Name, pathMatches)
+	}
+
+	// Add keepalive as a reader to the path
+	// We do this asynchronously to avoid blocking the path manager
+	pd := pm.paths[req.accessRequest.Name]
+	
+	go func() {
+		readerReq := defs.PathAddReaderReq{
+			Author: ka,
+			AccessRequest: defs.PathAccessRequest{
+				Name:     req.accessRequest.Name,
+				Query:    req.accessRequest.Query, // pass through query for on-demand sources
+				SkipAuth: true,                    // auth already done above
+			},
+			Res: make(chan defs.PathAddReaderRes), // Create response channel
+		}
+
+		_, _, err4 := pd.path.addReader(readerReq)
+		if err4 != nil {
+			// if adding reader failed, clean up the keepalive directly
+			// Don't use APIKeepaliveRemove as it would cause a deadlock
+			// Just log the error - the keepalive will be cleaned up when path closes
+			pm.Log(logger.Warn, "keepalive %s failed to add as reader: %v", ka.id, err4)
+		}
+	}()
+
+	// Return immediately with the keepalive ID
+	// The keepalive is active even if the stream isn't ready yet
+	req.res <- pathKeepaliveAddRes{id: ka.id, err: nil}
+}
+
+func (pm *pathManager) doKeepaliveRemove(req pathKeepaliveRemoveReq) {
+	// check if keepalive exists
+	ka, ok := pm.keepalives[req.id]
+	if !ok {
+		req.res <- fmt.Errorf("keepalive not found")
+		return
+	}
+
+	// check ownership - only creator can remove
+	if req.accessRequest.Credentials != nil && req.accessRequest.Credentials.User != "" {
+		if ka.creatorUser != "" && ka.creatorUser != req.accessRequest.Credentials.User {
+			req.res <- fmt.Errorf("only the creator can remove this keepalive")
+			return
+		}
+	}
+
+	pm.Log(logger.Info, "keepalive %s removed for path '%s'", req.id, ka.pathName)
+
+	// check if path exists
+	pd, ok := pm.paths[ka.pathName]
+	if !ok {
+		// path was already closed, just remove the keepalive reference
+		delete(pm.keepalives, req.id)
+		req.res <- nil
+		return
+	}
+
+	// remove keepalive as a reader from the path
+	readerReq := defs.PathRemoveReaderReq{
+		Author: ka,
+		Res:    make(chan struct{}),
+	}
+
+	select {
+	case pd.path.chRemoveReader <- readerReq:
+		<-readerReq.Res
+		delete(pm.keepalives, req.id)
+		req.res <- nil
+	case <-pd.path.done:
+		// path is closing, just remove keepalive from map
+		delete(pm.keepalives, req.id)
+		req.res <- nil
+	case <-pm.ctx.Done():
+		req.res <- fmt.Errorf("terminated")
+	}
+}
+
+func (pm *pathManager) doKeepalivesList(req pathKeepalivesListReq) {
+	keepalives := make(map[uuid.UUID]*keepalive)
+	for id, ka := range pm.keepalives {
+		keepalives[id] = ka
+	}
+	req.res <- pathKeepalivesListRes{keepalives: keepalives}
+}
+
+func (pm *pathManager) doKeepalivesGet(req pathKeepalivesGetReq) {
+	ka, ok := pm.keepalives[req.id]
+	if !ok {
+		req.res <- pathKeepalivesGetRes{err: fmt.Errorf("keepalive not found")}
+		return
+	}
+	req.res <- pathKeepalivesGetRes{keepalive: ka}
+}
+
+// APIKeepaliveAdd is called by api.
+func (pm *pathManager) APIKeepaliveAdd(accessRequest defs.PathAccessRequest) (uuid.UUID, error) {
+	req := pathKeepaliveAddReq{
+		accessRequest: accessRequest,
+		res:           make(chan pathKeepaliveAddRes),
+	}
+
+	select {
+	case pm.chKeepaliveAdd <- req:
+		res := <-req.res
+		return res.id, res.err
+	case <-pm.ctx.Done():
+		return uuid.Nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIKeepaliveRemove is called by api.
+func (pm *pathManager) APIKeepaliveRemove(id uuid.UUID, accessRequest defs.PathAccessRequest) error {
+	req := pathKeepaliveRemoveReq{
+		id:            id,
+		accessRequest: accessRequest,
+		res:           make(chan error),
+	}
+
+	select {
+	case pm.chKeepaliveRemove <- req:
+		return <-req.res
+	case <-pm.ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}
+
+// APIKeepalivesList is called by api.
+func (pm *pathManager) APIKeepalivesList() (*defs.APIKeepaliveList, error) {
+	req := pathKeepalivesListReq{
+		res: make(chan pathKeepalivesListRes),
+	}
+
+	select {
+	case pm.chKeepalivesList <- req:
+		res := <-req.res
+
+		data := &defs.APIKeepaliveList{
+			Items: make([]*defs.APIKeepalive, 0, len(res.keepalives)),
+		}
+
+		for _, ka := range res.keepalives {
+			data.Items = append(data.Items, ka.apiDescribe())
+		}
+
+		// sort by creation time
+		sort.Slice(data.Items, func(i, j int) bool {
+			return data.Items[i].Created.Before(data.Items[j].Created)
+		})
+
+		return data, nil
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIKeepalivesGet is called by api.
+func (pm *pathManager) APIKeepalivesGet(id uuid.UUID) (*defs.APIKeepalive, error) {
+	req := pathKeepalivesGetReq{
+		id:  id,
+		res: make(chan pathKeepalivesGetRes),
+	}
+
+	select {
+	case pm.chKeepalivesGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+		return res.keepalive.apiDescribe(), nil
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
