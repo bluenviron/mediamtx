@@ -1,7 +1,6 @@
 package webrtc
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver"
@@ -239,12 +238,10 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 type IncomingTrack struct {
 	OnPacketRTP func(*rtp.Packet)
 
-	track              *webrtc.TrackRemote
-	receiver           *webrtc.RTPReceiver
-	writeRTCP          func([]rtcp.Packet) error
-	log                logger.Writer
-	rtpPacketsReceived *uint64
-	rtpPacketsLost     *uint64
+	track     *webrtc.TrackRemote
+	receiver  *webrtc.RTPReceiver
+	writeRTCP func([]rtcp.Packet) error
+	log       logger.Writer
 
 	packetsLost *counterdumper.CounterDumper
 	rtpReceiver *rtpreceiver.Receiver
@@ -347,18 +344,12 @@ func (t *IncomingTrack) start() {
 				return
 			}
 
-			packets, lost, err2 := t.rtpReceiver.ProcessPacket(pkt, time.Now(), true)
-			if err2 != nil {
-				t.log.Log(logger.Warn, err2.Error())
-				continue
-			}
+			packets, lost := t.rtpReceiver.ProcessPacket2(pkt, time.Now(), true)
+
 			if lost != 0 {
-				atomic.AddUint64(t.rtpPacketsLost, lost)
 				t.packetsLost.Add(lost)
 				// do not return
 			}
-
-			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
 
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.

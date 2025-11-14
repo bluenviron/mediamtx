@@ -2,7 +2,6 @@ package webrtc
 
 import (
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpsender"
@@ -15,10 +14,9 @@ import (
 type OutgoingTrack struct {
 	Caps webrtc.RTPCodecCapability
 
-	track          *webrtc.TrackLocalStaticRTP
-	ssrc           uint32
-	rtcpSender     *rtpsender.Sender
-	rtpPacketsSent *uint64
+	track      *webrtc.TrackLocalStaticRTP
+	ssrc       uint32
+	rtcpSender *rtpsender.Sender
 }
 
 func (t *OutgoingTrack) isVideo() bool {
@@ -60,8 +58,6 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	}
 	t.rtcpSender.Initialize()
 
-	t.rtpPacketsSent = p.rtpPacketsSent
-
 	// incoming RTCP packets must always be read to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
@@ -98,8 +94,6 @@ func (t *OutgoingTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
 	pkt.SSRC = t.ssrc
 
 	t.rtcpSender.ProcessPacket(pkt, ntp, true)
-
-	atomic.AddUint64(t.rtpPacketsSent, 1)
 
 	return t.track.WriteRTP(pkt)
 }
