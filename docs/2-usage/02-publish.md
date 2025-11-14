@@ -310,7 +310,7 @@ The resulting stream is available in path `/cam`.
 
 The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](/docs/references/configuration-file).
 
-If you want to run the server inside Docker, you need to use the `latest-rpi` image and launch the container with some additional flags:
+If you want to run the server inside Docker, you need to use the `1-rpi` image and launch the container with some additional flags:
 
 ```sh
 docker run --rm -it \
@@ -319,7 +319,7 @@ docker run --rm -it \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
 -e MTX_PATHS_CAM_SOURCE=rpiCamera \
-bluenviron/mediamtx:latest-rpi
+bluenviron/mediamtx:1-rpi
 ```
 
 Be aware that precompiled binaries and Docker images are not compatible with cameras that require a custom `libcamera` (like some ArduCam products), since they come with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](/docs/other/compile#custom-libcamera).
