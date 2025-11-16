@@ -101,7 +101,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *un
 		// Codec-agnostic keyframe detection using RTP-level indicators:
 		// - Marker bit: indicates the last packet of a frame (complete frame)
 		// - Timestamp change: indicates a new frame
-		// Keyframe heuristic: marker bit set on a new frame (timestamp changed)
+		// Keyframe heuristic: complete frame (marker bit) on a new timestamp
 		if len(u.RTPPackets) > 0 {
 			firstPkt := u.RTPPackets[0]
 			isNewFrame := firstPkt.Timestamp != sf.lastRTPTimestamp
@@ -115,16 +115,21 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *un
 				}
 			}
 
-			// Keyframe: complete frame (marker bit) on a new timestamp
-			isKeyFrame := hasMarker && isNewFrame
-
-			// Update last timestamp if this is a new frame
-			if isNewFrame {
-				sf.lastRTPTimestamp = firstPkt.Timestamp
-			}
-
-			// If no keyframe detected, drop this unit
-			if !isKeyFrame {
+			// Allow complete frames (with marker bit) on new timestamps
+			// Also allow the first frame through (when lastRTPTimestamp is 0)
+			if hasMarker {
+				// Complete frame - allow through if it's a new frame or first frame
+				if isNewFrame || sf.lastRTPTimestamp == 0 {
+					// Update last timestamp when we output a new frame
+					if isNewFrame {
+						sf.lastRTPTimestamp = firstPkt.Timestamp
+					}
+				} else {
+					// Same timestamp as last frame - likely a duplicate or continuation, drop it
+					return
+				}
+			} else {
+				// Incomplete frame (no marker bit) - drop it
 				return
 			}
 		}
