@@ -20,7 +20,7 @@ func newDestionationStdout() destination {
 	}
 }
 
-func (d *destinationStdout) log(t time.Time, level Level, format string, args ...interface{}) {
+func (d *destinationStdout) log(t time.Time, level Level, format string, args ...any) {
 	d.buf.Reset()
 	writeTime(&d.buf, t, d.useColor)
 	writeLevel(&d.buf, level, d.useColor)

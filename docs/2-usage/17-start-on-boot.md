@@ -16,12 +16,19 @@ Create a _systemd_ service:
 ```sh
 sudo tee /etc/systemd/system/mediamtx.service >/dev/null << EOF
 [Unit]
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
 [Service]
 ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx.yml
 [Install]
 WantedBy=multi-user.target
 EOF
+```
+
+Enable a _wait-online_ service to make sure that _MediaMTX_ is started after network has been properly initialized:
+
+```sh
+sudo systemctl enable systemd-networkd-wait-online.service
 ```
 
 If SELinux is enabled (for instance in case of RedHat, Rocky, CentOS++), add correct security context:

@@ -158,7 +158,7 @@ func (pa *path) wait() {
 }
 
 // Log implements logger.Writer.
-func (pa *path) Log(level logger.Level, format string, args ...interface{}) {
+func (pa *path) Log(level logger.Level, format string, args ...any) {
 	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
 }
 

@@ -27,6 +27,15 @@ const (
 	webrtcPayloadMaxSize = 1188 // 1200 - 12 (RTP header)
 )
 
+var multichannelOpusSDP = map[int]string{
+	3: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
+	4: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
+	5: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
+	6: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
+	7: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
+	8: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
+}
+
 var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
 		"AV1, VP9, VP8, H265, H264, Opus, G722, G711, LPCM")

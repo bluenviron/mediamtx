@@ -117,9 +117,9 @@ func (s *session) remoteAddr() net.Addr {
 }
 
 // Log implements logger.Writer.
-func (s *session) Log(level logger.Level, format string, args ...interface{}) {
+func (s *session) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(s.uuid[:4])
-	s.parent.Log(level, "[session %s] "+format, append([]interface{}{id}, args...)...)
+	s.parent.Log(level, "[session %s] "+format, append([]any{id}, args...)...)
 }
 
 // onClose is called by rtspServer.

@@ -76,7 +76,7 @@ func (pp *PPROF) Close() {
 }
 
 // Log implements logger.Writer.
-func (pp *PPROF) Log(level logger.Level, format string, args ...interface{}) {
+func (pp *PPROF) Log(level logger.Level, format string, args ...any) {
 	pp.Parent.Log(level, "[pprof] "+format, args...)
 }
 

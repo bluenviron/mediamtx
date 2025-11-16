@@ -487,7 +487,7 @@ func TestPathRunOnRead(t *testing.T) {
 					defer conn.Close()
 
 					go func() {
-						for i := uint16(0); i < 3; i++ {
+						for i := range uint16(3) {
 							err2 := source.WritePacketRTP(media0, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        2,
@@ -622,7 +622,7 @@ func TestPathRunOnRecordSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer source.Close()
 
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			err = source.WritePacketRTP(media0, &rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
@@ -672,7 +672,7 @@ func TestPathMaxReaders(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		var u *base.URL
 		u, err = base.ParseURL("rtsp://127.0.0.1:8554/mystream")
 		require.NoError(t, err)
@@ -723,7 +723,7 @@ func TestPathRecord(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		err = source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
@@ -748,13 +748,13 @@ func TestPathRecord(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]any{
 		"record": false,
 	}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]any{
 		"record": true,
 	}, nil)
 

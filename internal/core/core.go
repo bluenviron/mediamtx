@@ -197,7 +197,7 @@ func (p *Core) Wait() {
 }
 
 // Log implements logger.Writer.
-func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
+func (p *Core) Log(level logger.Level, format string, args ...any) {
 	p.logger.Log(level, format, args...)
 }
 

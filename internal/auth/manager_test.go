@@ -539,7 +539,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 		JWTClaimKey: "my_permission_key",
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		key, err = rsa.GenerateKey(rand.Reader, 1024)
 		require.NoError(t, err)
 

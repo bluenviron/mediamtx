@@ -285,7 +285,7 @@ func TestServerRead(t *testing.T) {
 
 				time.Sleep(100 * time.Millisecond)
 
-				for i := 0; i < 4; i++ {
+				for i := range 4 {
 					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
 						NTP: time.Time{},
 						PTS: int64(i) * 90000,
@@ -526,7 +526,7 @@ func TestAuthError(t *testing.T) {
 				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if n == 1 {
 					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))

@@ -655,7 +655,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 	}}}
 
 	r := &stream.Reader{
-		Parent: test.Logger(func(logger.Level, string, ...interface{}) {
+		Parent: test.Logger(func(logger.Level, string, ...any) {
 			t.Error("should not happen")
 		}),
 	}
@@ -679,7 +679,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	n := 0
 
 	r := &stream.Reader{
-		Parent: test.Logger(func(l logger.Level, format string, args ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, format string, args ...any) {
 			require.Equal(t, logger.Warn, l)
 			if n == 0 {
 				require.Equal(t, "skipping track 1 (VP8)", fmt.Sprintf(format, args...))

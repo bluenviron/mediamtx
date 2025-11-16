@@ -42,7 +42,7 @@ type recorderInstance struct {
 }
 
 // Log implements logger.Writer.
-func (ri *recorderInstance) Log(level logger.Level, format string, args ...interface{}) {
+func (ri *recorderInstance) Log(level logger.Level, format string, args ...any) {
 	ri.parent.Log(level, format, args...)
 }
 

@@ -22,7 +22,7 @@ func newDestinationSyslog(prefix string) (destination, error) {
 	}, nil
 }
 
-func (d *destinationSysLog) log(t time.Time, level Level, format string, args ...interface{}) {
+func (d *destinationSysLog) log(t time.Time, level Level, format string, args ...any) {
 	d.buf.Reset()
 	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)

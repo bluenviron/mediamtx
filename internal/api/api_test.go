@@ -20,10 +20,10 @@ import (
 )
 
 type testParent struct {
-	log func(_ logger.Level, _ string, _ ...interface{})
+	log func(_ logger.Level, _ string, _ ...any)
 }
 
-func (p testParent) Log(l logger.Level, s string, a ...interface{}) {
+func (p testParent) Log(l logger.Level, s string, a ...any) {
 	if p.log != nil {
 		p.log(l, s, a...)
 	}
@@ -42,7 +42,7 @@ func tempConf(t *testing.T, cnt string) *conf.Conf {
 	return cnf
 }
 
-func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in interface{}, out interface{}) {
+func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any, out any) {
 	buf := func() io.Reader {
 		if in == nil {
 			return nil
@@ -74,10 +74,10 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in int
 }
 
 func checkError(t *testing.T, msg string, body io.Reader) {
-	var resErr map[string]interface{}
+	var resErr map[string]any
 	err := json.NewDecoder(body).Decode(&resErr)
 	require.NoError(t, err)
-	require.Equal(t, map[string]interface{}{"error": msg}, resErr)
+	require.Equal(t, map[string]any{"error": msg}, resErr)
 }
 
 func TestPreflightRequest(t *testing.T) {
@@ -139,9 +139,9 @@ func TestInfo(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/info", nil, &out)
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"started": time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
 		"version": "v1.2.3",
 	}, out)
@@ -175,7 +175,7 @@ func TestConfigGlobalGet(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, true, out["api"])
 
@@ -202,7 +202,7 @@ func TestConfigGlobalPatch(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch",
-		map[string]interface{}{
+		map[string]any{
 			"rtmp":            false,
 			"readTimeout":     "7s",
 			"protocols":       []string{"tcp"},
@@ -211,11 +211,11 @@ func TestConfigGlobalPatch(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, false, out["rtmp"])
 	require.Equal(t, "7s", out["readTimeout"])
-	require.Equal(t, []interface{}{"tcp"}, out["protocols"])
+	require.Equal(t, []any{"tcp"}, out["protocols"])
 	require.Equal(t, float64(4096), out["readBufferCount"])
 }
 
@@ -234,7 +234,7 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	require.NoError(t, err)
 	defer api.Close()
 
-	b := map[string]interface{}{
+	b := map[string]any{
 		"test": "asd",
 	}
 
@@ -276,7 +276,7 @@ func TestConfigPathDefaultsGet(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
 	require.Equal(t, "publisher", out["source"])
 }
@@ -301,13 +301,13 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/pathdefaults/patch",
-		map[string]interface{}{
+		map[string]any{
 			"recordFormat": "fmp4",
 		}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
 	require.Equal(t, "fmp4", out["recordFormat"])
 }
@@ -334,7 +334,7 @@ func TestConfigPathsList(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	type pathConfig map[string]interface{}
+	type pathConfig map[string]any
 
 	type listRes struct {
 		ItemCount int          `json:"itemCount"`
@@ -381,7 +381,7 @@ func TestConfigPathsGet(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "my/path", out["name"])
 	require.Equal(t, "myuser", out["readUser"])
@@ -407,14 +407,14 @@ func TestConfigPathsAdd(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":                   "rtsp://127.0.0.1:9999/mypath",
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
 			"rpiCameraVFlip":           true,
 		}, nil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "rtsp://127.0.0.1:9999/mypath", out["source"])
 	require.Equal(t, true, out["sourceOnDemand"])
@@ -437,7 +437,7 @@ func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	require.NoError(t, err)
 	defer api.Close()
 
-	b := map[string]interface{}{
+	b := map[string]any{
 		"test": "asd",
 	}
 
@@ -480,7 +480,7 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":                   "rtsp://127.0.0.1:9999/mypath",
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
@@ -488,12 +488,12 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 		}, nil)
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":         "rtsp://127.0.0.1:9998/mypath",
 			"sourceOnDemand": true,
 		}, nil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
 	require.Equal(t, true, out["sourceOnDemand"])
@@ -521,7 +521,7 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":                   "rtsp://127.0.0.1:9999/mypath",
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
@@ -529,12 +529,12 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 		}, nil)
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":         "rtsp://127.0.0.1:9998/mypath",
 			"sourceOnDemand": true,
 		}, nil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
 	require.Equal(t, true, out["sourceOnDemand"])
@@ -562,12 +562,12 @@ func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":         "rtsp://127.0.0.1:9998/mypath",
 			"sourceOnDemand": true,
 		}, nil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
 	require.Equal(t, true, out["sourceOnDemand"])
@@ -595,7 +595,7 @@ func TestConfigPathsDelete(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path",
-		map[string]interface{}{
+		map[string]any{
 			"source":         "rtsp://127.0.0.1:9999/mypath",
 			"sourceOnDemand": true,
 		}, nil)
@@ -655,27 +655,27 @@ func TestRecordingsList(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out interface{}
+	var out any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/recordings/list", nil, &out)
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"itemCount": float64(2),
 		"pageCount": float64(1),
-		"items": []interface{}{
-			map[string]interface{}{
+		"items": []any{
+			map[string]any{
 				"name": "mypath1",
-				"segments": []interface{}{
-					map[string]interface{}{
+				"segments": []any{
+					map[string]any{
 						"start": time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
 			},
-			map[string]interface{}{
+			map[string]any{
 				"name": "mypath2",
-				"segments": []interface{}{
-					map[string]interface{}{
+				"segments": []any{
+					map[string]any{
 						"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
@@ -719,15 +719,15 @@ func TestRecordingsGet(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var out interface{}
+	var out any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/recordings/get/mypath1", nil, &out)
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"name": "mypath1",
-		"segments": []interface{}{
-			map[string]interface{}{
+		"segments": []any{
+			map[string]any{
 				"start": time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local).Format(time.RFC3339Nano),
 			},
-			map[string]interface{}{
+			map[string]any{
 				"start": time.Date(2009, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 			},
 		},
@@ -840,7 +840,7 @@ func TestAuthError(t *testing.T) {
 			},
 		},
 		Parent: &testParent{
-			log: func(l logger.Level, s string, i ...interface{}) {
+			log: func(l logger.Level, s string, i ...any) {
 				if l == logger.Info {
 					if n == 1 {
 						require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))

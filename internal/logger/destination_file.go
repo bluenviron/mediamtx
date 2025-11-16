@@ -22,7 +22,7 @@ func newDestinationFile(filePath string) (destination, error) {
 	}, nil
 }
 
-func (d *destinationFile) log(t time.Time, level Level, format string, args ...interface{}) {
+func (d *destinationFile) log(t time.Time, level Level, format string, args ...any) {
 	d.buf.Reset()
 	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)

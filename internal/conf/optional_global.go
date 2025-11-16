@@ -13,7 +13,7 @@ var optionalGlobalValuesType = func() reflect.Type {
 	rt := reflect.TypeOf(Conf{})
 	nf := rt.NumField()
 
-	for i := 0; i < nf; i++ {
+	for i := range nf {
 		f := rt.Field(i)
 		j := f.Tag.Get("json")
 
@@ -38,13 +38,13 @@ var optionalGlobalValuesType = func() reflect.Type {
 	return reflect.StructOf(fields)
 }()
 
-func newOptionalGlobalValues() interface{} {
+func newOptionalGlobalValues() any {
 	return reflect.New(optionalGlobalValuesType).Interface()
 }
 
 // OptionalGlobal is a Conf whose values can all be optional.
 type OptionalGlobal struct {
-	Values interface{}
+	Values any
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

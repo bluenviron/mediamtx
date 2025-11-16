@@ -1,7 +1,6 @@
 package webrtc
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver"
@@ -239,15 +238,13 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 type IncomingTrack struct {
 	OnPacketRTP func(*rtp.Packet)
 
-	track              *webrtc.TrackRemote
-	receiver           *webrtc.RTPReceiver
-	writeRTCP          func([]rtcp.Packet) error
-	log                logger.Writer
-	rtpPacketsReceived *uint64
-	rtpPacketsLost     *uint64
+	track     *webrtc.TrackRemote
+	receiver  *webrtc.RTPReceiver
+	writeRTCP func([]rtcp.Packet) error
+	log       logger.Writer
 
-	packetsLost  *counterdumper.CounterDumper
-	rtcpReceiver *rtpreceiver.Receiver
+	packetsLost *counterdumper.CounterDumper
+	rtpReceiver *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
@@ -284,7 +281,7 @@ func (t *IncomingTrack) start() {
 	}
 	t.packetsLost.Start()
 
-	t.rtcpReceiver = &rtpreceiver.Receiver{
+	t.rtpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
 		Period:               1 * time.Second,
@@ -292,7 +289,7 @@ func (t *IncomingTrack) start() {
 			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
 		},
 	}
-	err := t.rtcpReceiver.Initialize()
+	err := t.rtpReceiver.Initialize()
 	if err != nil {
 		panic(err)
 	}
@@ -314,7 +311,7 @@ func (t *IncomingTrack) start() {
 
 			for _, pkt := range pkts {
 				if sr, ok := pkt.(*rtcp.SenderReport); ok {
-					t.rtcpReceiver.ProcessSenderReport(sr, time.Now())
+					t.rtpReceiver.ProcessSenderReport(sr, time.Now())
 				}
 			}
 		}
@@ -347,18 +344,12 @@ func (t *IncomingTrack) start() {
 				return
 			}
 
-			packets, lost, err2 := t.rtcpReceiver.ProcessPacket(pkt, time.Now(), true)
-			if err2 != nil {
-				t.log.Log(logger.Warn, err2.Error())
-				continue
-			}
+			packets, lost := t.rtpReceiver.ProcessPacket2(pkt, time.Now(), true)
+
 			if lost != 0 {
-				atomic.AddUint64(t.rtpPacketsLost, lost)
 				t.packetsLost.Add(lost)
 				// do not return
 			}
-
-			atomic.AddUint64(t.rtpPacketsReceived, uint64(len(packets)))
 
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.
@@ -374,14 +365,14 @@ func (t *IncomingTrack) start() {
 
 // PacketNTP returns the packet NTP.
 func (t *IncomingTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
-	return t.rtcpReceiver.PacketNTP(pkt.Timestamp)
+	return t.rtpReceiver.PacketNTP(pkt.Timestamp)
 }
 
 func (t *IncomingTrack) close() {
 	if t.packetsLost != nil {
 		t.packetsLost.Stop()
 	}
-	if t.rtcpReceiver != nil {
-		t.rtcpReceiver.Close()
+	if t.rtpReceiver != nil {
+		t.rtpReceiver.Close()
 	}
 }

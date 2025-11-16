@@ -87,7 +87,7 @@ func TestServerPublish(t *testing.T) {
 			}
 
 			s := &Server{
-				Address:             "127.0.0.1:1935",
+				Address:             "127.0.0.1:1939",
 				ReadTimeout:         conf.Duration(10 * time.Second),
 				WriteTimeout:        conf.Duration(10 * time.Second),
 				IsTLS:               encrypt == "tls",
@@ -113,7 +113,7 @@ func TestServerPublish(t *testing.T) {
 				rawURL += "rtmp://"
 			}
 
-			rawURL += "127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value"
+			rawURL += "127.0.0.1:1939/teststream?user=myuser&pass=mypass&param=value"
 
 			u, err := url.Parse(rawURL)
 			require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestServerRead(t *testing.T) {
 			}
 
 			s := &Server{
-				Address:             "127.0.0.1:1935",
+				Address:             "127.0.0.1:1939",
 				ReadTimeout:         conf.Duration(10 * time.Second),
 				WriteTimeout:        conf.Duration(10 * time.Second),
 				IsTLS:               encrypt == "tls",
@@ -243,7 +243,7 @@ func TestServerRead(t *testing.T) {
 				rawURL += "rtmp://"
 			}
 
-			rawURL += "127.0.0.1:1935/teststream?user=myuser&pass=mypass&param=value"
+			rawURL += "127.0.0.1:1939/teststream?user=myuser&pass=mypass&param=value"
 
 			u, err := url.Parse(rawURL)
 			require.NoError(t, err)

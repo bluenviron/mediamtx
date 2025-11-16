@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
+func paginate2(itemsPtr any, itemsPerPage int, page int) int {
 	ritems := reflect.ValueOf(itemsPtr).Elem()
 
 	itemsLen := ritems.Len()
@@ -19,22 +19,16 @@ func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
 		pageCount++
 	}
 
-	minVal := page * itemsPerPage
-	if minVal > itemsLen {
-		minVal = itemsLen
-	}
+	minVal := min(page*itemsPerPage, itemsLen)
 
-	maxVal := (page + 1) * itemsPerPage
-	if maxVal > itemsLen {
-		maxVal = itemsLen
-	}
+	maxVal := min((page+1)*itemsPerPage, itemsLen)
 
 	ritems.Set(ritems.Slice(minVal, maxVal))
 
 	return pageCount
 }
 
-func paginate(itemsPtr interface{}, itemsPerPageStr string, pageStr string) (int, error) {
+func paginate(itemsPtr any, itemsPerPageStr string, pageStr string) (int, error) {
 	itemsPerPage := 100
 
 	if itemsPerPageStr != "" {
