@@ -32,6 +32,13 @@ There are several ways to change the configuration:
    MTX_PATHS_TEST_SOURCE=rtsp://myurl ./mediamtx
    ```
 
+   Parameters in lists can be overridden in the same way as parameters in maps, using their position like an additional key. This is particularly useful if you want to use internal users but define credentials through enviroment variables:
+
+   ```
+   MTX_AUTHINTERNALUSERS_0_USER=username
+   MTX_AUTHINTERNALUSERS_0_PASS=password
+   ```
+
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
    ```
