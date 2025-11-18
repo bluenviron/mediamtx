@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.25.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.57.0
+	code.cloudfoundry.org/bytefmt v0.58.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.7.0
@@ -95,12 +95,12 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
-	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	golang.org/x/tools v0.38.0 // indirect
+	golang.org/x/tools v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
