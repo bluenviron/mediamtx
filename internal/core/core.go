@@ -912,7 +912,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.APIEncryption != p.conf.APIEncryption ||
 		newConf.APIServerKey != p.conf.APIServerKey ||
 		newConf.APIServerCert != p.conf.APIServerCert ||
-		slices.Equal(newConf.APIAllowOrigins, p.conf.APIAllowOrigins) ||
+		!slices.Equal(newConf.APIAllowOrigins, p.conf.APIAllowOrigins) ||
 		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
