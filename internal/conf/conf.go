@@ -177,44 +177,44 @@ type Conf struct {
 	AuthJWTInHTTPQuery        bool                        `json:"authJWTInHTTPQuery"`
 
 	// Control API
-	API               bool       `json:"api"`
-	APIAddress        string     `json:"apiAddress"`
-	APIEncryption     bool       `json:"apiEncryption"`
-	APIServerKey      string     `json:"apiServerKey"`
-	APIServerCert     string     `json:"apiServerCert"`
-	APIAllowOrigin    *string    `json:"apiAllowOrigin,omitempty"` // deprecated
-	APIAllowOrigins   []string   `json:"apiAllowOrigins"`          // TODO: move in alias
-	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
+	API               bool           `json:"api"`
+	APIAddress        string         `json:"apiAddress"`
+	APIEncryption     bool           `json:"apiEncryption"`
+	APIServerKey      string         `json:"apiServerKey"`
+	APIServerCert     string         `json:"apiServerCert"`
+	APIAllowOrigin    *string        `json:"apiAllowOrigin,omitempty"` // deprecated
+	APIAllowOrigins   AllowedOrigins `json:"apiAllowOrigins"`
+	APITrustedProxies IPNetworks     `json:"apiTrustedProxies"`
 
 	// Metrics
-	Metrics               bool       `json:"metrics"`
-	MetricsAddress        string     `json:"metricsAddress"`
-	MetricsEncryption     bool       `json:"metricsEncryption"`
-	MetricsServerKey      string     `json:"metricsServerKey"`
-	MetricsServerCert     string     `json:"metricsServerCert"`
-	MetricsAllowOrigin    *string    `json:"metricsAllowOrigin,omitempty"` // deprecated
-	MetricsAllowOrigins   []string   `json:"metricsAllowOrigins"`
-	MetricsTrustedProxies IPNetworks `json:"metricsTrustedProxies"`
+	Metrics               bool           `json:"metrics"`
+	MetricsAddress        string         `json:"metricsAddress"`
+	MetricsEncryption     bool           `json:"metricsEncryption"`
+	MetricsServerKey      string         `json:"metricsServerKey"`
+	MetricsServerCert     string         `json:"metricsServerCert"`
+	MetricsAllowOrigin    *string        `json:"metricsAllowOrigin,omitempty"` // deprecated
+	MetricsAllowOrigins   AllowedOrigins `json:"metricsAllowOrigins"`
+	MetricsTrustedProxies IPNetworks     `json:"metricsTrustedProxies"`
 
 	// PPROF
-	PPROF               bool       `json:"pprof"`
-	PPROFAddress        string     `json:"pprofAddress"`
-	PPROFEncryption     bool       `json:"pprofEncryption"`
-	PPROFServerKey      string     `json:"pprofServerKey"`
-	PPROFServerCert     string     `json:"pprofServerCert"`
-	PPROFAllowOrigin    *string    `json:"pprofAllowOrigin,omitempty"` // deprecated
-	PPROFAllowOrigins   []string   `json:"pprofAllowOrigins"`
-	PPROFTrustedProxies IPNetworks `json:"pprofTrustedProxies"`
+	PPROF               bool           `json:"pprof"`
+	PPROFAddress        string         `json:"pprofAddress"`
+	PPROFEncryption     bool           `json:"pprofEncryption"`
+	PPROFServerKey      string         `json:"pprofServerKey"`
+	PPROFServerCert     string         `json:"pprofServerCert"`
+	PPROFAllowOrigin    *string        `json:"pprofAllowOrigin,omitempty"` // deprecated
+	PPROFAllowOrigins   AllowedOrigins `json:"pprofAllowOrigins"`
+	PPROFTrustedProxies IPNetworks     `json:"pprofTrustedProxies"`
 
 	// Playback
-	Playback               bool       `json:"playback"`
-	PlaybackAddress        string     `json:"playbackAddress"`
-	PlaybackEncryption     bool       `json:"playbackEncryption"`
-	PlaybackServerKey      string     `json:"playbackServerKey"`
-	PlaybackServerCert     string     `json:"playbackServerCert"`
-	PlaybackAllowOrigin    *string    `json:"playbackAllowOrigin,omitempty"` // deprecated
-	PlaybackAllowOrigins   []string   `json:"playbackAllowOrigins"`
-	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
+	Playback               bool           `json:"playback"`
+	PlaybackAddress        string         `json:"playbackAddress"`
+	PlaybackEncryption     bool           `json:"playbackEncryption"`
+	PlaybackServerKey      string         `json:"playbackServerKey"`
+	PlaybackServerCert     string         `json:"playbackServerCert"`
+	PlaybackAllowOrigin    *string        `json:"playbackAllowOrigin,omitempty"` // deprecated
+	PlaybackAllowOrigins   AllowedOrigins `json:"playbackAllowOrigins"`
+	PlaybackTrustedProxies IPNetworks     `json:"playbackTrustedProxies"`
 
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`
@@ -252,23 +252,23 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS server
-	HLS                bool       `json:"hls"`
-	HLSDisable         *bool      `json:"hlsDisable,omitempty"` // deprecated
-	HLSAddress         string     `json:"hlsAddress"`
-	HLSEncryption      bool       `json:"hlsEncryption"`
-	HLSServerKey       string     `json:"hlsServerKey"`
-	HLSServerCert      string     `json:"hlsServerCert"`
-	HLSAllowOrigin     *string    `json:"hlsAllowOrigin,omitempty"` // deprecated
-	HLSAllowOrigins    []string   `json:"hlsAllowOrigins"`
-	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
-	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant `json:"hlsVariant"`
-	HLSSegmentCount    int        `json:"hlsSegmentCount"`
-	HLSSegmentDuration Duration   `json:"hlsSegmentDuration"`
-	HLSPartDuration    Duration   `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
-	HLSDirectory       string     `json:"hlsDirectory"`
-	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
+	HLS                bool           `json:"hls"`
+	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // deprecated
+	HLSAddress         string         `json:"hlsAddress"`
+	HLSEncryption      bool           `json:"hlsEncryption"`
+	HLSServerKey       string         `json:"hlsServerKey"`
+	HLSServerCert      string         `json:"hlsServerCert"`
+	HLSAllowOrigin     *string        `json:"hlsAllowOrigin,omitempty"` // deprecated
+	HLSAllowOrigins    AllowedOrigins `json:"hlsAllowOrigins"`
+	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
+	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
+	HLSVariant         HLSVariant     `json:"hlsVariant"`
+	HLSSegmentCount    int            `json:"hlsSegmentCount"`
+	HLSSegmentDuration Duration       `json:"hlsSegmentDuration"`
+	HLSPartDuration    Duration       `json:"hlsPartDuration"`
+	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
+	HLSDirectory       string         `json:"hlsDirectory"`
+	HLSMuxerCloseAfter Duration       `json:"hlsMuxerCloseAfter"`
 
 	// WebRTC server
 	WebRTC                      bool             `json:"webrtc"`
@@ -278,7 +278,7 @@ type Conf struct {
 	WebRTCServerKey             string           `json:"webrtcServerKey"`
 	WebRTCServerCert            string           `json:"webrtcServerCert"`
 	WebRTCAllowOrigin           *string          `json:"webrtcAllowOrigin,omitempty"` // deprecated
-	WebRTCAllowOrigins          []string         `json:"webrtcAllowOrigins"`
+	WebRTCAllowOrigins          AllowedOrigins   `json:"webrtcAllowOrigins"`
 	WebRTCTrustedProxies        IPNetworks       `json:"webrtcTrustedProxies"`
 	WebRTCLocalUDPAddress       string           `json:"webrtcLocalUDPAddress"`
 	WebRTCLocalTCPAddress       string           `json:"webrtcLocalTCPAddress"`
