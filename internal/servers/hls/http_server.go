@@ -39,7 +39,7 @@ type httpServer struct {
 	encryption     bool
 	serverKey      string
 	serverCert     string
-	allowOrigin    string
+	allowOrigins   []string
 	trustedProxies conf.IPNetworks
 	readTimeout    conf.Duration
 	writeTimeout   conf.Duration
@@ -59,7 +59,7 @@ func (s *httpServer) initialize() error {
 
 	s.inner = &httpp.Server{
 		Address:      s.address,
-		AllowOrigins: []string{s.allowOrigin},
+		AllowOrigins: s.allowOrigins,
 		ReadTimeout:  time.Duration(s.readTimeout),
 		WriteTimeout: time.Duration(s.writeTimeout),
 		Encryption:   s.encryption,

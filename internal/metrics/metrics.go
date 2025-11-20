@@ -74,7 +74,7 @@ type Metrics struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
-	AllowOrigin    string
+	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
@@ -105,7 +105,7 @@ func (m *Metrics) Initialize() error {
 
 	m.httpServer = &httpp.Server{
 		Address:      m.Address,
-		AllowOrigins: []string{m.AllowOrigin},
+		AllowOrigins: m.AllowOrigins,
 		ReadTimeout:  time.Duration(m.ReadTimeout),
 		WriteTimeout: time.Duration(m.WriteTimeout),
 		Encryption:   m.Encryption,

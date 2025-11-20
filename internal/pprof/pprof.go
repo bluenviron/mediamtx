@@ -29,7 +29,7 @@ type PPROF struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
-	AllowOrigin    string
+	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
@@ -51,7 +51,7 @@ func (pp *PPROF) Initialize() error {
 
 	pp.httpServer = &httpp.Server{
 		Address:      pp.Address,
-		AllowOrigins: []string{pp.AllowOrigin},
+		AllowOrigins: pp.AllowOrigins,
 		ReadTimeout:  time.Duration(pp.ReadTimeout),
 		WriteTimeout: time.Duration(pp.WriteTimeout),
 		Encryption:   pp.Encryption,

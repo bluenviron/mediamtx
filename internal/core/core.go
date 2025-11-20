@@ -324,7 +324,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.MetricsEncryption,
 			ServerKey:      p.conf.MetricsServerKey,
 			ServerCert:     p.conf.MetricsServerCert,
-			AllowOrigin:    p.conf.MetricsAllowOrigin,
+			AllowOrigins:   p.conf.MetricsAllowOrigins,
 			TrustedProxies: p.conf.MetricsTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -345,7 +345,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.PPROFEncryption,
 			ServerKey:      p.conf.PPROFServerKey,
 			ServerCert:     p.conf.PPROFServerCert,
-			AllowOrigin:    p.conf.PPROFAllowOrigin,
+			AllowOrigins:   p.conf.PPROFAllowOrigins,
 			TrustedProxies: p.conf.PPROFTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -375,7 +375,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.PlaybackEncryption,
 			ServerKey:      p.conf.PlaybackServerKey,
 			ServerCert:     p.conf.PlaybackServerCert,
-			AllowOrigin:    p.conf.PlaybackAllowOrigin,
+			AllowOrigins:   p.conf.PlaybackAllowOrigins,
 			TrustedProxies: p.conf.PlaybackTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -563,7 +563,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:      p.conf.HLSEncryption,
 			ServerKey:       p.conf.HLSServerKey,
 			ServerCert:      p.conf.HLSServerCert,
-			AllowOrigin:     p.conf.HLSAllowOrigin,
+			AllowOrigins:    p.conf.HLSAllowOrigins,
 			TrustedProxies:  p.conf.HLSTrustedProxies,
 			AlwaysRemux:     p.conf.HLSAlwaysRemux,
 			Variant:         p.conf.HLSVariant,
@@ -593,7 +593,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:            p.conf.WebRTCEncryption,
 			ServerKey:             p.conf.WebRTCServerKey,
 			ServerCert:            p.conf.WebRTCServerCert,
-			AllowOrigin:           p.conf.WebRTCAllowOrigin,
+			AllowOrigins:          p.conf.WebRTCAllowOrigins,
 			TrustedProxies:        p.conf.WebRTCTrustedProxies,
 			ReadTimeout:           p.conf.ReadTimeout,
 			WriteTimeout:          p.conf.WriteTimeout,
@@ -713,7 +713,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
 		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
 		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
-		newConf.MetricsAllowOrigin != p.conf.MetricsAllowOrigin ||
+		!slices.Equal(newConf.MetricsAllowOrigins, p.conf.MetricsAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -726,7 +726,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.PPROFEncryption != p.conf.PPROFEncryption ||
 		newConf.PPROFServerKey != p.conf.PPROFServerKey ||
 		newConf.PPROFServerCert != p.conf.PPROFServerCert ||
-		newConf.PPROFAllowOrigin != p.conf.PPROFAllowOrigin ||
+		!slices.Equal(newConf.PPROFAllowOrigins, p.conf.PPROFAllowOrigins) ||
 		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -746,7 +746,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.PlaybackEncryption != p.conf.PlaybackEncryption ||
 		newConf.PlaybackServerKey != p.conf.PlaybackServerKey ||
 		newConf.PlaybackServerCert != p.conf.PlaybackServerCert ||
-		newConf.PlaybackAllowOrigin != p.conf.PlaybackAllowOrigin ||
+		!slices.Equal(newConf.PlaybackAllowOrigins, p.conf.PlaybackAllowOrigins) ||
 		!reflect.DeepEqual(newConf.PlaybackTrustedProxies, p.conf.PlaybackTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -853,7 +853,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
-		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
+		!slices.Equal(newConf.HLSAllowOrigins, p.conf.HLSAllowOrigins) ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSVariant != p.conf.HLSVariant ||
@@ -875,7 +875,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
 		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
 		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
-		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
+		!slices.Equal(newConf.WebRTCAllowOrigins, p.conf.WebRTCAllowOrigins) ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

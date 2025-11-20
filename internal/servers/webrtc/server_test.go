@@ -66,7 +66,7 @@ func initializeTestServer(t *testing.T) *Server {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		AllowOrigin:           "*",
+		AllowOrigins:          []string{"*"},
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
 		WriteTimeout:          conf.Duration(10 * time.Second),
