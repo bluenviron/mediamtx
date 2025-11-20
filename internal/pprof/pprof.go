@@ -44,13 +44,14 @@ func (pp *PPROF) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	router.Use(pp.middlewareOrigin)
+	router.Use(pp.middlewarePreflightRequests)
 	router.Use(pp.middlewareAuth)
 
 	pprof.Register(router)
 
 	pp.httpServer = &httpp.Server{
 		Address:      pp.Address,
+		AllowOrigins: []string{pp.AllowOrigin},
 		ReadTimeout:  time.Duration(pp.ReadTimeout),
 		WriteTimeout: time.Duration(pp.WriteTimeout),
 		Encryption:   pp.Encryption,
@@ -80,11 +81,7 @@ func (pp *PPROF) Log(level logger.Level, format string, args ...any) {
 	pp.Parent.Log(level, "[pprof] "+format, args...)
 }
 
-func (pp *PPROF) middlewareOrigin(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", pp.AllowOrigin)
-	ctx.Header("Access-Control-Allow-Credentials", "true")
-
-	// preflight requests
+func (pp *PPROF) middlewarePreflightRequests(ctx *gin.Context) {
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")

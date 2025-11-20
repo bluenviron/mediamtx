@@ -32,6 +32,7 @@ func (nilWriter) Write(p []byte) (int, error) {
 // - filtering of invalid requests
 type Server struct {
 	Address      string
+	AllowOrigins []string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	Encryption   bool
@@ -100,8 +101,9 @@ func (s *Server) Initialize() error {
 	}
 
 	h := s.Handler
-	h = &handlerFilterRequests{h}
+	h = &handlerOrigin{h, s.AllowOrigins}
 	h = &handlerServerHeader{h}
+	h = &handlerFilterRequests{h}
 	h = &handlerLogger{h, s.Parent}
 	h = &handlerExitOnPanic{h}
 	h = &handlerWriteTimeout{h, s.WriteTimeout}

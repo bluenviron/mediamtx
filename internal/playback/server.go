@@ -41,13 +41,14 @@ func (s *Server) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	router.Use(s.middlewareOrigin)
+	router.Use(s.middlewarePreflightRequests)
 
 	router.GET("/list", s.onList)
 	router.GET("/get", s.onGet)
 
 	s.httpServer = &httpp.Server{
 		Address:      s.Address,
+		AllowOrigins: []string{s.AllowOrigin},
 		ReadTimeout:  time.Duration(s.ReadTimeout),
 		WriteTimeout: time.Duration(s.WriteTimeout),
 		Encryption:   s.Encryption,
@@ -100,11 +101,7 @@ func (s *Server) safeFindPathConf(name string) (*conf.Path, error) {
 	return pathConf, err
 }
 
-func (s *Server) middlewareOrigin(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", s.AllowOrigin)
-	ctx.Header("Access-Control-Allow-Credentials", "true")
-
-	// preflight requests
+func (s *Server) middlewarePreflightRequests(ctx *gin.Context) {
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
