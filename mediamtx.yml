@@ -12,6 +12,8 @@ logLevel: info
 logDestinations: [stdout]
 # If "file" is in logDestinations, this is the file which will receive logs.
 logFile: mediamtx.log
+# If "stdout" in logDestination, use json for logs.
+structuredLog: no
 # If "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
 
