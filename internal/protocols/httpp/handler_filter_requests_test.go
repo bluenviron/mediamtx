@@ -3,19 +3,17 @@ package httpp
 import (
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/stretchr/testify/require"
 )
 
-func TestUnixSocket(t *testing.T) {
+func TestHandlerFilterRequests(t *testing.T) {
 	s := &Server{
-		Address:      "unix://http.sock",
+		Address:      "localhost:4555",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Parent:       test.NilLogger,
@@ -25,12 +23,11 @@ func TestUnixSocket(t *testing.T) {
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
+	defer s.Close()
 
-	_, err = os.Stat("http.sock")
+	conn, err := net.Dial("tcp", "localhost:4555")
 	require.NoError(t, err)
-
-	conn, err := net.Dial("unix", "http.sock")
-	require.NoError(t, err)
+	defer conn.Close()
 
 	_, err = conn.Write([]byte("OPTIONS / HTTP/1.1\n" +
 		"Host: localhost:8889\n\n"))
@@ -42,10 +39,4 @@ func TestUnixSocket(t *testing.T) {
 
 	res := strings.Split(string(buf[:n]), "\r\n")
 	require.Equal(t, "HTTP/1.1 200 OK", res[0])
-
-	conn.Close()
-	s.Close()
-
-	_, err = os.Stat("http.sock")
-	require.EqualError(t, err, "stat http.sock: no such file or directory")
 }

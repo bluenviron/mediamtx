@@ -124,8 +124,10 @@ components:
           type: string
         apiServerCert:
           type: string
-        apiAllowOrigin:
-          type: string
+        apiAllowOrigins:
+          type: array
+          items:
+            type: string
         apiTrustedProxies:
           type: array
           items:
@@ -142,8 +144,10 @@ components:
           type: string
         metricsServerCert:
           type: string
-        metricsAllowOrigin:
-          type: string
+        metricsAllowOrigins:
+          type: array
+          items:
+            type: string
         metricsTrustedProxies:
           type: array
           items:
@@ -160,8 +164,10 @@ components:
           type: string
         pprofServerCert:
           type: string
-        pprofAllowOrigin:
-          type: string
+        pprofAllowOrigins:
+          type: array
+          items:
+            type: string
         pprofTrustedProxies:
           type: array
           items:
@@ -178,8 +184,10 @@ components:
           type: string
         playbackServerCert:
           type: string
-        playbackAllowOrigin:
-          type: string
+        playbackAllowOrigins:
+          type: array
+          items:
+            type: string
         playbackTrustedProxies:
           type: array
           items:
@@ -254,8 +262,10 @@ components:
           type: string
         hlsServerCert:
           type: string
-        hlsAllowOrigin:
-          type: string
+        hlsAllowOrigins:
+          type: array
+          items:
+            type: string
         hlsTrustedProxies:
           type: array
           items:
@@ -289,8 +299,10 @@ components:
           type: string
         webrtcServerCert:
           type: string
-        webrtcAllowOrigin:
-          type: string
+        webrtcAllowOrigins:
+          type: array
+          items:
+            type: string
         webrtcTrustedProxies:
           type: array
           items:

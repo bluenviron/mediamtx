@@ -18,7 +18,7 @@ import (
 func TestPreflightRequest(t *testing.T) {
 	s := &Server{
 		Address:      "127.0.0.1:9996",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		Parent:       test.NilLogger,

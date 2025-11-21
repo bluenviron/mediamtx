@@ -74,7 +74,7 @@ type Server struct {
 	Encryption      bool
 	ServerKey       string
 	ServerCert      string
-	AllowOrigin     string
+	AllowOrigins    []string
 	TrustedProxies  conf.IPNetworks
 	AlwaysRemux     bool
 	Variant         conf.HLSVariant
@@ -124,7 +124,7 @@ func (s *Server) Initialize() error {
 		encryption:     s.Encryption,
 		serverKey:      s.ServerKey,
 		serverCert:     s.ServerCert,
-		allowOrigin:    s.AllowOrigin,
+		allowOrigins:   s.AllowOrigins,
 		trustedProxies: s.TrustedProxies,
 		readTimeout:    s.ReadTimeout,
 		writeTimeout:   s.WriteTimeout,
