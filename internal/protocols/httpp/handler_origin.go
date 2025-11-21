@@ -79,7 +79,7 @@ type handlerOrigin struct {
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin, ok := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
-	if !ok {
+	if ok {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 	}
