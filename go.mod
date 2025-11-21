@@ -25,7 +25,7 @@ require (
 	github.com/gookit/color v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/matthewhartstonge/argon2 v1.4.2
+	github.com/matthewhartstonge/argon2 v1.4.3
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.0.10
 	github.com/pion/interceptor v0.1.42
@@ -36,7 +36,7 @@ require (
 	github.com/pion/transport/v3 v3.1.1
 	github.com/pion/webrtc/v4 v4.1.6
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/crypto v0.44.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.37.0
 	gopkg.in/yaml.v2 v2.4.0
