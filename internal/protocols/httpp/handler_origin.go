@@ -1,7 +1,6 @@
 package httpp
 
 import (
-	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -9,26 +8,24 @@ import (
 	"strings"
 )
 
-var errOriginNotAllowed = errors.New("origin not allowed")
-
-func isOriginAllowed(origin string, allowOrigins []string) (string, error) {
+func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 	if len(allowOrigins) == 0 {
-		return "", errOriginNotAllowed
+		return "", false
 	}
 
 	for _, o := range allowOrigins {
 		if o == "*" {
-			return o, nil
+			return o, true
 		}
 	}
 
 	if origin == "" {
-		return "", errOriginNotAllowed
+		return "", false
 	}
 
 	originURL, err := url.Parse(origin)
 	if err != nil || originURL.Scheme == "" {
-		return "", errOriginNotAllowed
+		return "", false
 	}
 
 	if originURL.Port() == "" && originURL.Scheme != "" {
@@ -58,7 +55,7 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, error) {
 		if allowedURL.Scheme == originURL.Scheme &&
 			allowedURL.Host == originURL.Host &&
 			allowedURL.Port() == originURL.Port() {
-			return origin, nil
+			return origin, true
 		}
 
 		if strings.Contains(allowedURL.Host, "*") {
@@ -66,23 +63,23 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, error) {
 			pattern = strings.ReplaceAll(pattern, "*", ".*")
 			matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
 			if errMatched == nil && matched {
-				return origin, nil
+				return origin, true
 			}
 		}
 	}
 
-	return "", errOriginNotAllowed
+	return "", false
 }
 
-// add Access-Control-Allow-Origin and Access-Control-Allow-Credentials
+// add Access-Control-Allow-Origin and Access-Control-Allow-Credentials headers.
 type handlerOrigin struct {
 	h            http.Handler
 	allowOrigins []string
 }
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	origin, err := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
-	if err == nil {
+	origin, ok := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
+	if !ok {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 	}
