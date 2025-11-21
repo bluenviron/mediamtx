@@ -171,7 +171,7 @@ func TestAPIDocs(t *testing.T) {
 						content2.Properties[js] = openAPIProperty{Type: "integer", Format: "int64"}
 
 					case sf.Type == reflect.TypeOf(float64(0)):
-						content2.Properties[js] = openAPIProperty{Type: "number", Format: "float64"}
+						content2.Properties[js] = openAPIProperty{Type: "number", Format: "double"}
 
 					case sf.Type == reflect.TypeOf(false):
 						content2.Properties[js] = openAPIProperty{Type: "boolean"}
