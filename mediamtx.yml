@@ -158,7 +158,7 @@ apiEncryption: no
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 apiAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
@@ -182,7 +182,7 @@ metricsEncryption: no
 metricsServerKey: server.key
 # Path to the server certificate.
 metricsServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 metricsAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
@@ -206,7 +206,7 @@ pprofEncryption: no
 pprofServerKey: server.key
 # Path to the server certificate.
 pprofServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 pprofAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
@@ -230,7 +230,7 @@ playbackEncryption: no
 playbackServerKey: server.key
 # Path to the server certificate.
 playbackServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 playbackAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
@@ -323,7 +323,7 @@ hlsEncryption: no
 hlsServerKey: server.key
 # Path to the server certificate.
 hlsServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 hlsAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HLS server.
@@ -381,7 +381,7 @@ webrtcEncryption: no
 webrtcServerKey: server.key
 # Path to the server certificate.
 webrtcServerCert: server.crt
-# List of allowed HTTP Origins.
+# List of allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 webrtcAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the WebRTC server.
