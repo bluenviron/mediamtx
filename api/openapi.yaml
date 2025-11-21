@@ -63,6 +63,8 @@ components:
           type: array
           items:
             type: string
+        structuredLog:
+          type: boolean
         logFile:
           type: string
         sysLogPrefix:
