@@ -158,7 +158,7 @@ apiEncryption: no
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
-# Lis.
+# List of allowed HTTP Origins.
 # Supports wildcards: ['http://*.example.com']
 apiAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
