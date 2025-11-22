@@ -334,9 +334,8 @@ func TestRecorder(t *testing.T) {
 			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext))
 			require.NoError(t, err)
 
-			if ext == "mp4" {
+			if ca == "fmp4" {
 				var byts []byte
-
 				byts, err = os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
 				require.NoError(t, err)
 
@@ -344,37 +343,50 @@ func TestRecorder(t *testing.T) {
 				err = parts.Unmarshal(byts)
 				require.NoError(t, err)
 
-				foundTrack1 := false
-				foundTrack2 := false
-				foundTrack3 := false
-				foundTrack4 := false
-				foundTrack5 := false
-
 				for _, part := range parts {
 					for _, track := range part.Tracks {
-						if track.ID == 1 {
-							foundTrack1 = true
-						}
-						if track.ID == 2 {
-							foundTrack2 = true
-						}
-						if track.ID == 3 {
-							foundTrack3 = true
-						}
-						if track.ID == 4 {
-							foundTrack4 = true
-						}
-						if track.ID == 5 {
-							foundTrack5 = true
-						}
+						track.Samples = nil
 					}
 				}
 
-				require.Equal(t, true, foundTrack1)
-				require.Equal(t, true, foundTrack2)
-				require.Equal(t, true, foundTrack3)
-				require.Equal(t, true, foundTrack4)
-				require.Equal(t, true, foundTrack5)
+				require.Equal(t, fmp4.Parts{
+					{
+						Tracks: []*fmp4.PartTrack{{
+							ID: 1,
+						}},
+					},
+					{
+						SequenceNumber: 1,
+						Tracks: []*fmp4.PartTrack{{
+							ID: 2,
+						}},
+					},
+					{
+						SequenceNumber: 2,
+						Tracks: []*fmp4.PartTrack{{
+							ID: 3,
+						}},
+					},
+					{
+						SequenceNumber: 3,
+						Tracks: []*fmp4.PartTrack{{
+							ID: 4,
+						}},
+					},
+					{
+						SequenceNumber: 4,
+						Tracks: []*fmp4.PartTrack{{
+							ID: 5,
+						}},
+					},
+					{
+						SequenceNumber: 5,
+						Tracks: []*fmp4.PartTrack{{
+							ID:       1,
+							BaseTime: 9000,
+						}},
+					},
+				}, parts)
 			}
 		})
 	}
