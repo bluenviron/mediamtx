@@ -123,6 +123,7 @@ type Path struct {
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 	CalcBitrateWindow          Duration `json:"calcBitrateWindow"`
 	DropNonKeyframes           bool     `json:"dropNonKeyframes"`
+	Meta                       map[string]any `json:"meta" yaml:"meta"`
 
 	// Record
 	Record                bool         `json:"record"`
