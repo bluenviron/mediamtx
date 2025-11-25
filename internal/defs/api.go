@@ -87,6 +87,7 @@ type APIPath struct {
 	Readers         []APIPathSourceOrReader `json:"readers"`
 	BitrateReceived      float64                 `json:"bitrateReceived"`
 	LastRTPTimestamp     *int64                  `json:"lastRTPTimestamp"`
+	Meta                map[string]any           `json:"meta,omitempty"`
 }
 
 // APIPathList is a list of paths.

@@ -653,6 +653,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return &ts
 			}(),
+			Meta: pa.conf.Meta,
 		},
 	}
 }
