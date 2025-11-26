@@ -68,7 +68,7 @@ func (pa *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 func TestServerPreflightRequest(t *testing.T) {
 	s := &Server{
 		Address:      "127.0.0.1:8888",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		PathManager:  &dummyPathManager{},
@@ -131,7 +131,6 @@ func TestServerNotFound(t *testing.T) {
 				SegmentDuration: conf.Duration(1 * time.Second),
 				PartDuration:    conf.Duration(200 * time.Millisecond),
 				SegmentMaxSize:  50 * 1024 * 1024,
-				AllowOrigin:     "",
 				TrustedProxies:  conf.IPNetworks{},
 				Directory:       "",
 				ReadTimeout:     conf.Duration(10 * time.Second),
@@ -433,7 +432,6 @@ func TestServerDirectory(t *testing.T) {
 		SegmentDuration: conf.Duration(1 * time.Second),
 		PartDuration:    conf.Duration(200 * time.Millisecond),
 		SegmentMaxSize:  50 * 1024 * 1024,
-		AllowOrigin:     "",
 		TrustedProxies:  conf.IPNetworks{},
 		Directory:       filepath.Join(dir, "mydir"),
 		ReadTimeout:     conf.Duration(10 * time.Second),

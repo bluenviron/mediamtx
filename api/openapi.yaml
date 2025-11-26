@@ -124,8 +124,10 @@ components:
           type: string
         apiServerCert:
           type: string
-        apiAllowOrigin:
-          type: string
+        apiAllowOrigins:
+          type: array
+          items:
+            type: string
         apiTrustedProxies:
           type: array
           items:
@@ -142,8 +144,10 @@ components:
           type: string
         metricsServerCert:
           type: string
-        metricsAllowOrigin:
-          type: string
+        metricsAllowOrigins:
+          type: array
+          items:
+            type: string
         metricsTrustedProxies:
           type: array
           items:
@@ -160,8 +164,10 @@ components:
           type: string
         pprofServerCert:
           type: string
-        pprofAllowOrigin:
-          type: string
+        pprofAllowOrigins:
+          type: array
+          items:
+            type: string
         pprofTrustedProxies:
           type: array
           items:
@@ -178,8 +184,10 @@ components:
           type: string
         playbackServerCert:
           type: string
-        playbackAllowOrigin:
-          type: string
+        playbackAllowOrigins:
+          type: array
+          items:
+            type: string
         playbackTrustedProxies:
           type: array
           items:
@@ -254,8 +262,10 @@ components:
           type: string
         hlsServerCert:
           type: string
-        hlsAllowOrigin:
-          type: string
+        hlsAllowOrigins:
+          type: array
+          items:
+            type: string
         hlsTrustedProxies:
           type: array
           items:
@@ -289,8 +299,10 @@ components:
           type: string
         webrtcServerCert:
           type: string
-        webrtcAllowOrigin:
-          type: string
+        webrtcAllowOrigins:
+          type: array
+          items:
+            type: string
         webrtcTrustedProxies:
           type: array
           items:
@@ -420,16 +432,16 @@ components:
           type: boolean
         rpiCameraBrightness:
           type: number
-          format: float64
+          format: double
         rpiCameraContrast:
           type: number
-          format: float64
+          format: double
         rpiCameraSaturation:
           type: number
-          format: float64
+          format: double
         rpiCameraSharpness:
           type: number
-          format: float64
+          format: double
         rpiCameraExposure:
           type: string
         rpiCameraAWB:
@@ -440,7 +452,7 @@ components:
           maxItems: 2
           items:
             type: number
-            format: float64
+            format: double
         rpiCameraDenoise:
           type: string
         rpiCameraShutter:
@@ -450,10 +462,10 @@ components:
           type: string
         rpiCameraGain:
           type: number
-          format: float64
+          format: double
         rpiCameraEV:
           type: number
-          format: float64
+          format: double
         rpiCameraROI:
           type: string
         rpiCameraHDR:
@@ -464,7 +476,7 @@ components:
           type: string
         rpiCameraFPS:
           type: number
-          format: float64
+          format: double
         rpiCameraAfMode:
           type: string
         rpiCameraAfRange:
@@ -473,7 +485,7 @@ components:
           type: string
         rpiCameraLensPosition:
           type: number
-          format: float64
+          format: double
         rpiCameraAfWindow:
           type: string
         rpiCameraFlickerPeriod:
@@ -802,7 +814,7 @@ components:
           format: int64
         rtpPacketsJitter:
           type: number
-          format: float64
+          format: double
         rtcpPacketsReceived:
           type: integer
           format: int64
@@ -963,7 +975,7 @@ components:
           description: Same as packetsReceivedUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         usPacketsSendPeriod:
           type: number
-          format: float64
+          format: double
           description: Current minimum time interval between which consecutive packets are sent, in microseconds
         packetsFlowWindow:
           type: integer
@@ -975,19 +987,19 @@ components:
           description: The number of packets in flight
         msRTT:
           type: number
-          format: float64
+          format: double
           description: Smoothed round-trip time (SRTT), an exponentially-weighted moving average (EWMA) of an endpoint's RTT samples, in milliseconds
         mbpsSendRate:
           type: number
-          format: float64
+          format: double
           description: Current transmission bandwidth, in Mbps
         mbpsReceiveRate:
           type: number
-          format: float64
+          format: double
           description: Current receiving bandwidth, in Mbps
         mbpsLinkCapacity:
           type: number
-          format: float64
+          format: double
           description: Estimated capacity of the network link, in Mbps
         bytesAvailSendBuf:
           type: integer
@@ -999,7 +1011,7 @@ components:
           description: The available space in the receiver's buffer, in bytes
         mbpsMaxBW:
           type: number
-          format: float64
+          format: double
           description: Transmission bandwidth limit, in Mbps
         byteMSS:
           type: integer
@@ -1047,11 +1059,11 @@ components:
           description: Accumulated difference between the current time and the time-to-play of a packet that is received late
         packetsSendLossRate:
           type: number
-          format: float64
+          format: double
           description: Percentage of resent data vs. sent data
         packetsReceivedLossRate:
           type: number
-          format: float64
+          format: double
           description: Percentage of retransmitted data vs. received data
 
     SRTConnList:
@@ -1107,7 +1119,7 @@ components:
           format: int64
         rtpPacketsJitter:
           type: number
-          format: float64
+          format: double
         rtcpPacketsReceived:
           type: integer
           format: int64

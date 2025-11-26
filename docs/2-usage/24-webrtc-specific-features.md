@@ -44,7 +44,7 @@ If there's a NAT / container between server and clients, it must be configured t
 docker run --rm -it \
 -p 8189:8189/udp
 ....
-bluenviron/mediamtx
+bluenviron/mediamtx:1
 ```
 
 If you still have problems, the UDP protocol might be blocked by a firewall. Enable the TCP protocol by enabling the local TCP listener:

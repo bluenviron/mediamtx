@@ -83,7 +83,7 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 func TestPreflightRequest(t *testing.T) {
 	api := API{
 		Address:      "localhost:9997",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,

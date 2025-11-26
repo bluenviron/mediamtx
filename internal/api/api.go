@@ -94,7 +94,7 @@ type API struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
-	AllowOrigin    string
+	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
@@ -119,7 +119,7 @@ func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	router.Use(a.middlewareOrigin)
+	router.Use(a.middlewarePreflightRequests)
 	router.Use(a.middlewareAuth)
 
 	group := router.Group("/v3")
@@ -196,6 +196,7 @@ func (a *API) Initialize() error {
 
 	a.httpServer = &httpp.Server{
 		Address:      a.Address,
+		AllowOrigins: a.AllowOrigins,
 		ReadTimeout:  time.Duration(a.ReadTimeout),
 		WriteTimeout: time.Duration(a.WriteTimeout),
 		Encryption:   a.Encryption,
@@ -235,11 +236,7 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	})
 }
 
-func (a *API) middlewareOrigin(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", a.AllowOrigin)
-	ctx.Header("Access-Control-Allow-Credentials", "true")
-
-	// preflight requests
+func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")

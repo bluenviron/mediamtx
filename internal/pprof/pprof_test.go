@@ -17,7 +17,7 @@ import (
 func TestPreflightRequest(t *testing.T) {
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		Parent:       test.NilLogger,
@@ -56,7 +56,7 @@ func TestPprof(t *testing.T) {
 
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
@@ -99,7 +99,7 @@ func TestAuthError(t *testing.T) {
 
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
