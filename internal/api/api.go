@@ -619,9 +619,9 @@ func (a *API) onPathsCameras(ctx *gin.Context) {
 			cameraItem := map[string]any{
 				"name": item.Name,
 			}
-			if item.Meta != nil {
-				// Merge meta fields at the same level as name
-				for k, v := range item.Meta {
+			if item.Metadata != nil {
+				// Merge metadata fields at the same level as name
+				for k, v := range item.Metadata {
 					cameraItem[k] = v
 				}
 			}

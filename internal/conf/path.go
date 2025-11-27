@@ -112,18 +112,18 @@ type Path struct {
 	Name   string         `json:"name"` // filled by Check()
 
 	// General
-	Source                     string   `json:"source"`
-	SourceFingerprint          string   `json:"sourceFingerprint"`
-	SourceOnDemand             bool     `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
-	MaxReaders                 int      `json:"maxReaders"`
-	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
-	Fallback                   string   `json:"fallback"`
-	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
-	CalcBitrateWindow          Duration `json:"calcBitrateWindow"`
-	DropNonKeyframes           bool     `json:"dropNonKeyframes"`
-	Meta                       map[string]any `json:"meta" yaml:"meta"`
+	Source                     string         `json:"source"`
+	SourceFingerprint          string         `json:"sourceFingerprint"`
+	SourceOnDemand             bool           `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout Duration       `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   Duration       `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int            `json:"maxReaders"`
+	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
+	Fallback                   string         `json:"fallback"`
+	UseAbsoluteTimestamp       bool           `json:"useAbsoluteTimestamp"`
+	CalcBitrateWindow          Duration       `json:"calcBitrateWindow"`
+	DropNonKeyframes           bool           `json:"dropNonKeyframes"`
+	Metadata                   map[string]any `json:"metadata" yaml:"metadata"`
 
 	// Record
 	Record                bool         `json:"record"`

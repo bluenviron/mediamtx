@@ -642,7 +642,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return ret
 			}(),
-			BitrateReceived:  bitrateReceived,
+			BitrateReceived: bitrateReceived,
 			LastRTPTimestamp: func() *int64 {
 				if !pa.isReady() {
 					return nil
@@ -653,7 +653,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return &ts
 			}(),
-			Meta: pa.conf.Meta,
+			Metadata: pa.conf.Metadata,
 		},
 	}
 }
@@ -757,7 +757,7 @@ func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fil
 		Desc:               desc,
 		GenerateRTPPackets: generateRTPPackets,
 		FillNTP:            fillNTP,
-		DropNonKeyframes:   pa.conf.DropNonKeyframes, 
+		DropNonKeyframes:   pa.conf.DropNonKeyframes,
 		Parent:             pa.source,
 	}
 	err := pa.stream.Initialize()
