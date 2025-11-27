@@ -86,7 +86,7 @@ type APIPath struct {
 	BytesSent        uint64                  `json:"bytesSent"`
 	Readers          []APIPathSourceOrReader `json:"readers"`
 	BitrateReceived  float64                 `json:"bitrateReceived"`
-	LastRTPTimestamp *int64                  `json:"lastRTPTimestamp"`
+	LastRTPTimestamp *int64                  `json:"lastRTPTimestamp,string,omitempty"`
 	Metadata         map[string]any          `json:"metadata,omitempty"`
 }
 
