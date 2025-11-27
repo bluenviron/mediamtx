@@ -143,7 +143,6 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
-	group.GET("/paths/cameras", a.onPathsCameras)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
@@ -602,47 +601,6 @@ func (a *API) onPathsGet(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, data)
-}
-
-func (a *API) onPathsCameras(ctx *gin.Context) {
-	data, err := a.PathManager.APIPathsList()
-	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	// Filter by search parameter if provided and extract only name and meta
-	search := ctx.Query("search")
-	items := []map[string]any{}
-	for _, item := range data.Items {
-		if search == "" || strings.Contains(strings.ToLower(item.Name), strings.ToLower(search)) {
-			cameraItem := map[string]any{
-				"name": item.Name,
-			}
-			if item.Metadata != nil {
-				// Merge metadata fields at the same level as name
-				for k, v := range item.Metadata {
-					cameraItem[k] = v
-				}
-			}
-			items = append(items, cameraItem)
-		}
-	}
-
-	itemCount := len(items)
-	pageCount, err := paginate(&items, ctx.Query("itemsPerPage"), ctx.Query("page"))
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	response := map[string]any{
-		"itemCount": itemCount,
-		"pageCount": pageCount,
-		"items":     items,
-	}
-
-	ctx.JSON(http.StatusOK, response)
 }
 
 func (a *API) onRTSPConnsList(ctx *gin.Context) {
