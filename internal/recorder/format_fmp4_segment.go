@@ -201,7 +201,7 @@ func (s *formatFMP4Segment) closeCurPart() error {
 	return s.curPart.close(s.fi)
 }
 
-func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
+func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
 	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
 	if endDTS > s.endDTS {
 		s.endDTS = endDTS

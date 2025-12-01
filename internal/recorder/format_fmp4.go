@@ -98,6 +98,12 @@ func jpegExtractSize(image []byte) (int, int, error) {
 	}
 }
 
+type formatFMP4Sample struct {
+	*fmp4.Sample
+	dts int64
+	ntp time.Time
+}
+
 type formatFMP4 struct {
 	ri *recorderInstance
 
@@ -111,18 +117,15 @@ func (f *formatFMP4) initialize() bool {
 	nextID := 1
 
 	addTrack := func(format rtspformat.Format, codec mp4.Codec) *formatFMP4Track {
-		initTrack := &fmp4.InitTrack{
-			TimeScale: uint32(format.ClockRate()),
-			Codec:     codec,
-		}
-		initTrack.ID = nextID
-		nextID++
-
 		track := &formatFMP4Track{
 			f:         f,
-			initTrack: initTrack,
+			id:        nextID,
+			clockRate: uint32(format.ClockRate()),
+			codec:     codec,
 		}
+		track.initialize()
 
+		nextID++
 		f.tracks = append(f.tracks, track)
 		return track
 	}
@@ -180,7 +183,7 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &sampl,
 							dts:    u.PTS,
 							ntp:    u.NTP,
@@ -257,7 +260,7 @@ func (f *formatFMP4) initialize() bool {
 							firstReceived = true
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								IsNonSyncSample: !randomAccess,
 								Payload:         u.Payload.(unit.PayloadVP9),
@@ -348,7 +351,7 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &sampl,
 							dts:    dts,
 							ntp:    u.NTP,
@@ -424,7 +427,7 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &sampl,
 							dts:    dts,
 							ntp:    u.NTP,
@@ -481,7 +484,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 						lastPTS = u.PTS
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								Payload:         u.Payload.(unit.PayloadMPEG4Video),
 								IsNonSyncSample: !randomAccess,
@@ -532,7 +535,7 @@ func (f *formatFMP4) initialize() bool {
 						}
 						lastPTS = u.PTS
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								Payload:         u.Payload.(unit.PayloadMPEG1Video),
 								IsNonSyncSample: !randomAccess,
@@ -570,7 +573,7 @@ func (f *formatFMP4) initialize() bool {
 							f.updateCodecParams()
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								Payload: u.Payload.(unit.PayloadMJPEG),
 							},
@@ -596,7 +599,7 @@ func (f *formatFMP4) initialize() bool {
 						pts := u.PTS
 
 						for _, packet := range u.Payload.(unit.PayloadOpus) {
-							err := track.write(&sample{
+							err := track.write(&formatFMP4Sample{
 								Sample: &fmp4.Sample{
 									Payload: packet,
 								},
@@ -630,7 +633,7 @@ func (f *formatFMP4) initialize() bool {
 						for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
 							pts := u.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
 
-							err := track.write(&sample{
+							err := track.write(&formatFMP4Sample{
 								Sample: &fmp4.Sample{
 									Payload: au,
 								},
@@ -667,7 +670,7 @@ func (f *formatFMP4) initialize() bool {
 								return err
 							}
 
-							return track.write(&sample{
+							return track.write(&formatFMP4Sample{
 								Sample: &fmp4.Sample{
 									Payload: ame.Payloads[0][0][0],
 								},
@@ -710,7 +713,7 @@ func (f *formatFMP4) initialize() bool {
 								f.updateCodecParams()
 							}
 
-							err = track.write(&sample{
+							err = track.write(&formatFMP4Sample{
 								Sample: &fmp4.Sample{
 									Payload: frame,
 								},
@@ -779,7 +782,7 @@ func (f *formatFMP4) initialize() bool {
 
 							pts := u.PTS + int64(i)*ac3.SamplesPerFrame
 
-							err = track.write(&sample{
+							err = track.write(&formatFMP4Sample{
 								Sample: &fmp4.Sample{
 									Payload: frame,
 								},
@@ -825,7 +828,7 @@ func (f *formatFMP4) initialize() bool {
 							lpcm = al
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								Payload: lpcm,
 							},
@@ -851,7 +854,7 @@ func (f *formatFMP4) initialize() bool {
 							return nil
 						}
 
-						return track.write(&sample{
+						return track.write(&formatFMP4Sample{
 							Sample: &fmp4.Sample{
 								Payload: u.Payload.(unit.PayloadLPCM),
 							},
