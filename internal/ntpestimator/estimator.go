@@ -31,6 +31,10 @@ var zero = time.Time{}
 func (e *Estimator) Estimate(pts int64) time.Time {
 	now := timeNow()
 
+	// do not store monotonic clock, in order to include
+	// system clock changes into time differences
+	now = now.Round(0)
+
 	if e.refNTP.Equal(zero) {
 		e.refNTP = now
 		e.refPTS = pts
