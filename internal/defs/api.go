@@ -85,6 +85,7 @@ type APIPath struct {
 	BytesReceived uint64                  `json:"bytesReceived"`
 	BytesSent     uint64                  `json:"bytesSent"`
 	Readers       []APIPathSourceOrReader `json:"readers"`
+	Metadata      map[string]any          `json:"metadata" yaml:"metadata"`
 }
 
 // APIPathList is a list of paths.
