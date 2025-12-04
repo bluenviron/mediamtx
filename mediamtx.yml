@@ -146,7 +146,7 @@ authJWTInHTTPQuery: true
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+api: yes
 # Address of the Control API listener.
 apiAddress: :9997
 # Enable TLS/HTTPS on the Control API server.
@@ -752,6 +752,12 @@ pathDefaults:
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
+  # FPT Camera dynamic paths - adapter sẽ tạo RTSP source khi nhận credentials
+  ~^fpt/:
+    # sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 30s
+    sourceOnDemandCloseAfter: 60s
+
   # example:
   # my_camera:
   #   source: rtsp://my_camera

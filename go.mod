@@ -15,6 +15,7 @@ require (
 	github.com/bluenviron/gortsplib/v5 v5.2.0
 	github.com/bluenviron/mediacommon/v2 v2.5.2-0.20251201152746-8d059e8616fb
 	github.com/datarhei/gosrt v0.9.0
+	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
 	github.com/gin-gonic/gin v1.11.0

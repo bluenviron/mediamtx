@@ -1,0 +1,22 @@
+{
+  "name": "fpt-camera-webrtc-client",
+  "version": "1.0.0",
+  "description": "WebRTC client for FPT cameras with MQTT signaling",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve . -p 8080",
+    "dev": "npx serve . -p 8080 --cors"
+  },
+  "keywords": [
+    "webrtc",
+    "mqtt",
+    "camera",
+    "fpt",
+    "streaming"
+  ],
+  "author": "FPT Telecom",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.0.0"
+  }
+}

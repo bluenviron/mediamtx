@@ -5,3 +5,34 @@
 /internal/core/VERSION
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*/
+.env.example
+*.env
+*.exe
+*.log
+
+# Build outputs
+bin/
+/build/
+/dist/
+/out/
+
+# Go
+/vendor/
+*.test
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Node (frontend)
+client/node_modules/
+
+# Binary artifact (explicit)
+/mediamtx.exe
+
+# Secrets (already included above, keep extra patterns)
+.env.local
+.env.*
