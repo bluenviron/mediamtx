@@ -1,5 +1,5 @@
 // Package api contains the API server.
-package api
+package api //nolint:revive
 
 import (
 	"net"
@@ -220,8 +220,13 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 
 	// add error to response
 	ctx.JSON(status, &defs.APIError{
-		Error: err.Error(),
+		Status: "error",
+		Error:  err.Error(),
 	})
+}
+
+func (a *API) writeOK(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, &defs.APIOK{Status: "ok"})
 }
 
 func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
@@ -246,7 +251,10 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+				Status: "error",
+				Error:  "authentication error",
+			})
 			return
 		}
 
@@ -255,7 +263,10 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+			Status: "error",
+			Error:  "authentication error",
+		})
 		return
 	}
 }
@@ -269,7 +280,7 @@ func (a *API) onInfo(ctx *gin.Context) {
 
 func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
 	a.AuthManager.RefreshJWTJWKS()
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 // ReloadConf is called by core.

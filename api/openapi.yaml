@@ -15,9 +15,19 @@ security: []
 
 components:
   schemas:
+    OK:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
     Error:
       type: object
       properties:
+        status:
+          type: string
+          enum: [error]
         error:
           type: string
 
@@ -1170,6 +1180,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '500':
           description: server error.
           content:
@@ -1218,6 +1232,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1272,6 +1290,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1385,6 +1407,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1420,6 +1446,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1461,6 +1491,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1496,6 +1530,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -1843,6 +1881,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2034,6 +2076,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2147,6 +2193,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2260,6 +2310,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2373,6 +2427,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2486,6 +2544,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:
@@ -2605,6 +2667,10 @@ paths:
       responses:
         '200':
           description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
         '400':
           description: invalid request.
           content:

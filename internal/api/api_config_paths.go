@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"errors"
@@ -89,7 +89,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	a.Conf = newConf
 	a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
@@ -130,7 +130,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	a.Conf = newConf
 	a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
@@ -171,7 +171,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	a.Conf = newConf
 	a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 func (a *API) onConfigPathsDelete(ctx *gin.Context) {
@@ -205,5 +205,5 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 	a.Conf = newConf
 	a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }

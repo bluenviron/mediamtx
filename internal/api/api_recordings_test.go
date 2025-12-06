@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"net/http"
@@ -174,11 +174,5 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
 	u.RawQuery = v.Encode()
 
-	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-	require.Equal(t, http.StatusOK, res.StatusCode)
+	httpRequest(t, hc, http.MethodDelete, u.String(), nil, nil)
 }

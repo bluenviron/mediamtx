@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"bytes"
@@ -65,6 +65,7 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any
 	}
 
 	if out == nil {
+		checkOK(t, res.Body)
 		return
 	}
 
@@ -73,10 +74,17 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any
 }
 
 func checkError(t *testing.T, body io.Reader, msg string) {
-	var resErr map[string]any
-	err := json.NewDecoder(body).Decode(&resErr)
+	var raw map[string]any
+	err := json.NewDecoder(body).Decode(&raw)
 	require.NoError(t, err)
-	require.Equal(t, map[string]any{"error": msg}, resErr)
+	require.Equal(t, map[string]any{"status": "error", "error": msg}, raw)
+}
+
+func checkOK(t *testing.T, body io.Reader) {
+	var raw map[string]any
+	err := json.NewDecoder(body).Decode(&raw)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"status": "ok"}, raw)
 }
 
 func TestPreflightRequest(t *testing.T) {
@@ -174,13 +182,7 @@ func TestAuthJWKSRefresh(t *testing.T) {
 	u, err := url.Parse("http://localhost:9997/v3/auth/jwks/refresh")
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), nil)
-	require.NoError(t, err)
-
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-	require.Equal(t, http.StatusOK, res.StatusCode)
+	httpRequest(t, hc, http.MethodPost, u.String(), nil, nil)
 
 	require.True(t, ok)
 }
@@ -227,12 +229,15 @@ func TestAuthError(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 	require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+	checkError(t, res.Body, "authentication error")
 
 	res, err = hc.Get("http://myuser:mypass@localhost:9997/v3/config/global/get")
 	require.NoError(t, err)
 	defer res.Body.Close()
 
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	require.Equal(t, ``, res.Header.Get("WWW-Authenticate"))
+	checkError(t, res.Body, "authentication error")
 
 	require.Equal(t, 2, n)
 }

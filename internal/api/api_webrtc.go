@@ -1,5 +1,5 @@
 //nolint:dupl
-package api
+package api //nolint:revive
 
 import (
 	"errors"
@@ -65,5 +65,5 @@ func (a *API) onWebRTCSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
