@@ -1010,15 +1010,31 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if closeLogger && p.logger != nil {
-		p.logger.Close()
+		if newConf == nil {
+			p.logger.Close()
+		}
 		p.logger = nil
 	}
 }
 
 func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
+	oldLogger := p.logger
+
 	p.closeResources(newConf, calledByAPI)
+
 	p.conf = newConf
-	return p.createResources(false)
+
+	err := p.createResources(false)
+	if err != nil {
+		p.logger = oldLogger
+		return err
+	}
+
+	if p.logger != oldLogger {
+		oldLogger.Close()
+	}
+
+	return nil
 }
 
 // APIConfigSet is called by api.
