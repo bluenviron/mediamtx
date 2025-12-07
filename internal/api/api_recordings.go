@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"fmt"
@@ -94,5 +94,5 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }

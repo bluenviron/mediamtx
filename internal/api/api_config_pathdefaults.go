@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"net/http"
@@ -40,5 +40,5 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	a.Conf = newConf
 	a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }

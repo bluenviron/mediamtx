@@ -1,5 +1,5 @@
 //nolint:dupl
-package api
+package api //nolint:revive
 
 import (
 	"errors"

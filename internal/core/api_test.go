@@ -69,7 +69,7 @@ func checkError(t *testing.T, msg string, body io.Reader) {
 	var resErr map[string]any
 	err := json.NewDecoder(body).Decode(&resErr)
 	require.NoError(t, err)
-	require.Equal(t, map[string]any{"error": msg}, resErr)
+	require.Equal(t, map[string]any{"status": "error", "error": msg}, resErr)
 }
 
 func TestAPIPathsList(t *testing.T) {

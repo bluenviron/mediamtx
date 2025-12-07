@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"errors"
@@ -102,7 +102,7 @@ func (a *API) onRTSPSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 func (a *API) onRTSPSConnsList(ctx *gin.Context) {
@@ -198,5 +198,5 @@ func (a *API) onRTSPSSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }

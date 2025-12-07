@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive
 
 import (
 	"net/http"
@@ -43,5 +43,5 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 	// call it in a goroutine
 	go a.Parent.APIConfigSet(newConf)
 
-	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }

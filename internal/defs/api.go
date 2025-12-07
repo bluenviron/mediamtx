@@ -50,9 +50,15 @@ type APIWebRTCServer interface {
 	APISessionsKick(uuid.UUID) error
 }
 
+// APIOK is returned on success.
+type APIOK struct {
+	Status string `json:"status"`
+}
+
 // APIError is a generic error.
 type APIError struct {
-	Error string `json:"error"`
+	Status string `json:"status"`
+	Error  string `json:"error"`
 }
 
 // APIInfo is a info response.
