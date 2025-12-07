@@ -124,10 +124,7 @@ func TestSource(t *testing.T) {
 					err = w.Initialize()
 					require.NoError(t, err)
 
-					err = w.WriteH264(test.FormatH264, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
-					require.NoError(t, err)
-
-					err = w.WriteH264(test.FormatH264, 3*time.Second, 3*time.Second, [][]byte{{5, 2, 3, 4}})
+					err = w.WriteMPEG4Audio(test.FormatMPEG4Audio, 2*time.Second, []byte{5, 2, 3, 4})
 					require.NoError(t, err)
 
 					break
