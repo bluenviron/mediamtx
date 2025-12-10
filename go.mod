@@ -34,7 +34,7 @@ require (
 	github.com/pion/rtp v1.8.26
 	github.com/pion/sdp/v3 v3.0.16
 	github.com/pion/transport/v3 v3.1.1
-	github.com/pion/webrtc/v4 v4.1.7
+	github.com/pion/webrtc/v4 v4.1.8
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.45.0
 	golang.org/x/sys v0.38.0
@@ -80,7 +80,7 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.8.41 // indirect
 	github.com/pion/srtp/v3 v3.0.9 // indirect
-	github.com/pion/stun/v3 v3.0.1 // indirect
+	github.com/pion/stun/v3 v3.0.2 // indirect
 	github.com/pion/turn/v4 v4.1.3 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
