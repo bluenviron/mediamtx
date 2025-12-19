@@ -25,7 +25,7 @@ Streams can be published and read with the rtmps scheme and the 1937 port:
 rtmps://localhost:1937/...
 ```
 
-Be aware that RTMPS is currently unsupported by all major players. However, you can use a local _MediaMTX_ instance to decrypt streams before reading them, or alternatively a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/). For instance, you can launch a local MediaMTX instance with this configuration:
+Be aware that RTMPS is currently unsupported by all major players. However, you can use a local _MediaMTX_ instance to decrypt streams before reading them, or alternatively a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/). For instance, you can launch a local _MediaMTX_ instance with this configuration:
 
 ```yml
 paths:
