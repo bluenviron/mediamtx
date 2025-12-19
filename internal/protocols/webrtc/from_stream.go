@@ -313,7 +313,7 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp.Add(-1*time.Minute)) //nolint:errcheck
+					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
 				return nil
