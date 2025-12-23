@@ -210,6 +210,7 @@ type Path struct {
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
+	DemuxMPEGTS              bool   `json:"demuxMPEGTS"`
 
 	// RTSP source
 	RTSPTransport          RTSPTransport  `json:"rtspTransport"`
