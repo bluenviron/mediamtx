@@ -193,16 +193,16 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}, nil, nil
 	}
 
-	var stream *gortsplib.ServerStream
+	var strm *gortsplib.ServerStream
 	if !c.isTLS {
-		stream = res.Stream.RTSPStream(c.rserver)
+		strm = res.Stream.RTSPStream(c.rserver)
 	} else {
-		stream = res.Stream.RTSPSStream(c.rserver)
+		strm = res.Stream.RTSPSStream(c.rserver)
 	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, stream, nil
+	}, strm, nil
 }
 
 func (c *conn) handleAuthError(err *auth.Error) (*base.Response, error) {

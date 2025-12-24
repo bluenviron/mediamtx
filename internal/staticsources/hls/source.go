@@ -37,10 +37,10 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
-	var stream *stream.Stream
+	var strm *stream.Stream
 
 	defer func() {
-		if stream != nil {
+		if strm != nil {
 			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()
@@ -94,7 +94,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			decodeErrors.Increase()
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err2 := hls.ToStream(c, tracks, params.Conf, &stream)
+			medias, err2 := hls.ToStream(c, tracks, params.Conf, &strm)
 			if err2 != nil {
 				return err2
 			}
@@ -107,7 +107,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 				return res.Err
 			}
 
-			stream = res.Stream
+			strm = res.Stream
 
 			return nil
 		},

@@ -331,15 +331,15 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		}, err
 	}
 
-	s.path = path
-	s.stream = stream
-
 	rtsp.ToStream(
 		s.rsession,
 		s.rsession.AnnouncedDescription().Medias,
-		s.path.SafeConf(),
-		stream,
+		path.SafeConf(),
+		&s.stream,
 		s)
+
+	s.path = path
+	s.stream = stream
 
 	return &base.Response{
 		StatusCode: base.StatusOK,

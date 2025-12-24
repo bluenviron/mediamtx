@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
@@ -187,47 +188,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	readErr := make(chan error)
 	go func() {
-		readErr <- func() error {
-			desc, _, err2 := c.Describe(u)
-			if err2 != nil {
-				return err2
-			}
-
-			err2 = c.SetupAll(desc.BaseURL, desc.Medias)
-			if err2 != nil {
-				return err2
-			}
-
-			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               desc,
-				GenerateRTPPackets: false,
-				FillNTP:            !params.Conf.UseAbsoluteTimestamp,
-			})
-			if res.Err != nil {
-				return res.Err
-			}
-
-			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
-
-			rtsp.ToStream(
-				c,
-				desc.Medias,
-				params.Conf,
-				res.Stream,
-				s)
-
-			rangeHeader, err2 := createRangeHeader(params.Conf)
-			if err2 != nil {
-				return err2
-			}
-
-			_, err2 = c.Play(rangeHeader)
-			if err2 != nil {
-				return err2
-			}
-
-			return c.Wait()
-		}()
+		readErr <- s.runInner(c, u, params.Conf)
 	}()
 
 	for {
@@ -243,6 +204,52 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			return nil
 		}
 	}
+}
+
+func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path) error {
+	desc, _, err := c.Describe(u)
+	if err != nil {
+		return err
+	}
+
+	err = c.SetupAll(desc.BaseURL, desc.Medias)
+	if err != nil {
+		return err
+	}
+
+	var strm *stream.Stream
+
+	rtsp.ToStream(
+		c,
+		desc.Medias,
+		pathConf,
+		&strm,
+		s)
+
+	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+		Desc:               desc,
+		GenerateRTPPackets: false,
+		FillNTP:            !pathConf.UseAbsoluteTimestamp,
+	})
+	if res.Err != nil {
+		return res.Err
+	}
+
+	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
+	strm = res.Stream
+
+	rangeHeader, err := createRangeHeader(pathConf)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Play(rangeHeader)
+	if err != nil {
+		return err
+	}
+
+	return c.Wait()
 }
 
 // APISourceDescribe implements StaticSource.
