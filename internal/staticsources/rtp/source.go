@@ -133,7 +133,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
 	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
@@ -168,14 +168,14 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 		var pkt rtp.Packet
 		err = pkt.Unmarshal(buf[:n])
 		if err != nil {
-			if stream != nil {
+			if strm != nil {
 				decodeErrors.Increase()
 				continue
 			}
 			return err
 		}
 
-		if stream == nil {
+		if strm == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               desc,
 				GenerateRTPPackets: false,
@@ -187,7 +187,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-			stream = res.Stream
+			strm = res.Stream
 		}
 
 		media, ok := mediasByPayloadType[pkt.PayloadType]
@@ -209,7 +209,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 				continue
 			}
 
-			stream.WriteRTPPacket(media.desc, forma.desc, pkt, time.Time{}, pts)
+			strm.WriteRTPPacket(media.desc, forma.desc, pkt, time.Time{}, pts)
 		}
 	}
 }

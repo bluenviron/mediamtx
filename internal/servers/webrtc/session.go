@@ -233,15 +233,15 @@ func (s *session) runPublish() (int, error) {
 		return 0, err
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := webrtc.ToStream(pc, pathConf, &stream, s)
+	medias, err := webrtc.ToStream(pc, pathConf, &strm, s)
 	if err != nil {
 		return 0, err
 	}
 
 	var path defs.Path
-	path, stream, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, strm, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             s,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: false,
