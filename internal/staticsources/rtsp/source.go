@@ -2,12 +2,14 @@
 package rtsp
 
 import (
+	"fmt"
 	"net/url"
 	"regexp"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -212,22 +214,39 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 		return err
 	}
 
-	err = c.SetupAll(desc.BaseURL, desc.Medias)
-	if err != nil {
-		return err
+	var medias []*description.Media
+
+	for _, m := range desc.Medias {
+		if !m.IsBackChannel {
+			_, err = c.Setup(desc.BaseURL, m, 0, 0)
+			if err != nil {
+				return err
+			}
+
+			medias = append(medias, m)
+		}
+	}
+
+	if medias == nil {
+		return fmt.Errorf("no medias have been setupped")
+	}
+
+	desc2 := &description.Session{
+		Title:  desc.Title,
+		Medias: medias,
 	}
 
 	var strm *stream.Stream
 
 	rtsp.ToStream(
 		c,
-		desc.Medias,
+		desc2.Medias,
 		pathConf,
 		&strm,
 		s)
 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-		Desc:               desc,
+		Desc:               desc2,
 		GenerateRTPPackets: false,
 		FillNTP:            !pathConf.UseAbsoluteTimestamp,
 	})
