@@ -1,4 +1,4 @@
-//go:build windows
+//go:build darwin
 
 package logger
 
@@ -8,5 +8,5 @@ import (
 )
 
 func newSysLog(_ string) (io.WriteCloser, error) {
-	return nil, fmt.Errorf("unavailable on Windows")
+	return nil, fmt.Errorf("unavailable on macOS")
 }
