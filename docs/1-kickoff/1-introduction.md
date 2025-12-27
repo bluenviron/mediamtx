@@ -2,7 +2,7 @@
 
 Welcome to the MediaMTX documentation!
 
-MediaMTX is a ready-to-use and zero-dependency live media server and media proxy. It has been conceived as a "media router" that routes media streams from one end to the other.
+_MediaMTX_ is a ready-to-use and zero-dependency live media server and media proxy. It has been conceived as a "media router" that routes media streams from one end to the other.
 
 Main features:
 
