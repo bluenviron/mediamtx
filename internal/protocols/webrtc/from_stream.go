@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -666,10 +667,12 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
+	setuppedFormats := r.Formats()
+
 	n := 1
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
-			if forma != videoFormat && forma != audioFormat {
+			if !slices.Contains(setuppedFormats, forma) {
 				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -38,145 +39,199 @@ func ToStream(
 	var medias []*description.Media
 
 	for _, track := range r.Tracks() {
-		ctrack := track
-
-		switch ttrack := track.(type) {
-		case *format.AV1:
+		switch codec := track.Codec.(type) {
+		case *codecs.AV1:
+			forma := &format.AV1{
+				PayloadTyp: 96,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataAV1(ttrack, func(pts time.Duration, tu [][]byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadAV1(tu),
 				})
 			})
 
-		case *format.VP9:
+		case *codecs.VP9:
+			forma := &format.VP9{
+				PayloadTyp: 96,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataVP9(ttrack, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataVP9(track, func(pts time.Duration, frame []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadVP9(frame),
 				})
 			})
 
-		case *format.H265:
+		case *codecs.H265:
+			forma := &format.H265{
+				PayloadTyp: 96,
+				VPS:        codec.VPS,
+				SPS:        codec.SPS,
+				PPS:        codec.PPS,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataH265(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataH265(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadH265(au),
 				})
 			})
 
-		case *format.H264:
+		case *codecs.H264:
+			forma := &format.H264{
+				PayloadTyp:        96,
+				SPS:               codec.SPS,
+				PPS:               codec.PPS,
+				PacketizationMode: 1,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataH264(ttrack, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataH264(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadH264(au),
 				})
 			})
 
-		case *format.Opus:
+		case *codecs.Opus:
+			forma := &format.Opus{
+				PayloadTyp:   96,
+				ChannelCount: codec.ChannelCount,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataOpus(ttrack, func(pts time.Duration, packet []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataOpus(track, func(pts time.Duration, packet []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadOpus{packet},
 				})
 			})
 
-		case *format.MPEG4Audio:
+		case *codecs.MPEG4Audio:
+			forma := &format.MPEG4Audio{
+				PayloadTyp:       96,
+				Config:           codec.Config,
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataMPEG4Audio(ttrack, func(pts time.Duration, au []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadMPEG4Audio{au},
 				})
 			})
 
-		case *format.MPEG1Audio:
+		case *codecs.MPEG1Audio:
+			forma := &format.MPEG1Audio{}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataMPEG1Audio(ttrack, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataMPEG1Audio(track, func(pts time.Duration, frame []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadMPEG1Audio{frame},
 				})
 			})
 
-		case *format.AC3:
+		case *codecs.AC3:
+			forma := &format.AC3{
+				PayloadTyp:   96,
+				SampleRate:   codec.SampleRate,
+				ChannelCount: codec.ChannelCount,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataAC3(ttrack, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataAC3(track, func(pts time.Duration, frame []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadAC3{frame},
 				})
 			})
 
-		case *format.G711:
+		case *codecs.G711:
+			forma := &format.G711{
+				PayloadTyp: func() uint8 {
+					switch {
+					case codec.ChannelCount == 1 && codec.MULaw:
+						return 0
+					case codec.ChannelCount == 1 && !codec.MULaw:
+						return 8
+					default:
+						return 96
+					}
+				}(),
+				MULaw:        codec.MULaw,
+				SampleRate:   codec.SampleRate,
+				ChannelCount: codec.ChannelCount,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataG711(ttrack, func(pts time.Duration, samples []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataG711(track, func(pts time.Duration, samples []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadG711(samples),
 				})
 			})
 
-		case *format.LPCM:
+		case *codecs.LPCM:
+			forma := &format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     codec.BitDepth,
+				SampleRate:   codec.SampleRate,
+				ChannelCount: codec.ChannelCount,
+			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{ctrack},
+				Formats: []format.Format{forma},
 			}
 			medias = append(medias, medi)
 
-			r.OnDataLPCM(ttrack, func(pts time.Duration, samples []byte) {
-				(*strm).WriteUnit(medi, ctrack, &unit.Unit{
-					PTS:     durationToTimestamp(pts, ctrack.ClockRate()),
+			r.OnDataLPCM(track, func(pts time.Duration, samples []byte) {
+				(*strm).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadLPCM(samples),
 				})
 			})

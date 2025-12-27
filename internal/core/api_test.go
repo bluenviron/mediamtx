@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	rtmpcodecs "github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
@@ -441,14 +441,21 @@ func TestAPIProtocolListGet(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
+				track := &gortmplib.Track{
+					Codec: &rtmpcodecs.H264{
+						SPS: test.FormatH264.SPS,
+						PPS: test.FormatH264.PPS,
+					},
+				}
+
 				w := &gortmplib.Writer{
 					Conn:   conn,
-					Tracks: []format.Format{test.FormatH264},
+					Tracks: []*gortmplib.Track{track},
 				}
 				err = w.Initialize()
 				require.NoError(t, err)
 
-				err = w.WriteH264(test.FormatH264, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+				err = w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -1038,14 +1045,21 @@ func TestAPIProtocolKick(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
+				track := &gortmplib.Track{
+					Codec: &rtmpcodecs.H264{
+						SPS: test.FormatH264.SPS,
+						PPS: test.FormatH264.PPS,
+					},
+				}
+
 				w := &gortmplib.Writer{
 					Conn:   conn,
-					Tracks: []format.Format{test.FormatH264},
+					Tracks: []*gortmplib.Track{track},
 				}
 				err = w.Initialize()
 				require.NoError(t, err)
 
-				err = w.WriteH264(test.FormatH264, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+				err = w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
 
 			case "webrtc":
