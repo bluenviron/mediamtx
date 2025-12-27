@@ -84,7 +84,7 @@ func itoa(i int, wid int) []byte {
 	return b[bp:]
 }
 
-func writeTime(buf *bytes.Buffer, t time.Time, useColor bool) {
+func writePlainTime(buf *bytes.Buffer, t time.Time, useColor bool) {
 	var intbuf bytes.Buffer
 
 	// date

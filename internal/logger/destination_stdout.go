@@ -31,7 +31,7 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 
 	if d.structured {
 		d.buf.WriteString(`{"timestamp":"`)
-		writeTime(&d.buf, t, false)
+		d.buf.WriteString(t.Format(time.RFC3339))
 		d.buf.WriteString(`","level":"`)
 		writeLevel(&d.buf, level, false)
 		d.buf.WriteString(`","message":`)
@@ -39,7 +39,7 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 		d.buf.WriteString(`}`)
 		d.buf.WriteByte('\n')
 	} else {
-		writeTime(&d.buf, t, d.useColor)
+		writePlainTime(&d.buf, t, d.useColor)
 		writeLevel(&d.buf, level, d.useColor)
 		fmt.Fprintf(&d.buf, format, args...)
 		d.buf.WriteByte('\n')
