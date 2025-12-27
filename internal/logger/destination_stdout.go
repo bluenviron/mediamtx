@@ -34,9 +34,9 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 		writeTime(&d.buf, t, false)
 		d.buf.WriteString(`","level":"`)
 		writeLevel(&d.buf, level, false)
-		d.buf.WriteString(`","message":"`)
+		d.buf.WriteString(`","message":`)
 		d.buf.WriteString(strconv.Quote(fmt.Sprintf(format, args...)))
-		d.buf.WriteString(`"}`)
+		d.buf.WriteString(`}`)
 		d.buf.WriteByte('\n')
 	} else {
 		writeTime(&d.buf, t, d.useColor)
