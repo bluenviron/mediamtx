@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,8 +11,7 @@ import (
 
 type destinationStdout struct {
 	useColor bool
-
-	buf bytes.Buffer
+	buf      bytes.Buffer
 }
 
 func newDestionationStdout() destination {
@@ -24,7 +24,8 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 	d.buf.Reset()
 	writeTime(&d.buf, t, d.useColor)
 	writeLevel(&d.buf, level, d.useColor)
-	writeContent(&d.buf, format, args)
+	fmt.Fprintf(&d.buf, format, args...)
+	d.buf.WriteByte('\n')
 	os.Stdout.Write(d.buf.Bytes()) //nolint:errcheck
 }
 

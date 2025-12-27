@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"time"
 )
@@ -26,7 +27,8 @@ func (d *destinationFile) log(t time.Time, level Level, format string, args ...a
 	d.buf.Reset()
 	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)
-	writeContent(&d.buf, format, args)
+	fmt.Fprintf(&d.buf, format, args...)
+	d.buf.WriteByte('\n')
 	d.file.Write(d.buf.Bytes()) //nolint:errcheck
 }
 
