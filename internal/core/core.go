@@ -157,7 +157,7 @@ func New(args []string) (*Core, bool) {
 		done:           make(chan struct{}),
 	}
 
-	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, "", "", false)
+	tempLogger, _ := logger.New(logger.Warn, []logger.Destination{logger.DestinationStdout}, false, "", "")
 
 	confPaths := append([]string(nil), defaultConfPaths...)
 	if runtime.GOOS != "windows" {
@@ -266,9 +266,9 @@ func (p *Core) createResources(initial bool) error {
 		p.logger, err = logger.New(
 			logger.Level(p.conf.LogLevel),
 			p.conf.LogDestinations,
+			p.conf.LogStructured,
 			p.conf.LogFile,
 			p.conf.SysLogPrefix,
-			p.conf.LogStructured,
 		)
 		if err != nil {
 			return err
