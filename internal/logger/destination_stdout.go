@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"time"
@@ -12,13 +13,15 @@ import (
 
 type destinationStdout struct {
 	structured bool
+	stdout     io.Writer
 	useColor   bool
 	buf        bytes.Buffer
 }
 
-func newDestionationStdout(structured bool) destination {
+func newDestionationStdout(structured bool, stdout io.Writer) destination {
 	return &destinationStdout{
 		structured: structured,
+		stdout:     stdout,
 		useColor:   term.IsTerminal(int(os.Stdout.Fd())),
 	}
 }
@@ -42,7 +45,7 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 		d.buf.WriteByte('\n')
 	}
 
-	os.Stdout.Write(d.buf.Bytes()) //nolint:errcheck
+	d.stdout.Write(d.buf.Bytes()) //nolint:errcheck
 }
 
 func (d *destinationStdout) close() {
