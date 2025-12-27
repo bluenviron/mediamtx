@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -105,7 +106,7 @@ func TestServerPublish(t *testing.T) {
 	defer publisher.Close()
 
 	track := &mpegts.Track{
-		Codec: &mpegts.CodecH264{},
+		Codec: &tscodecs.H264{},
 	}
 
 	bw := bufio.NewWriter(publisher)
@@ -228,7 +229,7 @@ func TestServerRead(t *testing.T) {
 
 	require.Equal(t, []*mpegts.Track{{
 		PID:   256,
-		Codec: &mpegts.CodecH264{},
+		Codec: &tscodecs.H264{},
 	}}, r.Tracks())
 
 	received := false

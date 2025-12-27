@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 )
 
 type formatMPEGTSTrack struct {
 	f     *formatMPEGTS
-	codec mpegts.Codec
+	codec tscodecs.Codec
 
 	track            *mpegts.Track
 	startInitialized bool

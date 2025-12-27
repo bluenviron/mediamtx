@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 
@@ -56,7 +57,7 @@ func TestSource(t *testing.T) {
 	require.NoError(t, err2)
 	defer conn.Close()
 
-	track := &mpegts.Track{Codec: &mpegts.CodecH264{}}
+	track := &mpegts.Track{Codec: &tscodecs.H264{}}
 
 	w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
 	err2 = w.Initialize()

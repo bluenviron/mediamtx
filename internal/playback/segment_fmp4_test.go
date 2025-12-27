@@ -9,7 +9,7 @@ import (
 	amp4 "github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func writeBenchInit(f io.WriteSeeker) {
 			{
 				ID:        1,
 				TimeScale: 90000,
-				Codec: &mp4.CodecH264{
+				Codec: &mcodecs.H264{
 					SPS: test.FormatH264.SPS,
 					PPS: test.FormatH264.PPS,
 				},
@@ -29,7 +29,7 @@ func writeBenchInit(f io.WriteSeeker) {
 			{
 				ID:        2,
 				TimeScale: 90000,
-				Codec: &mp4.CodecMPEG4Audio{
+				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
@@ -88,7 +88,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 		{
 			ID:        1,
 			TimeScale: 90000,
-			Codec: &mp4.CodecH264{
+			Codec: &mcodecs.H264{
 				SPS: test.FormatH264.SPS,
 				PPS: test.FormatH264.PPS,
 			},
@@ -96,7 +96,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 		{
 			ID:        2,
 			TimeScale: 48000,
-			Codec: &mp4.CodecMPEG4Audio{
+			Codec: &mcodecs.MPEG4Audio{
 				Config: mpeg4audio.AudioSpecificConfig{
 					Type:         mpeg4audio.ObjectTypeAACLC,
 					SampleRate:   48000,
@@ -110,7 +110,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 		{
 			ID:        1,
 			TimeScale: 90000,
-			Codec: &mp4.CodecH264{
+			Codec: &mcodecs.H264{
 				SPS: test.FormatH264.SPS,
 				PPS: test.FormatH264.PPS,
 			},
@@ -326,7 +326,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -340,7 +340,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        2,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -358,7 +358,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -372,7 +372,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 48000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -390,7 +390,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -404,7 +404,7 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecMPEG4Audio{
+						Codec: &mcodecs.MPEG4Audio{
 							Config: mpeg4audio.AudioSpecificConfig{
 								Type:         mpeg4audio.ObjectTypeAACLC,
 								SampleRate:   48000,
