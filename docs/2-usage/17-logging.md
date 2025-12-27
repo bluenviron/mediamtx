@@ -43,6 +43,21 @@ If _MediaMTX_ is also running as a [system service](start-on-boot), log entries 
 journalctl -u mediamtx
 ```
 
+## Structured logging
+
+Log collectors (like Loki, Logstash, CloudWatch and fluentd) parse logs in a more reliable way if they are fed with entries in structured format (JSONL). This can be enabled with the `logStructured` parameter:
+
+```yml
+# When destination is "stdout" or "file", emit logs in structured format (JSON).
+logStructured: true
+```
+
+Obtaining:
+
+```
+{"timestamp":"2003-05-01T20:34:14+01:00","level":"INF","message":"[RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)"}
+```
+
 ## Log file rotation
 
 The log file can be periodically rotated or truncated by using an external utility.
