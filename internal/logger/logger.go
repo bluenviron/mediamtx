@@ -3,7 +3,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"time"
 
@@ -133,11 +132,6 @@ func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 		}
 	}
 	buf.WriteByte(' ')
-}
-
-func writeContent(buf *bytes.Buffer, format string, args []any) {
-	fmt.Fprintf(buf, format, args...)
-	buf.WriteByte('\n')
 }
 
 // Log writes a log entry.
