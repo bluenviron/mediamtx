@@ -73,7 +73,7 @@ components:
           type: array
           items:
             type: string
-        structuredLog:
+        logStructured:
           type: boolean
         logFile:
           type: string

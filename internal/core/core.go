@@ -268,7 +268,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.LogDestinations,
 			p.conf.LogFile,
 			p.conf.SysLogPrefix,
-			p.conf.StructuredLog,
+			p.conf.LogStructured,
 		)
 		if err != nil {
 			return err
@@ -693,7 +693,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile ||
 		newConf.SysLogPrefix != p.conf.SysLogPrefix ||
-		newConf.StructuredLog != p.conf.StructuredLog
+		newConf.LogStructured != p.conf.LogStructured
 
 	closeAuthManager := newConf == nil ||
 		newConf.AuthMethod != p.conf.AuthMethod ||
