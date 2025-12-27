@@ -142,7 +142,6 @@ func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 			buf.WriteString("ERR")
 		}
 	}
-	buf.WriteByte(' ')
 }
 
 // Log writes a log entry.

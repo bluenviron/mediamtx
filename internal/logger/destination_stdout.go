@@ -41,6 +41,7 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 	} else {
 		writePlainTime(&d.buf, t, d.useColor)
 		writeLevel(&d.buf, level, d.useColor)
+		d.buf.WriteByte(' ')
 		fmt.Fprintf(&d.buf, format, args...)
 		d.buf.WriteByte('\n')
 	}

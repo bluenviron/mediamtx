@@ -33,7 +33,7 @@ func TestLoggerToStdout(t *testing.T) {
 				require.Equal(t, "2003/11/04 23:15:08 INF test format 123\n", buf.String())
 			} else {
 				require.Equal(t, `{"timestamp":"2003-11-04T23:15:08Z",`+
-					`"level":"INF ","message":"test format 123"}`+"\n", buf.String())
+					`"level":"INF","message":"test format 123"}`+"\n", buf.String())
 			}
 		})
 	}
@@ -70,7 +70,7 @@ func TestLoggerToFile(t *testing.T) {
 				require.Equal(t, "2003/11/04 23:15:08 INF test format 123\n", string(buf))
 			} else {
 				require.Equal(t, `{"timestamp":"2003-11-04T23:15:08Z",`+
-					`"level":"INF ","message":"test format 123"}`+"\n", string(buf))
+					`"level":"INF","message":"test format 123"}`+"\n", string(buf))
 			}
 		})
 	}

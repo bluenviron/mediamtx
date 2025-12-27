@@ -41,6 +41,7 @@ func (d *destinationFile) log(t time.Time, level Level, format string, args ...a
 	} else {
 		writePlainTime(&d.buf, t, false)
 		writeLevel(&d.buf, level, false)
+		d.buf.WriteByte(' ')
 		fmt.Fprintf(&d.buf, format, args...)
 		d.buf.WriteByte('\n')
 	}
