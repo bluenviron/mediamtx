@@ -61,7 +61,12 @@ func TestServerPublish(t *testing.T) {
 			}
 
 			var strm *stream.Stream
-			streamCreated := make(chan struct{})
+			var reader *stream.Reader
+			defer func() {
+				strm.RemoveReader(reader)
+			}()
+			dataReceived := make(chan struct{})
+			n := 0
 
 			pathManager := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
@@ -80,7 +85,32 @@ func TestServerPublish(t *testing.T) {
 					err := strm.Initialize()
 					require.NoError(t, err)
 
-					close(streamCreated)
+					reader = &stream.Reader{Parent: test.NilLogger}
+
+					reader.OnData(
+						strm.Desc.Medias[0],
+						strm.Desc.Medias[0].Formats[0],
+						func(u *unit.Unit) error {
+							switch n {
+							case 0:
+								require.Equal(t, unit.PayloadH264(nil), u.Payload)
+
+							case 1:
+								require.Equal(t, unit.PayloadH264{
+									test.FormatH264.SPS,
+									test.FormatH264.PPS,
+									{5, 2, 3, 4},
+								}, u.Payload)
+								close(dataReceived)
+
+							default:
+								t.Errorf("should not happen")
+							}
+							n++
+							return nil
+						})
+
+					strm.AddReader(reader)
 
 					return &dummyPath{}, strm, nil
 				},
@@ -141,36 +171,7 @@ func TestServerPublish(t *testing.T) {
 				})
 			require.NoError(t, err)
 
-			<-streamCreated
-
-			recv := make(chan struct{})
-
-			r := &stream.Reader{Parent: test.NilLogger}
-
-			r.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
-				func(u *unit.Unit) error {
-					require.Equal(t, unit.PayloadH264{
-						test.FormatH264.SPS,
-						test.FormatH264.PPS,
-						{5, 2, 3, 4},
-					}, u.Payload)
-					close(recv)
-					return nil
-				})
-
-			strm.AddReader(r)
-			defer strm.RemoveReader(r)
-
-			err = w.WriteH264(
-				test.FormatH264,
-				3*time.Second, 3*time.Second, [][]byte{
-					{5, 2, 3, 4},
-				})
-			require.NoError(t, err)
-
-			<-recv
+			<-dataReceived
 		})
 	}
 }
