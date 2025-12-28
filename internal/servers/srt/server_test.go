@@ -44,7 +44,13 @@ func TestServerPublish(t *testing.T) {
 	defer externalCmdPool.Close()
 
 	var strm *stream.Stream
-	streamCreated := make(chan struct{})
+	var reader *stream.Reader
+	defer func() {
+		strm.RemoveReader(reader)
+	}()
+	dataReceived := make(chan struct{})
+	dataReceived2 := make(chan struct{})
+	n := 0
 
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
@@ -69,7 +75,37 @@ func TestServerPublish(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 
-			close(streamCreated)
+			reader = &stream.Reader{Parent: test.NilLogger}
+
+			reader.OnData(
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
+				func(u *unit.Unit) error {
+					switch n {
+					case 0:
+						require.Equal(t, unit.PayloadH264{
+							test.FormatH264.SPS,
+							test.FormatH264.PPS,
+							{5, 1},
+						}, u.Payload)
+						close(dataReceived)
+
+					case 1:
+						require.Equal(t, unit.PayloadH264{
+							test.FormatH264.SPS,
+							test.FormatH264.PPS,
+							{5, 2},
+						}, u.Payload)
+						close(dataReceived2)
+
+					default:
+						t.Errorf("should not happen")
+					}
+					n++
+					return nil
+				})
+
+			strm.AddReader(reader)
 
 			return &dummyPath{}, strm, nil
 		},
@@ -103,7 +139,6 @@ func TestServerPublish(t *testing.T) {
 
 	publisher, err := srt.Dial("srt", address, srtConf)
 	require.NoError(t, err)
-	defer publisher.Close()
 
 	track := &mpegts.Track{
 		Codec: &tscodecs.H264{},
@@ -114,47 +149,28 @@ func TestServerPublish(t *testing.T) {
 	err = w.Initialize()
 	require.NoError(t, err)
 
+	// the MPEG-TS muxer needs two PES packets in order to write the first one
+
 	err = w.WriteH264(track, 0, 0, [][]byte{
 		test.FormatH264.SPS,
 		test.FormatH264.PPS,
-		{0x05, 1}, // IDR
+		{5, 1}, // IDR
 	})
 	require.NoError(t, err)
-
-	err = bw.Flush()
-	require.NoError(t, err)
-
-	<-streamCreated
-
-	r := &stream.Reader{Parent: test.NilLogger}
-
-	recv := make(chan struct{})
-
-	r.OnData(
-		strm.Desc.Medias[0],
-		strm.Desc.Medias[0].Formats[0],
-		func(u *unit.Unit) error {
-			require.Equal(t, unit.PayloadH264{
-				test.FormatH264.SPS,
-				test.FormatH264.PPS,
-				{0x05, 1}, // IDR
-			}, u.Payload)
-			close(recv)
-			return nil
-		})
-
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
 
 	err = w.WriteH264(track, 0, 0, [][]byte{
-		{5, 2},
+		{5, 2}, // IDR
 	})
 	require.NoError(t, err)
 
 	err = bw.Flush()
 	require.NoError(t, err)
 
-	<-recv
+	<-dataReceived
+
+	// the second PES is written after writer is closed
+	publisher.Close()
+	<-dataReceived2
 }
 
 func TestServerRead(t *testing.T) {
