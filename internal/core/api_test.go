@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
@@ -557,7 +558,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				defer conn.Close()
 
 				track := &mpegts.Track{
-					Codec: &mpegts.CodecH264{},
+					Codec: &tscodecs.H264{},
 				}
 
 				bw := bufio.NewWriter(conn)
@@ -1084,7 +1085,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				defer conn.Close()
 
 				track := &mpegts.Track{
-					Codec: &mpegts.CodecH264{},
+					Codec: &tscodecs.H264{},
 				}
 
 				bw := bufio.NewWriter(conn)

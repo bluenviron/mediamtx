@@ -12,7 +12,7 @@ import (
 	rtspformat "github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -242,7 +242,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        1,
 							TimeScale: 90000,
-							Codec: &mp4.CodecH264{
+							Codec: &mcodecs.H264{
 								SPS: test.FormatH264.SPS,
 								PPS: test.FormatH264.PPS,
 							},
@@ -250,7 +250,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        2,
 							TimeScale: 90000,
-							Codec: &mp4.CodecH265{
+							Codec: &mcodecs.H265{
 								VPS: []byte{
 									0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x60,
 									0x00, 0x00, 0x03, 0x00, 0x90, 0x00, 0x00, 0x03,
@@ -272,7 +272,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        3,
 							TimeScale: 44100,
-							Codec: &mp4.CodecMPEG4Audio{
+							Codec: &mcodecs.MPEG4Audio{
 								Config: mpeg4audio.AudioSpecificConfig{
 									Type:         2,
 									SampleRate:   44100,
@@ -283,7 +283,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        4,
 							TimeScale: 8000,
-							Codec: &mp4.CodecLPCM{
+							Codec: &mcodecs.LPCM{
 								BitDepth:     16,
 								SampleRate:   8000,
 								ChannelCount: 1,
@@ -292,7 +292,7 @@ func TestRecorder(t *testing.T) {
 						{
 							ID:        5,
 							TimeScale: 44100,
-							Codec: &mp4.CodecLPCM{
+							Codec: &mcodecs.LPCM{
 								BitDepth:     16,
 								SampleRate:   44100,
 								ChannelCount: 2,

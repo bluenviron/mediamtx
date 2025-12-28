@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
@@ -29,7 +29,7 @@ func writeSegment1(t *testing.T, fpath string) {
 			{
 				ID:        1,
 				TimeScale: 90000,
-				Codec: &mp4.CodecH264{
+				Codec: &mcodecs.H264{
 					SPS: test.FormatH264.SPS,
 					PPS: test.FormatH264.PPS,
 				},
@@ -37,7 +37,7 @@ func writeSegment1(t *testing.T, fpath string) {
 			{
 				ID:        2,
 				TimeScale: 48000,
-				Codec: &mp4.CodecMPEG4Audio{
+				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
@@ -107,7 +107,7 @@ func writeSegment2(t *testing.T, fpath string) {
 			{
 				ID:        1,
 				TimeScale: 90000,
-				Codec: &mp4.CodecH264{
+				Codec: &mcodecs.H264{
 					SPS: test.FormatH264.SPS,
 					PPS: test.FormatH264.PPS,
 				},
@@ -115,7 +115,7 @@ func writeSegment2(t *testing.T, fpath string) {
 			{
 				ID:        2,
 				TimeScale: 48000,
-				Codec: &mp4.CodecMPEG4Audio{
+				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
 						Type:         mpeg4audio.ObjectTypeAACLC,
 						SampleRate:   48000,
@@ -195,7 +195,7 @@ func writeSegment3(t *testing.T, fpath string) {
 			{
 				ID:        1,
 				TimeScale: 90000,
-				Codec: &mp4.CodecH264{
+				Codec: &mcodecs.H264{
 					SPS: test.FormatH264.SPS,
 					PPS: test.FormatH264.PPS,
 				},
@@ -251,7 +251,7 @@ func TestOnGet(t *testing.T) {
 						{
 							ID:        1,
 							TimeScale: 90000,
-							Codec: &mp4.CodecH264{
+							Codec: &mcodecs.H264{
 								SPS: test.FormatH264.SPS,
 								PPS: test.FormatH264.PPS,
 							},
@@ -259,7 +259,7 @@ func TestOnGet(t *testing.T) {
 						{
 							ID:        2,
 							TimeScale: 48000,
-							Codec: &mp4.CodecMPEG4Audio{
+							Codec: &mcodecs.MPEG4Audio{
 								Config: mpeg4audio.AudioSpecificConfig{
 									Type:         mpeg4audio.ObjectTypeAACLC,
 									SampleRate:   48000,
@@ -629,7 +629,7 @@ func TestOnGet(t *testing.T) {
 								ID:         1,
 								TimeScale:  90000,
 								TimeOffset: -90000,
-								Codec: &mp4.CodecH264{
+								Codec: &mcodecs.H264{
 									SPS: test.FormatH264.SPS,
 									PPS: test.FormatH264.PPS,
 								},
@@ -658,7 +658,7 @@ func TestOnGet(t *testing.T) {
 								ID:         2,
 								TimeScale:  48000,
 								TimeOffset: 48000,
-								Codec: &mp4.CodecMPEG4Audio{
+								Codec: &mcodecs.MPEG4Audio{
 									Config: mpeg4audio.AudioSpecificConfig{
 										Type:         mpeg4audio.ObjectTypeAACLC,
 										SampleRate:   48000,
@@ -791,7 +791,7 @@ func TestOnGetInMiddleOfLastSample(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},
@@ -887,7 +887,7 @@ func TestOnGetBetweenSegments(t *testing.T) {
 					{
 						ID:        1,
 						TimeScale: 90000,
-						Codec: &mp4.CodecH264{
+						Codec: &mcodecs.H264{
 							SPS: test.FormatH264.SPS,
 							PPS: test.FormatH264.PPS,
 						},

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -113,7 +114,7 @@ func TestSourceUDP(t *testing.T) {
 			defer conn.Close() //nolint:errcheck
 
 			track := &mpegts.Track{
-				Codec: &mpegts.CodecH264{},
+				Codec: &tscodecs.H264{},
 			}
 
 			w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
@@ -185,7 +186,7 @@ func TestSourceUnixSocket(t *testing.T) {
 				require.NoError(t, err)
 
 				track := &mpegts.Track{
-					Codec: &mpegts.CodecH264{},
+					Codec: &tscodecs.H264{},
 				}
 
 				w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}

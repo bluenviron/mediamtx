@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	pwebrtc "github.com/pion/webrtc/v4"
@@ -318,7 +319,7 @@ webrtc_sessions_rtcp_packets_sent 0
 			defer publisher.Close()
 
 			track := &mpegts.Track{
-				Codec: &mpegts.CodecH264{},
+				Codec: &tscodecs.H264{},
 			}
 
 			bw := bufio.NewWriter(publisher)

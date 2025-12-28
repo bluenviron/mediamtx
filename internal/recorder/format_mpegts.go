@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -66,7 +67,7 @@ type formatMPEGTS struct {
 func (f *formatMPEGTS) initialize() bool {
 	var tracks []*mpegts.Track
 
-	addTrack := func(codec mpegts.Codec) *formatMPEGTSTrack {
+	addTrack := func(codec tscodecs.Codec) *formatMPEGTSTrack {
 		track := &formatMPEGTSTrack{
 			f:     f,
 			codec: codec,
@@ -83,7 +84,7 @@ func (f *formatMPEGTS) initialize() bool {
 
 			switch forma := forma.(type) {
 			case *rtspformat.H265: //nolint:dupl
-				track := addTrack(&mpegts.CodecH265{})
+				track := addTrack(&tscodecs.H265{})
 
 				var dtsExtractor *h265.DTSExtractor
 
@@ -125,7 +126,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.H264: //nolint:dupl
-				track := addTrack(&mpegts.CodecH264{})
+				track := addTrack(&tscodecs.H264{})
 
 				var dtsExtractor *h264.DTSExtractor
 
@@ -167,7 +168,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Video:
-				track := addTrack(&mpegts.CodecMPEG4Video{})
+				track := addTrack(&tscodecs.MPEG4Video{})
 
 				firstReceived := false
 				var lastPTS int64
@@ -204,7 +205,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG1Video:
-				track := addTrack(&mpegts.CodecMPEG1Video{})
+				track := addTrack(&tscodecs.MPEG1Video{})
 
 				firstReceived := false
 				var lastPTS int64
@@ -240,7 +241,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.Opus:
-				track := addTrack(&mpegts.CodecOpus{
+				track := addTrack(&tscodecs.Opus{
 					ChannelCount: forma.ChannelCount,
 				})
 
@@ -266,7 +267,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.KLV:
-				track := addTrack(&mpegts.CodecKLV{
+				track := addTrack(&tscodecs.KLV{
 					Synchronous: true,
 				})
 
@@ -292,7 +293,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.MPEG4Audio:
-				track := addTrack(&mpegts.CodecMPEG4Audio{
+				track := addTrack(&tscodecs.MPEG4Audio{
 					Config: *forma.Config,
 				})
 
@@ -319,7 +320,7 @@ func (f *formatMPEGTS) initialize() bool {
 
 			case *rtspformat.MPEG4AudioLATM:
 				if !forma.CPresent {
-					track := addTrack(&mpegts.CodecMPEG4Audio{
+					track := addTrack(&tscodecs.MPEG4Audio{
 						Config: *forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
 					})
 
@@ -353,7 +354,7 @@ func (f *formatMPEGTS) initialize() bool {
 				}
 
 			case *rtspformat.MPEG1Audio:
-				track := addTrack(&mpegts.CodecMPEG1Audio{})
+				track := addTrack(&tscodecs.MPEG1Audio{})
 
 				f.ri.reader.OnData(
 					media,
@@ -377,7 +378,7 @@ func (f *formatMPEGTS) initialize() bool {
 					})
 
 			case *rtspformat.AC3:
-				track := addTrack(&mpegts.CodecAC3{})
+				track := addTrack(&tscodecs.AC3{})
 
 				f.ri.reader.OnData(
 					media,
