@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -158,14 +158,22 @@ func TestServerPublish(t *testing.T) {
 			defer conn.Close()
 
 			w := &gortmplib.Writer{
-				Conn:   conn,
-				Tracks: []format.Format{test.FormatH264, test.FormatMPEG4Audio},
+				Conn: conn,
+				Tracks: []*gortmplib.Track{
+					{Codec: &codecs.H264{
+						SPS: test.FormatH264.SPS,
+						PPS: test.FormatH264.PPS,
+					}},
+					{Codec: &codecs.MPEG4Audio{
+						Config: test.FormatMPEG4Audio.Config,
+					}},
+				},
 			}
 			err = w.Initialize()
 			require.NoError(t, err)
 
 			err = w.WriteH264(
-				test.FormatH264,
+				w.Tracks[0],
 				2*time.Second, 2*time.Second, [][]byte{
 					{5, 2, 3, 4},
 				})
@@ -292,9 +300,11 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 
 			tracks := r.Tracks()
-			require.Equal(t, []format.Format{test.FormatH264}, tracks)
+			require.Len(t, tracks, 1)
+			_, ok := tracks[0].Codec.(*codecs.H264)
+			require.True(t, ok)
 
-			r.OnDataH264(tracks[0].(*format.H264), func(_ time.Duration, _ time.Duration, au [][]byte) {
+			r.OnDataH264(tracks[0], func(_ time.Duration, _ time.Duration, au [][]byte) {
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,
