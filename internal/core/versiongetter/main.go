@@ -122,6 +122,16 @@ func tagFromGit() error {
 func do() error {
 	log.Println("getting mediamtx version...")
 
+	// Check for version in environment variable first (useful for CI builds)
+	if version := os.Getenv("MEDIAMTX_VERSION"); version != "" {
+		log.Printf("using version from MEDIAMTX_VERSION environment variable: %s", version)
+		err := os.WriteFile("VERSION", []byte(version), 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to write version file: %w", err)
+		}
+		return nil
+	}
+
 	err := tagFromGit()
 	if err != nil {
 		log.Println("WARN: cannot get tag from .git folder, using v0.0.0 as version")

@@ -28,7 +28,7 @@ func (sm *streamMedia) initialize() error {
 			format:             forma,
 			generateRTPPackets: sm.generateRTPPackets,
 			fillNTP:            sm.fillNTP,
-			dropNonKeyframes:  sm.dropNonKeyframes,
+			dropNonKeyframes:   sm.dropNonKeyframes,
 			processingErrors:   sm.processingErrors,
 			parent:             sm.parent,
 		}

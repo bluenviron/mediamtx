@@ -373,6 +373,13 @@ components:
           type: string
         useAbsoluteTimestamp:
           type: boolean
+        calcBitrateWindow:
+          type: string
+        dropNonKeyframes:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
 
         # Record
         record:
@@ -586,6 +593,9 @@ components:
         bytesSent:
           type: integer
           format: int64
+        bitrateReceived:
+          type: number
+          format: double
         readers:
           type: array
           items:

@@ -170,7 +170,6 @@ func (sf *streamFormat) writeRTPPacket(
 	sf.writeUnitInner(s, medi, u)
 }
 
-
 func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *unit.Unit) {
 	if sf.fillNTP {
 		u.NTP = sf.ntpEstimator.Estimate(u.PTS)
