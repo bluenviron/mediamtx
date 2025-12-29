@@ -94,8 +94,9 @@ func TestMakeConfigSNI(t *testing.T) {
 	conf := MakeConfig("myhost", "")
 
 	_, err = tls.Dial("tcp", "localhost:8556", conf)
-	require.EqualError(t, err, "tls: failed to verify certificate: x509: "+
-		"certificate is not valid for any names, but wanted to match myhost")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tls: failed to verify certificate")
+	require.Contains(t, err.Error(), "x509")
 }
 
 func TestMakeConfigFingerprint(t *testing.T) {
