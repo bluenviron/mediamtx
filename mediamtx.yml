@@ -29,6 +29,10 @@ udpMaxPayloadSize: 1472
 # This can be increased to decrease packet losses.
 # It defaults to the default value of the operating system.
 udpReadBufferSize: 0
+# UDP Client Port range
+# This can be used to control UDP client port ranges for use inside Kubernetes clusters
+# It defaults to the range [10000,65535]
+udpClientPortRange: [10000,65535]
 
 # Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.

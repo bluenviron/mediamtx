@@ -64,20 +64,21 @@ type pathAPIPathsGetReq struct {
 }
 
 type path struct {
-	parentCtx         context.Context
-	logLevel          conf.LogLevel
-	rtspAddress       string
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	writeQueueSize    int
-	udpReadBufferSize uint
-	rtpMaxPayloadSize int
-	conf              *conf.Path
-	name              string
-	matches           []string
-	wg                *sync.WaitGroup
-	externalCmdPool   *externalcmd.Pool
-	parent            pathParent
+	parentCtx          context.Context
+	logLevel           conf.LogLevel
+	rtspAddress        string
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	writeQueueSize     int
+	udpReadBufferSize  uint
+	udpClientPortRange []uint
+	rtpMaxPayloadSize  int
+	conf               *conf.Path
+	name               string
+	matches            []string
+	wg                 *sync.WaitGroup
+	externalCmdPool    *externalcmd.Pool
+	parent             pathParent
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -170,16 +171,17 @@ func (pa *path) run() {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
 		pa.source = &staticsources.Handler{
-			Conf:              pa.conf,
-			LogLevel:          pa.logLevel,
-			ReadTimeout:       pa.readTimeout,
-			WriteTimeout:      pa.writeTimeout,
-			WriteQueueSize:    pa.writeQueueSize,
-			UDPReadBufferSize: pa.udpReadBufferSize,
-			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
-			Matches:           pa.matches,
-			PathManager:       pa.parent,
-			Parent:            pa,
+			Conf:               pa.conf,
+			LogLevel:           pa.logLevel,
+			ReadTimeout:        pa.readTimeout,
+			WriteTimeout:       pa.writeTimeout,
+			WriteQueueSize:     pa.writeQueueSize,
+			UDPReadBufferSize:  pa.udpReadBufferSize,
+			UDPClientPortRange: pa.udpClientPortRange,
+			RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
+			Matches:            pa.matches,
+			PathManager:        pa.parent,
+			Parent:             pa,
 		}
 		pa.source.(*staticsources.Handler).Initialize()
 

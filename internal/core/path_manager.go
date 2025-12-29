@@ -70,18 +70,19 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	logLevel          conf.LogLevel
-	authManager       *auth.Manager
-	rtspAddress       string
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	writeQueueSize    int
-	udpReadBufferSize uint
-	rtpMaxPayloadSize int
-	pathConfs         map[string]*conf.Path
-	externalCmdPool   *externalcmd.Pool
-	metrics           *metrics.Metrics
-	parent            pathManagerParent
+	logLevel           conf.LogLevel
+	authManager        *auth.Manager
+	rtspAddress        string
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	writeQueueSize     int
+	udpReadBufferSize  uint
+	udpClientPortRange []uint
+	rtpMaxPayloadSize  int
+	pathConfs          map[string]*conf.Path
+	externalCmdPool    *externalcmd.Pool
+	metrics            *metrics.Metrics
+	parent             pathManagerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -434,20 +435,21 @@ func (pm *pathManager) createPath(
 	matches []string,
 ) {
 	pa := &path{
-		parentCtx:         pm.ctx,
-		logLevel:          pm.logLevel,
-		rtspAddress:       pm.rtspAddress,
-		readTimeout:       pm.readTimeout,
-		writeTimeout:      pm.writeTimeout,
-		writeQueueSize:    pm.writeQueueSize,
-		udpReadBufferSize: pm.udpReadBufferSize,
-		rtpMaxPayloadSize: pm.rtpMaxPayloadSize,
-		conf:              pathConf,
-		name:              name,
-		matches:           matches,
-		wg:                &pm.wg,
-		externalCmdPool:   pm.externalCmdPool,
-		parent:            pm,
+		parentCtx:          pm.ctx,
+		logLevel:           pm.logLevel,
+		rtspAddress:        pm.rtspAddress,
+		readTimeout:        pm.readTimeout,
+		writeTimeout:       pm.writeTimeout,
+		writeQueueSize:     pm.writeQueueSize,
+		udpReadBufferSize:  pm.udpReadBufferSize,
+		udpClientPortRange: pm.udpClientPortRange,
+		rtpMaxPayloadSize:  pm.rtpMaxPayloadSize,
+		conf:               pathConf,
+		name:               name,
+		matches:            matches,
+		wg:                 &pm.wg,
+		externalCmdPool:    pm.externalCmdPool,
+		parent:             pm,
 	}
 	pa.initialize()
 

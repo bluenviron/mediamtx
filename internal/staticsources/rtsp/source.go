@@ -2,6 +2,7 @@
 package rtsp
 
 import (
+	"fmt"
 	"net/url"
 	"regexp"
 	"time"
@@ -71,11 +72,12 @@ type parent interface {
 
 // Source is a RTSP static source.
 type Source struct {
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	WriteQueueSize    int
-	UDPReadBufferSize uint
-	Parent            parent
+	ReadTimeout        conf.Duration
+	WriteTimeout       conf.Duration
+	WriteQueueSize     int
+	UDPReadBufferSize  uint
+	UDPClientPortRange []uint
+	Parent             parent
 }
 
 // Log implements logger.Writer.
@@ -151,6 +153,24 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		udpReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
 	}
 
+	var udpMinPort uint16 = 10000
+	var udpMaxPort uint16 = 65535
+
+	if s.UDPClientPortRange != nil && len(s.UDPClientPortRange) == 2 {
+		if s.UDPClientPortRange[0] < 655536 && s.UDPClientPortRange[1] < 65536 {
+			udpMinPort = uint16(s.UDPClientPortRange[0])
+			udpMaxPort = uint16(s.UDPClientPortRange[1])
+		} else {
+			return fmt.Errorf("UDP Client Port Range values out of bounds")
+		}
+	}
+	if udpMinPort < 10000 {
+		return fmt.Errorf("UDP Client Port Range mininum less than 10000")
+	}
+	if udpMaxPort-udpMinPort < 10 {
+		return fmt.Errorf("UDP Client Port Range must be at least 10 and maxport must be greater than minport")
+	}
+
 	c := &gortsplib.Client{
 		Scheme:            scheme,
 		Host:              u.Host,
@@ -161,6 +181,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		WriteQueueSize:    s.WriteQueueSize,
 		UDPReadBufferSize: int(udpReadBufferSize),
+		UDPMinClientPort:  udpMinPort,
+		UDPMaxClientPort:  udpMaxPort,
 		AnyPortEnable:     params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)

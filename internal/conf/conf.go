@@ -216,6 +216,9 @@ type Conf struct {
 	PlaybackAllowOrigins   AllowedOrigins `json:"playbackAllowOrigins"`
 	PlaybackTrustedProxies IPNetworks     `json:"playbackTrustedProxies"`
 
+	// RTSP Client (Streams IN)
+	UDPClientPortRange []uint `json:"udpClientPortRange"`
+
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`
 	RTSPDisable           *bool            `json:"rtspDisable,omitempty"` // deprecated
@@ -365,6 +368,9 @@ func (conf *Conf) setDefaults() {
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
 	conf.PlaybackAllowOrigins = []string{"*"}
+
+	// RTSP Client
+	conf.UDPClientPortRange = []uint{10000, 65535}
 
 	// RTSP server
 	conf.RTSP = true
@@ -647,6 +653,26 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	if conf.PlaybackAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'playbackAllowOrigin' is deprecated and has been replaced with 'playbackAllowOrigins'")
 		conf.PlaybackAllowOrigins = []string{*conf.PlaybackAllowOrigin}
+	}
+
+	// RTSP Client
+
+	if len(conf.UDPClientPortRange) != 2 {
+		return fmt.Errorf("parameter 'udpClientPortRange' does not have two port range limits - min and max")
+	}
+
+	udpCportmin := conf.UDPClientPortRange[0]
+	udpCportmax := conf.UDPClientPortRange[1]
+	//udpCportmin, err := strconv.ParseUint(conf.UDPClientPortRange[0], 10, 16)
+	//if err != nil {
+	//	return fmt.Errorf("minimum bound of 'udpClientPortRange' must be a positive integer in valid range")
+	//}
+	//udpCportmax, err := strconv.ParseUint(conf.UDPClientPortRange[1], 10, 16)
+	//if err != nil {
+	//	return fmt.Errorf("maximum bound of 'udpClientPortRange' must be a positive integer in valid range")
+	//}
+	if udpCportmin >= udpCportmax-1 {
+		return fmt.Errorf("'udpClientPortRange' lower bound should be at least 2 less than the upper bound")
 	}
 
 	// RTSP server

@@ -394,18 +394,19 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          p.conf.LogLevel,
-			authManager:       p.authManager,
-			rtspAddress:       p.conf.RTSPAddress,
-			readTimeout:       p.conf.ReadTimeout,
-			writeTimeout:      p.conf.WriteTimeout,
-			writeQueueSize:    p.conf.WriteQueueSize,
-			udpReadBufferSize: p.conf.UDPReadBufferSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			pathConfs:         p.conf.Paths,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:           p.conf.LogLevel,
+			authManager:        p.authManager,
+			rtspAddress:        p.conf.RTSPAddress,
+			readTimeout:        p.conf.ReadTimeout,
+			writeTimeout:       p.conf.WriteTimeout,
+			writeQueueSize:     p.conf.WriteQueueSize,
+			udpReadBufferSize:  p.conf.UDPReadBufferSize,
+			udpClientPortRange: p.conf.UDPClientPortRange,
+			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			pathConfs:          p.conf.Paths,
+			externalCmdPool:    p.externalCmdPool,
+			metrics:            p.metrics,
+			parent:             p,
 		}
 		p.pathManager.initialize()
 	}
