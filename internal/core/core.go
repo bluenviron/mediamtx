@@ -764,6 +764,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPClientPortRange[0] != p.conf.UDPClientPortRange[0] ||
+		newConf.UDPClientPortRange[1] != p.conf.UDPClientPortRange[1] ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
@@ -780,6 +782,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPClientPortRange[0] != p.conf.UDPClientPortRange[0] ||
+		newConf.UDPClientPortRange[1] != p.conf.UDPClientPortRange[1] ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -804,6 +808,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPClientPortRange[0] != p.conf.UDPClientPortRange[0] ||
+		newConf.UDPClientPortRange[1] != p.conf.UDPClientPortRange[1] ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||

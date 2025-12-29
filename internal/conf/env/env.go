@@ -223,6 +223,31 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 					}
 
 					raw := strings.Split(ev, ",")
+					vals := make([]uint, len(raw))
+
+					for i, v := range raw {
+						tmp, err := strconv.ParseUint(v, 10, 16)
+						if err != nil {
+							return err
+						}
+						vals[i] = uint(tmp)
+					}
+
+					prv.Elem().Set(reflect.ValueOf(vals))
+				}
+			}
+			return nil
+
+		case rt.Elem() == reflect.TypeOf(uint16(0)):
+			if ev, ok := env[prefix]; ok {
+				if ev == "" {
+					prv.Elem().Set(reflect.MakeSlice(prv.Elem().Type(), 0, 0))
+				} else {
+					if prv.IsNil() {
+						prv.Set(reflect.New(rt))
+					}
+
+					raw := strings.Split(ev, ",")
 					vals := make([]uint16, len(raw))
 
 					for i, v := range raw {
