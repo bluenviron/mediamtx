@@ -76,6 +76,7 @@ func TestMetrics(t *testing.T) {
 
 		require.Equal(t, `paths 0
 paths_bytes_received 0
+paths_bitrate_received_kbps 0
 paths_bytes_sent 0
 paths_readers 0
 hls_muxers 0
@@ -345,26 +346,32 @@ webrtc_sessions_rtcp_packets_sent 0
 		require.Regexp(t,
 			`^paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bitrate_received_kbps\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
@@ -496,6 +503,7 @@ webrtc_sessions_rtcp_packets_sent 0
 
 		require.Equal(t, "paths 0\n"+
 			"paths_bytes_received 0\n"+
+			"paths_bitrate_received_kbps 0\n"+
 			"paths_bytes_sent 0\n"+
 			"paths_readers 0\n",
 			string(bo))
