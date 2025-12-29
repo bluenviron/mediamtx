@@ -48,13 +48,13 @@ func firstThatExists(paths []string) string {
 	return ""
 }
 
-func copyStructFields(dest interface{}, source interface{}) {
+func copyStructFields(dest any, source any) {
 	rvsource := reflect.ValueOf(source).Elem()
 	rvdest := reflect.ValueOf(dest)
 	nf := rvsource.NumField()
 	var zero reflect.Value
 
-	for i := 0; i < nf; i++ {
+	for i := range nf {
 		fnew := rvsource.Field(i)
 		f := rvdest.Elem().FieldByName(rvsource.Type().Field(i).Name)
 		if f == zero {
@@ -152,6 +152,7 @@ type Conf struct {
 	// General
 	LogLevel            LogLevel        `json:"logLevel"`
 	LogDestinations     LogDestinations `json:"logDestinations"`
+	LogStructured       bool            `json:"logStructured"`
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
 	ReadTimeout         Duration        `json:"readTimeout"`
@@ -159,6 +160,7 @@ type Conf struct {
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
+	UDPReadBufferSize   uint            `json:"udpReadBufferSize"`
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
@@ -176,40 +178,44 @@ type Conf struct {
 	AuthJWTInHTTPQuery        bool                        `json:"authJWTInHTTPQuery"`
 
 	// Control API
-	API               bool       `json:"api"`
-	APIAddress        string     `json:"apiAddress"`
-	APIEncryption     bool       `json:"apiEncryption"`
-	APIServerKey      string     `json:"apiServerKey"`
-	APIServerCert     string     `json:"apiServerCert"`
-	APIAllowOrigin    string     `json:"apiAllowOrigin"`
-	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
+	API               bool           `json:"api"`
+	APIAddress        string         `json:"apiAddress"`
+	APIEncryption     bool           `json:"apiEncryption"`
+	APIServerKey      string         `json:"apiServerKey"`
+	APIServerCert     string         `json:"apiServerCert"`
+	APIAllowOrigin    *string        `json:"apiAllowOrigin,omitempty"` // deprecated
+	APIAllowOrigins   AllowedOrigins `json:"apiAllowOrigins"`
+	APITrustedProxies IPNetworks     `json:"apiTrustedProxies"`
 
 	// Metrics
-	Metrics               bool       `json:"metrics"`
-	MetricsAddress        string     `json:"metricsAddress"`
-	MetricsEncryption     bool       `json:"metricsEncryption"`
-	MetricsServerKey      string     `json:"metricsServerKey"`
-	MetricsServerCert     string     `json:"metricsServerCert"`
-	MetricsAllowOrigin    string     `json:"metricsAllowOrigin"`
-	MetricsTrustedProxies IPNetworks `json:"metricsTrustedProxies"`
+	Metrics               bool           `json:"metrics"`
+	MetricsAddress        string         `json:"metricsAddress"`
+	MetricsEncryption     bool           `json:"metricsEncryption"`
+	MetricsServerKey      string         `json:"metricsServerKey"`
+	MetricsServerCert     string         `json:"metricsServerCert"`
+	MetricsAllowOrigin    *string        `json:"metricsAllowOrigin,omitempty"` // deprecated
+	MetricsAllowOrigins   AllowedOrigins `json:"metricsAllowOrigins"`
+	MetricsTrustedProxies IPNetworks     `json:"metricsTrustedProxies"`
 
 	// PPROF
-	PPROF               bool       `json:"pprof"`
-	PPROFAddress        string     `json:"pprofAddress"`
-	PPROFEncryption     bool       `json:"pprofEncryption"`
-	PPROFServerKey      string     `json:"pprofServerKey"`
-	PPROFServerCert     string     `json:"pprofServerCert"`
-	PPROFAllowOrigin    string     `json:"pprofAllowOrigin"`
-	PPROFTrustedProxies IPNetworks `json:"pprofTrustedProxies"`
+	PPROF               bool           `json:"pprof"`
+	PPROFAddress        string         `json:"pprofAddress"`
+	PPROFEncryption     bool           `json:"pprofEncryption"`
+	PPROFServerKey      string         `json:"pprofServerKey"`
+	PPROFServerCert     string         `json:"pprofServerCert"`
+	PPROFAllowOrigin    *string        `json:"pprofAllowOrigin,omitempty"` // deprecated
+	PPROFAllowOrigins   AllowedOrigins `json:"pprofAllowOrigins"`
+	PPROFTrustedProxies IPNetworks     `json:"pprofTrustedProxies"`
 
 	// Playback
-	Playback               bool       `json:"playback"`
-	PlaybackAddress        string     `json:"playbackAddress"`
-	PlaybackEncryption     bool       `json:"playbackEncryption"`
-	PlaybackServerKey      string     `json:"playbackServerKey"`
-	PlaybackServerCert     string     `json:"playbackServerCert"`
-	PlaybackAllowOrigin    string     `json:"playbackAllowOrigin"`
-	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
+	Playback               bool           `json:"playback"`
+	PlaybackAddress        string         `json:"playbackAddress"`
+	PlaybackEncryption     bool           `json:"playbackEncryption"`
+	PlaybackServerKey      string         `json:"playbackServerKey"`
+	PlaybackServerCert     string         `json:"playbackServerCert"`
+	PlaybackAllowOrigin    *string        `json:"playbackAllowOrigin,omitempty"` // deprecated
+	PlaybackAllowOrigins   AllowedOrigins `json:"playbackAllowOrigins"`
+	PlaybackTrustedProxies IPNetworks     `json:"playbackTrustedProxies"`
 
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`
@@ -235,7 +241,7 @@ type Conf struct {
 	RTSPServerCert        string           `json:"rtspServerCert"`
 	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
 	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
-	RTSPUDPReadBufferSize uint             `json:"rtspUDPReadBufferSize"`
+	RTSPUDPReadBufferSize *uint            `json:"rtspUDPReadBufferSize,omitempty"` // deprecated
 
 	// RTMP server
 	RTMP           bool       `json:"rtmp"`
@@ -247,22 +253,23 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS server
-	HLS                bool       `json:"hls"`
-	HLSDisable         *bool      `json:"hlsDisable,omitempty"` // deprecated
-	HLSAddress         string     `json:"hlsAddress"`
-	HLSEncryption      bool       `json:"hlsEncryption"`
-	HLSServerKey       string     `json:"hlsServerKey"`
-	HLSServerCert      string     `json:"hlsServerCert"`
-	HLSAllowOrigin     string     `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
-	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant `json:"hlsVariant"`
-	HLSSegmentCount    int        `json:"hlsSegmentCount"`
-	HLSSegmentDuration Duration   `json:"hlsSegmentDuration"`
-	HLSPartDuration    Duration   `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
-	HLSDirectory       string     `json:"hlsDirectory"`
-	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
+	HLS                bool           `json:"hls"`
+	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // deprecated
+	HLSAddress         string         `json:"hlsAddress"`
+	HLSEncryption      bool           `json:"hlsEncryption"`
+	HLSServerKey       string         `json:"hlsServerKey"`
+	HLSServerCert      string         `json:"hlsServerCert"`
+	HLSAllowOrigin     *string        `json:"hlsAllowOrigin,omitempty"` // deprecated
+	HLSAllowOrigins    AllowedOrigins `json:"hlsAllowOrigins"`
+	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
+	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
+	HLSVariant         HLSVariant     `json:"hlsVariant"`
+	HLSSegmentCount    int            `json:"hlsSegmentCount"`
+	HLSSegmentDuration Duration       `json:"hlsSegmentDuration"`
+	HLSPartDuration    Duration       `json:"hlsPartDuration"`
+	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
+	HLSDirectory       string         `json:"hlsDirectory"`
+	HLSMuxerCloseAfter Duration       `json:"hlsMuxerCloseAfter"`
 
 	// WebRTC server
 	WebRTC                      bool             `json:"webrtc"`
@@ -271,7 +278,8 @@ type Conf struct {
 	WebRTCEncryption            bool             `json:"webrtcEncryption"`
 	WebRTCServerKey             string           `json:"webrtcServerKey"`
 	WebRTCServerCert            string           `json:"webrtcServerCert"`
-	WebRTCAllowOrigin           string           `json:"webrtcAllowOrigin"`
+	WebRTCAllowOrigin           *string          `json:"webrtcAllowOrigin,omitempty"` // deprecated
+	WebRTCAllowOrigins          AllowedOrigins   `json:"webrtcAllowOrigins"`
 	WebRTCTrustedProxies        IPNetworks       `json:"webrtcTrustedProxies"`
 	WebRTCLocalUDPAddress       string           `json:"webrtcLocalUDPAddress"`
 	WebRTCLocalTCPAddress       string           `json:"webrtcLocalTCPAddress"`
@@ -311,6 +319,7 @@ func (conf *Conf) setDefaults() {
 	// General
 	conf.LogLevel = LogLevel(logger.Info)
 	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
+	conf.LogStructured = false
 	conf.LogFile = "mediamtx.log"
 	conf.SysLogPrefix = "mediamtx"
 	conf.ReadTimeout = 10 * Duration(time.Second)
@@ -339,25 +348,25 @@ func (conf *Conf) setDefaults() {
 	conf.APIAddress = ":9997"
 	conf.APIServerKey = "server.key"
 	conf.APIServerCert = "server.crt"
-	conf.APIAllowOrigin = "*"
+	conf.APIAllowOrigins = []string{"*"}
 
 	// Metrics
 	conf.MetricsAddress = ":9998"
 	conf.MetricsServerKey = "server.key"
 	conf.MetricsServerCert = "server.crt"
-	conf.MetricsAllowOrigin = "*"
+	conf.MetricsAllowOrigins = []string{"*"}
 
 	// PPROF
 	conf.PPROFAddress = ":9999"
 	conf.PPROFServerKey = "server.key"
 	conf.PPROFServerCert = "server.crt"
-	conf.PPROFAllowOrigin = "*"
+	conf.PPROFAllowOrigins = []string{"*"}
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
-	conf.PlaybackAllowOrigin = "*"
+	conf.PlaybackAllowOrigins = []string{"*"}
 
 	// RTSP server
 	conf.RTSP = true
@@ -393,7 +402,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSAddress = ":8888"
 	conf.HLSServerKey = "server.key"
 	conf.HLSServerCert = "server.crt"
-	conf.HLSAllowOrigin = "*"
+	conf.HLSAllowOrigins = []string{"*"}
 	conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
 	conf.HLSSegmentCount = 7
 	conf.HLSSegmentDuration = 1 * Duration(time.Second)
@@ -406,7 +415,7 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCAddress = ":8889"
 	conf.WebRTCServerKey = "server.key"
 	conf.WebRTCServerCert = "server.crt"
-	conf.WebRTCAllowOrigin = "*"
+	conf.WebRTCAllowOrigins = []string{"*"}
 	conf.WebRTCLocalUDPAddress = ":8189"
 	conf.WebRTCIPsFromInterfaces = true
 	conf.WebRTCIPsFromInterfacesList = []string{}
@@ -507,7 +516,7 @@ func (conf Conf) Clone() *Conf {
 
 type nilLogger struct{}
 
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
+func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
 }
 
 // Validate checks the configuration for errors.
@@ -521,16 +530,20 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	if conf.ReadTimeout <= 0 {
 		return fmt.Errorf("'readTimeout' must be greater than zero")
 	}
+
 	if conf.WriteTimeout <= 0 {
 		return fmt.Errorf("'writeTimeout' must be greater than zero")
 	}
+
 	if conf.ReadBufferCount != nil {
 		l.Log(logger.Warn, "parameter 'readBufferCount' is deprecated and has been replaced with 'writeQueueSize'")
 		conf.WriteQueueSize = *conf.ReadBufferCount
 	}
+
 	if (conf.WriteQueueSize & (conf.WriteQueueSize - 1)) != 0 {
 		return fmt.Errorf("'writeQueueSize' must be a power of two")
 	}
+
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
 	}
@@ -543,16 +556,19 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.AuthMethod = AuthMethodHTTP
 		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
 	}
+
 	if conf.AuthHTTPAddress != "" &&
 		!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
 		!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
 		return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
 	}
+
 	if conf.AuthJWTJWKS != "" &&
 		!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
 		!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
 		return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
 	}
+
 	deprecatedCredentialsMode := false
 	if anyPathHasDeprecatedCredentials(conf.PathDefaults, conf.OptionalPaths) {
 		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
@@ -591,6 +607,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 		deprecatedCredentialsMode = true
 	}
+
 	switch conf.AuthMethod {
 	case AuthMethodHTTP:
 		if conf.AuthHTTPAddress == "" {
@@ -606,24 +623,56 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 	}
 
-	// RTSP
+	// Control API
+
+	if conf.APIAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'apiAllowOrigin' is deprecated and has been replaced with 'apiAllowOrigins'")
+		conf.APIAllowOrigins = []string{*conf.APIAllowOrigin}
+	}
+
+	// Metrics
+
+	if conf.MetricsAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'metricsAllowOrigin' is deprecated and has been replaced with 'metricsAllowOrigins'")
+		conf.MetricsAllowOrigins = []string{*conf.MetricsAllowOrigin}
+	}
+
+	// PPROF
+
+	if conf.PPROFAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'pprofAllowOrigin' is deprecated and has been replaced with 'pprofAllowOrigins'")
+		conf.PPROFAllowOrigins = []string{*conf.PPROFAllowOrigin}
+	}
+
+	// Playback
+
+	if conf.PlaybackAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'playbackAllowOrigin' is deprecated and has been replaced with 'playbackAllowOrigins'")
+		conf.PlaybackAllowOrigins = []string{*conf.PlaybackAllowOrigin}
+	}
+
+	// RTSP server
 
 	if conf.RTSPDisable != nil {
 		l.Log(logger.Warn, "parameter 'rtspDisabled' is deprecated and has been replaced with 'rtsp'")
 		conf.RTSP = !*conf.RTSPDisable
 	}
+
 	if conf.Protocols != nil {
 		l.Log(logger.Warn, "parameter 'protocols' is deprecated and has been replaced with 'rtspTransports'")
 		conf.RTSPTransports = *conf.Protocols
 	}
+
 	if conf.Encryption != nil {
 		l.Log(logger.Warn, "parameter 'encryption' is deprecated and has been replaced with 'rtspEncryption'")
 		conf.RTSPEncryption = *conf.Encryption
 	}
+
 	if conf.AuthMethods != nil {
 		l.Log(logger.Warn, "parameter 'authMethods' is deprecated and has been replaced with 'rtspAuthMethods'")
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
+
 	if slices.Contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
 		if conf.AuthMethod != AuthMethodInternal {
 			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
@@ -634,14 +683,17 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			}
 		}
 	}
+
 	if conf.ServerCert != nil {
 		l.Log(logger.Warn, "parameter 'serverCert' is deprecated and has been replaced with 'rtspServerCert'")
 		conf.RTSPServerCert = *conf.ServerCert
 	}
+
 	if conf.ServerKey != nil {
 		l.Log(logger.Warn, "parameter 'serverKey' is deprecated and has been replaced with 'rtspServerKey'")
 		conf.RTSPServerKey = *conf.ServerKey
 	}
+
 	if len(conf.RTSPAuthMethods) == 0 {
 		return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
 	}
@@ -660,27 +712,36 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.HLS = !*conf.HLSDisable
 	}
 
+	if conf.HLSAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'hlsAllowOrigin' is deprecated and has been replaced with 'hlsAllowOrigins'")
+		conf.HLSAllowOrigins = []string{*conf.HLSAllowOrigin}
+	}
+
 	// WebRTC
 
 	if conf.WebRTCDisable != nil {
 		l.Log(logger.Warn, "parameter 'webrtcDisable' is deprecated and has been replaced with 'webrtc'")
 		conf.WebRTC = !*conf.WebRTCDisable
 	}
+
 	if conf.WebRTCICEUDPMuxAddress != nil {
 		l.Log(logger.Warn, "parameter 'webrtcICEUDPMuxAdderss' is deprecated "+
 			"and has been replaced with 'webrtcLocalUDPAddress'")
 		conf.WebRTCLocalUDPAddress = *conf.WebRTCICEUDPMuxAddress
 	}
+
 	if conf.WebRTCICETCPMuxAddress != nil {
 		l.Log(logger.Warn, "parameter 'webrtcICETCPMuxAddress' is deprecated "+
 			"and has been replaced with 'webrtcLocalTCPAddress'")
 		conf.WebRTCLocalTCPAddress = *conf.WebRTCICETCPMuxAddress
 	}
+
 	if conf.WebRTCICEHostNAT1To1IPs != nil {
 		l.Log(logger.Warn, "parameter 'webrtcICEHostNAT1To1IPs' is deprecated "+
 			"and has been replaced with 'webrtcAdditionalHosts'")
 		conf.WebRTCAdditionalHosts = *conf.WebRTCICEHostNAT1To1IPs
 	}
+
 	if conf.WebRTCICEServers != nil {
 		l.Log(logger.Warn, "parameter 'webrtcICEServers' is deprecated "+
 			"and has been replaced with 'webrtcICEServers2'")
@@ -700,6 +761,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			}
 		}
 	}
+
 	for _, server := range conf.WebRTCICEServers2 {
 		if !strings.HasPrefix(server.URL, "stun:") &&
 			!strings.HasPrefix(server.URL, "turn:") &&
@@ -707,16 +769,23 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			return fmt.Errorf("invalid ICE server: '%s'", server.URL)
 		}
 	}
+
 	if conf.WebRTCLocalUDPAddress == "" &&
 		conf.WebRTCLocalTCPAddress == "" &&
 		len(conf.WebRTCICEServers2) == 0 {
 		return fmt.Errorf("at least one between 'webrtcLocalUDPAddress'," +
 			" 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled")
 	}
+
 	if conf.WebRTCLocalUDPAddress != "" || conf.WebRTCLocalTCPAddress != "" {
 		if !conf.WebRTCIPsFromInterfaces && len(conf.WebRTCAdditionalHosts) == 0 {
 			return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled")
 		}
+	}
+
+	if conf.WebRTCAllowOrigin != nil {
+		l.Log(logger.Warn, "parameter 'webrtcAllowOrigin' is deprecated and has been replaced with 'webrtcAllowOrigins'")
+		conf.WebRTCAllowOrigins = []string{*conf.WebRTCAllowOrigin}
 	}
 
 	// Record (deprecated)
@@ -726,26 +795,31 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			"and has been replaced with 'pathDefaults.record'")
 		conf.PathDefaults.Record = *conf.Record
 	}
+
 	if conf.RecordPath != nil {
 		l.Log(logger.Warn, "parameter 'recordPath' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordPath'")
 		conf.PathDefaults.RecordPath = *conf.RecordPath
 	}
+
 	if conf.RecordFormat != nil {
 		l.Log(logger.Warn, "parameter 'recordFormat' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordFormat'")
 		conf.PathDefaults.RecordFormat = *conf.RecordFormat
 	}
+
 	if conf.RecordPartDuration != nil {
 		l.Log(logger.Warn, "parameter 'recordPartDuration' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordPartDuration'")
 		conf.PathDefaults.RecordPartDuration = *conf.RecordPartDuration
 	}
+
 	if conf.RecordSegmentDuration != nil {
 		l.Log(logger.Warn, "parameter 'recordSegmentDuration' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordSegmentDuration'")
 		conf.PathDefaults.RecordSegmentDuration = *conf.RecordSegmentDuration
 	}
+
 	if conf.RecordDeleteAfter != nil {
 		l.Log(logger.Warn, "parameter 'recordDeleteAfter' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordDeleteAfter'")

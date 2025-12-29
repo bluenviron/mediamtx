@@ -76,6 +76,7 @@ type pathManager struct {
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
+	udpReadBufferSize uint
 	rtpMaxPayloadSize int
 	pathConfs         map[string]*conf.Path
 	externalCmdPool   *externalcmd.Pool
@@ -148,7 +149,7 @@ func (pm *pathManager) close() {
 }
 
 // Log implements logger.Writer.
-func (pm *pathManager) Log(level logger.Level, format string, args ...interface{}) {
+func (pm *pathManager) Log(level logger.Level, format string, args ...any) {
 	pm.parent.Log(level, format, args...)
 }
 
@@ -439,6 +440,7 @@ func (pm *pathManager) createPath(
 		readTimeout:       pm.readTimeout,
 		writeTimeout:      pm.writeTimeout,
 		writeQueueSize:    pm.writeQueueSize,
+		udpReadBufferSize: pm.udpReadBufferSize,
 		rtpMaxPayloadSize: pm.rtpMaxPayloadSize,
 		conf:              pathConf,
 		name:              name,

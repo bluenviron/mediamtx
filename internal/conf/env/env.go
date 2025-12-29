@@ -156,7 +156,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 
 	case reflect.Struct:
 		flen := rt.NumField()
-		for i := 0; i < flen; i++ {
+		for i := range flen {
 			f := rt.Field(i)
 			jsonTag := f.Tag.Get("json")
 
@@ -239,7 +239,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
-func loadWithEnv(env map[string]string, prefix string, v interface{}) error {
+func loadWithEnv(env map[string]string, prefix string, v any) error {
 	return loadEnvInternal(env, prefix, reflect.ValueOf(v).Elem())
 }
 
@@ -253,6 +253,6 @@ func envToMap() map[string]string {
 }
 
 // Load loads the configuration from the environment.
-func Load(prefix string, v interface{}) error {
+func Load(prefix string, v any) error {
 	return loadWithEnv(envToMap(), prefix, v)
 }

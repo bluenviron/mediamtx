@@ -9,6 +9,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+const (
+	ntpDriftTolerance = 5 * time.Second
+)
+
 // OnSegmentCreateFunc is the prototype of the function passed as OnSegmentCreate
 type OnSegmentCreateFunc = func(path string)
 
@@ -71,7 +75,7 @@ func (r *Recorder) Initialize() {
 }
 
 // Log implements logger.Writer.
-func (r *Recorder) Log(level logger.Level, format string, args ...interface{}) {
+func (r *Recorder) Log(level logger.Level, format string, args ...any) {
 	r.Parent.Log(level, "[recorder] "+format, args...)
 }
 

@@ -192,7 +192,7 @@ func (dummyWebRTCServer) APISessionsKick(uuid.UUID) error {
 func TestPreflightRequest(t *testing.T) {
 	m := Metrics{
 		Address:      "localhost:9998",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
@@ -232,7 +232,7 @@ func TestMetrics(t *testing.T) {
 
 	m := Metrics{
 		Address:      "localhost:9998",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
@@ -368,7 +368,7 @@ func TestAuthError(t *testing.T) {
 
 	m := Metrics{
 		Address:      "localhost:9998",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
@@ -379,7 +379,7 @@ func TestAuthError(t *testing.T) {
 				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if n == 1 {
 					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
@@ -428,7 +428,7 @@ func TestFilter(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			m := Metrics{
 				Address:      "localhost:9998",
-				AllowOrigin:  "*",
+				AllowOrigins: []string{"*"},
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
 				AuthManager:  test.NilAuthManager,

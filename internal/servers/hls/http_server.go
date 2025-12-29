@@ -39,7 +39,7 @@ type httpServer struct {
 	encryption     bool
 	serverKey      string
 	serverCert     string
-	allowOrigin    string
+	allowOrigins   []string
 	trustedProxies conf.IPNetworks
 	readTimeout    conf.Duration
 	writeTimeout   conf.Duration
@@ -53,12 +53,13 @@ func (s *httpServer) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
 
-	router.Use(s.middlewareOrigin)
+	router.Use(s.middlewarePreflightRequests)
 
 	router.Use(s.onRequest)
 
 	s.inner = &httpp.Server{
 		Address:      s.address,
+		AllowOrigins: s.allowOrigins,
 		ReadTimeout:  time.Duration(s.readTimeout),
 		WriteTimeout: time.Duration(s.writeTimeout),
 		Encryption:   s.encryption,
@@ -76,7 +77,7 @@ func (s *httpServer) initialize() error {
 }
 
 // Log implements logger.Writer.
-func (s *httpServer) Log(level logger.Level, format string, args ...interface{}) {
+func (s *httpServer) Log(level logger.Level, format string, args ...any) {
 	s.parent.Log(level, format, args...)
 }
 
@@ -84,11 +85,7 @@ func (s *httpServer) close() {
 	s.inner.Close()
 }
 
-func (s *httpServer) middlewareOrigin(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", s.allowOrigin)
-	ctx.Header("Access-Control-Allow-Credentials", "true")
-
-	// preflight requests
+func (s *httpServer) middlewarePreflightRequests(ctx *gin.Context) {
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
@@ -160,7 +157,10 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		if errors.As(err, &terr) {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-				ctx.Writer.WriteHeader(http.StatusUnauthorized)
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+					Status: "error",
+					Error:  "authentication error",
+				})
 				return
 			}
 
@@ -169,7 +169,10 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+				Status: "error",
+				Error:  "authentication error",
+			})
 			return
 		}
 

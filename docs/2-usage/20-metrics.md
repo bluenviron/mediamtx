@@ -1,6 +1,6 @@
 # Extract metrics
 
-MediaMTX provides several metrics through a dedicated HTTP server, in a format compatible with [Prometheus](https://prometheus.io/).
+_MediaMTX_ provides several metrics through a dedicated HTTP server, in a format compatible with [Prometheus](https://prometheus.io/).
 
 This server can be enabled by setting `metrics: yes` in the configuration.
 

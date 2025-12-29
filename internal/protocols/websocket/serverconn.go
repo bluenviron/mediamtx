@@ -95,12 +95,12 @@ func (c *ServerConn) run() {
 }
 
 // ReadJSON reads a JSON object.
-func (c *ServerConn) ReadJSON(in interface{}) error {
+func (c *ServerConn) ReadJSON(in any) error {
 	return c.wc.ReadJSON(in)
 }
 
 // WriteJSON writes a JSON object.
-func (c *ServerConn) WriteJSON(in interface{}) error {
+func (c *ServerConn) WriteJSON(in any) error {
 	byts, err := json.Marshal(in)
 	if err != nil {
 		return err

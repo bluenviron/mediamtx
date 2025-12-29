@@ -98,8 +98,8 @@ func (m *muxer) Close() {
 }
 
 // Log implements logger.Writer.
-func (m *muxer) Log(level logger.Level, format string, args ...interface{}) {
-	m.parent.Log(level, "[muxer %s] "+format, append([]interface{}{m.pathName}, args...)...)
+func (m *muxer) Log(level logger.Level, format string, args ...any) {
+	m.parent.Log(level, "[muxer %s] "+format, append([]any{m.pathName}, args...)...)
 }
 
 // PathName returns the path name.

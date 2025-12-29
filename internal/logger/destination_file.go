@@ -2,31 +2,50 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
 type destinationFile struct {
-	file *os.File
-	buf  bytes.Buffer
+	structured bool
+	file       *os.File
+	buf        bytes.Buffer
 }
 
-func newDestinationFile(filePath string) (destination, error) {
+func newDestinationFile(structured bool, filePath string) (destination, error) {
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, err
 	}
 
 	return &destinationFile{
-		file: f,
+		structured: structured,
+		file:       f,
 	}, nil
 }
 
-func (d *destinationFile) log(t time.Time, level Level, format string, args ...interface{}) {
+func (d *destinationFile) log(t time.Time, level Level, format string, args ...any) {
 	d.buf.Reset()
-	writeTime(&d.buf, t, false)
-	writeLevel(&d.buf, level, false)
-	writeContent(&d.buf, format, args)
+
+	if d.structured {
+		d.buf.WriteString(`{"timestamp":"`)
+		d.buf.WriteString(t.Format(time.RFC3339))
+		d.buf.WriteString(`","level":"`)
+		writeLevel(&d.buf, level, false)
+		d.buf.WriteString(`","message":`)
+		d.buf.WriteString(strconv.Quote(fmt.Sprintf(format, args...)))
+		d.buf.WriteString(`}`)
+		d.buf.WriteByte('\n')
+	} else {
+		writePlainTime(&d.buf, t, false)
+		writeLevel(&d.buf, level, false)
+		d.buf.WriteByte(' ')
+		fmt.Fprintf(&d.buf, format, args...)
+		d.buf.WriteByte('\n')
+	}
+
 	d.file.Write(d.buf.Bytes()) //nolint:errcheck
 }
 

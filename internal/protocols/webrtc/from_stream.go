@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -26,6 +27,15 @@ import (
 const (
 	webrtcPayloadMaxSize = 1188 // 1200 - 12 (RTP header)
 )
+
+var multichannelOpusSDP = map[int]string{
+	3: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
+	4: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
+	5: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
+	6: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
+	7: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
+	8: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
+}
 
 var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
@@ -304,7 +314,7 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp.Add(-1*time.Minute)) //nolint:errcheck
+					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
 				return nil
@@ -657,10 +667,12 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
+	setuppedFormats := r.Formats()
+
 	n := 1
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
-			if forma != videoFormat && forma != audioFormat {
+			if !slices.Contains(setuppedFormats, forma) {
 				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++

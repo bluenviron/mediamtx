@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Video Source Monitor</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --ink: #e5e7eb;
+      --accent: #22d3ee;
+      --border: #1f2937;
+      --bitrate: #22d3ee;
+      --latency: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial;
+      display: flex; flex-direction: column;
+    }
+    header {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      padding: 12px 20px; background: #0b1220; border-bottom: 1px solid var(--border);
+    }
+    header h1 { flex: 1; margin: 0; font-size: 18px; color: var(--accent); font-weight: 600; }
+    header label { display: flex; align-items: center; gap: 5px; }
+    header input, header button {
+      background: var(--panel); border: 1px solid var(--border); color: var(--ink);
+      border-radius: 6px; padding: 5px 8px; font-size: 13px;
+    }
+    header button { cursor: pointer; transition: background 0.2s; }
+    header button:hover { background: var(--accent); color: #000; }
+
+    main {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px;
+    }
+    .camera-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      padding: 14px 16px 10px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .camera-title {
+      text-align: center; font-weight: 600; font-size: 15px; color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px; margin-bottom: 4px;
+    }
+    .chart-box { height: 160px; display: flex; flex-direction: column; }
+    .latency-box { margin-top: 10px; height: 160px; }
+    .chart-label {
+      font-size: 13px; text-align: center; margin-bottom: 4px; color: var(--ink); opacity: 0.85;
+    }
+    .stats-line {
+      font-size: 13px;
+      text-align: left;
+      margin-top: 8px;
+      color: #9ca3af;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.4;
+    }
+    canvas {
+      flex: 1;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Video Source Monitor</h1>
+    <label>Metrics URL:
+      <input id="metricsUrl" value="http://0.0.0.0:9998/metrics" size="38">
+    </label>
+    <label>Sample (sec):
+      <input id="sampleRate" type="number" value="1" min="0.2" step="0.1" style="width:60px">
+    </label>
+    <button id="loadBtn">Load</button>
+  </header>
+
+  <main id="charts"></main>
+
+  <script>
+    const METRICS_URL_DEFAULT = 'http://0.0.0.0:9998/metrics';
+    let METRICS_URL = METRICS_URL_DEFAULT;
+    let POLL_MS = 1000;
+    const WINDOW_SECONDS = 30;
+    const chartsContainer = document.getElementById('charts');
+    const charts = new Map();
+
+    function createCameraSection(name) {
+      const section = document.createElement('div');
+      section.className = 'camera-section';
+      section.innerHTML = `
+        <div class="camera-title">${name}</div>
+        <div class="chart-box">
+          <div class="chart-label">Bitrate (Kbps)</div>
+          <canvas class="bitrate"></canvas>
+        </div>
+        <div class="chart-box latency-box">
+          <div class="chart-label">Latency (ms)</div>
+          <canvas class="latency"></canvas>
+        </div>
+        <div class="stats-line">
+          <div>Last TS: 0</div>
+          <div>Lost packets: 0</div>
+        </div>`;
+      chartsContainer.appendChild(section);
+
+      const bitrateCanvas = section.querySelector('.bitrate');
+      const latencyCanvas = section.querySelector('.latency');
+      const stats = section.querySelector('.stats-line');
+
+      const labels = [];
+      const bitrateData = [];
+      const latencyData = [];
+
+      const baseOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: true, ticks: { color: '#9ca3af', maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.1)' } },
+          y: { beginAtZero: true, ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+        }
+      };
+
+      const bitrateChart = new Chart(bitrateCanvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{ borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bitrate'), data: bitrateData, tension: 0.3, borderWidth: 2, pointRadius: 0 }]},
+        options: JSON.parse(JSON.stringify(baseOpts))
+      });
+
+      const latencyChart = new Chart(latencyCanvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{ borderColor: getComputedStyle(document.documentElement).getPropertyValue('--latency'), data: latencyData, tension: 0.3, borderWidth: 2, pointRadius: 0 }]},
+        options: JSON.parse(JSON.stringify(baseOpts))
+      });
+
+      charts.set(name, { bitrateChart, latencyChart, labels, bitrateData, latencyData, stats });
+      return charts.get(name);
+    }
+
+    const BITRATE_RE = /^paths_bitrate_received_kbps\{([^}]*)\}\s+([0-9.]+)/;
+    const RTP_RE = /^paths_last_rtp_timestamp\{([^}]*)\}\s+([0-9.]+)/;
+    const LOST_RE = /^rtsp_sessions_rtp_packets_lost\{([^}]*)\}\s+([0-9.]+)/;
+
+    function parseMetrics(txt) {
+      const bitrates = new Map(), rtps = new Map(), lost = new Map();
+      for (const line of txt.split(/\n+/)) {
+        let m;
+        if ((m = line.match(BITRATE_RE))) {
+          const name = m[1].match(/name="([^"]+)"/);
+          if (name) bitrates.set(name[1], parseFloat(m[2]));
+        } else if ((m = line.match(RTP_RE))) {
+          const name = m[1].match(/name="([^"]+)"/);
+          if (name) rtps.set(name[1], parseFloat(m[2]));
+        } else if ((m = line.match(LOST_RE))) {
+          const path = m[1].match(/path="([^"]+)"/);
+          if (path) lost.set(path[1], parseFloat(m[2]));
+        }
+      }
+      return { bitrates, rtps, lost };
+    }
+
+    function hhmmss() {
+      const d = new Date();
+      return d.toTimeString().split(' ')[0];
+    }
+
+    function trim(c) {
+      const maxPoints = WINDOW_SECONDS * 1000 / POLL_MS;
+      while (c.labels.length > maxPoints) c.labels.shift();
+      while (c.bitrateData.length > maxPoints) c.bitrateData.shift();
+      while (c.latencyData.length > maxPoints) c.latencyData.shift();
+    }
+
+    async function pollOnce() {
+      try {
+        const res = await fetch(METRICS_URL);
+        if (!res.ok) throw new Error(res.status);
+        const txt = await res.text();
+        const { bitrates, rtps, lost } = parseMetrics(txt);
+        const time = hhmmss();
+        const now = Date.now() * 1e6;
+
+        for (const cam of new Set([...bitrates.keys(), ...rtps.keys(), ...lost.keys()])) {
+          if (!charts.has(cam)) createCameraSection(cam);
+          const c = charts.get(cam);
+          const br = bitrates.get(cam) ?? 0;
+          const rtp = rtps.get(cam) ?? 0;
+          const lat = rtp ? (now - rtp) / 1e6 : 0;
+          const lostPackets = lost.get(cam) ?? 0;
+
+          c.labels.push(time);
+          c.bitrateData.push(br);
+          c.latencyData.push(lat);
+          trim(c);
+          c.bitrateChart.update();
+          c.latencyChart.update();
+
+          c.stats.innerHTML = `
+            <div>Last TS: ${Math.round(rtp)}</div>
+            <div>Lost packets: ${lostPackets.toFixed(0)}</div>
+          `;
+        }
+      } catch (e) {
+        console.error('Error fetching metrics', e);
+      }
+    }
+
+    function start() {
+      METRICS_URL = document.getElementById('metricsUrl').value.trim();
+      POLL_MS = parseFloat(document.getElementById('sampleRate').value) * 1000;
+      if (window.timer) clearInterval(window.timer);
+      window.timer = setInterval(pollOnce, POLL_MS);
+      pollOnce();
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', start);
+    start();
+  </script>
+</body>
+</html>

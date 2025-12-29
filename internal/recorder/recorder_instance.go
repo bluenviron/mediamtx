@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -12,12 +11,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
-
-type sample struct {
-	*fmp4.Sample
-	dts int64
-	ntp time.Time
-}
 
 type recorderInstance struct {
 	pathFormat        string
@@ -42,7 +35,7 @@ type recorderInstance struct {
 }
 
 // Log implements logger.Writer.
-func (ri *recorderInstance) Log(level logger.Level, format string, args ...interface{}) {
+func (ri *recorderInstance) Log(level logger.Level, format string, args ...any) {
 	ri.parent.Log(level, format, args...)
 }
 

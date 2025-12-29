@@ -23,7 +23,7 @@ import (
 // ErrConnNotFound is returned when a connection is not found.
 var ErrConnNotFound = errors.New("connection not found")
 
-func interfaceIsEmpty(i interface{}) bool {
+func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
 }
 
@@ -145,7 +145,7 @@ func (s *Server) Initialize() error {
 }
 
 // Log implements logger.Writer.
-func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Server) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[SRT] "+format, args...)
 }
 

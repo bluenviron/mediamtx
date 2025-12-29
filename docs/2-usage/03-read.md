@@ -77,7 +77,7 @@ vlc --network-caching=50 rtsp://...
 
 ### RTMP
 
-RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP and WebRTC (doesn't support UDP, doesn't support most RTSP codecs, doesn't support feedback mechanism). Streams can be read from the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](rtmp-specific-features). Streams can be read from the server by using the URL:
 
 ```
 rtmp://localhost/mystream
@@ -158,9 +158,9 @@ To decrease the latency, you can:
 
 - try decreasing the hlsPartDuration parameter
 - try decreasing the hlsSegmentDuration parameter
-- The segment duration is influenced by the interval between the IDR frames of the video track. An IDR frame is a frame that can be decoded independently from the others. The server changes the segment duration in order to include at least one IDR frame into each segment. Therefore, you need to decrease the interval between the IDR frames. This can be done in two ways:
-  - if the stream is being hardware-generated (i.e. by a camera), there's usually a setting called Key-Frame Interval in the camera configuration page
-  - otherwise, the stream must be re-encoded. It's possible to tune the IDR frame interval by using ffmpeg's -g option:
+- try decreasing the interval between random access frames of the video track, which are frames that can be decoded independently from others. The server adjusts the segment duration in order to include at least one random access frame into every segment. This interval can be changed in two ways:
+  - if the stream is being hardware-generated (i.e. by a camera), there's usually a setting called "Key Frame Interval" in the camera configuration page
+  - otherwise, the stream must be re-encoded. It is possible to tune the random access frame interval by using ffmpeg's -g option:
 
     ```sh
     ffmpeg -i rtsp://original-stream -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed

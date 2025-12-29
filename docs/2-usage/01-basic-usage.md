@@ -13,7 +13,7 @@
    ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
-2. Open the stream. For instance, you can open the stream with _VLC_:
+2. Read the stream. For instance, you can read the stream with _VLC_:
 
    ```sh
    vlc --network-caching=50 rtsp://localhost:8554/mystream

@@ -17,7 +17,7 @@ import (
 func TestPreflightRequest(t *testing.T) {
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		Parent:       test.NilLogger,
@@ -56,7 +56,7 @@ func TestPprof(t *testing.T) {
 
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
@@ -99,7 +99,7 @@ func TestAuthError(t *testing.T) {
 
 	s := &PPROF{
 		Address:      "127.0.0.1:9999",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
@@ -110,7 +110,7 @@ func TestAuthError(t *testing.T) {
 				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if n == 1 {
 					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))

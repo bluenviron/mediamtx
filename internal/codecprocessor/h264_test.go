@@ -15,15 +15,15 @@ import (
 )
 
 type testLogger struct {
-	cb func(level logger.Level, format string, args ...interface{})
+	cb func(level logger.Level, format string, args ...any)
 }
 
-func (l *testLogger) Log(level logger.Level, format string, args ...interface{}) {
+func (l *testLogger) Log(level logger.Level, format string, args ...any) {
 	l.cb(level, format, args...)
 }
 
 // Logger returns a dummy logger.
-func Logger(cb func(logger.Level, string, ...interface{})) logger.Writer {
+func Logger(cb func(logger.Level, string, ...any)) logger.Writer {
 	return &testLogger{cb: cb}
 }
 
@@ -202,7 +202,7 @@ func TestH264RTPOversized(t *testing.T) {
 	logged := false
 
 	p, err := New(1460, forma, false,
-		Logger(func(_ logger.Level, s string, i ...interface{}) {
+		Logger(func(_ logger.Level, s string, i ...any) {
 			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
 			logged = true
 		}))

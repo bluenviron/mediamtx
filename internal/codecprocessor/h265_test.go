@@ -202,7 +202,7 @@ func TestH265RTPOversized(t *testing.T) {
 	logged := false
 
 	p, err := New(1460, forma, false,
-		Logger(func(_ logger.Level, s string, i ...interface{}) {
+		Logger(func(_ logger.Level, s string, i ...any) {
 			require.Equal(t, "RTP packets are too big, remuxing them into smaller ones", fmt.Sprintf(s, i...))
 			logged = true
 		}))

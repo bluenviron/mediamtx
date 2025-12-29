@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
 	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -29,12 +28,13 @@ type parent interface {
 
 // Source is a RTP static source.
 type Source struct {
-	ReadTimeout conf.Duration
-	Parent      parent
+	ReadTimeout       conf.Duration
+	UDPReadBufferSize uint
+	Parent            parent
 }
 
 // Log implements logger.Writer.
-func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[RTP source] "+format, args...)
 }
 
@@ -69,7 +69,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 
 	default:
-		nc, err = udp.CreateConn(u, int(params.Conf.RTPUDPReadBufferSize))
+		udpReadBufferSize := s.UDPReadBufferSize
+		if params.Conf.RTPUDPReadBufferSize != nil {
+			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
+		}
+
+		nc, err = udp.CreateConn(u, int(udpReadBufferSize))
 		if err != nil {
 			return err
 		}
@@ -97,6 +102,22 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 }
 
 func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
+	packetsLost := &counterdumper.CounterDumper{
+		OnReport: func(val uint64) {
+			s.Log(logger.Warn, "%d RTP %s lost",
+				val,
+				func() string {
+					if val == 1 {
+						return "packet"
+					}
+					return "packets"
+				}())
+		},
+	}
+
+	packetsLost.Start()
+	defer packetsLost.Stop()
+
 	decodeErrors := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d decode %s",
@@ -112,18 +133,27 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
 	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
 
-	mediasByPayloadType := make(map[uint8]*description.Media)
-	formatsByPayloadType := make(map[uint8]format.Format)
+	mediasByPayloadType := make(map[uint8]*rtpMedia)
+	formatsByPayloadType := make(map[uint8]*rtpFormat)
 
-	for _, media := range desc.Medias {
-		for _, forma := range media.Formats {
-			mediasByPayloadType[forma.PayloadType()] = media
-			formatsByPayloadType[forma.PayloadType()] = forma
+	for _, descMedia := range desc.Medias {
+		rtpMedia := &rtpMedia{
+			desc: descMedia,
+		}
+
+		for _, descFormat := range descMedia.Formats {
+			rtpFormat := &rtpFormat{
+				desc: descFormat,
+			}
+			rtpFormat.initialize()
+
+			mediasByPayloadType[descFormat.PayloadType()] = rtpMedia
+			formatsByPayloadType[descFormat.PayloadType()] = rtpFormat
 		}
 	}
 
@@ -138,14 +168,14 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 		var pkt rtp.Packet
 		err = pkt.Unmarshal(buf[:n])
 		if err != nil {
-			if stream != nil {
+			if strm != nil {
 				decodeErrors.Increase()
 				continue
 			}
 			return err
 		}
 
-		if stream == nil {
+		if strm == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:               desc,
 				GenerateRTPPackets: false,
@@ -157,7 +187,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-			stream = res.Stream
+			strm = res.Stream
 		}
 
 		media, ok := mediasByPayloadType[pkt.PayloadType]
@@ -167,12 +197,20 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 		forma := formatsByPayloadType[pkt.PayloadType]
 
-		pts, ok := timeDecoder.Decode(forma, &pkt)
-		if !ok {
-			continue
+		pkts, lost := forma.rtpReceiver.ProcessPacket2(&pkt, time.Now(), forma.desc.PTSEqualsDTS(&pkt))
+
+		if lost != 0 {
+			packetsLost.Add(lost)
 		}
 
-		stream.WriteRTPPacket(media, forma, &pkt, time.Time{}, pts)
+		for _, pkt := range pkts {
+			pts, ok2 := timeDecoder.Decode(forma.desc, pkt)
+			if !ok2 {
+				continue
+			}
+
+			strm.WriteRTPPacket(media.desc, forma.desc, pkt, time.Time{}, pts)
+		}
 	}
 }
 

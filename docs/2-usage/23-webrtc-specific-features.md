@@ -44,7 +44,7 @@ If there's a NAT / container between server and clients, it must be configured t
 docker run --rm -it \
 -p 8189:8189/udp
 ....
-bluenviron/mediamtx
+bluenviron/mediamtx:1
 ```
 
 If you still have problems, the UDP protocol might be blocked by a firewall. Enable the TCP protocol by enabling the local TCP listener:
@@ -82,7 +82,7 @@ webrtcICEServers2:
     password: secret
 ```
 
-where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
+where secret is the secret of the TURN server. _MediaMTX_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
 In some cases you may want the browser to connect using TURN servers but have mediamtx not using TURN (for example if the TURN server is on the same network as mediamtx). To allow this you can configure the TURN server to be client only:
 

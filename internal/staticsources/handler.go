@@ -67,6 +67,7 @@ type Handler struct {
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	WriteQueueSize    int
+	UDPReadBufferSize uint
 	RTPMaxPayloadSize int
 	Matches           []string
 	PathManager       handlerPathManager
@@ -101,10 +102,11 @@ func (s *Handler) Initialize() {
 		strings.HasPrefix(s.Conf.Source, "rtsp+ws://") ||
 		strings.HasPrefix(s.Conf.Source, "rtsps+ws://"):
 		s.instance = &ssrtsp.Source{
-			ReadTimeout:    s.ReadTimeout,
-			WriteTimeout:   s.WriteTimeout,
-			WriteQueueSize: s.WriteQueueSize,
-			Parent:         s,
+			ReadTimeout:       s.ReadTimeout,
+			WriteTimeout:      s.WriteTimeout,
+			WriteQueueSize:    s.WriteQueueSize,
+			UDPReadBufferSize: s.UDPReadBufferSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "rtmp://") ||
@@ -126,8 +128,9 @@ func (s *Handler) Initialize() {
 		strings.HasPrefix(s.Conf.Source, "udp+mpegts://") ||
 		strings.HasPrefix(s.Conf.Source, "unix+mpegts://"):
 		s.instance = &ssmpegts.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			UDPReadBufferSize: s.UDPReadBufferSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "srt://"):
@@ -139,15 +142,17 @@ func (s *Handler) Initialize() {
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||
 		strings.HasPrefix(s.Conf.Source, "wheps://"):
 		s.instance = &sswebrtc.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			UDPReadBufferSize: s.UDPReadBufferSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "udp+rtp://") ||
 		strings.HasPrefix(s.Conf.Source, "unix+rtp://"):
 		s.instance = &ssrtp.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			UDPReadBufferSize: s.UDPReadBufferSize,
+			Parent:            s,
 		}
 
 	case s.Conf.Source == "rpiCamera":
@@ -206,7 +211,7 @@ func (s *Handler) Stop(reason string) {
 }
 
 // Log implements logger.Writer.
-func (s *Handler) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Handler) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, format, args...)
 }
 

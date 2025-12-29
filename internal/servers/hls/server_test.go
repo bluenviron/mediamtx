@@ -68,7 +68,7 @@ func (pa *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 func TestServerPreflightRequest(t *testing.T) {
 	s := &Server{
 		Address:      "127.0.0.1:8888",
-		AllowOrigin:  "*",
+		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		PathManager:  &dummyPathManager{},
@@ -131,7 +131,6 @@ func TestServerNotFound(t *testing.T) {
 				SegmentDuration: conf.Duration(1 * time.Second),
 				PartDuration:    conf.Duration(200 * time.Millisecond),
 				SegmentMaxSize:  50 * 1024 * 1024,
-				AllowOrigin:     "",
 				TrustedProxies:  conf.IPNetworks{},
 				Directory:       "",
 				ReadTimeout:     conf.Duration(10 * time.Second),
@@ -285,7 +284,7 @@ func TestServerRead(t *testing.T) {
 
 				time.Sleep(100 * time.Millisecond)
 
-				for i := 0; i < 4; i++ {
+				for i := range 4 {
 					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
 						NTP: time.Time{},
 						PTS: int64(i) * 90000,
@@ -433,7 +432,6 @@ func TestServerDirectory(t *testing.T) {
 		SegmentDuration: conf.Duration(1 * time.Second),
 		PartDuration:    conf.Duration(200 * time.Millisecond),
 		SegmentMaxSize:  50 * 1024 * 1024,
-		AllowOrigin:     "",
 		TrustedProxies:  conf.IPNetworks{},
 		Directory:       filepath.Join(dir, "mydir"),
 		ReadTimeout:     conf.Duration(10 * time.Second),
@@ -526,7 +524,7 @@ func TestAuthError(t *testing.T) {
 				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if n == 1 {
 					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))

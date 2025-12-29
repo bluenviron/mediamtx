@@ -1,9 +1,11 @@
 package recorder
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -43,12 +45,26 @@ func nextSegmentStartingPos(tracks []*formatFMP4Track) (time.Time, time.Duration
 
 type formatFMP4Track struct {
 	f         *formatFMP4
-	initTrack *fmp4.InitTrack
+	id        int
+	clockRate uint32
+	codec     mcodecs.Codec
 
-	nextSample *sample
+	initTrack        *fmp4.InitTrack
+	nextSample       *formatFMP4Sample
+	startInitialized bool
+	startDTS         time.Duration
+	startNTP         time.Time
 }
 
-func (t *formatFMP4Track) write(sample *sample) error {
+func (t *formatFMP4Track) initialize() {
+	t.initTrack = &fmp4.InitTrack{
+		ID:        t.id,
+		TimeScale: t.clockRate,
+		Codec:     t.codec,
+	}
+}
+
+func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	// wait the first video sample before setting hasVideo
 	if t.initTrack.Codec.IsVideo() {
 		t.f.hasVideo = true
@@ -68,6 +84,17 @@ func (t *formatFMP4Track) write(sample *sample) error {
 	sample.Duration = uint32(duration)
 
 	dts := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
+
+	if !t.startInitialized {
+		t.startDTS = dts
+		t.startNTP = sample.ntp
+		t.startInitialized = true
+	} else {
+		drift := sample.ntp.Sub(t.startNTP) - (dts - t.startDTS)
+		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
+		}
+	}
 
 	if t.f.currentSegment == nil {
 		t.f.currentSegment = &formatFMP4Segment{

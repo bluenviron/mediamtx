@@ -117,9 +117,9 @@ func (s *session) remoteAddr() net.Addr {
 }
 
 // Log implements logger.Writer.
-func (s *session) Log(level logger.Level, format string, args ...interface{}) {
+func (s *session) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(s.uuid[:4])
-	s.parent.Log(level, "[session %s] "+format, append([]interface{}{id}, args...)...)
+	s.parent.Log(level, "[session %s] "+format, append([]any{id}, args...)...)
 }
 
 // onClose is called by rtspServer.
@@ -194,6 +194,13 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	}, nil
 }
 
+func (s *session) rtspStream() *gortsplib.ServerStream {
+	if !s.isTLS {
+		return s.stream.RTSPStream(s.rserver)
+	}
+	return s.stream.RTSPSStream(s.rserver)
+}
+
 // onSetup is called by rtspServer.
 func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
@@ -226,7 +233,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 	}
 
 	switch s.rsession.State() {
-	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
+	case gortsplib.ServerSessionStateInitial: // play
 		path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 			Author: s,
 			AccessRequest: defs.PathAccessRequest{
@@ -261,16 +268,14 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		s.path = path
 		s.stream = stream
 
-		var rstream *gortsplib.ServerStream
-		if !s.isTLS {
-			rstream = stream.RTSPStream(s.rserver)
-		} else {
-			rstream = stream.RTSPSStream(s.rserver)
-		}
-
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, rstream, nil
+		}, s.rtspStream(), nil
+
+	case gortsplib.ServerSessionStatePrePlay: // play, subsequent calls
+		return &base.Response{
+			StatusCode: base.StatusOK,
+		}, s.rtspStream(), nil
 
 	default: // record
 		return &base.Response{
@@ -326,15 +331,15 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		}, err
 	}
 
-	s.path = path
-	s.stream = stream
-
 	rtsp.ToStream(
 		s.rsession,
 		s.rsession.AnnouncedDescription().Medias,
-		s.path.SafeConf(),
-		stream,
+		path.SafeConf(),
+		&s.stream,
 		s)
+
+	s.path = path
+	s.stream = stream
 
 	return &base.Response{
 		StatusCode: base.StatusOK,

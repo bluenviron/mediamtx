@@ -66,7 +66,7 @@ func initializeTestServer(t *testing.T) *Server {
 
 	s := &Server{
 		Address:               "127.0.0.1:8886",
-		AllowOrigin:           "*",
+		AllowOrigins:          []string{"*"},
 		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.Duration(10 * time.Second),
 		WriteTimeout:          conf.Duration(10 * time.Second),
@@ -197,7 +197,11 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 func TestServerPublish(t *testing.T) {
 	var strm *stream.Stream
-	streamCreated := make(chan struct{})
+	var reader *stream.Reader
+	defer func() {
+		strm.RemoveReader(reader)
+	}()
+	dataReceived := make(chan struct{})
 
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
@@ -222,7 +226,25 @@ func TestServerPublish(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 
-			close(streamCreated)
+			reader = &stream.Reader{Parent: test.NilLogger}
+
+			reader.OnData(
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
+				func(u *unit.Unit) error {
+					/* select {
+					case <-recv:
+						return nil
+					default:
+					} */
+					require.Equal(t, unit.PayloadH264{
+						{1},
+					}, u.Payload)
+					close(dataReceived)
+					return nil
+				})
+
+			strm.AddReader(reader)
 
 			return &dummyPath{}, strm, nil
 		},
@@ -289,47 +311,7 @@ func TestServerPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	<-streamCreated
-
-	r := &stream.Reader{Parent: test.NilLogger}
-
-	recv := make(chan struct{})
-
-	r.OnData(
-		strm.Desc.Medias[0],
-		strm.Desc.Medias[0].Formats[0],
-		func(u *unit.Unit) error {
-			select {
-			case <-recv:
-				return nil
-			default:
-			}
-
-			require.Equal(t, unit.PayloadH264{
-				{1},
-			}, u.Payload)
-			close(recv)
-
-			return nil
-		})
-
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
-
-	err = track.WriteRTP(&rtp.Packet{
-		Header: rtp.Header{
-			Version:        2,
-			Marker:         true,
-			PayloadType:    96,
-			SequenceNumber: 124,
-			Timestamp:      45343,
-			SSRC:           563423,
-		},
-		Payload: []byte{1},
-	})
-	require.NoError(t, err)
-
-	<-recv
+	<-dataReceived
 }
 
 func TestServerRead(t *testing.T) {
@@ -751,7 +733,7 @@ func TestAuthError(t *testing.T) {
 				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...interface{}) {
+		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
 				if n == 1 {
 					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))

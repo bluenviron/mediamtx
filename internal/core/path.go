@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"sync"
@@ -24,6 +25,11 @@ func emptyTimer() *time.Timer {
 	t := time.NewTimer(0)
 	<-t.C
 	return t
+}
+
+type bitrateDataPoint struct {
+	bytes     uint64
+	timestamp time.Time
 }
 
 type pathParent interface {
@@ -70,6 +76,7 @@ type path struct {
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
+	udpReadBufferSize uint
 	rtpMaxPayloadSize int
 	conf              *conf.Path
 	name              string
@@ -86,6 +93,8 @@ type path struct {
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
 	readyTime                      time.Time
+	bitrateHistory                 []bitrateDataPoint
+	bitrateMutex                   sync.Mutex
 	onUnDemandHook                 func(string)
 	onNotReadyHook                 func()
 	readers                        map[defs.Reader]struct{}
@@ -149,7 +158,7 @@ func (pa *path) wait() {
 }
 
 // Log implements logger.Writer.
-func (pa *path) Log(level logger.Level, format string, args ...interface{}) {
+func (pa *path) Log(level logger.Level, format string, args ...any) {
 	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
 }
 
@@ -174,6 +183,7 @@ func (pa *path) run() {
 			ReadTimeout:       pa.readTimeout,
 			WriteTimeout:      pa.writeTimeout,
 			WriteQueueSize:    pa.writeQueueSize,
+			UDPReadBufferSize: pa.udpReadBufferSize,
 			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
 			Matches:           pa.matches,
 			PathManager:       pa.parent,
@@ -544,6 +554,55 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 }
 
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
+	var bytesReceived uint64
+	if pa.isReady() {
+		bytesReceived = pa.stream.BytesReceived()
+	}
+
+	// Calculate bitrate using configured window (default 4 seconds) in Kbps (rounded)
+	pa.bitrateMutex.Lock()
+	now := time.Now()
+	bitrateReceived := float64(0)
+	windowDuration := time.Duration(pa.conf.CalcBitrateWindow)
+
+	if pa.isReady() {
+		// Add current data point
+		pa.bitrateHistory = append(pa.bitrateHistory, bitrateDataPoint{
+			bytes:     bytesReceived,
+			timestamp: now,
+		})
+
+		// Remove data points older than the configured window
+		windowStart := now.Add(-windowDuration)
+		validStart := 0
+		for i, point := range pa.bitrateHistory {
+			if point.timestamp.After(windowStart) || point.timestamp.Equal(windowStart) {
+				validStart = i
+				break
+			}
+		}
+		if validStart > 0 {
+			pa.bitrateHistory = pa.bitrateHistory[validStart:]
+		}
+
+		// Calculate average bitrate over the configured window
+		if len(pa.bitrateHistory) >= 2 {
+			oldest := pa.bitrateHistory[0]
+			newest := pa.bitrateHistory[len(pa.bitrateHistory)-1]
+			if newest.bytes >= oldest.bytes {
+				timeDelta := newest.timestamp.Sub(oldest.timestamp).Seconds()
+				if timeDelta > 0 {
+					bitsPerSecond := float64(newest.bytes-oldest.bytes) / timeDelta * 8
+					bitrateReceived = math.Round(bitsPerSecond / 1000) // Convert to Kbps and round
+				}
+			}
+		}
+	} else {
+		// Clear history when path is not ready
+		pa.bitrateHistory = nil
+	}
+	pa.bitrateMutex.Unlock()
+
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
 			Name:     pa.name,
@@ -569,12 +628,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
-			BytesReceived: func() uint64 {
-				if !pa.isReady() {
-					return 0
-				}
-				return pa.stream.BytesReceived()
-			}(),
+			BytesReceived: bytesReceived,
 			BytesSent: func() uint64 {
 				if !pa.isReady() {
 					return 0
@@ -588,6 +642,18 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return ret
 			}(),
+			BitrateReceived: bitrateReceived,
+			LastRTPTimestamp: func() *int64 {
+				if !pa.isReady() {
+					return nil
+				}
+				ts := pa.stream.LastRTPTimestamp()
+				if ts == 0 {
+					return nil
+				}
+				return &ts
+			}(),
+			Metadata: pa.conf.Metadata,
 		},
 	}
 }
@@ -691,6 +757,7 @@ func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fil
 		Desc:               desc,
 		GenerateRTPPackets: generateRTPPackets,
 		FillNTP:            fillNTP,
+		DropNonKeyframes:   pa.conf.DropNonKeyframes,
 		Parent:             pa.source,
 	}
 	err := pa.stream.Initialize()

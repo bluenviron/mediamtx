@@ -62,10 +62,7 @@ func (w *muxerMP4) writeSample(
 	if len(w.curTrack.Samples) == 0 {
 		w.curTrack.TimeOffset = int32(dts)
 	} else {
-		duration := dts - w.curTrack.lastDTS
-		if duration < 0 {
-			duration = 0
-		}
+		duration := max(dts-w.curTrack.lastDTS, 0)
 		w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(duration)
 	}
 
@@ -87,10 +84,7 @@ func (w *muxerMP4) writeSample(
 
 func (w *muxerMP4) writeFinalDTS(dts int64) {
 	if len(w.curTrack.Samples) != 0 {
-		duration := dts - w.curTrack.lastDTS
-		if duration < 0 {
-			duration = 0
-		}
+		duration := max(dts-w.curTrack.lastDTS, 0)
 		w.curTrack.Samples[len(w.curTrack.Samples)-1].Duration = uint32(duration)
 	}
 }
@@ -100,12 +94,15 @@ func (w *muxerMP4) flush() error {
 		return recordstore.ErrNoSegmentsFound
 	}
 
-	h := pmp4.Presentation{
-		Tracks: make([]*pmp4.Track, len(w.tracks)),
+	var tracks []*pmp4.Track
+	for _, track := range w.tracks {
+		if len(track.Samples) != 0 {
+			tracks = append(tracks, &track.Track)
+		}
 	}
 
-	for i, track := range w.tracks {
-		h.Tracks[i] = &track.Track
+	h := pmp4.Presentation{
+		Tracks: tracks,
 	}
 
 	return h.Marshal(w.w)

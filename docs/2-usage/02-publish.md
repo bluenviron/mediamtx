@@ -94,7 +94,7 @@ paths:
     source: wheps://host:port/path
 ```
 
-If the remote server is a MediaMTX instance, remember to add a `/whep` suffix after the stream name, since in MediaMTX [it's part of the WHEP URL](read#webrtc):
+If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](read#webrtc):
 
 ```yml
 paths:
@@ -162,7 +162,7 @@ Advanced RTSP features are described in [RTSP-specific features](rtsp-specific-f
 
 ### RTMP clients
 
-RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP and WebRTC (doesn't support UDP, doesn't support most RTSP codecs, doesn't support feedback mechanism). Streams can be published to the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](rtmp-specific-features). Streams can be published to the server by using the URL:
 
 ```
 rtmp://localhost/mystream
@@ -310,7 +310,7 @@ The resulting stream is available in path `/cam`.
 
 The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](/docs/references/configuration-file).
 
-If you want to run the server inside Docker, you need to use the `latest-rpi` image and launch the container with some additional flags:
+If you want to run the server inside Docker, you need to use the `1-rpi` image and launch the container with some additional flags:
 
 ```sh
 docker run --rm -it \
@@ -319,7 +319,7 @@ docker run --rm -it \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
 -e MTX_PATHS_CAM_SOURCE=rpiCamera \
-bluenviron/mediamtx:latest-rpi
+bluenviron/mediamtx:1-rpi
 ```
 
 Be aware that precompiled binaries and Docker images are not compatible with cameras that require a custom `libcamera` (like some ArduCam products), since they come with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](/docs/other/compile#custom-libcamera).
@@ -452,7 +452,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystr
 
 #### FFmpeg and MPEG-TS over UDP
 
-In MediaMTX configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
+In _MediaMTX_ configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
 
 ```sh
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://127.0.0.1:3356?pkt_size=1316'
@@ -468,7 +468,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 
 #### FFmpeg and RTP over UDP
 
-In MediaMTX configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](#rtp)). Then:
+In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](#rtp)). Then:
 
 ```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \

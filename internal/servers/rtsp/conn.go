@@ -100,8 +100,8 @@ func (c *conn) initialize() {
 }
 
 // Log implements logger.Writer.
-func (c *conn) Log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.rconn.NetConn().RemoteAddr()}, args...)...)
+func (c *conn) Log(level logger.Level, format string, args ...any) {
+	c.parent.Log(level, "[conn %v] "+format, append([]any{c.rconn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.
@@ -193,16 +193,16 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}, nil, nil
 	}
 
-	var stream *gortsplib.ServerStream
+	var strm *gortsplib.ServerStream
 	if !c.isTLS {
-		stream = res.Stream.RTSPStream(c.rserver)
+		strm = res.Stream.RTSPStream(c.rserver)
 	} else {
-		stream = res.Stream.RTSPSStream(c.rserver)
+		strm = res.Stream.RTSPSStream(c.rserver)
 	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, stream, nil
+	}, strm, nil
 }
 
 func (c *conn) handleAuthError(err *auth.Error) (*base.Response, error) {

@@ -487,7 +487,7 @@ func TestPathRunOnRead(t *testing.T) {
 					defer conn.Close()
 
 					go func() {
-						for i := uint16(0); i < 3; i++ {
+						for i := range uint16(3) {
 							err2 := source.WritePacketRTP(media0, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        2,
@@ -622,7 +622,7 @@ func TestPathRunOnRecordSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer source.Close()
 
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			err = source.WritePacketRTP(media0, &rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
@@ -672,7 +672,7 @@ func TestPathMaxReaders(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		var u *base.URL
 		u, err = base.ParseURL("rtsp://127.0.0.1:8554/mystream")
 		require.NoError(t, err)
@@ -723,7 +723,7 @@ func TestPathRecord(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		err = source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
@@ -748,13 +748,13 @@ func TestPathRecord(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]any{
 		"record": false,
 	}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]any{
 		"record": true,
 	}, nil)
 
@@ -842,7 +842,7 @@ func TestPathFallback(t *testing.T) {
 }
 
 func TestPathResolveSource(t *testing.T) {
-	var stream *gortsplib.ServerStream
+	var strm *gortsplib.ServerStream
 
 	s := gortsplib.Server{
 		Handler: &testServer{
@@ -852,12 +852,12 @@ func TestPathResolveSource(t *testing.T) {
 				require.Equal(t, "/a", ctx.Path)
 				return &base.Response{
 					StatusCode: base.StatusOK,
-				}, stream, nil
+				}, strm, nil
 			},
 			onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
-				}, stream, nil
+				}, strm, nil
 			},
 			onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 				return &base.Response{
@@ -872,13 +872,13 @@ func TestPathResolveSource(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	stream = &gortsplib.ServerStream{
+	strm = &gortsplib.ServerStream{
 		Server: &s,
 		Desc:   &description.Session{Medias: []*description.Media{test.MediaH264}},
 	}
-	err = stream.Initialize()
+	err = strm.Initialize()
 	require.NoError(t, err)
-	defer stream.Close()
+	defer strm.Close()
 
 	p, ok := newInstance(
 		"paths:\n" +

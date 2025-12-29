@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -28,7 +29,7 @@ func TestToStreamNoSupportedCodecs(t *testing.T) {
 
 func TestToStream(t *testing.T) {
 	track1 := &mpegts.Track{
-		Codec: &mpegts.CodecH264{},
+		Codec: &tscodecs.H264{},
 	}
 
 	s := &http.Server{

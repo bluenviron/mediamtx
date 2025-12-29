@@ -41,6 +41,7 @@ type sessionParent interface {
 }
 
 type session struct {
+	udpReadBufferSize     uint
 	parentCtx             context.Context
 	ipsFromInterfaces     bool
 	ipsFromInterfacesList []string
@@ -87,9 +88,9 @@ func (s *session) initialize() {
 }
 
 // Log implements logger.Writer.
-func (s *session) Log(level logger.Level, format string, args ...interface{}) {
+func (s *session) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(s.uuid[:4])
-	s.parent.Log(level, "[session %v] "+format, append([]interface{}{id}, args...)...)
+	s.parent.Log(level, "[session %v] "+format, append([]any{id}, args...)...)
 }
 
 func (s *session) Close() {
@@ -158,6 +159,7 @@ func (s *session) runPublish() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		UDPReadBufferSize:     s.udpReadBufferSize,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,
@@ -231,15 +233,15 @@ func (s *session) runPublish() (int, error) {
 		return 0, err
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := webrtc.ToStream(pc, pathConf, &stream, s)
+	medias, err := webrtc.ToStream(pc, pathConf, &strm, s)
 	if err != nil {
 		return 0, err
 	}
 
 	var path defs.Path
-	path, stream, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, strm, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             s,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: false,
@@ -302,6 +304,7 @@ func (s *session) runRead() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
+		UDPReadBufferSize:     s.udpReadBufferSize,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,

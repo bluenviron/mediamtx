@@ -10,9 +10,11 @@
 logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# If "file" is in logDestinations, this is the file which will receive the logs.
+# When destination is "stdout" or "file", emit logs in structured format (JSON).
+logStructured: no
+# When "file" is in logDestinations, this is the file which will receive logs.
 logFile: mediamtx.log
-# If "syslog" is in logDestinations, use prefix for logs.
+# When "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
 
 # Timeout of read operations.
@@ -25,6 +27,10 @@ writeQueueSize: 512
 # Maximum size of outgoing UDP packets.
 # This can be decreased to avoid fragmentation on networks with a low UDP MTU.
 udpMaxPayloadSize: 1472
+# Size of the read buffer of every UDP socket.
+# This can be increased to decrease packet losses.
+# It defaults to the default value of the operating system.
+udpReadBufferSize: 0
 
 # Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.
@@ -154,8 +160,9 @@ apiEncryption: no
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-apiAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+apiAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -177,8 +184,9 @@ metricsEncryption: no
 metricsServerKey: server.key
 # Path to the server certificate.
 metricsServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-metricsAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+metricsAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -200,8 +208,9 @@ pprofEncryption: no
 pprofServerKey: server.key
 # Path to the server certificate.
 pprofServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-pprofAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+pprofAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -223,8 +232,9 @@ playbackEncryption: no
 playbackServerKey: server.key
 # Path to the server certificate.
 playbackServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-playbackAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+playbackAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -277,10 +287,6 @@ rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
-# Size of the UDP buffer of the RTSP server.
-# This can be increased to mitigate packet losses.
-# It defaults to the default value of the operating system.
-rtspUDPReadBufferSize: 0
 
 ###############################################
 # Global settings -> RTMP server
@@ -319,9 +325,9 @@ hlsEncryption: no
 hlsServerKey: server.key
 # Path to the server certificate.
 hlsServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-# This allows to play the HLS stream from an external website.
-hlsAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+hlsAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -377,9 +383,9 @@ webrtcEncryption: no
 webrtcServerKey: server.key
 # Path to the server certificate.
 webrtcServerCert: server.crt
-# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
-# This allows to play the WebRTC stream from an external website.
-webrtcAllowOrigin: '*'
+# List of allowed CORS origins.
+# Supports wildcards: ['http://*.example.com']
+webrtcAllowOrigins: ['*']
 # List of IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -538,28 +544,12 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
-  # Size of the UDP buffer of the RTSP client.
-  # This can be increased to mitigate packet losses.
-  # It defaults to the default value of the operating system.
-  rtspUDPReadBufferSize: 0
-
-  ###############################################
-  # Default path settings -> MPEG-TS source (when source is MPEG-TS)
-
-  # Size of the UDP buffer of the MPEG-TS client.
-  # This can be increased to mitigate packet losses.
-  # It defaults to the default value of the operating system.
-  mpegtsUDPReadBufferSize: 0
 
   ###############################################
   # Default path settings -> RTP source (when source is RTP)
 
   # session description protocol (SDP) of the RTP stream.
   rtpSDP:
-  # Size of the UDP buffer of the RTP client.
-  # This can be increased to mitigate packet losses.
-  # It defaults to the default value of the operating system.
-  rtpUDPReadBufferSize: 0
 
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")

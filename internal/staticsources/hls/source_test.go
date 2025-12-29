@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -17,11 +18,11 @@ import (
 
 func TestSource(t *testing.T) {
 	track1 := &mpegts.Track{
-		Codec: &mpegts.CodecH264{},
+		Codec: &tscodecs.H264{},
 	}
 
 	track2 := &mpegts.Track{
-		Codec: &mpegts.CodecMPEG4Audio{
+		Codec: &tscodecs.MPEG4Audio{
 			Config: mpeg4audio.AudioSpecificConfig{
 				Type:         2,
 				SampleRate:   44100,

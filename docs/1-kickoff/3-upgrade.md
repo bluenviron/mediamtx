@@ -1,6 +1,6 @@
 # Upgrade
 
-If you have an existing MediaMTX installation, you can upgrade it to the latest version. The procedure depends on how MediaMTX was installed.
+If you have an existing _MediaMTX_ installation, you can upgrade it to the latest version. The procedure depends on how _MediaMTX_ was installed.
 
 ## Standalone binary
 
@@ -10,7 +10,7 @@ The standalone binary comes with a upgrade utility that can be launched with:
 ./mediamtx --upgrade
 ```
 
-This will replace the MediaMTX executable with its latest version. Privileges to write to the executable location are required.
+This will replace the _MediaMTX_ executable with its latest version. Privileges to write to the executable location are required.
 
 ## Docker image
 

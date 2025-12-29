@@ -50,9 +50,15 @@ type APIWebRTCServer interface {
 	APISessionsKick(uuid.UUID) error
 }
 
+// APIOK is returned on success.
+type APIOK struct {
+	Status string `json:"status"`
+}
+
 // APIError is a generic error.
 type APIError struct {
-	Error string `json:"error"`
+	Status string `json:"status"`
+	Error  string `json:"error"`
 }
 
 // APIInfo is a info response.
@@ -76,15 +82,18 @@ type APIPathSourceOrReader struct {
 
 // APIPath is a path.
 type APIPath struct {
-	Name          string                  `json:"name"`
-	ConfName      string                  `json:"confName"`
-	Source        *APIPathSourceOrReader  `json:"source"`
-	Ready         bool                    `json:"ready"`
-	ReadyTime     *time.Time              `json:"readyTime"`
-	Tracks        []string                `json:"tracks"`
-	BytesReceived uint64                  `json:"bytesReceived"`
-	BytesSent     uint64                  `json:"bytesSent"`
-	Readers       []APIPathSourceOrReader `json:"readers"`
+	Name             string                  `json:"name"`
+	ConfName         string                  `json:"confName"`
+	Source           *APIPathSourceOrReader  `json:"source"`
+	Ready            bool                    `json:"ready"`
+	ReadyTime        *time.Time              `json:"readyTime"`
+	Tracks           []string                `json:"tracks"`
+	BytesReceived    uint64                  `json:"bytesReceived"`
+	BytesSent        uint64                  `json:"bytesSent"`
+	Readers          []APIPathSourceOrReader `json:"readers"`
+	BitrateReceived  float64                 `json:"bitrateReceived"`
+	LastRTPTimestamp *int64                  `json:"lastRTPTimestamp,string,omitempty"`
+	Metadata         map[string]any          `json:"metadata,omitempty"`
 }
 
 // APIPathList is a list of paths.

@@ -27,12 +27,13 @@ type parent interface {
 
 // Source is a MPEG-TS static source.
 type Source struct {
-	ReadTimeout conf.Duration
-	Parent      parent
+	ReadTimeout       conf.Duration
+	UDPReadBufferSize uint
+	Parent            parent
 }
 
 // Log implements logger.Writer.
-func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[MPEG-TS source] "+format, args...)
 }
 
@@ -55,7 +56,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 
 	default:
-		nc, err = udp.CreateConn(u, int(params.Conf.MPEGTSUDPReadBufferSize))
+		udpReadBufferSize := s.UDPReadBufferSize
+		if params.Conf.MPEGTSUDPReadBufferSize != nil {
+			udpReadBufferSize = *params.Conf.MPEGTSUDPReadBufferSize
+		}
+
+		nc, err = udp.CreateConn(u, int(udpReadBufferSize))
 		if err != nil {
 			return err
 		}
@@ -110,9 +116,9 @@ func (s *Source) runReader(nc net.Conn) error {
 		decodeErrors.Increase()
 	})
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := mpegts.ToStream(mr, &stream, s)
+	medias, err := mpegts.ToStream(mr, &strm, s)
 	if err != nil {
 		return err
 	}
@@ -128,7 +134,7 @@ func (s *Source) runReader(nc net.Conn) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	stream = res.Stream
+	strm = res.Stream
 
 	for {
 		nc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))

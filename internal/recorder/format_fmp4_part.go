@@ -56,7 +56,7 @@ func (p *formatFMP4Part) close(w io.Writer) error {
 	return writePart(w, p.number, p.partTracks)
 }
 
-func (p *formatFMP4Part) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
+func (p *formatFMP4Part) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
 	size := uint64(len(sample.Payload))
 	if (p.size + size) > uint64(p.maxPartSize) {
 		return fmt.Errorf("reached maximum part size")

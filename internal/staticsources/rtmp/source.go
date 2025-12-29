@@ -33,7 +33,7 @@ type Source struct {
 }
 
 // Log implements logger.Writer.
-func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[RTMP source] "+format, args...)
 }
 
@@ -101,9 +101,9 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 		return err
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := rtmp.ToStream(r, &stream)
+	medias, err := rtmp.ToStream(r, &strm)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	stream = res.Stream
+	strm = res.Stream
 
 	conn.NetConn().SetWriteDeadline(time.Time{})
 

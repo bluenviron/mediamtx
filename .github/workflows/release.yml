@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - run: make binaries
 
@@ -28,7 +28,7 @@ jobs:
       with:
         subject-path: '${{ github.workspace }}/binaries/*'
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: binaries
         path: binaries
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/download-artifact@v5
+    - uses: actions/download-artifact@v7
       with:
         name: binaries
         path: binaries
@@ -149,9 +149,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
-    - uses: actions/download-artifact@v5
+    - uses: actions/download-artifact@v7
       with:
         name: binaries
         path: binaries
