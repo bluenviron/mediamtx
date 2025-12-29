@@ -37,16 +37,39 @@ jobs:
         with:
           lfs: true
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip tar
+
+      - name: Generate version
+        run: go generate ./...
 
       - name: Build binaries
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            golang:1.25-alpine \
-            sh -c "apk add --no-cache zip make git tar && make binaries"
+          mkdir -p binaries tmp
+          cp mediamtx.yml LICENSE tmp/
+          
+          # Build for all platforms
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags enableUpgrade -o tmp/mediamtx
+          VERSION=$(cat internal/core/VERSION)
+          tar -C tmp -czf "binaries/mediamtx_${VERSION}_linux_amd64.tar.gz" --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
+          
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -tags enableUpgrade -o tmp/mediamtx
+          tar -C tmp -czf "binaries/mediamtx_${VERSION}_linux_armv6.tar.gz" --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
+          
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -tags enableUpgrade -o tmp/mediamtx
+          tar -C tmp -czf "binaries/mediamtx_${VERSION}_linux_armv7.tar.gz" --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
+          
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags enableUpgrade -o tmp/mediamtx
+          tar -C tmp -czf "binaries/mediamtx_${VERSION}_linux_arm64.tar.gz" --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
+          
+          rm -rf tmp
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
