@@ -1,0 +1,168 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      tag:
+        description: "The image tag that was built"
+        value: ${{ jobs.build-and-push.outputs.tag }}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  REGISTRY: 781540302536.dkr.ecr.eu-central-1.amazonaws.com
+  IMAGE_NAME: mediamtx
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-binaries:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build binaries
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            golang:1.25-alpine \
+            sh -c "apk add --no-cache zip make git tar && make binaries"
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: binaries/
+          retention-days: 1
+
+  build-and-push:
+    name: Build and Push Image
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    environment: cicd
+    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: binaries/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::781540302536:role/${{ vars.CI_CD_ROLE }}
+          role-session-name: gha-ecr
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate build metadata
+        id: meta
+        run: |
+          SHA="${GITHUB_SHA}"
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          VERSION="${GITHUB_REF_NAME:-main}"
+
+          # Primary tag is always the commit hash
+          TAG="${SHORT_SHA}"
+
+          # Check if this commit has a git tag
+          GIT_TAG=$(git tag --points-at HEAD | head -n 1 || true)
+          if [ -n "$GIT_TAG" ]; then
+            echo "Found git tag: $GIT_TAG"
+            ADDITIONAL_TAGS="$GIT_TAG"
+          else
+            ADDITIONAL_TAGS=""
+          fi
+
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "additional_tags=${ADDITIONAL_TAGS}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          BUILD_DATE: ${{ steps.meta.outputs.build_date }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          GIT_COMMIT: ${{ steps.meta.outputs.sha }}
+          GIT_SHORT_COMMIT: ${{ steps.meta.outputs.short_sha }}
+        with:
+          context: .
+          file: ./docker/ffmpeg.ci.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
+
+      - name: Tag with git tag
+        if: steps.meta.outputs.additional_tags != ''
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.additional_tags }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+
+      - name: Tag with main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+
+      - name: Build summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 📦 Docker Build Summary
+
+          **Event:** ${{ github.event_name }}
+          **Branch/Tag:** ${{ github.ref_name }}
+          **Commit:** ${{ steps.meta.outputs.short_sha }}
+          **Tag:** ${{ steps.meta.outputs.tag }}
+          **Triggered by:** @${{ github.actor }}
+
+          ### Image Built
+          - \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}\`
+
+          **Build Strategy:** BuildKit + registry cache
+          EOF
+
