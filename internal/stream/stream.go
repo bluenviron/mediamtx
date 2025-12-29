@@ -27,15 +27,15 @@ type Stream struct {
 	DropNonKeyframes   bool
 	Parent             logger.Writer
 
-	bytesReceived     *uint64
-	bytesSent         *uint64
-	lastRTPTimestamp  *int64 // Unix timestamp in nanoseconds
-	medias            map[*description.Media]*streamMedia
-	mutex             sync.RWMutex
-	rtspStream        *gortsplib.ServerStream
-	rtspsStream       *gortsplib.ServerStream
-	readers           map[*Reader]struct{}
-	processingErrors  *counterdumper.CounterDumper
+	bytesReceived    *uint64
+	bytesSent        *uint64
+	lastRTPTimestamp *int64 // Unix timestamp in nanoseconds
+	medias           map[*description.Media]*streamMedia
+	mutex            sync.RWMutex
+	rtspStream       *gortsplib.ServerStream
+	rtspsStream      *gortsplib.ServerStream
+	readers          map[*Reader]struct{}
+	processingErrors *counterdumper.CounterDumper
 }
 
 // Initialize initializes a Stream.
@@ -66,7 +66,7 @@ func (s *Stream) Initialize() error {
 			media:              media,
 			generateRTPPackets: s.GenerateRTPPackets,
 			fillNTP:            s.FillNTP,
-			dropNonKeyframes:  s.DropNonKeyframes,
+			dropNonKeyframes:   s.DropNonKeyframes,
 			processingErrors:   s.processingErrors,
 			parent:             s.Parent,
 		}
