@@ -213,15 +213,15 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		decodeErrors.Increase()
 	})
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := mpegts.ToStream(r, &stream, c)
+	medias, err := mpegts.ToStream(r, &strm, c)
 	if err != nil {
 		return err
 	}
 
 	var path defs.Path
-	path, stream, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, strm, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             c,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: true,

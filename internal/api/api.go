@@ -1,33 +1,22 @@
 // Package api contains the API server.
-package api
+package api //nolint:revive
 
 import (
-	"errors"
-	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
-	"github.com/bluenviron/mediamtx/internal/servers/hls"
-	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
-	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
-	"github.com/bluenviron/mediamtx/internal/servers/srt"
-	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
 func interfaceIsEmpty(i any) bool {
@@ -231,8 +220,13 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 
 	// add error to response
 	ctx.JSON(status, &defs.APIError{
-		Error: err.Error(),
+		Status: "error",
+		Error:  err.Error(),
 	})
+}
+
+func (a *API) writeOK(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, &defs.APIOK{Status: "ok"})
 }
 
 func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
@@ -257,7 +251,10 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatus(http.StatusUnauthorized)
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+				Status: "error",
+				Error:  "authentication error",
+			})
 			return
 		}
 
@@ -266,279 +263,12 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.AbortWithStatus(http.StatusUnauthorized)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+			Status: "error",
+			Error:  "authentication error",
+		})
 		return
 	}
-}
-
-func (a *API) onConfigGlobalGet(ctx *gin.Context) {
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
-
-	ctx.JSON(http.StatusOK, c.Global())
-}
-
-func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
-	var c conf.OptionalGlobal
-	err := jsonwrapper.Decode(ctx.Request.Body, &c)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	newConf.PatchGlobal(&c)
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-
-	// since reloading the configuration can cause the shutdown of the API,
-	// call it in a goroutine
-	go a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
-}
-
-func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
-
-	ctx.JSON(http.StatusOK, c.PathDefaults)
-}
-
-func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
-	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	newConf.PatchPathDefaults(&p)
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
-}
-
-func (a *API) onConfigPathsList(ctx *gin.Context) {
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
-
-	data := &defs.APIPathConfList{
-		Items: make([]*conf.Path, len(c.Paths)),
-	}
-
-	for i, key := range sortedKeys(c.Paths) {
-		data.Items[i] = c.Paths[key]
-	}
-
-	data.ItemCount = len(data.Items)
-	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	data.PageCount = pageCount
-
-	ctx.JSON(http.StatusOK, data)
-}
-
-func (a *API) onConfigPathsGet(ctx *gin.Context) {
-	confName, ok := paramName(ctx)
-	if !ok {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
-		return
-	}
-
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
-
-	p, ok := c.Paths[confName]
-	if !ok {
-		a.writeError(ctx, http.StatusNotFound, fmt.Errorf("path configuration not found"))
-		return
-	}
-
-	ctx.JSON(http.StatusOK, p)
-}
-
-func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
-	confName, ok := paramName(ctx)
-	if !ok {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
-		return
-	}
-
-	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	err = newConf.AddPath(confName, &p)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
-}
-
-func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
-	confName, ok := paramName(ctx)
-	if !ok {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
-		return
-	}
-
-	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	err = newConf.PatchPath(confName, &p)
-	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
-		return
-	}
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
-}
-
-func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
-	confName, ok := paramName(ctx)
-	if !ok {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
-		return
-	}
-
-	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	err = newConf.ReplacePath(confName, &p)
-	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
-		return
-	}
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
-}
-
-func (a *API) onConfigPathsDelete(ctx *gin.Context) {
-	confName, ok := paramName(ctx)
-	if !ok {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
-		return
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	newConf := a.Conf.Clone()
-
-	err := newConf.RemovePath(confName)
-	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
-		return
-	}
-
-	err = newConf.Validate(nil)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
-
-	ctx.Status(http.StatusOK)
 }
 
 func (a *API) onInfo(ctx *gin.Context) {
@@ -1147,6 +877,7 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+	a.writeOK(ctx)
 }
 
 // ReloadConf is called by core.

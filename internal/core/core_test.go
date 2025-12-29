@@ -132,3 +132,23 @@ func TestCoreHotReloading(t *testing.T) {
 		defer conn.Close()
 	}()
 }
+
+func TestCoreHotReloadingAndLoggerError(t *testing.T) {
+	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
+
+	err := os.WriteFile(confPath, []byte(""),
+		0o644)
+	require.NoError(t, err)
+	defer os.Remove(confPath)
+
+	p, ok := New([]string{confPath})
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	err = os.WriteFile(confPath, []byte("logDestinations: [file]\n"+
+		"logFile: /nonexisting/nonexist\n"),
+		0o644)
+	require.NoError(t, err)
+
+	p.Wait()
+}

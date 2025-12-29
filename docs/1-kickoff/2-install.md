@@ -6,7 +6,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 1. Visit the [Releases page](https://github.com/bluenviron/mediamtx/releases) on GitHub, download and extract a standalone binary that corresponds to your operating system and architecture (example: `mediamtx_{version_tag}_linux_amd64.tar.gz`).
 
-2. Start the server:
+2. Start the server by double clicking on `mediamtx` (`mediamtx.exe` on Windows) or writing in the terminal:
 
    ```sh
    ./mediamtx

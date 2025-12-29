@@ -58,38 +58,22 @@ func findMtxi(userData []amp4.IBox) *recordstore.Mtxi {
 	return nil
 }
 
-func segmentFMP4AreConsecutive(init1 *fmp4.Init, init2 *fmp4.Init) bool {
-	mtxi1 := findMtxi(init1.UserData)
-	mtxi2 := findMtxi(init2.UserData)
-
-	switch {
-	case mtxi1 == nil && mtxi2 != nil:
+func segmentFMP4TracksAreEqual(tracks1 []*fmp4.InitTrack, tracks2 []*fmp4.InitTrack) bool {
+	if len(tracks1) != len(tracks2) {
 		return false
+	}
 
-	case mtxi1 != nil && mtxi2 == nil:
-		return false
+	for i, track1 := range tracks1 {
+		track2 := tracks2[i]
 
-	case mtxi1 == nil && mtxi2 == nil: // legacy method: compare tracks
-		if len(init1.Tracks) != len(init2.Tracks) {
+		if track1.ID != track2.ID ||
+			track1.TimeScale != track2.TimeScale ||
+			reflect.TypeOf(track1.Codec) != reflect.TypeOf(track2.Codec) {
 			return false
 		}
-
-		for i, track1 := range init1.Tracks {
-			track2 := init2.Tracks[i]
-
-			if track1.ID != track2.ID ||
-				track1.TimeScale != track2.TimeScale ||
-				reflect.TypeOf(track1.Codec) != reflect.TypeOf(track2.Codec) {
-				return false
-			}
-		}
-
-		return true
-
-	default:
-		return bytes.Equal(mtxi1.StreamID[:], mtxi2.StreamID[:]) &&
-			(mtxi1.SegmentNumber+1) == mtxi2.SegmentNumber
 	}
+
+	return true
 }
 
 func segmentFMP4CanBeConcatenated(
@@ -98,9 +82,25 @@ func segmentFMP4CanBeConcatenated(
 	curInit *fmp4.Init,
 	curStart time.Time,
 ) bool {
-	return segmentFMP4AreConsecutive(prevInit, curInit) &&
-		!curStart.Before(prevEnd.Add(-concatenationTolerance)) &&
-		!curStart.After(prevEnd.Add(concatenationTolerance))
+	mtxi1 := findMtxi(prevInit.UserData)
+	mtxi2 := findMtxi(curInit.UserData)
+
+	switch {
+	case mtxi1 == nil && mtxi2 != nil:
+		return false
+
+	case mtxi1 != nil && mtxi2 == nil:
+		return false
+
+	case mtxi1 == nil && mtxi2 == nil: // legacy method
+		return segmentFMP4TracksAreEqual(prevInit.Tracks, curInit.Tracks) &&
+			!curStart.Before(prevEnd.Add(-concatenationTolerance)) &&
+			!curStart.After(prevEnd.Add(concatenationTolerance))
+
+	default:
+		return bytes.Equal(mtxi1.StreamID[:], mtxi2.StreamID[:]) &&
+			(mtxi1.SegmentNumber+1) == mtxi2.SegmentNumber
+	}
 }
 
 func segmentFMP4ReadHeader(r io.ReadSeeker) (*fmp4.Init, time.Duration, error) {

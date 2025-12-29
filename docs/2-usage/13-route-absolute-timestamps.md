@@ -13,7 +13,7 @@ and supports sending absolute timestamps with the following protocols:
 - RTSP
 - WebRTC
 
-By default, absolute timestamps of incoming frames are not used, instead they are replaced with the current timestamp. This prevents users from arbitrarily changing recording dates, and also allows to support sources that do not send absolute timestamps. It is possible to preserve original absolute timestamps by toggling the `useAbsoluteTimestamp` parameter:
+By default, absolute timestamps of incoming frames are not used, instead they are replaced with the system timestamp. This prevents users from arbitrarily changing recording dates, and also allows to support sources that do not send absolute timestamps. It is possible to preserve original absolute timestamps by toggling the `useAbsoluteTimestamp` parameter:
 
 ```yml
 pathDefaults:

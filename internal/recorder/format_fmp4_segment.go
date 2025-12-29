@@ -9,12 +9,11 @@ import (
 	"time"
 
 	amp4 "github.com/abema/go-mp4"
-	"github.com/google/uuid"
-
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
+	"github.com/google/uuid"
 )
 
 func writeInit(
@@ -201,7 +200,7 @@ func (s *formatFMP4Segment) closeCurPart() error {
 	return s.curPart.close(s.fi)
 }
 
-func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *sample, dts time.Duration) error {
+func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
 	endDTS := dts + timestampToDuration(int64(sample.Duration), int(track.initTrack.TimeScale))
 	if endDTS > s.endDTS {
 		s.endDTS = endDTS

@@ -94,7 +94,7 @@ paths:
     source: wheps://host:port/path
 ```
 
-If the remote server is a MediaMTX instance, remember to add a `/whep` suffix after the stream name, since in MediaMTX [it's part of the WHEP URL](read#webrtc):
+If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](read#webrtc):
 
 ```yml
 paths:
@@ -452,7 +452,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystr
 
 #### FFmpeg and MPEG-TS over UDP
 
-In MediaMTX configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
+In _MediaMTX_ configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
 
 ```sh
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://127.0.0.1:3356?pkt_size=1316'
@@ -468,7 +468,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 
 #### FFmpeg and RTP over UDP
 
-In MediaMTX configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](#rtp)). Then:
+In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](#rtp)). Then:
 
 ```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \

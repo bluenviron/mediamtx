@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -53,7 +54,7 @@ func FromStream(
 
 			switch forma := forma.(type) {
 			case *format.H265: //nolint:dupl
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecH265{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.H265{}}
 
 				var dtsExtractor *h265.DTSExtractor
 
@@ -92,7 +93,7 @@ func FromStream(
 					})
 
 			case *format.H264: //nolint:dupl
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecH264{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.H264{}}
 
 				var dtsExtractor *h264.DTSExtractor
 
@@ -133,7 +134,7 @@ func FromStream(
 					})
 
 			case *format.MPEG4Video:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4Video{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.MPEG4Video{}}
 
 				firstReceived := false
 				var lastPTS int64
@@ -166,7 +167,7 @@ func FromStream(
 					})
 
 			case *format.MPEG1Video:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG1Video{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.MPEG1Video{}}
 
 				firstReceived := false
 				var lastPTS int64
@@ -199,7 +200,7 @@ func FromStream(
 					})
 
 			case *format.Opus:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecOpus{
+				track := &mcmpegts.Track{Codec: &tscodecs.Opus{
 					ChannelCount: forma.ChannelCount,
 				}}
 
@@ -225,7 +226,7 @@ func FromStream(
 
 			case *format.KLV:
 				track := &mcmpegts.Track{
-					Codec: &mcmpegts.CodecKLV{
+					Codec: &tscodecs.KLV{
 						Synchronous: true,
 					},
 				}
@@ -248,7 +249,7 @@ func FromStream(
 					})
 
 			case *format.MPEG4Audio:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4Audio{
+				track := &mcmpegts.Track{Codec: &tscodecs.MPEG4Audio{
 					Config: *forma.Config,
 				}}
 
@@ -273,7 +274,7 @@ func FromStream(
 					})
 
 			case *format.MPEG4AudioLATM:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG4AudioLATM{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.MPEG4AudioLATM{}}
 
 				if !forma.CPresent {
 					addTrack(
@@ -336,7 +337,7 @@ func FromStream(
 				}
 
 			case *format.MPEG1Audio:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecMPEG1Audio{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.MPEG1Audio{}}
 
 				addTrack(
 					media,
@@ -359,7 +360,7 @@ func FromStream(
 					})
 
 			case *format.AC3:
-				track := &mcmpegts.Track{Codec: &mcmpegts.CodecAC3{}}
+				track := &mcmpegts.Track{Codec: &tscodecs.AC3{}}
 
 				addTrack(
 					media,

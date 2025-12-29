@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/gin-gonic/gin"
@@ -124,7 +125,10 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+				Status: "error",
+				Error:  "authentication error",
+			})
 			return false
 		}
 
@@ -134,7 +138,10 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
+			Status: "error",
+			Error:  "authentication error",
+		})
 		return false
 	}
 

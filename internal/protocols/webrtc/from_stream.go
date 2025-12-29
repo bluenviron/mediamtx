@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -313,7 +314,7 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp.Add(-1*time.Minute)) //nolint:errcheck
+					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
 				return nil
@@ -666,10 +667,12 @@ func FromStream(
 		return errNoSupportedCodecsFrom
 	}
 
+	setuppedFormats := r.Formats()
+
 	n := 1
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
-			if forma != videoFormat && forma != audioFormat {
+			if !slices.Contains(setuppedFormats, forma) {
 				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
 			}
 			n++

@@ -2,7 +2,7 @@
 
 ## Overview
 
-MediaMTX can be configured to ask clients for credentials, either in the form of username/password or a string-based token. These credentials are then validated through a chosen method.
+_MediaMTX_ can be configured to ask clients for credentials, either in the form of username/password or a string-based token. These credentials are then validated through a chosen method.
 
 ## Credential validation
 
@@ -306,6 +306,6 @@ Authorization: Bearer MY_JWT
 
 In OBS Studio, this is the "Bearer Token" field.
 
-If the `Authorization: Bearer` token cannot be directly provided (for instance, with web browsers that directly access MediaMTX and show a credential dialog), you can pass the token as password, using an arbitrary user.
+If the `Authorization: Bearer` token cannot be directly provided (for instance, with web browsers that directly access _MediaMTX_ and show a credential dialog), you can pass the token as password, using an arbitrary user.
 
 In web browsers, if you need to automatically fill credentials from a parent web page, see [Embed streams in a website](embed-streams-in-a-website).
