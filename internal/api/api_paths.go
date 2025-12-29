@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +17,18 @@ func (a *API) onPathsList(ctx *gin.Context) {
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Filter by search parameter if provided
+	search := ctx.Query("search")
+	if search != "" {
+		filteredItems := make([]*defs.APIPath, 0, len(data.Items))
+		for _, item := range data.Items {
+			if strings.Contains(strings.ToLower(item.Name), strings.ToLower(search)) {
+				filteredItems = append(filteredItems, item)
+			}
+		}
+		data.Items = filteredItems
 	}
 
 	data.ItemCount = len(data.Items)
