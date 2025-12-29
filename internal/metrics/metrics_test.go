@@ -274,6 +274,7 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t,
 		`paths{name="mypath",state="ready"} 1`+"\n"+
 			`paths_bytes_received{name="mypath",state="ready"} 123`+"\n"+
+			`paths_bitrate_received_kbps{name="mypath",state="ready"} 0`+"\n"+
 			`paths_bytes_sent{name="mypath",state="ready"} 456`+"\n"+
 			`paths_readers{name="mypath",state="ready"} 1`+"\n"+
 			`hls_muxers{name="mypath"} 1`+"\n"+
@@ -472,6 +473,7 @@ func TestFilter(t *testing.T) {
 				require.Equal(t,
 					`paths{name="mypath",state="ready"} 1`+"\n"+
 						`paths_bytes_received{name="mypath",state="ready"} 123`+"\n"+
+						`paths_bitrate_received_kbps{name="mypath",state="ready"} 0`+"\n"+
 						`paths_bytes_sent{name="mypath",state="ready"} 456`+"\n"+
 						`paths_readers{name="mypath",state="ready"} 1`+"\n",
 					string(byts))

@@ -52,6 +52,7 @@ func TestConfFromFile(t *testing.T) {
 			Source:                       "publisher",
 			SourceOnDemandStartTimeout:   10 * Duration(time.Second),
 			SourceOnDemandCloseAfter:     10 * Duration(time.Second),
+			CalcBitrateWindow:            4 * Duration(time.Second),
 			RecordPath:                   "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:                 RecordFormatFMP4,
 			RecordPartDuration:           Duration(1 * time.Second),
