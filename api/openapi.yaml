@@ -573,6 +573,63 @@ components:
           items:
             $ref: '#/components/schemas/PathConf'
 
+    PathTrack:
+      type: object
+      properties:
+        codec:
+          type: string
+        width:
+          type: integer
+          format: int64
+          description: Video width in pixels (video tracks only)
+        height:
+          type: integer
+          format: int64
+          description: Video height in pixels (video tracks only)
+        fps:
+          type: string
+          description: Frames per second (video tracks only)
+        h264Profile:
+          type: string
+          description: H264 profile (H264 tracks only)
+        h264Level:
+          type: string
+          description: H264 level (H264 tracks only)
+        h265Profile:
+          type: string
+          description: H265 profile (H265 tracks only)
+        h265Level:
+          type: string
+          description: H265 level (H265 tracks only)
+        vp9Profile:
+          type: integer
+          format: int64
+          description: VP9 profile (VP9 tracks only)
+        av1Profile:
+          type: integer
+          format: int64
+          description: AV1 profile (AV1 tracks only)
+        av1Level:
+          type: integer
+          format: int64
+          description: AV1 level (AV1 tracks only)
+        av1Tier:
+          type: integer
+          format: int64
+          description: AV1 tier (AV1 tracks only)
+        channels:
+          type: integer
+          format: int64
+          description: Number of audio channels (audio tracks only)
+        sampleRate:
+          type: integer
+          format: int64
+          description: Audio sample rate in Hz (audio tracks only)
+        bitDepth:
+          type: integer
+          format: int64
+          description: Audio bit depth (audio tracks only)
+
     Path:
       type: object
       properties:
@@ -591,7 +648,7 @@ components:
         tracks:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/PathTrack'
         bytesReceived:
           type: integer
           format: int64

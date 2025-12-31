@@ -35,7 +35,7 @@ func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 			},
 			Ready:         true,
 			ReadyTime:     ptrOf(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
-			Tracks:        []string{"H264", "H265"},
+			Tracks:        []defs.APIPathTrack{{Codec: "H264"}, {Codec: "H265"}},
 			BytesReceived: 123,
 			BytesSent:     456,
 			Readers: []defs.APIPathSourceOrReader{
