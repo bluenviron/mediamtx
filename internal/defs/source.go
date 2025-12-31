@@ -13,6 +13,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+// G711 default values
+const (
+	g711DefaultChannels   = 1
+	g711DefaultSampleRate = 8000
+)
+
 // Source is an entity that can provide a stream.
 // it can be:
 // - Publisher
@@ -226,12 +232,12 @@ func FormatToTrack(forma format.Format) APIPathTrack {
 	case *format.G711:
 		channels := f.ChannelCount
 		if channels == 0 {
-			channels = 1 // G.711 is typically mono
+			channels = g711DefaultChannels
 		}
 		track.Channels = &channels
 		sampleRate := f.SampleRate
 		if sampleRate == 0 {
-			sampleRate = 8000 // G.711 default sample rate
+			sampleRate = g711DefaultSampleRate
 		}
 		track.SampleRate = &sampleRate
 
