@@ -803,10 +803,7 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 }
 
 func (pa *path) executeRemovePublisher() {
-	if pa.stream != nil {
-		pa.setNotReady()
-	}
-
+	pa.setNotReady()
 	pa.source = nil
 }
 
