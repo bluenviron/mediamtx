@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -55,10 +56,24 @@ var defaultConfPathsNotWin = []string{
 	"/etc/mediamtx/mediamtx.yml",
 }
 
-var cli struct {
-	Confpath string `arg:"" default:""`
-	Version  bool   `help:"print version"`
-	Upgrade  bool   `help:"upgrade executable to the latest version"`
+func goArm() string {
+	bi, _ := debug.ReadBuildInfo()
+	for _, bs := range bi.Settings {
+		if bs.Key == "GOARM" {
+			return bs.Value
+		}
+	}
+	return ""
+}
+
+func getArch() string {
+	var arch string
+	if runtime.GOARCH == "arm" {
+		arch = "armv" + goArm()
+	} else {
+		arch = runtime.GOARCH
+	}
+	return arch
 }
 
 func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
@@ -80,6 +95,12 @@ func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption)
 	}
 
 	return v
+}
+
+var cli struct {
+	Confpath string `arg:"" default:""`
+	Version  bool   `help:"print version"`
+	Upgrade  bool   `help:"upgrade executable to the latest version"`
 }
 
 // Core is an instance of MediaMTX.
@@ -116,7 +137,7 @@ type Core struct {
 // New allocates a Core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
-		kong.Description("MediaMTX "+string(version)),
+		kong.Description("MediaMTX "+string(version)+", "+runtime.GOOS+", "+getArch()),
 		kong.UsageOnError(),
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {
@@ -285,7 +306,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX %s", version)
+		p.Log(logger.Info, "MediaMTX "+string(version)+", "+runtime.GOOS+", "+getArch())
 
 		if p.confPath != "" {
 			a, _ := filepath.Abs(p.confPath)
