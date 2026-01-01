@@ -46,13 +46,6 @@ func (t *klv) createEncoder() error {
 }
 
 func (t *klv) ProcessUnit(u *unit.Unit) error { //nolint:dupl
-	if t.encoder == nil {
-		err := t.createEncoder()
-		if err != nil {
-			return err
-		}
-	}
-
 	pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadKLV))
 	if err != nil {
 		return err
