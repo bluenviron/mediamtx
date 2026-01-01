@@ -45,6 +45,9 @@ func (s *Server) Initialize() error {
 
 	router.GET("/list", s.onList)
 	router.GET("/get", s.onGet)
+	router.GET("/segment_:id.m4s", s.onGet) // HLS segment endpoint with extension
+	router.GET("/hls", s.onHLS)
+	router.GET("/playlist.m3u8", s.onHLS)
 
 	s.httpServer = &httpp.Server{
 		Address:      s.Address,
