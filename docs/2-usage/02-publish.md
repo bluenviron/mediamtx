@@ -287,7 +287,7 @@ paths:
 _MediaMTX_ natively supports most of the Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are some additional requirements:
 
 1. The server must run on a Raspberry Pi, with one of the following operating systems:
-
+   - Raspberry Pi OS Trixie
    - Raspberry Pi OS Bookworm
    - Raspberry Pi OS Bullseye
 
