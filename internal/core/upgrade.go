@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
@@ -60,16 +59,6 @@ func latestRemoteVersion() (*semver.Version, error) {
 	sort.Sort(sort.Reverse(semver.Collection(versions)))
 
 	return versions[0], nil
-}
-
-func goArm() string {
-	bi, _ := debug.ReadBuildInfo()
-	for _, bs := range bi.Settings {
-		if bs.Key == "GOARM" {
-			return bs.Value
-		}
-	}
-	return ""
 }
 
 func extractExecutable(r io.Reader) ([]byte, error) {
@@ -152,13 +141,6 @@ func upgrade() error {
 
 	fmt.Printf("downloading version %v...\n", "v"+latest.String())
 
-	var arch string
-	if runtime.GOARCH == "arm" {
-		arch = "armv" + goArm()
-	} else {
-		arch = runtime.GOARCH
-	}
-
 	var extension string
 	if runtime.GOOS == "windows" {
 		extension = "zip"
@@ -166,7 +148,7 @@ func upgrade() error {
 		extension = "tar.gz"
 	}
 
-	ur := fmt.Sprintf(downloadURL, "v"+latest.String(), "v"+latest.String(), runtime.GOOS, arch, extension)
+	ur := fmt.Sprintf(downloadURL, "v"+latest.String(), "v"+latest.String(), runtime.GOOS, getArch(), extension)
 
 	res, err := http.Get(ur)
 	if err != nil {
