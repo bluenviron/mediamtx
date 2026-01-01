@@ -105,7 +105,7 @@ func TestSourceUDP(t *testing.T) {
 
 			var usrc *net.UDPAddr
 			if ca == "unicast with source" {
-				usrc, err = net.ResolveUDPAddr("udp", "127.0.1.1:9020")
+				usrc, err = net.ResolveUDPAddr("udp", "127.0.1.1:9022")
 				require.NoError(t, err)
 			}
 
