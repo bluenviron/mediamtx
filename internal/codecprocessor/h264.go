@@ -294,13 +294,8 @@ func (t *h264) ProcessRTPPacket( //nolint:dupl
 		u.Payload = t.remuxAccessUnit(au)
 	}
 
-	// route packet as is
-	if t.encoder == nil {
-		return nil
-	}
-
 	// encode into RTP
-	if !u.NilPayload() {
+	if t.encoder != nil && !u.NilPayload() {
 		pkts, err := t.encoder.Encode(u.Payload.(unit.PayloadH264))
 		if err != nil {
 			return err
