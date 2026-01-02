@@ -48,14 +48,18 @@ journalctl -u mediamtx
 Log collectors (like Loki, Logstash, CloudWatch and fluentd) parse logs in a more reliable way if they are fed with entries in structured format (JSONL). This can be enabled with the `logStructured` parameter:
 
 ```yml
-# When destination is "stdout" or "file", emit logs in structured format (JSON).
+# When destination is "stdout" or "file", emit logs in structured format (JSONL).
 logStructured: true
 ```
 
 Obtaining:
 
 ```
-{"timestamp":"2003-05-01T20:34:14+01:00","level":"INF","message":"[RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)"}
+{"timestamp":"20XX-YY-ZZT10:45:05+01:00","level":"INF","message":"[RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)"}
+{"timestamp":"20XX-YY-ZZT10:45:05+01:00","level":"INF","message":"[RTMP] listener opened on :1935"}
+{"timestamp":"20XX-YY-ZZT10:45:05+01:00","level":"INF","message":"[HLS] listener opened on :8888"}
+{"timestamp":"20XX-YY-ZZT10:45:05+01:00","level":"INF","message":"[WebRTC] listener opened on :8889 (HTTP), :8189 (ICE/UDP)"}
+{"timestamp":"20XX-YY-ZZT10:45:05+01:00","level":"INF","message":"[SRT] listener opened on :8890 (UDP)"}
 ```
 
 ## Log file rotation

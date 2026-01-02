@@ -10,7 +10,7 @@
 logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# When destination is "stdout" or "file", emit logs in structured format (JSON).
+# When destination is "stdout" or "file", emit logs in structured format (JSONL).
 logStructured: no
 # When "file" is in logDestinations, this is the file which will receive logs.
 logFile: mediamtx.log
