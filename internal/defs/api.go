@@ -80,6 +80,29 @@ type APIPathSourceOrReader struct {
 	ID   string `json:"id"`
 }
 
+// APIPathTrack is a track in a path with detailed codec information.
+type APIPathTrack struct {
+	Codec string `json:"codec"`
+
+	// Video-specific fields (only set for video tracks)
+	Width        *int    `json:"width,omitempty"`
+	Height       *int    `json:"height,omitempty"`
+	FPS          *string `json:"fps,omitempty"`
+	H264Profile  *string `json:"h264Profile,omitempty"`
+	H264Level    *string `json:"h264Level,omitempty"`
+	H265Profile  *string `json:"h265Profile,omitempty"`
+	H265Level    *string `json:"h265Level,omitempty"`
+	VP9Profile   *int    `json:"vp9Profile,omitempty"`
+	AV1Profile   *int    `json:"av1Profile,omitempty"`
+	AV1Level     *int    `json:"av1Level,omitempty"`
+	AV1Tier      *int    `json:"av1Tier,omitempty"`
+
+	// Audio-specific fields (only set for audio tracks)
+	Channels   *int `json:"channels,omitempty"`
+	SampleRate *int `json:"sampleRate,omitempty"`
+	BitDepth   *int `json:"bitDepth,omitempty"`
+}
+
 // APIPath is a path.
 type APIPath struct {
 	Name          string                  `json:"name"`
@@ -87,7 +110,7 @@ type APIPath struct {
 	Source        *APIPathSourceOrReader  `json:"source"`
 	Ready         bool                    `json:"ready"`
 	ReadyTime     *time.Time              `json:"readyTime"`
-	Tracks        []string                `json:"tracks"`
+	Tracks        []APIPathTrack          `json:"tracks"`
 	BytesReceived uint64                  `json:"bytesReceived"`
 	BytesSent     uint64                  `json:"bytesSent"`
 	Readers       []APIPathSourceOrReader `json:"readers"`

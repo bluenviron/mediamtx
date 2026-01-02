@@ -565,11 +565,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.readyTime
 				return &v
 			}(),
-			Tracks: func() []string {
+			Tracks: func() []defs.APIPathTrack {
 				if !pa.isReady() {
-					return []string{}
+					return []defs.APIPathTrack{}
 				}
-				return defs.MediasToCodecs(pa.stream.Desc.Medias)
+				return defs.MediasToTracks(pa.stream.Desc.Medias)
 			}(),
 			BytesReceived: func() uint64 {
 				if !pa.isReady() {
