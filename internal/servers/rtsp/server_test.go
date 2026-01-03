@@ -87,11 +87,11 @@ func TestServerPublish(t *testing.T) {
 					require.True(t, req.AccessRequest.SkipAuth)
 
 					strm = &stream.Stream{
-						WriteQueueSize:     512,
-						RTPMaxPayloadSize:  1450,
-						Desc:               req.Desc,
-						GenerateRTPPackets: true,
-						Parent:             test.NilLogger,
+						Desc:              req.Desc,
+						UseRTPPackets:     true,
+						WriteQueueSize:    512,
+						RTPMaxPayloadSize: 1450,
+						Parent:            test.NilLogger,
 					}
 					err := strm.Initialize()
 					require.NoError(t, err)
@@ -175,11 +175,11 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -319,11 +319,11 @@ func TestServerRedirect(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     true,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)

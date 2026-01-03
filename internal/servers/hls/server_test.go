@@ -185,11 +185,12 @@ func TestServerRead(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				ReplaceNTP:        false,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -406,11 +407,11 @@ func TestServerDirectory(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		UseRTPPackets:     false,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err = strm.Initialize()
 	require.NoError(t, err)
@@ -455,11 +456,11 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		UseRTPPackets:     false,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)

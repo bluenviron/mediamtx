@@ -108,11 +108,11 @@ func TestToStream(t *testing.T) {
 			}}, medias)
 
 			strm = &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               &description.Session{Medias: medias},
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              &description.Session{Medias: medias},
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err2 = strm.Initialize()
 			require.NoError(t, err2)

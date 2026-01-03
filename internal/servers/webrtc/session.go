@@ -242,11 +242,11 @@ func (s *session) runPublish() (int, error) {
 
 	var path defs.Path
 	path, strm, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             s,
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: false,
-		FillNTP:            !pathConf.UseAbsoluteTimestamp,
-		ConfToCompare:      pathConf,
+		Author:        s,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: true,
+		ReplaceNTP:    !pathConf.UseAbsoluteTimestamp,
+		ConfToCompare: pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.req.pathName,
 			Query:    s.req.httpRequest.URL.RawQuery,

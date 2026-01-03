@@ -217,11 +217,11 @@ func TestServerPublish(t *testing.T) {
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               req.Desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              req.Desc,
+				UseRTPPackets:     true,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -466,11 +466,11 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: ca.unit.Payload != nil,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     (ca.unit.Payload == nil),
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -537,7 +537,11 @@ func TestServerRead(t *testing.T) {
 
 				if ca.unit.Payload == nil {
 					clone := *ca.unit.RTPPackets[0]
-					strm.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+						PTS:        0,
+						NTP:        time.Time{},
+						RTPPackets: []*rtp.Packet{&clone},
+					})
 				} else {
 					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(*unit.Unit))
 				}

@@ -219,11 +219,11 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 
 	var path defs.Path
 	path, strm, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             c,
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-		FillNTP:            true,
-		ConfToCompare:      pathConf,
+		Author:        c,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: false,
+		ReplaceNTP:    true,
+		ConfToCompare: pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     streamID.path,
 			Query:    streamID.query,
