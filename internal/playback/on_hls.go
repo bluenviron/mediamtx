@@ -144,4 +144,3 @@ func (s *Server) onHLS(ctx *gin.Context) {
 	ctx.Header("Content-Type", "application/vnd.apple.mpegurl")
 	ctx.String(http.StatusOK, manifest.String())
 }
-
