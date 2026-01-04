@@ -25,4 +25,7 @@ RUN apk add --no-cache \
 
 COPY --from=build /mediamtx /mediamtx
 
+# Copy custom configuration
+COPY config/mediamtx.yml /config/mediamtx.yml
+
 ENTRYPOINT [ "/mediamtx" ]
