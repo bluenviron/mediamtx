@@ -21,5 +21,10 @@ RUN apk add --no-cache \
 ARG TARGETPLATFORM
 COPY --from=binaries /$TARGETPLATFORM /
 
+# Copy custom configuration to /config directory
+# Users can override by mounting their own config or passing a different path
+RUN mkdir -p /config
+COPY config/mediamtx.yml /config/mediamtx.yml
+
 ENTRYPOINT [ "/mediamtx" ]
 
