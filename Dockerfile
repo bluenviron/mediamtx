@@ -26,4 +26,4 @@ RUN apk add --no-cache \
 COPY --from=build /mediamtx /mediamtx
 COPY kela_mediamtx.yml /config/mediamtx.yml
 
-ENTRYPOINT [ "/mediamtx" "-c", "/config/mediamtx.yml" ]
+ENTRYPOINT [ "/mediamtx", "/config/mediamtx.yml" ]
