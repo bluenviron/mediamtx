@@ -24,5 +24,6 @@ RUN apk add --no-cache \
     ttf-liberation
 
 COPY --from=build /mediamtx /mediamtx
+COPY kela_mediamtx.yml /config/mediamtx.yml
 
-ENTRYPOINT [ "/mediamtx" ]
+ENTRYPOINT [ "/mediamtx" "-c", "/config/mediamtx.yml" ]
