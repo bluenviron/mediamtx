@@ -115,10 +115,7 @@ func (s *Server) onHLS(ctx *gin.Context) {
 		}
 	}
 	// Round up to nearest integer
-	targetDuration := int(maxDuration) + 1
-	if targetDuration < 1 {
-		targetDuration = 1
-	}
+	targetDuration := max(int(maxDuration)+1, 1)
 	manifest.WriteString(fmt.Sprintf("#EXT-X-TARGETDURATION:%d\n", targetDuration))
 	manifest.WriteString("#EXT-X-MEDIA-SEQUENCE:0\n")
 
