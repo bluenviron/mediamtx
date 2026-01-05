@@ -1,4 +1,4 @@
-// Package unix contains utilities to work with Unix sockets.
+// Package unixgram contains utilities to work with Unix sockets.
 package unixgram
 
 import (
