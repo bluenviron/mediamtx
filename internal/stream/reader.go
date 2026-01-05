@@ -22,7 +22,7 @@ type Reader struct {
 	onDatas         map[*description.Media]map[format.Format]OnDataFunc
 	queueSize       int
 	buffer          *ringbuffer.RingBuffer
-	discardedFrames *counterdumper.CounterDumper
+	discardedFrames *counterdumper.Dumper
 
 	// out
 	err chan error
@@ -63,7 +63,7 @@ func (r *Reader) start() {
 	r.buffer = buffer
 	r.err = make(chan error)
 
-	r.discardedFrames = &counterdumper.CounterDumper{
+	r.discardedFrames = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			r.Parent.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,

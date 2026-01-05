@@ -33,7 +33,7 @@ type Stream struct {
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
 	readers          map[*Reader]struct{}
-	processingErrors *counterdumper.CounterDumper
+	processingErrors *counterdumper.Dumper
 }
 
 // Initialize initializes a Stream.
@@ -43,7 +43,7 @@ func (s *Stream) Initialize() error {
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 
-	s.processingErrors = &counterdumper.CounterDumper{
+	s.processingErrors = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Parent.Log(logger.Warn, "%d processing %s",
 				val,

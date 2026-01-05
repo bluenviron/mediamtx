@@ -12,7 +12,7 @@ type streamMedia struct {
 	media              *description.Media
 	generateRTPPackets bool
 	fillNTP            bool
-	processingErrors   *counterdumper.CounterDumper
+	processingErrors   *counterdumper.Dumper
 	parent             logger.Writer
 
 	formats map[format.Format]*streamFormat

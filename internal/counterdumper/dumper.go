@@ -10,8 +10,8 @@ const (
 	callbackPeriod = 1 * time.Second
 )
 
-// CounterDumper is a counter that periodically invokes a callback if the counter is not zero.
-type CounterDumper struct {
+// Dumper is a counter that periodically invokes a callback if the counter is not zero.
+type Dumper struct {
 	OnReport func(v uint64)
 
 	counter *uint64
@@ -21,7 +21,7 @@ type CounterDumper struct {
 }
 
 // Start starts the counter.
-func (c *CounterDumper) Start() {
+func (c *Dumper) Start() {
 	c.counter = new(uint64)
 	c.terminate = make(chan struct{})
 	c.done = make(chan struct{})
@@ -30,22 +30,22 @@ func (c *CounterDumper) Start() {
 }
 
 // Stop stops the counter.
-func (c *CounterDumper) Stop() {
+func (c *Dumper) Stop() {
 	close(c.terminate)
 	<-c.done
 }
 
 // Increase increases the counter value by 1.
-func (c *CounterDumper) Increase() {
+func (c *Dumper) Increase() {
 	atomic.AddUint64(c.counter, 1)
 }
 
 // Add adds value to the counter.
-func (c *CounterDumper) Add(v uint64) {
+func (c *Dumper) Add(v uint64) {
 	atomic.AddUint64(c.counter, v)
 }
 
-func (c *CounterDumper) run() {
+func (c *Dumper) run() {
 	defer close(c.done)
 
 	t := time.NewTicker(callbackPeriod)

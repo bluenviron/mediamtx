@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCounterDumperReport(t *testing.T) {
+func TestDumperReport(t *testing.T) {
 	done := make(chan struct{})
 
-	c := &CounterDumper{
+	c := &Dumper{
 		OnReport: func(v uint64) {
 			require.Equal(t, uint64(3), v)
 			close(done)
@@ -29,8 +29,8 @@ func TestCounterDumperReport(t *testing.T) {
 	}
 }
 
-func TestCounterDumperDoNotReport(t *testing.T) {
-	c := &CounterDumper{
+func TestDumperDoNotReport(t *testing.T) {
+	c := &Dumper{
 		OnReport: func(_ uint64) {
 			t.Errorf("should not happen")
 		},
