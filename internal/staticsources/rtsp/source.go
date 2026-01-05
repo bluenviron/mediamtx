@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
@@ -90,7 +91,7 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	packetsLost := &counterdumper.CounterDumper{
+	packetsLost := &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d RTP %s lost",
 				val,
@@ -106,16 +107,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	packetsLost.Start()
 	defer packetsLost.Stop()
 
-	decodeErrors := &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	decodeErrors := &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				s.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 
@@ -177,8 +175,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnPacketsLost: func(lost uint64) {
 			packetsLost.Add(lost)
 		},
-		OnDecodeError: func(_ error) {
-			decodeErrors.Increase()
+		OnDecodeError: func(err error) {
+			decodeErrors.Add(err)
 		},
 	}
 

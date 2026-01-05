@@ -10,8 +10,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
@@ -96,24 +96,21 @@ func (s *Source) runReader(nc net.Conn) error {
 		return err
 	}
 
-	decodeErrors := &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	decodeErrors := &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				s.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	mr.OnDecodeError(func(_ error) {
-		decodeErrors.Increase()
+	mr.OnDecodeError(func(err error) {
+		decodeErrors.Add(err)
 	})
 
 	var strm *stream.Stream

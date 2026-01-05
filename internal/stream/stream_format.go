@@ -28,7 +28,7 @@ type streamFormat struct {
 	format             format.Format
 	generateRTPPackets bool
 	fillNTP            bool
-	processingErrors   *counterdumper.CounterDumper
+	processingErrors   *counterdumper.Dumper
 	parent             logger.Writer
 
 	proc         codecprocessor.Processor

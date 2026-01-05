@@ -15,8 +15,8 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -193,24 +193,21 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		return err
 	}
 
-	decodeErrors := &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			c.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	decodeErrors := &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				c.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				c.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	r.OnDecodeError(func(_ error) {
-		decodeErrors.Increase()
+	r.OnDecodeError(func(err error) {
+		decodeErrors.Add(err)
 	})
 
 	var strm *stream.Stream
