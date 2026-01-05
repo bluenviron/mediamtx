@@ -280,7 +280,7 @@ func (a *API) onInfo(ctx *gin.Context) {
 
 func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
 	a.AuthManager.RefreshJWTJWKS()
-	a.writeOK(ctx)
+	ctx.Status(http.StatusOK)
 }
 
 // ReloadConf is called by core.
