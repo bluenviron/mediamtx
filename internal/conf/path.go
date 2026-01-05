@@ -438,6 +438,10 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
 
+	case strings.HasPrefix(pconf.Source, "unixpacket+mpegts://"):
+
+	case strings.HasPrefix(pconf.Source, "unixgram+mpegts://"):
+
 	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
 		_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
 		if err != nil {
@@ -449,6 +453,16 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
+		if pconf.RTPSDP == "" {
+			return fmt.Errorf("`rtpSDP` was not provided")
+		}
+
+	case strings.HasPrefix(pconf.Source, "unixpacket+rtp://"):
+		if pconf.RTPSDP == "" {
+			return fmt.Errorf("`rtpSDP` was not provided")
+		}
+
+	case strings.HasPrefix(pconf.Source, "unixgram+rtp://"):
 		if pconf.RTPSDP == "" {
 			return fmt.Errorf("`rtpSDP` was not provided")
 		}

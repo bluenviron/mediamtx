@@ -115,7 +115,7 @@ func (r *unixConn) SetWriteDeadline(_ time.Time) error {
 }
 
 // CreateConn creates a Unix socket connection.
-func CreateConn(u *url.URL) (net.Conn, error) {
+func CreateConn(u *url.URL, n string) (net.Conn, error) {
 	var pa string
 	if u.Path != "" {
 		pa = u.Path
@@ -124,12 +124,12 @@ func CreateConn(u *url.URL) (net.Conn, error) {
 	}
 
 	if pa == "" {
-		return nil, fmt.Errorf("invalid unix path")
+		return nil, fmt.Errorf("invalid %s path", n)
 	}
 
 	os.Remove(pa)
 
-	socket, err := net.Listen("unix", pa)
+	socket, err := net.Listen(n, pa)
 	if err != nil {
 		return nil, err
 	}

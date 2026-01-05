@@ -126,7 +126,9 @@ func (s *Handler) Initialize() {
 
 	case strings.HasPrefix(s.Conf.Source, "udp://") ||
 		strings.HasPrefix(s.Conf.Source, "udp+mpegts://") ||
-		strings.HasPrefix(s.Conf.Source, "unix+mpegts://"):
+		strings.HasPrefix(s.Conf.Source, "unix+mpegts://") ||
+		strings.HasPrefix(s.Conf.Source, "unixpacket+mpegts://") ||
+		strings.HasPrefix(s.Conf.Source, "unixgram+mpegts://"):
 		s.instance = &ssmpegts.Source{
 			ReadTimeout:       s.ReadTimeout,
 			UDPReadBufferSize: s.UDPReadBufferSize,
@@ -148,7 +150,9 @@ func (s *Handler) Initialize() {
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "udp+rtp://") ||
-		strings.HasPrefix(s.Conf.Source, "unix+rtp://"):
+		strings.HasPrefix(s.Conf.Source, "unix+rtp://") ||
+		strings.HasPrefix(s.Conf.Source, "unixpacket+rtp://") ||
+		strings.HasPrefix(s.Conf.Source, "unixgram+rtp://"):
 		s.instance = &ssrtp.Source{
 			ReadTimeout:       s.ReadTimeout,
 			UDPReadBufferSize: s.UDPReadBufferSize,

@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
+	"github.com/bluenviron/mediamtx/internal/protocols/unixgram"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -50,7 +51,24 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	switch u.Scheme {
 	case "unix+mpegts":
-		nc, err = unix.CreateConn(u)
+		nc, err = unix.CreateConn(u, "unix")
+		if err != nil {
+			return err
+		}
+
+	case "unixpacket+mpegts":
+		nc, err = unix.CreateConn(u, "unixpacket")
+		if err != nil {
+			return err
+		}
+
+	case "unixgram+mpegts":
+		udpReadBufferSize := s.UDPReadBufferSize
+		if params.Conf.RTPUDPReadBufferSize != nil {
+			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
+		}
+
+		nc, err = unixgram.CreateConn(u, int(udpReadBufferSize))
 		if err != nil {
 			return err
 		}
