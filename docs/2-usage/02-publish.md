@@ -237,6 +237,7 @@ paths:
   mypath:
     source: unix+mpegts:///tmp/socket.sock
 ```
+Alternatively, you can use the `unixgram+mpegts` or `unixpacket+mpegts` scheme to create SOCK_DGRAM or SOCK_SEQPACKET socket type, respectively. These socket types support packet boundaries, preventing packet merging at the transport layer, which can lead to decoding errors. The publisher must have the same socket type.
 
 ### RTP
 
@@ -279,6 +280,7 @@ paths:
       a=rtpmap:96 H264/90000
       a=fmtp:96 profile-level-id=42e01e;packetization-mode=1;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==
 ```
+Alternatively, you can use the `unixgram+rtp` or `unixpacket+rtp` scheme to create SOCK_DGRAM or SOCK_SEQPACKET socket type, respectively. These socket types support packet boundaries, preventing packet merging at the transport layer, which can lead to decoding errors. The publisher must have the same socket type.
 
 ## Devices
 

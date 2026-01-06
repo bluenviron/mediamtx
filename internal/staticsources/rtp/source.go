@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
+	"github.com/bluenviron/mediamtx/internal/protocols/unixgram"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtp"
 )
@@ -64,7 +65,24 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	switch u.Scheme {
 	case "unix+rtp":
-		nc, err = unix.CreateConn(u)
+		nc, err = unix.CreateConn(u, "unix")
+		if err != nil {
+			return err
+		}
+
+	case "unixpacket+rtp":
+		nc, err = unix.CreateConn(u, "unixpacket")
+		if err != nil {
+			return err
+		}
+
+	case "unixgram+rtp":
+		udpReadBufferSize := s.UDPReadBufferSize
+		if params.Conf.RTPUDPReadBufferSize != nil {
+			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
+		}
+
+		nc, err = unixgram.CreateConn(u, int(udpReadBufferSize))
 		if err != nil {
 			return err
 		}
