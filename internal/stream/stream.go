@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -33,7 +33,7 @@ type Stream struct {
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
 	readers          map[*Reader]struct{}
-	processingErrors *counterdumper.Dumper
+	processingErrors *errordumper.Dumper
 }
 
 // Initialize initializes a Stream.
@@ -43,16 +43,13 @@ func (s *Stream) Initialize() error {
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 
-	s.processingErrors = &counterdumper.Dumper{
-		OnReport: func(val uint64) {
-			s.Parent.Log(logger.Warn, "%d processing %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	s.processingErrors = &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Parent.Log(logger.Warn, "processing error: %v", last)
+			} else {
+				s.Parent.Log(logger.Warn, "%d processing errors, last was: %v", val, last)
+			}
 		},
 	}
 	s.processingErrors.Start()

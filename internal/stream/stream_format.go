@@ -9,7 +9,7 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/codecprocessor"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -28,7 +28,7 @@ type streamFormat struct {
 	format             format.Format
 	generateRTPPackets bool
 	fillNTP            bool
-	processingErrors   *counterdumper.Dumper
+	processingErrors   *errordumper.Dumper
 	parent             logger.Writer
 
 	proc         codecprocessor.Processor
@@ -55,7 +55,7 @@ func (sf *streamFormat) initialize() error {
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u *unit.Unit) {
 	err := sf.proc.ProcessUnit(u)
 	if err != nil {
-		sf.processingErrors.Increase()
+		sf.processingErrors.Add(err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (sf *streamFormat) writeRTPPacket(
 
 	err := sf.proc.ProcessRTPPacket(u, hasNonRTSPReaders)
 	if err != nil {
-		sf.processingErrors.Increase()
+		sf.processingErrors.Add(err)
 		return
 	}
 
