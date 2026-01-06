@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 )
 
@@ -82,7 +83,11 @@ func ToStream(
 					return
 				}
 
-				(*strm).WriteRTPPacket(cmedi, cforma, pkt, ntp, pts)
+				(*strm).WriteUnit(cmedi, cforma, &unit.Unit{
+					PTS:        pts,
+					NTP:        ntp,
+					RTPPackets: []*rtp.Packet{pkt},
+				})
 			})
 		}
 	}

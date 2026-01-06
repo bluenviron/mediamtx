@@ -238,10 +238,10 @@ func (c *conn) runPublish() error {
 
 	var path defs.Path
 	path, strm, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             c,
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-		FillNTP:            true,
+		Author:        c,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: false,
+		ReplaceNTP:    true,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    pathName,
 			Query:   c.rconn.URL.RawQuery,

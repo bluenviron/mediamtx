@@ -64,13 +64,13 @@ type PathAddPublisherRes struct {
 
 // PathAddPublisherReq contains arguments of AddPublisher().
 type PathAddPublisherReq struct {
-	Author             Publisher
-	Desc               *description.Session
-	GenerateRTPPackets bool
-	FillNTP            bool
-	ConfToCompare      *conf.Path
-	AccessRequest      PathAccessRequest
-	Res                chan PathAddPublisherRes
+	Author        Publisher
+	Desc          *description.Session
+	UseRTPPackets bool
+	ReplaceNTP    bool
+	ConfToCompare *conf.Path
+	AccessRequest PathAccessRequest
+	Res           chan PathAddPublisherRes
 }
 
 // PathRemovePublisherReq contains arguments of RemovePublisher().
@@ -107,10 +107,10 @@ type PathSourceStaticSetReadyRes struct {
 
 // PathSourceStaticSetReadyReq contains arguments of SetReady().
 type PathSourceStaticSetReadyReq struct {
-	Desc               *description.Session
-	GenerateRTPPackets bool
-	FillNTP            bool
-	Res                chan PathSourceStaticSetReadyRes
+	Desc          *description.Session
+	UseRTPPackets bool
+	ReplaceNTP    bool
+	Res           chan PathSourceStaticSetReadyRes
 }
 
 // PathSourceStaticSetNotReadyReq contains arguments of SetNotReady().
