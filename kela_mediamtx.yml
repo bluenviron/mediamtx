@@ -5,6 +5,9 @@ apiAddress: 0.0.0.0:9997
 
 # RTSP server configuration
 rtspAddress: :8554
+rtspTransports: [udp, tcp]
+rtpAddress: :8000
+rtcpAddress: :8001
 
 # RTMP server configuration
 rtmpAddress: :1935
