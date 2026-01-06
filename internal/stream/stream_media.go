@@ -3,7 +3,7 @@ package stream
 import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -12,7 +12,7 @@ type streamMedia struct {
 	media              *description.Media
 	generateRTPPackets bool
 	fillNTP            bool
-	processingErrors   *counterdumper.Dumper
+	processingErrors   *errordumper.Dumper
 	parent             logger.Writer
 
 	formats map[format.Format]*streamFormat

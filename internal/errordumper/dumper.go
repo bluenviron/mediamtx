@@ -57,7 +57,8 @@ func (c *Dumper) run() {
 
 		case <-t.C:
 			c.mutex.Lock()
-			counter := c.counter
+			var counter uint64
+			counter, c.counter = c.counter, 0
 			last := c.last
 			c.mutex.Unlock()
 
