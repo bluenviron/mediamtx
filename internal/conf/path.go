@@ -122,6 +122,9 @@ type Path struct {
 	Fallback                   string   `json:"fallback"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
+	// Always online
+	AlwaysAvailable bool `json:"alwaysAvailable"`
+
 	// Record
 	Record                bool         `json:"record"`
 	Playback              *bool        `json:"playback,omitempty"` // deprecated

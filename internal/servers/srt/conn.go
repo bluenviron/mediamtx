@@ -103,7 +103,7 @@ func (c *conn) run() { //nolint:dupl
 		RunOnConnectRestart: c.runOnConnectRestart,
 		RunOnDisconnect:     c.runOnDisconnect,
 		RTSPAddress:         c.rtspAddress,
-		Desc:                c.APIReaderDescribe(),
+		Conn:                c.APIReaderDescribe(),
 	})
 	defer onDisconnectHook()
 
@@ -210,15 +210,15 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		decodeErrors.Add(err)
 	})
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
-	medias, err := mpegts.ToStream(r, &strm, c)
+	medias, err := mpegts.ToStream(r, &subStream, c)
 	if err != nil {
 		return err
 	}
 
 	var path defs.Path
-	path, strm, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, subStream, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        c,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,

@@ -84,9 +84,13 @@ type APIPathSourceOrReader struct {
 type APIPath struct {
 	Name          string                  `json:"name"`
 	ConfName      string                  `json:"confName"`
+	Ready         bool                    `json:"ready"`     // deprecated
+	ReadyTime     *time.Time              `json:"readyTime"` // deprecated
+	Available     bool                    `json:"available"`
+	AvailableTime *time.Time              `json:"availableTime"`
+	Online        bool                    `json:"online"`
+	OnlineTime    *time.Time              `json:"onlineTime"`
 	Source        *APIPathSourceOrReader  `json:"source"`
-	Ready         bool                    `json:"ready"`
-	ReadyTime     *time.Time              `json:"readyTime"`
 	Tracks        []string                `json:"tracks"`
 	BytesReceived uint64                  `json:"bytesReceived"`
 	BytesSent     uint64                  `json:"bytesSent"`

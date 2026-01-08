@@ -2,34 +2,35 @@
 package stream
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, remuxing it when needed.
 type Stream struct {
 	Desc              *description.Session
-	UseRTPPackets     bool
+	AlwaysAvailable   bool
 	WriteQueueSize    int
 	RTPMaxPayloadSize int
 	ReplaceNTP        bool
 	Parent            logger.Writer
 
+	mutex            sync.RWMutex
+	subStream        *SubStream
+	offlineSubStream *offlineSubStream
 	bytesReceived    *uint64
 	bytesSent        *uint64
 	medias           map[*description.Media]*streamMedia
-	mutex            sync.RWMutex
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
 	readers          map[*Reader]struct{}
@@ -38,6 +39,10 @@ type Stream struct {
 
 // Initialize initializes a Stream.
 func (s *Stream) Initialize() error {
+	if s.AlwaysAvailable && !s.ReplaceNTP {
+		return fmt.Errorf("ReplaceNTP is not compatible with AlwaysAvailable")
+	}
+
 	s.bytesReceived = new(uint64)
 	s.bytesSent = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
@@ -55,9 +60,9 @@ func (s *Stream) Initialize() error {
 	s.processingErrors.Start()
 
 	for _, media := range s.Desc.Medias {
-		s.medias[media] = &streamMedia{
+		sm := &streamMedia{
 			media:             media,
-			useRTPPackets:     s.UseRTPPackets,
+			alwaysAvailable:   s.AlwaysAvailable,
 			rtpMaxPayloadSize: s.RTPMaxPayloadSize,
 			replaceNTP:        s.ReplaceNTP,
 			onBytesReceived:   s.onBytesReceived,
@@ -66,7 +71,15 @@ func (s *Stream) Initialize() error {
 			processingErrors:  s.processingErrors,
 			parent:            s.Parent,
 		}
-		err := s.medias[media].initialize()
+		err := sm.initialize()
+		if err != nil {
+			return err
+		}
+		s.medias[media] = sm
+	}
+
+	if s.AlwaysAvailable {
+		err := s.StartOfflineSubStream()
 		if err != nil {
 			return err
 		}
@@ -85,6 +98,28 @@ func (s *Stream) Close() {
 	if s.rtspsStream != nil {
 		s.rtspsStream.Close()
 	}
+}
+
+func (s *Stream) StartOfflineSubStream() error {
+	if !s.AlwaysAvailable {
+		panic("should not happen")
+	}
+
+	oss := &offlineSubStream{
+		stream: s,
+	}
+	err := oss.initialize()
+	if err != nil {
+		return err
+	}
+
+	if s.offlineSubStream != nil {
+		s.Parent.Log(logger.Info, "stream is offline")
+	}
+
+	s.offlineSubStream = oss
+
+	return nil
 }
 
 // BytesReceived returns received bytes.
@@ -186,17 +221,6 @@ func (s *Stream) RemoveReader(r *Reader) {
 	}
 
 	delete(s.readers, r)
-}
-
-// WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u *unit.Unit) {
-	sm := s.medias[medi]
-	sf := sm.formats[forma]
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	sf.writeUnit(u)
 }
 
 func (s *Stream) onBytesReceived(v uint64) {
