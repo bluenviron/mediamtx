@@ -30,13 +30,19 @@ func TestStream(t *testing.T) {
 
 	strm := &Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
+
+	subStream := &SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
 
 	r := &Reader{}
 
@@ -50,7 +56,7 @@ func TestStream(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 30000 * 2,
 		Payload: unit.PayloadH264{
 			{5, 2}, // IDR
@@ -84,6 +90,13 @@ func TestStreamSkipBytesSent(t *testing.T) {
 	require.NoError(t, err)
 	defer strm.Close()
 
+	subStream := &SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
 	r := &Reader{
 		SkipBytesSent: true,
 	}
@@ -98,7 +111,7 @@ func TestStreamSkipBytesSent(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 30000 * 2,
 		Payload: unit.PayloadH264{
 			{5, 2}, // IDR
@@ -128,7 +141,6 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 
 	strm := &Stream{
 		Desc:              desc,
-		UseRTPPackets:     true,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 400,
 		Parent:            &nilLogger{},
@@ -136,6 +148,13 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
+
+	subStream := &SubStream{
+		Stream:        strm,
+		UseRTPPackets: true,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
 
 	r := &Reader{}
 
@@ -157,7 +176,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 90000,
 		RTPPackets: []*rtp.Packet{
 			{
@@ -179,7 +198,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		oversizedPayload[i] = byte(i % 256)
 	}
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 90000,
 		RTPPackets: []*rtp.Packet{
 			{
@@ -309,13 +328,19 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 
 			strm := &Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			r := &Reader{}
 			recv := make(chan struct{})
@@ -328,7 +353,8 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 			strm.AddReader(r)
 			defer strm.RemoveReader(r)
 
-			strm.WriteUnit(media, forma, u)
+			subStream.WriteUnit(media, forma, u)
+
 			<-recv
 
 			// Verify that format parameters were updated
@@ -689,7 +715,6 @@ func TestStreamDecode(t *testing.T) {
 
 			strm := &Stream{
 				Desc:              desc,
-				UseRTPPackets:     true,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            &nilLogger{},
@@ -697,6 +722,13 @@ func TestStreamDecode(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &SubStream{
+				Stream:        strm,
+				UseRTPPackets: true,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			r := &Reader{}
 			recv := make(chan *unit.Unit)
@@ -710,7 +742,7 @@ func TestStreamDecode(t *testing.T) {
 			strm.AddReader(r)
 			defer strm.RemoveReader(r)
 
-			strm.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
+			subStream.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
 				RTPPackets: ca.encoded,
 			})
 

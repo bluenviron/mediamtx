@@ -148,7 +148,7 @@ authJWTInHTTPQuery: true
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+api: true
 # Address of the Control API listener.
 apiAddress: :9997
 # Enable TLS/HTTPS on the Control API server.
@@ -492,6 +492,12 @@ pathDefaults:
   useAbsoluteTimestamp: false
 
   ###############################################
+  # Default path settings -> Always online
+
+  alwaysAvailable: false
+  # alwaysAvailableTracks: [H264]
+
+  ###############################################
   # Default path settings -> Record
 
   # Record streams to disk.
@@ -757,6 +763,9 @@ paths:
   # example:
   # my_camera:
   #   source: rtsp://my_camera
+
+  stream:
+    alwaysAvailable: true
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

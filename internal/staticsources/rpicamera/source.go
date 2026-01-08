@@ -153,10 +153,10 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		medias = append(medias, mediaSecondary)
 	}
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
 	initializeStream := func() {
-		if strm == nil {
+		if subStream == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:          &description.Session{Medias: medias},
 				UseRTPPackets: true,
@@ -166,7 +166,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 				panic("should not happen")
 			}
 
-			strm = res.Stream
+			subStream = res.SubStream
 		}
 	}
 
@@ -190,7 +190,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 		for _, pkt := range pkts {
 			pkt.Timestamp = uint32(pts)
-			strm.WriteUnit(medi, medi.Formats[0], &unit.Unit{
+			subStream.WriteUnit(medi, medi.Formats[0], &unit.Unit{
 				PTS:        pts,
 				NTP:        ntp,
 				RTPPackets: []*rtp.Packet{pkt},
@@ -221,7 +221,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 			for _, pkt := range pkts {
 				pkt.Timestamp = uint32(pts)
 				pkt.PayloadType = 96
-				strm.WriteUnit(mediaSecondary, mediaSecondary.Formats[0], &unit.Unit{
+				subStream.WriteUnit(mediaSecondary, mediaSecondary.Formats[0], &unit.Unit{
 					PTS:        pts,
 					NTP:        ntp,
 					RTPPackets: []*rtp.Packet{pkt},
@@ -231,7 +231,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	}
 
 	defer func() {
-		if strm != nil {
+		if subStream != nil {
 			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()
@@ -271,7 +271,7 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	r.ctx, r.ctxCancel = context.WithCancel(context.Background())
 	defer r.ctxCancel()
 
-	path, origStream, err := s.waitForPrimary(r, params)
+	path, primaryStream, err := s.waitForPrimary(r, params)
 	if err != nil {
 		return err
 	}
@@ -294,8 +294,8 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	rdr := &stream.Reader{Parent: s}
 
 	rdr.OnData(
-		origStream.Desc.Medias[1],
-		origStream.Desc.Medias[1].Formats[0],
+		primaryStream.Desc.Medias[1],
+		primaryStream.Desc.Medias[1].Formats[0],
 		func(u *unit.Unit) error {
 			pkt := u.RTPPackets[0]
 
@@ -305,7 +305,7 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 			}
 			newPkt.PayloadType = 26
 
-			res.Stream.WriteUnit(media, media.Formats[0], &unit.Unit{
+			res.SubStream.WriteUnit(media, media.Formats[0], &unit.Unit{
 				PTS:        u.PTS,
 				NTP:        u.NTP,
 				RTPPackets: []*rtp.Packet{newPkt},
@@ -313,8 +313,8 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 			return nil
 		})
 
-	origStream.AddReader(rdr)
-	defer origStream.RemoveReader(rdr)
+	primaryStream.AddReader(rdr)
+	defer primaryStream.RemoveReader(rdr)
 
 	select {
 	case err = <-rdr.Error():
@@ -333,7 +333,7 @@ func (s *Source) waitForPrimary(
 	params defs.StaticSourceRunParams,
 ) (defs.Path, *stream.Stream, error) {
 	for {
-		path, origStream, err := s.Parent.AddReader(defs.PathAddReaderReq{
+		path, primaryStream, err := s.Parent.AddReader(defs.PathAddReaderReq{
 			Author: r,
 			AccessRequest: defs.PathAccessRequest{
 				Name:     params.Conf.RPICameraPrimaryName,
@@ -354,7 +354,7 @@ func (s *Source) waitForPrimary(
 			return nil, nil, err
 		}
 
-		return path, origStream, nil
+		return path, primaryStream, nil
 	}
 }
 
