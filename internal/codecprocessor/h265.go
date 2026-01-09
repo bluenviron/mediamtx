@@ -341,3 +341,12 @@ func (t *h265) ProcessRTPPacket( //nolint:dupl
 
 	return nil
 }
+
+// ExtractH265Resolution extracts width and height from H265 SPS
+func ExtractH265Resolution(sps []byte) (int, int) {
+	var s mch265.SPS
+	if err := s.Unmarshal(sps); err != nil {
+		return 0, 0
+	}
+	return s.Width(), s.Height()
+}
