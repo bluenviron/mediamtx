@@ -211,19 +211,25 @@ func TestServerPublish(t *testing.T) {
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 			return &conf.Path{}, nil
 		},
-		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               req.Desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: true,
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			reader = &stream.Reader{Parent: test.NilLogger}
@@ -246,7 +252,7 @@ func TestServerPublish(t *testing.T) {
 
 			strm.AddReader(reader)
 
-			return &dummyPath{}, strm, nil
+			return &dummyPath{}, subStream, nil
 		},
 	}
 
@@ -466,13 +472,19 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: ca.unit.Payload != nil,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: (ca.unit.Payload == nil),
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			pathManager := &test.PathManager{
@@ -537,9 +549,13 @@ func TestServerRead(t *testing.T) {
 
 				if ca.unit.Payload == nil {
 					clone := *ca.unit.RTPPackets[0]
-					strm.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+						PTS:        0,
+						NTP:        time.Time{},
+						RTPPackets: []*rtp.Packet{&clone},
+					})
 				} else {
-					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(*unit.Unit))
+					subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(*unit.Unit))
 				}
 			}()
 

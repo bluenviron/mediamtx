@@ -34,7 +34,7 @@ func fourCCToString(c message.FourCC) string {
 // ToStream maps a RTMP stream to a MediaMTX stream.
 func ToStream(
 	r *gortmplib.Reader,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 ) ([]*description.Media, error) {
 	var medias []*description.Media
 
@@ -51,7 +51,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadAV1(tu),
 				})
@@ -68,7 +68,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataVP9(track, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadVP9(frame),
 				})
@@ -88,7 +88,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataH265(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadH265(au),
 				})
@@ -108,7 +108,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataH264(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadH264(au),
 				})
@@ -126,7 +126,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataOpus(track, func(pts time.Duration, packet []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadOpus{packet},
 				})
@@ -147,7 +147,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadMPEG4Audio{au},
 				})
@@ -162,7 +162,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataMPEG1Audio(track, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadMPEG1Audio{frame},
 				})
@@ -181,7 +181,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataAC3(track, func(pts time.Duration, frame []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadAC3{frame},
 				})
@@ -210,7 +210,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataG711(track, func(pts time.Duration, samples []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadG711(samples),
 				})
@@ -230,7 +230,7 @@ func ToStream(
 			medias = append(medias, medi)
 
 			r.OnDataLPCM(track, func(pts time.Duration, samples []byte) {
-				(*strm).WriteUnit(medi, forma, &unit.Unit{
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadLPCM(samples),
 				})

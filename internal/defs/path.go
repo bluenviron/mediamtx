@@ -57,20 +57,20 @@ type PathDescribeReq struct {
 
 // PathAddPublisherRes contains the response of AddPublisher().
 type PathAddPublisherRes struct {
-	Path   Path
-	Stream *stream.Stream
-	Err    error
+	Path      Path
+	SubStream *stream.SubStream
+	Err       error
 }
 
 // PathAddPublisherReq contains arguments of AddPublisher().
 type PathAddPublisherReq struct {
-	Author             Publisher
-	Desc               *description.Session
-	GenerateRTPPackets bool
-	FillNTP            bool
-	ConfToCompare      *conf.Path
-	AccessRequest      PathAccessRequest
-	Res                chan PathAddPublisherRes
+	Author        Publisher
+	Desc          *description.Session
+	UseRTPPackets bool
+	ReplaceNTP    bool
+	ConfToCompare *conf.Path
+	AccessRequest PathAccessRequest
+	Res           chan PathAddPublisherRes
 }
 
 // PathRemovePublisherReq contains arguments of RemovePublisher().
@@ -101,16 +101,16 @@ type PathRemoveReaderReq struct {
 
 // PathSourceStaticSetReadyRes contains the response of SetReadu().
 type PathSourceStaticSetReadyRes struct {
-	Stream *stream.Stream
-	Err    error
+	SubStream *stream.SubStream
+	Err       error
 }
 
 // PathSourceStaticSetReadyReq contains arguments of SetReady().
 type PathSourceStaticSetReadyReq struct {
-	Desc               *description.Session
-	GenerateRTPPackets bool
-	FillNTP            bool
-	Res                chan PathSourceStaticSetReadyRes
+	Desc          *description.Session
+	UseRTPPackets bool
+	ReplaceNTP    bool
+	Res           chan PathSourceStaticSetReadyRes
 }
 
 // PathSourceStaticSetNotReadyReq contains arguments of SetNotReady().

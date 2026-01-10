@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 )
 
@@ -131,7 +132,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
 	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
@@ -166,18 +167,18 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 		var pkt rtp.Packet
 		err = pkt.Unmarshal(buf[:n])
 		if err != nil {
-			if strm != nil {
+			if subStream != nil {
 				decodeErrors.Add(err)
 				continue
 			}
 			return err
 		}
 
-		if strm == nil {
+		if subStream == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               desc,
-				GenerateRTPPackets: false,
-				FillNTP:            true,
+				Desc:          desc,
+				UseRTPPackets: true,
+				ReplaceNTP:    true,
 			})
 			if res.Err != nil {
 				return res.Err
@@ -185,7 +186,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-			strm = res.Stream
+			subStream = res.SubStream
 		}
 
 		media, ok := mediasByPayloadType[pkt.PayloadType]
@@ -207,7 +208,10 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 				continue
 			}
 
-			strm.WriteRTPPacket(media.desc, forma.desc, pkt, time.Time{}, pts)
+			subStream.WriteUnit(media.desc, forma.desc, &unit.Unit{
+				PTS:        pts,
+				RTPPackets: []*rtp.Packet{pkt},
+			})
 		}
 	}
 }

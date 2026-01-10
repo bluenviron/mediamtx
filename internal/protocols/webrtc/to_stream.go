@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
@@ -32,7 +33,7 @@ var errNoSupportedCodecsTo = errors.New(
 func ToStream(
 	pc *PeerConnection,
 	pathConf *conf.Path,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 	log logger.Writer,
 ) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
@@ -196,7 +197,11 @@ func ToStream(
 				return
 			}
 
-			(*strm).WriteRTPPacket(medi, forma, pkt, ntp, pts)
+			(*subStream).WriteUnit(medi, forma, &unit.Unit{
+				PTS:        pts,
+				NTP:        ntp,
+				RTPPackets: []*rtp.Packet{pkt},
+			})
 		}
 
 		medias = append(medias, medi)

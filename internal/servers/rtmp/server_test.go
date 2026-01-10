@@ -69,20 +69,26 @@ func TestServerPublish(t *testing.T) {
 			n := 0
 
 			pathManager := &test.PathManager{
-				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "user=myuser&pass=mypass&param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 
 					strm = &stream.Stream{
-						WriteQueueSize:     512,
-						RTPMaxPayloadSize:  1450,
-						Desc:               req.Desc,
-						GenerateRTPPackets: true,
-						Parent:             test.NilLogger,
+						Desc:              req.Desc,
+						WriteQueueSize:    512,
+						RTPMaxPayloadSize: 1450,
+						Parent:            test.NilLogger,
 					}
 					err := strm.Initialize()
+					require.NoError(t, err)
+
+					subStream := &stream.SubStream{
+						Stream:        strm,
+						UseRTPPackets: false,
+					}
+					err = subStream.Initialize()
 					require.NoError(t, err)
 
 					reader = &stream.Reader{Parent: test.NilLogger}
@@ -112,7 +118,7 @@ func TestServerPublish(t *testing.T) {
 
 					strm.AddReader(reader)
 
-					return &dummyPath{}, strm, nil
+					return &dummyPath{}, subStream, nil
 				},
 			}
 
@@ -206,13 +212,19 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			pathManager := &test.PathManager{
@@ -269,14 +281,14 @@ func TestServerRead(t *testing.T) {
 			go func() {
 				time.Sleep(500 * time.Millisecond)
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					NTP: time.Time{},
 					Payload: unit.PayloadH264{
 						{5, 2, 3, 4}, // IDR
 					},
 				})
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					NTP: time.Time{},
 					PTS: 2 * 90000,
 					Payload: unit.PayloadH264{
@@ -284,7 +296,7 @@ func TestServerRead(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					NTP: time.Time{},
 					PTS: 3 * 90000,
 					Payload: unit.PayloadH264{

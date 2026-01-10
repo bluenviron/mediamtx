@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 )
 
@@ -32,7 +33,7 @@ func ToStream(
 	source rtspSource,
 	medias []*description.Media,
 	pathConf *conf.Path,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 	log logger.Writer,
 ) {
 	for _, medi := range medias {
@@ -82,7 +83,11 @@ func ToStream(
 					return
 				}
 
-				(*strm).WriteRTPPacket(cmedi, cforma, pkt, ntp, pts)
+				(*subStream).WriteUnit(cmedi, cforma, &unit.Unit{
+					PTS:        pts,
+					NTP:        ntp,
+					RTPPackets: []*rtp.Packet{pkt},
+				})
 			})
 		}
 	}

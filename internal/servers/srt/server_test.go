@@ -60,19 +60,25 @@ func TestServerPublish(t *testing.T) {
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 			return &conf.Path{}, nil
 		},
-		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               req.Desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			reader = &stream.Reader{Parent: test.NilLogger}
@@ -107,7 +113,7 @@ func TestServerPublish(t *testing.T) {
 
 			strm.AddReader(reader)
 
-			return &dummyPath{}, strm, nil
+			return &dummyPath{}, subStream, nil
 		},
 	}
 
@@ -181,13 +187,19 @@ func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
+	require.NoError(t, err)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
 	require.NoError(t, err)
 
 	pathManager := &test.PathManager{
@@ -232,7 +244,7 @@ func TestServerRead(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		NTP: time.Time{},
 		Payload: unit.PayloadH264{
 			{5, 1}, // IDR
@@ -262,7 +274,7 @@ func TestServerRead(t *testing.T) {
 		return nil
 	})
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		NTP: time.Time{},
 		Payload: unit.PayloadH264{
 			{5, 2},
