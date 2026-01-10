@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -125,7 +126,7 @@ type moofInfo struct {
 	trackID uint32
 }
 
-func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
+func writeMFRA(f io.ReadWriteSeeker, _ []*formatFMP4Track) error {
 	// Get current file size (end of file)
 	fileSize, err := f.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -173,14 +174,15 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 	moofInfos := make(map[uint32][]moofInfo) // trackID -> []moofInfo
 
 	for {
-		moofPos, err := f.Seek(0, io.SeekCurrent)
+		var moofPos int64
+		moofPos, err = f.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return err
 		}
 
 		_, err = io.ReadFull(f, buf)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -205,7 +207,7 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 			return err
 		}
 
-		_, err = amp4.ReadBoxStructure(f, func(h *amp4.ReadHandle) (any, error) {
+		_, _ = amp4.ReadBoxStructure(f, func(h *amp4.ReadHandle) (any, error) {
 			switch h.BoxInfo.Type.String() {
 			case "moof":
 				return h.Expand()
@@ -214,27 +216,27 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 				return h.Expand()
 
 			case "tfhd":
-				box, _, err := h.ReadPayload()
-				if err != nil {
-					return nil, err
+				box, _, payloadErr := h.ReadPayload()
+				if payloadErr != nil {
+					return nil, payloadErr
 				}
 				tfhd := box.(*amp4.Tfhd)
 				currentTrackID = tfhd.TrackID
 				return h.Expand()
 
 			case "tfdt":
-				box, _, err := h.ReadPayload()
-				if err != nil {
-					return nil, err
+				box, _, payloadErr := h.ReadPayload()
+				if payloadErr != nil {
+					return nil, payloadErr
 				}
 				tfdt := box.(*amp4.Tfdt)
 				baseTime = tfdt.BaseMediaDecodeTimeV1
 				return nil, nil
 
 			case "trun":
-				box, _, err := h.ReadPayload()
-				if err != nil {
-					return nil, err
+				box, _, payloadErr := h.ReadPayload()
+				if payloadErr != nil {
+					return nil, payloadErr
 				}
 				trun := box.(*amp4.Trun)
 				// Check if any sample is a sync sample (keyframe)
@@ -272,7 +274,7 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 		// Skip mdat
 		_, err = io.ReadFull(f, buf)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -285,7 +287,7 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 		mdatSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
 		_, err = f.Seek(int64(mdatSize)-8, io.SeekCurrent)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -307,7 +309,7 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 		entries := make([]amp4.TfraEntry, 0, len(infos))
 		for _, info := range infos {
 			entries = append(entries, amp4.TfraEntry{
-				TimeV1:      info.time,
+				TimeV1:       info.time,
 				MoofOffsetV1: info.offset,
 				TrafNumber:   1, // traf number within moof (usually 1)
 				TrunNumber:   1, // trun number within traf (usually 1)
@@ -320,13 +322,13 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 				Version: 1,
 				Flags:   [3]uint8{0, 0, 0},
 			},
-			TrackID:             trackID,
-			Reserved:            0,
-			LengthSizeOfTrafNum: 2,
-			LengthSizeOfTrunNum: 2,
+			TrackID:               trackID,
+			Reserved:              0,
+			LengthSizeOfTrafNum:   2,
+			LengthSizeOfTrunNum:   2,
 			LengthSizeOfSampleNum: 2,
-			NumberOfEntry:       uint32(len(entries)),
-			Entries:             entries,
+			NumberOfEntry:         uint32(len(entries)),
+			Entries:               entries,
 		}
 		tfras = append(tfras, tfra)
 	}
@@ -403,10 +405,10 @@ func writeMFRA(f io.ReadWriteSeeker, tracks []*formatFMP4Track) error {
 	mfroBox[5] = 'f'
 	mfroBox[6] = 'r'
 	mfroBox[7] = 'o'
-	mfroBox[8] = 0x00 // version
-	mfroBox[9] = 0x00 // flags[0]
-	mfroBox[10] = 0x00 // flags[1]
-	mfroBox[11] = 0x00 // flags[2]
+	mfroBox[8] = 0x00                  // version
+	mfroBox[9] = 0x00                  // flags[0]
+	mfroBox[10] = 0x00                 // flags[1]
+	mfroBox[11] = 0x00                 // flags[2]
 	mfroBox[12] = byte(mfraSize >> 24) // mfraSize
 	mfroBox[13] = byte(mfraSize >> 16)
 	mfroBox[14] = byte(mfraSize >> 8)
