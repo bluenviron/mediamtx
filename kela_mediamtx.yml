@@ -17,7 +17,7 @@ hlsAddress: :8888
 hlsAlwaysRemux: yes
 hlsSegmentDuration: 8s
 hlsSegmentCount: 20
-hlsPartDuration: 4000ms # small manifest
+hlsPartDuration: 4000ms
 hlsMuxerCloseAfter: 60s
 
 # WebRTC server configuration
@@ -61,6 +61,15 @@ authInternalUsers:
     permissions:
       - action: metrics
       - action: pprof
+
+pathDefaults:
+  record: no # Due to LoS. To enable recording on a specific path, add it below with record: yes
+  recordPath: ./recordings/%path/kela_%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordPartDuration: 8s
+  recordMaxPartSize: 50M
+  recordSegmentDuration: 30m
+  recordDeleteAfter: 24h
 
 paths:
   all:
