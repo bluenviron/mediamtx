@@ -108,3 +108,28 @@ func (t *mpeg1Video) ProcessRTPPacket( //nolint:dupl
 
 	return nil
 }
+
+
+// ExtractMPEG1Resolution extracts width and height from MPEG-1/2 Video config
+func ExtractMPEG1Resolution(config []byte) (int, int) {
+	// MPEG-1/2 Video sequence header parsing for resolution
+	// Look for sequence header start code 0x00 0x00 0x01 0xB3
+	if len(config) < 12 {
+		return 0, 0
+	}
+	for i := 0; i < len(config)-4; i++ {
+		if config[i] == 0x00 && config[i+1] == 0x00 && config[i+2] == 0x01 && config[i+3] == 0xB3 {
+			// Sequence header starts after start code
+			data := config[i+4:]
+			if len(data) < 8 {
+				continue
+			}
+			// horizontal_size_value: 12 bits
+			width := (uint32(data[0]) << 4) | (uint32(data[1]) >> 4)
+			// vertical_size_value: 12 bits
+			height := ((uint32(data[1]) & 0x0F) << 8) | uint32(data[2])
+			return int(width), int(height)
+		}
+	}
+	return 0, 0
+}

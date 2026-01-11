@@ -42,6 +42,8 @@ func TestPathsList(t *testing.T) {
 				Ready:         true,
 				ReadyTime:     &now,
 				Tracks:        []string{"H264", "Opus"},
+				Resolutions:   []string{"1920x1080", ""},
+				Bitrates:      []string{"4500kbps", ""},
 				BytesReceived: 1000,
 				BytesSent:     2000,
 				Readers: []defs.APIPathSourceOrReader{

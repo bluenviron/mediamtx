@@ -157,3 +157,119 @@ func (t *mpeg4Video) ProcessRTPPacket( //nolint:dupl
 
 	return nil
 }
+
+
+// ExtractMPEG4Resolution extracts width and height from MPEG-4 Video config
+func ExtractMPEG4Resolution(config []byte) (int, int) {
+	// MPEG-4 Video Object Layer (VOL) parsing for resolution
+	// Look for VOL start code 0x00 0x00 0x01 0x20
+	if len(config) < 20 {
+		return 0, 0
+	}
+	for i := 0; i < len(config)-4; i++ {
+		if config[i] == 0x00 && config[i+1] == 0x00 && config[i+2] == 0x01 && config[i+3] == 0x20 {
+			// VOL header starts after start code
+			data := config[i+4:]
+			if len(data) < 10 {
+				continue
+			}
+			// Skip vol_id (4 bits), random_accessible_vol (1), video_object_type_indication (8)
+			// is_object_layer_identifier (1)
+			bitPos := 0
+			// vol_id: 4 bits
+			bitPos += 4
+			// random_accessible_vol: 1 bit
+			bitPos += 1
+			// video_object_type_indication: 8 bits
+			bitPos += 8
+			// is_object_layer_identifier: 1 bit
+			isObjectLayer := getBit(data, bitPos)
+			bitPos += 1
+			if isObjectLayer {
+				// video_object_layer_verid: 4 bits
+				bitPos += 4
+				// video_object_layer_priority: 3 bits
+				bitPos += 3
+			}
+			// aspect_ratio_info: 4 bits
+			aspectRatio := getBits(data, bitPos, 4)
+			bitPos += 4
+			if aspectRatio == 15 { // extended_PAR
+				// par_width: 8 bits
+				bitPos += 8
+				// par_height: 8 bits
+				bitPos += 8
+			}
+			// vol_control_parameters: 1 bit
+			volControl := getBit(data, bitPos)
+			bitPos += 1
+			if volControl {
+				// chroma_format: 2 bits
+				bitPos += 2
+				// low_delay: 1 bit
+				bitPos += 1
+				// vbv_parameters: 1 bit
+				vbv := getBit(data, bitPos)
+				bitPos += 1
+				if vbv {
+					// bit_rate: 15 bits
+					bitPos += 15
+					// buffer_size: 15 bits
+					bitPos += 15
+					// vbv_occupancy: 15 bits
+					bitPos += 15
+				}
+			}
+			// video_object_layer_shape: 2 bits
+			shape := getBits(data, bitPos, 2)
+			bitPos += 2
+			if shape == 3 { // gray_scale
+				// video_object_layer_shape_extension: 4 bits
+				bitPos += 4
+			}
+			// marker_bit: 1 bit
+			bitPos += 1
+			// vop_time_increment_resolution: 16 bits
+			bitPos += 16
+			// marker_bit: 1 bit
+			bitPos += 1
+			// fixed_vop_rate: 1 bit
+			fixedVop := getBit(data, bitPos)
+			bitPos += 1
+			if fixedVop {
+				// fixed_vop_time_increment: variable bits
+				// skip for now
+			}
+			// marker_bit: 1 bit
+			bitPos += 1
+			// video_object_layer_width: 13 bits
+			width := getBits(data, bitPos, 13)
+			bitPos += 13
+			// marker_bit: 1 bit
+			bitPos += 1
+			// video_object_layer_height: 13 bits
+			height := getBits(data, bitPos, 13)
+			return int(width), int(height)
+		}
+	}
+	return 0, 0
+}
+
+func getBit(data []byte, bitPos int) bool {
+	byteIndex := bitPos / 8
+	bitIndex := 7 - (bitPos % 8)
+	if byteIndex >= len(data) {
+		return false
+	}
+	return (data[byteIndex] & (1 << bitIndex)) != 0
+}
+
+func getBits(data []byte, bitPos int, numBits int) uint32 {
+	var val uint32
+	for i := 0; i < numBits; i++ {
+		if getBit(data, bitPos+i) {
+			val |= 1 << (numBits - 1 - i)
+		}
+	}
+	return val
+}

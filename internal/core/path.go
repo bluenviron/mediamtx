@@ -571,6 +571,18 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
+			Resolutions: func() []string {
+				if !pa.isReady() {
+					return []string{}
+				}
+				return defs.MediasToResolutions(pa.stream.Desc.Medias)
+			}(),
+			Bitrates: func() []string {
+				if !pa.isReady() {
+					return []string{}
+				}
+				return pa.bitrates()
+			}(),
 			BytesReceived: func() uint64 {
 				if !pa.isReady() {
 					return 0
@@ -950,4 +962,18 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	case <-pa.ctx.Done():
 		return nil, fmt.Errorf("terminated")
 	}
+}
+
+func (pa *path) bitrates() []string {
+	elapsed := time.Since(pa.readyTime).Seconds()
+	if elapsed > 0 {
+		totalBps := float64(pa.stream.BytesReceived()) * 8 / elapsed
+		bitrateStr := fmt.Sprintf("%.0f kbps", totalBps/1000)
+		bitrates := make([]string, len(pa.stream.Desc.Medias))
+		for i := range bitrates {
+			bitrates[i] = bitrateStr
+		}
+		return bitrates
+	}
+	return []string{}
 }

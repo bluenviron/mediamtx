@@ -88,6 +88,8 @@ type APIPath struct {
 	Ready         bool                    `json:"ready"`
 	ReadyTime     *time.Time              `json:"readyTime"`
 	Tracks        []string                `json:"tracks"`
+	Resolutions   []string                `json:"resolutions"`
+	Bitrates      []string                `json:"bitrates"`
 	BytesReceived uint64                  `json:"bytesReceived"`
 	BytesSent     uint64                  `json:"bytesSent"`
 	Readers       []APIPathSourceOrReader `json:"readers"`
