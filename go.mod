@@ -103,3 +103,5 @@ require (
 )
 
 replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.9.1-0.20251222193740-d7fe54d226e5
+
+replace github.com/bluenviron/mediacommon/v2 => ../mediacommon

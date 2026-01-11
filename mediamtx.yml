@@ -494,8 +494,13 @@ pathDefaults:
   ###############################################
   # Default path settings -> Always online
 
+  # Enable always-online mode, in which a video is played on repeat
+  # when there are no publishers.
   alwaysAvailable: false
-  # alwaysAvailableTracks: [H264]
+  # Tracks of always-available mode. Any publisher must provide these tracks too.
+  alwaysAvailableTracks:
+    # Available values are: AV1, VP9, H265, H264
+  - codec: H264
 
   ###############################################
   # Default path settings -> Record
@@ -766,6 +771,8 @@ paths:
 
   stream:
     alwaysAvailable: true
+    alwaysAvailableTracks:
+    - codec: VP9
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

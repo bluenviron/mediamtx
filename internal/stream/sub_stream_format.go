@@ -58,16 +58,30 @@ func (ssf *subStreamFormat) initialize2() {
 			ssf.streamFormat.ptsOffset = ssf.streamFormat.lastPTS + deltaT
 		}
 
-		curFormatH264 := ssf.curFormat.(*format.H264)
-		sps, pps := curFormatH264.SafeParams()
+		switch curFormat := ssf.curFormat.(type) {
+		case *format.H265:
+			sps, pps, vps := curFormat.SafeParams()
 
-		if sps != nil && pps != nil {
-			ssf.writeUnit(&unit.Unit{
-				PTS:        0,
-				NTP:        time.Time{},
-				RTPPackets: nil,
-				Payload:    unit.PayloadH264([][]byte{sps, pps}),
-			})
+			if sps != nil && pps != nil && vps != nil {
+				ssf.writeUnit(&unit.Unit{
+					PTS:        0,
+					NTP:        time.Time{},
+					RTPPackets: nil,
+					Payload:    unit.PayloadH265([][]byte{sps, pps, vps}),
+				})
+			}
+
+		case *format.H264:
+			sps, pps := curFormat.SafeParams()
+
+			if sps != nil && pps != nil {
+				ssf.writeUnit(&unit.Unit{
+					PTS:        0,
+					NTP:        time.Time{},
+					RTPPackets: nil,
+					Payload:    unit.PayloadH264([][]byte{sps, pps}),
+				})
+			}
 		}
 	}
 }

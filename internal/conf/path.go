@@ -123,7 +123,8 @@ type Path struct {
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Always online
-	AlwaysAvailable bool `json:"alwaysAvailable"`
+	AlwaysAvailable       bool                  `json:"alwaysAvailable"`
+	AlwaysAvailableTracks AlwaysAvailableTracks `json:"alwaysAvailableTracks"`
 
 	// Record
 	Record                bool         `json:"record"`

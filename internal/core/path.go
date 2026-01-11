@@ -178,17 +178,47 @@ func (pa *path) run() {
 
 	if pa.conf.AlwaysAvailable {
 		desc := &description.Session{
-			Medias: []*description.Media{
-				{
+			Medias: []*description.Media{},
+		}
+
+		for _, track := range pa.conf.AlwaysAvailableTracks {
+			switch track.Codec {
+			case "AV1":
+				desc.Medias = append(desc.Medias, &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.AV1{
+						PayloadTyp: 96,
+					}},
+				})
+
+			case "VP9":
+				desc.Medias = append(desc.Medias, &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.VP9{
+						PayloadTyp: 96,
+					}},
+				})
+
+			case "H265":
+				desc.Medias = append(desc.Medias, &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.H265{
+						PayloadTyp: 96,
+					}},
+				})
+
+			case "H264":
+				desc.Medias = append(desc.Medias, &description.Media{
 					Type: description.MediaTypeVideo,
 					Formats: []format.Format{&format.H264{
 						PayloadTyp:        96,
 						PacketizationMode: 1,
 					}},
-				},
-			},
+				})
+			}
 		}
-		err := pa.setReady(desc, true)
+
+		err := pa.setAvailable(desc, true)
 		if err != nil {
 			panic(err)
 		}
@@ -246,7 +276,7 @@ func (pa *path) run() {
 	}
 
 	if pa.stream != nil {
-		pa.setNotReady()
+		pa.setNotAvailable()
 	}
 
 	if pa.source != nil {
@@ -360,7 +390,7 @@ func (pa *path) doOnDemandStaticSourceCloseTimer() {
 	if pa.conf.AlwaysAvailable {
 		panic("should not happen")
 	}
-	pa.setNotReady()
+	pa.setNotAvailable()
 	pa.onDemandStaticSourceStop("not needed by anyone")
 }
 
@@ -411,7 +441,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setReady(req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(req.Desc, req.ReplaceNTP)
 		if err != nil {
 			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 			return
@@ -446,7 +476,7 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 
 func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 	if !pa.conf.AlwaysAvailable {
-		pa.setNotReady()
+		pa.setNotAvailable()
 	} else {
 		pa.stream.StartOfflineSubStream()
 	}
@@ -532,7 +562,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.name)
 
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setReady(req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(req.Desc, req.ReplaceNTP)
 		if err != nil {
 			pa.source = nil
 			req.Res <- defs.PathAddPublisherRes{Err: err}
@@ -772,7 +802,7 @@ func (pa *path) onDemandPublisherStop(reason string) {
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
-func (pa *path) setReady(desc *description.Session, replaceNTP bool) error {
+func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
 	pa.stream = &stream.Stream{
 		Desc:              desc,
 		AlwaysAvailable:   pa.conf.AlwaysAvailable,
@@ -835,7 +865,7 @@ func (pa *path) consumeOnHoldRequests() {
 	pa.readerAddRequestsOnHold = nil
 }
 
-func (pa *path) setNotReady() {
+func (pa *path) setNotAvailable() {
 	pa.parent.pathNotReady(pa)
 
 	for r := range pa.readers {
@@ -905,7 +935,7 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 
 func (pa *path) executeRemovePublisher() {
 	if !pa.conf.AlwaysAvailable {
-		pa.setNotReady()
+		pa.setNotAvailable()
 	} else {
 		pa.stream.StartOfflineSubStream()
 	}
