@@ -1254,7 +1254,7 @@ func TestStreamDecode(t *testing.T) {
 			defer strm.RemoveReader(r)
 
 			for _, pkt := range ca.encoded {
-				strm.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
 					RTPPackets: []*rtp.Packet{pkt},
 				})
 			}
@@ -1274,7 +1274,6 @@ func TestStreamEncode(t *testing.T) {
 
 			strm := &Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            &nilLogger{},
@@ -1282,6 +1281,13 @@ func TestStreamEncode(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			r := &Reader{}
 			recv := make(chan struct{})
@@ -1300,7 +1306,7 @@ func TestStreamEncode(t *testing.T) {
 			strm.AddReader(r)
 			defer strm.RemoveReader(r)
 
-			strm.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
+			subStream.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
 				Payload: ca.decoded,
 			})
 

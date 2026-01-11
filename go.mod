@@ -13,7 +13,7 @@ require (
 	github.com/bluenviron/gohlslib/v2 v2.2.4
 	github.com/bluenviron/gortmplib v0.2.0
 	github.com/bluenviron/gortsplib/v5 v5.2.2
-	github.com/bluenviron/mediacommon/v2 v2.6.1-0.20260110223527-ff275aadf141
+	github.com/bluenviron/mediacommon/v2 v2.6.1-0.20260111212823-299686e2630c
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
@@ -103,5 +103,3 @@ require (
 )
 
 replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.9.1-0.20251222193740-d7fe54d226e5
-
-replace github.com/bluenviron/mediacommon/v2 => ../mediacommon
