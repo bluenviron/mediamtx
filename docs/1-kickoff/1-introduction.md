@@ -11,7 +11,7 @@ Main features:
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)
-- Make streams [Always available](/docs/usage/always-available) even when the publisher is offline
+- [Make streams always-available](/docs/usage/always-available) with a video on repeat when the publisher is offline
 - [Record](/docs/usage/record) streams to disk in fMP4 or MPEG-TS format
 - [Playback](/docs/usage/playback) recorded streams
 - [Authenticate](/docs/usage/authentication) users with internal, HTTP or JWT authentication
