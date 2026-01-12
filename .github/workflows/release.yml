@@ -62,7 +62,7 @@ jobs:
             + `\n`
             + `## Security\n`
             + `\n`
-            + `Binaries are compiled from source through the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml) without human intervention,`
+            + `Binaries are compiled from source through the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml?query=branch%3Amain) without human intervention,`
             + ` preventing any external interference.\n`
             + `\n`
             + 'You can verify that binaries have been produced by the workflow by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations):\n'
