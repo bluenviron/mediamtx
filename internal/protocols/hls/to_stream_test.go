@@ -121,8 +121,10 @@ func TestToStream(t *testing.T) {
 				medias[0],
 				medias[0].Formats[0],
 				func(u *unit.Unit) error {
-					require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
-					close(done)
+					if !u.NilPayload() {
+						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+						close(done)
+					}
 					return nil
 				})
 
