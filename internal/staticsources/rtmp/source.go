@@ -59,7 +59,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	connectCtx, connectCtxCancel := context.WithTimeout(params.Context, time.Duration(s.ReadTimeout))
 	conn := &gortmplib.Client{
 		URL:       u,
-		TLSConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		TLSConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint, nil),
 		Publish:   false,
 	}
 	err = conn.Initialize(connectCtx)

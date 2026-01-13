@@ -3,6 +3,7 @@ package auth
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -67,6 +68,7 @@ type Manager struct {
 	JWTExclude         []conf.AuthInternalUserPermission
 	JWTInHTTPQuery     bool
 	ReadTimeout        time.Duration
+	TrustStore         *x509.CertPool
 
 	mutex           sync.RWMutex
 	jwksLastRefresh time.Time
@@ -252,7 +254,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		}
 
 		tr := &http.Transport{
-			TLSClientConfig: tls.MakeConfig(u.Hostname(), m.JWTJWKSFingerprint),
+			TLSClientConfig: tls.MakeConfig(u.Hostname(), m.JWTJWKSFingerprint, m.TrustStore),
 		}
 		defer tr.CloseIdleConnections()
 

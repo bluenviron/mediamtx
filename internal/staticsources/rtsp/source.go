@@ -157,7 +157,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		Host:              u.Host,
 		Tunnel:            tunnel,
 		Protocol:          params.Conf.RTSPTransport.Protocol,
-		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint, nil),
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		WriteQueueSize:    s.WriteQueueSize,

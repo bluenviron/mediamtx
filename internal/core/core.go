@@ -29,6 +29,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/metrics"
 	"github.com/bluenviron/mediamtx/internal/playback"
 	"github.com/bluenviron/mediamtx/internal/pprof"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/recordcleaner"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
@@ -333,6 +334,11 @@ func (p *Core) createResources(initial bool) error {
 		p.externalCmdPool.Initialize()
 	}
 
+	trustStore, err := tls.LoadTrustStore(p.conf.AuthJWTTrustStorePEM)
+	if err != nil {
+		return err
+	}
+
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
 			Method:             p.conf.AuthMethod,
@@ -345,6 +351,7 @@ func (p *Core) createResources(initial bool) error {
 			JWTExclude:         p.conf.AuthJWTExclude,
 			JWTInHTTPQuery:     p.conf.AuthJWTInHTTPQuery,
 			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
+			TrustStore:         trustStore,
 		}
 	}
 
@@ -731,6 +738,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
 		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
+		newConf.AuthJWTTrustStorePEM != p.conf.AuthJWTTrustStorePEM ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
 		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
 		newConf.AuthJWTInHTTPQuery != p.conf.AuthJWTInHTTPQuery ||
