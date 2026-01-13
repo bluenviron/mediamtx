@@ -117,14 +117,22 @@ func TestToStream(t *testing.T) {
 			err2 = strm.Initialize()
 			require.NoError(t, err2)
 
+			n := 0
+
 			r.OnData(
 				medias[0],
 				medias[0].Formats[0],
 				func(u *unit.Unit) error {
-					if !u.NilPayload() {
+					switch n {
+					case 0:
+						require.True(t, u.NilPayload())
+					case 1:
 						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
 						close(done)
+					default:
+						t.Error("should not happen")
 					}
+					n++
 					return nil
 				})
 
