@@ -208,7 +208,7 @@ func TestH264RTPOversized(t *testing.T) {
 		}))
 	require.NoError(t, err)
 
-	var out []*rtp.Packet
+	var out []*rtp.Packet //nolint:prealloc
 
 	for _, pkt := range []*rtp.Packet{
 		{
