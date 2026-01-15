@@ -39,12 +39,12 @@ docker run --rm -it --network=host bluenviron/mediamtx:1
 
 There are four image variants:
 
-| name                             | FFmpeg included    | RPI Camera support |
-| -------------------------------- | ------------------ | ------------------ |
-| bluenviron/mediamtx:1            | :x:                | :x:                |
-| bluenviron/mediamtx:1-ffmpeg     | :heavy_check_mark: | :x:                |
-| bluenviron/mediamtx:1-rpi        | :x:                | :heavy_check_mark: |
-| bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
+| name                             | FFmpeg included    | curl included      | RPI Camera support |
+| -------------------------------- | ------------------ | ------------------ | ------------------ |
+| bluenviron/mediamtx:1            | :x:                | :x:                | :x:                |
+| bluenviron/mediamtx:1-ffmpeg     | :heavy_check_mark: | :heavy_check_mark: | :x:                |
+| bluenviron/mediamtx:1-rpi        | :x:                | :x:                | :heavy_check_mark: |
+| bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 
 The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
 
