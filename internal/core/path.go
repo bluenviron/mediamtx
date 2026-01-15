@@ -584,9 +584,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				return pa.stream.BytesSent()
 			}(),
 			Readers: func() []defs.APIPathSourceOrReader {
-				ret := []defs.APIPathSourceOrReader{}
+				ret := make([]defs.APIPathSourceOrReader, len(pa.readers))
+				i := 0
 				for r := range pa.readers {
-					ret = append(ret, r.APIReaderDescribe())
+					ret[i] = r.APIReaderDescribe()
+					i++
 				}
 				return ret
 			}(),

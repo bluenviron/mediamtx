@@ -613,11 +613,11 @@ func TestOnGet(t *testing.T) {
 
 					sampleData := make(map[int][][]byte)
 					for _, track := range p.Tracks {
-						var samples [][]byte
-						for _, sample := range track.Samples {
+						samples := make([][]byte, len(track.Samples))
+						for i, sample := range track.Samples {
 							buf, err = sample.GetPayload()
 							require.NoError(t, err)
-							samples = append(samples, buf)
+							samples[i] = buf
 							sample.GetPayload = nil
 						}
 						sampleData[track.ID] = samples

@@ -42,22 +42,32 @@ func FormatsInfo(formats []format.Format) string {
 		strings.Join(FormatsToCodecs(formats), ", "))
 }
 
-// MediasToCodecs returns the name of codecs of given formats.
-func MediasToCodecs(medias []*description.Media) []string {
-	var formats []format.Format
+func gatherFormats(medias []*description.Media) []format.Format {
+	n := 0
 	for _, media := range medias {
-		formats = append(formats, media.Formats...)
+		n += len(media.Formats)
 	}
 
-	return FormatsToCodecs(formats)
+	if n == 0 {
+		return nil
+	}
+
+	formats := make([]format.Format, n)
+	n = 0
+
+	for _, media := range medias {
+		n += copy(formats[n:], media.Formats)
+	}
+
+	return formats
+}
+
+// MediasToCodecs returns the name of codecs of given formats.
+func MediasToCodecs(medias []*description.Media) []string {
+	return FormatsToCodecs(gatherFormats(medias))
 }
 
 // MediasInfo returns a description of medias.
 func MediasInfo(medias []*description.Media) string {
-	var formats []format.Format
-	for _, media := range medias {
-		formats = append(formats, media.Formats...)
-	}
-
-	return FormatsInfo(formats)
+	return FormatsInfo(gatherFormats(medias))
 }
