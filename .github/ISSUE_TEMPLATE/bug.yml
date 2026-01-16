@@ -63,8 +63,8 @@ body:
       label: MediaMTX configuration
       description: |
         MediaMTX configuration is often required to replicate the issue.
-      placeholder: Paste or drag the configuration file here
-      # render: shell
+      placeholder: Paste the configuration file here
+      render: yaml
 
   - type: textarea
     id: logs
@@ -73,7 +73,6 @@ body:
       description: |
         MediaMTX logs are often useful to identify the issue. If you think this is the case, set the parameter 'logLevel' to 'debug' and attach logs.
       placeholder: Paste or drag the log file here
-      # render: shell
 
   - type: textarea
     id: network
