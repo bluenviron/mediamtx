@@ -28,7 +28,9 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 		}),
 	}
 
-	err := FromStream(desc, r, nil)
+	pc := &PeerConnection{}
+
+	err := FromStream(desc, r, pc)
 	require.Equal(t, errNoSupportedCodecsFrom, err)
 }
 

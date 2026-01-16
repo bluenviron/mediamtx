@@ -448,6 +448,9 @@ class MediaMTXWebRTCReader {
     this.pc.addTransceiver('video', { direction });
     this.pc.addTransceiver('audio', { direction });
 
+    // using data channels requires creating a data channel locally
+    this.pc.createDataChannel('');
+
     this.pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
     this.pc.onconnectionstatechange = () => this.#onConnectionState();
     this.pc.ontrack = (evt) => this.#onTrack(evt);
