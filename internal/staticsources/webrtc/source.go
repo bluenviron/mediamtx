@@ -49,7 +49,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
 	tr := &http.Transport{
-		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint, nil),
 	}
 	defer tr.CloseIdleConnections()
 

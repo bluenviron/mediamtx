@@ -135,6 +135,10 @@ authJWTJWKS:
 # openssl s_client -connect jwt_jwks_domain:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
 # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
 authJWTJWKSFingerprint:
+# As an alternative to the fingerprint, you can also provide the path to a trust store in PEM format.
+# The certificates will be merged with the system trust store.
+# The trust store is only used if the authJWTJWKSFingerprint is not set.
+authJWTTrustStorePem:
 # name of the claim that contains permissions.
 authJWTClaimKey: mediamtx_permissions
 # Actions to exclude from JWT-based authentication.

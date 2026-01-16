@@ -1,9 +1,18 @@
 package tls
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -91,7 +100,7 @@ func TestMakeConfigSNI(t *testing.T) {
 		require.EqualError(t, err2, "remote error: tls: bad certificate")
 	}()
 
-	conf := MakeConfig("myhost", "")
+	conf := MakeConfig("myhost", "", nil)
 
 	_, err = tls.Dial("tcp", "localhost:8556", conf)
 	require.EqualError(t, err, "tls: failed to verify certificate: x509: "+
@@ -129,9 +138,112 @@ func TestMakeConfigFingerprint(t *testing.T) {
 		require.NoError(t, err2)
 	}()
 
-	conf := MakeConfig("myhost", "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739")
+	conf := MakeConfig("myhost", "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739", nil)
 
 	conn, err := tls.Dial("tcp", "localhost:8556", conf)
 	require.NoError(t, err)
 	defer conn.Close() //nolint:errcheck
+}
+
+func TestMakeConfigNoTruststore(t *testing.T) {
+	l, err := net.Listen("tcp", "localhost:8556")
+	require.NoError(t, err)
+	defer l.Close()
+
+	certChain, _ := createTestCertificates(t)
+
+	serverDone := make(chan struct{})
+	defer func() { <-serverDone }()
+
+	go func() {
+		defer close(serverDone)
+
+		nconn, err2 := l.Accept()
+		require.NoError(t, err2)
+
+		tnconn := tls.Server(nconn, &tls.Config{
+			Certificates:       certChain,
+			InsecureSkipVerify: true,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				require.Equal(t, "myhost", cs.ServerName)
+				return nil
+			},
+		})
+
+		err2 = tnconn.Handshake()
+		nconn.Close()
+		require.Error(t, err2)
+	}()
+
+	conf := MakeConfig("myhost", "", nil)
+	_, err = tls.Dial("tcp", "localhost:8556", conf)
+	require.Error(t, err)
+}
+
+func createTestCertificates(t *testing.T) ([]tls.Certificate, string) {
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	caTemplateCert := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName:   "Test Root CA",
+			Organization: []string{"Mediamtx"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLen:            1,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplateCert, caTemplateCert, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	leafTemplateCert := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			CommonName:   "Mediamtx",
+			Organization: []string{"Mediamtx"},
+		},
+		DNSNames:    []string{"myhost"},
+		Issuer:      caTemplateCert.Subject,
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(24 * time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		IsCA:        false,
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTemplateCert, caTemplateCert, &leafKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	leafCert, err := toTLSCert(leafDER, leafKey)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	truststore := filepath.Join(dir, "truststore.pem")
+	out, err := os.Create(truststore)
+	require.NoError(t, err)
+	defer out.Close()
+
+	err = pem.Encode(out, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caDER,
+	})
+	require.NoError(t, err)
+	return []tls.Certificate{leafCert}, truststore
+}
+
+func toTLSCert(derCert []byte, key *rsa.PrivateKey) (tls.Certificate, error) {
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: derCert,
+	})
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+
+	return tls.X509KeyPair(certPEM, keyPEM)
 }

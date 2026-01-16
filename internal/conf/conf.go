@@ -173,6 +173,7 @@ type Conf struct {
 	AuthHTTPExclude           AuthInternalUserPermissions `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                      `json:"authJWTJWKS"`
 	AuthJWTJWKSFingerprint    string                      `json:"authJWTJWKSFingerprint"`
+	AuthJWTTrustStorePEM      string                      `json:"authJWTTrustStorePem"`
 	AuthJWTClaimKey           string                      `json:"authJWTClaimKey"`
 	AuthJWTExclude            AuthInternalUserPermissions `json:"authJWTExclude"`
 	AuthJWTInHTTPQuery        bool                        `json:"authJWTInHTTPQuery"`
