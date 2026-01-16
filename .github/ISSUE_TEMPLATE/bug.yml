@@ -63,7 +63,7 @@ body:
       label: MediaMTX configuration
       description: |
         MediaMTX configuration is often required to replicate the issue.
-      placeholder: Paste or drag the configuration file here
+      placeholder: Paste the configuration file here
       render: yaml
 
   - type: textarea
