@@ -592,6 +592,14 @@ components:
           type: array
           items:
             type: string
+        resolutions:
+          type: array
+          items:
+            type: string
+        bitrates:
+          type: array
+          items:
+            type: string
         bytesReceived:
           type: integer
           format: int64
