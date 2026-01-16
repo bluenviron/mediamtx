@@ -145,6 +145,7 @@ type PeerConnection struct {
 	STUNGatherTimeout     conf.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
+	OutgoingDataChannels  []*OutgoingDataChannel
 	Log                   logger.Writer
 
 	wr               *webrtc.PeerConnection
@@ -313,6 +314,14 @@ func (co *PeerConnection) Start() error {
 	if co.Publish {
 		for _, tr := range co.OutgoingTracks {
 			err = tr.setup(co)
+			if err != nil {
+				co.wr.GracefulClose() //nolint:errcheck
+				return err
+			}
+		}
+
+		for _, dc := range co.OutgoingDataChannels {
+			err = dc.setup(co)
 			if err != nil {
 				co.wr.GracefulClose() //nolint:errcheck
 				return err

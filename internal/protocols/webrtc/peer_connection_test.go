@@ -593,3 +593,63 @@ func TestPeerConnectionFallbackCodecs(t *testing.T) {
 		},
 	}, s.MediaDescriptions)
 }
+
+func TestPeerConnectionPublishDataChannel(t *testing.T) {
+	pc1, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(t, err)
+	defer pc1.Close() //nolint:errcheck
+
+	_, err = pc1.CreateDataChannel("", nil)
+	require.NoError(t, err)
+
+	dataChanCreated := make(chan struct{})
+	dataReceived := make(chan struct{})
+
+	pc1.OnDataChannel(func(dc *webrtc.DataChannel) {
+		close(dataChanCreated)
+
+		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+			require.Equal(t, []byte("test data"), msg.Data)
+			close(dataReceived)
+		})
+	})
+
+	offer, err := pc1.CreateOffer(nil)
+	require.NoError(t, err)
+
+	err = pc1.SetLocalDescription(offer)
+	require.NoError(t, err)
+
+	pc2 := &PeerConnection{
+		LocalRandomUDP:     true,
+		IPsFromInterfaces:  true,
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		STUNGatherTimeout:  conf.Duration(5 * time.Second),
+		Publish:            true,
+		OutgoingDataChannels: []*OutgoingDataChannel{
+			{
+				Label: "test-channel",
+			},
+		},
+		Log: test.NilLogger,
+	}
+	err = pc2.Start()
+	require.NoError(t, err)
+	defer pc2.Close()
+
+	answer, err := pc2.CreateFullAnswer(&offer)
+	require.NoError(t, err)
+
+	err = pc1.SetRemoteDescription(*answer)
+	require.NoError(t, err)
+
+	err = pc2.WaitUntilConnected()
+	require.NoError(t, err)
+
+	<-dataChanCreated
+
+	pc2.OutgoingDataChannels[0].Write([]byte("test data"))
+
+	<-dataReceived
+}

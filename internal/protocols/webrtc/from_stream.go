@@ -67,8 +67,7 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
-	pc *PeerConnection,
-) (format.Format, error) {
+) (*OutgoingTrack, error) {
 	var av1Format *format.AV1
 	media := desc.FindFormat(&av1Format)
 
@@ -79,7 +78,6 @@ func setupVideoTrack(
 				ClockRate: 90000,
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtpav1.Encoder{
 			PayloadType:    105,
@@ -112,7 +110,7 @@ func setupVideoTrack(
 				return nil
 			})
 
-		return av1Format, nil
+		return track, nil
 	}
 
 	var vp9Format *format.VP9
@@ -126,7 +124,6 @@ func setupVideoTrack(
 				SDPFmtpLine: "profile-id=0",
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtpvp9.Encoder{
 			PayloadType:      96,
@@ -160,7 +157,7 @@ func setupVideoTrack(
 				return nil
 			})
 
-		return vp9Format, nil
+		return track, nil
 	}
 
 	var vp8Format *format.VP8
@@ -173,7 +170,6 @@ func setupVideoTrack(
 				ClockRate: 90000,
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtpvp8.Encoder{
 			PayloadType:    96,
@@ -206,7 +202,7 @@ func setupVideoTrack(
 				return nil
 			})
 
-		return vp8Format, nil
+		return track, nil
 	}
 
 	var h265Format *format.H265
@@ -220,7 +216,6 @@ func setupVideoTrack(
 				SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtph265.Encoder{
 			PayloadType:    96,
@@ -263,7 +258,7 @@ func setupVideoTrack(
 				return nil
 			})
 
-		return h265Format, nil
+		return track, nil
 	}
 
 	var h264Format *format.H264
@@ -277,7 +272,6 @@ func setupVideoTrack(
 				SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtph264.Encoder{
 			PayloadType:    96,
@@ -320,7 +314,7 @@ func setupVideoTrack(
 				return nil
 			})
 
-		return h264Format, nil
+		return track, nil
 	}
 
 	return nil, nil
@@ -329,8 +323,7 @@ func setupVideoTrack(
 func setupAudioTrack(
 	desc *description.Session,
 	r *stream.Reader,
-	pc *PeerConnection,
-) (format.Format, error) {
+) (*OutgoingTrack, error) {
 	var opusFormat *format.Opus
 	media := desc.FindFormat(&opusFormat)
 
@@ -367,7 +360,6 @@ func setupAudioTrack(
 		track := &OutgoingTrack{
 			Caps: caps,
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		curTimestamp, err := randUint32()
 		if err != nil {
@@ -396,7 +388,7 @@ func setupAudioTrack(
 				return nil
 			})
 
-		return opusFormat, nil
+		return track, nil
 	}
 
 	var g722Format *format.G722
@@ -409,7 +401,6 @@ func setupAudioTrack(
 				ClockRate: 8000,
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		r.OnData(
 			media,
@@ -423,7 +414,7 @@ func setupAudioTrack(
 				return nil
 			})
 
-		return g722Format, nil
+		return track, nil
 	}
 
 	var g711Format *format.G711
@@ -482,7 +473,6 @@ func setupAudioTrack(
 		track := &OutgoingTrack{
 			Caps: caps,
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		if g711Format.ClockRate() == 8000 {
 			curTimestamp, err := randUint32()
@@ -567,7 +557,7 @@ func setupAudioTrack(
 				})
 		}
 
-		return g711Format, nil
+		return track, nil
 	}
 
 	var lpcmFormat *format.LPCM
@@ -596,7 +586,6 @@ func setupAudioTrack(
 				Channels:  uint16(lpcmFormat.ChannelCount),
 			},
 		}
-		pc.OutgoingTracks = append(pc.OutgoingTracks, track)
 
 		encoder := &rtplpcm.Encoder{
 			PayloadType:    96,
@@ -641,7 +630,37 @@ func setupAudioTrack(
 				return nil
 			})
 
-		return lpcmFormat, nil
+		return track, nil
+	}
+
+	return nil, nil
+}
+
+func setupKLVDataChannel(
+	desc *description.Session,
+	r *stream.Reader,
+) (*OutgoingDataChannel, error) {
+	var klvFormat *format.KLV
+	media := desc.FindFormat(&klvFormat)
+
+	if klvFormat != nil {
+		dataChan := &OutgoingDataChannel{
+			Label: "KLV",
+		}
+
+		r.OnData(
+			media,
+			klvFormat,
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
+					return nil
+				}
+
+				dataChan.Write(u.Payload.(unit.PayloadKLV))
+				return nil
+			})
+
+		return dataChan, nil
 	}
 
 	return nil, nil
@@ -653,17 +672,34 @@ func FromStream(
 	r *stream.Reader,
 	pc *PeerConnection,
 ) error {
-	videoFormat, err := setupVideoTrack(desc, r, pc)
+	videoTrack, err := setupVideoTrack(desc, r)
 	if err != nil {
 		return err
 	}
 
-	audioFormat, err := setupAudioTrack(desc, r, pc)
+	if videoTrack != nil {
+		pc.OutgoingTracks = append(pc.OutgoingTracks, videoTrack)
+	}
+
+	audioTrack, err := setupAudioTrack(desc, r)
 	if err != nil {
 		return err
 	}
 
-	if videoFormat == nil && audioFormat == nil {
+	if audioTrack != nil {
+		pc.OutgoingTracks = append(pc.OutgoingTracks, audioTrack)
+	}
+
+	klvDataChan, err := setupKLVDataChannel(desc, r)
+	if err != nil {
+		return err
+	}
+
+	if klvDataChan != nil {
+		pc.OutgoingDataChannels = append(pc.OutgoingDataChannels, klvDataChan)
+	}
+
+	if len(pc.OutgoingTracks) == 0 && len(pc.OutgoingDataChannels) == 0 {
 		return errNoSupportedCodecsFrom
 	}
 
