@@ -202,6 +202,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 
 	for i, pkt := range received.RTPPackets {
 		require.Equal(t, 123+uint16(i), pkt.SequenceNumber)
+		require.Equal(t, uint32(45343), pkt.Timestamp)
 	}
 
 	totalPayloadSize := 0

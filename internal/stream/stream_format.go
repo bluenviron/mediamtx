@@ -132,6 +132,8 @@ func (sf *streamFormat) writeUnitInner(u *unit.Unit) error {
 							len(pkt.Payload), sf.rtpMaxPayloadSize)
 					}
 
+					sf.ptsOffset = pkt.Timestamp - uint32(u.PTS)
+
 					sf.parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
 					break
 				}
@@ -162,14 +164,8 @@ func (sf *streamFormat) writeUnitInner(u *unit.Unit) error {
 				return err
 			}
 
-			if sf.useRTPPackets {
-				for _, pkt := range u.RTPPackets {
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-				}
-			} else {
-				for _, pkt := range u.RTPPackets {
-					pkt.Timestamp += sf.ptsOffset + uint32(u.PTS)
-				}
+			for _, pkt := range u.RTPPackets {
+				pkt.Timestamp += sf.ptsOffset + uint32(u.PTS)
 			}
 		}
 	}
