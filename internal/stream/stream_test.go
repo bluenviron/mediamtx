@@ -360,333 +360,356 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 	}
 }
 
+var casesDecodeEncode = []struct {
+	name    string
+	format  format.Format
+	encoded []*rtp.Packet
+	decoded unit.Payload
+}{
+	{
+		name: "av1",
+		format: &format.AV1{
+			PayloadTyp: 96,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					0x10,
+					0x02,       // Size = 2
+					0x01, 0x02, // OBU data
+				},
+			},
+		},
+		decoded: unit.PayloadAV1{
+			{0x02, 0x01, 0x02}, // Size byte included with OBU data
+		},
+	},
+	{
+		name: "vp9",
+		format: &format.VP9{
+			PayloadTyp: 96,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					0x8f, 0xb5, 0xaf, 0x18, 0x07, 0x80, 0x03, 0x24,
+					0x01, 0x14, 0x01, 0x82, 0x49, 0x83, 0x42, 0x00,
+					0x77, 0xf0, 0x32, 0x34,
+				},
+			},
+		},
+		decoded: unit.PayloadVP9{0x82, 0x49, 0x83, 0x42, 0x0, 0x77, 0xf0, 0x32, 0x34},
+	},
+	{
+		name: "vp8",
+		format: &format.VP8{
+			PayloadTyp: 96,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					0x10, // X=0, R=0, N=0, S=1, PartID=0
+					0x01, 0x02, 0x03, 0x04,
+				},
+			},
+		},
+		decoded: unit.PayloadVP8{0x01, 0x02, 0x03, 0x04},
+	},
+	{
+		name: "h265",
+		format: &format.H265{
+			PayloadTyp: 96,
+			VPS:        []byte{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe},
+			SPS:        []byte{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04},
+			PPS:        []byte{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a},
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					0x60, 0x01, 0x00, 0x06, 0x40, 0x01, 0x0c, 0x01,
+					0xff, 0xfe, 0x00, 0x08, 0x42, 0x01, 0x01, 0x01,
+					0x60, 0x00, 0x00, 0x04, 0x00, 0x06, 0x44, 0x01,
+					0xc1, 0x73, 0xd1, 0x8a, 0x00, 0x05, 0x26, 0x01,
+					0x01, 0x02, 0x03,
+				},
+			},
+		},
+		decoded: unit.PayloadH265{
+			{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe},             // VPS
+			{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04}, // SPS
+			{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a},             // PPS
+			{0x26, 0x01, 0x01, 0x02, 0x03},                   // IDR
+		},
+	},
+	{
+		name: "h264",
+		format: &format.H264{
+			PayloadTyp: 96,
+			SPS: []byte{
+				0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+				0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+				0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+			},
+			PPS: []byte{0x08, 0x06, 0x07, 0x08},
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
+					0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,
+					0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0,
+					0x3c, 0x60, 0xc9, 0x20, 0x00, 0x04, 0x08, 0x06,
+					0x07, 0x08, 0x00, 0x05, 0x05, 0x01, 0x02, 0x03,
+					0x04,
+				},
+			},
+		},
+		decoded: unit.PayloadH264{
+			{
+				0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02, 0x27, 0xe5, 0x84,
+				0x00, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+			}, // SPS
+			{0x08, 0x06, 0x07, 0x08},       // PPS
+			{0x05, 0x01, 0x02, 0x03, 0x04}, // IDR
+		},
+	},
+	{
+		name: "mpeg4video",
+		format: &format.MPEG4Video{
+			PayloadTyp: 96,
+			Config:     []byte{0x00, 0x00, 0x01, 0xb0, 0x01},
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{0x00, 0x01, 0x02, 0x03, 0x04},
+			},
+		},
+		decoded: unit.PayloadMPEG4Video{0x00, 0x01, 0x02, 0x03, 0x04},
+	},
+	{
+		name:   "mpeg1video",
+		format: &format.MPEG1Video{},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true, // Marker indicates complete frame
+					PayloadType:    32,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					// MPEG-1 Video RTP header (4 bytes)
+					0x00, // MBZ=0, T=0 (MPEG-1)
+					0x00, // TR (temporal reference) - low 8 bits
+					0x18, // AN=0, N=0, S=0 (no sequence header), B=1, E=1 (complete slice), FBV=0, BFC=0, FFV=0, FFC=0
+					0x00, // FFC (continued)
+					// MPEG-1 Video data (slice or frame data)
+					0x00, 0x00, 0x01, 0x01, // Slice start code
+					0x01, 0x02, 0x03, 0x04, // Slice data
+				},
+			},
+		},
+		decoded: unit.PayloadMPEG1Video{
+			// Only the video data after the 4-byte RTP header
+			0x00, 0x00, 0x01, 0x01,
+			0x01, 0x02, 0x03, 0x04,
+		},
+	},
+	{
+		name: "mpeg4audio",
+		format: &format.MPEG4Audio{
+			PayloadTyp:       96,
+			SizeLength:       13,
+			IndexLength:      3,
+			IndexDeltaLength: 3,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					// AU-headers-length: 16 bits (2 bytes) = 16 bits of headers
+					0x00, 0x10,
+					// AU-header: 13 bits size + 3 bits index
+					// size=4 (13 bits): 0000000000100
+					// index=0 (3 bits): 000
+					// Combined: 0000000000100000 = 0x0020
+					0x00, 0x20,
+					// AU data
+					0x01, 0x02, 0x03, 0x04,
+				},
+			},
+		},
+		decoded: unit.PayloadMPEG4Audio{
+			{0x01, 0x02, 0x03, 0x04},
+		},
+	},
+	{
+		name: "opus",
+		format: &format.Opus{
+			PayloadTyp:   96,
+			ChannelCount: 2,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         false,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			},
+		},
+		decoded: unit.PayloadOpus{
+			{0x01, 0x02, 0x03, 0x04},
+		},
+	},
+	{
+		name: "g711",
+		format: &format.G711{
+			MULaw:        true,
+			SampleRate:   8000,
+			ChannelCount: 1,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         false,
+					PayloadType:    0,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			},
+		},
+		decoded: unit.PayloadG711{0x01, 0x02, 0x03, 0x04},
+	},
+	{
+		name: "lpcm",
+		format: &format.LPCM{
+			PayloadTyp:   96,
+			BitDepth:     16,
+			SampleRate:   48000,
+			ChannelCount: 2,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         false,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			},
+		},
+		decoded: unit.PayloadLPCM{0x01, 0x02, 0x03, 0x04},
+	},
+	{
+		name: "klv",
+		format: &format.KLV{
+			PayloadTyp: 96,
+		},
+		encoded: []*rtp.Packet{
+			{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true, // Marker bit indicates complete KLV unit
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{
+					// KLV Universal Label Key (16 bytes) - starts with 0x060e2b34
+					0x06, 0x0e, 0x2b, 0x34, 0x01, 0x01, 0x01, 0x01,
+					0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+					// Length (1 byte, short form: 4 bytes of data)
+					0x04,
+					// Value (4 bytes)
+					0x01, 0x02, 0x03, 0x04,
+				},
+			},
+		},
+		decoded: unit.PayloadKLV{
+			// Complete KLV unit: Universal Label Key + Length + Value
+			0x06, 0x0e, 0x2b, 0x34, 0x01, 0x01, 0x01, 0x01,
+			0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+			0x04,
+			0x01, 0x02, 0x03, 0x04,
+		},
+	},
+}
+
 func TestStreamDecode(t *testing.T) {
-	for _, ca := range []struct {
-		name    string
-		format  format.Format
-		encoded []*rtp.Packet
-		decoded unit.Payload
-	}{
-		{
-			name:   "av1",
-			format: &format.AV1{},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						0b00011000, // Z=0, N=0, Y=1, W=1 (1 OBU, 2 bytes size)
-						0x02,       // Size = 2
-						0x01, 0x02, // OBU data
-					},
-				},
-			},
-			decoded: unit.PayloadAV1{
-				{0x02, 0x01, 0x02}, // Size byte included with OBU data
-			},
-		},
-		{
-			name:   "vp9",
-			format: &format.VP9{},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						0x9c, // I=1, P=0, L=0, F=1, B=1, E=1, V=0, Z=0
-						0x01,
-						0x02, 0x03, 0x04, // VP9 frame data
-					},
-				},
-			},
-			decoded: unit.PayloadVP9{0x02, 0x03, 0x04},
-		},
-		{
-			name:   "vp8",
-			format: &format.VP8{},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						0x10, // X=0, R=0, N=0, S=1, PartID=0
-						0x01, 0x02, 0x03, 0x04,
-					},
-				},
-			},
-			decoded: unit.PayloadVP8{0x01, 0x02, 0x03, 0x04},
-		},
-		{
-			name: "h265",
-			format: &format.H265{
-				VPS: []byte{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe},
-				SPS: []byte{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04},
-				PPS: []byte{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a},
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						0x26, 0x01, 0x01, 0x02, 0x03, // IDR
-					},
-				},
-			},
-			decoded: unit.PayloadH265{
-				{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe},             // VPS
-				{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04}, // SPS
-				{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a},             // PPS
-				{0x26, 0x01, 0x01, 0x02, 0x03},                   // IDR
-			},
-		},
-		{
-			name: "h264",
-			format: &format.H264{
-				SPS: []byte{
-					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-				},
-				PPS: []byte{0x08, 0x06, 0x07, 0x08},
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						0x05, 0x01, 0x02, 0x03, 0x04, // IDR
-					},
-				},
-			},
-			decoded: unit.PayloadH264{
-				{
-					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02, 0x27, 0xe5, 0x84,
-					0x00, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-				}, // SPS
-				{0x08, 0x06, 0x07, 0x08},       // PPS
-				{0x05, 0x01, 0x02, 0x03, 0x04}, // IDR
-			},
-		},
-		{
-			name: "mpeg4video",
-			format: &format.MPEG4Video{
-				Config: []byte{0x00, 0x00, 0x01, 0xb0, 0x01},
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{0x00, 0x01, 0x02, 0x03, 0x04},
-				},
-			},
-			decoded: unit.PayloadMPEG4Video{0x00, 0x01, 0x02, 0x03, 0x04},
-		},
-		{
-			name:   "mpeg1video",
-			format: &format.MPEG1Video{},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true, // Marker indicates complete frame
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						// MPEG-1 Video RTP header (4 bytes)
-						0x00, // MBZ=0, T=0 (MPEG-1)
-						0x00, // TR (temporal reference) - low 8 bits
-						0x18, // AN=0, N=0, S=0 (no sequence header), B=1, E=1 (complete slice), FBV=0, BFC=0, FFV=0, FFC=0
-						0x00, // FFC (continued)
-						// MPEG-1 Video data (slice or frame data)
-						0x00, 0x00, 0x01, 0x01, // Slice start code
-						0x01, 0x02, 0x03, 0x04, // Slice data
-					},
-				},
-			},
-			decoded: unit.PayloadMPEG1Video{
-				// Only the video data after the 4-byte RTP header
-				0x00, 0x00, 0x01, 0x01,
-				0x01, 0x02, 0x03, 0x04,
-			},
-		},
-		{
-			name: "mpeg4audio",
-			format: &format.MPEG4Audio{
-				SizeLength:       13,
-				IndexLength:      3,
-				IndexDeltaLength: 3,
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						// AU-headers-length: 16 bits (2 bytes) = 16 bits of headers
-						0x00, 0x10,
-						// AU-header: 13 bits size + 3 bits index
-						// size=4 (13 bits): 0000000000100
-						// index=0 (3 bits): 000
-						// Combined: 0000000000100000 = 0x0020
-						0x00, 0x20,
-						// AU data
-						0x01, 0x02, 0x03, 0x04,
-					},
-				},
-			},
-			decoded: unit.PayloadMPEG4Audio{
-				{0x01, 0x02, 0x03, 0x04},
-			},
-		},
-		{
-			name: "opus",
-			format: &format.Opus{
-				ChannelCount: 2,
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         false,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
-				},
-			},
-			decoded: unit.PayloadOpus{
-				{0x01, 0x02, 0x03, 0x04},
-			},
-		},
-		{
-			name: "g711",
-			format: &format.G711{
-				MULaw:        true,
-				SampleRate:   8000,
-				ChannelCount: 1,
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         false,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
-				},
-			},
-			decoded: unit.PayloadG711{0x01, 0x02, 0x03, 0x04},
-		},
-		{
-			name: "lpcm",
-			format: &format.LPCM{
-				BitDepth:     16,
-				SampleRate:   48000,
-				ChannelCount: 2,
-			},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         false,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
-				},
-			},
-			decoded: unit.PayloadLPCM{0x01, 0x02, 0x03, 0x04},
-		},
-		{
-			name:   "klv",
-			format: &format.KLV{},
-			encoded: []*rtp.Packet{
-				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true, // Marker bit indicates complete KLV unit
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{
-						// KLV Universal Label Key (16 bytes) - starts with 0x060e2b34
-						0x06, 0x0e, 0x2b, 0x34, 0x01, 0x01, 0x01, 0x01,
-						0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-						// Length (1 byte, short form: 4 bytes of data)
-						0x04,
-						// Value (4 bytes)
-						0x01, 0x02, 0x03, 0x04,
-					},
-				},
-			},
-			decoded: unit.PayloadKLV{
-				// Complete KLV unit: Universal Label Key + Length + Value
-				0x06, 0x0e, 0x2b, 0x34, 0x01, 0x01, 0x01, 0x01,
-				0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-				0x04,
-				0x01, 0x02, 0x03, 0x04,
-			},
-		},
-	} {
+	for _, ca := range casesDecodeEncode {
 		t.Run(ca.name, func(t *testing.T) {
-			desc := &description.Session{Medias: []*description.Media{
-				{
-					Formats: []format.Format{ca.format},
-				},
-			}}
+			desc := &description.Session{Medias: []*description.Media{{
+				Formats: []format.Format{ca.format},
+			}}}
 
 			strm := &Stream{
 				Desc:              desc,
@@ -723,6 +746,50 @@ func TestStreamDecode(t *testing.T) {
 				// just verify that we got data
 				require.NotNil(t, received.Payload)
 			}
+		})
+	}
+}
+
+func TestStreamEncode(t *testing.T) {
+	for _, ca := range casesDecodeEncode {
+		t.Run(ca.name, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{{
+				Formats: []format.Format{ca.format},
+			}}}
+
+			strm := &Stream{
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            &nilLogger{},
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			r := &Reader{}
+			recv := make(chan struct{})
+
+			r.OnData(desc.Medias[0], ca.format, func(u *unit.Unit) error {
+				for i, pkt := range u.RTPPackets {
+					pkt.Timestamp = ca.encoded[i].Timestamp
+					pkt.SequenceNumber = ca.encoded[i].SequenceNumber
+					pkt.SSRC = ca.encoded[i].SSRC
+				}
+				require.Equal(t, ca.encoded, u.RTPPackets)
+				close(recv)
+				return nil
+			})
+
+			strm.AddReader(r)
+			defer strm.RemoveReader(r)
+
+			strm.WriteUnit(desc.Medias[0], ca.format, &unit.Unit{
+				Payload: ca.decoded,
+			})
+
+			<-recv
 		})
 	}
 }

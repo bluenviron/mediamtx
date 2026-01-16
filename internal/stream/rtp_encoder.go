@@ -196,6 +196,7 @@ func newRTPEncoder(
 			PayloadType:           forma.PayloadTyp,
 			SSRC:                  ssrc,
 			InitialSequenceNumber: initialSequenceNumber,
+			InitialPictureID:      ptrOf(uint16(0x35af)),
 		}
 		err := wrapped.Init()
 		if err != nil {
