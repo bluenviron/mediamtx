@@ -158,8 +158,9 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	initializeStream := func() {
 		if strm == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               &description.Session{Medias: medias},
-				GenerateRTPPackets: false,
+				Desc:          &description.Session{Medias: medias},
+				UseRTPPackets: true,
+				ReplaceNTP:    false,
 			})
 			if res.Err != nil {
 				panic("should not happen")
@@ -189,7 +190,11 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 		for _, pkt := range pkts {
 			pkt.Timestamp = uint32(pts)
-			strm.WriteRTPPacket(medi, medi.Formats[0], pkt, ntp, pts)
+			strm.WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				PTS:        pts,
+				NTP:        ntp,
+				RTPPackets: []*rtp.Packet{pkt},
+			})
 		}
 	}
 
@@ -216,7 +221,11 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 			for _, pkt := range pkts {
 				pkt.Timestamp = uint32(pts)
 				pkt.PayloadType = 96
-				strm.WriteRTPPacket(mediaSecondary, mediaSecondary.Formats[0], pkt, ntp, pts)
+				strm.WriteUnit(mediaSecondary, mediaSecondary.Formats[0], &unit.Unit{
+					PTS:        pts,
+					NTP:        ntp,
+					RTPPackets: []*rtp.Packet{pkt},
+				})
 			}
 		}
 	}
@@ -275,8 +284,8 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	}
 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-		Desc:               &description.Session{Medias: []*description.Media{media}},
-		GenerateRTPPackets: false,
+		Desc:          &description.Session{Medias: []*description.Media{media}},
+		UseRTPPackets: true,
 	})
 	if res.Err != nil {
 		return res.Err
@@ -296,7 +305,11 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 			}
 			newPkt.PayloadType = 26
 
-			res.Stream.WriteRTPPacket(media, media.Formats[0], newPkt, u.NTP, u.PTS)
+			res.Stream.WriteUnit(media, media.Formats[0], &unit.Unit{
+				PTS:        u.PTS,
+				NTP:        u.NTP,
+				RTPPackets: []*rtp.Packet{newPkt},
+			})
 			return nil
 		})
 

@@ -130,11 +130,11 @@ func TestRecorder(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -418,11 +418,11 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		UseRTPPackets:     false,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -507,11 +507,11 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		UseRTPPackets:     false,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -601,11 +601,11 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -663,11 +663,11 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -727,11 +727,11 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		WriteQueueSize:     512,
-		RTPMaxPayloadSize:  1450,
-		Desc:               desc,
-		GenerateRTPPackets: true,
-		Parent:             test.NilLogger,
+		Desc:              desc,
+		UseRTPPackets:     false,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -850,11 +850,11 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)

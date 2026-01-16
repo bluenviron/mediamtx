@@ -311,11 +311,11 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	path, stream, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             s,
-		Desc:               s.rsession.AnnouncedDescription(),
-		GenerateRTPPackets: false,
-		FillNTP:            !s.pathConf.UseAbsoluteTimestamp,
-		ConfToCompare:      s.pathConf,
+		Author:        s,
+		Desc:          s.rsession.AnnouncedDescription(),
+		UseRTPPackets: true,
+		ReplaceNTP:    !s.pathConf.UseAbsoluteTimestamp,
+		ConfToCompare: s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.rsession.Path()[1:],
 			Query:    s.rsession.Query(),

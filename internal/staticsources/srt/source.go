@@ -106,9 +106,9 @@ func (s *Source) runReader(sconn srt.Conn) error {
 	}
 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-		FillNTP:            true,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: false,
+		ReplaceNTP:    true,
 	})
 	if res.Err != nil {
 		return res.Err
