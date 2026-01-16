@@ -547,7 +547,7 @@ pathDefaults:
   # When enabled, RTSP publishers sending MP2T/90000 will be demultiplexed
   # and their elementary streams (H.264, H.265, AAC, etc.) exposed as native tracks.
   # This allows HLS, WebRTC, and other outputs to work transparently with MPEG-TS sources.
-  demuxMPEGTS: yes
+  rtspDemuxMpegts: yes
 
   ###############################################
   # Default path settings -> RTSP source (when source is a RTSP or a RTSPS URL)

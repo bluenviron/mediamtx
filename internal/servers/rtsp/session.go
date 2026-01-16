@@ -328,7 +328,7 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 
 // shouldDemuxMPEGTS checks if MPEG-TS demuxing should be used.
 func (s *session) shouldDemuxMPEGTS() bool {
-	if !s.pathConf.DemuxMPEGTS {
+	if !s.pathConf.RtspDemuxMpegts {
 		return false
 	}
 	medias := s.rsession.AnnouncedDescription().Medias
