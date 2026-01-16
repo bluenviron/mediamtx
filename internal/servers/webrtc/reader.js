@@ -11,6 +11,11 @@
  */
 
 /**
+ * @callback OnDataChannel
+ * @param {RTCDataChannelEvent} evt - data channel event.
+ */
+
+/**
  * @typedef Conf
  * @type {object}
  * @property {string} url - absolute URL of the WHEP endpoint.
@@ -19,6 +24,7 @@
  * @property {string} token - token.
  * @property {OnError} onError - called when there's an error.
  * @property {OnTrack} onTrack - called when there's a track available.
+ * @property {OnDataChannel} onDataChannel - called when there's a data channel available.
  */
 
 /** WebRTC/WHEP reader. */
@@ -570,28 +576,8 @@ class MediaMTXWebRTCReader {
   }
 
   #onDataChannel(evt) {
-    const dataChannel = evt.channel;
-
-    if (dataChannel.label === 'klv') {
-      dataChannel.onopen = () => {
-        console.log('KLV metadata data channel opened');
-      };
-
-      dataChannel.onmessage = (event) => {
-        if (this.conf.onKLVData !== undefined) {
-          // Parse KLV data from ArrayBuffer
-          const klvData = new Uint8Array(event.data);
-          this.conf.onKLVData(klvData);
-        }
-      };
-
-      dataChannel.onclose = () => {
-        console.log('KLV metadata data channel closed');
-      };
-
-      dataChannel.onerror = (error) => {
-        console.error('KLV metadata data channel error:', error);
-      };
+    if (this.conf.onDataChannel !== undefined) {
+      this.conf.onDataChannel(evt);
     }
   }
 }
