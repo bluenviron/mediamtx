@@ -95,7 +95,7 @@ func (c *conn) initialize() {
 		RunOnConnectRestart: c.runOnConnectRestart,
 		RunOnDisconnect:     c.runOnDisconnect,
 		RTSPAddress:         c.rtspAddress,
-		Desc:                desc,
+		Conn:                desc,
 	})
 }
 

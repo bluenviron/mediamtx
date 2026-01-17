@@ -96,13 +96,19 @@ func TestFromStreamResampleOpus(t *testing.T) {
 				}},
 			},
 		}},
-		UseRTPPackets:     true,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		ReplaceNTP:        false,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
+	require.NoError(t, err)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: true,
+	}
+	err = subStream.Initialize()
 	require.NoError(t, err)
 
 	pc1 := &PeerConnection{
@@ -153,7 +159,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	strm.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
 		NTP: time.Now(),
 		RTPPackets: []*rtp.Packet{{
@@ -169,7 +175,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	strm.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
 		NTP: time.Now(),
 		RTPPackets: []*rtp.Packet{{

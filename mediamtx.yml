@@ -148,7 +148,7 @@ authJWTInHTTPQuery: true
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+api: true
 # Address of the Control API listener.
 apiAddress: :9997
 # Enable TLS/HTTPS on the Control API server.
@@ -492,6 +492,17 @@ pathDefaults:
   useAbsoluteTimestamp: false
 
   ###############################################
+  # Default path settings -> Always online
+
+  # Enable always-online mode, in which a video is played on repeat
+  # when there are no publishers.
+  alwaysAvailable: false
+  # Tracks of always-available mode. Any publisher must provide these tracks too.
+  alwaysAvailableTracks:
+    # Available values are: AV1, VP9, H265, H264
+  - codec: H264
+
+  ###############################################
   # Default path settings -> Record
 
   # Record streams to disk.
@@ -757,6 +768,11 @@ paths:
   # example:
   # my_camera:
   #   source: rtsp://my_camera
+
+  stream:
+    alwaysAvailable: true
+    alwaysAvailableTracks:
+    - codec: VP9
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

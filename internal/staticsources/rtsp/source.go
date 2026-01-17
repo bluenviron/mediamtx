@@ -234,13 +234,13 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 		Medias: medias,
 	}
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
 	rtsp.ToStream(
 		c,
 		desc2.Medias,
 		pathConf,
-		&strm,
+		&subStream,
 		s)
 
 	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
@@ -254,7 +254,7 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	strm = res.Stream
+	subStream = res.SubStream
 
 	rangeHeader, err := createRangeHeader(pathConf)
 	if err != nil {

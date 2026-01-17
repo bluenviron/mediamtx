@@ -57,9 +57,9 @@ type PathDescribeReq struct {
 
 // PathAddPublisherRes contains the response of AddPublisher().
 type PathAddPublisherRes struct {
-	Path   Path
-	Stream *stream.Stream
-	Err    error
+	Path      Path
+	SubStream *stream.SubStream
+	Err       error
 }
 
 // PathAddPublisherReq contains arguments of AddPublisher().
@@ -101,8 +101,8 @@ type PathRemoveReaderReq struct {
 
 // PathSourceStaticSetReadyRes contains the response of SetReadu().
 type PathSourceStaticSetReadyRes struct {
-	Stream *stream.Stream
-	Err    error
+	SubStream *stream.SubStream
+	Err       error
 }
 
 // PathSourceStaticSetReadyReq contains arguments of SetReady().

@@ -13,7 +13,7 @@ type OnReadyParams struct {
 	ExternalCmdPool *externalcmd.Pool
 	Conf            *conf.Path
 	ExternalCmdEnv  externalcmd.Environment
-	Desc            defs.APIPathSourceOrReader
+	Source          *defs.APIPathSourceOrReader
 	Query           string
 }
 
@@ -25,8 +25,10 @@ func OnReady(params OnReadyParams) func() {
 	if params.Conf.RunOnReady != "" || params.Conf.RunOnNotReady != "" {
 		env = params.ExternalCmdEnv
 		env["MTX_QUERY"] = params.Query
-		env["MTX_SOURCE_TYPE"] = params.Desc.Type
-		env["MTX_SOURCE_ID"] = params.Desc.ID
+		if params.Source != nil {
+			env["MTX_SOURCE_TYPE"] = params.Source.Type
+			env["MTX_SOURCE_ID"] = params.Source.ID
+		}
 	}
 
 	if params.Conf.RunOnReady != "" {
