@@ -9,7 +9,7 @@ ADD binaries/mediamtx_*_linux_arm64.tar.gz /linux/arm64
 #################################################################
 FROM alpine:3.22
 
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache ffmpeg curl
 
 ARG TARGETPLATFORM
 COPY --from=binaries /$TARGETPLATFORM /
