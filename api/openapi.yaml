@@ -589,6 +589,16 @@ components:
         readyTime:
           type: string
           nullable: true
+        available:
+          type: boolean
+        availableTime:
+          type: string
+          nullable: true
+        online:
+          type: boolean
+        onlineTime:
+          type: string
+          nullable: true
         tracks:
           type: array
           items:
