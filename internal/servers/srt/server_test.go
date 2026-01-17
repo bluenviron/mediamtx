@@ -230,7 +230,7 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer reader.Close()
 
-	time.Sleep(500 * time.Millisecond)
+	strm.WaitForReaders()
 
 	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		NTP: time.Time{},
