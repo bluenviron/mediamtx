@@ -14,12 +14,20 @@ This will replace the _MediaMTX_ executable with its latest version. Privileges 
 
 ## Docker image
 
-If you used the `1` tag or the `latest` tag, remove the image from cache and re-download it:
+Stop and remove the container:
+
+```sh
+docker stop id-of-mediamtx-container
+docker rm id-of-mediamtx-container
+```
+
+Remove the _MediaMTX_ image from cache:
 
 ```sh
 docker rm bluenviron/mediamtx:1
-docker restart id-of-mediamtx-container
 ```
+
+Then recreate the container as described in [Install](install#docker-image).
 
 ## Arch Linux package
 
