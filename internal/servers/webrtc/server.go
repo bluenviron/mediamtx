@@ -176,7 +176,7 @@ type serverMetrics interface {
 
 type serverPathManager interface {
 	FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error)
-	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error)
+	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 

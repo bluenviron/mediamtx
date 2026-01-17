@@ -186,13 +186,19 @@ func TestServerRead(t *testing.T) {
 
 			strm := &stream.Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				ReplaceNTP:        false,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			pm := &dummyPathManager{
@@ -287,14 +293,14 @@ func TestServerRead(t *testing.T) {
 				strm.WaitForReaders()
 
 				for i := range 2 {
-					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
+					subStream.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
 						NTP: time.Time{},
 						PTS: int64(i) * 90000,
 						Payload: unit.PayloadH264{
 							{5, 1}, // IDR
 						},
 					})
-					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
+					subStream.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
 						NTP:     time.Time{},
 						PTS:     int64(i) * 44100,
 						Payload: unit.PayloadMPEG4Audio{{1, 2}},
@@ -328,14 +334,14 @@ func TestServerRead(t *testing.T) {
 				strm.WaitForReaders()
 
 				for i := range 2 {
-					strm.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
+					subStream.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
 						NTP: time.Time{},
 						PTS: int64(i) * 90000,
 						Payload: unit.PayloadH264{
 							{5, 1}, // IDR
 						},
 					})
-					strm.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
+					subStream.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
 						NTP:     time.Time{},
 						PTS:     int64(i) * 44100,
 						Payload: unit.PayloadMPEG4Audio{{1, 2}},
@@ -408,12 +414,18 @@ func TestServerDirectory(t *testing.T) {
 
 	strm := &stream.Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
 	}
 	err = strm.Initialize()
+	require.NoError(t, err)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
 	require.NoError(t, err)
 
 	pm := &dummyPathManager{
@@ -457,12 +469,18 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 
 	strm := &stream.Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
+	require.NoError(t, err)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
 	require.NoError(t, err)
 
 	done := make(chan struct{})

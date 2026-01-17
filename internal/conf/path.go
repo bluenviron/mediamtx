@@ -120,6 +120,10 @@ type Path struct {
 	Fallback                   string   `json:"fallback"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
+	// Always available
+	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
+	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
+
 	// Record
 	Record                bool         `json:"record"`
 	Playback              *bool        `json:"playback,omitempty"` // deprecated
@@ -624,6 +628,18 @@ func (pconf *Path) validate(
 		err := checkRedirect(pconf.Fallback)
 		if err != nil {
 			return err
+		}
+	}
+
+	// Always available
+
+	if pconf.AlwaysAvailable {
+		if len(pconf.AlwaysAvailableTracks) == 0 {
+			return fmt.Errorf("'alwaysAvailableTracks' must contain at least one track")
+		}
+
+		if pconf.UseAbsoluteTimestamp {
+			return fmt.Errorf("'useAbsoluteTimestamp' cannot be used with 'alwaysAvailable'")
 		}
 	}
 

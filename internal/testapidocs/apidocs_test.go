@@ -72,14 +72,14 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 		rt == reflect.TypeOf(conf.Duration(0)) ||
 		rt == reflect.TypeOf(conf.IPNetwork{}) ||
 		rt == reflect.TypeOf(conf.Credential("")) ||
-		rt == reflect.TypeOf(conf.RecordFormat(0)) ||
+		rt == reflect.TypeOf(conf.RecordFormat("")) ||
 		rt == reflect.TypeOf(conf.AuthAction("")) ||
-		rt == reflect.TypeOf(conf.Encryption(0)) ||
+		rt == reflect.TypeOf(conf.Encryption("")) ||
 		rt == reflect.TypeOf(conf.RTSPTransport{}) ||
 		rt == reflect.TypeOf(conf.StringSize(0)) ||
-		rt == reflect.TypeOf(conf.RTSPRangeType(0)) ||
+		rt == reflect.TypeOf(conf.RTSPRangeType("")) ||
 		rt == reflect.TypeOf(conf.LogLevel(0)) ||
-		rt == reflect.TypeOf(conf.AuthMethod(0)) ||
+		rt == reflect.TypeOf(conf.AuthMethod("")) ||
 		rt == reflect.TypeOf(conf.LogDestination(0)) ||
 		rt == reflect.TypeOf(conf.RTSPAuthMethod(0)) ||
 		rt == reflect.TypeOf(conf.HLSVariant(0)) ||

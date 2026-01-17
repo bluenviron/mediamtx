@@ -148,7 +148,7 @@ authJWTInHTTPQuery: true
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+api: true
 # Address of the Control API listener.
 apiAddress: :9997
 # Enable HTTPS on the Control API server.
@@ -487,6 +487,22 @@ pathDefaults:
   useAbsoluteTimestamp: false
 
   ###############################################
+  # Default path settings -> Always available
+
+  # Enable always-available mode, in which a video is played on repeat
+  # when there are no publishers.
+  alwaysAvailable: false
+  # Tracks of always-available mode. Any publisher must provide these tracks too.
+  alwaysAvailableTracks:
+    # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
+  - codec: H264
+    # in case of MPEG4Audio, G711, LPCM, sampleRate and ChannelCount must be provided too.
+    # sampleRate: 48000
+    # channelCount: 2
+    # in case of G711, muLaw must be provided too.
+    # muLaw: false
+
+  ###############################################
   # Default path settings -> Record
 
   # Record streams to disk.
@@ -752,6 +768,29 @@ paths:
   # example:
   # my_camera:
   #   source: rtsp://my_camera
+
+  stream:
+    alwaysAvailable: true
+    alwaysAvailableTracks:
+
+    - codec: H264
+
+    # - codec: Opus
+    #   sampleRate: 48000
+    #   channelCount: 1
+
+    # - codec: MPEG4Audio
+    #   sampleRate: 48000
+    #   channelCount: 2
+
+    # - codec: G711
+    #   muLaw: false
+    #   sampleRate: 8000
+    #   channelCount: 2
+
+    #- codec: LPCM
+    #  sampleRate: 44100
+    #  channelCount: 2
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

@@ -12,7 +12,7 @@ import (
 
 type streamMedia struct {
 	media             *description.Media
-	useRTPPackets     bool
+	alwaysAvailable   bool
 	rtpMaxPayloadSize int
 	replaceNTP        bool
 	onBytesReceived   func(uint64)
@@ -31,7 +31,7 @@ func (sm *streamMedia) initialize() error {
 		sf := &streamFormat{
 			format:            forma,
 			media:             sm.media,
-			useRTPPackets:     sm.useRTPPackets,
+			alwaysAvailable:   sm.alwaysAvailable,
 			rtpMaxPayloadSize: sm.rtpMaxPayloadSize,
 			replaceNTP:        sm.replaceNTP,
 			processingErrors:  sm.processingErrors,
