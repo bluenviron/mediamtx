@@ -34,6 +34,8 @@ type Stream struct {
 	rtspsStream      *gortsplib.ServerStream
 	readers          map[*Reader]struct{}
 	processingErrors *errordumper.Dumper
+
+	hasReaders chan struct{}
 }
 
 // Initialize initializes a Stream.
@@ -42,6 +44,7 @@ func (s *Stream) Initialize() error {
 	s.bytesSent = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
+	s.hasReaders = make(chan struct{})
 
 	s.processingErrors = &errordumper.Dumper{
 		OnReport: func(val uint64, last error) {
@@ -166,6 +169,12 @@ func (s *Stream) AddReader(r *Reader) {
 
 	r.queueSize = s.WriteQueueSize
 	r.start()
+
+	select {
+	case <-s.hasReaders:
+	default:
+		close(s.hasReaders)
+	}
 }
 
 // RemoveReader removes a reader.
@@ -186,6 +195,11 @@ func (s *Stream) RemoveReader(r *Reader) {
 	}
 
 	delete(s.readers, r)
+}
+
+// WaitForReaders waits for the stream to have at least one reader.
+func (s *Stream) WaitForReaders() {
+	<-s.hasReaders
 }
 
 // WriteUnit writes a Unit.

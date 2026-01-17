@@ -266,9 +266,9 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 			defer conn.Close()
 
-			go func() {
-				time.Sleep(500 * time.Millisecond)
+			strm.WaitForReaders()
 
+			go func() {
 				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					NTP: time.Time{},
 					Payload: unit.PayloadH264{
