@@ -1,0 +1,36 @@
+###############################################################
+# Example config for cmd/loader
+#
+# This file is meant to be *loaded into* a running MediaMTX instance
+# via the HTTP API, using:
+#
+#   go run ./cmd/loader -config cmd/loader/example_testpattern.yml -api http://localhost:9997 -mode replace
+#
+###############################################################
+
+api: yes
+metrics: yes
+rtsp: yes
+hls: yes
+webrtc: yes
+
+paths:
+  # Publishes a synthetic test video to MediaMTX (RTSP).
+  test/pattern:
+    source: publisher
+    record: false
+    metadata:
+      type: testpattern
+      expectedCodec: h264
+      expectedBitrate: 3Mbps
+      expectedResolution: 1920x1080
+      expectedFPS: 25
+    runOnInit: >
+      ffmpeg -hide_banner -loglevel warning -re
+      -f lavfi -i testsrc2=size=1920x1080:rate=25
+      -c:v libx264 -preset ultrafast -tune zerolatency
+      -g 25 -keyint_min 25
+      -b:v 3M
+      -pix_fmt yuv420p
+      -f rtsp rtsp://127.0.0.1:8554/test/pattern
+    runOnInitRestart: true
