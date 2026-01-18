@@ -1,3 +1,4 @@
+// Package main provides a CLI that loads MediaMTX YAML config paths into a running MediaMTX via HTTP API.
 package main
 
 import (
@@ -161,8 +162,8 @@ func main() {
 	}
 
 	var temp any
-	if err := yaml.UnmarshalStrict(buf, &temp); err != nil {
-		fmt.Fprintf(os.Stderr, "parse yaml: %v\n", err)
+	if yamlErr := yaml.UnmarshalStrict(buf, &temp); yamlErr != nil {
+		fmt.Fprintf(os.Stderr, "parse yaml: %v\n", yamlErr)
 		os.Exit(1)
 	}
 
@@ -221,8 +222,8 @@ func main() {
 	for name, bodyAny := range paths {
 		bodyMap := map[string]any{}
 		if bodyAny != nil {
-			bm, ok := bodyAny.(map[string]any)
-			if !ok {
+			bm, okBody := bodyAny.(map[string]any)
+			if !okBody {
 				fmt.Fprintf(os.Stderr, "%s: skipping (path config must be a mapping)\n", name)
 				skipped++
 				continue
@@ -240,11 +241,14 @@ func main() {
 			action := "ADD"
 			method := http.MethodPost
 			u := addURL
-			if m == modePatch {
+
+			switch m {
+			case modePatch:
 				action = "PATCH"
 				method = http.MethodPatch
 				u = patchURL
-			} else if m == modeReplace {
+
+			case modeReplace:
 				action = "REPLACE"
 				method = http.MethodPost
 				u = replaceURL
@@ -256,9 +260,9 @@ func main() {
 			continue
 		}
 
-		st, msg, err := httpJSON(client, http.MethodGet, getURL, nil, auth)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: GET error: %v\n", name, err)
+		st, msg, httpErr := httpJSON(client, http.MethodGet, getURL, nil, auth)
+		if httpErr != nil {
+			fmt.Fprintf(os.Stderr, "%s: GET error: %v\n", name, httpErr)
 			failed++
 			continue
 		}
