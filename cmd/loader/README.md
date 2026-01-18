@@ -22,6 +22,9 @@ api: yes
 From the repo root:
 
 ```bash
+# Example file:
+#   cmd/loader/example_testpattern.yml
+#
 # Add only: create missing paths, skip existing ones
 go run ./cmd/loader -config mediamtx2.yml -api http://localhost:9997 -mode add
 
@@ -44,6 +47,18 @@ Dry-run (print actions, don’t call the API):
 go run ./cmd/loader -config mediamtx2.yml -api http://localhost:9997 -mode replace -dry-run
 ```
 
+To load the included test-pattern example:
+
+```bash
+go run ./cmd/loader -config cmd/loader/example_testpattern.yml -api http://localhost:9997 -mode replace
+```
+
+The included example (`cmd/loader/example_testpattern.yml`) defines a single path `test/pattern` that:
+
+- publishes an FFmpeg `testsrc2` stream to `rtsp://127.0.0.1:8554/test/pattern`
+- encodes H.264 at ~`3Mbps` (`-b:v 3M`)
+- sets `metadata.expectedBitrate: 3Mbps`
+
 ## Output
 
 The loader prints **one block per non-skip action** (`ADD`, `PATCH`, `REPLACE`) with request + response details:
@@ -59,6 +74,6 @@ When `-mode add` and the path already exists, it is **skipped silently**.
 ## Notes
 
 - The YAML is parsed with `yaml.UnmarshalStrict` (duplicates / invalid YAML will fail fast).
-- Path names are URL-escaped while preserving `/` (e.g. `cam1/main` stays a single name).
+- Path names are URL-escaped while preserving `/` (e.g. `test/pattern` stays a single name).
 - On API validation errors, the server response is printed in `response.body`.
 
