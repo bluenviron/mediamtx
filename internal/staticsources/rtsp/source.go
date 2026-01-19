@@ -76,7 +76,7 @@ type Source struct {
 	WriteTimeout       conf.Duration
 	WriteQueueSize     int
 	UDPReadBufferSize  uint
-	UDPClientPortRange []uint
+	UDPClientPortRange []uint16
 	Parent             parent
 }
 
@@ -157,7 +157,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var udpMaxPort uint16 = 65535
 
 	if s.UDPClientPortRange != nil && len(s.UDPClientPortRange) == 2 {
-		if s.UDPClientPortRange[0] < 655536 && s.UDPClientPortRange[1] < 65536 {
+		if s.UDPClientPortRange[0] < 65535 && s.UDPClientPortRange[1] < 65535 {
 			udpMinPort = uint16(s.UDPClientPortRange[0])
 			udpMaxPort = uint16(s.UDPClientPortRange[1])
 		} else {

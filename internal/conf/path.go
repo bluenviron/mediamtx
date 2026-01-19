@@ -160,7 +160,6 @@ type Path struct {
 	// RTP source
 	RTPSDP               string `json:"rtpSDP"`
 	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty"` // deprecated
-	UDPClientPortRange   []uint `json:"udpClientPortRange,omitempty"`
 
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`

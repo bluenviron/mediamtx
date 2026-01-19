@@ -71,7 +71,7 @@ type path struct {
 	writeTimeout       conf.Duration
 	writeQueueSize     int
 	udpReadBufferSize  uint
-	udpClientPortRange []uint
+	udpClientPortRange []uint16
 	rtpMaxPayloadSize  int
 	conf               *conf.Path
 	name               string

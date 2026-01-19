@@ -77,7 +77,7 @@ type pathManager struct {
 	writeTimeout       conf.Duration
 	writeQueueSize     int
 	udpReadBufferSize  uint
-	udpClientPortRange []uint
+	udpClientPortRange []uint16
 	rtpMaxPayloadSize  int
 	pathConfs          map[string]*conf.Path
 	externalCmdPool    *externalcmd.Pool

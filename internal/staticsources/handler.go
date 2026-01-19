@@ -68,7 +68,7 @@ type Handler struct {
 	WriteTimeout       conf.Duration
 	WriteQueueSize     int
 	UDPReadBufferSize  uint
-	UDPClientPortRange []uint
+	UDPClientPortRange []uint16
 	RTPMaxPayloadSize  int
 	Matches            []string
 	PathManager        handlerPathManager
