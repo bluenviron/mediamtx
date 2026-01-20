@@ -4,8 +4,8 @@ import (
 	"net"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
-	"github.com/pion/transport/v3"
-	"github.com/pion/transport/v3/stdnet"
+	"github.com/pion/transport/v4"
+	"github.com/pion/transport/v4/stdnet"
 )
 
 type webrtcNet struct {
