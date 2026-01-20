@@ -217,7 +217,7 @@ type Conf struct {
 	PlaybackTrustedProxies IPNetworks     `json:"playbackTrustedProxies"`
 
 	// RTSP Source (Streams IN)
-	UDPClientPortRange *[]uint16 `json:"udpClientPortRange,omitempty"`
+	UDPClientPortRange *[]uint16 `json:"sourceUDPClientPortRange,omitempty"`
 
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`

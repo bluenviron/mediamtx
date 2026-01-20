@@ -29,11 +29,11 @@ udpMaxPayloadSize: 1472
 # This can be increased to decrease packet losses.
 # It defaults to the default value of the operating system.
 udpReadBufferSize: 0
-# UDP RTP Client Port range
-# This can be used to control UDP client port ranges for use inside Kubernetes clusters
-# Starting and ending ports (interval bounds) should be EVEN numbers
+# Source UDP RTP Client Port range
+# This can be used to control RTSP Source UDP client port ranges for use inside Kubernetes clusters
+# Starting and ending ports should be EVEN numbers
 # It defaults to the range [10000,65534]
-udpClientPortRange: [ 10000,65534 ]
+sourceUDPClientPortRange: [ 10000,65534 ]
 
 
 # Command to run when a client connects to the server.
