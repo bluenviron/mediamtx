@@ -381,7 +381,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 }
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
-	err := pa.setReady(req.Desc, req.GenerateRTPPackets, req.FillNTP)
+	err := pa.setReady(req.Desc, req.UseRTPPackets, req.ReplaceNTP)
 	if err != nil {
 		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 		return
@@ -478,7 +478,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	pa.source = req.Author
 	pa.publisherQuery = req.AccessRequest.Query
 
-	err := pa.setReady(req.Desc, req.GenerateRTPPackets, req.FillNTP)
+	err := pa.setReady(req.Desc, req.UseRTPPackets, req.ReplaceNTP)
 	if err != nil {
 		pa.source = nil
 		req.Res <- defs.PathAddPublisherRes{Err: err}
@@ -586,9 +586,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				return pa.stream.BytesSent()
 			}(),
 			Readers: func() []defs.APIPathSourceOrReader {
-				ret := []defs.APIPathSourceOrReader{}
+				ret := make([]defs.APIPathSourceOrReader, len(pa.readers))
+				i := 0
 				for r := range pa.readers {
-					ret = append(ret, r.APIReaderDescribe())
+					ret[i] = r.APIReaderDescribe()
+					i++
 				}
 				return ret
 			}(),
@@ -688,14 +690,14 @@ func (pa *path) onDemandPublisherStop(reason string) {
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
-func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fillNTP bool) error {
+func (pa *path) setReady(desc *description.Session, useRTPPackets bool, replaceNTP bool) error {
 	pa.stream = &stream.Stream{
-		WriteQueueSize:     pa.writeQueueSize,
-		RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
-		Desc:               desc,
-		GenerateRTPPackets: generateRTPPackets,
-		FillNTP:            fillNTP,
-		Parent:             pa.source,
+		Desc:              desc,
+		UseRTPPackets:     useRTPPackets,
+		WriteQueueSize:    pa.writeQueueSize,
+		RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
+		ReplaceNTP:        replaceNTP,
+		Parent:            pa.source,
 	}
 	err := pa.stream.Initialize()
 	if err != nil {
@@ -805,10 +807,7 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 }
 
 func (pa *path) executeRemovePublisher() {
-	if pa.stream != nil {
-		pa.setNotReady()
-	}
-
+	pa.setNotReady()
 	pa.source = nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -47,7 +47,7 @@ type formatFMP4Track struct {
 	f         *formatFMP4
 	id        int
 	clockRate uint32
-	codec     mp4.Codec
+	codec     mcodecs.Codec
 
 	initTrack        *fmp4.InitTrack
 	nextSample       *formatFMP4Sample

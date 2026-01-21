@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -36,7 +37,7 @@ func ToStream(
 		var medi *description.Media
 
 		switch codec := track.Codec.(type) {
-		case *mpegts.CodecH265:
+		case *tscodecs.H265:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H265{
@@ -54,7 +55,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecH264:
+		case *tscodecs.H264:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H264{
@@ -73,7 +74,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecMPEG4Video:
+		case *tscodecs.MPEG4Video:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.MPEG4Video{
@@ -91,7 +92,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecMPEG1Video:
+		case *tscodecs.MPEG1Video:
 			medi = &description.Media{
 				Type:    description.MediaTypeVideo,
 				Formats: []format.Format{&format.MPEG1Video{}},
@@ -107,7 +108,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecOpus:
+		case *tscodecs.Opus:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
@@ -126,7 +127,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecKLV:
+		case *tscodecs.KLV:
 			medi = &description.Media{
 				Type: description.MediaTypeApplication,
 				Formats: []format.Format{&format.KLV{
@@ -143,7 +144,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecMPEG4Audio:
+		case *tscodecs.MPEG4Audio:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.MPEG4Audio{
@@ -165,7 +166,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecMPEG4AudioLATM:
+		case *tscodecs.MPEG4AudioLATM:
 			// We are dealing with a LATM stream with in-band configuration.
 			// Although in theory this can be streamed with RTSP (RFC6416 with cpresent=1),
 			// in practice there is no player that supports it.
@@ -220,7 +221,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecMPEG1Audio:
+		case *tscodecs.MPEG1Audio:
 			medi = &description.Media{
 				Type:    description.MediaTypeAudio,
 				Formats: []format.Format{&format.MPEG1Audio{}},
@@ -236,7 +237,7 @@ func ToStream(
 				return nil
 			})
 
-		case *mpegts.CodecAC3:
+		case *tscodecs.AC3:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.AC3{

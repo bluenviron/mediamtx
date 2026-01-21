@@ -47,7 +47,12 @@ func TestServerPublish(t *testing.T) {
 	for _, ca := range []string{"basic", "digest", "basic+digest"} {
 		t.Run(ca, func(t *testing.T) {
 			var strm *stream.Stream
-			streamCreated := make(chan struct{})
+			var reader *stream.Reader
+			defer func() {
+				strm.RemoveReader(reader)
+			}()
+			dataReceived := make(chan struct{})
+
 			n := 0
 
 			pathManager := &test.PathManager{
@@ -82,16 +87,31 @@ func TestServerPublish(t *testing.T) {
 					require.True(t, req.AccessRequest.SkipAuth)
 
 					strm = &stream.Stream{
-						WriteQueueSize:     512,
-						RTPMaxPayloadSize:  1450,
-						Desc:               req.Desc,
-						GenerateRTPPackets: true,
-						Parent:             test.NilLogger,
+						Desc:              req.Desc,
+						UseRTPPackets:     true,
+						WriteQueueSize:    512,
+						RTPMaxPayloadSize: 1450,
+						Parent:            test.NilLogger,
 					}
 					err := strm.Initialize()
 					require.NoError(t, err)
 
-					close(streamCreated)
+					reader = &stream.Reader{Parent: test.NilLogger}
+
+					reader.OnData(
+						strm.Desc.Medias[0],
+						strm.Desc.Medias[0].Formats[0],
+						func(u *unit.Unit) error {
+							require.Equal(t, unit.PayloadH264{
+								test.FormatH264.SPS,
+								test.FormatH264.PPS,
+								{5, 2, 3, 4},
+							}, u.Payload)
+							close(dataReceived)
+							return nil
+						})
+
+					strm.AddReader(reader)
 
 					return &dummyPath{}, strm, nil
 				},
@@ -131,28 +151,6 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer source.Close()
 
-			<-streamCreated
-
-			r := &stream.Reader{Parent: test.NilLogger}
-
-			recv := make(chan struct{})
-
-			r.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
-				func(u *unit.Unit) error {
-					require.Equal(t, unit.PayloadH264{
-						test.FormatH264.SPS,
-						test.FormatH264.PPS,
-						{5, 2, 3, 4},
-					}, u.Payload)
-					close(recv)
-					return nil
-				})
-
-			strm.AddReader(r)
-			defer strm.RemoveReader(r)
-
 			err = source.WritePacketRTP(media0, &rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
@@ -166,7 +164,7 @@ func TestServerPublish(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			<-recv
+			<-dataReceived
 		})
 	}
 }
@@ -177,11 +175,11 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     false,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -321,11 +319,11 @@ func TestServerRedirect(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     true,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)

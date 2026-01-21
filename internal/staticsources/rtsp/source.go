@@ -9,14 +9,17 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
@@ -89,7 +92,7 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	packetsLost := &counterdumper.CounterDumper{
+	packetsLost := &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d RTP %s lost",
 				val,
@@ -105,16 +108,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	packetsLost.Start()
 	defer packetsLost.Stop()
 
-	decodeErrors := &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	decodeErrors := &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				s.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 
@@ -196,8 +196,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnPacketsLost: func(lost uint64) {
 			packetsLost.Add(lost)
 		},
-		OnDecodeError: func(_ error) {
-			decodeErrors.Increase()
+		OnDecodeError: func(err error) {
+			decodeErrors.Add(err)
 		},
 	}
 
@@ -209,47 +209,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	readErr := make(chan error)
 	go func() {
-		readErr <- func() error {
-			desc, _, err2 := c.Describe(u)
-			if err2 != nil {
-				return err2
-			}
-
-			err2 = c.SetupAll(desc.BaseURL, desc.Medias)
-			if err2 != nil {
-				return err2
-			}
-
-			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               desc,
-				GenerateRTPPackets: false,
-				FillNTP:            !params.Conf.UseAbsoluteTimestamp,
-			})
-			if res.Err != nil {
-				return res.Err
-			}
-
-			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
-
-			rtsp.ToStream(
-				c,
-				desc.Medias,
-				params.Conf,
-				res.Stream,
-				s)
-
-			rangeHeader, err2 := createRangeHeader(params.Conf)
-			if err2 != nil {
-				return err2
-			}
-
-			_, err2 = c.Play(rangeHeader)
-			if err2 != nil {
-				return err2
-			}
-
-			return c.Wait()
-		}()
+		readErr <- s.runInner(c, u, params.Conf)
 	}()
 
 	for {
@@ -265,6 +225,69 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			return nil
 		}
 	}
+}
+
+func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path) error {
+	desc, _, err := c.Describe(u)
+	if err != nil {
+		return err
+	}
+
+	var medias []*description.Media
+
+	for _, m := range desc.Medias {
+		if !m.IsBackChannel {
+			_, err = c.Setup(desc.BaseURL, m, 0, 0)
+			if err != nil {
+				return err
+			}
+
+			medias = append(medias, m)
+		}
+	}
+
+	if medias == nil {
+		return fmt.Errorf("no medias have been setupped")
+	}
+
+	desc2 := &description.Session{
+		Title:  desc.Title,
+		Medias: medias,
+	}
+
+	var strm *stream.Stream
+
+	rtsp.ToStream(
+		c,
+		desc2.Medias,
+		pathConf,
+		&strm,
+		s)
+
+	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+		Desc:          desc2,
+		UseRTPPackets: true,
+		ReplaceNTP:    !pathConf.UseAbsoluteTimestamp,
+	})
+	if res.Err != nil {
+		return res.Err
+	}
+
+	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
+	strm = res.Stream
+
+	rangeHeader, err := createRangeHeader(pathConf)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Play(rangeHeader)
+	if err != nil {
+		return err
+	}
+
+	return c.Wait()
 }
 
 // APISourceDescribe implements StaticSource.

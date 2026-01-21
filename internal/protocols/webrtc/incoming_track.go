@@ -243,7 +243,7 @@ type IncomingTrack struct {
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 
-	packetsLost *counterdumper.CounterDumper
+	packetsLost *counterdumper.Dumper
 	rtpReceiver *rtpreceiver.Receiver
 }
 
@@ -267,7 +267,7 @@ func (*IncomingTrack) PTSEqualsDTS(*rtp.Packet) bool {
 }
 
 func (t *IncomingTrack) start() {
-	t.packetsLost = &counterdumper.CounterDumper{
+	t.packetsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			t.log.Log(logger.Warn, "%d RTP %s lost",
 				val,

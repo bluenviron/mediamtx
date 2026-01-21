@@ -1,6 +1,7 @@
 package mpegts
 
 import (
+	"bufio"
 	"context"
 	"net"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -104,7 +106,7 @@ func TestSourceUDP(t *testing.T) {
 
 			var usrc *net.UDPAddr
 			if ca == "unicast with source" {
-				usrc, err = net.ResolveUDPAddr("udp", "127.0.1.1:9020")
+				usrc, err = net.ResolveUDPAddr("udp", "127.0.1.1:9022")
 				require.NoError(t, err)
 			}
 
@@ -113,10 +115,11 @@ func TestSourceUDP(t *testing.T) {
 			defer conn.Close() //nolint:errcheck
 
 			track := &mpegts.Track{
-				Codec: &mpegts.CodecH264{},
+				Codec: &tscodecs.H264{},
 			}
 
-			w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
+			bw := bufio.NewWriter(conn)
+			w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
 			err = w.Initialize()
 			require.NoError(t, err)
 
@@ -125,9 +128,15 @@ func TestSourceUDP(t *testing.T) {
 			}})
 			require.NoError(t, err)
 
+			err = bw.Flush()
+			require.NoError(t, err)
+
 			err = w.WriteH264(track, 0, 0, [][]byte{{ // non-IDR
 				5, 2,
 			}})
+			require.NoError(t, err)
+
+			err = bw.Flush()
 			require.NoError(t, err)
 
 			<-p.Unit
@@ -185,16 +194,20 @@ func TestSourceUnixSocket(t *testing.T) {
 				require.NoError(t, err)
 
 				track := &mpegts.Track{
-					Codec: &mpegts.CodecH264{},
+					Codec: &tscodecs.H264{},
 				}
 
-				w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
+				bw := bufio.NewWriter(conn)
+				w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
 				err = w.Initialize()
 				require.NoError(t, err)
 
 				err = w.WriteH264(track, 0, 0, [][]byte{{ // IDR
 					5, 1,
 				}})
+				require.NoError(t, err)
+
+				err = bw.Flush()
 				require.NoError(t, err)
 
 				conn.Close() // trigger a flush

@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -51,16 +52,16 @@ type session struct {
 	path            defs.Path
 	stream          *stream.Stream
 	onUnreadHook    func()
-	packetsLost     *counterdumper.CounterDumper
-	decodeErrors    *counterdumper.CounterDumper
-	discardedFrames *counterdumper.CounterDumper
+	packetsLost     *counterdumper.Dumper
+	decodeErrors    *errordumper.Dumper
+	discardedFrames *counterdumper.Dumper
 }
 
 func (s *session) initialize() {
 	s.uuid = uuid.New()
 	s.created = time.Now()
 
-	s.packetsLost = &counterdumper.CounterDumper{
+	s.packetsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d RTP %s lost",
 				val,
@@ -74,21 +75,18 @@ func (s *session) initialize() {
 	}
 	s.packetsLost.Start()
 
-	s.decodeErrors = &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	s.decodeErrors = &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				s.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 	s.decodeErrors.Start()
 
-	s.discardedFrames = &counterdumper.CounterDumper{
+	s.discardedFrames = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,
@@ -313,11 +311,11 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	path, stream, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             s,
-		Desc:               s.rsession.AnnouncedDescription(),
-		GenerateRTPPackets: false,
-		FillNTP:            !s.pathConf.UseAbsoluteTimestamp,
-		ConfToCompare:      s.pathConf,
+		Author:        s,
+		Desc:          s.rsession.AnnouncedDescription(),
+		UseRTPPackets: true,
+		ReplaceNTP:    !s.pathConf.UseAbsoluteTimestamp,
+		ConfToCompare: s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.rsession.Path()[1:],
 			Query:    s.rsession.Query(),
@@ -331,15 +329,15 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		}, err
 	}
 
-	s.path = path
-	s.stream = stream
-
 	rtsp.ToStream(
 		s.rsession,
 		s.rsession.AnnouncedDescription().Medias,
-		s.path.SafeConf(),
-		stream,
+		path.SafeConf(),
+		&s.stream,
 		s)
+
+	s.path = path
+	s.stream = stream
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -385,8 +383,8 @@ func (s *session) onPacketsLost(ctx *gortsplib.ServerHandlerOnPacketsLostCtx) {
 }
 
 // onDecodeError is called by rtspServer.
-func (s *session) onDecodeError(_ *gortsplib.ServerHandlerOnDecodeErrorCtx) {
-	s.decodeErrors.Increase()
+func (s *session) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	s.decodeErrors.Add(ctx.Error)
 }
 
 // onStreamWriteError is called by rtspServer.

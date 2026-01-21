@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
-	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4"
+	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +23,7 @@ func TestMuxerMP4EmptyTracks(t *testing.T) {
 			{
 				ID:        1,
 				TimeScale: 90000,
-				Codec: &mp4.CodecH264{
+				Codec: &mcodecs.H264{
 					SPS: test.FormatH264.SPS,
 					PPS: test.FormatH264.PPS,
 				},
@@ -31,7 +31,7 @@ func TestMuxerMP4EmptyTracks(t *testing.T) {
 			{
 				ID:        2,
 				TimeScale: 48000,
-				Codec:     &mp4.CodecOpus{},
+				Codec:     &mcodecs.Opus{},
 			},
 		},
 	}

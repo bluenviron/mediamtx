@@ -1,11 +1,13 @@
 package srt
 
 import (
+	"bufio"
 	"context"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 
@@ -56,9 +58,10 @@ func TestSource(t *testing.T) {
 	require.NoError(t, err2)
 	defer conn.Close()
 
-	track := &mpegts.Track{Codec: &mpegts.CodecH264{}}
+	track := &mpegts.Track{Codec: &tscodecs.H264{}}
 
-	w := &mpegts.Writer{W: conn, Tracks: []*mpegts.Track{track}}
+	bw := bufio.NewWriter(conn)
+	w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
 	err2 = w.Initialize()
 	require.NoError(t, err2)
 
@@ -67,9 +70,15 @@ func TestSource(t *testing.T) {
 	}})
 	require.NoError(t, err2)
 
+	err = bw.Flush()
+	require.NoError(t, err)
+
 	err = w.WriteH264(track, 0, 0, [][]byte{{ // non-IDR
 		5, 2,
 	}})
+	require.NoError(t, err)
+
+	err = bw.Flush()
 	require.NoError(t, err)
 
 	<-p.Unit

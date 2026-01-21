@@ -197,7 +197,11 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 func TestServerPublish(t *testing.T) {
 	var strm *stream.Stream
-	streamCreated := make(chan struct{})
+	var reader *stream.Reader
+	defer func() {
+		strm.RemoveReader(reader)
+	}()
+	dataReceived := make(chan struct{})
 
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
@@ -213,16 +217,34 @@ func TestServerPublish(t *testing.T) {
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               req.Desc,
-				GenerateRTPPackets: true,
-				Parent:             test.NilLogger,
+				Desc:              req.Desc,
+				UseRTPPackets:     true,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
 
-			close(streamCreated)
+			reader = &stream.Reader{Parent: test.NilLogger}
+
+			reader.OnData(
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
+				func(u *unit.Unit) error {
+					/* select {
+					case <-recv:
+						return nil
+					default:
+					} */
+					require.Equal(t, unit.PayloadH264{
+						{1},
+					}, u.Payload)
+					close(dataReceived)
+					return nil
+				})
+
+			strm.AddReader(reader)
 
 			return &dummyPath{}, strm, nil
 		},
@@ -289,47 +311,7 @@ func TestServerPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	<-streamCreated
-
-	r := &stream.Reader{Parent: test.NilLogger}
-
-	recv := make(chan struct{})
-
-	r.OnData(
-		strm.Desc.Medias[0],
-		strm.Desc.Medias[0].Formats[0],
-		func(u *unit.Unit) error {
-			select {
-			case <-recv:
-				return nil
-			default:
-			}
-
-			require.Equal(t, unit.PayloadH264{
-				{1},
-			}, u.Payload)
-			close(recv)
-
-			return nil
-		})
-
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
-
-	err = track.WriteRTP(&rtp.Packet{
-		Header: rtp.Header{
-			Version:        2,
-			Marker:         true,
-			PayloadType:    96,
-			SequenceNumber: 124,
-			Timestamp:      45343,
-			SSRC:           563423,
-		},
-		Payload: []byte{1},
-	})
-	require.NoError(t, err)
-
-	<-recv
+	<-dataReceived
 }
 
 func TestServerRead(t *testing.T) {
@@ -484,11 +466,11 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			strm := &stream.Stream{
-				WriteQueueSize:     512,
-				RTPMaxPayloadSize:  1450,
-				Desc:               desc,
-				GenerateRTPPackets: ca.unit.Payload != nil,
-				Parent:             test.NilLogger,
+				Desc:              desc,
+				UseRTPPackets:     (ca.unit.Payload == nil),
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
@@ -555,7 +537,11 @@ func TestServerRead(t *testing.T) {
 
 				if ca.unit.Payload == nil {
 					clone := *ca.unit.RTPPackets[0]
-					strm.WriteRTPPacket(desc.Medias[0], desc.Medias[0].Formats[0], &clone, time.Time{}, 0)
+					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+						PTS:        0,
+						NTP:        time.Time{},
+						RTPPackets: []*rtp.Packet{&clone},
+					})
 				} else {
 					strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], r.Interface().(*unit.Unit))
 				}

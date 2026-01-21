@@ -233,20 +233,20 @@ func (s *session) runPublish() (int, error) {
 		return 0, err
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := webrtc.ToStream(pc, pathConf, &stream, s)
+	medias, err := webrtc.ToStream(pc, pathConf, &strm, s)
 	if err != nil {
 		return 0, err
 	}
 
 	var path defs.Path
-	path, stream, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             s,
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: false,
-		FillNTP:            !pathConf.UseAbsoluteTimestamp,
-		ConfToCompare:      pathConf,
+	path, strm, err = s.pathManager.AddPublisher(defs.PathAddPublisherReq{
+		Author:        s,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: true,
+		ReplaceNTP:    !pathConf.UseAbsoluteTimestamp,
+		ConfToCompare: pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     s.req.pathName,
 			Query:    s.req.httpRequest.URL.RawQuery,

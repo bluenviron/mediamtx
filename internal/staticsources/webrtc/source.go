@@ -67,18 +67,18 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
-	var stream *stream.Stream
+	var strm *stream.Stream
 
-	medias, err := webrtc.ToStream(client.PeerConnection(), params.Conf, &stream, s)
+	medias, err := webrtc.ToStream(client.PeerConnection(), params.Conf, &strm, s)
 	if err != nil {
 		client.Close() //nolint:errcheck
 		return err
 	}
 
 	rres := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-		FillNTP:            !params.Conf.UseAbsoluteTimestamp,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: true,
+		ReplaceNTP:    !params.Conf.UseAbsoluteTimestamp,
 	})
 	if rres.Err != nil {
 		client.Close() //nolint:errcheck
@@ -87,7 +87,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	stream = rres.Stream
+	strm = rres.Stream
 
 	client.StartReading()
 

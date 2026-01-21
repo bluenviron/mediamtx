@@ -22,7 +22,7 @@ type Reader struct {
 	onDatas         map[*description.Media]map[format.Format]OnDataFunc
 	queueSize       int
 	buffer          *ringbuffer.RingBuffer
-	discardedFrames *counterdumper.CounterDumper
+	discardedFrames *counterdumper.Dumper
 
 	// out
 	err chan error
@@ -41,11 +41,24 @@ func (r *Reader) OnData(medi *description.Media, forma format.Format, cb OnDataF
 
 // Formats returns all formats for which the reader has registered a OnData callback.
 func (r *Reader) Formats() []format.Format {
-	var out []format.Format
+	n := 0
+	for _, formats := range r.onDatas {
+		for range formats {
+			n++
+		}
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	out := make([]format.Format, n)
+	n = 0
 
 	for _, formats := range r.onDatas {
 		for forma := range formats {
-			out = append(out, forma)
+			out[n] = forma
+			n++
 		}
 	}
 
@@ -63,7 +76,7 @@ func (r *Reader) start() {
 	r.buffer = buffer
 	r.err = make(chan error)
 
-	r.discardedFrames = &counterdumper.CounterDumper{
+	r.discardedFrames = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			r.Parent.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,

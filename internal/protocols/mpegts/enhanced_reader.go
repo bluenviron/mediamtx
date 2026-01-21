@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/rewindablereader"
 )
 
@@ -32,7 +33,7 @@ func (r *EnhancedReader) Initialize() error {
 	tracksToParse := 0
 
 	for _, track := range mr.Tracks() {
-		if _, ok := track.Codec.(*mcmpegts.CodecMPEG4AudioLATM); ok {
+		if _, ok := track.Codec.(*tscodecs.MPEG4AudioLATM); ok {
 			cpid := track.PID
 			done := false
 			tracksToParse++

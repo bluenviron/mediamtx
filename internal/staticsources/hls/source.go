@@ -10,8 +10,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
@@ -37,24 +37,21 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
-	var stream *stream.Stream
+	var strm *stream.Stream
 
 	defer func() {
-		if stream != nil {
+		if strm != nil {
 			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
-	decodeErrors := &counterdumper.CounterDumper{
-		OnReport: func(val uint64) {
-			s.Log(logger.Warn, "%d decode %s",
-				val,
-				func() string {
-					if val == 1 {
-						return "error"
-					}
-					return "errors"
-				}())
+	decodeErrors := &errordumper.Dumper{
+		OnReport: func(val uint64, last error) {
+			if val == 1 {
+				s.Log(logger.Warn, "decode error: %v", last)
+			} else {
+				s.Log(logger.Warn, "%d decode errors, last was: %v", val, last)
+			}
 		},
 	}
 
@@ -90,24 +87,25 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnDownloadPart: func(u string) {
 			s.Log(logger.Debug, "downloading part %v", u)
 		},
-		OnDecodeError: func(_ error) {
-			decodeErrors.Increase()
+		OnDecodeError: func(err error) {
+			decodeErrors.Add(err)
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err2 := hls.ToStream(c, tracks, params.Conf, &stream)
+			medias, err2 := hls.ToStream(c, tracks, params.Conf, &strm)
 			if err2 != nil {
 				return err2
 			}
 
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               &description.Session{Medias: medias},
-				GenerateRTPPackets: true,
+				Desc:          &description.Session{Medias: medias},
+				UseRTPPackets: false,
+				ReplaceNTP:    false,
 			})
 			if res.Err != nil {
 				return res.Err
 			}
 
-			stream = res.Stream
+			strm = res.Stream
 
 			return nil
 		},
