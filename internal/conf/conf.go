@@ -525,6 +525,13 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l = &nilLogger{}
 	}
 
+	// General (deprecated params)
+
+	if conf.ReadBufferCount != nil {
+		l.Log(logger.Warn, "parameter 'readBufferCount' is deprecated and has been replaced with 'writeQueueSize'")
+		conf.WriteQueueSize = *conf.ReadBufferCount
+	}
+
 	// General
 
 	if conf.ReadTimeout <= 0 {
@@ -535,11 +542,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		return fmt.Errorf("'writeTimeout' must be greater than zero")
 	}
 
-	if conf.ReadBufferCount != nil {
-		l.Log(logger.Warn, "parameter 'readBufferCount' is deprecated and has been replaced with 'writeQueueSize'")
-		conf.WriteQueueSize = *conf.ReadBufferCount
-	}
-
 	if (conf.WriteQueueSize & (conf.WriteQueueSize - 1)) != 0 {
 		return fmt.Errorf("'writeQueueSize' must be a power of two")
 	}
@@ -548,25 +550,13 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
 	}
 
-	// Authentication
+	// Authentication (deprecated params)
 
 	if conf.ExternalAuthenticationURL != nil {
 		l.Log(logger.Warn, "parameter 'externalAuthenticationURL' is deprecated "+
 			"and has been replaced with 'authMethod' and 'authHTTPAddress'")
 		conf.AuthMethod = AuthMethodHTTP
 		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
-	}
-
-	if conf.AuthHTTPAddress != "" &&
-		!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
-		!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
-		return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
-	}
-
-	if conf.AuthJWTJWKS != "" &&
-		!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
-		!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
-		return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
 	}
 
 	deprecatedCredentialsMode := false
@@ -608,50 +598,97 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		deprecatedCredentialsMode = true
 	}
 
+	// Authentication
+
 	switch conf.AuthMethod {
 	case AuthMethodHTTP:
 		if conf.AuthHTTPAddress == "" {
 			return fmt.Errorf("'authHTTPAddress' is empty")
 		}
 
+		if conf.AuthHTTPAddress != "" &&
+			!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
+			!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
+			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+		}
+
 	case AuthMethodJWT:
 		if conf.AuthJWTJWKS == "" {
 			return fmt.Errorf("'authJWTJWKS' is empty")
 		}
+
+		if conf.AuthJWTJWKS != "" &&
+			!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
+			!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
+			return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
+		}
+
 		if conf.AuthJWTClaimKey == "" {
 			return fmt.Errorf("'authJWTClaimKey' is empty")
 		}
 	}
 
-	// Control API
+	// Control API (deprecated params)
 
 	if conf.APIAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'apiAllowOrigin' is deprecated and has been replaced with 'apiAllowOrigins'")
 		conf.APIAllowOrigins = []string{*conf.APIAllowOrigin}
 	}
 
-	// Metrics
+	// Control API
+
+	if conf.API {
+		if conf.APIAddress == "" {
+			return fmt.Errorf("'apiAddress' must be set when API is enabled")
+		}
+	}
+
+	// Metrics (deprecated params)
 
 	if conf.MetricsAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'metricsAllowOrigin' is deprecated and has been replaced with 'metricsAllowOrigins'")
 		conf.MetricsAllowOrigins = []string{*conf.MetricsAllowOrigin}
 	}
 
-	// PPROF
+	// Metrics
+
+	if conf.Metrics {
+		if conf.MetricsAddress == "" {
+			return fmt.Errorf("'metricsAddress' must be set when metrics are enabled")
+		}
+	}
+
+	// PPROF (deprecated params)
 
 	if conf.PPROFAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'pprofAllowOrigin' is deprecated and has been replaced with 'pprofAllowOrigins'")
 		conf.PPROFAllowOrigins = []string{*conf.PPROFAllowOrigin}
 	}
 
-	// Playback
+	// PPROF
+
+	if conf.PPROF {
+		if conf.PPROFAddress == "" {
+			return fmt.Errorf("'pprofAddress' must be set when pprof is enabled")
+		}
+	}
+
+	// Playback (deprecated params)
 
 	if conf.PlaybackAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'playbackAllowOrigin' is deprecated and has been replaced with 'playbackAllowOrigins'")
 		conf.PlaybackAllowOrigins = []string{*conf.PlaybackAllowOrigin}
 	}
 
-	// RTSP server
+	// Playback
+
+	if conf.Playback {
+		if conf.PlaybackAddress == "" {
+			return fmt.Errorf("'playbackAddress' must be set when playback is enabled")
+		}
+	}
+
+	// RTSP server (deprecated params)
 
 	if conf.RTSPDisable != nil {
 		l.Log(logger.Warn, "parameter 'rtspDisabled' is deprecated and has been replaced with 'rtsp'")
@@ -673,17 +710,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
 
-	if slices.Contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
-		if conf.AuthMethod != AuthMethodInternal {
-			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
-		}
-		for _, user := range conf.AuthInternalUsers {
-			if user.User.IsHashed() || user.Pass.IsHashed() {
-				return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
-			}
-		}
-	}
-
 	if conf.ServerCert != nil {
 		l.Log(logger.Warn, "parameter 'serverCert' is deprecated and has been replaced with 'rtspServerCert'")
 		conf.RTSPServerCert = *conf.ServerCert
@@ -694,18 +720,103 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.RTSPServerKey = *conf.ServerKey
 	}
 
-	if len(conf.RTSPAuthMethods) == 0 {
-		return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
+	// RTSP server
+
+	if conf.RTSP {
+		if conf.RTSPEncryption == EncryptionNo || conf.RTSPEncryption == EncryptionOptional {
+			if conf.RTSPAddress == "" {
+				return fmt.Errorf("'rtspAddress' must be set when RTSP is enabled and RTSP encryption is 'no' or 'optional'")
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
+				if conf.RTPAddress == "" {
+					return fmt.Errorf("'rtpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.RTCPAddress == "" {
+					return fmt.Errorf("'rtcpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
+				}
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
+				if conf.MulticastIPRange == "" {
+					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.MulticastRTPPort == 0 {
+					return fmt.Errorf("'multicastRTPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.MulticastRTCPPort == 0 {
+					return fmt.Errorf("'multicastRTCPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+			}
+		}
+
+		if conf.RTSPEncryption == EncryptionOptional || conf.RTSPEncryption == EncryptionStrict {
+			if conf.RTSPSAddress == "" {
+				return fmt.Errorf("'rtspsAddress' must be set when RTSP is enabled and RTSP encryption is 'optional' or 'strict'")
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
+				if conf.SRTPAddress == "" {
+					return fmt.Errorf("'srtpAddress' must be set when UDP is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.SRTCPAddress == "" {
+					return fmt.Errorf("'srtcpAddress' must be set when UDP is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
+				if conf.MulticastIPRange == "" {
+					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.MulticastSRTPPort == 0 {
+					return fmt.Errorf("'multicastSRTPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.MulticastSRTCPPort == 0 {
+					return fmt.Errorf("'multicastSRTCPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+			}
+		}
+
+		if len(conf.RTSPAuthMethods) == 0 {
+			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
+		}
+
+		if slices.Contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
+			if conf.AuthMethod != AuthMethodInternal {
+				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
+			}
+			for _, user := range conf.AuthInternalUsers {
+				if user.User.IsHashed() || user.Pass.IsHashed() {
+					return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
+				}
+			}
+		}
 	}
 
-	// RTMP
+	// RTMP (deprecated params)
 
 	if conf.RTMPDisable != nil {
 		l.Log(logger.Warn, "parameter 'rtmpDisabled' is deprecated and has been replaced with 'rtmp'")
 		conf.RTMP = !*conf.RTMPDisable
 	}
 
-	// HLS
+	// RTMP
+
+	if conf.RTMP {
+		if conf.RTMPAddress == "" {
+			return fmt.Errorf("'rtmpAddress' must be set when RTMP is enabled")
+		}
+	}
+
+	// HLS (deprecated params)
 
 	if conf.HLSDisable != nil {
 		l.Log(logger.Warn, "parameter 'hlsDisable' is deprecated and has been replaced with 'hls'")
@@ -717,7 +828,15 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.HLSAllowOrigins = []string{*conf.HLSAllowOrigin}
 	}
 
-	// WebRTC
+	// HLS
+
+	if conf.HLS {
+		if conf.HLSAddress == "" {
+			return fmt.Errorf("'hlsAddress' must be set when HLS is enabled")
+		}
+	}
+
+	// WebRTC (deprecated params)
 
 	if conf.WebRTCDisable != nil {
 		l.Log(logger.Warn, "parameter 'webrtcDisable' is deprecated and has been replaced with 'webrtc'")
@@ -762,30 +881,38 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 	}
 
-	for _, server := range conf.WebRTCICEServers2 {
-		if !strings.HasPrefix(server.URL, "stun:") &&
-			!strings.HasPrefix(server.URL, "turn:") &&
-			!strings.HasPrefix(server.URL, "turns:") {
-			return fmt.Errorf("invalid ICE server: '%s'", server.URL)
-		}
-	}
-
-	if conf.WebRTCLocalUDPAddress == "" &&
-		conf.WebRTCLocalTCPAddress == "" &&
-		len(conf.WebRTCICEServers2) == 0 {
-		return fmt.Errorf("at least one between 'webrtcLocalUDPAddress'," +
-			" 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled")
-	}
-
-	if conf.WebRTCLocalUDPAddress != "" || conf.WebRTCLocalTCPAddress != "" {
-		if !conf.WebRTCIPsFromInterfaces && len(conf.WebRTCAdditionalHosts) == 0 {
-			return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled")
-		}
-	}
-
 	if conf.WebRTCAllowOrigin != nil {
 		l.Log(logger.Warn, "parameter 'webrtcAllowOrigin' is deprecated and has been replaced with 'webrtcAllowOrigins'")
 		conf.WebRTCAllowOrigins = []string{*conf.WebRTCAllowOrigin}
+	}
+
+	// WebRTC
+
+	if conf.WebRTC {
+		if conf.WebRTCAddress == "" {
+			return fmt.Errorf("'webrtcAddress' must be set when WebRTC is enabled")
+		}
+
+		for _, server := range conf.WebRTCICEServers2 {
+			if !strings.HasPrefix(server.URL, "stun:") &&
+				!strings.HasPrefix(server.URL, "turn:") &&
+				!strings.HasPrefix(server.URL, "turns:") {
+				return fmt.Errorf("invalid ICE server: '%s'", server.URL)
+			}
+		}
+
+		if conf.WebRTCLocalUDPAddress == "" &&
+			conf.WebRTCLocalTCPAddress == "" &&
+			len(conf.WebRTCICEServers2) == 0 {
+			return fmt.Errorf("at least one between 'webrtcLocalUDPAddress'," +
+				" 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled")
+		}
+
+		if conf.WebRTCLocalUDPAddress != "" || conf.WebRTCLocalTCPAddress != "" {
+			if !conf.WebRTCIPsFromInterfaces && len(conf.WebRTCAdditionalHosts) == 0 {
+				return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled")
+			}
+		}
 	}
 
 	// Record (deprecated)
@@ -825,6 +952,8 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			"and has been replaced with 'pathDefaults.recordDeleteAfter'")
 		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
 	}
+
+	// paths
 
 	hasAllOthers := false
 	for name := range conf.OptionalPaths {
