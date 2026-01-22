@@ -135,6 +135,8 @@ webrtc_sessions_rtcp_packets_received{id="[id]",path="[path]",remoteAddr="[remot
 webrtc_sessions_rtcp_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 ```
 
+Bitrates are not provided directly as metrics because they can be computed from received and sent bytes by any metrics analyzer (i.e. Grafana).
+
 Metrics can be filtered by using HTTP query parameters:
 
 - `type=[TYPE]`: show metrics of a certain type only (where TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`)

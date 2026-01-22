@@ -10,7 +10,7 @@
 logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# When destination is "stdout" or "file", emit logs in structured format (JSON).
+# When destination is "stdout" or "file", emit logs in structured format (JSONL).
 logStructured: no
 # When "file" is in logDestinations, this is the file which will receive logs.
 logFile: mediamtx.log
@@ -55,7 +55,7 @@ runOnDisconnect:
 authMethod: internal
 
 # Internal authentication.
-# list of users.
+# Enabled users.
 authInternalUsers:
   # Default unprivileged user.
   # Username. 'any' means any user, including anonymous ones.
@@ -64,7 +64,7 @@ authInternalUsers:
   pass:
   # IPs or networks allowed to use this user. An empty list means any IP.
   ips: []
-  # List of permissions.
+  # Permissions.
   permissions:
     # Available actions are: publish, read, playback, api, metrics, pprof.
   - action: publish
@@ -151,7 +151,7 @@ authJWTInHTTPQuery: true
 api: no
 # Address of the Control API listener.
 apiAddress: :9997
-# Enable TLS/HTTPS on the Control API server.
+# Enable HTTPS on the Control API server.
 apiEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -160,10 +160,10 @@ apiEncryption: no
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 apiAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the HTTP server.
+# IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 apiTrustedProxies: []
@@ -175,7 +175,7 @@ apiTrustedProxies: []
 metrics: no
 # Address of the metrics HTTP listener.
 metricsAddress: :9998
-# Enable TLS/HTTPS on the Metrics server.
+# Enable HTTPS on the Metrics server.
 metricsEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -184,10 +184,10 @@ metricsEncryption: no
 metricsServerKey: server.key
 # Path to the server certificate.
 metricsServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 metricsAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the HTTP server.
+# IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 metricsTrustedProxies: []
@@ -199,7 +199,7 @@ metricsTrustedProxies: []
 pprof: no
 # Address of the pprof listener.
 pprofAddress: :9999
-# Enable TLS/HTTPS on the pprof server.
+# Enable HTTPS on the pprof server.
 pprofEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -208,10 +208,10 @@ pprofEncryption: no
 pprofServerKey: server.key
 # Path to the server certificate.
 pprofServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 pprofAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the HTTP server.
+# IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 pprofTrustedProxies: []
@@ -223,7 +223,7 @@ pprofTrustedProxies: []
 playback: no
 # Address of the playback server listener.
 playbackAddress: :9996
-# Enable TLS/HTTPS on the playback server.
+# Enable HTTPS on the playback server.
 playbackEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -232,10 +232,10 @@ playbackEncryption: no
 playbackServerKey: server.key
 # Path to the server certificate.
 playbackServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 playbackAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the HTTP server.
+# IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 playbackTrustedProxies: []
@@ -245,37 +245,32 @@ playbackTrustedProxies: []
 
 # Enable publishing and reading streams with the RTSP protocol.
 rtsp: yes
-# List of enabled RTSP transport protocols.
-# UDP is the most performant, but doesn't work when there's a NAT/firewall between
-# server and clients.
-# UDP-multicast allows to save bandwidth when clients are all in the same LAN.
-# TCP is the most versatile.
-# The handshake is always performed with TCP.
+# Enabled RTSP transport protocols. The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
-# Use secure protocol variants (RTSPS, TLS, SRTP).
+# Use secure protocol variants (RTSPS, SRTP, SRTCP).
 # Available values are "no", "strict", "optional".
 rtspEncryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
-# Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
+# Address of the TCP/RTSPS listener. This is needed only when encryption is "strict" or "optional".
 rtspsAddress: :8322
-# Address of the UDP/RTP listener. This is needed only when "udp" is in rtspTransports.
+# Address of the UDP/RTP listener. This is needed only when "udp" is in rtspTransports and encryption is "no" or "optional".
 rtpAddress: :8000
-# Address of the UDP/RTCP listener. This is needed only when "udp" is in rtspTransports.
+# Address of the UDP/RTCP listener. This is needed only when "udp" is in rtspTransports and encryption is "no" or "optional".
 rtcpAddress: :8001
-# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in rtspTransports.
+# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in rtspTransports and encryption is "no" or "optional".
 multicastIPRange: 224.1.0.0/16
-# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in rtspTransports.
+# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in rtspTransports and encryption is "no" or "optional".
 multicastRTPPort: 8002
-# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in rtspTransports.
+# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in rtspTransports and encryption is "no" or "optional".
 multicastRTCPPort: 8003
-# Address of the UDP/SRTP listener. This is needed only when "udp" is in rtspTransports and encryption is enabled.
+# Address of the UDP/SRTP listener. This is needed only when "udp" is in rtspTransports and encryption is "strict" or "optional".
 srtpAddress: :8004
-# Address of the UDP/SRTCP listener. This is needed only when "udp" is in rtspTransports and encryption is enabled.
+# Address of the UDP/SRTCP listener. This is needed only when "udp" is in rtspTransports and encryption is "strict" or "optional".
 srtcpAddress: :8005
-# Port of all UDP-multicast/SRTP listeners. This is needed only when "multicast" is in rtspTransports and encryption is enabled.
+# Port of all UDP-multicast/SRTP listeners. This is needed only when "multicast" is in rtspTransports and encryption is "strict" or "optional".
 multicastSRTPPort: 8006
-# Port of all UDP-multicast/SRTCP listeners. This is needed only when "multicast" is in rtspTransports and encryption is enabled.
+# Port of all UDP-multicast/SRTCP listeners. This is needed only when "multicast" is in rtspTransports and encryption is "strict" or "optional".
 multicastSRTCPPort: 8007
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
@@ -293,11 +288,11 @@ rtspAuthMethods: [basic]
 
 # Enable publishing and reading streams with the RTMP protocol.
 rtmp: yes
-# Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
-rtmpAddress: :1935
-# Encrypt connections with TLS (RTMPS).
+# Use the secure protocol variant (RTMP).
 # Available values are "no", "strict", "optional".
 rtmpEncryption: "no"
+# Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
+rtmpAddress: :1935
 # Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
 rtmpsAddress: :1936
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
@@ -315,7 +310,7 @@ rtmpServerCert: server.crt
 hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
-# Enable TLS/HTTPS on the HLS server.
+# Enable HTTPS on the HLS server.
 # This is required for Low-Latency HLS to function correctly on Apple devices.
 hlsEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
@@ -325,10 +320,10 @@ hlsEncryption: no
 hlsServerKey: server.key
 # Path to the server certificate.
 hlsServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 hlsAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the HLS server.
+# IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 hlsTrustedProxies: []
@@ -374,7 +369,7 @@ hlsMuxerCloseAfter: 60s
 webrtc: yes
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
-# Enable TLS/HTTPS on the WebRTC server.
+# Enable HTTPS on the WebRTC server.
 webrtcEncryption: no
 # Path to the server key.
 # This can be generated with:
@@ -383,10 +378,10 @@ webrtcEncryption: no
 webrtcServerKey: server.key
 # Path to the server certificate.
 webrtcServerCert: server.crt
-# List of allowed CORS origins.
+# Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 webrtcAllowOrigins: ['*']
-# List of IPs or CIDRs of proxies placed before the WebRTC server.
+# IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
@@ -400,10 +395,10 @@ webrtcLocalTCPAddress: ''
 # WebRTC clients need to know the IP of the server.
 # Gather IPs from interfaces and send them to clients.
 webrtcIPsFromInterfaces: yes
-# List of interfaces whose IPs will be sent to clients.
+# Interfaces whose IPs will be sent to clients.
 # An empty value means to use all available interfaces.
 webrtcIPsFromInterfacesList: []
-# List of additional hosts or IPs to send to clients.
+# Additional hosts or IPs to send to clients.
 webrtcAdditionalHosts: []
 # ICE servers. Needed only when local listeners can't be reached by clients.
 # STUN servers allows to obtain and share the public IP of the server.

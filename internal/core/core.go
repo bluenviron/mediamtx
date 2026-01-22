@@ -160,8 +160,8 @@ func New(args []string) (*Core, bool) {
 	}
 
 	if cli.Upgrade {
-		err = upgrade()
-		if err != nil {
+		err = upgrade() //nolint:staticcheck
+		if err != nil { //nolint:staticcheck
 			fmt.Printf("ERR: %v\n", err)
 			os.Exit(1)
 		}

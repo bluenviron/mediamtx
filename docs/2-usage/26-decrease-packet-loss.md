@@ -9,7 +9,7 @@ Packet losses are usually detected and printed in _MediaMTX_ logs.
 
 If you need to improve the stream reliability and decrease packet losses, the first thing to do is to check whether the physical network between the _MediaMTX_ instance and the intended publishers and readers has sufficient bandwidth for transmitting the media stream. Most of the times, packet losses are caused by a network which is not fit for this scope. This limitation can be overcome by either recompressing the stream with a lower bitrate, or by upgrading the network infrastructure (routers, cables, Wi-Fi, firewalls, topology, etc).
 
-There are however some parameters that can be tuned to improve the situation, at cost of increasing RAM consumption:
+Nonetheless there are some parameters that can be tuned to improve the situation, at cost of increasing RAM consumption:
 
 - When publishing a stream with a UDP-based protocol (currently RTSP, MPEG-TS, RTP, SRT, WebRTC), packets might get discarded by the server because the read buffer size of UDP sockets is too small. It can be increased with this parameter:
 

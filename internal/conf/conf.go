@@ -338,8 +338,8 @@ type Conf struct {
 	// RTMP server
 	RTMP           bool       `json:"rtmp"`
 	RTMPDisable    *bool      `json:"rtmpDisable,omitempty"` // deprecated
-	RTMPAddress    string     `json:"rtmpAddress"`
 	RTMPEncryption Encryption `json:"rtmpEncryption"`
+	RTMPAddress    string     `json:"rtmpAddress"`
 	RTMPSAddress   string     `json:"rtmpsAddress"`
 	RTMPServerKey  string     `json:"rtmpServerKey"`
 	RTMPServerCert string     `json:"rtmpServerCert"`

@@ -8,7 +8,7 @@ The server can ingest and broadcast with WebRTC a wide variety of video and audi
 
 In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to lack of browser support. The situation improved recently and can be described as following:
 
-- Safari on iOS and macOS fully supports publishing and reading H265 tracks
+- Safari on iOS and macOS fully support publishing and reading H265 tracks
 - Chrome on Windows supports publishing and reading H265 tracks when a GPU is present and when the browser is launched with the following flags:
 
   ```

@@ -1,6 +1,6 @@
 # Install
 
-There are several installation methods available: standalone binary, Docker image, Arch Linux package, FreeBSD Ports Collection or package and OpenWrt binary.
+There are several installation methods available: standalone binary, Docker image, Arch Linux package, FreeBSD or OpenWrt binary.
 
 ## Standalone binary
 
@@ -31,7 +31,7 @@ bluenviron/mediamtx:1
 
 Fill the `MTX_WEBRTCADDITIONALHOSTS` environment variable with the IP that will be used to connect to the server.
 
-The `MTX_RTSPTRANSPORTS=tcp` environment variable is meant to disable the RTSP UDP transport protocol. If you want to use it, you also need `--network=host` (which is not compatible with Windows, macOS and Kubernetes):
+The `MTX_RTSPTRANSPORTS=tcp` environment variable is meant to disable the UDP transport protocol of the RTSP server (which require the real IP address and port of incoming UDP packets, that are sometimes replaced by the Docker network stack). If you want to use it, you need to bypass the Docker network stack through the `--network=host` flag (which is not compatible with Windows, macOS and Kubernetes):
 
 ```sh
 docker run --rm -it --network=host bluenviron/mediamtx:1
@@ -47,6 +47,25 @@ There are four image variants:
 | bluenviron/mediamtx:1-ffmpeg-rpi | :heavy_check_mark: | :heavy_check_mark: |
 
 The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
+
+The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by using the _MediaMTX_ image as a base stage, by creating a file name `Dockerfile` with this content:
+
+```
+FROM bluenviron/mediamtx:1 AS mediamtx
+FROM ubuntu:24.04
+
+COPY --from=mediamtx /mediamtx /
+COPY --from=mediamtx.yml /
+
+RUN apt update && apt install -y \
+   (insert here additional utilities)
+```
+
+And then build it:
+
+```
+docker build . -t my-mediamtx
+```
 
 ## Arch Linux package
 

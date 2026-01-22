@@ -4,19 +4,19 @@
 
 Live streams can be published to the server with the following protocols and codecs:
 
-| protocol                                              | variants                                   | video codecs                                                                                              | audio codecs                                                                                                           |
-| ----------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [SRT clients](#srt-clients)                           |                                            | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [SRT cameras and servers](#srt-cameras-and-servers)   |                                            | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [WebRTC clients](#webrtc-clients)                     | WHIP                                       | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
-| [WebRTC servers](#webrtc-servers)                     | WHEP                                       | AV1, VP9, VP8, H265, H264                                                                                 | Opus, G722, G711 (PCMA, PCMU)                                                                                          |
-| [RTSP clients](#rtsp-clients)                         | UDP, TCP, RTSPS                            | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
-| [RTSP cameras and servers](#rtsp-cameras-and-servers) | UDP, UDP-Multicast, TCP, RTSPS             | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
-| [RTMP clients](#rtmp-clients)                         | RTMP, RTMPS, Enhanced RTMP                 | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
-| [RTMP cameras and servers](#rtmp-cameras-and-servers) | RTMP, RTMPS, Enhanced RTMP                 | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                          |
-| [HLS cameras and servers](#hls-cameras-and-servers)   | Low-Latency HLS, MP4-based HLS, legacy HLS | AV1, VP9, H265, H264                                                                                      | Opus, MPEG-4 Audio (AAC)                                                                                               |
-| [MPEG-TS](#mpeg-ts)                                   | MPEG-TS over UDP, MPEG-TS over Unix socket | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                                                     | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                                                   |
-| [RTP](#rtp)                                           | RTP over UDP, RTP over Unix socket         | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM and any RTP-compatible codec |
+| protocol                                              | variants                                   | codecs                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [SRT clients](#srt-clients)                           |                                            | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3<br/>**Other**: KLV                                                                                                |
+| [SRT cameras and servers](#srt-cameras-and-servers)   |                                            | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3<br/>**Other**: KLV                                                                                                |
+| [WebRTC clients](#webrtc-clients)                     | WHIP                                       | **Video**: AV1, VP9, VP8, H265, H264<br/>**Audio**: Opus, G722, G711 (PCMA, PCMU)                                                                                                                                                                      |
+| [WebRTC servers](#webrtc-servers)                     | WHEP                                       | **Video**: AV1, VP9, VP8, H265, H264<br/>**Audio**: Opus, G722, G711 (PCMA, PCMU)                                                                                                                                                                      |
+| [RTSP clients](#rtsp-clients)                         | UDP, TCP, RTSPS                            | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, MJPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec  |
+| [RTSP cameras and servers](#rtsp-cameras-and-servers) | UDP, UDP-Multicast, TCP, RTSPS             | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, MJPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec  |
+| [RTMP clients](#rtmp-clients)                         | RTMP, RTMPS, Enhanced RTMP                 | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                                                                                                           |
+| [RTMP cameras and servers](#rtmp-cameras-and-servers) | RTMP, RTMPS, Enhanced RTMP                 | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                                                                                                           |
+| [HLS cameras and servers](#hls-cameras-and-servers)   | Low-Latency HLS, MP4-based HLS, legacy HLS | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC)                                                                                                                                                                                |
+| [MPEG-TS](#mpeg-ts)                                   | MPEG-TS over UDP, MPEG-TS over Unix socket | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3<br/>**Other**: KLV                                                                                                |
+| [RTP](#rtp)                                           | RTP over UDP, RTP over Unix socket         | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec |
 
 We provide instructions for publishing with the following devices:
 
@@ -42,7 +42,7 @@ SRT is a protocol that allows to publish and read live data stream, providing en
 srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 ```
 
-Replace `mystream` with any name you want. The resulting stream is available in path `/mystream`.
+Replace `mystream` with any name you want. The resulting stream will be available on path `/mystream`.
 
 If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
 
@@ -69,7 +69,7 @@ WebRTC is an API that makes use of a set of protocols and methods to connect two
 http://localhost:8889/mystream/publish
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 WHIP is a WebRTC extensions that allows to publish streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHIP (for instance, latest versions of OBS Studio), you can publish a stream to the server by using this URL:
 
@@ -110,7 +110,7 @@ RTSP is a protocol that allows to publish and read streams. It supports several 
 rtsp://localhost:8554/mystream
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 Some clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [OpenCV](#opencv).
 
@@ -125,7 +125,7 @@ paths:
     source: rtsp://original-url
 ```
 
-The resulting stream is available in path `/proxied`.
+The resulting stream will be available on path `/proxied`.
 
 It is possible to tune the connection by using some additional parameters:
 
@@ -168,7 +168,7 @@ RTMP is a protocol that allows to read and publish streams. It supports encrypti
 rtmp://localhost/mystream
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 Some clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
@@ -183,7 +183,7 @@ paths:
     source: rtmp://original-url
 ```
 
-The resulting stream is available in path `/proxied`.
+The resulting stream will be available on path `/proxied`.
 
 ### HLS cameras and servers
 
@@ -196,7 +196,7 @@ paths:
     source: http://original-url/stream/index.m3u8
 ```
 
-The resulting stream is available in path `/proxied`.
+The resulting stream will be available on path `/proxied`.
 
 ### MPEG-TS
 
@@ -284,46 +284,47 @@ paths:
 
 ### Raspberry Pi Cameras
 
-_MediaMTX_ natively supports most of the Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are some additional requirements:
+_MediaMTX_ natively supports most Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are some additional requirements:
 
 1. The server must run on a Raspberry Pi, with one of the following operating systems:
    - Raspberry Pi OS Trixie
    - Raspberry Pi OS Bookworm
    - Raspberry Pi OS Bullseye
 
-   Both 32 bit and 64 bit architectures are supported.
+   Both 32-bit and 64-bit architectures are supported.
 
 2. If you are using Raspberry Pi OS Bullseye, make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
-If you want to run the standard (non-Docker) version of the server:
+The setup procedure depends on whether you want to run the server outside or inside Docker:
 
-1. Download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
+- If you want to run the standard (non-Dockerized) version of the server:
+  1. Download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
 
-2. Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+  2. Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
-   ```yml
-   paths:
-     cam:
-       source: rpiCamera
-   ```
+  ```yml
+  paths:
+    cam:
+      source: rpiCamera
+  ```
 
-The resulting stream is available in path `/cam`.
+  The resulting stream will be available on path `/cam`.
+
+- If you want to run the server inside Docker, you need to use the `1-rpi` image and launch the container with some additional flags:
+
+  ```sh
+  docker run --rm -it \
+  --network=host \
+  --privileged \
+  --tmpfs /dev/shm:exec \
+  -v /run/udev:/run/udev:ro \
+  -e MTX_PATHS_CAM_SOURCE=rpiCamera \
+  bluenviron/mediamtx:1-rpi
+  ```
 
 The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](/docs/references/configuration-file).
 
-If you want to run the server inside Docker, you need to use the `1-rpi` image and launch the container with some additional flags:
-
-```sh
-docker run --rm -it \
---network=host \
---privileged \
---tmpfs /dev/shm:exec \
--v /run/udev:/run/udev:ro \
--e MTX_PATHS_CAM_SOURCE=rpiCamera \
-bluenviron/mediamtx:1-rpi
-```
-
-Be aware that precompiled binaries and Docker images are not compatible with cameras that require a custom `libcamera` (like some ArduCam products), since they come with a bundled `libcamera`. If you want to use a custom one, you can [compile from source](/docs/other/compile#custom-libcamera).
+Be aware that cameras that require a custom `libcamera` (like some ArduCam products) are not compatible with precompiled binaries and Docker images of _MediaMTX_, since these come with a bundled `libcamera`. If you want to use a custom one, you need to [compile from source](/docs/other/compile#custom-libcamera).
 
 #### Adding audio
 
@@ -366,7 +367,7 @@ paths:
     runOnInitRestart: yes
 ```
 
-The resulting stream is available in path `/cam_with_audio`.
+The resulting stream will be available on path `/cam_with_audio`.
 
 #### Secondary stream
 
@@ -401,7 +402,7 @@ paths:
     rpiCameraMJPEGQuality: 60
 ```
 
-The secondary stream is available in path `/secondary`.
+The secondary stream will be available on path `/secondary`.
 
 ### Generic webcams
 
@@ -429,7 +430,7 @@ Where `USB2.0 HD UVC WebCam` is the name of a webcam, that can be obtained with:
 ffmpeg -list_devices true -f dshow -i dummy
 ```
 
-The resulting stream is available in path `/cam`.
+The resulting stream will be available on path `/cam`.
 
 ## Software
 
@@ -443,7 +444,7 @@ FFmpeg can publish a stream to the server in several ways. The recommended one c
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 #### FFmpeg and RTMP
 
@@ -523,7 +524,7 @@ gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
 d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 For advanced options, see [RTSP-specific features](rtsp-specific-features).
 
@@ -593,7 +594,7 @@ Recent versions of OBS Studio can also publish to the server with the [WebRTC / 
 
 Save the configuration and click `Start streaming`.
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 ### OpenCV
 
@@ -668,7 +669,7 @@ while True:
     start = now
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 ### Unity
 
@@ -779,7 +780,7 @@ public class WebRTCPublisher : MonoBehaviour
 
 In the _Hierarchy_ window, find or create a scene and a camera, then add the `WebRTCPublisher.cs` script as component of the camera, by dragging it inside the _Inspector_ window. then Press the _Play_ button at the top of the page.
 
-The resulting stream is available in path `/unity`.
+The resulting stream will be available on path `/unity`.
 
 ### Web browsers
 
@@ -789,7 +790,7 @@ Web browsers can publish a stream to the server by using the [WebRTC protocol](#
 http://localhost:8889/mystream/publish
 ```
 
-The resulting stream is available in path `/mystream`.
+The resulting stream will be available on path `/mystream`.
 
 This web page can be embedded into another web page by using an iframe:
 

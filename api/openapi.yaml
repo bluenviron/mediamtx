@@ -252,9 +252,9 @@ components:
         # RTMP server
         rtmp:
           type: boolean
-        rtmpAddress:
-          type: string
         rtmpEncryption:
+          type: string
+        rtmpAddress:
           type: string
         rtmpsAddress:
           type: string
