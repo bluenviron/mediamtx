@@ -94,8 +94,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
-	UseUDP              bool
-	UseMulticast        bool
+	RTSPTransports      conf.RTSPTransports
 	RTPAddress          string
 	RTCPAddress         string
 	MulticastIPRange    string
@@ -141,12 +140,12 @@ func (s *Server) Initialize() error {
 		AuthMethods:       s.AuthMethods,
 	}
 
-	if s.UseUDP {
+	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDP]; ok {
 		s.srv.UDPRTPAddress = s.RTPAddress
 		s.srv.UDPRTCPAddress = s.RTCPAddress
 	}
 
-	if s.UseMulticast {
+	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
 		s.srv.MulticastIPRange = s.MulticastIPRange
 		s.srv.MulticastRTPPort = s.MulticastRTPPort
 		s.srv.MulticastRTCPPort = s.MulticastRTCPPort
