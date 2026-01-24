@@ -505,7 +505,7 @@ WARNING: in case of FFmpeg 8.0, a video track and an audio track must both be pr
 
 ### GStreamer
 
-FFmpeg can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
+GStreamer can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
 
 #### GStreamer and RTSP
 
