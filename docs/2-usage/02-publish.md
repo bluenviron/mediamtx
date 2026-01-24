@@ -456,7 +456,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystr
 In _MediaMTX_ configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://127.0.0.1:3356?pkt_size=1316'
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://238.0.0.1:1234?pkt_size=1316'
 ```
 
 #### FFmpeg and MPEG-TS over Unix socket
@@ -505,7 +505,7 @@ WARNING: in case of FFmpeg 8.0, a video track and an audio track must both be pr
 
 ### GStreamer
 
-FFmpeg can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
+GStreamer can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
 
 #### GStreamer and RTSP
 
