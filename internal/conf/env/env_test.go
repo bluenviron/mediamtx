@@ -51,67 +51,79 @@ type mySubStruct struct {
 }
 
 type testStruct struct {
-	MyString                 string               `json:"myString"`
-	MyStringOpt              *string              `json:"myStringOpt"`
-	MyInt                    int                  `json:"myInt"`
-	MyIntOpt                 *int                 `json:"myIntOpt"`
-	MyUint                   uint                 `json:"myUint"`
-	MyUintOpt                *uint                `json:"myUintOpt"`
-	MyFloat                  float64              `json:"myFloat"`
-	MyFloatOpt               *float64             `json:"myFloatOpt"`
-	MyBool                   bool                 `json:"myBool"`
-	MyBoolOpt                *bool                `json:"myBoolOpt"`
-	MyDuration               myDuration           `json:"myDuration"`
-	MyDurationOpt            *myDuration          `json:"myDurationOpt"`
-	MyDurationOptUnset       *myDuration          `json:"myDurationOptUnset"`
-	MyMap                    map[string]*mapEntry `json:"myMap"`
-	MySliceFloat             []float64            `json:"mySliceFloat"`
-	MySliceString            []string             `json:"mySliceString"`
-	MySliceStringEmpty       []string             `json:"mySliceStringEmpty"`
-	MySliceStringOpt         *[]string            `json:"mySliceStringOpt"`
-	MySliceStringOptUnset    *[]string            `json:"mySliceStringOptUnset"`
-	MySliceSubStruct         []mySubStruct        `json:"mySliceSubStruct"`
-	MySliceSubStructEmpty    []mySubStruct        `json:"mySliceSubStructEmpty"`
-	MySliceSubStructOpt      *[]mySubStruct       `json:"mySliceSubStructOpt"`
-	MySliceSubStructOptUnset *[]mySubStruct       `json:"mySliceSubStructOptUnset"`
-	Unset                    *bool                `json:"unset"`
+	MyString                   string               `json:"myString"`
+	MyStringOpt                *string              `json:"myStringOpt"`
+	MyInt                      int                  `json:"myInt"`
+	MyIntOpt                   *int                 `json:"myIntOpt"`
+	MyUint                     uint                 `json:"myUint"`
+	MyUintOpt                  *uint                `json:"myUintOpt"`
+	MyFloat                    float64              `json:"myFloat"`
+	MyFloatOpt                 *float64             `json:"myFloatOpt"`
+	MyBool                     bool                 `json:"myBool"`
+	MyBoolOpt                  *bool                `json:"myBoolOpt"`
+	MyDuration                 myDuration           `json:"myDuration"`
+	MyDurationOpt              *myDuration          `json:"myDurationOpt"`
+	MyDurationOptUnset         *myDuration          `json:"myDurationOptUnset"`
+	MyMap                      map[string]*mapEntry `json:"myMap"`
+	MySliceFloat               []float64            `json:"mySliceFloat"`
+	MySliceString              []string             `json:"mySliceString"`
+	MySliceStringEmpty         []string             `json:"mySliceStringEmpty"`
+	MySliceStringOpt           *[]string            `json:"mySliceStringOpt"`
+	MySliceStringOptUnset      *[]string            `json:"mySliceStringOptUnset"`
+	MySliceSubStruct           []mySubStruct        `json:"mySliceSubStruct"`
+	MySliceSubStructEmpty      []mySubStruct        `json:"mySliceSubStructEmpty"`
+	MySliceSubStructOpt        *[]mySubStruct       `json:"mySliceSubStructOpt"`
+	MySliceSubStructOptUnset   *[]mySubStruct       `json:"mySliceSubStructOptUnset"`
+	MySliceSubStructPreloaded  []mySubStruct        `json:"mySliceSubStructPreloaded"`
+	MySliceSubStructPreloaded2 []mySubStruct        `json:"mySliceSubStructPreloaded2"`
+	Unset                      *bool                `json:"unset"`
 }
 
 func TestLoad(t *testing.T) {
-	env := map[string]string{
-		"MYPREFIX_MYSTRING":                       "testcontent",
-		"MYPREFIX_MYSTRINGOPT":                    "testcontent2",
-		"MYPREFIX_MYINT":                          "123",
-		"MYPREFIX_MYINTOPT":                       "456",
-		"MYPREFIX_MYUINT":                         "8910",
-		"MYPREFIX_MYUINTOPT":                      "112313",
-		"MYPREFIX_MYFLOAT":                        "15.2",
-		"MYPREFIX_MYFLOATOPT":                     "16.2",
-		"MYPREFIX_MYBOOL":                         "yes",
-		"MYPREFIX_MYBOOLOPT":                      "false",
-		"MYPREFIX_MYDURATION":                     "22s",
-		"MYPREFIX_MYDURATIONOPT":                  "30s",
-		"MYPREFIX_MYMAP_MYKEY":                    "",
-		"MYPREFIX_MYMAP_MYKEY2_MYVALUE":           "asd",
-		"MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM":  "456",
-		"MYPREFIX_MYSLICEFLOAT":                   "0.5,0.5",
-		"MYPREFIX_MYSLICESTRING":                  "val1,val2",
-		"MYPREFIX_MYSLICESTRINGEMPTY":             "",
-		"MYPREFIX_MYSLICESTRINGOPT":               "aa",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_URL":         "url1",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME":    "user1",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD":    "pass1",
-		"MYPREFIX_MYSLICESUBSTRUCT_1_URL":         "url2",
-		"MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD":    "pass2",
-		"MYPREFIX_MYSLICESUBSTRUCTEMPTY":          "",
-		"MYPREFIX_MYSLICESUBSTRUCTOPT_1_PASSWORD": "pwd",
+	s := testStruct{
+		MySliceSubStructPreloaded: []mySubStruct{
+			{
+				URL:      "val1",
+				Username: "val2",
+			},
+		},
+		MySliceSubStructPreloaded2: []mySubStruct{
+			{
+				URL:      "val3",
+				Username: "val4",
+			},
+		},
 	}
 
-	for key, val := range env {
-		t.Setenv(key, val)
-	}
+	t.Setenv("MYPREFIX_MYSTRING", "testcontent")
+	t.Setenv("MYPREFIX_MYSTRINGOPT", "testcontent2")
+	t.Setenv("MYPREFIX_MYINT", "123")
+	t.Setenv("MYPREFIX_MYINTOPT", "456")
+	t.Setenv("MYPREFIX_MYUINT", "8910")
+	t.Setenv("MYPREFIX_MYUINTOPT", "112313")
+	t.Setenv("MYPREFIX_MYFLOAT", "15.2")
+	t.Setenv("MYPREFIX_MYFLOATOPT", "16.2")
+	t.Setenv("MYPREFIX_MYBOOL", "yes")
+	t.Setenv("MYPREFIX_MYBOOLOPT", "false")
+	t.Setenv("MYPREFIX_MYDURATION", "22s")
+	t.Setenv("MYPREFIX_MYDURATIONOPT", "30s")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY", "")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE", "asd")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM", "456")
+	t.Setenv("MYPREFIX_MYSLICEFLOAT", "0.5,0.5")
+	t.Setenv("MYPREFIX_MYSLICESTRING", "val1,val2")
+	t.Setenv("MYPREFIX_MYSLICESTRINGEMPTY", "")
+	t.Setenv("MYPREFIX_MYSLICESTRINGOPT", "aa")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_URL", "url1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME", "user1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD", "pass1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_URL", "url2")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD", "pass2")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY", "")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTOPT_1_PASSWORD", "pwd")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED_0_URL", "newurl")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED2_1_URL", "newurl2")
 
-	var s testStruct
 	err := Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
@@ -162,6 +174,21 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		MySliceSubStructEmpty: []mySubStruct{},
+		MySliceSubStructPreloaded: []mySubStruct{
+			{
+				URL:      "newurl",
+				Username: "val2",
+			},
+		},
+		MySliceSubStructPreloaded2: []mySubStruct{
+			{
+				URL:      "val3",
+				Username: "val4",
+			},
+			{
+				URL: "newurl2",
+			},
+		},
 	}, s)
 }
 
