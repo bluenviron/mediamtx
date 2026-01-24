@@ -39,24 +39,8 @@ func (d *AuthInternalUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// AuthInternalUsers is a list of AuthInternalUser
+// AuthInternalUsers is a list of AuthInternalUser.
 type AuthInternalUsers []AuthInternalUser
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (s *AuthInternalUsers) UnmarshalJSON(b []byte) error {
-	// remove default value before loading new value
-	// https://github.com/golang/go/issues/21092
-	*s = nil
-	return jsonwrapper.Unmarshal(b, (*[]AuthInternalUser)(s))
-}
-
-// AuthInternalUserPermissions is a list of AuthInternalUserPermission
+// AuthInternalUserPermissions is a list of AuthInternalUserPermission.
 type AuthInternalUserPermissions []AuthInternalUserPermission
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (s *AuthInternalUserPermissions) UnmarshalJSON(b []byte) error {
-	// remove default value before loading new value
-	// https://github.com/golang/go/issues/21092
-	*s = nil
-	return jsonwrapper.Unmarshal(b, (*[]AuthInternalUserPermission)(s))
-}
