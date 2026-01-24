@@ -600,6 +600,18 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	// Authentication
 
 	switch conf.AuthMethod {
+	case AuthMethodInternal:
+		for _, u := range conf.AuthInternalUsers {
+			// https://github.com/bluenviron/gortsplib/blob/55556f1ecfa2bd51b29fe14eddd70512a0361cbd/server_conn.go#L155-L156
+			if u.User == "" {
+				return fmt.Errorf("empty usernames are not supported")
+			}
+
+			if u.User == "any" && u.Pass != "" {
+				return fmt.Errorf("using a password with 'any' user is not supported")
+			}
+		}
+
 	case AuthMethodHTTP:
 		if conf.AuthHTTPAddress == "" {
 			return fmt.Errorf("'authHTTPAddress' is empty")
