@@ -8,6 +8,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// differences with respect to the standard package:
+// - unknown fields cause an error
+// - integer map keys cause an error
+
 func convertKeys(i any) (any, error) {
 	switch x := i.(type) {
 	case map[any]any:

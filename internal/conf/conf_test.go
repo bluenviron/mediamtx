@@ -770,31 +770,3 @@ func TestSampleConfFile(t *testing.T) {
 		require.Equal(t, conf1.Paths, conf2.Paths)
 	}()
 }
-
-// needed due to https://github.com/golang/go/issues/21092
-func TestConfOverrideDefaultSlices(t *testing.T) {
-	tmpf, err := createTempFile([]byte(
-		"authInternalUsers:\n" +
-			"  - user: user1\n" +
-			"  - user: user2\n" +
-			"authHTTPExclude:\n" +
-			"  - path: ''\n"))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
-
-	conf, _, err := Load(tmpf, nil, nil)
-	require.NoError(t, err)
-
-	require.Equal(t, AuthInternalUsers{
-		{
-			User: "user1",
-		},
-		{
-			User: "user2",
-		},
-	}, conf.AuthInternalUsers)
-
-	require.Equal(t, AuthInternalUserPermissions{
-		{},
-	}, conf.AuthHTTPExclude)
-}

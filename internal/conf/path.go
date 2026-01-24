@@ -106,7 +106,6 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 }
 
 // Path is a path configuration.
-// WARNING: Avoid using slices directly due to https://github.com/golang/go/issues/21092
 type Path struct {
 	Regexp *regexp.Regexp `json:"-"`    // filled by Check()
 	Name   string         `json:"name"` // filled by Check()
