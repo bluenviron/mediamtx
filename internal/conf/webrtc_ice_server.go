@@ -7,6 +7,3 @@ type WebRTCICEServer struct {
 	Password   string `json:"password"`
 	ClientOnly bool   `json:"clientOnly"`
 }
-
-// WebRTCICEServers is a list of WebRTCICEServer.
-type WebRTCICEServers []WebRTCICEServer

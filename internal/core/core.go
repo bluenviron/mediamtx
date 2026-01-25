@@ -292,7 +292,7 @@ func (p *Core) createResources(initial bool) error {
 	if p.logger == nil {
 		i := &logger.Logger{
 			Level:        logger.Level(p.conf.LogLevel),
-			Destinations: p.conf.LogDestinations,
+			Destinations: p.conf.LogDestinations.ToDestinations(),
 			Structured:   p.conf.LogStructured,
 			File:         p.conf.LogFile,
 			SysLogPrefix: p.conf.SysLogPrefix,
@@ -451,7 +451,7 @@ func (p *Core) createResources(initial bool) error {
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
-			AuthMethods:         p.conf.RTSPAuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods.ToAuthMethods(),
 			UDPReadBufferSize:   udpReadBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
@@ -493,7 +493,7 @@ func (p *Core) createResources(initial bool) error {
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
-			AuthMethods:         p.conf.RTSPAuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods.ToAuthMethods(),
 			UDPReadBufferSize:   udpReadBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,

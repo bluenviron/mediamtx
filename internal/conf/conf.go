@@ -59,6 +59,13 @@ func setAllNilSlicesToEmptyRecursive(rv reflect.Value) {
 			case reflect.Slice:
 				if field.IsNil() {
 					field.Set(reflect.MakeSlice(field.Type(), 0, 0))
+				} else {
+					for j := range field.Len() {
+						elem := field.Index(j)
+						if elem.Kind() == reflect.Pointer || elem.Kind() == reflect.Struct {
+							setAllNilSlicesToEmptyRecursive(elem)
+						}
+					}
 				}
 
 			case reflect.Pointer:
@@ -110,15 +117,15 @@ func copyStructFields(dest any, source any) {
 	}
 }
 
-func mustParseCIDR(v string) net.IPNet {
+func mustParseCIDR(v string) IPNetwork {
 	_, ne, err := net.ParseCIDR(v)
 	if err != nil {
 		panic(err)
 	}
 	if ipv4 := ne.IP.To4(); ipv4 != nil {
-		return net.IPNet{IP: ipv4, Mask: ne.Mask[len(ne.Mask)-4 : len(ne.Mask)]}
+		return IPNetwork{IP: ipv4, Mask: ne.Mask[len(ne.Mask)-4 : len(ne.Mask)]}
 	}
-	return *ne
+	return IPNetwork(*ne)
 }
 
 func anyPathHasDeprecatedCredentials(pathDefaults Path, paths map[string]*OptionalPath) bool {
@@ -198,7 +205,7 @@ type nilLogger struct{}
 func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
 }
 
-var defaultAuthInternalUsers = AuthInternalUsers{
+var defaultAuthInternalUsers = []AuthInternalUser{
 	{
 		User: "any",
 		Pass: "",
@@ -251,16 +258,16 @@ type Conf struct {
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
 
 	// Authentication
-	AuthMethod                AuthMethod                  `json:"authMethod"`
-	AuthInternalUsers         AuthInternalUsers           `json:"authInternalUsers"`
-	AuthHTTPAddress           string                      `json:"authHTTPAddress"`
-	ExternalAuthenticationURL *string                     `json:"externalAuthenticationURL,omitempty"` // deprecated
-	AuthHTTPExclude           AuthInternalUserPermissions `json:"authHTTPExclude"`
-	AuthJWTJWKS               string                      `json:"authJWTJWKS"`
-	AuthJWTJWKSFingerprint    string                      `json:"authJWTJWKSFingerprint"`
-	AuthJWTClaimKey           string                      `json:"authJWTClaimKey"`
-	AuthJWTExclude            AuthInternalUserPermissions `json:"authJWTExclude"`
-	AuthJWTInHTTPQuery        bool                        `json:"authJWTInHTTPQuery"`
+	AuthMethod                AuthMethod                   `json:"authMethod"`
+	AuthInternalUsers         []AuthInternalUser           `json:"authInternalUsers"`
+	AuthHTTPAddress           string                       `json:"authHTTPAddress"`
+	ExternalAuthenticationURL *string                      `json:"externalAuthenticationURL,omitempty"` // deprecated
+	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
+	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
+	AuthJWTJWKSFingerprint    string                       `json:"authJWTJWKSFingerprint"`
+	AuthJWTClaimKey           string                       `json:"authJWTClaimKey"`
+	AuthJWTExclude            []AuthInternalUserPermission `json:"authJWTExclude"`
+	AuthJWTInHTTPQuery        bool                         `json:"authJWTInHTTPQuery"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -357,28 +364,28 @@ type Conf struct {
 	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
 
 	// WebRTC server
-	WebRTC                      bool             `json:"webrtc"`
-	WebRTCDisable               *bool            `json:"webrtcDisable,omitempty"` // deprecated
-	WebRTCAddress               string           `json:"webrtcAddress"`
-	WebRTCEncryption            bool             `json:"webrtcEncryption"`
-	WebRTCServerKey             string           `json:"webrtcServerKey"`
-	WebRTCServerCert            string           `json:"webrtcServerCert"`
-	WebRTCAllowOrigin           *string          `json:"webrtcAllowOrigin,omitempty"` // deprecated
-	WebRTCAllowOrigins          []string         `json:"webrtcAllowOrigins"`
-	WebRTCTrustedProxies        IPNetworks       `json:"webrtcTrustedProxies"`
-	WebRTCLocalUDPAddress       string           `json:"webrtcLocalUDPAddress"`
-	WebRTCLocalTCPAddress       string           `json:"webrtcLocalTCPAddress"`
-	WebRTCIPsFromInterfaces     bool             `json:"webrtcIPsFromInterfaces"`
-	WebRTCIPsFromInterfacesList []string         `json:"webrtcIPsFromInterfacesList"`
-	WebRTCAdditionalHosts       []string         `json:"webrtcAdditionalHosts"`
-	WebRTCICEServers2           WebRTCICEServers `json:"webrtcICEServers2"`
-	WebRTCHandshakeTimeout      Duration         `json:"webrtcHandshakeTimeout"`
-	WebRTCTrackGatherTimeout    Duration         `json:"webrtcTrackGatherTimeout"`
-	WebRTCSTUNGatherTimeout     Duration         `json:"webrtcSTUNGatherTimeout"`
-	WebRTCICEUDPMuxAddress      *string          `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
-	WebRTCICETCPMuxAddress      *string          `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
-	WebRTCICEHostNAT1To1IPs     *[]string        `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
-	WebRTCICEServers            *[]string        `json:"webrtcICEServers,omitempty"`        // deprecated
+	WebRTC                      bool              `json:"webrtc"`
+	WebRTCDisable               *bool             `json:"webrtcDisable,omitempty"` // deprecated
+	WebRTCAddress               string            `json:"webrtcAddress"`
+	WebRTCEncryption            bool              `json:"webrtcEncryption"`
+	WebRTCServerKey             string            `json:"webrtcServerKey"`
+	WebRTCServerCert            string            `json:"webrtcServerCert"`
+	WebRTCAllowOrigin           *string           `json:"webrtcAllowOrigin,omitempty"` // deprecated
+	WebRTCAllowOrigins          []string          `json:"webrtcAllowOrigins"`
+	WebRTCTrustedProxies        IPNetworks        `json:"webrtcTrustedProxies"`
+	WebRTCLocalUDPAddress       string            `json:"webrtcLocalUDPAddress"`
+	WebRTCLocalTCPAddress       string            `json:"webrtcLocalTCPAddress"`
+	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
+	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
+	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
+	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
+	WebRTCHandshakeTimeout      Duration          `json:"webrtcHandshakeTimeout"`
+	WebRTCTrackGatherTimeout    Duration          `json:"webrtcTrackGatherTimeout"`
+	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
+	WebRTCICEUDPMuxAddress      *string           `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
+	WebRTCICETCPMuxAddress      *string           `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
+	WebRTCICEHostNAT1To1IPs     *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
+	WebRTCICEServers            *[]string         `json:"webrtcICEServers,omitempty"`        // deprecated
 
 	// SRT server
 	SRT        bool   `json:"srt"`
@@ -403,7 +410,7 @@ type Conf struct {
 func (conf *Conf) setDefaults() {
 	// General
 	conf.LogLevel = LogLevel(logger.Info)
-	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
+	conf.LogDestinations = LogDestinations{LogDestination(logger.DestinationStdout)}
 	conf.LogStructured = false
 	conf.LogFile = "mediamtx.log"
 	conf.SysLogPrefix = "mediamtx"
@@ -472,7 +479,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastSRTCPPort = 8007
 	conf.RTSPServerKey = "server.key"
 	conf.RTSPServerCert = "server.crt"
-	conf.RTSPAuthMethods = RTSPAuthMethods{auth.VerifyMethodBasic}
+	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.VerifyMethodBasic)}
 
 	// RTMP server
 	conf.RTMP = true
@@ -871,7 +878,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
 		}
 
-		if slices.Contains(conf.RTSPAuthMethods, auth.VerifyMethodDigestMD5) {
+		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.VerifyMethodDigestMD5)) {
 			if conf.AuthMethod != AuthMethodInternal {
 				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 			}

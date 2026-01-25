@@ -1,17 +1,14 @@
 package main
 
 import (
-	"net"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
@@ -73,7 +70,7 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 
 	case rt == reflect.TypeOf(time.Time{}) ||
 		rt == reflect.TypeOf(conf.Duration(0)) ||
-		rt == reflect.TypeOf(net.IPNet{}) ||
+		rt == reflect.TypeOf(conf.IPNetwork{}) ||
 		rt == reflect.TypeOf(conf.Credential("")) ||
 		rt == reflect.TypeOf(conf.RecordFormat(0)) ||
 		rt == reflect.TypeOf(conf.AuthAction("")) ||
@@ -83,8 +80,8 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 		rt == reflect.TypeOf(conf.RTSPRangeType(0)) ||
 		rt == reflect.TypeOf(conf.LogLevel(0)) ||
 		rt == reflect.TypeOf(conf.AuthMethod(0)) ||
-		rt == reflect.TypeOf(logger.Destination(0)) ||
-		rt == reflect.TypeOf(auth.VerifyMethod(0)) ||
+		rt == reflect.TypeOf(conf.LogDestination(0)) ||
+		rt == reflect.TypeOf(conf.RTSPAuthMethod(0)) ||
 		rt == reflect.TypeOf(conf.HLSVariant(0)) ||
 		rt == reflect.TypeOf(defs.APIRTMPConnState("")) ||
 		rt == reflect.TypeOf(defs.APIWebRTCSessionState("")) ||
