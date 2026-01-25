@@ -2,7 +2,6 @@
 package conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf/decrypt"
 	"github.com/bluenviron/mediamtx/internal/conf/env"
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"github.com/bluenviron/mediamtx/internal/conf/yamlwrapper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -46,6 +44,43 @@ func firstThatExists(paths []string) string {
 		}
 	}
 	return ""
+}
+
+func setAllNilSlicesToEmptyRecursive(rv reflect.Value) {
+	if rv.Kind() == reflect.Pointer {
+		rv = rv.Elem()
+	}
+
+	if rv.Kind() == reflect.Struct {
+		for i := range rv.NumField() {
+			field := rv.Field(i)
+
+			switch field.Kind() {
+			case reflect.Slice:
+				if field.IsNil() {
+					field.Set(reflect.MakeSlice(field.Type(), 0, 0))
+				}
+
+			case reflect.Pointer:
+				if !field.IsNil() {
+					setAllNilSlicesToEmptyRecursive(field)
+				}
+
+			case reflect.Struct:
+				setAllNilSlicesToEmptyRecursive(field.Addr())
+
+			case reflect.Map:
+				if !field.IsNil() {
+					for _, key := range field.MapKeys() {
+						mapValue := field.MapIndex(key)
+						if mapValue.Kind() == reflect.Pointer {
+							setAllNilSlicesToEmptyRecursive(mapValue)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 func copyStructFields(dest any, source any) {
@@ -110,6 +145,57 @@ func anyPathHasDeprecatedCredentials(pathDefaults Path, paths map[string]*Option
 		}
 	}
 	return false
+}
+
+func deepClone(rv reflect.Value) reflect.Value {
+	switch rv.Kind() {
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return rv
+		}
+		newPtr := reflect.New(rv.Elem().Type())
+		newPtr.Elem().Set(deepClone(rv.Elem()))
+		return newPtr
+
+	case reflect.Struct:
+		newStruct := reflect.New(rv.Type()).Elem()
+		for i := range rv.NumField() {
+			field := rv.Field(i)
+			newField := newStruct.Field(i)
+			if newField.CanSet() {
+				newField.Set(deepClone(field))
+			}
+		}
+		return newStruct
+
+	case reflect.Slice:
+		if rv.IsNil() {
+			return reflect.Zero(rv.Type())
+		}
+		newSlice := reflect.MakeSlice(rv.Type(), rv.Len(), rv.Cap())
+		for i := range rv.Len() {
+			newSlice.Index(i).Set(deepClone(rv.Index(i)))
+		}
+		return newSlice
+
+	case reflect.Map:
+		if rv.IsNil() {
+			return reflect.Zero(rv.Type())
+		}
+		newMap := reflect.MakeMap(rv.Type())
+		for _, key := range rv.MapKeys() {
+			newMap.SetMapIndex(key, deepClone(rv.MapIndex(key)))
+		}
+		return newMap
+
+	default:
+		return rv
+	}
+}
+
+type nilLogger struct{}
+
+func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
 }
 
 var defaultAuthInternalUsers = AuthInternalUsers{
@@ -311,7 +397,7 @@ type Conf struct {
 
 	// Paths
 	OptionalPaths map[string]*OptionalPath `json:"paths"`
-	Paths         map[string]*Path         `json:"-"` // filled by Check()
+	Paths         map[string]*Path         `json:"-"` // filled by Validate()
 }
 
 func (conf *Conf) setDefaults() {
@@ -340,7 +426,6 @@ func (conf *Conf) setDefaults() {
 		},
 	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
-	conf.AuthJWTExclude = []AuthInternalUserPermission{}
 	conf.AuthJWTInHTTPQuery = true
 
 	// Control API
@@ -417,9 +502,6 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCAllowOrigins = []string{"*"}
 	conf.WebRTCLocalUDPAddress = ":8189"
 	conf.WebRTCIPsFromInterfaces = true
-	conf.WebRTCIPsFromInterfacesList = []string{}
-	conf.WebRTCAdditionalHosts = []string{}
-	conf.WebRTCICEServers2 = []WebRTCICEServer{}
 	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
 	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
 	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
@@ -434,6 +516,8 @@ func (conf *Conf) setDefaults() {
 // Load loads a Conf.
 func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, string, error) {
 	conf := &Conf{}
+
+	conf.setDefaults()
 
 	fpath, err := conf.loadFromFile(fpath, defaultConfPaths)
 	if err != nil {
@@ -450,6 +534,9 @@ func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, stri
 		return nil, "", err
 	}
 
+	// disallow nil slices for ease of use and compatibility
+	setAllNilSlicesToEmptyRecursive(reflect.ValueOf(conf))
+
 	err = conf.Validate(l)
 	if err != nil {
 		return nil, "", err
@@ -465,7 +552,6 @@ func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string) (string,
 		// when the configuration file is not explicitly set,
 		// it is optional.
 		if fpath == "" {
-			conf.setDefaults()
 			return "", nil
 		}
 	}
@@ -499,26 +585,11 @@ func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string) (string,
 
 // Clone clones the configuration.
 func (conf Conf) Clone() *Conf {
-	enc, err := json.Marshal(conf)
-	if err != nil {
-		panic(err)
-	}
-
-	var dest Conf
-	err = json.Unmarshal(enc, &dest)
-	if err != nil {
-		panic(err)
-	}
-
-	return &dest
+	cloned := deepClone(reflect.ValueOf(conf)).Interface().(Conf)
+	return &cloned
 }
 
-type nilLogger struct{}
-
-func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
-}
-
-// Validate checks the configuration for errors.
+// Validate checks the configuration for errors, converts deprecated fields into new ones, fills dependent fields.
 func (conf *Conf) Validate(l logger.Writer) error {
 	if l == nil {
 		l = &nilLogger{}
@@ -999,13 +1070,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	return nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (conf *Conf) UnmarshalJSON(b []byte) error {
-	conf.setDefaults()
-	type alias Conf
-	return jsonwrapper.Unmarshal(b, (*alias)(conf))
 }
 
 // Global returns the global part of Conf.

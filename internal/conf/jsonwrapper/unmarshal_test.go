@@ -17,7 +17,7 @@ func TestUnmarshalDisallowUnknownFields(t *testing.T) {
 	var result testStruct
 	err := Decode(input, &result)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown field")
+	require.EqualError(t, err, "json: unknown field \"unknownField\"")
 }
 
 func TestUnmarshalPreventSliceReuse(t *testing.T) {
@@ -71,4 +71,40 @@ func TestUnmarshalPreventSliceReuse(t *testing.T) {
 			},
 		}, settings)
 	})
+}
+
+func TestUnmarshalSetSliceToNil(t *testing.T) {
+	type Data struct {
+		Items []string `json:"items"`
+	}
+
+	var data Data
+
+	json := []byte(`{"items": null}`)
+	err := Unmarshal(json, &data)
+	require.EqualError(t, err, "cannot set slice to nil")
+
+	data = Data{Items: []string{"a", "b"}}
+
+	json = []byte(`{"items": null}`)
+	err = Unmarshal(json, &data)
+	require.EqualError(t, err, "cannot set slice to nil")
+}
+
+func TestUnmarshalSetNullableSliceToNil(t *testing.T) {
+	type Data struct {
+		Items *[]string `json:"items"`
+	}
+
+	var data Data
+
+	json := []byte(`{"items": null}`)
+	err := Unmarshal(json, &data)
+	require.NoError(t, err)
+
+	data = Data{Items: &[]string{"a", "b"}}
+
+	json = []byte(`{"items": null}`)
+	err = Unmarshal(json, &data)
+	require.NoError(t, err)
 }
