@@ -316,7 +316,7 @@ hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
 # Enable TLS/HTTPS on the HLS server.
-# This is required for Low-Latency HLS.
+# This is required for Low-Latency HLS to function correctly on Apple devices.
 hlsEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
