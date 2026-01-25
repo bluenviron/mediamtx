@@ -63,7 +63,7 @@ func copyStructFields(dest any, source any) {
 
 		if fnew.Kind() == reflect.Pointer {
 			if !fnew.IsNil() {
-				if f.Kind() == reflect.Ptr {
+				if f.Kind() == reflect.Pointer {
 					f.Set(fnew)
 				} else {
 					f.Set(fnew.Elem())
