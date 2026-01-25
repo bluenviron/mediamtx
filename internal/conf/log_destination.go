@@ -3,83 +3,48 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// LogDestinations is the logDestionations parameter.
-type LogDestinations []logger.Destination
+// LogDestination represents a log destination.
+type LogDestination logger.Destination
 
 // MarshalJSON implements json.Marshaler.
-func (d LogDestinations) MarshalJSON() ([]byte, error) {
-	out := make([]string, len(d))
-	i := 0
+func (d LogDestination) MarshalJSON() ([]byte, error) {
+	switch d {
+	case LogDestination(logger.DestinationStdout):
+		return json.Marshal("stdout")
 
-	for _, p := range d {
-		var v string
+	case LogDestination(logger.DestinationFile):
+		return json.Marshal("file")
 
-		switch p {
-		case logger.DestinationStdout:
-			v = "stdout"
-
-		case logger.DestinationFile:
-			v = "file"
-
-		default:
-			v = "syslog"
-		}
-
-		out[i] = v
-		i++
+	default:
+		return json.Marshal("syslog")
 	}
-
-	return json.Marshal(out)
-}
-
-func (d *LogDestinations) contains(v logger.Destination) bool {
-	return slices.Contains(*d, v)
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (d *LogDestinations) UnmarshalJSON(b []byte) error {
-	var in []string
+func (d *LogDestination) UnmarshalJSON(b []byte) error {
+	var in string
 	if err := jsonwrapper.Unmarshal(b, &in); err != nil {
 		return err
 	}
 
-	*d = nil
+	switch in {
+	case "stdout":
+		*d = LogDestination(logger.DestinationStdout)
 
-	for _, dest := range in {
-		var v logger.Destination
-		switch dest {
-		case "stdout":
-			v = logger.DestinationStdout
+	case "file":
+		*d = LogDestination(logger.DestinationFile)
 
-		case "file":
-			v = logger.DestinationFile
+	case "syslog":
+		*d = LogDestination(logger.DestinationSyslog)
 
-		case "syslog":
-			v = logger.DestinationSyslog
-
-		default:
-			return fmt.Errorf("invalid log destination: %s", dest)
-		}
-
-		if d.contains(v) {
-			return fmt.Errorf("log destination set twice")
-		}
-
-		*d = append(*d, v)
+	default:
+		return fmt.Errorf("invalid log destination: %s", in)
 	}
 
 	return nil
-}
-
-// UnmarshalEnv implements env.Unmarshaler.
-func (d *LogDestinations) UnmarshalEnv(_ string, v string) error {
-	byts, _ := json.Marshal(strings.Split(v, ","))
-	return d.UnmarshalJSON(byts)
 }

@@ -209,7 +209,7 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	conf, _, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, AuthInternalUsers{
+	require.Equal(t, []AuthInternalUser{
 		{
 			User: "any",
 			Permissions: []AuthInternalUserPermission{

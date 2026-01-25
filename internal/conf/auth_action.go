@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
@@ -19,11 +18,6 @@ const (
 	AuthActionMetrics  AuthAction = "metrics"
 	AuthActionPprof    AuthAction = "pprof"
 )
-
-// MarshalJSON implements json.Marshaler.
-func (d AuthAction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(d))
-}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (d *AuthAction) UnmarshalJSON(b []byte) error {
