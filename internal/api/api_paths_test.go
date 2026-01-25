@@ -41,7 +41,7 @@ func TestPathsList(t *testing.T) {
 				Source:        &defs.APIPathSourceOrReader{Type: "publisher", ID: "pub1"},
 				Ready:         true,
 				ReadyTime:     &now,
-				Tracks:        []string{"H264", "Opus"},
+				Tracks:        []defs.APIPathTrack{{Codec: "H264"}, {Codec: "Opus"}},
 				BytesReceived: 1000,
 				BytesSent:     2000,
 				Readers: []defs.APIPathSourceOrReader{
@@ -52,7 +52,7 @@ func TestPathsList(t *testing.T) {
 				Name:          "test2",
 				ConfName:      "test2",
 				Ready:         false,
-				Tracks:        []string{},
+				Tracks:        []defs.APIPathTrack{},
 				BytesReceived: 500,
 				BytesSent:     100,
 				Readers:       []defs.APIPathSourceOrReader{},
@@ -94,7 +94,7 @@ func TestPathsGet(t *testing.T) {
 				Source:        &defs.APIPathSourceOrReader{Type: "rtspSession", ID: "session123"},
 				Ready:         true,
 				ReadyTime:     &now,
-				Tracks:        []string{"H264", "Opus"},
+				Tracks:        []defs.APIPathTrack{{Codec: "H264"}, {Codec: "Opus"}},
 				BytesReceived: 123456,
 				BytesSent:     789012,
 				Readers: []defs.APIPathSourceOrReader{

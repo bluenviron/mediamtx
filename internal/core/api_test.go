@@ -78,13 +78,17 @@ func TestAPIPathsList(t *testing.T) {
 		Type string `json:"type"`
 	}
 
+	type pathTrack struct {
+		Codec string `json:"codec"`
+	}
+
 	type path struct {
-		Name          string     `json:"name"`
-		Source        pathSource `json:"source"`
-		Ready         bool       `json:"ready"`
-		Tracks        []string   `json:"tracks"`
-		BytesReceived uint64     `json:"bytesReceived"`
-		BytesSent     uint64     `json:"bytesSent"`
+		Name          string      `json:"name"`
+		Source        pathSource  `json:"source"`
+		Ready         bool        `json:"ready"`
+		Tracks        []pathTrack `json:"tracks"`
+		BytesReceived uint64      `json:"bytesReceived"`
+		BytesSent     uint64      `json:"bytesSent"`
 	}
 
 	type pathList struct {
@@ -136,7 +140,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSession",
 				},
 				Ready:         true,
-				Tracks:        []string{"H264", "MPEG-4 Audio"},
+				Tracks:        []pathTrack{{Codec: "H264"}, {Codec: "MPEG-4 Audio"}},
 				BytesReceived: 17,
 			}},
 		}, out)
@@ -184,7 +188,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspsSession",
 				},
 				Ready:  true,
-				Tracks: []string{"H264", "MPEG-4 Audio"},
+				Tracks: []pathTrack{{Codec: "H264"}, {Codec: "MPEG-4 Audio"}},
 			}},
 		}, out)
 	})
@@ -213,7 +217,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []pathTrack{},
 			}},
 		}, out)
 	})
@@ -242,7 +246,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtmpSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []pathTrack{},
 			}},
 		}, out)
 	})
@@ -271,7 +275,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "hlsSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []pathTrack{},
 			}},
 		}, out)
 	})
@@ -294,13 +298,17 @@ func TestAPIPathsGet(t *testing.T) {
 				Type string `json:"type"`
 			}
 
+			type pathTrack struct {
+				Codec string `json:"codec"`
+			}
+
 			type path struct {
-				Name          string     `json:"name"`
-				Source        pathSource `json:"source"`
-				Ready         bool       `json:"Ready"`
-				Tracks        []string   `json:"tracks"`
-				BytesReceived uint64     `json:"bytesReceived"`
-				BytesSent     uint64     `json:"bytesSent"`
+				Name          string      `json:"name"`
+				Source        pathSource  `json:"source"`
+				Ready         bool        `json:"Ready"`
+				Tracks        []pathTrack `json:"tracks"`
+				BytesReceived uint64      `json:"bytesReceived"`
+				BytesSent     uint64      `json:"bytesSent"`
 			}
 
 			var pathName string
@@ -329,7 +337,7 @@ func TestAPIPathsGet(t *testing.T) {
 						Type: "rtspSession",
 					},
 					Ready:  true,
-					Tracks: []string{"H264"},
+					Tracks: []pathTrack{{Codec: "H264"}},
 				}, out)
 			} else {
 				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)
