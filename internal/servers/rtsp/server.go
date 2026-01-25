@@ -407,11 +407,11 @@ func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	defer s.mutex.RUnlock()
 
 	data := &defs.APIRTSPConnsList{
-		Items: []*defs.APIRTSPConn{},
+		Items: []defs.APIRTSPConn{},
 	}
 
 	for _, c := range s.conns {
-		data.Items = append(data.Items, c.apiItem())
+		data.Items = append(data.Items, *c.apiItem())
 	}
 
 	sort.Slice(data.Items, func(i, j int) bool {
@@ -452,11 +452,11 @@ func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	defer s.mutex.RUnlock()
 
 	data := &defs.APIRTSPSessionList{
-		Items: []*defs.APIRTSPSession{},
+		Items: []defs.APIRTSPSession{},
 	}
 
 	for _, s := range s.sessions {
-		data.Items = append(data.Items, s.apiItem())
+		data.Items = append(data.Items, *s.apiItem())
 	}
 
 	sort.Slice(data.Items, func(i, j int) bool {

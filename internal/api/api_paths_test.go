@@ -16,9 +16,9 @@ type testPathManager struct {
 }
 
 func (m *testPathManager) APIPathsList() (*defs.APIPathList, error) {
-	items := make([]*defs.APIPath, 0, len(m.paths))
+	items := make([]defs.APIPath, 0, len(m.paths))
 	for _, path := range m.paths {
-		items = append(items, path)
+		items = append(items, *path)
 	}
 	return &defs.APIPathList{Items: items}, nil
 }
@@ -38,13 +38,13 @@ func TestPathsList(t *testing.T) {
 			"test1": {
 				Name:          "test1",
 				ConfName:      "test1",
-				Source:        &defs.APIPathSourceOrReader{Type: "publisher", ID: "pub1"},
+				Source:        &defs.APIPathSource{Type: "publisher", ID: "pub1"},
 				Ready:         true,
 				ReadyTime:     &now,
 				Tracks:        []string{"H264", "Opus"},
 				BytesReceived: 1000,
 				BytesSent:     2000,
-				Readers: []defs.APIPathSourceOrReader{
+				Readers: []defs.APIPathReader{
 					{Type: "reader", ID: "reader1"},
 				},
 			},
@@ -55,7 +55,7 @@ func TestPathsList(t *testing.T) {
 				Tracks:        []string{},
 				BytesReceived: 500,
 				BytesSent:     100,
-				Readers:       []defs.APIPathSourceOrReader{},
+				Readers:       []defs.APIPathReader{},
 			},
 		},
 	}
@@ -91,13 +91,13 @@ func TestPathsGet(t *testing.T) {
 			"mystream": {
 				Name:          "mystream",
 				ConfName:      "mystream",
-				Source:        &defs.APIPathSourceOrReader{Type: "rtspSession", ID: "session123"},
+				Source:        &defs.APIPathSource{Type: "rtspSession", ID: "session123"},
 				Ready:         true,
 				ReadyTime:     &now,
 				Tracks:        []string{"H264", "Opus"},
 				BytesReceived: 123456,
 				BytesSent:     789012,
-				Readers: []defs.APIPathSourceOrReader{
+				Readers: []defs.APIPathReader{
 					{Type: "hlsMuxer", ID: "muxer1"},
 					{Type: "webRTCSession", ID: "session456"},
 				},

@@ -47,7 +47,7 @@ func resolveSource(s string, matches []string, query string) string {
 type staticSource interface {
 	logger.Writer
 	Run(defs.StaticSourceRunParams) error
-	APISourceDescribe() defs.APIPathSourceOrReader
+	APISourceDescribe() *defs.APIPathSource
 }
 
 type handlerPathManager interface {
@@ -300,7 +300,7 @@ func (s *Handler) ReloadConf(newConf *conf.Path) {
 }
 
 // APISourceDescribe instanceements source.
-func (s *Handler) APISourceDescribe() defs.APIPathSourceOrReader {
+func (s *Handler) APISourceDescribe() *defs.APIPathSource {
 	return s.instance.APISourceDescribe()
 }
 

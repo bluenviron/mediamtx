@@ -594,13 +594,13 @@ func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 		res := <-req.res
 
 		res.data = &defs.APIPathList{
-			Items: []*defs.APIPath{},
+			Items: []defs.APIPath{},
 		}
 
 		for _, pa := range res.paths {
 			item, err := pa.APIPathsGet(pathAPIPathsGetReq{})
 			if err == nil {
-				res.data.Items = append(res.data.Items, item)
+				res.data.Items = append(res.data.Items, *item)
 			}
 		}
 

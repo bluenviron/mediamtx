@@ -16,7 +16,7 @@ type OnConnectParams struct {
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
 	RTSPAddress         string
-	Desc                defs.APIPathSourceOrReader
+	Desc                defs.APIPathReader
 }
 
 // OnConnect is the OnConnect hook.

@@ -17,7 +17,7 @@ import (
 // - core.sourceRedirect
 type Source interface {
 	logger.Writer
-	APISourceDescribe() APIPathSourceOrReader
+	APISourceDescribe() *APIPathSource
 }
 
 // FormatsToCodecs returns the name of codecs of given formats.

@@ -54,10 +54,10 @@ func recordingsOfPath(
 
 	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
 
-	ret.Segments = make([]*defs.APIRecordingSegment, len(segments))
+	ret.Segments = make([]defs.APIRecordingSegment, len(segments))
 
 	for i, seg := range segments {
-		ret.Segments[i] = &defs.APIRecordingSegment{
+		ret.Segments[i] = defs.APIRecordingSegment{
 			Start: seg.Start,
 		}
 	}
