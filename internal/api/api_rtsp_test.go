@@ -21,9 +21,9 @@ type testRTSPServer struct {
 }
 
 func (s *testRTSPServer) APIConnsList() (*defs.APIRTSPConnsList, error) {
-	items := make([]*defs.APIRTSPConn, 0, len(s.conns))
+	items := make([]defs.APIRTSPConn, 0, len(s.conns))
 	for _, conn := range s.conns {
-		items = append(items, conn)
+		items = append(items, *conn)
 	}
 	return &defs.APIRTSPConnsList{Items: items}, nil
 }
@@ -37,9 +37,9 @@ func (s *testRTSPServer) APIConnsGet(id uuid.UUID) (*defs.APIRTSPConn, error) {
 }
 
 func (s *testRTSPServer) APISessionsList() (*defs.APIRTSPSessionList, error) {
-	items := make([]*defs.APIRTSPSession, 0, len(s.sessions))
+	items := make([]defs.APIRTSPSession, 0, len(s.sessions))
 	for _, session := range s.sessions {
-		items = append(items, session)
+		items = append(items, *session)
 	}
 	return &defs.APIRTSPSessionList{Items: items}, nil
 }

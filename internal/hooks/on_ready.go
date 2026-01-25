@@ -13,7 +13,7 @@ type OnReadyParams struct {
 	ExternalCmdPool *externalcmd.Pool
 	Conf            *conf.Path
 	ExternalCmdEnv  externalcmd.Environment
-	Desc            defs.APIPathSourceOrReader
+	Desc            defs.APIPathSource
 	Query           string
 }
 

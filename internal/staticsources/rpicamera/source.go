@@ -93,8 +93,8 @@ func (r *secondaryReader) Close() {
 }
 
 // APIReaderDescribe implements reader.
-func (*secondaryReader) APIReaderDescribe() defs.APIPathSourceOrReader {
-	return defs.APIPathSourceOrReader{
+func (*secondaryReader) APIReaderDescribe() *defs.APIPathReader {
+	return &defs.APIPathReader{
 		Type: "rpiCameraSecondary",
 		ID:   "",
 	}
@@ -359,8 +359,8 @@ func (s *Source) waitForPrimary(
 }
 
 // APISourceDescribe implements StaticSource.
-func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
-	return defs.APIPathSourceOrReader{
+func (*Source) APISourceDescribe() *defs.APIPathSource {
+	return &defs.APIPathSource{
 		Type: "rpiCameraSource",
 		ID:   "",
 	}

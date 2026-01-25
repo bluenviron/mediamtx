@@ -17,11 +17,11 @@ func (a *API) onConfigPathsList(ctx *gin.Context) {
 	a.mutex.RUnlock()
 
 	data := &defs.APIPathConfList{
-		Items: make([]*conf.Path, len(c.Paths)),
+		Items: make([]conf.Path, len(c.Paths)),
 	}
 
 	for i, key := range sortedKeys(c.Paths) {
-		data.Items[i] = c.Paths[key]
+		data.Items[i] = *c.Paths[key]
 	}
 
 	data.ItemCount = len(data.Items)

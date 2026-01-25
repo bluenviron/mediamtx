@@ -89,7 +89,7 @@ func (c *conn) run() { //nolint:dupl
 		RunOnConnectRestart: c.runOnConnectRestart,
 		RunOnDisconnect:     c.runOnDisconnect,
 		RTSPAddress:         c.rtspAddress,
-		Desc:                c.APIReaderDescribe(),
+		Desc:                *c.APIReaderDescribe(),
 	})
 	defer onDisconnectHook()
 
@@ -198,7 +198,7 @@ func (c *conn) runRead() error {
 		ExternalCmdPool: c.externalCmdPool,
 		Conf:            path.SafeConf(),
 		ExternalCmdEnv:  path.ExternalCmdEnv(),
-		Reader:          c.APISourceDescribe(),
+		Reader:          *c.APIReaderDescribe(),
 		Query:           c.rconn.URL.RawQuery,
 	})
 	defer onUnreadHook()
@@ -285,8 +285,8 @@ func (c *conn) runPublish() error {
 }
 
 // APIReaderDescribe implements reader.
-func (c *conn) APIReaderDescribe() defs.APIPathSourceOrReader {
-	return defs.APIPathSourceOrReader{
+func (c *conn) APIReaderDescribe() *defs.APIPathReader {
+	return &defs.APIPathReader{
 		Type: func() string {
 			if c.isTLS {
 				return "rtmpsConn"
@@ -298,8 +298,16 @@ func (c *conn) APIReaderDescribe() defs.APIPathSourceOrReader {
 }
 
 // APISourceDescribe implements source.
-func (c *conn) APISourceDescribe() defs.APIPathSourceOrReader {
-	return c.APIReaderDescribe()
+func (c *conn) APISourceDescribe() *defs.APIPathSource {
+	return &defs.APIPathSource{
+		Type: func() string {
+			if c.isTLS {
+				return "rtmpsConn"
+			}
+			return "rtmpConn"
+		}(),
+		ID: c.uuid.String(),
+	}
 }
 
 func (c *conn) apiItem() *defs.APIRTMPConn {

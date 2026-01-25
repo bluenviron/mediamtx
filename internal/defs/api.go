@@ -69,35 +69,41 @@ type APIInfo struct {
 
 // APIPathConfList is a list of path configurations.
 type APIPathConfList struct {
-	ItemCount int          `json:"itemCount"`
-	PageCount int          `json:"pageCount"`
-	Items     []*conf.Path `json:"items"`
+	ItemCount int         `json:"itemCount"`
+	PageCount int         `json:"pageCount"`
+	Items     []conf.Path `json:"items"`
 }
 
-// APIPathSourceOrReader is a source or a reader.
-type APIPathSourceOrReader struct {
+// APIPathSource is a source.
+type APIPathSource struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+// APIPathReader is a reader.
+type APIPathReader struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
 }
 
 // APIPath is a path.
 type APIPath struct {
-	Name          string                  `json:"name"`
-	ConfName      string                  `json:"confName"`
-	Source        *APIPathSourceOrReader  `json:"source"`
-	Ready         bool                    `json:"ready"`
-	ReadyTime     *time.Time              `json:"readyTime"`
-	Tracks        []string                `json:"tracks"`
-	BytesReceived uint64                  `json:"bytesReceived"`
-	BytesSent     uint64                  `json:"bytesSent"`
-	Readers       []APIPathSourceOrReader `json:"readers"`
+	Name          string          `json:"name"`
+	ConfName      string          `json:"confName"`
+	Source        *APIPathSource  `json:"source"`
+	Ready         bool            `json:"ready"`
+	ReadyTime     *time.Time      `json:"readyTime"`
+	Tracks        []string        `json:"tracks"`
+	BytesReceived uint64          `json:"bytesReceived"`
+	BytesSent     uint64          `json:"bytesSent"`
+	Readers       []APIPathReader `json:"readers"`
 }
 
 // APIPathList is a list of paths.
 type APIPathList struct {
-	ItemCount int        `json:"itemCount"`
-	PageCount int        `json:"pageCount"`
-	Items     []*APIPath `json:"items"`
+	ItemCount int       `json:"itemCount"`
+	PageCount int       `json:"pageCount"`
+	Items     []APIPath `json:"items"`
 }
 
 // APIHLSMuxer is an HLS muxer.
@@ -110,9 +116,9 @@ type APIHLSMuxer struct {
 
 // APIHLSMuxerList is a list of HLS muxers.
 type APIHLSMuxerList struct {
-	ItemCount int            `json:"itemCount"`
-	PageCount int            `json:"pageCount"`
-	Items     []*APIHLSMuxer `json:"items"`
+	ItemCount int           `json:"itemCount"`
+	PageCount int           `json:"pageCount"`
+	Items     []APIHLSMuxer `json:"items"`
 }
 
 // APIRTMPConnState is the state of a RTMP connection.
@@ -139,9 +145,9 @@ type APIRTMPConn struct {
 
 // APIRTMPConnList is a list of RTMP connections.
 type APIRTMPConnList struct {
-	ItemCount int            `json:"itemCount"`
-	PageCount int            `json:"pageCount"`
-	Items     []*APIRTMPConn `json:"items"`
+	ItemCount int           `json:"itemCount"`
+	PageCount int           `json:"pageCount"`
+	Items     []APIRTMPConn `json:"items"`
 }
 
 // APIRTSPConn is a RTSP connection.
@@ -157,9 +163,9 @@ type APIRTSPConn struct {
 
 // APIRTSPConnsList is a list of RTSP connections.
 type APIRTSPConnsList struct {
-	ItemCount int            `json:"itemCount"`
-	PageCount int            `json:"pageCount"`
-	Items     []*APIRTSPConn `json:"items"`
+	ItemCount int           `json:"itemCount"`
+	PageCount int           `json:"pageCount"`
+	Items     []APIRTSPConn `json:"items"`
 }
 
 // APIRTSPSessionState is the state of a RTSP session.
@@ -196,9 +202,9 @@ type APIRTSPSession struct {
 
 // APIRTSPSessionList is a list of RTSP sessions.
 type APIRTSPSessionList struct {
-	ItemCount int               `json:"itemCount"`
-	PageCount int               `json:"pageCount"`
-	Items     []*APIRTSPSession `json:"items"`
+	ItemCount int              `json:"itemCount"`
+	PageCount int              `json:"pageCount"`
+	Items     []APIRTSPSession `json:"items"`
 }
 
 // APISRTConnState is the state of a SRT connection.
@@ -344,9 +350,9 @@ type APISRTConn struct {
 
 // APISRTConnList is a list of SRT connections.
 type APISRTConnList struct {
-	ItemCount int           `json:"itemCount"`
-	PageCount int           `json:"pageCount"`
-	Items     []*APISRTConn `json:"items"`
+	ItemCount int          `json:"itemCount"`
+	PageCount int          `json:"pageCount"`
+	Items     []APISRTConn `json:"items"`
 }
 
 // APIWebRTCSessionState is the state of a WebRTC connection.
@@ -381,9 +387,9 @@ type APIWebRTCSession struct {
 
 // APIWebRTCSessionList is a list of WebRTC sessions.
 type APIWebRTCSessionList struct {
-	ItemCount int                 `json:"itemCount"`
-	PageCount int                 `json:"pageCount"`
-	Items     []*APIWebRTCSession `json:"items"`
+	ItemCount int                `json:"itemCount"`
+	PageCount int                `json:"pageCount"`
+	Items     []APIWebRTCSession `json:"items"`
 }
 
 // APIRecordingSegment is a recording segment.
@@ -393,13 +399,13 @@ type APIRecordingSegment struct {
 
 // APIRecording is a recording.
 type APIRecording struct {
-	Name     string                 `json:"name"`
-	Segments []*APIRecordingSegment `json:"segments"`
+	Name     string                `json:"name"`
+	Segments []APIRecordingSegment `json:"segments"`
 }
 
 // APIRecordingList is a list of recordings.
 type APIRecordingList struct {
-	ItemCount int             `json:"itemCount"`
-	PageCount int             `json:"pageCount"`
-	Items     []*APIRecording `json:"items"`
+	ItemCount int            `json:"itemCount"`
+	PageCount int            `json:"pageCount"`
+	Items     []APIRecording `json:"items"`
 }

@@ -550,12 +550,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 		data: &defs.APIPath{
 			Name:     pa.name,
 			ConfName: pa.conf.Name,
-			Source: func() *defs.APIPathSourceOrReader {
+			Source: func() *defs.APIPathSource {
 				if pa.source == nil {
 					return nil
 				}
 				v := pa.source.APISourceDescribe()
-				return &v
+				return v
 			}(),
 			Ready: pa.isReady(),
 			ReadyTime: func() *time.Time {
@@ -583,11 +583,11 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.BytesSent()
 			}(),
-			Readers: func() []defs.APIPathSourceOrReader {
-				ret := make([]defs.APIPathSourceOrReader, len(pa.readers))
+			Readers: func() []defs.APIPathReader {
+				ret := make([]defs.APIPathReader, len(pa.readers))
 				i := 0
 				for r := range pa.readers {
-					ret[i] = r.APIReaderDescribe()
+					ret[i] = *r.APIReaderDescribe()
 					i++
 				}
 				return ret
@@ -713,7 +713,7 @@ func (pa *path) setReady(desc *description.Session, useRTPPackets bool, replaceN
 		ExternalCmdPool: pa.externalCmdPool,
 		Conf:            pa.conf,
 		ExternalCmdEnv:  pa.ExternalCmdEnv(),
-		Desc:            pa.source.APISourceDescribe(),
+		Desc:            *pa.source.APISourceDescribe(),
 		Query:           pa.publisherQuery,
 	})
 

@@ -91,7 +91,7 @@ components:
           format: int64
         udpReadBufferSize:
           type: integer
-          format: int64
+          format: uint64
         runOnConnect:
           type: string
         runOnConnectRestart:
@@ -336,16 +336,7 @@ components:
         webrtcICEServers2:
           type: array
           items:
-            type: object
-            properties:
-              url:
-                type: string
-              username:
-                type: string
-              password:
-                type: string
-              clientOnly:
-                type: boolean
+            $ref: '#/components/schemas/WebRTCICEServer'
         webrtcHandshakeTimeout:
           type: string
         webrtcTrackGatherTimeout:
@@ -429,15 +420,15 @@ components:
         # Raspberry Pi Camera source
         rpiCameraCamID:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraSecondary:
           type: boolean
         rpiCameraWidth:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraHeight:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraHFlip:
           type: boolean
         rpiCameraVFlip:
@@ -469,7 +460,7 @@ components:
           type: string
         rpiCameraShutter:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraMetering:
           type: string
         rpiCameraGain:
@@ -502,7 +493,7 @@ components:
           type: string
         rpiCameraFlickerPeriod:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraTextOverlayEnable:
           type: boolean
         rpiCameraTextOverlay:
@@ -511,10 +502,10 @@ components:
           type: string
         rpiCameraIDRPeriod:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraBitrate:
           type: integer
-          format: int64
+          format: uint64
         rpiCameraHardwareH264Profile:
           type: string
         rpiCameraHardwareH264Level:
@@ -525,7 +516,7 @@ components:
           type: string
         rpiCameraMJPEGQuality:
           type: integer
-          format: int64
+          format: uint64
 
         # Hooks
         runOnInit:
@@ -594,10 +585,10 @@ components:
             type: string
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
         readers:
           type: array
           items:
@@ -666,7 +657,7 @@ components:
           type: string
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
 
     HLSMuxerList:
       type: object
@@ -717,6 +708,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         created:
           type: string
         remoteAddr:
@@ -730,10 +722,10 @@ components:
           type: string
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
 
     RTMPConnList:
       type: object
@@ -754,18 +746,20 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         created:
           type: string
         remoteAddr:
           type: string
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
         session:
           type: string
+          format: uuid
           nullable: true
         tunnel:
           type: string
@@ -789,6 +783,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         created:
           type: string
         remoteAddr:
@@ -808,34 +803,34 @@ components:
           nullable: true
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsReceived:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsSent:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsLost:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsInError:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsJitter:
           type: number
           format: double
         rtcpPacketsReceived:
           type: integer
-          format: int64
+          format: uint64
         rtcpPacketsSent:
           type: integer
-          format: int64
+          format: uint64
         rtcpPacketsInError:
           type: integer
-          format: int64
+          format: uint64
 
     RTSPSessionList:
       type: object
@@ -856,6 +851,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         created:
           type: string
         remoteAddr:
@@ -869,121 +865,121 @@ components:
           type: string
         packetsSent:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of sent DATA packets, including retransmitted packets
         packetsReceived:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of received DATA packets, including retransmitted packets
         packetsReceivedBelated:
           type: integer
-          format: int64
+          format: uint64
         packetsSentUnique:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of unique DATA packets sent by the SRT sender
         packetsReceivedUnique:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of unique original, retransmitted or recovered by the packet filter DATA packets received in time, decrypted without errors and, as a result, scheduled for delivery to the upstream application by the SRT receiver.
         packetsSendLoss:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of data packets considered or reported as lost at the sender side. Does not correspond to the packets detected as lost at the receiver side.
         packetsReceivedLoss:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of SRT DATA packets detected as presently missing (either reordered or lost) at the receiver side
         packetsRetrans:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of retransmitted packets sent by the SRT sender
         packetsReceivedRetrans:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of retransmitted packets registered at the receiver side
         packetsSentACK:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of sent ACK (Acknowledgement) control packets
         packetsReceivedACK:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of received ACK (Acknowledgement) control packets
         packetsSentNAK:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of sent NAK (Negative Acknowledgement) control packets
         packetsReceivedNAK:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of received NAK (Negative Acknowledgement) control packets
         packetsSentKM:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of sent KM (Key Material) control packets
         packetsReceivedKM:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of received KM (Key Material) control packets
         usSndDuration:
           type: integer
-          format: int64
+          format: uint64
           description: The total accumulated time in microseconds, during which the SRT sender has some data to transmit, including packets that have been sent, but not yet acknowledged
         packetsSendDrop:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of dropped by the SRT sender DATA packets that have no chance to be delivered in time
         packetsReceivedDrop:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of dropped by the SRT receiver and, as a result, not delivered to the upstream application DATA packets
         packetsReceivedUndecrypt:
           type: integer
-          format: int64
+          format: uint64
           description: The total number of packets that failed to be decrypted at the receiver side
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsSent, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceived, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedBelated:
           type: integer
-          format: int64
+          format: uint64
         bytesSentUnique:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedUnique:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceivedUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedLoss:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceivedLoss, but expressed in bytes, including payload and all the headers (IP, TCP, SRT), bytes for the presently missing (either reordered or lost) packets' payloads are estimated based on the average packet size
         bytesRetrans:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedRetrans:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceivedRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesSendDrop:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsSendDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedDrop:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceivedDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedUndecrypt:
           type: integer
-          format: int64
+          format: uint64
           description: Same as packetsReceivedUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         usPacketsSendPeriod:
           type: number
@@ -991,11 +987,11 @@ components:
           description: Current minimum time interval between which consecutive packets are sent, in microseconds
         packetsFlowWindow:
           type: integer
-          format: int64
+          format: uint64
           description: The maximum number of packets that can be "in flight"
         packetsFlightSize:
           type: integer
-          format: int64
+          format: uint64
           description: The number of packets in flight
         msRTT:
           type: number
@@ -1015,11 +1011,11 @@ components:
           description: Estimated capacity of the network link, in Mbps
         bytesAvailSendBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The available space in the sender's buffer, in bytes
         bytesAvailReceiveBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The available space in the receiver's buffer, in bytes
         mbpsMaxBW:
           type: number
@@ -1027,47 +1023,47 @@ components:
           description: Transmission bandwidth limit, in Mbps
         byteMSS:
           type: integer
-          format: int64
+          format: uint64
           description: Maximum Segment Size (MSS), in bytes
         packetsSendBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The number of packets in the sender's buffer that are already scheduled for sending or even possibly sent, but not yet acknowledged
         bytesSendBuf:
           type: integer
-          format: int64
+          format: uint64
           description: Instantaneous (current) value of packetsSndBuf, but expressed in bytes, including payload and all headers (IP, TCP, SRT)
         msSendBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The timespan (msec) of packets in the sender's buffer (unacknowledged packets)
         msSendTsbPdDelay:
           type: integer
-          format: int64
+          format: uint64
           description: Timestamp-based Packet Delivery Delay value of the peer
         packetsReceiveBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The number of acknowledged packets in receiver's buffer
         bytesReceiveBuf:
           type: integer
-          format: int64
+          format: uint64
           description: Instantaneous (current) value of packetsRcvBuf, expressed in bytes, including payload and all headers (IP, TCP, SRT)
         msReceiveBuf:
           type: integer
-          format: int64
+          format: uint64
           description: The timespan (msec) of acknowledged packets in the receiver's buffer
         msReceiveTsbPdDelay:
           type: integer
-          format: int64
+          format: uint64
           description: Timestamp-based Packet Delivery Delay value set on the socket via SRTO_RCVLATENCY or SRTO_LATENCY
         packetsReorderTolerance:
           type: integer
-          format: int64
+          format: uint64
           description: Instant value of the packet reorder tolerance
         packetsReceivedAvgBelatedTime:
           type: integer
-          format: int64
+          format: uint64
           description: Accumulated difference between the current time and the time-to-play of a packet that is received late
         packetsSendLossRate:
           type: number
@@ -1092,11 +1088,24 @@ components:
           items:
             $ref: '#/components/schemas/SRTConn'
 
+    WebRTCICEServer:
+      type: object
+      properties:
+        url:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        clientOnly:
+          type: boolean
+
     WebRTCSession:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         created:
           type: string
         remoteAddr:
@@ -1116,28 +1125,28 @@ components:
           type: string
         bytesReceived:
           type: integer
-          format: int64
+          format: uint64
         bytesSent:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsReceived:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsSent:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsLost:
           type: integer
-          format: int64
+          format: uint64
         rtpPacketsJitter:
           type: number
           format: double
         rtcpPacketsReceived:
           type: integer
-          format: int64
+          format: uint64
         rtcpPacketsSent:
           type: integer
-          format: int64
+          format: uint64
 
     WebRTCSessionList:
       type: object

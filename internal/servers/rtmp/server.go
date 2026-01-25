@@ -227,11 +227,11 @@ outer:
 
 		case req := <-s.chAPIConnsList:
 			data := &defs.APIRTMPConnList{
-				Items: []*defs.APIRTMPConn{},
+				Items: []defs.APIRTMPConn{},
 			}
 
 			for c := range s.conns {
-				data.Items = append(data.Items, c.apiItem())
+				data.Items = append(data.Items, *c.apiItem())
 			}
 
 			sort.Slice(data.Items, func(i, j int) bool {
