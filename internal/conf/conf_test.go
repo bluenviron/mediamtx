@@ -770,3 +770,11 @@ func TestSampleConfFile(t *testing.T) {
 		require.Equal(t, conf1.Paths, conf2.Paths)
 	}()
 }
+
+func TestClone(t *testing.T) {
+	conf1, _, err := Load("", nil, nil)
+	require.NoError(t, err)
+
+	conf2 := conf1.Clone()
+	require.Equal(t, conf1, conf2)
+}

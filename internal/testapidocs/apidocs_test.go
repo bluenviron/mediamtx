@@ -10,30 +10,30 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/conf/yamlwrapper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
 )
 
 type openAPIProperty struct {
-	Ref      string           `json:"$ref"`
-	Type     string           `json:"type"`
-	Format   string           `json:"format"`
-	Nullable bool             `json:"nullable"`
-	Items    *openAPIProperty `json:"items"`
+	Ref      string           `yaml:"$ref"`
+	Type     string           `yaml:"type"`
+	Format   string           `yaml:"format"`
+	Nullable bool             `yaml:"nullable"`
+	Items    *openAPIProperty `yaml:"items"`
 }
 
 type openAPISchema struct {
-	Type       string                     `json:"type"`
-	Properties map[string]openAPIProperty `json:"properties"`
+	Type       string                     `yaml:"type"`
+	Properties map[string]openAPIProperty `yaml:"properties"`
 }
 
 type openAPI struct {
 	Components struct {
-		Schemas map[string]openAPISchema `json:"schemas"`
-	} `json:"components"`
+		Schemas map[string]openAPISchema `yaml:"schemas"`
+	} `yaml:"components"`
 }
 
 func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openAPIProperty {
@@ -133,7 +133,7 @@ func TestAPIDocs(t *testing.T) {
 	require.NoError(t, err)
 
 	var doc openAPI
-	err = yamlwrapper.Unmarshal(byts, &doc)
+	err = yaml.Unmarshal(byts, &doc)
 	require.NoError(t, err)
 
 	for _, ca := range []struct {
