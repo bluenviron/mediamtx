@@ -225,7 +225,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 
 					var elem reflect.Value
 
-					if prv.Elem().Len() > i {
+					if !prv.IsZero() && prv.Elem().Len() > i {
 						elem = prv.Elem().Index(i).Addr()
 					} else {
 						elem = reflect.New(rt.Elem())
@@ -236,9 +236,12 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 						return err
 					}
 
-					if prv.Elem().Len() > i {
+					if !prv.IsZero() && prv.Elem().Len() > i {
 						prv.Elem().Index(i).Set(elem.Elem())
 					} else {
+						if prv.IsZero() {
+							prv.Set(reflect.New(rt))
+						}
 						prv.Elem().Set(reflect.Append(prv.Elem(), elem.Elem()))
 					}
 				}
