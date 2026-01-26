@@ -172,18 +172,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 
 	c := &gortsplib.Client{
-		Scheme:            scheme,
-		Host:              u.Host,
-		Tunnel:            tunnel,
-		Protocol:          params.Conf.RTSPTransport.Protocol,
-		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
-		ReadTimeout:       time.Duration(s.ReadTimeout),
-		WriteTimeout:      time.Duration(s.WriteTimeout),
-		WriteQueueSize:    s.WriteQueueSize,
-		UDPReadBufferSize: int(udpReadBufferSize),
-		UDPMinClientPort:  udpMinPort,
-		UDPMaxClientPort:  udpMaxPort,
-		AnyPortEnable:     params.Conf.RTSPAnyPort,
+		Scheme:             scheme,
+		Host:               u.Host,
+		Tunnel:             tunnel,
+		Protocol:           params.Conf.RTSPTransport.Protocol,
+		TLSConfig:          tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		ReadTimeout:        time.Duration(s.ReadTimeout),
+		WriteTimeout:       time.Duration(s.WriteTimeout),
+		WriteQueueSize:     s.WriteQueueSize,
+		UDPReadBufferSize:  int(udpReadBufferSize),
+		UDPSourcePortRange: [2]uint16{udpMinPort, udpMaxPort},
+		AnyPortEnable:      params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
