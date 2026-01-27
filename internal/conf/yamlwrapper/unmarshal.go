@@ -5,8 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"gopkg.in/yaml.v2"
 )
+
+// differences with respect to the standard package:
+// - unknown fields cause an error
+// - integer map keys cause an error
 
 func convertKeys(i any) (any, error) {
 	switch x := i.(type) {
@@ -43,8 +48,7 @@ func convertKeys(i any) (any, error) {
 
 // Unmarshal loads the configuration from YAML.
 func Unmarshal(buf []byte, dest any) error {
-	// load YAML into a generic map
-	// from documentation:
+	// load YAML into a generic map.
 	// "UnmarshalStrict is like Unmarshal except that any fields that are found in the data
 	// that do not have corresponding struct members, or mapping keys that are duplicates, will result in an error."
 	var temp any
@@ -66,5 +70,5 @@ func Unmarshal(buf []byte, dest any) error {
 	}
 
 	// load JSON into destination
-	return json.Unmarshal(buf, dest)
+	return jsonwrapper.Unmarshal(buf, dest)
 }

@@ -30,11 +30,11 @@ func (a *API) onRecordingsList(ctx *gin.Context) {
 	}
 	data.PageCount = pageCount
 
-	data.Items = make([]*defs.APIRecording, len(pathNames))
+	data.Items = make([]defs.APIRecording, len(pathNames))
 
 	for i, pathName := range pathNames {
 		pathConf, _, _ := conf.FindPathConf(c.Paths, pathName)
-		data.Items[i] = recordingsOfPath(pathConf, pathName)
+		data.Items[i] = *recordingsOfPath(pathConf, pathName)
 	}
 
 	ctx.JSON(http.StatusOK, data)

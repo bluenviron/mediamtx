@@ -33,20 +33,38 @@ var ErrConnNotFound = errors.New("connection not found")
 var ErrSessionNotFound = errors.New("session not found")
 
 func interfaceIsEmpty(i any) bool {
-	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
 func printAddresses(srv *gortsplib.Server) string {
 	var ret []string
 
-	ret = append(ret, fmt.Sprintf("%s (TCP)", srv.RTSPAddress))
+	tmp := srv.RTSPAddress
+	if srv.TLSConfig == nil {
+		tmp += " (TCP/RTSP)"
+	} else {
+		tmp += " (TCP/RTSPS)"
+	}
+	ret = append(ret, tmp)
 
 	if srv.UDPRTPAddress != "" {
-		ret = append(ret, fmt.Sprintf("%s (UDP/RTP)", srv.UDPRTPAddress))
+		tmp = srv.UDPRTPAddress
+		if srv.TLSConfig == nil {
+			tmp += " (UDP/RTP)"
+		} else {
+			tmp += " (UDP/SRTP)"
+		}
+		ret = append(ret, tmp)
 	}
 
 	if srv.UDPRTCPAddress != "" {
-		ret = append(ret, fmt.Sprintf("%s (UDP/RTCP)", srv.UDPRTCPAddress))
+		tmp = srv.UDPRTCPAddress
+		if srv.TLSConfig == nil {
+			tmp += " (UDP/RTCP)"
+		} else {
+			tmp += " (UDP/SRTCP)"
+		}
+		ret = append(ret, tmp)
 	}
 
 	return strings.Join(ret, ", ")
@@ -76,8 +94,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
-	UseUDP              bool
-	UseMulticast        bool
+	RTSPTransports      conf.RTSPTransports
 	RTPAddress          string
 	RTCPAddress         string
 	MulticastIPRange    string
@@ -123,12 +140,12 @@ func (s *Server) Initialize() error {
 		AuthMethods:       s.AuthMethods,
 	}
 
-	if s.UseUDP {
+	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDP]; ok {
 		s.srv.UDPRTPAddress = s.RTPAddress
 		s.srv.UDPRTCPAddress = s.RTCPAddress
 	}
 
-	if s.UseMulticast {
+	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
 		s.srv.MulticastIPRange = s.MulticastIPRange
 		s.srv.MulticastRTPPort = s.MulticastRTPPort
 		s.srv.MulticastRTCPPort = s.MulticastRTCPPort
@@ -390,11 +407,11 @@ func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	defer s.mutex.RUnlock()
 
 	data := &defs.APIRTSPConnsList{
-		Items: []*defs.APIRTSPConn{},
+		Items: []defs.APIRTSPConn{},
 	}
 
 	for _, c := range s.conns {
-		data.Items = append(data.Items, c.apiItem())
+		data.Items = append(data.Items, *c.apiItem())
 	}
 
 	sort.Slice(data.Items, func(i, j int) bool {
@@ -435,11 +452,11 @@ func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	defer s.mutex.RUnlock()
 
 	data := &defs.APIRTSPSessionList{
-		Items: []*defs.APIRTSPSession{},
+		Items: []defs.APIRTSPSession{},
 	}
 
 	for _, s := range s.sessions {
-		data.Items = append(data.Items, s.apiItem())
+		data.Items = append(data.Items, *s.apiItem())
 	}
 
 	sort.Slice(data.Items, func(i, j int) bool {

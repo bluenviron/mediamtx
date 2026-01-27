@@ -19,9 +19,9 @@ type testRTMPServer struct {
 }
 
 func (s *testRTMPServer) APIConnsList() (*defs.APIRTMPConnList, error) {
-	items := make([]*defs.APIRTMPConn, 0, len(s.conns))
+	items := make([]defs.APIRTMPConn, 0, len(s.conns))
 	for _, conn := range s.conns {
-		items = append(items, conn)
+		items = append(items, *conn)
 	}
 	return &defs.APIRTMPConnList{Items: items}, nil
 }

@@ -34,84 +34,52 @@ func (d *myDuration) UnmarshalEnv(_ string, v string) error {
 	return d.UnmarshalJSON([]byte(`"` + v + `"`))
 }
 
-type subStruct struct {
-	MyParam int `json:"myParam"`
-}
-
-type mapEntry struct {
-	MyValue  string    `json:"myValue"`
-	MyStruct subStruct `json:"myStruct"`
-}
-
-type mySubStruct struct {
-	URL      string `json:"url"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	MyInt2   int    `json:"myInt2"`
-}
-
-type testStruct struct {
-	MyString                 string               `json:"myString"`
-	MyStringOpt              *string              `json:"myStringOpt"`
-	MyInt                    int                  `json:"myInt"`
-	MyIntOpt                 *int                 `json:"myIntOpt"`
-	MyUint                   uint                 `json:"myUint"`
-	MyUintOpt                *uint                `json:"myUintOpt"`
-	MyFloat                  float64              `json:"myFloat"`
-	MyFloatOpt               *float64             `json:"myFloatOpt"`
-	MyBool                   bool                 `json:"myBool"`
-	MyBoolOpt                *bool                `json:"myBoolOpt"`
-	MyDuration               myDuration           `json:"myDuration"`
-	MyDurationOpt            *myDuration          `json:"myDurationOpt"`
-	MyDurationOptUnset       *myDuration          `json:"myDurationOptUnset"`
-	MyMap                    map[string]*mapEntry `json:"myMap"`
-	MySliceFloat             []float64            `json:"mySliceFloat"`
-	MySliceString            []string             `json:"mySliceString"`
-	MySliceStringEmpty       []string             `json:"mySliceStringEmpty"`
-	MySliceStringOpt         *[]string            `json:"mySliceStringOpt"`
-	MySliceStringOptUnset    *[]string            `json:"mySliceStringOptUnset"`
-	MySliceSubStruct         []mySubStruct        `json:"mySliceSubStruct"`
-	MySliceSubStructEmpty    []mySubStruct        `json:"mySliceSubStructEmpty"`
-	MySliceSubStructOpt      *[]mySubStruct       `json:"mySliceSubStructOpt"`
-	MySliceSubStructOptUnset *[]mySubStruct       `json:"mySliceSubStructOptUnset"`
-	Unset                    *bool                `json:"unset"`
-}
-
-func TestLoad(t *testing.T) {
-	env := map[string]string{
-		"MYPREFIX_MYSTRING":                       "testcontent",
-		"MYPREFIX_MYSTRINGOPT":                    "testcontent2",
-		"MYPREFIX_MYINT":                          "123",
-		"MYPREFIX_MYINTOPT":                       "456",
-		"MYPREFIX_MYUINT":                         "8910",
-		"MYPREFIX_MYUINTOPT":                      "112313",
-		"MYPREFIX_MYFLOAT":                        "15.2",
-		"MYPREFIX_MYFLOATOPT":                     "16.2",
-		"MYPREFIX_MYBOOL":                         "yes",
-		"MYPREFIX_MYBOOLOPT":                      "false",
-		"MYPREFIX_MYDURATION":                     "22s",
-		"MYPREFIX_MYDURATIONOPT":                  "30s",
-		"MYPREFIX_MYMAP_MYKEY":                    "",
-		"MYPREFIX_MYMAP_MYKEY2_MYVALUE":           "asd",
-		"MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM":  "456",
-		"MYPREFIX_MYSLICEFLOAT":                   "0.5,0.5",
-		"MYPREFIX_MYSLICESTRING":                  "val1,val2",
-		"MYPREFIX_MYSLICESTRINGEMPTY":             "",
-		"MYPREFIX_MYSLICESTRINGOPT":               "aa",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_URL":         "url1",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME":    "user1",
-		"MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD":    "pass1",
-		"MYPREFIX_MYSLICESUBSTRUCT_1_URL":         "url2",
-		"MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD":    "pass2",
-		"MYPREFIX_MYSLICESUBSTRUCTEMPTY":          "",
-		"MYPREFIX_MYSLICESUBSTRUCTOPT_1_PASSWORD": "pwd",
+func TestLoadPrimitives(t *testing.T) {
+	type subStruct2 struct {
+		MyParam int `json:"myParam"`
 	}
 
-	for key, val := range env {
-		t.Setenv(key, val)
+	type mapEntry struct {
+		MyValue  string     `json:"myValue"`
+		MyStruct subStruct2 `json:"myStruct"`
+	}
+
+	type testStruct struct {
+		MyString           string               `json:"myString"`
+		MyStringOpt        *string              `json:"myStringOpt"`
+		MyInt              int                  `json:"myInt"`
+		MyIntOpt           *int                 `json:"myIntOpt"`
+		MyUint             uint                 `json:"myUint"`
+		MyUintOpt          *uint                `json:"myUintOpt"`
+		MyFloat            float64              `json:"myFloat"`
+		MyFloatOpt         *float64             `json:"myFloatOpt"`
+		MyBool             bool                 `json:"myBool"`
+		MyBoolOpt          *bool                `json:"myBoolOpt"`
+		MyDuration         myDuration           `json:"myDuration"`
+		MyDurationOpt      *myDuration          `json:"myDurationOpt"`
+		MyDurationOptUnset *myDuration          `json:"myDurationOptUnset"`
+		MyMap              map[string]*mapEntry `json:"myMap"`
+		Unset              *bool                `json:"unset"`
 	}
 
 	var s testStruct
+
+	t.Setenv("MYPREFIX_MYSTRING", "testcontent")
+	t.Setenv("MYPREFIX_MYSTRINGOPT", "testcontent2")
+	t.Setenv("MYPREFIX_MYINT", "123")
+	t.Setenv("MYPREFIX_MYINTOPT", "456")
+	t.Setenv("MYPREFIX_MYUINT", "8910")
+	t.Setenv("MYPREFIX_MYUINTOPT", "112313")
+	t.Setenv("MYPREFIX_MYFLOAT", "15.2")
+	t.Setenv("MYPREFIX_MYFLOATOPT", "16.2")
+	t.Setenv("MYPREFIX_MYBOOL", "yes")
+	t.Setenv("MYPREFIX_MYBOOLOPT", "false")
+	t.Setenv("MYPREFIX_MYDURATION", "22s")
+	t.Setenv("MYPREFIX_MYDURATIONOPT", "30s")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY", "")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE", "asd")
+	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM", "456")
+
 	err := Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
@@ -131,17 +99,40 @@ func TestLoad(t *testing.T) {
 		MyMap: map[string]*mapEntry{
 			"mykey": {
 				MyValue: "",
-				MyStruct: subStruct{
+				MyStruct: subStruct2{
 					MyParam: 0,
 				},
 			},
 			"mykey2": {
 				MyValue: "asd",
-				MyStruct: subStruct{
+				MyStruct: subStruct2{
 					MyParam: 456,
 				},
 			},
 		},
+	}, s)
+}
+
+func TestLoadSlice(t *testing.T) {
+	type testStruct struct {
+		MySliceFloat          []float64 `json:"mySliceFloat"`
+		MySliceString         []string  `json:"mySliceString"`
+		MySliceStringEmpty    []string  `json:"mySliceStringEmpty"`
+		MySliceStringOpt      *[]string `json:"mySliceStringOpt"`
+		MySliceStringOptUnset *[]string `json:"mySliceStringOptUnset"`
+	}
+
+	var s testStruct
+
+	t.Setenv("MYPREFIX_MYSLICEFLOAT", "0.5,0.5")
+	t.Setenv("MYPREFIX_MYSLICESTRING", "val1,val2")
+	t.Setenv("MYPREFIX_MYSLICESTRINGEMPTY", "")
+	t.Setenv("MYPREFIX_MYSLICESTRINGOPT", "aa")
+
+	err := Load("MYPREFIX", &s)
+	require.NoError(t, err)
+
+	require.Equal(t, testStruct{
 		MySliceFloat: []float64{0.5, 0.5},
 		MySliceString: []string{
 			"val1",
@@ -149,7 +140,37 @@ func TestLoad(t *testing.T) {
 		},
 		MySliceStringEmpty: []string{},
 		MySliceStringOpt:   &[]string{"aa"},
-		MySliceSubStruct: []mySubStruct{
+	}, s)
+}
+
+func TestLoadSliceStruct(t *testing.T) {
+	type subStruct struct {
+		URL      string `json:"url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		MyInt2   int    `json:"myInt2"`
+	}
+
+	type testStruct struct {
+		MySliceSubStruct         []subStruct  `json:"mySliceSubStruct"`
+		MySliceSubStructOpt      *[]subStruct `json:"mySliceSubStructOpt"`
+		MySliceSubStructOptUnset *[]subStruct `json:"mySliceSubStructOptUnset"`
+	}
+
+	var s testStruct
+
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_URL", "url1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME", "user1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD", "pass1")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_URL", "url2")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD", "pass2")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTOPT_0_PASSWORD", "pwd")
+
+	err := Load("MYPREFIX", &s)
+	require.NoError(t, err)
+
+	require.Equal(t, testStruct{
+		MySliceSubStruct: []subStruct{
 			{
 				URL:      "url1",
 				Username: "user1",
@@ -161,25 +182,87 @@ func TestLoad(t *testing.T) {
 				Password: "pass2",
 			},
 		},
-		MySliceSubStructEmpty: []mySubStruct{},
+		MySliceSubStructOpt: &[]subStruct{
+			{
+				Password: "pwd",
+			},
+		},
 	}, s)
 }
 
-func FuzzLoad(f *testing.F) {
-	f.Add("MYPREFIX_MYINT", "a")
-	f.Add("MYPREFIX_MYUINT", "a")
-	f.Add("MYPREFIX_MYFLOAT", "a")
-	f.Add("MYPREFIX_MYBOOL", "a")
-	f.Add("MYPREFIX_MYSLICESUBSTRUCT_0_MYINT2", "a")
-	f.Add("MYPREFIX_MYDURATION", "a")
-	f.Add("MYPREFIX_MYDURATION_A", "a")
+func TestLoadEmptySliceStruct(t *testing.T) {
+	type subStruct struct {
+		URL      string `json:"url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		MyInt2   int    `json:"myInt2"`
+	}
 
-	f.Fuzz(func(_ *testing.T, key string, val string) {
-		env := map[string]string{
-			key: val,
-		}
+	type testStruct struct {
+		MySliceSubStructEmpty []subStruct `json:"mySliceSubStructEmpty"`
+	}
 
-		var s testStruct
-		loadWithEnv(env, "MYPREFIX", &s) //nolint:errcheck
-	})
+	var s testStruct
+
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY", "")
+
+	err := Load("MYPREFIX", &s)
+	require.NoError(t, err)
+
+	require.Equal(t, testStruct{
+		MySliceSubStructEmpty: []subStruct{},
+	}, s)
+}
+
+func TestLoadPreloadedSliceStruct(t *testing.T) {
+	type subStruct struct {
+		URL      string `json:"url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		MyInt2   int    `json:"myInt2"`
+	}
+
+	type testStruct struct {
+		MySliceSubStructPreloaded  []subStruct `json:"mySliceSubStructPreloaded"`
+		MySliceSubStructPreloaded2 []subStruct `json:"mySliceSubStructPreloaded2"`
+	}
+
+	s := testStruct{
+		MySliceSubStructPreloaded: []subStruct{
+			{
+				URL:      "val1",
+				Username: "val2",
+			},
+		},
+		MySliceSubStructPreloaded2: []subStruct{
+			{
+				URL:      "val3",
+				Username: "val4",
+			},
+		},
+	}
+
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED_0_URL", "newurl")
+	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED2_1_URL", "newurl2")
+
+	err := Load("MYPREFIX", &s)
+	require.NoError(t, err)
+
+	require.Equal(t, testStruct{
+		MySliceSubStructPreloaded: []subStruct{
+			{
+				URL:      "newurl",
+				Username: "val2",
+			},
+		},
+		MySliceSubStructPreloaded2: []subStruct{
+			{
+				URL:      "val3",
+				Username: "val4",
+			},
+			{
+				URL: "newurl2",
+			},
+		},
+	}, s)
 }

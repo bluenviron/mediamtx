@@ -19,9 +19,9 @@ type testSRTServer struct {
 }
 
 func (s *testSRTServer) APIConnsList() (*defs.APISRTConnList, error) {
-	items := make([]*defs.APISRTConn, 0, len(s.conns))
+	items := make([]defs.APISRTConn, 0, len(s.conns))
 	for _, conn := range s.conns {
-		items = append(items, conn)
+		items = append(items, *conn)
 	}
 	return &defs.APISRTConnList{Items: items}, nil
 }

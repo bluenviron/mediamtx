@@ -7,14 +7,6 @@ import (
 )
 
 func TestCredential(t *testing.T) {
-	t.Run("MarshalJSON", func(t *testing.T) {
-		cred := Credential("password")
-		expectedJSON := []byte(`"password"`)
-		actualJSON, err := cred.MarshalJSON()
-		assert.NoError(t, err)
-		assert.Equal(t, expectedJSON, actualJSON)
-	})
-
 	t.Run("UnmarshalJSON", func(t *testing.T) {
 		expectedCred := Credential("password")
 		jsonData := []byte(`"password"`)

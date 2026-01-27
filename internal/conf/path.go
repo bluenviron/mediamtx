@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -106,10 +105,9 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 }
 
 // Path is a path configuration.
-// WARNING: Avoid using slices directly due to https://github.com/golang/go/issues/21092
 type Path struct {
-	Regexp *regexp.Regexp `json:"-"`    // filled by Check()
-	Name   string         `json:"name"` // filled by Check()
+	Regexp *regexp.Regexp `json:"-"`    // filled by Validate()
+	Name   string         `json:"name"` // filled by Validate()
 
 	// General
 	Source                     string   `json:"source"`
@@ -207,11 +205,11 @@ type Path struct {
 	RPICameraSoftwareH264Level     string    `json:"rpiCameraSoftwareH264Level"`
 	RPICameraJPEGQuality           *uint     `json:"rpiCameraJPEGQuality,omitempty"` // deprecated
 	RPICameraMJPEGQuality          uint      `json:"rpiCameraMJPEGQuality"`
-	RPICameraPrimaryName           string    `json:"-"` // filled by Check()
-	RPICameraSecondaryWidth        uint      `json:"-"` // filled by Check()
-	RPICameraSecondaryHeight       uint      `json:"-"` // filled by Check()
-	RPICameraSecondaryFPS          float64   `json:"-"` // filled by Check()
-	RPICameraSecondaryMJPEGQuality uint      `json:"-"` // filled by Check()
+	RPICameraPrimaryName           string    `json:"-"` // filled by Validate()
+	RPICameraSecondaryWidth        uint      `json:"-"` // filled by Validate()
+	RPICameraSecondaryHeight       uint      `json:"-"` // filled by Validate()
+	RPICameraSecondaryFPS          float64   `json:"-"` // filled by Validate()
+	RPICameraSecondaryMJPEGQuality uint      `json:"-"` // filled by Validate()
 
 	// Hooks
 	RunOnInit                  string   `json:"runOnInit"`
@@ -287,25 +285,8 @@ func newPath(defaults *Path, partial *OptionalPath) *Path {
 
 // Clone clones the configuration.
 func (pconf Path) Clone() *Path {
-	enc, err := json.Marshal(pconf)
-	if err != nil {
-		panic(err)
-	}
-
-	var dest Path
-	err = json.Unmarshal(enc, &dest)
-	if err != nil {
-		panic(err)
-	}
-
-	dest.Regexp = pconf.Regexp
-	dest.RPICameraPrimaryName = pconf.RPICameraPrimaryName
-	dest.RPICameraSecondaryWidth = pconf.RPICameraSecondaryWidth
-	dest.RPICameraSecondaryHeight = pconf.RPICameraSecondaryHeight
-	dest.RPICameraSecondaryFPS = pconf.RPICameraSecondaryFPS
-	dest.RPICameraSecondaryMJPEGQuality = pconf.RPICameraSecondaryMJPEGQuality
-
-	return &dest
+	cloned := deepClone(reflect.ValueOf(pconf)).Interface().(Path)
+	return &cloned
 }
 
 func (pconf *Path) validate(

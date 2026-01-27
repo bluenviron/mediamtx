@@ -209,7 +209,7 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	conf, _, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, AuthInternalUsers{
+	require.Equal(t, []AuthInternalUser{
 		{
 			User: "any",
 			Permissions: []AuthInternalUserPermission{
@@ -357,6 +357,20 @@ func TestConfErrors(t *testing.T) {
 			`all_others, all and '~^.*$' are aliases`,
 		},
 		{
+			"jwt jwks empty",
+			"authMethod: jwt\n" +
+				"authJWTJWKS: \"\"\n" +
+				"authJWTClaimKey: test",
+			"'authJWTJWKS' is empty",
+		},
+		{
+			"invalid jwt jwks url",
+			"authMethod: jwt\n" +
+				"authJWTJWKS: ftp://invalid\n" +
+				"authJWTClaimKey: test",
+			"'authJWTJWKS' must be a HTTP URL",
+		},
+		{
 			"jwt claim key empty",
 			"authMethod: jwt\n" +
 				"authJWTJWKS: https://not-real.com\n" +
@@ -364,9 +378,38 @@ func TestConfErrors(t *testing.T) {
 			"'authJWTClaimKey' is empty",
 		},
 		{
+			"http auth address empty",
+			"authMethod: http\n" +
+				"authHTTPAddress: \"\"",
+			"'authHTTPAddress' is empty",
+		},
+		{
+			"invalid http auth address",
+			"authMethod: http\n" +
+				"authHTTPAddress: ftp://invalid",
+			"'externalAuthenticationURL' must be a HTTP URL",
+		},
+		{
 			"invalid rtsp auth methods",
 			"rtspAuthMethods: []",
 			"at least one 'rtspAuthMethods' must be provided",
+		},
+		{
+			"rtsp digest with non-internal auth",
+			"authMethod: http\n" +
+				"authHTTPAddress: http://localhost:9000\n" +
+				"rtspAuthMethods: [digest]\n",
+			"when RTSP digest is enabled, the only supported auth method is 'internal'",
+		},
+		{
+			"rtsp digest with hashed credentials",
+			"rtspAuthMethods: [digest]\n" +
+				"authInternalUsers:\n" +
+				"- user: sha256:test\n" +
+				"  pass: test\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			"when RTSP digest is enabled, hashed credentials cannot be used",
 		},
 		{
 			"invalid fallback",
@@ -438,6 +481,252 @@ func TestConfErrors(t *testing.T) {
 				"    recordDeleteAfter: 20m\n",
 			`'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'`,
 		},
+		{
+			"missing rtpAddress with UDP and no encryption",
+			"rtspEncryption: \"no\"\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ''\n",
+			"'rtpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing rtcpAddress with UDP and no encryption",
+			"rtspEncryption: \"no\"\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ''\n",
+			"'rtcpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing rtpAddress with UDP and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ''\n",
+			"'rtpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing rtcpAddress with UDP and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ''\n",
+			"'rtcpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastIPRange with UDP multicast and no encryption",
+			"rtspEncryption: \"no\"\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: ''\n",
+			"'multicastIPRange' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastRTPPort with UDP multicast and no encryption",
+			"rtspEncryption: \"no\"\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 0\n",
+			"'multicastRTPPort' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastRTCPPort with UDP multicast and no encryption",
+			"rtspEncryption: \"no\"\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 8002\n" +
+				"multicastRTCPPort: 0\n",
+			"'multicastRTCPPort' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastIPRange with UDP multicast and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: ''\n",
+			"'multicastIPRange' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastRTPPort with UDP multicast and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 0\n",
+			"'multicastRTPPort' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastRTCPPort with UDP multicast and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 8002\n" +
+				"multicastRTCPPort: 0\n",
+			"'multicastRTCPPort' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing srtpAddress with UDP and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ':8001'\n" +
+				"srtpAddress: ''\n",
+			"'srtpAddress' must be set when UDP is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing srtcpAddress with UDP and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [udp]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ':8001'\n" +
+				"srtpAddress: ':8004'\n" +
+				"srtcpAddress: ''\n",
+			"'srtcpAddress' must be set when UDP is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing srtpAddress with UDP and strict encryption",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [udp]\n" +
+				"srtpAddress: ''\n",
+			"'srtpAddress' must be set when UDP is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing srtcpAddress with UDP and strict encryption",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [udp]\n" +
+				"srtpAddress: ':8004'\n" +
+				"srtcpAddress: ''\n",
+			"'srtcpAddress' must be set when UDP is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing multicastIPRange with UDP multicast and optional encryption second check",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ':8001'\n" +
+				"multicastIPRange: ''\n",
+			"'multicastIPRange' must be set when UDP multicast is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing multicastSRTPPort with UDP multicast and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ':8001'\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 8002\n" +
+				"multicastRTCPPort: 8003\n" +
+				"srtpAddress: ':8004'\n" +
+				"srtcpAddress: ':8005'\n" +
+				"multicastSRTPPort: 0\n",
+			"'multicastSRTPPort' must be set when UDP multicast is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing multicastSRTCPPort with UDP multicast and optional encryption",
+			"rtspEncryption: optional\n" +
+				"rtspTransports: [multicast]\n" +
+				"rtpAddress: ':8000'\n" +
+				"rtcpAddress: ':8001'\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastRTPPort: 8002\n" +
+				"multicastRTCPPort: 8003\n" +
+				"srtpAddress: ':8004'\n" +
+				"srtcpAddress: ':8005'\n" +
+				"multicastSRTPPort: 8006\n" +
+				"multicastSRTCPPort: 0\n",
+			"'multicastSRTCPPort' must be set when UDP multicast is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing multicastIPRange with UDP multicast and strict encryption",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: ''\n",
+			"'multicastIPRange' must be set when UDP multicast is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing multicastSRTPPort with UDP multicast and strict encryption",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastSRTPPort: 0\n",
+			"'multicastSRTPPort' must be set when UDP multicast is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing multicastSRTCPPort with UDP multicast and strict encryption",
+			"rtspEncryption: strict\n" +
+				"rtspTransports: [multicast]\n" +
+				"multicastIPRange: '224.1.0.0/16'\n" +
+				"multicastSRTPPort: 8006\n" +
+				"multicastSRTCPPort: 0\n",
+			"'multicastSRTCPPort' must be set when UDP multicast is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing rtspAddress with RTSP enabled and no encryption",
+			"rtsp: yes\n" +
+				"rtspEncryption: \"no\"\n" +
+				"rtspAddress: ''\n",
+			"'rtspAddress' must be set when RTSP is enabled and RTSP encryption is 'no' or 'optional'",
+		},
+		{
+			"missing rtspsAddress with RTSP enabled and strict encryption",
+			"rtsp: yes\n" +
+				"rtspEncryption: strict\n" +
+				"rtspsAddress: ''\n",
+			"'rtspsAddress' must be set when RTSP is enabled and RTSP encryption is 'optional' or 'strict'",
+		},
+		{
+			"missing rtmpAddress with RTMP enabled",
+			"rtmp: yes\n" +
+				"rtmpAddress: ''\n",
+			"'rtmpAddress' must be set when RTMP is enabled",
+		},
+		{
+			"missing hlsAddress with HLS enabled",
+			"hls: yes\n" +
+				"hlsAddress: ''\n",
+			"'hlsAddress' must be set when HLS is enabled",
+		},
+		{
+			"missing webrtcAddress with WebRTC enabled",
+			"webrtc: yes\n" +
+				"webrtcAddress: ''\n",
+			"'webrtcAddress' must be set when WebRTC is enabled",
+		},
+		{
+			"webrtc missing local addresses and ice servers",
+			"webrtc: yes\n" +
+				"webrtcLocalUDPAddress: ''\n" +
+				"webrtcLocalTCPAddress: ''\n" +
+				"webrtcICEServers2: []\n",
+			"at least one between 'webrtcLocalUDPAddress', 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled",
+		},
+		{
+			"webrtc missing ips config",
+			"webrtc: yes\n" +
+				"webrtcLocalUDPAddress: ':8189'\n" +
+				"webrtcIPsFromInterfaces: false\n" +
+				"webrtcAdditionalHosts: []\n",
+			"at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled",
+		},
+		{
+			"missing apiAddress with API enabled",
+			"api: yes\n" +
+				"apiAddress: ''\n",
+			"'apiAddress' must be set when API is enabled",
+		},
+		{
+			"missing metricsAddress with metrics enabled",
+			"metrics: yes\n" +
+				"metricsAddress: ''\n",
+			"'metricsAddress' must be set when metrics are enabled",
+		},
+		{
+			"missing pprofAddress with pprof enabled",
+			"pprof: yes\n" +
+				"pprofAddress: ''\n",
+			"'pprofAddress' must be set when pprof is enabled",
+		},
+		{
+			"missing playbackAddress with playback enabled",
+			"playback: yes\n" +
+				"playbackAddress: ''\n",
+			"'playbackAddress' must be set when playback is enabled",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
@@ -482,30 +771,10 @@ func TestSampleConfFile(t *testing.T) {
 	}()
 }
 
-// needed due to https://github.com/golang/go/issues/21092
-func TestConfOverrideDefaultSlices(t *testing.T) {
-	tmpf, err := createTempFile([]byte(
-		"authInternalUsers:\n" +
-			"  - user: user1\n" +
-			"  - user: user2\n" +
-			"authHTTPExclude:\n" +
-			"  - path: ''\n"))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
-
-	conf, _, err := Load(tmpf, nil, nil)
+func TestClone(t *testing.T) {
+	conf1, _, err := Load("", nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, AuthInternalUsers{
-		{
-			User: "user1",
-		},
-		{
-			User: "user2",
-		},
-	}, conf.AuthInternalUsers)
-
-	require.Equal(t, AuthInternalUserPermissions{
-		{},
-	}, conf.AuthHTTPExclude)
+	conf2 := conf1.Clone()
+	require.Equal(t, conf1, conf2)
 }

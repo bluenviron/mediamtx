@@ -40,7 +40,7 @@ const (
 var ErrSessionNotFound = errors.New("session not found")
 
 func interfaceIsEmpty(i any) bool {
-	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
 type nilWriter struct{}
@@ -399,11 +399,11 @@ outer:
 
 		case req := <-s.chAPISessionsList:
 			data := &defs.APIWebRTCSessionList{
-				Items: []*defs.APIWebRTCSession{},
+				Items: []defs.APIWebRTCSession{},
 			}
 
 			for sx := range s.sessions {
-				data.Items = append(data.Items, sx.apiItem())
+				data.Items = append(data.Items, *sx.apiItem())
 			}
 
 			sort.Slice(data.Items, func(i, j int) bool {

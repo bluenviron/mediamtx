@@ -17,9 +17,9 @@ type testHLSServer struct {
 }
 
 func (s *testHLSServer) APIMuxersList() (*defs.APIHLSMuxerList, error) {
-	items := make([]*defs.APIHLSMuxer, 0, len(s.muxers))
+	items := make([]defs.APIHLSMuxer, 0, len(s.muxers))
 	for _, muxer := range s.muxers {
-		items = append(items, muxer)
+		items = append(items, *muxer)
 	}
 	return &defs.APIHLSMuxerList{Items: items}, nil
 }

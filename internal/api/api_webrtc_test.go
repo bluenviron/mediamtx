@@ -19,9 +19,9 @@ type testWebRTCServer struct {
 }
 
 func (s *testWebRTCServer) APISessionsList() (*defs.APIWebRTCSessionList, error) {
-	items := make([]*defs.APIWebRTCSession, 0, len(s.sessions))
+	items := make([]defs.APIWebRTCSession, 0, len(s.sessions))
 	for _, session := range s.sessions {
-		items = append(items, session)
+		items = append(items, *session)
 	}
 	return &defs.APIWebRTCSessionList{Items: items}, nil
 }

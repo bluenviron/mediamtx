@@ -269,17 +269,31 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			} else {
 				for i := 0; ; i++ {
 					itemPrefix := prefix + "_" + strconv.FormatInt(int64(i), 10)
-					if !envHasAtLeastAKeyWithPrefix(env, itemPrefix) {
+					if !envHasAtLeastAKeyWithPrefix(env, itemPrefix) && (prv.IsZero() || prv.Elem().Len() <= i) {
 						break
 					}
 
-					elem := reflect.New(rt.Elem())
+					var elem reflect.Value
+
+					if !prv.IsZero() && prv.Elem().Len() > i {
+						elem = prv.Elem().Index(i).Addr()
+					} else {
+						elem = reflect.New(rt.Elem())
+					}
+
 					err := loadEnvInternal(env, itemPrefix, elem.Elem())
 					if err != nil {
 						return err
 					}
 
-					prv.Elem().Set(reflect.Append(prv.Elem(), elem.Elem()))
+					if !prv.IsZero() && prv.Elem().Len() > i {
+						prv.Elem().Index(i).Set(elem.Elem())
+					} else {
+						if prv.IsZero() {
+							prv.Set(reflect.New(rt))
+						}
+						prv.Elem().Set(reflect.Append(prv.Elem(), elem.Elem()))
+					}
 				}
 			}
 			return nil

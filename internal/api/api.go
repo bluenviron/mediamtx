@@ -20,7 +20,7 @@ import (
 )
 
 func interfaceIsEmpty(i any) bool {
-	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
 func sortedKeys(paths map[string]*conf.Path) []string {
@@ -54,10 +54,10 @@ func recordingsOfPath(
 
 	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
 
-	ret.Segments = make([]*defs.APIRecordingSegment, len(segments))
+	ret.Segments = make([]defs.APIRecordingSegment, len(segments))
 
 	for i, seg := range segments {
-		ret.Segments[i] = &defs.APIRecordingSegment{
+		ret.Segments[i] = defs.APIRecordingSegment{
 			Start: seg.Start,
 		}
 	}

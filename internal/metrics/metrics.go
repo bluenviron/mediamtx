@@ -21,7 +21,7 @@ import (
 )
 
 func interfaceIsEmpty(i any) bool {
-	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
 func sortedKeys(paths map[string]string) []string {
