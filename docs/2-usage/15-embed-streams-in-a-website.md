@@ -63,6 +63,12 @@ After the video tag, add a script that initializes the stream when the page is f
       onTrack: (evt) => {
         document.getElementById("myvideo").srcObject = evt.streams[0];
       },
+      onDataChannel: (evt) => {
+        evt.channel.binaryType = "arraybuffer";
+        evt.channel.onmessage = (evt) => {
+          console.log("data channel message", evt.data);
+        };
+      },
     });
   });
 

@@ -24,7 +24,7 @@ authInternalUsers:
     pass:
     # IPs or networks allowed to use this user. An empty list means any IP.
     ips: []
-    # List of permissions.
+    # Permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.
       - action: publish

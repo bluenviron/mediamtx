@@ -4,10 +4,10 @@
 
 Live streams be recorded and played back with the following file containers and codecs:
 
-| container | video codecs                                                            | audio codecs                                                                  |
-| --------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| fMP4      | AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM |
-| MPEG-TS   | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video                   | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                          |
+| container | codecs                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| fMP4      | **Video**: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM |
+| MPEG-TS   | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3                                            |
 
 ## Usage
 

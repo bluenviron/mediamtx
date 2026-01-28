@@ -4,9 +4,9 @@ RTSP is a protocol that can be used for publishing and reading streams. Regardin
 
 ## Transport protocols
 
-The RTSP protocol supports several underlying transport protocols, that are chosen by clients during the handshake with the server:
+A RTSP session is splitted in two parts: the handshake, which is always performed with the TCP protocol, and data streaming, which can be performed with an arbitrary underlying transport protocol, which is chosen by the client during the handshake:
 
-- UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients.
+- UDP: the most performant, but require clients to access two additional UDP ports on the server, which is often impossible due to blocking or remapping by NATs/firewalls in between.
 - UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP.
 - TCP: the most versatile.
 
@@ -51,7 +51,7 @@ vlc --network-caching=50 rtsp://localhost:8554/mystream?vlcmulticast
 
 ## Encryption
 
-Incoming and outgoing RTSP streams can be encrypted by using a secure protocol variant, called RTSPS, that replaces all the subprotocols that are normally used in RTSP with their secure variant (TLS, SRTP, SRTCP). A TLS certificate is needed and can be generated with OpenSSL:
+Incoming and outgoing RTSP streams can be encrypted by replacing all the subprotocols that are normally used in RTSP with their secure variants (RTSPS, SRTP, SRTCP). A TLS certificate is needed and can be generated with OpenSSL:
 
 ```sh
 openssl genrsa -out server.key 2048

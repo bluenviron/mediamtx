@@ -4,7 +4,7 @@ RTMP is a protocol that can be used for publishing and reading streams. Regardin
 
 ## Encryption
 
-RTMP connections can be encrypted with TLS, obtaining the RTMPS protocol. A TLS certificate is needed and can be generated with OpenSSL:
+RTMP connections can be encrypted by using the secure protocol variant (RTMPS). A TLS certificate is needed and can be generated with OpenSSL:
 
 ```yml
 openssl genrsa -out server.key 2048
