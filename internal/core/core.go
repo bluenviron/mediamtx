@@ -424,18 +424,19 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          p.conf.LogLevel,
-			authManager:       p.authManager,
-			rtspAddress:       p.conf.RTSPAddress,
-			readTimeout:       p.conf.ReadTimeout,
-			writeTimeout:      p.conf.WriteTimeout,
-			writeQueueSize:    p.conf.WriteQueueSize,
-			udpReadBufferSize: p.conf.UDPReadBufferSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			pathConfs:         p.conf.Paths,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:           p.conf.LogLevel,
+			authManager:        p.authManager,
+			rtspAddress:        p.conf.RTSPAddress,
+			readTimeout:        p.conf.ReadTimeout,
+			writeTimeout:       p.conf.WriteTimeout,
+			writeQueueSize:     p.conf.WriteQueueSize,
+			udpReadBufferSize:  p.conf.UDPReadBufferSize,
+			udpClientPortRange: *p.conf.UDPClientPortRange,
+			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			pathConfs:          p.conf.Paths,
+			externalCmdPool:    p.externalCmdPool,
+			metrics:            p.metrics,
+			parent:             p,
 		}
 		p.pathManager.initialize()
 	}
@@ -786,6 +787,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		(*newConf.UDPClientPortRange)[0] != (*p.conf.UDPClientPortRange)[0] ||
+		(*newConf.UDPClientPortRange)[1] != (*p.conf.UDPClientPortRange)[1] ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||

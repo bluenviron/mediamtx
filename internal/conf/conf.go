@@ -309,6 +309,9 @@ type Conf struct {
 	PlaybackAllowOrigins   []string   `json:"playbackAllowOrigins"`
 	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
 
+	// RTSP Source (Streams IN)
+	UDPClientPortRange *[]uint16 `json:"sourceUDPClientPortRange,omitempty"`
+
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`
 	RTSPDisable           *bool            `json:"rtspDisable,omitempty"` // deprecated
@@ -458,6 +461,9 @@ func (conf *Conf) setDefaults() {
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
 	conf.PlaybackAllowOrigins = []string{"*"}
+
+	// RTSP Client
+	conf.UDPClientPortRange = &([]uint16{10000, 65535})
 
 	// RTSP server
 	conf.RTSP = true
@@ -769,6 +775,28 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.PlaybackAllowOrigins = []string{*conf.PlaybackAllowOrigin}
 	}
 
+	// RTSP Client
+
+	if len(*conf.UDPClientPortRange) != 2 {
+		return fmt.Errorf("parameter 'udpClientPortRange' does not have two port range limits - min and max")
+	}
+
+	udpCportmin := (*conf.UDPClientPortRange)[0]
+	udpCportmax := (*conf.UDPClientPortRange)[1]
+
+	if udpCportmin < 10000 || udpCportmax > 65534 {
+		return fmt.Errorf("'udpClientPortRange' lower bound should not be < 10000 and upper bound should not be > 65534")
+	}
+
+	if (udpCportmax%2 != 0) || (udpCportmin%2 != 0) {
+		return fmt.Errorf("'udpClientPortRange' lower bound and upper bound should be even numbers")
+	}
+
+	if udpCportmax-udpCportmin < 10 {
+		return fmt.Errorf("'udpClientPortRange' range should be at least 10 ports")
+	}
+
+	// RTSP server
 	// Playback
 
 	if conf.Playback {
