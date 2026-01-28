@@ -117,7 +117,7 @@ type Path struct {
 	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int      `json:"maxReaders"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
-	Fallback                   string   `json:"fallback"`
+	Fallback                   *string  `json:"fallback,omitempty"` // deprecated
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Record
@@ -315,27 +315,7 @@ func (pconf *Path) validate(
 		pconf.Regexp = regexp
 	}
 
-	// common configuration errors
-
-	if pconf.Source != "publisher" && pconf.Source != "redirect" &&
-		pconf.Regexp != nil && !pconf.SourceOnDemand {
-		return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
-			" must have 'sourceOnDemand' set to true")
-	}
-
-	if pconf.SRTPublishPassphrase != "" && pconf.Source != "publisher" {
-		return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
-	}
-
-	if pconf.SourceOnDemand && pconf.Source == "publisher" {
-		return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
-	}
-
-	if pconf.Source != "redirect" && pconf.SourceRedirect != "" {
-		return fmt.Errorf("'sourceRedirect' is useless when source is not 'redirect'")
-	}
-
-	// source-dependent settings
+	// General
 
 	switch {
 	case pconf.Source == "publisher":
@@ -343,6 +323,10 @@ func (pconf *Path) validate(
 			l.Log(logger.Warn, "parameter 'disablePublisherOverride' is deprecated "+
 				"and has been replaced with 'overridePublisher'")
 			pconf.OverridePublisher = !*pconf.DisablePublisherOverride
+		}
+
+		if pconf.SourceOnDemand {
+			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 		}
 
 		if pconf.SRTPublishPassphrase != "" {
@@ -620,8 +604,9 @@ func (pconf *Path) validate(
 		}
 	}
 
-	if pconf.Fallback != "" {
-		err := checkRedirect(pconf.Fallback)
+	if pconf.Fallback != nil {
+		l.Log(logger.Warn, "the 'fallback' feature is deprecated, use 'alwaysAvailable' instead")
+		err := checkRedirect(*pconf.Fallback)
 		if err != nil {
 			return err
 		}
@@ -735,6 +720,22 @@ func (pconf *Path) validate(
 	}
 	if (pconf.RunOnDemand != "" || pconf.RunOnUnDemand != "") && pconf.Source != "publisher" {
 		return fmt.Errorf("'runOnDemand' and 'runOnUnDemand' can be used only when source is 'publisher'")
+	}
+
+	// common configuration errors
+
+	if pconf.Source != "publisher" && pconf.Source != "redirect" &&
+		pconf.Regexp != nil && !pconf.SourceOnDemand {
+		return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
+			" must have 'sourceOnDemand' set to true")
+	}
+
+	if pconf.SRTPublishPassphrase != "" && pconf.Source != "publisher" {
+		return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
+	}
+
+	if pconf.Source != "redirect" && pconf.SourceRedirect != "" {
+		return fmt.Errorf("'sourceRedirect' is useless when source is not 'redirect'")
 	}
 
 	return nil

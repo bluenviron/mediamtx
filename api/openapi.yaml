@@ -372,8 +372,6 @@ components:
           format: int64
         srtReadPassphrase:
           type: string
-        fallback:
-          type: string
         useAbsoluteTimestamp:
           type: boolean
 

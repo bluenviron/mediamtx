@@ -480,9 +480,6 @@ pathDefaults:
   maxReaders: 0
   # SRT encryption passphrase required to read from this path.
   srtReadPassphrase:
-  # If the stream is not available, redirect readers to this path.
-  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
-  fallback:
   # Use absolute timestamp of frames, instead of replacing them with the current time.
   useAbsoluteTimestamp: false
 
