@@ -148,7 +148,7 @@ type Path struct {
 	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int      `json:"maxReaders"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
-	Fallback                   string   `json:"fallback"`
+	Fallback                   *string  `json:"fallback,omitempty"` // deprecated
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Always available
@@ -662,8 +662,9 @@ func (pconf *Path) validate(
 		}
 	}
 
-	if pconf.Fallback != "" {
-		err := checkRedirect(pconf.Fallback)
+	if pconf.Fallback != nil {
+		l.Log(logger.Warn, "the 'fallback' feature is deprecated, use 'alwaysAvailable' instead")
+		err := checkRedirect(*pconf.Fallback)
 		if err != nil {
 			return err
 		}
