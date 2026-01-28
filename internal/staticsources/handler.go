@@ -311,9 +311,9 @@ func (s *Handler) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSource
 	case s.chInstanceSetReady <- req:
 		res := <-req.Res
 
-		if res.Err == nil {
+		/* if res.Err == nil {
 			s.instance.Log(logger.Info, "ready: %s", defs.MediasInfo(req.Desc.Medias))
-		}
+		} */
 
 		return res
 

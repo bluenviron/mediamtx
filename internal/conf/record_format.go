@@ -1,52 +1,32 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
 // RecordFormat is the recordFormat parameter.
-type RecordFormat int
+type RecordFormat string
 
 // supported values.
 const (
-	RecordFormatFMP4 RecordFormat = iota
-	RecordFormatMPEGTS
+	RecordFormatFMP4   RecordFormat = "fmp4"
+	RecordFormatMPEGTS RecordFormat = "mpegts"
 )
-
-// MarshalJSON implements json.Marshaler.
-func (d RecordFormat) MarshalJSON() ([]byte, error) {
-	var out string
-
-	switch d {
-	case RecordFormatMPEGTS:
-		out = "mpegts"
-
-	default:
-		out = "fmp4"
-	}
-
-	return json.Marshal(out)
-}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (d *RecordFormat) UnmarshalJSON(b []byte) error {
-	var in string
-	if err := jsonwrapper.Unmarshal(b, &in); err != nil {
+	type alias RecordFormat
+	if err := jsonwrapper.Unmarshal(b, (*alias)(d)); err != nil {
 		return err
 	}
 
-	switch in {
-	case "mpegts":
-		*d = RecordFormatMPEGTS
-
-	case "fmp4":
-		*d = RecordFormatFMP4
+	switch *d {
+	case RecordFormatFMP4, RecordFormatMPEGTS:
 
 	default:
-		return fmt.Errorf("invalid record format '%s'", in)
+		return fmt.Errorf("invalid record format '%s'", *d)
 	}
 
 	return nil

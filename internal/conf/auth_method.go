@@ -1,59 +1,33 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
 // AuthMethod is an authentication method.
-type AuthMethod int
+type AuthMethod string
 
 // authentication methods.
 const (
-	AuthMethodInternal AuthMethod = iota
-	AuthMethodHTTP
-	AuthMethodJWT
+	AuthMethodInternal AuthMethod = "internal"
+	AuthMethodHTTP     AuthMethod = "http"
+	AuthMethodJWT      AuthMethod = "jwt"
 )
-
-// MarshalJSON implements json.Marshaler.
-func (d AuthMethod) MarshalJSON() ([]byte, error) {
-	var out string
-
-	switch d {
-	case AuthMethodInternal:
-		out = "internal"
-
-	case AuthMethodHTTP:
-		out = "http"
-
-	default:
-		out = "jwt"
-	}
-
-	return json.Marshal(out)
-}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (d *AuthMethod) UnmarshalJSON(b []byte) error {
-	var in string
-	if err := jsonwrapper.Unmarshal(b, &in); err != nil {
+	type alias AuthMethod
+	if err := jsonwrapper.Unmarshal(b, (*alias)(d)); err != nil {
 		return err
 	}
 
-	switch in {
-	case "internal":
-		*d = AuthMethodInternal
-
-	case "http":
-		*d = AuthMethodHTTP
-
-	case "jwt":
-		*d = AuthMethodJWT
+	switch *d {
+	case AuthMethodInternal, AuthMethodHTTP, AuthMethodJWT:
 
 	default:
-		return fmt.Errorf("invalid authMethod: '%s'", in)
+		return fmt.Errorf("invalid authMethod: '%s'", *d)
 	}
 
 	return nil

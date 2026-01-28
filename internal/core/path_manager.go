@@ -533,7 +533,7 @@ func (pm *pathManager) Describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // AddPublisher is called by a publisher.
-func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
 	req.Res = make(chan defs.PathAddPublisherRes)
 	select {
 	case pm.chAddPublisher <- req:

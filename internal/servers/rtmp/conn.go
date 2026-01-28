@@ -229,15 +229,15 @@ func (c *conn) runPublish() error {
 		return err
 	}
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
-	medias, err := rtmp.ToStream(r, &strm)
+	medias, err := rtmp.ToStream(r, &subStream)
 	if err != nil {
 		return err
 	}
 
 	var path defs.Path
-	path, strm, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, subStream, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        c,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
