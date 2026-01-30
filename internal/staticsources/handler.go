@@ -309,13 +309,7 @@ func (s *Handler) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSource
 	req.Res = make(chan defs.PathSourceStaticSetReadyRes)
 	select {
 	case s.chInstanceSetReady <- req:
-		res := <-req.Res
-
-		if res.Err == nil {
-			s.instance.Log(logger.Info, "ready: %s", defs.MediasInfo(req.Desc.Medias))
-		}
-
-		return res
+		return <-req.Res
 
 	case <-s.ctx.Done():
 		return defs.PathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}

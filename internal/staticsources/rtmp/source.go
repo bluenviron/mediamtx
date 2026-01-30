@@ -101,9 +101,9 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 		return err
 	}
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
-	medias, err := rtmp.ToStream(r, &strm)
+	medias, err := rtmp.ToStream(r, &subStream)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	strm = res.Stream
+	subStream = res.SubStream
 
 	conn.NetConn().SetWriteDeadline(time.Time{})
 

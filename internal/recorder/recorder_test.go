@@ -72,12 +72,12 @@ func TestRecorder(t *testing.T) {
 		},
 	}}
 
-	writeToStream := func(strm *stream.Stream, startDTS int64, startNTP time.Time) {
+	writeToStream := func(subStream *stream.SubStream, startDTS int64, startNTP time.Time) {
 		for i := range 2 {
 			pts := startDTS + int64(i)*100*90000/1000
 			ntp := startNTP.Add(time.Duration(i*100) * time.Millisecond)
 
-			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 				PTS: pts,
 				NTP: ntp,
 				Payload: unit.PayloadH264{
@@ -87,7 +87,7 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 				PTS: pts,
 				Payload: unit.PayloadH265{
 					{
@@ -110,17 +110,17 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			strm.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.Unit{
 				PTS:     pts * int64(desc.Medias[2].Formats[0].ClockRate()) / 90000,
 				Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
 			})
 
-			strm.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.Unit{
 				PTS:     pts * int64(desc.Medias[3].Formats[0].ClockRate()) / 90000,
 				Payload: unit.PayloadG711{1, 2, 3, 4},
 			})
 
-			strm.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.Unit{
 				PTS:     pts * int64(desc.Medias[4].Formats[0].ClockRate()) / 90000,
 				Payload: unit.PayloadLPCM{1, 2, 3, 4},
 			})
@@ -131,7 +131,6 @@ func TestRecorder(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			strm := &stream.Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -139,6 +138,13 @@ func TestRecorder(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			dir, err := os.MkdirTemp("", "mediamtx-agent")
 			require.NoError(t, err)
@@ -204,16 +210,16 @@ func TestRecorder(t *testing.T) {
 			}
 			w.Initialize()
 
-			writeToStream(strm,
+			writeToStream(subStream,
 				50*90000,
 				time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC))
 
-			writeToStream(strm,
+			writeToStream(subStream,
 				52*90000,
 				time.Date(2008, 5, 20, 22, 15, 27, 0, time.UTC))
 
 			// simulate a write error
-			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 				PTS: 0,
 				Payload: unit.PayloadH264{
 					{5}, // IDR
@@ -274,9 +280,10 @@ func TestRecorder(t *testing.T) {
 							TimeScale: 44100,
 							Codec: &mcodecs.MPEG4Audio{
 								Config: mpeg4audio.AudioSpecificConfig{
-									Type:         2,
-									SampleRate:   44100,
-									ChannelCount: 2,
+									Type:          2,
+									SampleRate:    44100,
+									ChannelCount:  2,
+									ChannelConfig: 2,
 								},
 							},
 						},
@@ -320,7 +327,7 @@ func TestRecorder(t *testing.T) {
 
 			time.Sleep(50 * time.Millisecond)
 
-			writeToStream(strm,
+			writeToStream(subStream,
 				300*90000,
 				time.Date(2010, 5, 20, 22, 15, 25, 0, time.UTC))
 
@@ -419,7 +426,6 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 
 	strm := &stream.Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -427,6 +433,13 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
 
 	dir, err := os.MkdirTemp("", "mediamtx-agent")
 	require.NoError(t, err)
@@ -447,7 +460,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	w.Initialize()
 
 	for i := range 3 {
-		strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 			PTS: -50*90000/1000 + (int64(i) * 200 * 90000 / 1000),
 			NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 			Payload: unit.PayloadH264{
@@ -457,7 +470,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 			},
 		})
 
-		strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+		subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 			PTS:     -100*44100/1000 + (int64(i) * 200 * 44100 / 1000),
 			Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
 		})
@@ -508,7 +521,6 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 
 	strm := &stream.Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -516,6 +528,13 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
 
 	dir, err := os.MkdirTemp("", "mediamtx-agent")
 	require.NoError(t, err)
@@ -535,25 +554,25 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	}
 	w.Initialize()
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     44100,
 		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     3 * 44100,
 		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     2 * 44100,
 		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     4 * 44100,
 		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
@@ -602,7 +621,6 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 
 			strm := &stream.Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -610,6 +628,13 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			dir, err := os.MkdirTemp("", "mediamtx-agent")
 			require.NoError(t, err)
@@ -664,7 +689,6 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 
 			strm := &stream.Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -672,6 +696,13 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			dir, err := os.MkdirTemp("", "mediamtx-agent")
 			require.NoError(t, err)
@@ -728,7 +759,6 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 
 	strm := &stream.Stream{
 		Desc:              desc,
-		UseRTPPackets:     false,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -736,6 +766,13 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
 
 	dir, err := os.MkdirTemp("", "mediamtx-agent")
 	require.NoError(t, err)
@@ -767,7 +804,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts := 50 * time.Second
 	ntp := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: int64(pts) * 90000 / int64(time.Second),
 		NTP: ntp,
 		Payload: unit.PayloadH264{
@@ -778,7 +815,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 700 * time.Millisecond
 	ntp = ntp.Add(700 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{ // segment switch should happen here
+	subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{ // segment switch should happen here
 		PTS:     int64(pts) * 44100 / int64(time.Second),
 		NTP:     ntp,
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
@@ -787,7 +824,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 400 * time.Millisecond
 	ntp = ntp.Add(400 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: int64(pts) * 90000 / int64(time.Second),
 		NTP: ntp,
 		Payload: unit.PayloadH264{
@@ -798,7 +835,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 100 * time.Millisecond
 	ntp = ntp.Add(100 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 		PTS:     int64(pts) * 44100 / int64(time.Second),
 		NTP:     ntp,
 		Payload: unit.PayloadMPEG4Audio{{3, 4}},
@@ -807,7 +844,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	pts += 400 * time.Millisecond
 	ntp = ntp.Add(400 * time.Millisecond)
 
-	strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: int64(pts) * 90000 / int64(time.Second),
 		NTP: ntp,
 		Payload: unit.PayloadH264{
@@ -851,7 +888,6 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 
 			strm := &stream.Stream{
 				Desc:              desc,
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -859,6 +895,13 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
 
 			dir, err := os.MkdirTemp("", "mediamtx-agent")
 			require.NoError(t, err)
@@ -916,7 +959,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 				pts := startDTS + int64(i)*100*90000/1000
 				ntp := startNTP.Add(time.Duration(i*100) * time.Millisecond)
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					PTS: pts,
 					NTP: ntp,
 					Payload: unit.PayloadH264{
@@ -926,7 +969,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 					PTS:     pts * int64(desc.Medias[1].Formats[0].ClockRate()) / 90000,
 					NTP:     ntp,
 					Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
@@ -945,7 +988,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 				pts := startDTS + int64(i)*100*90000/1000
 				ntp := startNTP.Add(time.Duration(i*100) * time.Millisecond)
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					PTS: pts,
 					NTP: ntp,
 					Payload: unit.PayloadH264{
@@ -955,7 +998,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 					PTS:     pts * int64(desc.Medias[1].Formats[0].ClockRate()) / 90000,
 					NTP:     ntp,
 					Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
@@ -967,7 +1010,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			driftedPTS := startDTS + 15*100*90000/1000
 			driftedNTP := startNTP.Add(15*100*time.Millisecond + 6*time.Second) // 6 second drift
 
-			strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 				PTS: driftedPTS,
 				NTP: driftedNTP,
 				Payload: unit.PayloadH264{
@@ -995,7 +1038,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 				pts := restartDTS + int64(i)*100*90000/1000
 				ntp := restartNTP.Add(time.Duration(i*100) * time.Millisecond)
 
-				strm.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 					PTS: pts,
 					NTP: ntp,
 					Payload: unit.PayloadH264{
@@ -1005,7 +1048,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+				subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
 					PTS:     pts * int64(desc.Medias[1].Formats[0].ClockRate()) / 90000,
 					NTP:     ntp,
 					Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},

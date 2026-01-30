@@ -64,8 +64,9 @@ func TestOnList(t *testing.T) {
 				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
-						Name:       "mypath",
-						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						Name:         "mypath",
+						RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						RecordFormat: conf.RecordFormatFMP4,
 					},
 				},
 				AuthManager: &test.AuthManager{
@@ -294,8 +295,9 @@ func TestOnListCachedDuration(t *testing.T) {
 		WriteTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
 			},
 		},
 		AuthManager: test.NilAuthManager,

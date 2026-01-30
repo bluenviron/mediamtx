@@ -377,6 +377,16 @@ components:
         useAbsoluteTimestamp:
           type: boolean
 
+        # Always available
+        alwaysAvailable:
+          type: boolean
+        alwaysAvailableFile:
+          type: string
+        alwaysAvailableTracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlwaysAvailableTrack'
+
         # Record
         record:
           type: boolean
@@ -1087,6 +1097,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SRTConn'
+
+    AlwaysAvailableTrack:
+      type: object
+      properties:
+        codec:
+          type: string
+        sampleRate:
+          type: integer
+          format: int64
+        channelCount:
+          type: integer
+          format: int64
+        muLaw:
+          type: boolean
 
     WebRTCICEServer:
       type: object

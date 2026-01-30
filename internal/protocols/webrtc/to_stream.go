@@ -33,7 +33,7 @@ var errNoSupportedCodecsTo = errors.New(
 func ToStream(
 	pc *PeerConnection,
 	pathConf *conf.Path,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 	log logger.Writer,
 ) ([]*description.Media, error) {
 	var medias []*description.Media //nolint:prealloc
@@ -197,7 +197,7 @@ func ToStream(
 				return
 			}
 
-			(*strm).WriteUnit(medi, forma, &unit.Unit{
+			(*subStream).WriteUnit(medi, forma, &unit.Unit{
 				PTS:        pts,
 				NTP:        ntp,
 				RTPPackets: []*rtp.Packet{pkt},

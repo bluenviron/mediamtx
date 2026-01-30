@@ -33,7 +33,7 @@ func ToStream(
 	source rtspSource,
 	medias []*description.Media,
 	pathConf *conf.Path,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 	log logger.Writer,
 ) {
 	for _, medi := range medias {
@@ -83,7 +83,7 @@ func ToStream(
 					return
 				}
 
-				(*strm).WriteUnit(cmedi, cforma, &unit.Unit{
+				(*subStream).WriteUnit(cmedi, cforma, &unit.Unit{
 					PTS:        pts,
 					NTP:        ntp,
 					RTPPackets: []*rtp.Packet{pkt},

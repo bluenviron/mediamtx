@@ -48,10 +48,13 @@ func TestConfFromFile(t *testing.T) {
 		pa, ok := conf.Paths["cam1"]
 		require.Equal(t, true, ok)
 		require.Equal(t, &Path{
-			Name:                         "cam1",
-			Source:                       "publisher",
-			SourceOnDemandStartTimeout:   10 * Duration(time.Second),
-			SourceOnDemandCloseAfter:     10 * Duration(time.Second),
+			Name:                       "cam1",
+			Source:                     "publisher",
+			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
+			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
+			AlwaysAvailableTracks: []AlwaysAvailableTrack{
+				{Codec: "H264"},
+			},
 			RecordPath:                   "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:                 RecordFormatFMP4,
 			RecordPartDuration:           Duration(1 * time.Second),
