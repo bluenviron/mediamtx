@@ -180,13 +180,14 @@ type Path struct {
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
 	// RTSP source
-	RTSPTransport         RTSPTransport  `json:"rtspTransport"`
-	RTSPAnyPort           bool           `json:"rtspAnyPort"`
-	SourceProtocol        *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
-	SourceAnyPortEnable   *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
-	RTSPRangeType         RTSPRangeType  `json:"rtspRangeType"`
-	RTSPRangeStart        string         `json:"rtspRangeStart"`
-	RTSPUDPReadBufferSize *uint          `json:"rtspUDPReadBufferSize,omitempty"` // deprecated
+	RTSPTransport          RTSPTransport  `json:"rtspTransport"`
+	RTSPAnyPort            bool           `json:"rtspAnyPort"`
+	SourceProtocol         *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
+	SourceAnyPortEnable    *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
+	RTSPRangeType          RTSPRangeType  `json:"rtspRangeType"`
+	RTSPRangeStart         string         `json:"rtspRangeStart"`
+	RTSPUDPReadBufferSize  *uint          `json:"rtspUDPReadBufferSize,omitempty"` // deprecated
+	RTSPUDPSourcePortRange []uint         `json:"rtspUDPSourcePortRange"`
 
 	// MPEG-TS source
 	MPEGTSUDPReadBufferSize *uint `json:"mpegtsUDPReadBufferSize,omitempty"` // deprecated
@@ -286,6 +287,9 @@ func (pconf *Path) setDefaults() {
 
 	// Publisher source
 	pconf.OverridePublisher = true
+
+	// RTSP source
+	pconf.RTSPUDPSourcePortRange = []uint{10000, 65535}
 
 	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920

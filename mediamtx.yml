@@ -553,6 +553,8 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+  # Range of ports used as source port in outgoing UDP packets.
+  rtspUDPSourcePortRange: [10000, 65535]
 
   ###############################################
   # Default path settings -> RTP source (when source is RTP)

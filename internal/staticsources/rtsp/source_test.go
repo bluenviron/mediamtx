@@ -141,20 +141,18 @@ func TestSource(t *testing.T) {
 			defer strm.Close()
 
 			var ur string
-			var cnf *conf.Path
+			cnf := &conf.Path{
+				RTSPUDPSourcePortRange: []uint{10000, 65535},
+			}
 
 			if source != "tls" {
 				ur = "rtsp://testuser:testpass@localhost:8555/teststream"
 				var sp conf.RTSPTransport
 				sp.UnmarshalJSON([]byte(`"` + source + `"`)) //nolint:errcheck
-				cnf = &conf.Path{
-					RTSPTransport: sp,
-				}
+				cnf.RTSPTransport = sp
 			} else {
 				ur = "rtsps://testuser:testpass@localhost:8555/teststream"
-				cnf = &conf.Path{
-					SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
-				}
+				cnf.SourceFingerprint = "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739"
 			}
 
 			p := &test.StaticSourceParent{}
@@ -286,7 +284,8 @@ func TestNoPassword(t *testing.T) {
 			Context:        ctx,
 			ResolvedSource: "rtsp://testuser:@127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
-				RTSPTransport: sp,
+				RTSPTransport:          sp,
+				RTSPUDPSourcePortRange: []uint{10000, 65535},
 			},
 		})
 		close(done)
@@ -362,7 +361,9 @@ func TestRange(t *testing.T) {
 			require.NoError(t, err)
 			defer strm.Close()
 
-			cnf := &conf.Path{}
+			cnf := &conf.Path{
+				RTSPUDPSourcePortRange: []uint{10000, 65535},
+			}
 
 			switch ca {
 			case "clock":
@@ -496,7 +497,8 @@ func TestSkipBackChannel(t *testing.T) {
 			Context:        ctx,
 			ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
-				RTSPTransport: conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+				RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+				RTSPUDPSourcePortRange: []uint{10000, 65535},
 			},
 		})
 		close(done)
@@ -571,7 +573,8 @@ func TestOnlyBackChannelsError(t *testing.T) {
 		Context:        ctx,
 		ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 		Conf: &conf.Path{
-			RTSPTransport: conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+			RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+			RTSPUDPSourcePortRange: []uint{10000, 65535},
 		},
 	})
 

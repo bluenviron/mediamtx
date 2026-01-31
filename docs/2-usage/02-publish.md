@@ -154,6 +154,8 @@ paths:
     # This can be increased to mitigate packet losses.
     # It defaults to the default value of the operating system.
     rtspUDPReadBufferSize: 0
+    # Range of ports used as source port in outgoing UDP packets.
+    rtspUDPSourcePortRange: [10000, 65535]
 ```
 
 All available parameters are listed in the [configuration file](/docs/references/configuration-file).

@@ -52,6 +52,7 @@ func TestConfFromFile(t *testing.T) {
 			Source:                     "publisher",
 			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
 			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
+			OverridePublisher:          true,
 			AlwaysAvailableTracks: []AlwaysAvailableTrack{
 				{Codec: "H264"},
 			},
@@ -61,7 +62,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordMaxPartSize:            50 * 1024 * 1024,
 			RecordSegmentDuration:        3600000000000,
 			RecordDeleteAfter:            86400000000000,
-			OverridePublisher:            true,
+			RTSPUDPSourcePortRange:       []uint{10000, 65535},
 			RPICameraWidth:               1920,
 			RPICameraHeight:              1080,
 			RPICameraContrast:            1,
