@@ -374,7 +374,6 @@ func TestFromStream(t *testing.T) {
 				{Codec: &codecs.G711{
 					MULaw:        false,
 					ChannelCount: 1,
-					SampleRate:   8000,
 				}},
 			},
 			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
@@ -403,7 +402,6 @@ func TestFromStream(t *testing.T) {
 				{Codec: &codecs.G711{
 					MULaw:        true,
 					ChannelCount: 1,
-					SampleRate:   8000,
 				}},
 			},
 			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {

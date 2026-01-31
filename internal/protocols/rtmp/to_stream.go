@@ -200,7 +200,7 @@ func ToStream(
 					}
 				}(),
 				MULaw:        codec.MULaw,
-				SampleRate:   codec.SampleRate,
+				SampleRate:   8000,
 				ChannelCount: codec.ChannelCount,
 			}
 			medi := &description.Media{
