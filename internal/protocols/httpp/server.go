@@ -2,7 +2,6 @@
 package httpp
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -41,9 +40,10 @@ type Server struct {
 	Handler      http.Handler
 	Parent       logger.Writer
 
-	ln     net.Listener
-	inner  *http.Server
-	loader *certloader.CertLoader
+	ln      net.Listener
+	inner   *http.Server
+	loader  *certloader.CertLoader
+	tracker *handlerTracker
 }
 
 // Initialize initializes a Server.
@@ -107,6 +107,8 @@ func (s *Server) Initialize() error {
 	h = &handlerLogger{h, s.Parent}
 	h = &handlerExitOnPanic{h}
 	h = &handlerWriteTimeout{h, s.WriteTimeout}
+	s.tracker = &handlerTracker{h: h}
+	h = s.tracker
 
 	s.inner = &http.Server{
 		Handler:   h,
@@ -132,10 +134,10 @@ func (s *Server) Initialize() error {
 
 // Close closes all resources and waits for all routines to return.
 func (s *Server) Close() {
-	ctx, ctxCancel := context.WithCancel(context.Background())
-	ctxCancel()
-	s.inner.Shutdown(ctx)
-	s.ln.Close() // in case Shutdown() is called before Serve()
+	s.ln.Close()
+	s.inner.Close() //nolint:errcheck
+	s.tracker.close()
+
 	if s.loader != nil {
 		s.loader.Close()
 	}
