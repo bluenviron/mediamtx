@@ -382,7 +382,6 @@ func FromStream(
 					track := &gortmplib.Track{
 						Codec: &codecs.G711{
 							MULaw:        forma.MULaw,
-							SampleRate:   forma.SampleRate,
 							ChannelCount: forma.ChannelCount,
 						},
 					}
