@@ -480,8 +480,8 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	if pa.conf.Fallback != "" {
-		req.Res <- defs.PathDescribeRes{Redirect: pa.conf.Fallback}
+	if pa.conf.Fallback != nil {
+		req.Res <- defs.PathDescribeRes{Redirect: *pa.conf.Fallback}
 		return
 	}
 
