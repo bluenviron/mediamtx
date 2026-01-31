@@ -163,6 +163,10 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		WriteQueueSize:    s.WriteQueueSize,
 		UDPReadBufferSize: int(udpReadBufferSize),
 		AnyPortEnable:     params.Conf.RTSPAnyPort,
+		UDPSourcePortRange: [2]uint16{
+			uint16(params.Conf.RTSPUDPSourcePortRange[0]),
+			uint16(params.Conf.RTSPUDPSourcePortRange[1]),
+		},
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},

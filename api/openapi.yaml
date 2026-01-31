@@ -416,6 +416,13 @@ components:
           type: string
         rtspRangeStart:
           type: string
+        rtspUDPSourcePortRange:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: integer
+            format: uint64
 
         # RTP source
         rtpSDP:
