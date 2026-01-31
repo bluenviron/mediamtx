@@ -163,6 +163,10 @@ func (pa *path) isAvailable() bool {
 	return pa.stream != nil
 }
 
+func (pa *path) isOnline() bool {
+	return pa.source != nil
+}
+
 func (pa *path) run() {
 	defer close(pa.done)
 	defer pa.wg.Done()
@@ -611,6 +615,22 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 					return nil
 				}
 				v := pa.availableTime
+				return &v
+			}(),
+			Available: pa.isAvailable(),
+			AvailableTime: func() *time.Time {
+				if !pa.isAvailable() {
+					return nil
+				}
+				v := pa.availableTime
+				return &v
+			}(),
+			Online: pa.isOnline(),
+			OnlineTime: func() *time.Time {
+				if !pa.isOnline() {
+					return nil
+				}
+				v := pa.onlineTime
 				return &v
 			}(),
 			Source: func() *defs.APIPathSource {

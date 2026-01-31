@@ -1,6 +1,6 @@
 # Always-available streams
 
-When the publisher or source of a stream is offline, the server can be configured to fill gaps in the stream with a video that is played on repeat until a publisher comes back online. This allows readers to stay connected regardless of the state of the stream. The offline video and any future online stream are concatenated without decoding or re-encoding packets, using the original codec.
+When the publisher or source of a stream is offline, the server can be configured to fill gaps in the stream with an offline segment that is played on repeat until a publisher comes back online. This allows readers to stay connected regardless of the state of the stream. The offline segment and any future online stream are concatenated without decoding or re-encoding packets, using the original codec.
 
 This feature can be enabled by toggling the `alwaysAvailable` flag and filling `alwaysAvailableTracks`:
 
@@ -18,12 +18,11 @@ paths:
         #  muLaw: false
 ```
 
-By default, the server uses a default offline video with the text "STREAM IS OFFLINE". This can be changed by importing the video from a MP4 file:
+By default, the server uses a default offline segment with the text "STREAM IS OFFLINE". The segment can be replaced with an external MP4 file:
 
 ```yml
 paths:
   mypath:
     alwaysAvailable: true
-    # Path to the MP4 file that is played on repeat. If not provided, a default video will be used instead.
     alwaysAvailableFile: "./h264.mp4"
 ```

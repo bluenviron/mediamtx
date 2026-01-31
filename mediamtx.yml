@@ -489,11 +489,11 @@ pathDefaults:
   ###############################################
   # Default path settings -> Always available
 
-  # Enable always-available mode, in which a file is played on repeat when the stream is not available.
+  # Enable always-available mode, in which a offline segment is played on repeat when the stream is not available.
   alwaysAvailable: false
-  # Path to the MP4 file that is played on repeat. If not provided, a default file will be used.
+  # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ''
-  # If alwaysAvailableFile is not provided, these are the tracks of the default file.
+  # Tracks of the offline segment.
   alwaysAvailableTracks:
     # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
     - codec: H264
