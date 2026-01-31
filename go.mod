@@ -13,7 +13,7 @@ require (
 	github.com/bluenviron/gohlslib/v2 v2.2.5-0.20260117214804-b8c1ff42629d
 	github.com/bluenviron/gortmplib v0.2.0
 	github.com/bluenviron/gortsplib/v5 v5.2.2
-	github.com/bluenviron/mediacommon/v2 v2.6.1-0.20260130191353-17b8857753e7
+	github.com/bluenviron/mediacommon/v2 v2.7.0
 	github.com/datarhei/gosrt v0.9.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
