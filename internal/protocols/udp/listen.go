@@ -102,8 +102,8 @@ func defaultInterfaceForMulticast(multicastAddr *net.UDPAddr) (*net.Interface, e
 	return nil, fmt.Errorf("could not find any interface for using multicast address %s", multicastAddr)
 }
 
-// CreateConn creates a UDP connection.
-func CreateConn(u *url.URL, udpReadBufferSize int) (net.Conn, error) {
+// Listen creates a UDP listener on the given URL.
+func Listen(u *url.URL, udpReadBufferSize int) (net.Conn, error) {
 	q := u.Query()
 	var sourceIP net.IP
 
