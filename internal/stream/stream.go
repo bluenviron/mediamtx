@@ -2,6 +2,7 @@
 package stream
 
 import (
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,27 +10,224 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.Media, error) {
+	f, err := os.Open(alwaysAvailableFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var presentation pmp4.Presentation
+	err = presentation.Unmarshal(f)
+	if err != nil {
+		return nil, err
+	}
+
+	var medias []*description.Media
+
+	for _, track := range presentation.Tracks {
+		switch codec := track.Codec.(type) {
+		case *codecs.AV1:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.AV1{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case *codecs.VP9:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP9{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case *codecs.H265:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H265{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case *codecs.H264:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+				}},
+			})
+
+		case *codecs.Opus:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
+					PayloadTyp:   96,
+					ChannelCount: 2,
+				}},
+			})
+
+		case *codecs.MPEG4Audio:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG4Audio{
+					PayloadTyp:       96,
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+					Config: &mpeg4audio.AudioSpecificConfig{
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    codec.Config.SampleRate,
+						ChannelConfig: codec.Config.ChannelConfig,
+					},
+				}},
+			})
+
+		case *codecs.LPCM:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.LPCM{
+					PayloadTyp:   96,
+					BitDepth:     codec.BitDepth,
+					SampleRate:   codec.SampleRate,
+					ChannelCount: codec.ChannelCount,
+				}},
+			})
+		}
+	}
+
+	return medias, nil
+}
+
+func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailableTrack) []*description.Media {
+	var medias []*description.Media
+
+	for _, track := range alwaysAvailableTracks {
+		switch track.Codec {
+		case conf.CodecAV1:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.AV1{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case conf.CodecVP9:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP9{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case conf.CodecH265:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H265{
+					PayloadTyp: 96,
+				}},
+			})
+
+		case conf.CodecH264:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+				}},
+			})
+
+		case conf.CodecOpus:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
+					PayloadTyp:   96,
+					ChannelCount: 2,
+				}},
+			})
+
+		case conf.CodecMPEG4Audio:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG4Audio{
+					PayloadTyp:       96,
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+					Config: &mpeg4audio.AudioSpecificConfig{
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    track.SampleRate,
+						ChannelConfig: uint8(track.ChannelCount),
+					},
+				}},
+			})
+
+		case conf.CodecG711:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.G711{
+					PayloadTyp: func() uint8 {
+						switch {
+						case track.ChannelCount == 1 && track.MULaw:
+							return 0
+						case track.ChannelCount == 1 && !track.MULaw:
+							return 8
+						default:
+							return 96
+						}
+					}(),
+					MULaw:        track.MULaw,
+					SampleRate:   track.SampleRate,
+					ChannelCount: track.ChannelCount,
+				}},
+			})
+
+		case conf.CodecLPCM:
+			medias = append(medias, &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.LPCM{
+					PayloadTyp:   96,
+					BitDepth:     16,
+					SampleRate:   track.SampleRate,
+					ChannelCount: track.ChannelCount,
+				}},
+			})
+		}
+	}
+
+	return medias
+}
 
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, remuxing it when needed.
 type Stream struct {
-	Desc              *description.Session
-	UseRTPPackets     bool
-	WriteQueueSize    int
-	RTPMaxPayloadSize int
-	ReplaceNTP        bool
-	Parent            logger.Writer
+	Desc                  *description.Session
+	AlwaysAvailable       bool
+	AlwaysAvailableFile   string
+	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
+	WriteQueueSize        int
+	RTPMaxPayloadSize     int
+	ReplaceNTP            bool
+	Parent                logger.Writer
 
+	mutex            sync.RWMutex
+	subStream        *SubStream
+	offlineSubStream *offlineSubStream
 	bytesReceived    *uint64
 	bytesSent        *uint64
 	medias           map[*description.Media]*streamMedia
-	mutex            sync.RWMutex
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
 	readers          map[*Reader]struct{}
@@ -40,6 +238,31 @@ type Stream struct {
 
 // Initialize initializes a Stream.
 func (s *Stream) Initialize() error {
+	if s.AlwaysAvailable {
+		if s.Desc != nil {
+			panic("should not happen")
+		}
+		if !s.ReplaceNTP {
+			panic("should not happen")
+		}
+
+		var medias []*description.Media
+
+		if s.AlwaysAvailableFile != "" {
+			var err error
+			medias, err = mediasFromAlwaysAvailableFile(s.AlwaysAvailableFile)
+			if err != nil {
+				return err
+			}
+		} else {
+			medias = mediasFromAlwaysAvailableTracks(s.AlwaysAvailableTracks)
+		}
+
+		s.Desc = &description.Session{
+			Medias: medias,
+		}
+	}
+
 	s.bytesReceived = new(uint64)
 	s.bytesSent = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
@@ -58,9 +281,9 @@ func (s *Stream) Initialize() error {
 	s.processingErrors.Start()
 
 	for _, media := range s.Desc.Medias {
-		s.medias[media] = &streamMedia{
+		sm := &streamMedia{
 			media:             media,
-			useRTPPackets:     s.UseRTPPackets,
+			alwaysAvailable:   s.AlwaysAvailable,
 			rtpMaxPayloadSize: s.RTPMaxPayloadSize,
 			replaceNTP:        s.ReplaceNTP,
 			onBytesReceived:   s.onBytesReceived,
@@ -69,7 +292,15 @@ func (s *Stream) Initialize() error {
 			processingErrors:  s.processingErrors,
 			parent:            s.Parent,
 		}
-		err := s.medias[media].initialize()
+		err := sm.initialize()
+		if err != nil {
+			return err
+		}
+		s.medias[media] = sm
+	}
+
+	if s.AlwaysAvailable {
+		err := s.StartOfflineSubStream()
 		if err != nil {
 			return err
 		}
@@ -80,6 +311,10 @@ func (s *Stream) Initialize() error {
 
 // Close closes all resources of the stream.
 func (s *Stream) Close() {
+	if s.offlineSubStream != nil {
+		s.offlineSubStream.close(false)
+	}
+
 	s.processingErrors.Stop()
 
 	if s.rtspStream != nil {
@@ -88,6 +323,29 @@ func (s *Stream) Close() {
 	if s.rtspsStream != nil {
 		s.rtspsStream.Close()
 	}
+}
+
+// StartOfflineSubStream starts the offline substream.
+func (s *Stream) StartOfflineSubStream() error {
+	if !s.AlwaysAvailable {
+		panic("should not happen")
+	}
+
+	oss := &offlineSubStream{
+		stream: s,
+	}
+	err := oss.initialize()
+	if err != nil {
+		return err
+	}
+
+	if s.offlineSubStream != nil {
+		s.Parent.Log(logger.Info, "stream is offline")
+	}
+
+	s.offlineSubStream = oss
+
+	return nil
 }
 
 // BytesReceived returns received bytes.
@@ -200,17 +458,6 @@ func (s *Stream) RemoveReader(r *Reader) {
 // WaitForReaders waits for the stream to have at least one reader.
 func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
-}
-
-// WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u *unit.Unit) {
-	sm := s.medias[medi]
-	sf := sm.formats[forma]
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	sf.writeUnit(u)
 }
 
 func (s *Stream) onBytesReceived(v uint64) {

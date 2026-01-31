@@ -488,8 +488,9 @@ func TestOnGet(t *testing.T) {
 					WriteTimeout: conf.Duration(10 * time.Second),
 					PathConfs: map[string]*conf.Path{
 						"mypath": {
-							Name:       "mypath",
-							RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+							Name:         "mypath",
+							RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+							RecordFormat: conf.RecordFormatFMP4,
 						},
 					},
 					AuthManager: test.NilAuthManager,
@@ -660,9 +661,10 @@ func TestOnGet(t *testing.T) {
 								TimeOffset: 48000,
 								Codec: &mcodecs.MPEG4Audio{
 									Config: mpeg4audio.AudioSpecificConfig{
-										Type:         mpeg4audio.ObjectTypeAACLC,
-										SampleRate:   48000,
-										ChannelCount: 2,
+										Type:          mpeg4audio.ObjectTypeAACLC,
+										SampleRate:    48000,
+										ChannelCount:  2,
+										ChannelConfig: 2,
 									},
 								},
 								Samples: []*pmp4.Sample{
@@ -714,8 +716,9 @@ func TestOnGetDifferentInit(t *testing.T) {
 		WriteTimeout: conf.Duration(10 * time.Second),
 		PathConfs: map[string]*conf.Path{
 			"mypath": {
-				Name:       "mypath",
-				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
 			},
 		},
 		AuthManager: test.NilAuthManager,
@@ -836,8 +839,9 @@ func TestOnGetInMiddleOfLastSample(t *testing.T) {
 				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
-						Name:       "mypath",
-						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						Name:         "mypath",
+						RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						RecordFormat: conf.RecordFormatFMP4,
 					},
 				},
 				AuthManager: test.NilAuthManager,
@@ -963,8 +967,9 @@ func TestOnGetBetweenSegments(t *testing.T) {
 				WriteTimeout: conf.Duration(10 * time.Second),
 				PathConfs: map[string]*conf.Path{
 					"mypath": {
-						Name:       "mypath",
-						RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						Name:         "mypath",
+						RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						RecordFormat: conf.RecordFormatFMP4,
 					},
 				},
 				AuthManager: test.NilAuthManager,

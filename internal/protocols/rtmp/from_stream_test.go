@@ -72,7 +72,7 @@ func TestFromStream(t *testing.T) {
 		name           string
 		medias         []*description.Media
 		expectedTracks []*gortmplib.Track
-		writeUnits     func([]*description.Media, *stream.Stream)
+		writeUnits     func([]*description.Media, *stream.SubStream)
 	}{
 		{
 			name: "h264 + aac",
@@ -93,15 +93,15 @@ func TestFromStream(t *testing.T) {
 					Config: test.FormatMPEG4Audio.Config,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
-				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
+				subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 					PTS: 0,
 					Payload: unit.PayloadH264{
 						{5, 2}, // IDR
 					},
 				})
 
-				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
 					PTS: 90000 * 5,
 					Payload: unit.PayloadMPEG4Audio{
 						{3, 4},
@@ -121,9 +121,9 @@ func TestFromStream(t *testing.T) {
 			expectedTracks: []*gortmplib.Track{
 				{Codec: &codecs.AV1{}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 2 * int64(i),
 						Payload: unit.PayloadAV1{{
 							0x0a, 0x0e, 0x00, 0x00, 0x00, 0x4a, 0xab, 0xbf,
@@ -145,9 +145,9 @@ func TestFromStream(t *testing.T) {
 			expectedTracks: []*gortmplib.Track{
 				{Codec: &codecs.VP9{}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS:     90000 * 2 * int64(i),
 						Payload: unit.PayloadVP9{1, 2},
 					})
@@ -175,9 +175,9 @@ func TestFromStream(t *testing.T) {
 					PPS: h265PPS,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 2 * int64(i),
 						Payload: unit.PayloadH265{{
 							0x2a, 0x01, 0xad, 0xe0, 0xf5, 0x34, 0x11, 0x0b,
@@ -200,9 +200,9 @@ func TestFromStream(t *testing.T) {
 					PPS: test.FormatH264.PPS,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 2 * int64(i),
 						Payload: unit.PayloadH264{
 							{5, 2}, // IDR
@@ -226,9 +226,9 @@ func TestFromStream(t *testing.T) {
 					ChannelCount: 2,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadOpus{
 							{3, 4},
@@ -249,9 +249,9 @@ func TestFromStream(t *testing.T) {
 					Config: test.FormatMPEG4Audio.Config,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadMPEG4Audio{
 							{3, 4},
@@ -270,9 +270,9 @@ func TestFromStream(t *testing.T) {
 			expectedTracks: []*gortmplib.Track{
 				{Codec: &codecs.MPEG1Audio{}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadMPEG1Audio{
 							{
@@ -299,9 +299,9 @@ func TestFromStream(t *testing.T) {
 					ChannelCount: 1,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadAC3{
 							{
@@ -377,9 +377,9 @@ func TestFromStream(t *testing.T) {
 					SampleRate:   8000,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadG711{
 							3, 4,
@@ -406,9 +406,9 @@ func TestFromStream(t *testing.T) {
 					SampleRate:   8000,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadG711{
 							3, 4,
@@ -435,9 +435,9 @@ func TestFromStream(t *testing.T) {
 					ChannelCount: 2,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
 				for i := range 2 {
-					strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 						PTS: 90000 * 5 * int64(i),
 						Payload: unit.PayloadLPCM{
 							3, 4, 5, 6,
@@ -496,8 +496,8 @@ func TestFromStream(t *testing.T) {
 					Config: test.FormatMPEG4Audio.Config,
 				}},
 			},
-			writeUnits: func(medias []*description.Media, strm *stream.Stream) {
-				strm.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
+				subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
 					Payload: unit.PayloadH265{
 						{
 							0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x60,
@@ -522,7 +522,7 @@ func TestFromStream(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[1], medias[1].Formats[0], &unit.Unit{
 					Payload: unit.PayloadH264{
 						h264DefaultSPS,
 						h264DefaultPPS,
@@ -530,24 +530,24 @@ func TestFromStream(t *testing.T) {
 					},
 				})
 
-				strm.WriteUnit(medias[2], medias[2].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[2], medias[2].Formats[0], &unit.Unit{
 					Payload: unit.PayloadVP9{1, 2},
 				})
 
-				strm.WriteUnit(medias[3], medias[3].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[3], medias[3].Formats[0], &unit.Unit{
 					Payload: unit.PayloadAV1{{
 						0x0a, 0x0e, 0x00, 0x00, 0x00, 0x4a, 0xab, 0xbf,
 						0xc3, 0x77, 0x6b, 0xe4, 0x40, 0x40, 0x40, 0x41,
 					}},
 				})
 
-				strm.WriteUnit(medias[4], medias[4].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[4], medias[4].Formats[0], &unit.Unit{
 					Payload: unit.PayloadOpus{
 						{3, 4},
 					},
 				})
 
-				strm.WriteUnit(medias[5], medias[5].Formats[0], &unit.Unit{
+				subStream.WriteUnit(medias[5], medias[5].Formats[0], &unit.Unit{
 					PTS: 90000 * 5,
 					Payload: unit.PayloadMPEG4Audio{
 						{3, 4},
@@ -563,12 +563,18 @@ func TestFromStream(t *testing.T) {
 
 			strm := &stream.Stream{
 				Desc:              &description.Session{Medias: medias},
-				UseRTPPackets:     false,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
 			require.NoError(t, err)
 
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -619,7 +625,7 @@ func TestFromStream(t *testing.T) {
 			strm.AddReader(r)
 			defer strm.RemoveReader(r)
 
-			tc.writeUnits(medias, strm)
+			tc.writeUnits(medias, subStream)
 
 			<-done
 		})

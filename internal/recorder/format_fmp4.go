@@ -816,7 +816,6 @@ func (f *formatFMP4) initialize() bool {
 								parsed = true
 								codec.SampleRate = syncInfo.SampleRate()
 								codec.ChannelCount = bsi.ChannelCount()
-								codec.Fscod = syncInfo.Fscod
 								codec.Bsid = bsi.Bsid
 								codec.Bsmod = bsi.Bsmod
 								codec.Acmod = bsi.Acmod

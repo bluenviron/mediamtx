@@ -32,6 +32,7 @@ _MediaMTX_ is a ready-to-use and zero-dependency real-time media server and medi
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)
+- [Serve always-available streams](https://mediamtx.org/docs/usage/always-available) even when the publisher is offline
 - [Record](https://mediamtx.org/docs/usage/record) streams to disk in fMP4 or MPEG-TS format
 - [Playback](https://mediamtx.org/docs/usage/playback) recorded streams
 - [Authenticate](https://mediamtx.org/docs/usage/authentication) users with internal, HTTP or JWT authentication

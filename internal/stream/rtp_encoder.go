@@ -1,6 +1,8 @@
 package stream
 
 import (
+	"fmt"
+
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpac3"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpav1"
@@ -23,6 +25,14 @@ import (
 
 func ptrOf[T any](v T) *T {
 	return &v
+}
+
+type rtpEncoderNotAvailableError struct {
+	format format.Format
+}
+
+func (e rtpEncoderNotAvailableError) Error() string {
+	return fmt.Sprintf("RTP encoder not available for format %T", e.format)
 }
 
 type rtpEncoder interface {
@@ -377,6 +387,6 @@ func newRTPEncoder(
 		return (*rtpEncoderKLV)(wrapped), nil
 
 	default:
-		return nil, nil
+		return nil, rtpEncoderNotAvailableError{forma}
 	}
 }

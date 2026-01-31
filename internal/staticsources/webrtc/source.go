@@ -67,9 +67,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
-	medias, err := webrtc.ToStream(client.PeerConnection(), params.Conf, &strm, s)
+	medias, err := webrtc.ToStream(client.PeerConnection(), params.Conf, &subStream, s)
 	if err != nil {
 		client.Close() //nolint:errcheck
 		return err
@@ -87,7 +87,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	strm = rres.Stream
+	subStream = rres.SubStream
 
 	client.StartReading()
 

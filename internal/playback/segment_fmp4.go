@@ -146,28 +146,28 @@ func segmentFMP4ReadHeader(r io.ReadSeeker) (*fmp4.Init, time.Duration, error) {
 	// read mvhd
 
 	var mvhd amp4.Mvhd
-	mvhdSize, err := amp4.Unmarshal(r, uint64(moovSize-8), &mvhd, amp4.Context{})
+	_, err = amp4.Unmarshal(r, uint64(moovSize-8), &mvhd, amp4.Context{})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	d := time.Duration(mvhd.DurationV0) * time.Second / time.Duration(mvhd.Timescale)
 
-	// read moov
+	// read ftyp and moov
 
-	_, err = r.Seek(int64(-mvhdSize-8-8), io.SeekCurrent)
+	_, err = r.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	buf = make([]byte, uint64(moovSize))
+	buf = make([]byte, uint64(ftypSize+moovSize))
 
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// pass moov to fmp4.Init
+	// pass ftyp and moov to fmp4.Init
 
 	var init fmp4.Init
 	err = init.Unmarshal(bytes.NewReader(buf))

@@ -44,9 +44,10 @@ var FormatH265 = &format.H265{
 var FormatMPEG4Audio = &format.MPEG4Audio{
 	PayloadTyp: 96,
 	Config: &mpeg4audio.AudioSpecificConfig{
-		Type:         2,
-		SampleRate:   44100,
-		ChannelCount: 2,
+		Type:          2,
+		SampleRate:    44100,
+		ChannelCount:  2,
+		ChannelConfig: 2,
 	},
 	SizeLength:       13,
 	IndexLength:      3,

@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -35,7 +34,7 @@ func ToStream(
 	c *gohlslib.Client,
 	tracks []*gohlslib.Track,
 	pathConf *conf.Path,
-	strm **stream.Stream,
+	subStream **stream.SubStream,
 ) ([]*description.Media, error) {
 	var ntpStat ntpState
 	var ntpStatMutex sync.Mutex
@@ -74,7 +73,7 @@ func ToStream(
 			case ntpStateUnavailable:
 				_, avail := c.AbsoluteTime(ctrack)
 				if avail {
-					(*strm).Parent.Log(logger.Warn, "absolute timestamp appeared after stream started, we are not using it")
+					// absolute timestamp appeared after stream started, we are not using it
 					ntpStat = ntpStateReplace
 				}
 				return ntpEstimator.Estimate(pts)
@@ -97,7 +96,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataAV1(ctrack, func(pts int64, tu [][]byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadAV1(tu),
@@ -114,7 +113,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataVP9(ctrack, func(pts int64, frame []byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadVP9(frame),
@@ -134,7 +133,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataH26x(ctrack, func(pts int64, _ int64, au [][]byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadH265(au),
@@ -154,7 +153,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataH26x(ctrack, func(pts int64, _ int64, au [][]byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadH264(au),
@@ -172,7 +171,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataOpus(ctrack, func(pts int64, packets [][]byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadOpus(packets),
@@ -193,7 +192,7 @@ func ToStream(
 			newClockRate := medi.Formats[0].ClockRate()
 
 			c.OnDataMPEG4Audio(ctrack, func(pts int64, aus [][]byte) {
-				(*strm).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadMPEG4Audio(aus),

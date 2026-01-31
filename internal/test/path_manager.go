@@ -10,7 +10,7 @@ import (
 type PathManager struct {
 	FindPathConfImpl func(req defs.PathFindPathConfReq) (*conf.Path, error)
 	DescribeImpl     func(req defs.PathDescribeReq) defs.PathDescribeRes
-	AddPublisherImpl func(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error)
+	AddPublisherImpl func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
 	AddReaderImpl    func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
@@ -25,7 +25,7 @@ func (pm *PathManager) Describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // AddPublisher implements PathManager.
-func (pm *PathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error) {
+func (pm *PathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
 	return pm.AddPublisherImpl(req)
 }
 

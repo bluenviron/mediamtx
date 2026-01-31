@@ -487,6 +487,23 @@ pathDefaults:
   useAbsoluteTimestamp: false
 
   ###############################################
+  # Default path settings -> Always available
+
+  # Enable always-available mode, in which a file is played on repeat when the stream is not available.
+  alwaysAvailable: false
+  # Path to the MP4 file that is played on repeat. If not provided, a default file will be used.
+  alwaysAvailableFile: ''
+  # If alwaysAvailableFile is not provided, these are the tracks of the default file.
+  alwaysAvailableTracks:
+    # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
+    - codec: H264
+      # in case of MPEG4Audio, G711, LPCM, sampleRate and ChannelCount must be provided too.
+      #  sampleRate: 48000
+      #  channelCount: 2
+      #  in case of G711, muLaw must be provided too.
+      #  muLaw: false
+
+  ###############################################
   # Default path settings -> Record
 
   # Record streams to disk.

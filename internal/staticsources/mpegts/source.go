@@ -113,9 +113,9 @@ func (s *Source) runReader(nc net.Conn) error {
 		decodeErrors.Add(err)
 	})
 
-	var strm *stream.Stream
+	var subStream *stream.SubStream
 
-	medias, err := mpegts.ToStream(mr, &strm, s)
+	medias, err := mpegts.ToStream(mr, &subStream, s)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *Source) runReader(nc net.Conn) error {
 
 	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	strm = res.Stream
+	subStream = res.SubStream
 
 	for {
 		nc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
