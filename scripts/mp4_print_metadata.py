@@ -404,7 +404,7 @@ def main() -> int:
             base_cam = cam_abs
             base_ing = ing_abs
         cam_hr = human_time_ms(cam_abs, base_ms=base_cam or 0)
-        # Display ingest as UTC+02:00 to match local IST expectation.
+        # Ingest display is shifted by +02:00 for this deployment.
         ing_hr = human_time_ms(ing_abs, base_ms=base_ing or 0, tz_offset_minutes=120)
 
         try:

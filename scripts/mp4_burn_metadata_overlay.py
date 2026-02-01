@@ -23,7 +23,6 @@ import datetime
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -339,7 +338,7 @@ def overlay_text(m: Dict[str, Any], abs_m: Dict[str, Any]) -> str:
     cam_abs = int(abs_m.get("cam_abs_ms", 0))
     ing_abs = int(abs_m.get("ingest_abs_ms", 0))
     cam_hr = human_time_ms(cam_abs, base_ms=int(abs_m.get("_base_cam_ms", 0)))
-    # Display ingest as UTC+02:00 to match local IST expectation.
+    # Ingest display is shifted by +02:00 for this deployment.
     ing_hr = human_time_ms(ing_abs, base_ms=int(abs_m.get("_base_ing_ms", 0)), tz_offset_minutes=120)
 
     ft = int(m.get("frame_type", 255))

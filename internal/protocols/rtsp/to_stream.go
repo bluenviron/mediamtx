@@ -57,6 +57,12 @@ func ToStream(
 				case ntpStateInitial:
 					ntp, avail := source.PacketNTP(cmedi, pkt)
 					if !avail {
+						// If frame metadata is enabled, we can still proceed without camera NTP:
+						// metadata will fall back to stream PTS (and/or an estimator) when NTP is missing.
+						if pathConf.EnableFrameMetadata {
+							return time.Time{}, true
+						}
+
 						log.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
 						return time.Time{}, false
 					}

@@ -383,9 +383,6 @@ func splitOBUStream(b []byte) [][]byte {
 	// This is a best-effort splitter for the external hook.
 	var out [][]byte
 	for i := 0; i < len(b); {
-		if i >= len(b) {
-			break
-		}
 		if i+2 > len(b) {
 			break
 		}
