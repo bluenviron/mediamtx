@@ -31,7 +31,7 @@ func (d *destinationFile) log(t time.Time, level Level, format string, args ...a
 
 	if d.structured {
 		d.buf.WriteString(`{"timestamp":"`)
-		d.buf.WriteString(t.Format(time.RFC3339))
+		d.buf.WriteString(t.Format(time.RFC3339Nano))
 		d.buf.WriteString(`","level":"`)
 		writeLevel(&d.buf, level, false)
 		d.buf.WriteString(`","message":`)
