@@ -159,4 +159,3 @@ Notes:
 
 - The JSONL includes both the “camera clock” timeline and the ingest wall-clock timeline.
 - H.264/H.265 extraction is the primary supported path; AV1 is currently best-effort.
-
