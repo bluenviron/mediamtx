@@ -21,7 +21,15 @@ func TestInserterH264KeyThenDelta(t *testing.T) {
 	now := time.UnixMilli(1700000000000)
 	clockRate := 90000
 	keyPTS := int64(90000 * 10) // 10s
-	out := ins.MaybeInsert(&format.H264{}, au, nil, now, time.Time{}, keyPTS, clockRate).(unit.PayloadH264)
+	out := ins.MaybeInsert(
+		&format.H264{},
+		au,
+		nil,
+		now,
+		time.Time{},
+		keyPTS,
+		clockRate,
+	).(unit.PayloadH264)
 	require.Greater(t, len(out), len(au))
 
 	// SEI is inserted before VCL, so first should be SEI (NAL type 6)
@@ -43,7 +51,15 @@ func TestInserterH264KeyThenDelta(t *testing.T) {
 		{0x41, 0x9a, 0x20, 0x00}, // non-IDR slice, slice header bits are not validated in this test
 	}
 	now2 := now.Add(33 * time.Millisecond)
-	out2 := ins.MaybeInsert(&format.H264{}, au2, nil, now2, time.Time{}, keyPTS+int64(clockRate)*33/1000, clockRate).(unit.PayloadH264)
+	out2 := ins.MaybeInsert(
+		&format.H264{},
+		au2,
+		nil,
+		now2,
+		time.Time{},
+		keyPTS+int64(clockRate)*33/1000,
+		clockRate,
+	).(unit.PayloadH264)
 	require.Equal(t, byte(6), out2[0][0]&0x1F)
 
 	seiPayload2, ok := parseUserDataUnregisteredSEI(true, out2[0])
@@ -78,7 +94,15 @@ func TestPTZFieldsOnlyOnVersionChange(t *testing.T) {
 	now := time.UnixMilli(1700000000000)
 	clockRate := 90000
 	keyPTS := int64(90000 * 10) // 10s
-	out := ins.MaybeInsert(&format.H264{}, au, meta1, now, time.Time{}, keyPTS, clockRate).(unit.PayloadH264)
+	out := ins.MaybeInsert(
+		&format.H264{},
+		au,
+		meta1,
+		now,
+		time.Time{},
+		keyPTS,
+		clockRate,
+	).(unit.PayloadH264)
 	seiPayload, ok := parseUserDataUnregisteredSEI(true, out[0])
 	require.True(t, ok)
 	_, _, decoded, err := decodeBinary(seiPayload)
@@ -89,7 +113,15 @@ func TestPTZFieldsOnlyOnVersionChange(t *testing.T) {
 	// Same version, different pan -> should be omitted.
 	pan2 := float32(2.5)
 	meta2 := &Meta{PTZ: &PTZ{Ver: 1, Pan: &pan2}}
-	out2 := ins.MaybeInsert(&format.H264{}, au, meta2, now.Add(40*time.Millisecond), time.Time{}, keyPTS+int64(clockRate)*40/1000, clockRate).(unit.PayloadH264)
+	out2 := ins.MaybeInsert(
+		&format.H264{},
+		au,
+		meta2,
+		now.Add(40*time.Millisecond),
+		time.Time{},
+		keyPTS+int64(clockRate)*40/1000,
+		clockRate,
+	).(unit.PayloadH264)
 	seiPayload2, ok := parseUserDataUnregisteredSEI(true, out2[0])
 	require.True(t, ok)
 	_, _, decoded2, err := decodeBinary(seiPayload2)
@@ -101,7 +133,15 @@ func TestPTZFieldsOnlyOnVersionChange(t *testing.T) {
 
 	// Version changes -> emitted again.
 	meta3 := &Meta{PTZ: &PTZ{Ver: 2, Pan: &pan2}}
-	out3 := ins.MaybeInsert(&format.H264{}, au, meta3, now.Add(80*time.Millisecond), time.Time{}, keyPTS+int64(clockRate)*80/1000, clockRate).(unit.PayloadH264)
+	out3 := ins.MaybeInsert(
+		&format.H264{},
+		au,
+		meta3,
+		now.Add(80*time.Millisecond),
+		time.Time{},
+		keyPTS+int64(clockRate)*80/1000,
+		clockRate,
+	).(unit.PayloadH264)
 	seiPayload3, ok := parseUserDataUnregisteredSEI(true, out3[0])
 	require.True(t, ok)
 	_, _, decoded3, err := decodeBinary(seiPayload3)
@@ -109,4 +149,3 @@ func TestPTZFieldsOnlyOnVersionChange(t *testing.T) {
 	require.EqualValues(t, uint64(2), decoded3["ptz_ver"])
 	require.EqualValues(t, float32(2.5), decoded3["pan"])
 }
-

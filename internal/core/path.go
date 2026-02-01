@@ -752,14 +752,14 @@ func (pa *path) onDemandPublisherStop(reason string) {
 
 func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fillNTP bool) error {
 	pa.stream = &stream.Stream{
-		WriteQueueSize:     pa.writeQueueSize,
-		RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
-		Desc:               desc,
-		GenerateRTPPackets: generateRTPPackets,
-		FillNTP:            fillNTP,
-		DropNonKeyframes:   pa.conf.DropNonKeyframes,
+		WriteQueueSize:      pa.writeQueueSize,
+		RTPMaxPayloadSize:   pa.rtpMaxPayloadSize,
+		Desc:                desc,
+		GenerateRTPPackets:  generateRTPPackets,
+		FillNTP:             fillNTP,
+		DropNonKeyframes:    pa.conf.DropNonKeyframes,
 		EnableFrameMetadata: pa.conf.EnableFrameMetadata,
-		Parent:             pa.source,
+		Parent:              pa.source,
 	}
 	err := pa.stream.Initialize()
 	if err != nil {

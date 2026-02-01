@@ -554,6 +554,7 @@ def main() -> int:
         try:
             os.unlink(ass_path)
         except OSError:
+            # Best-effort cleanup: failure to remove the temporary ASS file is non-fatal.
             pass
     return 0
 

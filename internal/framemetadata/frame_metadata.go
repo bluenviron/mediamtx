@@ -26,7 +26,7 @@ type inserterState struct {
 	lastKeyCamMS    int64
 	lastKeyIngestMS int64
 	lastKeyPTS      int64
-	lastPTZVer   uint32
+	lastPTZVer      uint32
 }
 
 // PTZ contains optional PTZ metadata.
@@ -180,7 +180,7 @@ func (i *Inserter) buildCBORPayload(
 		// Camera absolute time:
 		// - prefer RTCP/SR-derived NTP if available (can differ from server clock)
 		// - otherwise fall back to the stream clock converted to ms.
-		camKeyMS := int64(0)
+		var camKeyMS int64
 		if !ntp.IsZero() {
 			camKeyMS = ntp.UnixMilli()
 		} else {

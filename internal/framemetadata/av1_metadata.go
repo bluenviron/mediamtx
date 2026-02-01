@@ -1,3 +1,5 @@
+// Package framemetadata provides utilities to insert and extract per-frame metadata
+// from supported codecs (e.g. H264/H265 SEI and AV1 METADATA OBU).
 package framemetadata
 
 // buildMetadataOBU builds an AV1 METADATA OBU (obu_type=15) containing payload.
@@ -130,16 +132,16 @@ func av1ReducedStillPictureHeader(obu []byte) (bool, bool) {
 	}
 	r := &bitReader{b: pl}
 	// seq_profile (3)
-	if _, ok := r.readBits(3); !ok {
+	if _, ok2 := r.readBits(3); !ok2 {
 		return false, false
 	}
 	// still_picture (1)
-	if _, ok := r.readBit(); !ok {
+	if _, ok2 := r.readBit(); !ok2 {
 		return false, false
 	}
 	// reduced_still_picture_header (1)
-	b, ok := r.readBit()
-	if !ok {
+	b, ok2 := r.readBit()
+	if !ok2 {
 		return false, false
 	}
 	return b == 1, true
@@ -158,8 +160,8 @@ func av1FrameHeaderType(obu []byte, reducedStill bool) (frameType uint8, showExi
 	r := &bitReader{b: pl}
 
 	// show_existing_frame (1)
-	se, ok := r.readBit()
-	if !ok {
+	se, ok2 := r.readBit()
+	if !ok2 {
 		return 0, false, false
 	}
 	if se == 1 {
@@ -167,8 +169,8 @@ func av1FrameHeaderType(obu []byte, reducedStill bool) (frameType uint8, showExi
 	}
 
 	// frame_type (2)
-	ft, ok := r.readBits(2)
-	if !ok {
+	ft, ok2 := r.readBits(2)
+	if !ok2 {
 		return 0, false, false
 	}
 	return uint8(ft), false, true
@@ -205,13 +207,4 @@ func av1OBUPayload(obu []byte) ([]byte, bool) {
 	return obu[pos : pos+int(sz)], true
 }
 
-func isMetadataOBUForUs(obu []byte) bool {
-	pl, ok := parseMetadataOBU(obu)
-	if !ok {
-		return false
-	}
-	return mustBinaryHasUUID(pl, uuid16) && func() bool {
-		v, ok := binarySchemaVersion(pl)
-		return ok && v == schemaVersion
-	}()
-}
+// isMetadataOBUForUs was used by early experiments, but is not part of the current API.

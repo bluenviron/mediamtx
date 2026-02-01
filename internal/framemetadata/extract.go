@@ -167,4 +167,3 @@ func FormatOverlayText(d *Decoded) string {
 	idt, _ := asInt64(m, "ingest_dt_ms")
 	return fmt.Sprintf("nonkey  cam_dt_ms=%d  ingest_dt_ms=%d  frame_type=%d", dt, idt, ft)
 }
-

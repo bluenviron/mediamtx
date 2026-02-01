@@ -1,10 +1,6 @@
 package framemetadata
 
-import (
-	"bytes"
-	"encoding/binary"
-	"errors"
-)
+import "errors"
 
 // buildUserDataUnregisteredSEI builds a SEI NAL unit containing a single
 // user_data_unregistered message, with the given UUID and payload.
@@ -99,7 +95,7 @@ func applyEmulationPrevention(rbsp []byte) []byte {
 func removeEmulationPrevention(in []byte) []byte {
 	out := make([]byte, 0, len(in))
 	zeros := 0
-	for i := 0; i < len(in); i++ {
+	for i := range len(in) {
 		b := in[i]
 		if zeros >= 2 && b == 0x03 {
 			// skip EPB
@@ -289,7 +285,7 @@ func (r *bitReader) readBit() (uint8, bool) {
 
 func (r *bitReader) readBits(n int) (uint64, bool) {
 	var v uint64
-	for i := 0; i < n; i++ {
+	for range n {
 		b, ok := r.readBit()
 		if !ok {
 			return 0, false
@@ -344,7 +340,7 @@ func h264SliceFrameType(nalu []byte) (uint8, bool) {
 	if !ok {
 		return 0, false
 	}
-	st = st % 5
+	st %= 5
 	switch st {
 	case 0, 3: // P, SP
 		return 1, true
@@ -372,12 +368,12 @@ func h265SliceFrameType(nalu []byte) (uint8, bool) {
 
 	nalType := (nalu[0] >> 1) & 0x3F
 	if nalType == 19 || nalType == 20 || nalType == 21 || nalType == 16 || nalType == 17 || nalType == 18 {
-		if _, ok := r.readBit(); !ok { // no_output_of_prior_pics_flag
+		if _, ok2 := r.readBit(); !ok2 { // no_output_of_prior_pics_flag
 			return 0, false
 		}
 	}
 
-	if _, ok := r.readUE(); !ok { // slice_pic_parameter_set_id
+	if _, ok2 := r.readUE(); !ok2 { // slice_pic_parameter_set_id
 		return 0, false
 	}
 
@@ -401,20 +397,4 @@ func h265SliceFrameType(nalu []byte) (uint8, bool) {
 	default:
 		return 1, true
 	}
-}
-
-func mustBinaryHasUUID(in []byte, want [16]byte) bool {
-	if len(in) < 2+16 {
-		return false
-	}
-	var got [16]byte
-	copy(got[:], in[2:18])
-	return bytes.Equal(got[:], want[:])
-}
-
-func binarySchemaVersion(in []byte) (uint16, bool) {
-	if len(in) < 2 {
-		return 0, false
-	}
-	return binary.BigEndian.Uint16(in[:2]), true
 }

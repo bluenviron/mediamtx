@@ -67,7 +67,8 @@ func run(inPath, outPath, ffmpegPath, vcodec string, crf int, preset string, tra
 	defer f.Close()
 
 	var pres pmp4.Presentation
-	if err := pres.Unmarshal(f); err != nil {
+	err = pres.Unmarshal(f)
+	if err != nil {
 		return err
 	}
 
@@ -151,15 +152,21 @@ func writeASSForTrack(tr *pmp4.Track, codecName string) (string, error) {
 	_, _ = io.WriteString(w, "PlayResX: 1920\n")
 	_, _ = io.WriteString(w, "PlayResY: 1080\n")
 	_, _ = io.WriteString(w, "\n[V4+ Styles]\n")
-	_, _ = io.WriteString(w, "Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
-	_, _ = io.WriteString(w, "Style: Default,DejaVu Sans,32,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,7,40,40,40,1\n")
+	_, _ = io.WriteString(w,
+		"Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, "+
+			"Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "+
+			"BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
+	_, _ = io.WriteString(w,
+		"Style: Default,DejaVu Sans,32,&H00FFFFFF,&H00000000,&H80000000,"+
+			"0,0,0,0,100,100,0,0,1,2,1,7,40,40,40,1\n")
 	_, _ = io.WriteString(w, "\n[Events]\n")
 	_, _ = io.WriteString(w, "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
 
-	var dts int64 = int64(tr.TimeOffset)
+	dts := int64(tr.TimeOffset)
 
 	for i, sa := range tr.Samples {
-		payload, err := sa.GetPayload()
+		var payload []byte
+		payload, err = sa.GetPayload()
 		if err != nil {
 			return "", err
 		}
@@ -342,9 +349,7 @@ func ticksToAssTime(ticks int64, timeScale uint32) string {
 	}
 	// convert to centiseconds
 	cs := (ticks * 100) / int64(timeScale)
-	if cs < 0 {
-		cs = 0
-	}
+	cs = max(cs, 0)
 	h := cs / (3600 * 100)
 	cs -= h * 3600 * 100
 	m := cs / (60 * 100)
@@ -370,4 +375,3 @@ func escapeFilterPath(p string) string {
 	p = strings.ReplaceAll(p, ":", `\:`)
 	return p
 }
-
