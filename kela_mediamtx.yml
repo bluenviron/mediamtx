@@ -64,11 +64,12 @@ authInternalUsers:
 
 pathDefaults:
   record: no # Due to LoS. To enable recording on a specific path, add it below with record: yes
+  enableFrameMetadata: yes
   recordPath: ./recordings/%path/kela_%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 8s
   recordMaxPartSize: 50M
-  recordSegmentDuration: 30m
+  recordSegmentDuration: 5m
   recordDeleteAfter: 24h
 
 paths:

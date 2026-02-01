@@ -758,6 +758,7 @@ func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fil
 		GenerateRTPPackets: generateRTPPackets,
 		FillNTP:            fillNTP,
 		DropNonKeyframes:   pa.conf.DropNonKeyframes,
+		EnableFrameMetadata: pa.conf.EnableFrameMetadata,
 		Parent:             pa.source,
 	}
 	err := pa.stream.Initialize()

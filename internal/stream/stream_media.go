@@ -13,6 +13,7 @@ type streamMedia struct {
 	generateRTPPackets bool
 	fillNTP            bool
 	dropNonKeyframes   bool
+	enableFrameMetadata bool
 	processingErrors   *counterdumper.CounterDumper
 	parent             logger.Writer
 
@@ -29,6 +30,7 @@ func (sm *streamMedia) initialize() error {
 			generateRTPPackets: sm.generateRTPPackets,
 			fillNTP:            sm.fillNTP,
 			dropNonKeyframes:   sm.dropNonKeyframes,
+			enableFrameMetadata: sm.enableFrameMetadata,
 			processingErrors:   sm.processingErrors,
 			parent:             sm.parent,
 		}

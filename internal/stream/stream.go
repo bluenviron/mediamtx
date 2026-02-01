@@ -25,6 +25,7 @@ type Stream struct {
 	GenerateRTPPackets bool
 	FillNTP            bool
 	DropNonKeyframes   bool
+	EnableFrameMetadata bool
 	Parent             logger.Writer
 
 	bytesReceived    *uint64
@@ -67,6 +68,7 @@ func (s *Stream) Initialize() error {
 			generateRTPPackets: s.GenerateRTPPackets,
 			fillNTP:            s.FillNTP,
 			dropNonKeyframes:   s.DropNonKeyframes,
+			enableFrameMetadata: s.EnableFrameMetadata,
 			processingErrors:   s.processingErrors,
 			parent:             s.Parent,
 		}
