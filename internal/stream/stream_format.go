@@ -25,18 +25,18 @@ func unitSize(u *unit.Unit) uint64 {
 }
 
 type streamFormat struct {
-	rtpMaxPayloadSize  int
-	format             format.Format
-	generateRTPPackets bool
-	fillNTP            bool
-	dropNonKeyframes   bool
+	rtpMaxPayloadSize   int
+	format              format.Format
+	generateRTPPackets  bool
+	fillNTP             bool
+	dropNonKeyframes    bool
 	enableFrameMetadata bool
-	processingErrors   *counterdumper.CounterDumper
-	parent             logger.Writer
+	processingErrors    *counterdumper.CounterDumper
+	parent              logger.Writer
 
-	proc         codecprocessor.Processor
-	ntpEstimator *ntpestimator.Estimator
-	onDatas      map[*Reader]OnDataFunc
+	proc          codecprocessor.Processor
+	ntpEstimator  *ntpestimator.Estimator
+	onDatas       map[*Reader]OnDataFunc
 	frameMetadata *framemetadata.Inserter
 
 	// For keyframe-only mode

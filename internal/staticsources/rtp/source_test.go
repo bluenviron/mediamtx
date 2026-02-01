@@ -22,8 +22,8 @@ func multicastCapableInterface(t *testing.T) string {
 	// the test to hang while waiting for packets.
 	const multicastDest = "238.0.0.1:9004"
 
-	conn, err := net.Dial("udp4", multicastDest)
-	require.NoError(t, err)
+	conn, dialErr := net.Dial("udp4", multicastDest)
+	require.NoError(t, dialErr)
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	conn.Close()
 
@@ -38,8 +38,8 @@ func multicastCapableInterface(t *testing.T) string {
 			continue
 		}
 
-		addrs, err := intf.Addrs()
-		if err != nil {
+		addrs, err2 := intf.Addrs()
+		if err2 != nil {
 			continue
 		}
 

@@ -136,7 +136,7 @@ func pickVideoTrack(p *pmp4.Presentation, idx int) (*pmp4.Track, string, error) 
 	return videos[idx], names[idx], nil
 }
 
-func writeASSForTrack(tr *pmp4.Track, codecName string) (string, error) {
+func writeASSForTrack(tr *pmp4.Track, codecName string) (retPath string, retErr error) {
 	tmp, err := os.CreateTemp("", "mediamtx-meta-*.ass")
 	if err != nil {
 		return "", err
@@ -144,7 +144,11 @@ func writeASSForTrack(tr *pmp4.Track, codecName string) (string, error) {
 	defer tmp.Close()
 
 	w := bufio.NewWriter(tmp)
-	defer w.Flush()
+	defer func() {
+		if err2 := w.Flush(); err2 != nil && retErr == nil {
+			retErr = err2
+		}
+	}()
 
 	// Minimal ASS header.
 	_, _ = io.WriteString(w, "[Script Info]\n")
@@ -191,7 +195,10 @@ func writeASSForTrack(tr *pmp4.Track, codecName string) (string, error) {
 		}
 		text = assEscape(text)
 
-		fmt.Fprintf(w, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n", start, end, text)
+		_, err2 := fmt.Fprintf(w, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n", start, end, text)
+		if err2 != nil {
+			return "", err2
+		}
 
 		dts += int64(sa.Duration)
 	}

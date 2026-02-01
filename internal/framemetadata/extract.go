@@ -148,15 +148,15 @@ func FormatOverlayText(d *Decoded) string {
 		cam, _ := asInt64(m, "utc_ms")
 		ing, _ := asInt64(m, "ingest_utc_ms")
 		s := fmt.Sprintf("key  cam_utc_ms=%d  ingest_utc_ms=%d", cam, ing)
-		if v, ok := asUint64(m, "ptz_ver"); ok {
+		if v, ok2 := asUint64(m, "ptz_ver"); ok2 {
 			s += fmt.Sprintf("  ptz_ver=%d", v)
-			if pan, ok := asFloat32(m, "pan"); ok {
+			if pan, ok3 := asFloat32(m, "pan"); ok3 {
 				s += fmt.Sprintf("  pan=%.3f", pan)
 			}
-			if tilt, ok := asFloat32(m, "tilt"); ok {
+			if tilt, ok3 := asFloat32(m, "tilt"); ok3 {
 				s += fmt.Sprintf("  tilt=%.3f", tilt)
 			}
-			if zoom, ok := asFloat32(m, "zoom"); ok {
+			if zoom, ok3 := asFloat32(m, "zoom"); ok3 {
 				s += fmt.Sprintf("  zoom=%.3f", zoom)
 			}
 		}

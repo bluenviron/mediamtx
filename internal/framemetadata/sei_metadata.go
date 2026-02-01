@@ -140,14 +140,14 @@ func parseUserDataUnregisteredSEI(isH264 bool, nalu []byte) (binaryPayload []byt
 			break
 		}
 
-		pt, n, ok := decodeSEIValue(rbsp)
-		if !ok {
+		pt, n, ok2 := decodeSEIValue(rbsp)
+		if !ok2 {
 			return nil, false
 		}
 		rbsp = rbsp[n:]
 
-		ps, n, ok := decodeSEIValue(rbsp)
-		if !ok {
+		ps, n, ok2 := decodeSEIValue(rbsp)
+		if !ok2 {
 			return nil, false
 		}
 		rbsp = rbsp[n:]

@@ -25,4 +25,3 @@ func TestSEIBuildParseH265(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, blob, got)
 }
-
