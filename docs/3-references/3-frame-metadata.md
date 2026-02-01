@@ -22,7 +22,7 @@ The embedded metadata payload is a single binary blob:
 
 ### Note about the UUID
 
-For H.264/H.265, the SEI `user_data_unregistered` message format *also* contains a 16-byte UUID field.
+For H.264/H.265, the SEI `user_data_unregistered` message format _also_ contains a 16-byte UUID field.
 The implementation therefore includes:
 
 - the UUID **once** as the SEI UUID (per spec), and

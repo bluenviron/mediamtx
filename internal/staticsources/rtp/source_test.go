@@ -17,16 +17,47 @@ import (
 )
 
 func multicastCapableInterface(t *testing.T) string {
+	// Pick the interface that would be used to reach the multicast destination.
+	// This avoids selecting unrelated interfaces (e.g. loopback/tunnels) that can cause
+	// the test to hang while waiting for packets.
+	const multicastDest = "238.0.0.1:9004"
+
+	conn, err := net.Dial("udp4", multicastDest)
+	require.NoError(t, err)
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	conn.Close()
+
 	intfs, err := net.Interfaces()
 	require.NoError(t, err)
 
 	for _, intf := range intfs {
-		if (intf.Flags & net.FlagMulticast) != 0 {
-			return intf.Name
+		if (intf.Flags & net.FlagUp) == 0 {
+			continue
+		}
+		if (intf.Flags & net.FlagMulticast) == 0 {
+			continue
+		}
+
+		addrs, err := intf.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip != nil && ip.To4() != nil && ip.Equal(localAddr.IP) {
+				return intf.Name
+			}
 		}
 	}
 
-	t.Errorf("unable to find a multicast IP")
+	t.Skipf("unable to find multicast-capable interface for %s", multicastDest)
 	return ""
 }
 
@@ -51,7 +82,7 @@ func TestSourceUDP(t *testing.T) {
 				src = "udp+rtp://238.0.0.1:9004?interface=" + multicastCapableInterface(t)
 
 			case "unicast with source":
-				src = "udp+rtp://127.0.0.1:9004?source=127.0.1.1"
+				src = "udp+rtp://127.0.0.1:9004?source=127.0.0.1"
 			}
 
 			p := &test.StaticSourceParent{}
@@ -113,7 +144,7 @@ func TestSourceUDP(t *testing.T) {
 
 			var usrc *net.UDPAddr
 			if ca == "unicast with source" {
-				usrc, err = net.ResolveUDPAddr("udp", "127.0.1.1:9020")
+				usrc, err = net.ResolveUDPAddr("udp", "127.0.0.1:9020")
 				require.NoError(t, err)
 			}
 
