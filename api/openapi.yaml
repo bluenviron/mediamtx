@@ -533,6 +533,10 @@ components:
           type: integer
           format: uint64
 
+        # Custom
+        custom:
+          type: string
+
         # Hooks
         runOnInit:
           type: string

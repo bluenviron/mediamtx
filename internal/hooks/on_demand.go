@@ -23,6 +23,7 @@ func OnDemand(params OnDemandParams) func(string) {
 	if params.Conf.RunOnDemand != "" || params.Conf.RunOnUnDemand != "" {
 		env = params.ExternalCmdEnv
 		env["MTX_QUERY"] = params.Query
+		env["MTX_CUSTOM"] = params.Conf.Custom
 	}
 
 	if params.Conf.RunOnDemand != "" {
