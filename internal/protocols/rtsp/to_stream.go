@@ -42,7 +42,10 @@ func ToStream(
 
 			var ntpStat ntpState
 
-			if !pathConf.UseAbsoluteTimestamp {
+			// When frame metadata is enabled, prefer preserving camera-provided absolute time
+			// (when available) even if the user disabled useAbsoluteTimestamp, since metadata
+			// explicitly carries both camera and ingest timelines.
+			if !pathConf.UseAbsoluteTimestamp && !pathConf.EnableFrameMetadata {
 				ntpStat = ntpStateReplace
 			}
 
@@ -54,6 +57,12 @@ func ToStream(
 				case ntpStateInitial:
 					ntp, avail := source.PacketNTP(cmedi, pkt)
 					if !avail {
+						// If frame metadata is enabled, we can still proceed without camera NTP:
+						// metadata will fall back to stream PTS (and/or an estimator) when NTP is missing.
+						if pathConf.EnableFrameMetadata {
+							return time.Time{}, true
+						}
+
 						log.Log(logger.Warn, "received RTP packet without absolute time, skipping it")
 						return time.Time{}, false
 					}

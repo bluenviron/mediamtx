@@ -8,13 +8,14 @@ import (
 )
 
 type streamMedia struct {
-	rtpMaxPayloadSize  int
-	media              *description.Media
-	generateRTPPackets bool
-	fillNTP            bool
-	dropNonKeyframes   bool
-	processingErrors   *counterdumper.CounterDumper
-	parent             logger.Writer
+	rtpMaxPayloadSize   int
+	media               *description.Media
+	generateRTPPackets  bool
+	fillNTP             bool
+	dropNonKeyframes    bool
+	enableFrameMetadata bool
+	processingErrors    *counterdumper.CounterDumper
+	parent              logger.Writer
 
 	formats map[format.Format]*streamFormat
 }
@@ -24,13 +25,14 @@ func (sm *streamMedia) initialize() error {
 
 	for _, forma := range sm.media.Formats {
 		sf := &streamFormat{
-			rtpMaxPayloadSize:  sm.rtpMaxPayloadSize,
-			format:             forma,
-			generateRTPPackets: sm.generateRTPPackets,
-			fillNTP:            sm.fillNTP,
-			dropNonKeyframes:   sm.dropNonKeyframes,
-			processingErrors:   sm.processingErrors,
-			parent:             sm.parent,
+			rtpMaxPayloadSize:   sm.rtpMaxPayloadSize,
+			format:              forma,
+			generateRTPPackets:  sm.generateRTPPackets,
+			fillNTP:             sm.fillNTP,
+			dropNonKeyframes:    sm.dropNonKeyframes,
+			enableFrameMetadata: sm.enableFrameMetadata,
+			processingErrors:    sm.processingErrors,
+			parent:              sm.parent,
 		}
 		err := sf.initialize()
 		if err != nil {

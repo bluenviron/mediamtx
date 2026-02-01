@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WHEP Player + Metadata OSD</title>
+    <style>
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #0b0b0b; color: #eaeaea; }
+      header { padding: 12px 16px; background: #111; border-bottom: 1px solid #222; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      input[type="text"] { width: min(860px, 100%); padding: 8px 10px; border: 1px solid #333; border-radius: 6px; background: #0c0c0c; color: #eaeaea; }
+      button { padding: 8px 12px; border: 1px solid #333; border-radius: 6px; background: #1a1a1a; color: #eaeaea; cursor: pointer; }
+      button:hover { background: #232323; }
+      #wrap { position: relative; width: 100%; height: calc(100vh - 58px); display: grid; place-items: center; }
+      video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+      #log {
+        position: absolute; left: 18px; top: 18px;
+        padding: 10px 12px;
+        background: rgba(0,0,0,0.55);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px;
+        font: 600 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        white-space: pre;
+        max-width: min(92vw, 1100px);
+        max-height: min(78vh, 760px);
+        overflow: auto;
+      }
+      #status { opacity: 0.85; font-size: 13px; }
+      .pill { padding: 2px 8px; border: 1px solid #333; border-radius: 999px; background: #0c0c0c; }
+      .spacer { flex: 1 1 auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="pill">WHEP URL</span>
+      <input id="whepUrl" type="text" placeholder="https://host:port/path/whep" />
+      <button id="btnStart">Start</button>
+      <button id="btnStop" disabled>Stop</button>
+      <button id="btnPause" disabled>Pause</button>
+      <button id="btnClear" disabled>Clear</button>
+      <span class="spacer"></span>
+      <span id="status" class="pill">idle</span>
+      <span id="cap" class="pill">metadata: unknown</span>
+    </header>
+
+    <div id="wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="log">metadata: (no frames yet)</div>
+    </div>
+
+    <script>
+      // ---- WHEP signaling (non-trickle ICE; send offer after gathering complete) ----
+      async function waitIceGatheringComplete(pc) {
+        if (pc.iceGatheringState === "complete") return;
+        await new Promise((resolve) => {
+          const on = () => {
+            if (pc.iceGatheringState === "complete") {
+              pc.removeEventListener("icegatheringstatechange", on);
+              resolve();
+            }
+          };
+          pc.addEventListener("icegatheringstatechange", on);
+        });
+      }
+
+      async function whepStart({ url, onTrack, onReceiver }) {
+        const pc = new RTCPeerConnection({
+          // Required for encoded insertable streams in Chromium.
+          encodedInsertableStreams: true,
+        });
+
+        // We just want to receive video.
+        pc.addTransceiver("video", { direction: "recvonly" });
+        pc.addTransceiver("audio", { direction: "recvonly" });
+
+        pc.addEventListener("track", (ev) => {
+          onTrack?.(ev);
+          onReceiver?.(ev.receiver, ev.track);
+        });
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitIceGatheringComplete(pc);
+
+        const offerSDP = pc.localDescription.sdp;
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: offerSDP,
+        });
+        if (!res.ok) {
+          throw new Error(`WHEP POST failed: ${res.status} ${await res.text()}`);
+        }
+
+        const answerSDP = await res.text();
+        const answer = { type: "answer", sdp: answerSDP };
+        await pc.setRemoteDescription(answer);
+
+        // WHEP session URL (optional; used for DELETE).
+        const sessionUrl = res.headers.get("Location")
+          ? new URL(res.headers.get("Location"), url).toString()
+          : null;
+
+        return { pc, sessionUrl };
+      }
+
+      async function whepStop({ pc, sessionUrl }) {
+        try { pc?.close(); } catch {}
+        if (sessionUrl) {
+          try { await fetch(sessionUrl, { method: "DELETE" }); } catch {}
+        }
+      }
+
+      // ---- Minimal CBOR decoder for our schema (maps, ints, float32/64, strings) ----
+      function cborReadUint(view, off, ai) {
+        if (ai < 24) return [ai, off];
+        if (ai === 24) return [view.getUint8(off), off + 1];
+        if (ai === 25) return [view.getUint16(off, false), off + 2];
+        if (ai === 26) return [view.getUint32(off, false), off + 4];
+        if (ai === 27) {
+          const hi = view.getUint32(off, false);
+          const lo = view.getUint32(off + 4, false);
+          return [hi * 2 ** 32 + lo, off + 8];
+        }
+        throw new Error("CBOR: unsupported additional info");
+      }
+
+      function cborDecode(view, off = 0) {
+        const ib = view.getUint8(off); off++;
+        const major = ib >> 5;
+        const ai = ib & 0x1f;
+
+        if (major === 0) { // unsigned
+          const [u, o2] = cborReadUint(view, off, ai);
+          return [u, o2];
+        }
+        if (major === 1) { // negative
+          const [u, o2] = cborReadUint(view, off, ai);
+          return [-1 - u, o2];
+        }
+        if (major === 3) { // text
+          const [ln, o2] = cborReadUint(view, off, ai);
+          const bytes = new Uint8Array(view.buffer, view.byteOffset + o2, ln);
+          const s = new TextDecoder().decode(bytes);
+          return [s, o2 + ln];
+        }
+        if (major === 5) { // map
+          const [ln, o2] = cborReadUint(view, off, ai);
+          let o = o2;
+          const m = {};
+          for (let i = 0; i < ln; i++) {
+            const [k, o3] = cborDecode(view, o);
+            const [v, o4] = cborDecode(view, o3);
+            m[String(k)] = v;
+            o = o4;
+          }
+          return [m, o];
+        }
+        if (major === 7) {
+          if (ai === 26) { // float32
+            const f = view.getFloat32(off, false);
+            return [f, off + 4];
+          }
+          if (ai === 27) { // float64
+            const f = view.getFloat64(off, false);
+            return [f, off + 8];
+          }
+          if (ai === 22) return [null, off];
+          if (ai === 20) return [false, off];
+          if (ai === 21) return [true, off];
+          throw new Error("CBOR: unsupported simple/float");
+        }
+        throw new Error(`CBOR: unsupported major ${major}`);
+      }
+
+      function decodeCborMap(bytes) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const [v] = cborDecode(view, 0);
+        if (typeof v !== "object" || v === null || Array.isArray(v)) throw new Error("CBOR payload is not a map");
+        return v;
+      }
+
+      // ---- H26x helpers (Annex-B and length-prefixed) ----
+      function hasStartCode(b) {
+        for (let i = 0; i + 3 < b.length; i++) {
+          if (i + 4 <= b.length && b[i] === 0 && b[i+1] === 0 && b[i+2] === 0 && b[i+3] === 1) return true;
+          if (b[i] === 0 && b[i+1] === 0 && b[i+2] === 1) return true;
+        }
+        return false;
+      }
+
+      function splitAnnexB(b) {
+        const out = [];
+        const find = (start) => {
+          for (let i = start; i + 3 <= b.length; i++) {
+            if (i + 4 <= b.length && b[i] === 0 && b[i+1] === 0 && b[i+2] === 0 && b[i+3] === 1) return [i, 4];
+            if (b[i] === 0 && b[i+1] === 0 && b[i+2] === 1) return [i, 3];
+          }
+          return [-1, 0];
+        };
+        let i = 0;
+        while (true) {
+          const [p, l] = find(i);
+          if (p < 0) break;
+          const j = p + l;
+          let [n, _] = find(j);
+          if (n < 0) n = b.length;
+          if (j < n) out.push(b.subarray(j, n));
+          i = n;
+        }
+        return out;
+      }
+
+      function splitLengthPrefixed(b) {
+        const out = [];
+        let i = 0;
+        while (i + 4 <= b.length) {
+          const n = (b[i]<<24) | (b[i+1]<<16) | (b[i+2]<<8) | b[i+3];
+          i += 4;
+          if (n <= 0 || i + n > b.length) return [];
+          out.push(b.subarray(i, i + n));
+          i += n;
+        }
+        return out;
+      }
+
+      function removeEPB(rbsp) {
+        const out = [];
+        let zeros = 0;
+        for (let i = 0; i < rbsp.length; i++) {
+          const by = rbsp[i];
+          if (zeros >= 2 && by === 0x03) { zeros = 0; continue; }
+          out.push(by);
+          zeros = (by === 0x00) ? (zeros + 1) : 0;
+        }
+        return new Uint8Array(out);
+      }
+
+      function decodeSeiValue(b, off) {
+        let val = 0;
+        while (true) {
+          if (off >= b.length) return [null, null];
+          const by = b[off++];
+          val += by;
+          if (by !== 0xff) return [val, off];
+        }
+      }
+
+      function extractUserDataUnregisteredFromSeiH264(nalu) {
+        if (nalu.length < 2) return null;
+        const typ = nalu[0] & 0x1f;
+        if (typ !== 6) return null;
+        const rbsp = removeEPB(nalu.subarray(1));
+        let off = 0;
+        while (off < rbsp.length) {
+          if (rbsp.length - off === 1 && rbsp[off] === 0x80) break;
+          const [pt, o2] = decodeSeiValue(rbsp, off);
+          if (pt === null) return null;
+          const [ps, o3] = decodeSeiValue(rbsp, o2);
+          if (ps === null) return null;
+          off = o3;
+          if (off + ps > rbsp.length) return null;
+          const payload = rbsp.subarray(off, off + ps);
+          off += ps;
+          if (pt === 5 && payload.length >= 16) {
+            return payload.subarray(16); // after SEI UUID
+          }
+        }
+        return null;
+      }
+
+      // ---- AV1 METADATA OBU helper (best-effort) ----
+      function leb128Decode(b, off) {
+        let v = 0, shift = 0;
+        for (let i = 0; i < 10; i++) {
+          if (off + i >= b.length) return [null, null];
+          const by = b[off + i];
+          v |= (by & 0x7f) << shift;
+          if ((by & 0x80) === 0) return [v, off + i + 1];
+          shift += 7;
+        }
+        return [null, null];
+      }
+
+      function splitOBUStream(b) {
+        const out = [];
+        let i = 0;
+        while (i < b.length) {
+          if (i + 2 > b.length) break;
+          const h = b[i];
+          const ext = (h & 0x04) !== 0;
+          const hasSize = (h & 0x02) !== 0;
+          let j = i + 1;
+          if (ext) { j++; if (j > b.length) break; }
+          if (!hasSize) break;
+          const [sz, k] = leb128Decode(b, j);
+          if (sz === null) break;
+          j = k;
+          if (j + sz > b.length) break;
+          out.push(b.subarray(i, j + sz));
+          i = j + sz;
+        }
+        return out;
+      }
+
+      function parseMetadataOBU(obu) {
+        if (obu.length < 2) return null;
+        const obuType = (obu[0] >> 3) & 0x0f;
+        if (obuType !== 15) return null;
+        const ext = (obu[0] & 0x04) !== 0;
+        const hasSize = (obu[0] & 0x02) !== 0;
+        let i = 1 + (ext ? 1 : 0);
+        if (i >= obu.length) return null;
+        if (!hasSize) return obu.subarray(i);
+        const [sz, j] = leb128Decode(obu, i);
+        if (sz === null) return null;
+        if (j + sz > obu.length) return null;
+        return obu.subarray(j, j + sz);
+      }
+
+      // ---- Shared payload parse: [u16][uuid16][cbor] ----
+      const UUID_HEX = "1d536d9a2b2d4418933e2a3cf80f605c";
+      function bytesToHex(b) {
+        return Array.from(b).map(x => x.toString(16).padStart(2, "0")).join("");
+      }
+
+      function parseSharedPayload(raw) {
+        if (!raw || raw.length < 2 + 16) return null;
+        const ver = (raw[0] << 8) | raw[1];
+        const uuid = raw.subarray(2, 18);
+        const cborBytes = raw.subarray(18);
+        if (bytesToHex(uuid) !== UUID_HEX) return null;
+        const m = decodeCborMap(cborBytes);
+        return { schemaVersion: ver, uuidHex: bytesToHex(uuid), cbor: m };
+      }
+
+      function isEpochMs(ms) {
+        return typeof ms === "number" && ms >= 1_000_000_000_000;
+      }
+
+      function humanTimeMs(ms, baseMs, offsetMinutes = 0) {
+        if (typeof ms !== "number" || !Number.isFinite(ms)) return "?";
+        if (isEpochMs(ms)) {
+          // Render as UTC ISO-ish, optionally with a fixed offset for display.
+          const adj = ms + offsetMinutes * 60 * 1000;
+          const iso = new Date(adj).toISOString(); // YYYY-MM-DDTHH:mm:ss.sssZ
+          const s = iso.replace("T", " ");
+          if (offsetMinutes) {
+            // Show local wall-clock only (no "Z" / "+02:00").
+            return s.endsWith("Z") ? s.slice(0, -1) : s;
+          }
+          return s;
+        }
+        const base = (typeof baseMs === "number" && Number.isFinite(baseMs)) ? baseMs : 0;
+        let delta = ms - base;
+        if (delta < 0) delta = 0;
+        const h = Math.floor(delta / 3600000); delta -= h * 3600000;
+        const m = Math.floor(delta / 60000); delta -= m * 60000;
+        const s = Math.floor(delta / 1000); delta -= s * 1000;
+        const pad = (n, w=2) => String(n).padStart(w, "0");
+        return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(delta, 3)}`;
+      }
+
+      function formatLogLine(seq, x, abs) {
+        const m = x.cbor || {};
+        const verStr = m.version ?? "";
+        const ft = m.frame_type ?? "?";
+        const camAbs = abs?.cam_abs_ms;
+        const ingAbs = abs?.ingest_abs_ms;
+        const camHR = humanTimeMs(camAbs, abs?.base_cam_ms);
+        // Display ingest as UTC+02:00 to match local IST expectation.
+        const ingHR = humanTimeMs(ingAbs, abs?.base_ing_ms, 120);
+        const pan = m.pan;
+        const tilt = m.tilt;
+        const zoom = m.zoom;
+
+        let ptz = "";
+        if ("ptz_ver" in m) {
+          ptz = ` ptz_ver=${m.ptz_ver}` +
+            (pan != null ? ` pan=${Number(pan).toFixed(3)}` : "") +
+            (tilt != null ? ` tilt=${Number(tilt).toFixed(3)}` : "") +
+            (zoom != null ? ` zoom=${Number(zoom).toFixed(3)}` : "");
+        }
+
+        return `#${seq} metadata v=${verStr} schema=${x.schemaVersion} ft=${ft} cam=${camHR} ingest=${ingHR}${ptz}`;
+      }
+
+      // ---- Hook up encoded streams (Chromium) ----
+      async function attachMetadataExtractor(receiver, track) {
+        const cap = document.getElementById("cap");
+        const logEl = document.getElementById("log");
+        const videoEl = document.getElementById("video");
+
+        // Chrome/Chromium: RTCRtpReceiver.createEncodedStreams()
+        if (receiver && typeof receiver.createEncodedStreams === "function") {
+          cap.textContent = "metadata: encoded streams";
+          const streams = receiver.createEncodedStreams();
+          const reader = streams.readable.getReader();
+          const writer = streams.writable.getWriter();
+
+          let seq = 0;
+          let paused = false;
+          const lines = [];
+          const maxLines = 500;
+          const absState = {
+            cam_key: null,
+            ing_key: null,
+            base_cam: null,
+            base_ing: null,
+          };
+
+          const btnPause = document.getElementById("btnPause");
+          const btnClear = document.getElementById("btnClear");
+          btnPause.disabled = false;
+          btnClear.disabled = false;
+          btnPause.textContent = "Pause";
+
+          const render = () => {
+            logEl.textContent = lines.join("\n") || "metadata: (no frames yet)";
+            logEl.scrollTop = logEl.scrollHeight;
+            if (paused) {
+              logEl.textContent += "\n\n[PAUSED]";
+            }
+          };
+
+          const setStreamPaused = async (v) => {
+            try {
+              const ms = videoEl.srcObject?.getTracks?.() || [];
+              for (const t of ms) t.enabled = !v;
+              if (v) {
+                videoEl.pause();
+              } else {
+                await videoEl.play().catch(() => {});
+              }
+            } catch {}
+          };
+
+          btnPause.onclick = () => {
+            paused = !paused;
+            btnPause.textContent = paused ? "Resume" : "Pause";
+            setStreamPaused(paused);
+            render();
+          };
+          btnClear.onclick = () => {
+            lines.length = 0;
+            render();
+          };
+
+          const reconstructAbs = (m) => {
+            const ft = Number(m.frame_type ?? 255);
+            if (ft === 0) {
+              const cam = Number(m.utc_ms ?? 0);
+              const ing = Number(m.ingest_utc_ms ?? 0);
+              absState.cam_key = cam;
+              absState.ing_key = ing;
+              if (absState.base_cam == null) absState.base_cam = cam;
+              if (absState.base_ing == null) absState.base_ing = ing;
+              return { cam_abs_ms: cam, ingest_abs_ms: ing, base_cam_ms: absState.base_cam, base_ing_ms: absState.base_ing };
+            }
+            const cam = Number(absState.cam_key ?? 0) + Number(m.dt_ms ?? 0);
+            const ing = Number(absState.ing_key ?? 0) + Number(m.ingest_dt_ms ?? 0);
+            if (absState.base_cam == null) absState.base_cam = cam;
+            if (absState.base_ing == null) absState.base_ing = ing;
+            return { cam_abs_ms: cam, ingest_abs_ms: ing, base_cam_ms: absState.base_cam, base_ing_ms: absState.base_ing };
+          };
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (!value || !value.data) continue;
+            const data = new Uint8Array(value.data);
+
+            // Best-effort: detect bytestream kind.
+            // For H264: scan SEI NALs. For AV1: scan metadata OBUs.
+            let parsed = null;
+
+            // Try H264 SEI first.
+            const nalus = hasStartCode(data) ? splitAnnexB(data) : splitLengthPrefixed(data);
+            for (const nalu of nalus) {
+              const raw = extractUserDataUnregisteredFromSeiH264(nalu);
+              if (!raw) continue;
+              parsed = parseSharedPayload(raw);
+              if (parsed) break;
+            }
+
+            // Try AV1 OBU fallback if no H264.
+            if (!parsed) {
+              const obus = splitOBUStream(data);
+              for (const obu of obus) {
+                const pl = parseMetadataOBU(obu);
+                if (!pl) continue;
+                parsed = parseSharedPayload(pl);
+                if (parsed) break;
+              }
+            }
+
+            if (parsed) {
+              seq++;
+              if (!paused) {
+                const abs = reconstructAbs(parsed.cbor || {});
+                const line = formatLogLine(seq, parsed, abs);
+                lines.push(line);
+                if (lines.length > maxLines) lines.splice(0, lines.length - maxLines);
+                render();
+              }
+            }
+
+            // Pass through untouched.
+            value.data = data.buffer;
+            writer.write(value);
+          }
+          return;
+        }
+
+        cap.textContent = "metadata: not supported";
+      }
+
+      // ---- UI ----
+      let session = null;
+      const statusEl = document.getElementById("status");
+      const btnStart = document.getElementById("btnStart");
+      const btnStop = document.getElementById("btnStop");
+      const btnPause = document.getElementById("btnPause");
+      const btnClear = document.getElementById("btnClear");
+      const video = document.getElementById("video");
+      const urlInput = document.getElementById("whepUrl");
+
+      btnStart.onclick = async () => {
+        try {
+          btnStart.disabled = true;
+          statusEl.textContent = "connecting...";
+          const url = urlInput.value.trim();
+          session = await whepStart({
+            url,
+            onTrack: (ev) => {
+              if (ev.track.kind === "video") {
+                video.srcObject = ev.streams[0];
+              }
+            },
+            onReceiver: (receiver, track) => {
+              if (track.kind === "video") attachMetadataExtractor(receiver, track);
+            },
+          });
+          statusEl.textContent = "playing";
+          btnStop.disabled = false;
+          btnPause.disabled = false;
+          btnClear.disabled = false;
+        } catch (e) {
+          console.error(e);
+          statusEl.textContent = "error: " + String(e.message || e);
+          btnStart.disabled = false;
+        }
+      };
+
+      btnStop.onclick = async () => {
+        btnStop.disabled = true;
+        btnPause.disabled = true;
+        btnClear.disabled = true;
+        statusEl.textContent = "stopping...";
+        await whepStop(session || {});
+        session = null;
+        video.srcObject = null;
+        statusEl.textContent = "stopped";
+        btnStart.disabled = false;
+      };
+
+      // default example
+      urlInput.value = "";
+    </script>
+  </body>
+</html>
+
