@@ -67,11 +67,6 @@ func (sf *streamFormat) initialize() error {
 
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u *unit.Unit) {
 	if sf.frameMetadata != nil && !u.NilPayload() {
-		// if NTP is configured but not yet set, estimate it before embedding metadata,
-		// so that metadata can carry an absolute camera clock instead of starting at 0.
-		if sf.fillNTP && u.NTP.IsZero() {
-			u.NTP = sf.ntpEstimator.Estimate(u.PTS)
-		}
 		u.Payload = sf.frameMetadata.MaybeInsert(sf.format, u.Payload, nil, time.Now(), u.NTP, u.PTS, sf.format.ClockRate())
 	}
 
@@ -184,11 +179,6 @@ func (sf *streamFormat) writeRTPPacket(
 	}
 
 	if sf.frameMetadata != nil && !u.NilPayload() {
-		// if NTP is configured but not yet set, estimate it before embedding metadata,
-		// so that metadata can carry an absolute camera clock instead of starting at 0.
-		if sf.fillNTP && u.NTP.IsZero() {
-			u.NTP = sf.ntpEstimator.Estimate(u.PTS)
-		}
 		u.Payload = sf.frameMetadata.MaybeInsert(sf.format, u.Payload, nil, time.Now(), u.NTP, u.PTS, sf.format.ClockRate())
 	}
 

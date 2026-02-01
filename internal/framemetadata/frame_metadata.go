@@ -25,6 +25,7 @@ var uuid16 = [16]byte{
 type inserterState struct {
 	lastKeyCamMS    int64
 	lastKeyIngestMS int64
+	lastKeyPTS      int64
 	lastPTZVer   uint32
 }
 
@@ -170,37 +171,42 @@ func (i *Inserter) buildCBORPayload(
 	pts int64,
 	clockRate int,
 ) ([]byte, error) {
-	// determine utc_ms / dt_ms (camera clock from RTP/PTS)
+	// determine utc_ms / dt_ms (camera clock) and ingest_utc_ms / ingest_dt_ms (server clock)
 	m := make(map[string]any, 6)
 	m["frame_type"] = uint64(frameType)
 	m["version"] = "v0.1"
 
-	camMS := cameraMillis(ntp, pts, clockRate)
-	ingestMS := ingestNow.UnixMilli()
-
 	if frameType == 0 {
-		m["utc_ms"] = camMS
-		m["ingest_utc_ms"] = ingestMS
-		i.st.lastKeyCamMS = camMS
-		i.st.lastKeyIngestMS = ingestMS
-	} else {
-		camDT := int64(0)
-		if i.st.lastKeyCamMS != 0 {
-			camDT = camMS - i.st.lastKeyCamMS
+		// Camera absolute time:
+		// - prefer RTCP/SR-derived NTP if available (can differ from server clock)
+		// - otherwise fall back to the stream clock converted to ms.
+		camKeyMS := int64(0)
+		if !ntp.IsZero() {
+			camKeyMS = ntp.UnixMilli()
+		} else {
+			camKeyMS = ptsToMillis(pts, clockRate)
 		}
-		if camDT < -2147483648 || camDT > 2147483647 {
+
+		ingestKeyMS := ingestNow.UnixMilli()
+
+		m["utc_ms"] = camKeyMS
+		m["ingest_utc_ms"] = ingestKeyMS
+
+		i.st.lastKeyCamMS = camKeyMS
+		i.st.lastKeyIngestMS = ingestKeyMS
+		i.st.lastKeyPTS = pts
+	} else {
+		// Both dt_ms and ingest_dt_ms advance according to the stream (PTS),
+		// not wall-clock time, to avoid jitter due to network/processing delays.
+		dt := int64(0)
+		if i.st.lastKeyPTS != 0 {
+			dt = ptsToMillis(pts-i.st.lastKeyPTS, clockRate)
+		}
+		if dt < -2147483648 || dt > 2147483647 {
 			return nil, errors.New("dt_ms overflows int32")
 		}
-		m["dt_ms"] = int64(int32(camDT))
-
-		ingDT := int64(0)
-		if i.st.lastKeyIngestMS != 0 {
-			ingDT = ingestMS - i.st.lastKeyIngestMS
-		}
-		if ingDT < -2147483648 || ingDT > 2147483647 {
-			return nil, errors.New("ingest_dt_ms overflows int32")
-		}
-		m["ingest_dt_ms"] = int64(int32(ingDT))
+		m["dt_ms"] = int64(int32(dt))
+		m["ingest_dt_ms"] = int64(int32(dt))
 	}
 
 	// PTZ fields are included only when ptz_ver changes.
@@ -241,15 +247,6 @@ func ptsToMillis(pts int64, clockRate int) int64 {
 		return (num + int64(clockRate)/2) / int64(clockRate)
 	}
 	return (num - int64(clockRate)/2) / int64(clockRate)
-}
-
-func cameraMillis(ntp time.Time, pts int64, clockRate int) int64 {
-	// Prefer sender-report derived NTP when available (camera wall clock).
-	if !ntp.IsZero() {
-		return ntp.UnixMilli()
-	}
-	// Fallback to RTP/PTS ticks (may start at 0 depending on source).
-	return ptsToMillis(pts, clockRate)
 }
 
 func decodeBinary(in []byte) (uint16, [16]byte, map[string]any, error) {

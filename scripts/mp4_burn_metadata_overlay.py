@@ -339,7 +339,8 @@ def overlay_text(m: Dict[str, Any], abs_m: Dict[str, Any]) -> str:
     cam_abs = int(abs_m.get("cam_abs_ms", 0))
     ing_abs = int(abs_m.get("ingest_abs_ms", 0))
     cam_hr = human_time_ms(cam_abs, base_ms=int(abs_m.get("_base_cam_ms", 0)))
-    ing_hr = human_time_ms(ing_abs, base_ms=int(abs_m.get("_base_ing_ms", 0)))
+    # Display ingest as UTC+02:00 to match local IST expectation.
+    ing_hr = human_time_ms(ing_abs, base_ms=int(abs_m.get("_base_ing_ms", 0)), tz_offset_minutes=120)
 
     ft = int(m.get("frame_type", 255))
     # Use a single fixed template for all frames to avoid box-size jumps.
@@ -355,12 +356,16 @@ def overlay_text(m: Dict[str, Any], abs_m: Dict[str, Any]) -> str:
             s += f" zoom={m.get('zoom'):.3f}"
     return s
 
-def human_time_ms(ms: int, base_ms: int = 0) -> str:
-    # If it looks like epoch milliseconds, render local wall clock time.
+def human_time_ms(ms: int, base_ms: int = 0, tz_offset_minutes: int = 0) -> str:
+    # If it looks like epoch milliseconds, render UTC wall clock time, optionally with a fixed offset.
     # Otherwise render as offset since base_ms.
     if ms >= 1_000_000_000_000:  # ~2001-09-09 in ms
-        dt = datetime.datetime.fromtimestamp(ms / 1000.0, tz=datetime.timezone.utc).astimezone()
-        return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}" + dt.strftime(" %Z")
+        dt = datetime.datetime.fromtimestamp(ms / 1000.0, tz=datetime.timezone.utc)
+        if tz_offset_minutes:
+            dt = dt + datetime.timedelta(minutes=tz_offset_minutes)
+            # Show local wall-clock only (no "Z" / "+02:00").
+            return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}"
+        return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}Z"
 
     delta = ms - base_ms
     if delta < 0:

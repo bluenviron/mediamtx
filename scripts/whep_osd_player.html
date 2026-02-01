@@ -338,20 +338,18 @@
         return typeof ms === "number" && ms >= 1_000_000_000_000;
       }
 
-      function humanTimeMs(ms, baseMs) {
+      function humanTimeMs(ms, baseMs, offsetMinutes = 0) {
         if (typeof ms !== "number" || !Number.isFinite(ms)) return "?";
         if (isEpochMs(ms)) {
-          const d = new Date(ms);
-          const pad = (n, w=2) => String(n).padStart(w, "0");
-          // local time
-          const y = d.getFullYear();
-          const mo = pad(d.getMonth() + 1);
-          const da = pad(d.getDate());
-          const hh = pad(d.getHours());
-          const mm = pad(d.getMinutes());
-          const ss = pad(d.getSeconds());
-          const ms3 = pad(d.getMilliseconds(), 3);
-          return `${y}-${mo}-${da} ${hh}:${mm}:${ss}.${ms3}`;
+          // Render as UTC ISO-ish, optionally with a fixed offset for display.
+          const adj = ms + offsetMinutes * 60 * 1000;
+          const iso = new Date(adj).toISOString(); // YYYY-MM-DDTHH:mm:ss.sssZ
+          const s = iso.replace("T", " ");
+          if (offsetMinutes) {
+            // Show local wall-clock only (no "Z" / "+02:00").
+            return s.endsWith("Z") ? s.slice(0, -1) : s;
+          }
+          return s;
         }
         const base = (typeof baseMs === "number" && Number.isFinite(baseMs)) ? baseMs : 0;
         let delta = ms - base;
@@ -370,7 +368,8 @@
         const camAbs = abs?.cam_abs_ms;
         const ingAbs = abs?.ingest_abs_ms;
         const camHR = humanTimeMs(camAbs, abs?.base_cam_ms);
-        const ingHR = humanTimeMs(ingAbs, abs?.base_ing_ms);
+        // Display ingest as UTC+02:00 to match local IST expectation.
+        const ingHR = humanTimeMs(ingAbs, abs?.base_ing_ms, 120);
         const pan = m.pan;
         const tilt = m.tilt;
         const zoom = m.zoom;

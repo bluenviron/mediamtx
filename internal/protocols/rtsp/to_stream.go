@@ -42,7 +42,10 @@ func ToStream(
 
 			var ntpStat ntpState
 
-			if !pathConf.UseAbsoluteTimestamp {
+			// When frame metadata is enabled, prefer preserving camera-provided absolute time
+			// (when available) even if the user disabled useAbsoluteTimestamp, since metadata
+			// explicitly carries both camera and ingest timelines.
+			if !pathConf.UseAbsoluteTimestamp && !pathConf.EnableFrameMetadata {
 				ntpStat = ntpStateReplace
 			}
 

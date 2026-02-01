@@ -317,12 +317,16 @@ def reconstruct_absolute(m: Dict[str, Any], state: Dict[str, Optional[int]]) -> 
     out["ingest_abs_ms"] = ing_key + int(m.get("ingest_dt_ms", 0))
     return out
 
-def human_time_ms(ms: int, base_ms: int = 0) -> str:
-    # If it looks like epoch milliseconds, render local wall clock time.
+def human_time_ms(ms: int, base_ms: int = 0, tz_offset_minutes: int = 0) -> str:
+    # If it looks like epoch milliseconds, render UTC wall clock time, optionally with a fixed offset.
     # Otherwise render as offset since base_ms.
     if ms >= 1_000_000_000_000:
-        dt = datetime.datetime.fromtimestamp(ms / 1000.0, tz=datetime.timezone.utc).astimezone()
-        return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}" + dt.strftime(" %Z")
+        dt = datetime.datetime.fromtimestamp(ms / 1000.0, tz=datetime.timezone.utc)
+        if tz_offset_minutes:
+            dt = dt + datetime.timedelta(minutes=tz_offset_minutes)
+            # Show local wall-clock only (no "Z" / "+02:00").
+            return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}"
+        return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms % 1000:03d}Z"
 
     delta = ms - base_ms
     if delta < 0:
@@ -400,7 +404,8 @@ def main() -> int:
             base_cam = cam_abs
             base_ing = ing_abs
         cam_hr = human_time_ms(cam_abs, base_ms=base_cam or 0)
-        ing_hr = human_time_ms(ing_abs, base_ms=base_ing or 0)
+        # Display ingest as UTC+02:00 to match local IST expectation.
+        ing_hr = human_time_ms(ing_abs, base_ms=base_ing or 0, tz_offset_minutes=120)
 
         try:
             ver = md.get("version", "")
