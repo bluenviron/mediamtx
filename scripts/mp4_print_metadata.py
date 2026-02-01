@@ -403,8 +403,9 @@ def main() -> int:
         ing_hr = human_time_ms(ing_abs, base_ms=base_ing or 0)
 
         try:
+            ver = md.get("version", "")
             print(
-                f"frame={i} metadata cam={cam_hr} ingest={ing_hr} "
+                f"frame={i} metadata v={ver} cam={cam_hr} ingest={ing_hr} "
                 f"meta={json.dumps(md, separators=(',', ':'))} "
                 f"abs={json.dumps(abs_md, separators=(',', ':'))}",
                 flush=True,

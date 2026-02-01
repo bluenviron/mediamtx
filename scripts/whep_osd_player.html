@@ -12,18 +12,21 @@
       button:hover { background: #232323; }
       #wrap { position: relative; width: 100%; height: calc(100vh - 58px); display: grid; place-items: center; }
       video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-      #osd {
+      #log {
         position: absolute; left: 18px; top: 18px;
         padding: 10px 12px;
         background: rgba(0,0,0,0.55);
         border: 1px solid rgba(255,255,255,0.15);
         border-radius: 8px;
-        font: 600 16px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font: 600 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         white-space: pre;
         max-width: min(92vw, 1100px);
+        max-height: min(78vh, 760px);
+        overflow: auto;
       }
       #status { opacity: 0.85; font-size: 13px; }
       .pill { padding: 2px 8px; border: 1px solid #333; border-radius: 999px; background: #0c0c0c; }
+      .spacer { flex: 1 1 auto; }
     </style>
   </head>
   <body>
@@ -32,13 +35,16 @@
       <input id="whepUrl" type="text" placeholder="https://host:port/path/whep" />
       <button id="btnStart">Start</button>
       <button id="btnStop" disabled>Stop</button>
+      <button id="btnPause" disabled>Pause</button>
+      <button id="btnClear" disabled>Clear</button>
+      <span class="spacer"></span>
       <span id="status" class="pill">idle</span>
       <span id="cap" class="pill">metadata: unknown</span>
     </header>
 
     <div id="wrap">
       <video id="video" autoplay playsinline muted></video>
-      <div id="osd">metadata: (no frames yet)</div>
+      <div id="log">metadata: (no frames yet)</div>
     </div>
 
     <script>
@@ -328,38 +334,136 @@
         return { schemaVersion: ver, uuidHex: bytesToHex(uuid), cbor: m };
       }
 
-      function formatOSD(x) {
+      function isEpochMs(ms) {
+        return typeof ms === "number" && ms >= 1_000_000_000_000;
+      }
+
+      function humanTimeMs(ms, baseMs) {
+        if (typeof ms !== "number" || !Number.isFinite(ms)) return "?";
+        if (isEpochMs(ms)) {
+          const d = new Date(ms);
+          const pad = (n, w=2) => String(n).padStart(w, "0");
+          // local time
+          const y = d.getFullYear();
+          const mo = pad(d.getMonth() + 1);
+          const da = pad(d.getDate());
+          const hh = pad(d.getHours());
+          const mm = pad(d.getMinutes());
+          const ss = pad(d.getSeconds());
+          const ms3 = pad(d.getMilliseconds(), 3);
+          return `${y}-${mo}-${da} ${hh}:${mm}:${ss}.${ms3}`;
+        }
+        const base = (typeof baseMs === "number" && Number.isFinite(baseMs)) ? baseMs : 0;
+        let delta = ms - base;
+        if (delta < 0) delta = 0;
+        const h = Math.floor(delta / 3600000); delta -= h * 3600000;
+        const m = Math.floor(delta / 60000); delta -= m * 60000;
+        const s = Math.floor(delta / 1000); delta -= s * 1000;
+        const pad = (n, w=2) => String(n).padStart(w, "0");
+        return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(delta, 3)}`;
+      }
+
+      function formatLogLine(seq, x, abs) {
         const m = x.cbor || {};
-        const marker = m.marker ?? "";
+        const verStr = m.version ?? "";
         const ft = m.frame_type ?? "?";
-        const cam = m.utc_ms ?? m.dt_ms ?? "?";
-        const ing = m.ingest_utc_ms ?? m.ingest_dt_ms ?? "?";
+        const camAbs = abs?.cam_abs_ms;
+        const ingAbs = abs?.ingest_abs_ms;
+        const camHR = humanTimeMs(camAbs, abs?.base_cam_ms);
+        const ingHR = humanTimeMs(ingAbs, abs?.base_ing_ms);
         const pan = m.pan;
         const tilt = m.tilt;
         const zoom = m.zoom;
 
-        const lines = [];
-        lines.push(`metadata marker=${JSON.stringify(marker)} schema=${x.schemaVersion}`);
-        lines.push(`frame_type=${ft}`);
-        if ("utc_ms" in m) lines.push(`cam_utc_ms=${m.utc_ms}`);
-        if ("dt_ms" in m) lines.push(`cam_dt_ms=${m.dt_ms}`);
-        if ("ingest_utc_ms" in m) lines.push(`ingest_utc_ms=${m.ingest_utc_ms}`);
-        if ("ingest_dt_ms" in m) lines.push(`ingest_dt_ms=${m.ingest_dt_ms}`);
-        if ("ptz_ver" in m) lines.push(`ptz_ver=${m.ptz_ver} pan=${pan ?? ""} tilt=${tilt ?? ""} zoom=${zoom ?? ""}`);
-        lines.push(`(raw) cam=${cam} ingest=${ing}`);
-        return lines.join("\n");
+        let ptz = "";
+        if ("ptz_ver" in m) {
+          ptz = ` ptz_ver=${m.ptz_ver}` +
+            (pan != null ? ` pan=${Number(pan).toFixed(3)}` : "") +
+            (tilt != null ? ` tilt=${Number(tilt).toFixed(3)}` : "") +
+            (zoom != null ? ` zoom=${Number(zoom).toFixed(3)}` : "");
+        }
+
+        return `#${seq} metadata v=${verStr} schema=${x.schemaVersion} ft=${ft} cam=${camHR} ingest=${ingHR}${ptz}`;
       }
 
       // ---- Hook up encoded streams (Chromium) ----
       async function attachMetadataExtractor(receiver, track) {
         const cap = document.getElementById("cap");
-        const osd = document.getElementById("osd");
+        const logEl = document.getElementById("log");
+        const videoEl = document.getElementById("video");
 
         // Chrome/Chromium: RTCRtpReceiver.createEncodedStreams()
         if (receiver && typeof receiver.createEncodedStreams === "function") {
           cap.textContent = "metadata: encoded streams";
           const streams = receiver.createEncodedStreams();
           const reader = streams.readable.getReader();
+          const writer = streams.writable.getWriter();
+
+          let seq = 0;
+          let paused = false;
+          const lines = [];
+          const maxLines = 500;
+          const absState = {
+            cam_key: null,
+            ing_key: null,
+            base_cam: null,
+            base_ing: null,
+          };
+
+          const btnPause = document.getElementById("btnPause");
+          const btnClear = document.getElementById("btnClear");
+          btnPause.disabled = false;
+          btnClear.disabled = false;
+          btnPause.textContent = "Pause";
+
+          const render = () => {
+            logEl.textContent = lines.join("\n") || "metadata: (no frames yet)";
+            logEl.scrollTop = logEl.scrollHeight;
+            if (paused) {
+              logEl.textContent += "\n\n[PAUSED]";
+            }
+          };
+
+          const setStreamPaused = async (v) => {
+            try {
+              const ms = videoEl.srcObject?.getTracks?.() || [];
+              for (const t of ms) t.enabled = !v;
+              if (v) {
+                videoEl.pause();
+              } else {
+                await videoEl.play().catch(() => {});
+              }
+            } catch {}
+          };
+
+          btnPause.onclick = () => {
+            paused = !paused;
+            btnPause.textContent = paused ? "Resume" : "Pause";
+            setStreamPaused(paused);
+            render();
+          };
+          btnClear.onclick = () => {
+            lines.length = 0;
+            render();
+          };
+
+          const reconstructAbs = (m) => {
+            const ft = Number(m.frame_type ?? 255);
+            if (ft === 0) {
+              const cam = Number(m.utc_ms ?? 0);
+              const ing = Number(m.ingest_utc_ms ?? 0);
+              absState.cam_key = cam;
+              absState.ing_key = ing;
+              if (absState.base_cam == null) absState.base_cam = cam;
+              if (absState.base_ing == null) absState.base_ing = ing;
+              return { cam_abs_ms: cam, ingest_abs_ms: ing, base_cam_ms: absState.base_cam, base_ing_ms: absState.base_ing };
+            }
+            const cam = Number(absState.cam_key ?? 0) + Number(m.dt_ms ?? 0);
+            const ing = Number(absState.ing_key ?? 0) + Number(m.ingest_dt_ms ?? 0);
+            if (absState.base_cam == null) absState.base_cam = cam;
+            if (absState.base_ing == null) absState.base_ing = ing;
+            return { cam_abs_ms: cam, ingest_abs_ms: ing, base_cam_ms: absState.base_cam, base_ing_ms: absState.base_ing };
+          };
 
           while (true) {
             const { value, done } = await reader.read();
@@ -392,12 +496,19 @@
             }
 
             if (parsed) {
-              osd.textContent = formatOSD(parsed);
+              seq++;
+              if (!paused) {
+                const abs = reconstructAbs(parsed.cbor || {});
+                const line = formatLogLine(seq, parsed, abs);
+                lines.push(line);
+                if (lines.length > maxLines) lines.splice(0, lines.length - maxLines);
+                render();
+              }
             }
 
             // Pass through untouched.
             value.data = data.buffer;
-            streams.writable.getWriter().write(value);
+            writer.write(value);
           }
           return;
         }
@@ -410,6 +521,8 @@
       const statusEl = document.getElementById("status");
       const btnStart = document.getElementById("btnStart");
       const btnStop = document.getElementById("btnStop");
+      const btnPause = document.getElementById("btnPause");
+      const btnClear = document.getElementById("btnClear");
       const video = document.getElementById("video");
       const urlInput = document.getElementById("whepUrl");
 
@@ -431,6 +544,8 @@
           });
           statusEl.textContent = "playing";
           btnStop.disabled = false;
+          btnPause.disabled = false;
+          btnClear.disabled = false;
         } catch (e) {
           console.error(e);
           statusEl.textContent = "error: " + String(e.message || e);
@@ -440,6 +555,8 @@
 
       btnStop.onclick = async () => {
         btnStop.disabled = true;
+        btnPause.disabled = true;
+        btnClear.disabled = true;
         statusEl.textContent = "stopping...";
         await whepStop(session || {});
         session = null;

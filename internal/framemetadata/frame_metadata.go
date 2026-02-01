@@ -173,9 +173,7 @@ func (i *Inserter) buildCBORPayload(
 	// determine utc_ms / dt_ms (camera clock from RTP/PTS)
 	m := make(map[string]any, 6)
 	m["frame_type"] = uint64(frameType)
-
-	// Human marker to ease hexdump inspection.
-	m["marker"] = " KELA "
+	m["version"] = "v0.1"
 
 	camMS := cameraMillis(ntp, pts, clockRate)
 	ingestMS := ingestNow.UnixMilli()

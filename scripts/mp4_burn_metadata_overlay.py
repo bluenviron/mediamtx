@@ -343,7 +343,8 @@ def overlay_text(m: Dict[str, Any], abs_m: Dict[str, Any]) -> str:
 
     ft = int(m.get("frame_type", 255))
     # Use a single fixed template for all frames to avoid box-size jumps.
-    s = f"metadata FT={ft} cam={cam_hr} ingest={ing_hr}"
+    ver = m.get("version", "")
+    s = f"metadata v={ver} FT={ft} cam={cam_hr} ingest={ing_hr}"
     if "ptz_ver" in m:
         s += f" ptz_ver={m.get('ptz_ver')}"
         if "pan" in m:
