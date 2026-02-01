@@ -69,7 +69,7 @@ pathDefaults:
   recordFormat: fmp4
   recordPartDuration: 8s
   recordMaxPartSize: 50M
-  recordSegmentDuration: 5m
+  recordSegmentDuration: 30m
   recordDeleteAfter: 24h
 
 paths:
