@@ -417,7 +417,7 @@ func (conf *Conf) setDefaults() {
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512
-	conf.UDPMaxPayloadSize = 1472
+	conf.UDPMaxPayloadSize = 1452
 
 	// Authentication
 	conf.AuthMethod = AuthMethodInternal
