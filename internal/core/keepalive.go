@@ -40,8 +40,8 @@ func (k *keepalive) Close() {
 }
 
 // APIReaderDescribe implements defs.Reader.
-func (k *keepalive) APIReaderDescribe() defs.APIPathSourceOrReader {
-	return defs.APIPathSourceOrReader{
+func (k *keepalive) APIReaderDescribe() *defs.APIPathReader {
+	return &defs.APIPathReader{
 		Type: "keepalive",
 		ID:   k.id.String(),
 	}
