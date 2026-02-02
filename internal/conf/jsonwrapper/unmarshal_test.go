@@ -82,13 +82,27 @@ func TestUnmarshalSetSliceToNil(t *testing.T) {
 
 	json := []byte(`{"items": null}`)
 	err := Unmarshal(json, &data)
-	require.EqualError(t, err, "cannot set slice to nil")
+	require.EqualError(t, err, "cannot set slice to nil: field 'items'")
 
 	data = Data{Items: []string{"a", "b"}}
 
 	json = []byte(`{"items": null}`)
 	err = Unmarshal(json, &data)
-	require.EqualError(t, err, "cannot set slice to nil")
+	require.EqualError(t, err, "cannot set slice to nil: field 'items'")
+}
+
+func TestUnmarshalSetNestedSliceToNil(t *testing.T) {
+	type Inner struct {
+		Values []int `json:"values"`
+	}
+	type Outer struct {
+		Inner Inner `json:"inner"`
+	}
+
+	var data Outer
+	json := []byte(`{"inner": {"values": null}}`)
+	err := Unmarshal(json, &data)
+	require.EqualError(t, err, "cannot set slice to nil: field 'inner.values'")
 }
 
 func TestUnmarshalSetNullableSliceToNil(t *testing.T) {
