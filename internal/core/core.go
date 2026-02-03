@@ -99,7 +99,6 @@ func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption)
 var cli struct {
 	Confpath string `arg:"" default:""`
 	Version  bool   `help:"print version"`
-	Check    bool   `help:"validate configuration and exit"`
 	Upgrade  bool   `help:"upgrade executable to the latest version"`
 }
 
@@ -165,36 +164,6 @@ func New(args []string) (*Core, bool) {
 		if err != nil {
 			fmt.Printf("ERR: %v\n", err)
 			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
-	if cli.Check {
-		tempLogger := &logger.Logger{
-			Level:        logger.Info,
-			Destinations: []logger.Destination{logger.DestinationStdout},
-			Structured:   false,
-			File:         "",
-			SysLogPrefix: "",
-		}
-		tempLogger.Initialize() //nolint:errcheck
-
-		confPaths := append([]string(nil), defaultConfPaths...)
-		if runtime.GOOS != "windows" {
-			confPaths = append(confPaths, defaultConfPathsNotWin...)
-		}
-
-		_, confPath, err := conf.Load(cli.Confpath, confPaths, tempLogger)
-		if err != nil {
-			fmt.Printf("ERR: %s\n", err)
-			os.Exit(1)
-		}
-
-		if confPath != "" {
-			absPath, _ := filepath.Abs(confPath)
-			fmt.Printf("configuration file '%s' is valid\n", absPath)
-		} else {
-			fmt.Println("no configuration file found, using defaults - configuration is valid")
 		}
 		os.Exit(0)
 	}
