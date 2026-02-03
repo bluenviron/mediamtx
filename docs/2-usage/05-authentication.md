@@ -121,6 +121,21 @@ authHTTPExclude:
   - action: pprof
 ```
 
+If the authentication server uses HTTPS and has a self-signed or invalid TLS certificate, you can provide the fingerprint of the certificate to validate it anyway:
+
+```yml
+authMethod: http
+authHTTPAddress: https://myauthserver/auth
+authHTTPFingerprint: 33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739
+```
+
+The fingerprint can be obtained with:
+
+```sh
+openssl s_client -connect myauthserver:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+```
+
 ### External JWT provider
 
 Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external server is contacted once, and not for every request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
@@ -144,6 +159,22 @@ The JWT is expected to contain a claim, with a list of permissions in the same f
     }
   ]
 }
+```
+
+If the JWKS server uses TLS and has a self-signed or invalid TLS certificate, you can provide the fingerprint of the certificate to validate it anyway:
+
+```yml
+authMethod: jwt
+authJWTJWKS: https://my_identity_server/jwks_endpoint
+authJWTJWKSFingerprint: 33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739
+authJWTClaimKey: mediamtx_permissions
+```
+
+The fingerprint can be obtained with:
+
+```sh
+openssl s_client -connect my_identity_server:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
 ```
 
 #### Keycloak setup

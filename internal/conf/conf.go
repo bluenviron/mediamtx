@@ -262,6 +262,7 @@ type Conf struct {
 	AuthInternalUsers         []AuthInternalUser           `json:"authInternalUsers"`
 	AuthHTTPAddress           string                       `json:"authHTTPAddress"`
 	ExternalAuthenticationURL *string                      `json:"externalAuthenticationURL,omitempty"` // deprecated
+	AuthHTTPFingerprint       string                       `json:"authHTTPFingerprint"`
 	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
 	AuthJWTJWKSFingerprint    string                       `json:"authJWTJWKSFingerprint"`
