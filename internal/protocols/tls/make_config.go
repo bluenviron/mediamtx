@@ -4,8 +4,10 @@ package tls
 import (
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -35,4 +37,29 @@ func MakeConfig(serverName string, fingerprint string) *tls.Config {
 	}
 
 	return conf
+}
+
+// MakeConfigWithCA returns a tls.Config with:
+// - server name indicator (SNI) support
+// - custom CA certificate pool from file
+func MakeConfigWithCA(serverName string, caFile string) (*tls.Config, error) {
+	conf := &tls.Config{
+		ServerName: serverName,
+	}
+
+	if caFile != "" {
+		caCert, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA file: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+
+		conf.RootCAs = caCertPool
+	}
+
+	return conf, nil
 }

@@ -338,6 +338,7 @@ func (p *Core) createResources(initial bool) error {
 			InternalUsers:      p.conf.AuthInternalUsers,
 			HTTPAddress:        p.conf.AuthHTTPAddress,
 			HTTPExclude:        p.conf.AuthHTTPExclude,
+			HTTPCAFile:         p.conf.AuthHTTPCAFile,
 			JWTJWKS:            p.conf.AuthJWTJWKS,
 			JWTJWKSFingerprint: p.conf.AuthJWTJWKSFingerprint,
 			JWTClaimKey:        p.conf.AuthJWTClaimKey,

@@ -61,6 +61,7 @@ type Manager struct {
 	InternalUsers      []conf.AuthInternalUser
 	HTTPAddress        string
 	HTTPExclude        []conf.AuthInternalUserPermission
+	HTTPCAFile         string
 	JWTJWKS            string
 	JWTJWKSFingerprint string
 	JWTClaimKey        string
@@ -172,7 +173,31 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 		Query:    req.Query,
 	})
 
-	res, err := http.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
+	// Create HTTP client with custom TLS config if CA file is specified
+	client := &http.Client{
+		Timeout: m.ReadTimeout,
+	}
+
+	if m.HTTPCAFile != "" {
+		u, err := url.Parse(m.HTTPAddress)
+		if err != nil {
+			return fmt.Errorf("failed to parse HTTP address: %w", err)
+		}
+
+		tlsConfig, err := tls.MakeConfigWithCA(u.Hostname(), m.HTTPCAFile)
+		if err != nil {
+			return fmt.Errorf("failed to configure TLS: %w", err)
+		}
+
+		tr := &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+		defer tr.CloseIdleConnections()
+
+		client.Transport = tr
+	}
+
+	res, err := client.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
