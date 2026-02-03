@@ -692,7 +692,7 @@ func (pconf *Path) validate(
 		if pconf.AlwaysAvailableFile != "" {
 			err := checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
 			if err != nil {
-				return fmt.Errorf("invalid 'alwaysAvailableVideo': %w", err)
+				return fmt.Errorf("invalid 'alwaysAvailableFile': %w", err)
 			}
 		} else if len(pconf.AlwaysAvailableTracks) == 0 {
 			return fmt.Errorf("'alwaysAvailableTracks' must contain at least one track")
