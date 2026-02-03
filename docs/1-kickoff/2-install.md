@@ -58,7 +58,7 @@ COPY --from=mediamtx /mediamtx /
 COPY --from=mediamtx.yml /
 
 RUN apt update && apt install -y \
-   (insert here additional utilities)
+   (insert additional utilities here)
 
 ENTRYPOINT [ "/mediamtx" ]
 ```

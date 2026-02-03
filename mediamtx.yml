@@ -497,7 +497,7 @@ pathDefaults:
   alwaysAvailable: false
   # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ''
-  # Tracks of the offline segment.
+  # Tracks of the default offline segment.
   alwaysAvailableTracks:
     # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
     - codec: H264

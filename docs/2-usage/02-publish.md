@@ -443,7 +443,7 @@ FFmpeg can publish a stream to the server in several ways. The recommended one c
 #### FFmpeg and RTSP
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
+ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f rtsp rtsp://localhost:8554/mystream
 ```
 
 The resulting stream will be available on path `/mystream`.
@@ -451,7 +451,7 @@ The resulting stream will be available on path `/mystream`.
 #### FFmpeg and RTMP
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystream
+ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f flv rtmp://localhost:1935/mystream
 ```
 
 #### FFmpeg and MPEG-TS over UDP
@@ -459,7 +459,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:1935/mystr
 In _MediaMTX_ configuration, add a path with `source: udp+mpegts://238.0.0.1:1234`. Then:
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'udp://238.0.0.1:1234?pkt_size=1316'
+ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f mpegts 'udp://238.0.0.1:1234?pkt_size=1316'
 ```
 
 #### FFmpeg and MPEG-TS over Unix socket
@@ -491,7 +491,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 #### FFmpeg and SRT
 
 ```sh
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f mpegts 'srt://localhost:8890?streamid=publish:stream&pkt_size=1316'
+ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f mpegts 'srt://localhost:8890?streamid=publish:stream&pkt_size=1316'
 ```
 
 #### FFmpeg and WebRTC
