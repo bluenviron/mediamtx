@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -24,7 +25,7 @@ const (
 )
 
 type serverPathManager interface {
-	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.Stream, error)
+	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
 }
 
 type MPEGTSDemuxer struct {
@@ -33,8 +34,8 @@ type MPEGTSDemuxer struct {
 	pathConf     *conf.Path
 	author       defs.Publisher
 	logger       logger.Writer
-	packetsLost  *counterdumper.CounterDumper
-	decodeErrors *counterdumper.CounterDumper
+	packetsLost  *counterdumper.Dumper
+	decodeErrors *errordumper.Dumper
 	pathName     string
 	query        string
 
@@ -43,7 +44,7 @@ type MPEGTSDemuxer struct {
 	rtpReader  *rtpMPEGTSReader
 	tsReader   *mpegts.EnhancedReader
 	path       defs.Path
-	stream     *stream.Stream
+	subStream  *stream.SubStream
 	initDone   chan error
 	loopErr    chan error
 }
@@ -54,8 +55,8 @@ func NewMPEGTSDemuxer(
 	pathConf *conf.Path,
 	author defs.Publisher,
 	l logger.Writer,
-	packetsLost *counterdumper.CounterDumper,
-	decodeErrors *counterdumper.CounterDumper,
+	packetsLost *counterdumper.Dumper,
+	decodeErrors *errordumper.Dumper,
 	pathName string,
 	query string,
 ) *MPEGTSDemuxer {
@@ -98,14 +99,14 @@ func (d *MPEGTSDemuxer) Start() {
 }
 
 // WaitForInit blocks until initialization completes or times out.
-func (d *MPEGTSDemuxer) WaitForInit() (defs.Path, *stream.Stream, error) {
+func (d *MPEGTSDemuxer) WaitForInit() (defs.Path, *stream.SubStream, error) {
 	select {
 	case err := <-d.initDone:
 		if err != nil {
 			d.ctxCancel()
 			return nil, nil, fmt.Errorf("MPEG-TS initialization failed: %w", err)
 		}
-		return d.path, d.stream, nil
+		return d.path, d.subStream, nil
 
 	case <-time.After(mpegtsInitTimeout):
 		d.ctxCancel()
@@ -137,22 +138,22 @@ func (d *MPEGTSDemuxer) initialize() error {
 		return fmt.Errorf("failed to initialize MPEG-TS reader: %w", err)
 	}
 
-	d.tsReader.OnDecodeError(func(_ error) {
-		d.decodeErrors.Increase()
+	d.tsReader.OnDecodeError(func(err error) {
+		d.decodeErrors.Add(err)
 	})
 
-	medias, err := mpegts.ToStream(d.tsReader, &d.stream, d.logger)
+	medias, err := mpegts.ToStream(d.tsReader, &d.subStream, d.logger)
 	if err != nil {
 		return fmt.Errorf("failed to map MPEG-TS to stream: %w", err)
 	}
 
 	d.logger.Log(logger.Info, "MPEG-TS demux discovered %d tracks", len(medias))
 
-	d.path, d.stream, err = d.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	d.path, d.subStream, err = d.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:             d.author,
 		Desc:               &description.Session{Medias: medias},
-		GenerateRTPPackets: true,
-		FillNTP:            true,
+		UseRTPPackets:      false,
+		ReplaceNTP:         true,
 		ConfToCompare:      d.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     d.pathName,

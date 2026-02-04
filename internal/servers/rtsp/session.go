@@ -417,7 +417,7 @@ func (s *session) onRecordMPEGTSDemux() (*base.Response, error) {
 }
 
 func (s *session) waitForMPEGTSInit() {
-	path, stream, err := s.mpegTSDemuxer.WaitForInit()
+	path, subStream, err := s.mpegTSDemuxer.WaitForInit()
 	if err != nil {
 		s.Log(logger.Error, "MPEG-TS demux failed: %v", err)
 		s.rsession.Close()
@@ -425,7 +425,7 @@ func (s *session) waitForMPEGTSInit() {
 	}
 
 	s.path = path
-	s.stream = stream
+	s.subStream = subStream
 	s.Log(logger.Info, "MPEG-TS demux initialized successfully")
 }
 

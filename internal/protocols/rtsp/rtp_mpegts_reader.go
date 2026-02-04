@@ -13,7 +13,7 @@ import (
 // rtpMPEGTSReader provides an io.Reader interface over RTP packets
 // containing MPEG-TS data (RFC 2250).
 type rtpMPEGTSReader struct {
-	packetsLost *counterdumper.CounterDumper
+	packetsLost *counterdumper.Dumper
 
 	mu      sync.Mutex
 	cond    *sync.Cond
@@ -24,7 +24,7 @@ type rtpMPEGTSReader struct {
 	err     error
 }
 
-func newRTPMPEGTSReader(packetsLost *counterdumper.CounterDumper) *rtpMPEGTSReader {
+func newRTPMPEGTSReader(packetsLost *counterdumper.Dumper) *rtpMPEGTSReader {
 	r := &rtpMPEGTSReader{
 		packetsLost: packetsLost,
 		buffer:      &bytes.Buffer{},
