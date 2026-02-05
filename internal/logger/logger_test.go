@@ -20,7 +20,7 @@ func TestLoggerToStdout(t *testing.T) {
 			l := &Logger{
 				Destinations: []Destination{DestinationStdout},
 				Structured:   (ca == "structured"),
-				timeNow:      func() time.Time { return time.Date(2003, 11, 4, 23, 15, 8, 0, time.UTC) },
+				timeNow:      func() time.Time { return time.Date(2003, 11, 4, 23, 15, 8, 431232, time.UTC) },
 				stdout:       &buf,
 			}
 			err := l.Initialize()
@@ -32,7 +32,7 @@ func TestLoggerToStdout(t *testing.T) {
 			if ca == "plain" {
 				require.Equal(t, "2003/11/04 23:15:08 INF test format 123\n", buf.String())
 			} else {
-				require.Equal(t, `{"timestamp":"2003-11-04T23:15:08Z",`+
+				require.Equal(t, `{"timestamp":"2003-11-04T23:15:08.000431232Z",`+
 					`"level":"INF","message":"test format 123"}`+"\n", buf.String())
 			}
 		})
