@@ -60,6 +60,7 @@ type Manager struct {
 	Method             conf.AuthMethod
 	InternalUsers      []conf.AuthInternalUser
 	HTTPAddress        string
+	HTTPFingerprint    string
 	HTTPExclude        []conf.AuthInternalUserPermission
 	JWTJWKS            string
 	JWTJWKSFingerprint string
@@ -172,7 +173,22 @@ func (m *Manager) authenticateHTTP(req *Request) error {
 		Query:    req.Query,
 	})
 
-	res, err := http.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
+	u, err := url.Parse(m.HTTPAddress)
+	if err != nil {
+		return err
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: tls.MakeConfig(u.Hostname(), m.HTTPFingerprint),
+	}
+	defer tr.CloseIdleConnections()
+
+	httpClient := &http.Client{
+		Timeout:   m.ReadTimeout,
+		Transport: tr,
+	}
+
+	res, err := httpClient.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}

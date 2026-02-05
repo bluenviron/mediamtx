@@ -108,6 +108,8 @@ components:
             $ref: '#/components/schemas/AuthInternalUser'
         authHTTPAddress:
           type: string
+        authHTTPFingerprint:
+          type: string
         authHTTPExclude:
           type: array
           items:

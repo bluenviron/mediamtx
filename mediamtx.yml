@@ -107,6 +107,12 @@ authInternalUsers:
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
 authHTTPAddress:
+# If the HTTP authentication URL has a self-signed or invalid certificate,
+# you can provide the fingerprint of the certificate in order to
+# validate it anyway. It can be obtained by running:
+# openssl s_client -connect auth_http_domain:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+# openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+authHTTPFingerprint:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
