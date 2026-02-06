@@ -170,6 +170,7 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 						Type:          mpeg4audio.ObjectTypeAACLC,
 						SampleRate:    track.SampleRate,
 						ChannelConfig: uint8(track.ChannelCount),
+						ChannelCount:  track.ChannelCount,
 					},
 				}},
 			})
