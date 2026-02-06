@@ -28,7 +28,7 @@ require (
 	github.com/matthewhartstonge/argon2 v1.4.5
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.2.0
-	github.com/pion/interceptor v0.1.43
+	github.com/pion/interceptor v0.1.44
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/rtp v1.10.1
