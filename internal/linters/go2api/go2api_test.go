@@ -1,3 +1,5 @@
+//go:build enable_linters
+
 package main
 
 import (
@@ -126,8 +128,8 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 	}
 }
 
-func TestAPIDocs(t *testing.T) {
-	byts, err := os.ReadFile("../../api/openapi.yaml")
+func TestGo2API(t *testing.T) {
+	byts, err := os.ReadFile("../../../api/openapi.yaml")
 	require.NoError(t, err)
 
 	var doc openAPI
