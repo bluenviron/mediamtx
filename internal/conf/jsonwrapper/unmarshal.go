@@ -20,7 +20,7 @@ func process(v reflect.Value, raw any, path string) error {
 	case reflect.Slice:
 		if raw == nil {
 			if path != "" {
-				return fmt.Errorf("cannot set slice to nil: field '%s'", path)
+				return fmt.Errorf("cannot set slice '%s' to nil", path)
 			}
 			return fmt.Errorf("cannot set slice to nil")
 		}
