@@ -15,10 +15,13 @@ import (
 // - prevents using existing elements of slices, fixing https://github.com/golang/go/issues/21092
 // - prevents setting slices to nil
 
-func process(v reflect.Value, raw any) error {
+func process(v reflect.Value, raw any, path string) error {
 	switch v.Kind() {
 	case reflect.Slice:
 		if raw == nil {
+			if path != "" {
+				return fmt.Errorf("cannot set slice '%s' to nil", path)
+			}
 			return fmt.Errorf("cannot set slice to nil")
 		}
 
@@ -41,7 +44,11 @@ func process(v reflect.Value, raw any) error {
 				jsonKey = strings.Split(jsonKey, ",")[0]
 
 				if rawVal, ok2 := rawMap[jsonKey]; ok2 {
-					err := process(field, rawVal)
+					fieldPath := jsonKey
+					if path != "" {
+						fieldPath = path + "." + jsonKey
+					}
+					err := process(field, rawVal, fieldPath)
 					if err != nil {
 						return err
 					}
@@ -71,7 +78,7 @@ func Decode(r io.Reader, dest any) error {
 		return err
 	}
 
-	err = process(reflect.ValueOf(dest).Elem(), raw)
+	err = process(reflect.ValueOf(dest).Elem(), raw, "")
 	if err != nil {
 		return err
 	}
