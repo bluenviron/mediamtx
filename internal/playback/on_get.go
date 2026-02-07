@@ -141,10 +141,22 @@ func (s *Server) onGet(ctx *gin.Context) {
 	ww := &writerWrapper{ctx: ctx}
 	var m muxer
 
+	skipInit := ctx.Query("skipInit") == "true"
+
+	var baseTimeOffset time.Duration
+	if raw := ctx.Query("timeOffset"); raw != "" {
+		secs, parseErr := strconv.ParseFloat(raw, 64)
+		if parseErr != nil {
+			s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid timeOffset: %w", parseErr))
+			return
+		}
+		baseTimeOffset = time.Duration(secs * float64(time.Second))
+	}
+
 	format := ctx.Query("format")
 	switch format {
 	case "", "fmp4":
-		m = &muxerFMP4{w: ww}
+		m = &muxerFMP4{w: ww, skipInit: skipInit, baseTimeOffset: baseTimeOffset}
 
 	case "mp4":
 		m = &muxerMP4{w: ww}
