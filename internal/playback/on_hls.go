@@ -103,7 +103,7 @@ func (s *Server) onHLS(ctx *gin.Context) {
 	// Generate HLS manifest
 	var manifest strings.Builder
 	manifest.WriteString("#EXTM3U\n")
-	manifest.WriteString("#EXT-X-VERSION:3\n")
+	manifest.WriteString("#EXT-X-VERSION:6\n")
 	manifest.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
 
 	// Find maximum duration for TARGETDURATION
@@ -122,6 +122,7 @@ func (s *Server) onHLS(ctx *gin.Context) {
 	// Add each segment
 	for i, entry := range entries {
 		duration := time.Duration(entry.Duration).Seconds()
+		manifest.WriteString(fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s\n", entry.Start.Format(time.RFC3339Nano)))
 		manifest.WriteString(fmt.Sprintf("#EXTINF:%.3f,\n", duration))
 
 		// Generate segment URL with .m4s extension for HLS compatibility
