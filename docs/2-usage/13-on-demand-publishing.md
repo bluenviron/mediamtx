@@ -5,7 +5,7 @@ Edit `mediamtx.yml` and replace everything inside section `paths` with the follo
 ```yml
 paths:
   ondemand:
-    runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnDemand: ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
     runOnDemandRestart: yes
 ```
 
