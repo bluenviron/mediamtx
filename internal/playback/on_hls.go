@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/gin-gonic/gin"
 )
@@ -60,44 +61,45 @@ func (s *Server) onHLS(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	if pathConf.RecordFormat != conf.RecordFormatFMP4 {
+		s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("HLS playback requires fMP4 recording format"))
+		return
+	}
+
+	// Parse each recording file individually (don't concatenate) so each
+	// recording file becomes its own HLS segment for faster startup.
+	parsed, err := parseSegments(segments)
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
+	// Filter by start/end time
 	if start != nil {
-		firstEntry := entries[0]
-
-		// when start is placed in a gap between the first and second segment,
-		// or when there's no second segment,
-		// the first segment is erroneously included with a negative duration.
-		// remove it.
-		if firstEntry.Start.Add(time.Duration(firstEntry.Duration)).Before(*start) {
-			entries = entries[1:]
-
-			if len(entries) == 0 {
-				s.writeError(ctx, http.StatusNotFound, recordstore.ErrNoSegmentsFound)
-				return
+		for len(parsed) > 0 {
+			seg := parsed[0]
+			segEnd := seg.start.Add(seg.duration)
+			if segEnd.Before(*start) {
+				parsed = parsed[1:]
+			} else {
+				break
 			}
-		} else if firstEntry.Start.Before(*start) {
-			entries[0].Duration -= listEntryDuration(start.Sub(firstEntry.Start))
-			entries[0].Start = *start
 		}
 	}
-
 	if end != nil {
-		lastEntry := entries[len(entries)-1]
-		if lastEntry.Start.Add(time.Duration(lastEntry.Duration)).After(*end) {
-			entries[len(entries)-1].Duration = listEntryDuration(end.Sub(lastEntry.Start))
+		for len(parsed) > 0 {
+			seg := parsed[len(parsed)-1]
+			if seg.start.After(*end) {
+				parsed = parsed[:len(parsed)-1]
+			} else {
+				break
+			}
 		}
 	}
 
-	var scheme string
-	if s.Encryption {
-		scheme = "https"
-	} else {
-		scheme = "http"
+	if len(parsed) == 0 {
+		s.writeError(ctx, http.StatusNotFound, recordstore.ErrNoSegmentsFound)
+		return
 	}
 
 	// Generate HLS manifest
@@ -108,36 +110,43 @@ func (s *Server) onHLS(ctx *gin.Context) {
 
 	// Find maximum duration for TARGETDURATION
 	maxDuration := 0.0
-	for _, entry := range entries {
-		dur := time.Duration(entry.Duration).Seconds()
+	for _, seg := range parsed {
+		dur := seg.duration.Seconds()
 		if dur > maxDuration {
 			maxDuration = dur
 		}
 	}
-	// Round up to nearest integer
 	targetDuration := max(int(maxDuration)+1, 1)
 	manifest.WriteString(fmt.Sprintf("#EXT-X-TARGETDURATION:%d\n", targetDuration))
 	manifest.WriteString("#EXT-X-MEDIA-SEQUENCE:0\n")
 
-	// Add each segment
-	for i, entry := range entries {
-		duration := time.Duration(entry.Duration).Seconds()
-		manifest.WriteString(fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s\n", entry.Start.Format(time.RFC3339Nano)))
+	// EXT-X-MAP tells the player where to get the init segment (ftyp+moov).
+	// Without this, fMP4 segments (moof+mdat) cannot be decoded.
+	initParams := url.Values{}
+	initParams.Add("path", pathName)
+	manifest.WriteString(fmt.Sprintf("#EXT-X-MAP:URI=\"hls_init.mp4?%s\"\n", initParams.Encode()))
+
+	// Add each recording file as an individual HLS segment.
+	// skipInit=true tells the segment endpoint to omit the init data
+	// since EXT-X-MAP already provides it.
+	// timeOffset ensures each segment's baseMediaDecodeTime continues
+	// where the previous segment ended (required for MSE).
+	cumulativeOffset := 0.0
+	for i, seg := range parsed {
+		duration := seg.duration.Seconds()
+		manifest.WriteString(fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s\n", seg.start.Format(time.RFC3339Nano)))
 		manifest.WriteString(fmt.Sprintf("#EXTINF:%.3f,\n", duration))
 
-		// Generate segment URL with .m4s extension for HLS compatibility
 		v := url.Values{}
 		v.Add("path", pathName)
-		v.Add("start", entry.Start.Format(time.RFC3339Nano))
+		v.Add("start", seg.start.Format(time.RFC3339Nano))
 		v.Add("duration", strconv.FormatFloat(duration, 'f', -1, 64))
 		v.Add("format", "fmp4")
-		u := &url.URL{
-			Scheme:   scheme,
-			Host:     ctx.Request.Host,
-			Path:     fmt.Sprintf("/segment_%d.m4s", i),
-			RawQuery: v.Encode(),
-		}
-		manifest.WriteString(u.String() + "\n")
+		v.Add("skipInit", "true")
+		v.Add("timeOffset", strconv.FormatFloat(cumulativeOffset, 'f', -1, 64))
+		manifest.WriteString(fmt.Sprintf("segment_%d.m4s?%s\n", i, v.Encode()))
+
+		cumulativeOffset += duration
 	}
 
 	manifest.WriteString("#EXT-X-ENDLIST\n")

@@ -32,6 +32,10 @@ func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
 
 type muxerFMP4 struct {
 	w io.Writer
+	// Skip writing the init segment (EXT-X-MAP provides it for HLS)
+	skipInit bool
+	// Added to all segment base times (contiguous timing for HLS)
+	baseTimeOffset time.Duration
 
 	init               *fmp4.Init
 	nextSequenceNumber uint32
@@ -144,9 +148,13 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 				samples = track.samples
 			}
 
+			baseTime := uint64(track.firstDTS)
+			if w.baseTimeOffset > 0 {
+				baseTime += uint64(durationGoToMp4(w.baseTimeOffset, track.timeScale))
+			}
 			part.Tracks = append(part.Tracks, &fmp4.PartTrack{
 				ID:       track.id,
-				BaseTime: uint64(track.firstDTS),
+				BaseTime: baseTime,
 				Samples:  samples,
 			})
 
@@ -170,18 +178,21 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 	w.nextSequenceNumber++
 
 	if w.init != nil {
-		err := w.init.Marshal(&w.outBuf)
-		if err != nil {
-			return err
-		}
+		if !w.skipInit {
+			err := w.init.Marshal(&w.outBuf)
+			if err != nil {
+				return err
+			}
 
-		_, err = w.w.Write(w.outBuf.Bytes())
-		if err != nil {
-			return err
+			_, err = w.w.Write(w.outBuf.Bytes())
+			if err != nil {
+				return err
+			}
+
+			w.outBuf.Reset()
 		}
 
 		w.init = nil
-		w.outBuf.Reset()
 	}
 
 	err := part.Marshal(&w.outBuf)
