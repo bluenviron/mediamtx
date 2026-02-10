@@ -3,6 +3,7 @@ package hls
 
 import (
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"time"
 
@@ -68,12 +69,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 	defer tr.CloseIdleConnections()
 
+	jar, _ := cookiejar.New(nil)
+
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
 		URI: params.ResolvedSource,
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
+			Jar:       jar,
 		},
 		OnDownloadPrimaryPlaylist: func(u string) {
 			s.Log(logger.Debug, "downloading primary playlist %v", u)
