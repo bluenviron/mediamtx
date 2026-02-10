@@ -2623,7 +2623,7 @@ paths:
     get:
       operationId: recordingsList
       tags: [Recordings]
-      summary: returns all recordings.
+      summary: returns all recordings, splitted by path.
       description: ''
       parameters:
       - name: page
@@ -2662,7 +2662,7 @@ paths:
     get:
       operationId: recordingsGet
       tags: [Recordings]
-      summary: returns recordings for a path.
+      summary: returns recordings of a path.
       description: ''
       parameters:
       - name: name
