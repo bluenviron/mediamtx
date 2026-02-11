@@ -657,6 +657,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsReceived": float64(0),
 							"rtcpPacketsSent":     float64(0),
 							"rtcpPacketsInError":  float64(0),
+							"conns":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
 						},
 					},
 				}, out1)
@@ -702,6 +703,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsReceived": float64(0),
 							"rtcpPacketsSent":     float64(0),
 							"rtcpPacketsInError":  float64(0),
+							"conns":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
 						},
 					},
 				}, out1)

@@ -36,6 +36,11 @@ func profileLabel(p headers.TransportProfile) string {
 	return "unknown"
 }
 
+type sessionParent interface {
+	logger.Writer
+	getConnByRConnUnsafe(rconn *gortsplib.ServerConn) *conn
+}
+
 type session struct {
 	isTLS           bool
 	transports      conf.RTSPTransports
@@ -44,7 +49,7 @@ type session struct {
 	rserver         *gortsplib.Server
 	externalCmdPool *externalcmd.Pool
 	pathManager     serverPathManager
-	parent          logger.Writer
+	parent          sessionParent
 
 	uuid            uuid.UUID
 	created         time.Time
@@ -446,6 +451,18 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			}
 			v := profileLabel(transport.Profile)
 			return &v
+		}(),
+		Conns: func() []uuid.UUID {
+			ret := []uuid.UUID{}
+
+			for _, rconn := range s.rsession.Conns() {
+				conn := s.parent.getConnByRConnUnsafe(rconn)
+				if conn != nil {
+					ret = append(ret, conn.uuid)
+				}
+			}
+
+			return ret
 		}(),
 		BytesReceived:       stats.BytesReceived,
 		BytesSent:           stats.BytesSent,
