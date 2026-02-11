@@ -81,6 +81,12 @@ func (t *offlineSubStreamTrack) run() {
 				payload[i] = []byte{0xF8, 0xFF, 0xFE} // DTX frame
 			}
 
+			select {
+			case <-t.ctx.Done():
+				return
+			default:
+			}
+
 			t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 				PTS:     pts,
 				NTP:     time.Time{},
@@ -115,6 +121,12 @@ func (t *offlineSubStreamTrack) run() {
 				payload[i] = frame
 			}
 
+			select {
+			case <-t.ctx.Done():
+				return
+			default:
+			}
+
 			t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 				PTS:     pts,
 				NTP:     time.Time{},
@@ -147,6 +159,12 @@ func (t *offlineSubStreamTrack) run() {
 				payload[i] = sample
 			}
 
+			select {
+			case <-t.ctx.Done():
+				return
+			default:
+			}
+
 			t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 				PTS:     pts,
 				NTP:     time.Time{},
@@ -168,6 +186,12 @@ func (t *offlineSubStreamTrack) run() {
 
 		for {
 			payload := make(unit.PayloadLPCM, samplesPerWrite*forma.ChannelCount*(forma.BitDepth/8))
+
+			select {
+			case <-t.ctx.Done():
+				return
+			default:
+			}
 
 			t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 				PTS:     pts,
@@ -261,6 +285,12 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 					return err
 				}
 
+				select {
+				case <-t.ctx.Done():
+					return nil
+				default:
+				}
+
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 					PTS:     pts,
 					NTP:     time.Time{},
@@ -268,6 +298,13 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 				})
 
 			case *mcodecs.VP9:
+
+				select {
+				case <-t.ctx.Done():
+					return nil
+				default:
+				}
+
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 					PTS:     pts,
 					NTP:     time.Time{},
@@ -281,6 +318,12 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 					return err
 				}
 
+				select {
+				case <-t.ctx.Done():
+					return nil
+				default:
+				}
+
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
 					PTS:     pts,
 					NTP:     time.Time{},
@@ -292,6 +335,12 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 				err = avcc.Unmarshal(payload)
 				if err != nil {
 					return err
+				}
+
+				select {
+				case <-t.ctx.Done():
+					return nil
+				default:
 				}
 
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
