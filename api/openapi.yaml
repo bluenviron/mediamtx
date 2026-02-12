@@ -377,8 +377,6 @@ components:
           type: string
         dropNonKeyframes:
           type: boolean
-        enableFrameMetadata:
-          type: boolean
         metadata:
           type: object
           additionalProperties: true

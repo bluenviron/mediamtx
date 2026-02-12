@@ -19,14 +19,13 @@ import (
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, converting it when needed.
 type Stream struct {
-	WriteQueueSize      int
-	RTPMaxPayloadSize   int
-	Desc                *description.Session
-	GenerateRTPPackets  bool
-	FillNTP             bool
-	DropNonKeyframes    bool
-	EnableFrameMetadata bool
-	Parent              logger.Writer
+	WriteQueueSize     int
+	RTPMaxPayloadSize  int
+	Desc               *description.Session
+	GenerateRTPPackets bool
+	FillNTP            bool
+	DropNonKeyframes   bool
+	Parent             logger.Writer
 
 	bytesReceived    *uint64
 	bytesSent        *uint64
@@ -63,14 +62,13 @@ func (s *Stream) Initialize() error {
 
 	for _, media := range s.Desc.Medias {
 		s.medias[media] = &streamMedia{
-			rtpMaxPayloadSize:   s.RTPMaxPayloadSize,
-			media:               media,
-			generateRTPPackets:  s.GenerateRTPPackets,
-			fillNTP:             s.FillNTP,
-			dropNonKeyframes:    s.DropNonKeyframes,
-			enableFrameMetadata: s.EnableFrameMetadata,
-			processingErrors:    s.processingErrors,
-			parent:              s.Parent,
+			rtpMaxPayloadSize:  s.RTPMaxPayloadSize,
+			media:              media,
+			generateRTPPackets: s.GenerateRTPPackets,
+			fillNTP:            s.FillNTP,
+			dropNonKeyframes:   s.DropNonKeyframes,
+			processingErrors:   s.processingErrors,
+			parent:             s.Parent,
 		}
 		err := s.medias[media].initialize()
 		if err != nil {

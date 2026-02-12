@@ -10,7 +10,6 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/codecprocessor"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
-	"github.com/bluenviron/mediamtx/internal/framemetadata"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -25,19 +24,17 @@ func unitSize(u *unit.Unit) uint64 {
 }
 
 type streamFormat struct {
-	rtpMaxPayloadSize   int
-	format              format.Format
-	generateRTPPackets  bool
-	fillNTP             bool
-	dropNonKeyframes    bool
-	enableFrameMetadata bool
-	processingErrors    *counterdumper.CounterDumper
-	parent              logger.Writer
+	rtpMaxPayloadSize  int
+	format             format.Format
+	generateRTPPackets bool
+	fillNTP            bool
+	dropNonKeyframes   bool
+	processingErrors   *counterdumper.CounterDumper
+	parent             logger.Writer
 
-	proc          codecprocessor.Processor
-	ntpEstimator  *ntpestimator.Estimator
-	onDatas       map[*Reader]OnDataFunc
-	frameMetadata *framemetadata.Inserter
+	proc         codecprocessor.Processor
+	ntpEstimator *ntpestimator.Estimator
+	onDatas      map[*Reader]OnDataFunc
 
 	// For keyframe-only mode
 	lastRTPTimestamp       uint32
@@ -54,10 +51,6 @@ func (sf *streamFormat) initialize() error {
 		return err
 	}
 
-	if sf.enableFrameMetadata {
-		sf.frameMetadata = framemetadata.NewInserter()
-	}
-
 	sf.ntpEstimator = &ntpestimator.Estimator{
 		ClockRate: sf.format.ClockRate(),
 	}
@@ -66,10 +59,6 @@ func (sf *streamFormat) initialize() error {
 }
 
 func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u *unit.Unit) {
-	if sf.frameMetadata != nil && !u.NilPayload() {
-		u.Payload = sf.frameMetadata.MaybeInsert(sf.format, u.Payload, nil, time.Now(), u.NTP, u.PTS, sf.format.ClockRate())
-	}
-
 	err := sf.proc.ProcessUnit(u)
 	if err != nil {
 		sf.processingErrors.Increase()
@@ -178,15 +167,11 @@ func (sf *streamFormat) writeRTPPacket(
 		return
 	}
 
-	if sf.frameMetadata != nil && !u.NilPayload() {
-		u.Payload = sf.frameMetadata.MaybeInsert(sf.format, u.Payload, nil, time.Now(), u.NTP, u.PTS, sf.format.ClockRate())
-	}
-
 	sf.writeUnitInner(s, medi, u)
 }
 
 func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u *unit.Unit) {
-	if sf.fillNTP && u.NTP.IsZero() {
+	if sf.fillNTP {
 		u.NTP = sf.ntpEstimator.Estimate(u.PTS)
 	}
 
