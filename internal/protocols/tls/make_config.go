@@ -1,5 +1,5 @@
 // Package tls contains TLS utilities.
-package tls
+package tls //nolint:revive
 
 import (
 	"crypto/sha256"

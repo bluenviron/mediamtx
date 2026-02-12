@@ -1,5 +1,5 @@
 // Package pprof contains a pprof exporter.
-package pprof
+package pprof //nolint:revive
 
 import (
 	"net"
