@@ -271,7 +271,7 @@ func TestConfErrors(t *testing.T) {
 			"duplicate parameter",
 			"paths:\n" +
 				"paths:\n",
-			"yaml: unmarshal errors:\n  line 2: key \"paths\" already set in map",
+			"[2:1] mapping key \"paths\" already defined at [1:1]\n   1 |  null\n>  2 | paths:\n       ^\n",
 		},
 		{
 			"non existent parameter",

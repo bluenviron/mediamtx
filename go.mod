@@ -20,7 +20,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-git/go-billy/v5 v5.7.0
 	github.com/go-git/go-git/v5 v5.16.5
-	github.com/goccy/go-yaml v1.18.0
+	github.com/goccy/go-yaml v1.19.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gookit/color v1.6.0
@@ -40,7 +40,6 @@ require (
 	golang.org/x/crypto v0.48.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/term v0.40.0
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
