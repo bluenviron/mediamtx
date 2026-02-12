@@ -36,7 +36,6 @@ require (
 	github.com/pion/transport/v3 v3.1.1
 	github.com/pion/webrtc/v4 v4.1.6
 	github.com/stretchr/testify v1.11.1
-	github.com/ugorji/go/codec v1.3.0
 	golang.org/x/crypto v0.45.0
 	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.37.0
@@ -90,6 +89,7 @@ require (
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
