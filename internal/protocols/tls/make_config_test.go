@@ -1,4 +1,4 @@
-package tls
+package tls //nolint:revive
 
 import (
 	"crypto/tls"
