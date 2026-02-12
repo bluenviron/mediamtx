@@ -344,7 +344,7 @@ webrtc_sessions_rtcp_packets_sent 0
 		time.Sleep(500*time.Millisecond + 3*time.Second)
 
 		var bo []byte
-		for i := 0; i < 6; i++ {
+		for range 6 {
 			bo = httpPullFile(t, hc, "http://localhost:9998/metrics")
 			if bytes.Count(bo, []byte(`state="ready"`)) >= 20 {
 				break
