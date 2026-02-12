@@ -19,6 +19,9 @@ lint-go-mod:
 	go mod tidy
 	git diff --exit-code
 
+lint-conf:
+	go test -v -tags enable_linters ./internal/linters/conf
+
 lint-go2api:
 	go test -v -tags enable_linters ./internal/linters/go2api
 
@@ -33,4 +36,4 @@ lint-api-docs:
 	docker run --rm -v "$(shell pwd)/api:/s" -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
-lint: lint-go lint-go-mod lint-go2api lint-docs lint-api-docs
+lint: lint-go lint-go-mod lint-conf lint-go2api lint-docs lint-api-docs
