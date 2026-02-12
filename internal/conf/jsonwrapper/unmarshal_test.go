@@ -12,7 +12,7 @@ type testStruct struct {
 	Field2 int    `json:"field2"`
 }
 
-func TestUnmarshalDisallowUnknownFields(t *testing.T) {
+func TestUnmarshalUnknownFields(t *testing.T) {
 	input := strings.NewReader(`{"field1": "test", "unknownField": "value", "field2": 456}`)
 	var result testStruct
 	err := Decode(input, &result)
