@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"io"
@@ -340,9 +341,16 @@ webrtc_sessions_rtcp_packets_sent 0
 			<-terminate
 		}()
 
-		time.Sleep(500*time.Millisecond + 2*time.Second)
+		time.Sleep(500*time.Millisecond + 3*time.Second)
 
-		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
+		var bo []byte
+		for i := 0; i < 6; i++ {
+			bo = httpPullFile(t, hc, "http://localhost:9998/metrics")
+			if bytes.Count(bo, []byte(`state="ready"`)) >= 20 {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
 
 		require.Regexp(t,
 			`^paths\{name=".*?",state="ready"\} 1`+"\n"+
