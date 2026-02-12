@@ -1,5 +1,5 @@
 // Package metrics contains the metrics provider.
-package metrics
+package metrics //nolint:revive
 
 import (
 	"io"
