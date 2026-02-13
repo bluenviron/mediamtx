@@ -248,6 +248,9 @@ type Path struct {
 	RPICameraSecondaryFPS          float64   `json:"-"` // filled by Validate()
 	RPICameraSecondaryMJPEGQuality uint      `json:"-"` // filled by Validate()
 
+	// Custom
+	Custom                     string   `json:"custom"` // custom value available as MTX_CUSTOM env var to RunOnInit, RunOn(Un)Demand, RunOn(Not)Ready
+
 	// Hooks
 	RunOnInit                  string   `json:"runOnInit"`
 	RunOnInitRestart           bool     `json:"runOnInitRestart"`
