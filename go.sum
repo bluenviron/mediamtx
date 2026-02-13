@@ -159,8 +159,8 @@ github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pion/datachannel v1.6.0 h1:XecBlj+cvsxhAMZWFfFcPyUaDZtd7IJvrXqlXD/53i0=
 github.com/pion/datachannel v1.6.0/go.mod h1:ur+wzYF8mWdC+Mkis5Thosk+u/VOL287apDNEbFpsIk=
-github.com/pion/dtls/v3 v3.1.0 h1:bz3alDjKL1DDGe8GETGcq5rDKjXFQX9mniuUo36Up0E=
-github.com/pion/dtls/v3 v3.1.0/go.mod h1:YEmmBYIoBsY3jmG56dsziTv/Lca9y4Om83370CXfqJ8=
+github.com/pion/dtls/v3 v3.1.1 h1:wSLMam9Kf7DL1A74hnqRvEb9OT+aXPAsQ5VS+BdXOJ0=
+github.com/pion/dtls/v3 v3.1.1/go.mod h1:7FGvVYpHsUV6+aywaFpG7aE4Vz8nBOx74odPRFue6cI=
 github.com/pion/ice/v4 v4.2.0 h1:jJC8S+CvXCCvIQUgx+oNZnoUpt6zwc34FhjWwCU4nlw=
 github.com/pion/ice/v4 v4.2.0/go.mod h1:EgjBGxDgmd8xB0OkYEVFlzQuEI7kWSCFu+mULqaisy4=
 github.com/pion/interceptor v0.1.44 h1:sNlZwM8dWXU9JQAkJh8xrarC0Etn8Oolcniukmuy0/I=
