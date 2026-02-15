@@ -265,23 +265,6 @@ paths:
 
 Some clients that can publish with UDP and MPEG-TS are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
-Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+rtp` scheme:
-
-```yml
-paths:
-  mypath:
-    source: unix+rtp:///tmp/socket.sock
-    rtpSDP: |
-      v=0
-      o=- 123456789 123456789 IN IP4 192.168.1.100
-      s=H264 Video Stream
-      c=IN IP4 192.168.1.100
-      t=0 0
-      m=video 5004 RTP/AVP 96
-      a=rtpmap:96 H264/90000
-      a=fmtp:96 profile-level-id=42e01e;packetization-mode=1;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==
-```
-
 ## Devices
 
 ### Raspberry Pi Cameras

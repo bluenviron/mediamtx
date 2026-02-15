@@ -457,7 +457,6 @@ pathDefaults:
   # * udp+mpegts://ip:port -> the stream is pulled from MPEG-TS over UDP, by listening on the specified address
   # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
   # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
-  # * unix+rtp://socket -> the stream is pulled from RTP over Unix socket, by using the socket
   # * srt://existing-url -> the stream is pulled from another SRT server / camera
   # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
   # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
