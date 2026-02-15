@@ -65,7 +65,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	switch u.Scheme {
 	case "unix+rtp":
-		nc, err = unix.CreateConn(u)
+		nc, err = unix.Listen(u)
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
 		}
 
-		nc, err = udp.CreateConn(u, int(udpReadBufferSize))
+		nc, err = udp.Listen(u, int(udpReadBufferSize))
 		if err != nil {
 			return err
 		}
