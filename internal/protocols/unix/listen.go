@@ -114,8 +114,8 @@ func (r *unixConn) SetWriteDeadline(_ time.Time) error {
 	panic("unimplemented")
 }
 
-// CreateConn creates a Unix socket connection.
-func CreateConn(u *url.URL) (net.Conn, error) {
+// Listen creates a Unix listener on the given URL.
+func Listen(u *url.URL) (net.Conn, error) {
 	var pa string
 	if u.Path != "" {
 		pa = u.Path
