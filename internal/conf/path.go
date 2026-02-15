@@ -465,6 +465,7 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
+		l.Log(logger.Warn, "source 'unix+rtp' is deprecated due to intrinsic instability, use 'udp+rtp' instead")
 		if pconf.RTPSDP == "" {
 			return fmt.Errorf("`rtpSDP` was not provided")
 		}
