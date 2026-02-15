@@ -8,7 +8,7 @@
 | [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)                                  | WebRTC         |
 | [RFC8835, Transports for WebRTC](https://datatracker.ietf.org/doc/html/rfc8835)                               | WebRTC         |
 | [RFC7742, WebRTC Video Processing and Codec Requirements](https://datatracker.ietf.org/doc/html/rfc7742)      | WebRTC         |
-| [RFC7847, WebRTC Audio Codec and Processing Requirements](https://datatracker.ietf.org/doc/html/rfc7874)      | WebRTC         |
+| [RFC7874, WebRTC Audio Codec and Processing Requirements](https://datatracker.ietf.org/doc/html/rfc7874)      | WebRTC         |
 | [RFC7875, Additional WebRTC Audio Codecs for Interoperability](https://datatracker.ietf.org/doc/html/rfc7875) | WebRTC         |
 | [H.265 Profile for WebRTC](https://datatracker.ietf.org/doc/draft-ietf-avtcore-hevc-webrtc/)                  | WebRTC         |
 | [WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)               | WebRTC         |

@@ -115,7 +115,7 @@ The server can produce HLS streams with a variety of video and audio codecs (tha
 
 You can check what codecs your browser can read with HLS by [using this tool](https://jsfiddle.net/tjcyv5aw/).
 
-If you want to support most browsers, you can to re-encode the stream by using H264 and AAC codecs, for instance by using FFmpeg:
+If you want to support most browsers, you can re-encode the stream by using H264 and AAC codecs, for instance by using FFmpeg:
 
 ```sh
 ffmpeg -i rtsp://original-source \
@@ -199,7 +199,7 @@ ffmpeg -i 'srt://localhost:8890?streamid=read:test' -c copy output.mp4
 
 ### GStreamer
 
-GStreamer can read a stream from the server in several way. The recommended one consists in reading with RTSP.
+GStreamer can read a stream from the server in several ways. The recommended one consists in reading with RTSP.
 
 #### GStreamer and RTSP
 
@@ -239,7 +239,7 @@ audio-caps="application/x-rtp,media=audio,encoding-name=OPUS,payload=111,clock-r
 
 ### VLC
 
-VLC can read a stream from the server in several way. The recommended one consists in reading with RTSP:
+VLC can read a stream from the server in several ways. The recommended one consists in reading with RTSP:
 
 ```sh
 vlc --network-caching=50 rtsp://localhost:8554/mystream

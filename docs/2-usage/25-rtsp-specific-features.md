@@ -1,10 +1,10 @@
 # RTSP-specific features
 
-RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](publish#rtsp-clients) and [Read](read#rtsp). Features in these page are shared among both tasks.
+RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](publish#rtsp-clients) and [Read](read#rtsp). Features in this page are shared among both tasks.
 
 ## Transport protocols
 
-A RTSP session is splitted in two parts: the handshake, which is always performed with the TCP protocol, and data streaming, which can be performed with an arbitrary underlying transport protocol, which is chosen by the client during the handshake:
+A RTSP session is split in two parts: the handshake, which is always performed with the TCP protocol, and data streaming, which can be performed with an arbitrary underlying transport protocol, which is chosen by the client during the handshake:
 
 - UDP: the most performant, but require clients to access two additional UDP ports on the server, which is often impossible due to blocking or remapping by NATs/firewalls in between.
 - UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP.
@@ -74,7 +74,7 @@ rtsps://localhost:8322/mystream
 
 Some clients require additional flags for encryption to work properly.
 
-When reading with GStreamer, set set `tls-validation-flags` to `0`:
+When reading with GStreamer, set `tls-validation-flags` to `0`:
 
 ```sh
 gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...

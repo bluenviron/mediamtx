@@ -1,6 +1,6 @@
 # WebRTC-specific features
 
-WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](publish#webrtc-clients) and [Read](read#webrtc). Features in these page are shared among both tasks.
+WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](publish#webrtc-clients) and [Read](read#webrtc). Features in this page are shared among both tasks.
 
 ## Codec support in browsers
 
@@ -19,7 +19,7 @@ In particular, reading and publishing H265 tracks with WebRTC was not possible u
 
 You can check what codecs your browser can publish or read with WebRTC by [using this tool](https://jsfiddle.net/v24s8q1f/).
 
-If you want to support most browsers, you can to re-encode the stream by using H264 and Opus codecs, for instance by using FFmpeg:
+If you want to support most browsers, you can re-encode the stream by using H264 and Opus codecs, for instance by using FFmpeg:
 
 ```sh
 ffmpeg -i rtsp://original-source \

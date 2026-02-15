@@ -2,7 +2,7 @@
 
 Live streams can be embedded into an external website by using the WebRTC or HLS protocol. Before embedding, check that the stream is ready and can be accessed with intended protocol by using URLs mentioned in [Read a stream](read).
 
-## WebRTC
+## WebRTC in iframe
 
 The simplest way to embed a live stream in a web page, using the WebRTC protocol, consists in adding an `<iframe>` tag to the body section of the HTML:
 
@@ -23,7 +23,9 @@ The iframe method is fit for most use cases, but it has some limitations:
 - it doesn't allow to pass credentials (username, password or token) from the website to _MediaMTX_; credentials are asked directly to users.
 - it doesn't allow to directly access the video tag, to extract data from it, or to perform dynamic actions.
 
-In order to overcome these limitations, it is possible to load the stream directly inside a `<video>` tag in the web page, through a JavaScript library.
+## WebRTC with JavaScript
+
+In order to overcome the limitations of the iframe-based method, it is possible to load the stream directly inside a `<video>` tag in the web page, through a JavaScript library.
 
 Download [reader.js](https://github.com/bluenviron/mediamtx/blob/{version_tag}/internal/servers/webrtc/reader.js) from the repository and serve it together with the other assets of the website.
 
@@ -80,7 +82,15 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
-## HLS
+If _MediaMTX_ is hosted on a different domain with respect to the website (in the sample code this is implied), you need to set the `webrtcAllowOrigins` parameter in the configuration file. For example, to allow requests from `https://example.com`:
+
+```yaml
+webrtcAllowOrigins: ["https://example.com"]
+```
+
+The parameter also supports wildcards, for instance `['http://*.example.com']`.
+
+## HLS in iframe
 
 Reading a stream with the HLS protocol introduces some latency, but is usually easier to setup since it doesn't involve managing additional ports that in WebRTC are used to transmit the stream.
 
@@ -103,7 +113,9 @@ The iframe method is fit for most use cases, but it has some limitations:
 - it doesn't allow to pass credentials (username, password or token) from the website to _MediaMTX_; credentials are asked directly to users.
 - it doesn't allow to directly access the video tag, to extract data from it, or to perform dynamic actions.
 
-In order to overcome these limitations, it is possible to load the stream directly inside a `<video>` tag in the web page, through the _hls.js_ library.
+## HLS with JavaScript
+
+In order to overcome the limitations of the iframe-based method, it is possible to load the stream directly inside a `<video>` tag in the web page, through the _hls.js_ library.
 
 If you are using a JavaScript bundler, you can import _hls.js_ it by adding [its npm package](https://www.npmjs.com/package/hls.js) as dependency and then importing it:
 
@@ -136,7 +148,7 @@ After the video tag, add a script that initializes the stream when the page is f
         xhrSetup: function (xhr, url) {
           let user = ""; // fill if needed
           let pass = ""; // fill if needed
-          let token = ""; // fil if needed
+          let token = ""; // fill if needed
 
           if (user !== "") {
             const credentials = btoa(`${user}:${pass}`);
@@ -156,3 +168,11 @@ After the video tag, add a script that initializes the stream when the page is f
   });
 </script>
 ```
+
+If _MediaMTX_ is hosted on a different domain with respect to the website (in the sample code this is implied), you need to set the `hlsAllowOrigins` parameter in the configuration file. For example:
+
+```yaml
+hlsAllowOrigins: ["https://example.com"]
+```
+
+The parameter also supports wildcards, for instance `['http://*.example.com']`.
