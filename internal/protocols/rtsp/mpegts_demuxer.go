@@ -129,9 +129,7 @@ func (d *MPEGTSDemuxer) initializeAndRun() {
 	d.loopErr <- err
 }
 
-// initialize parses PAT/PMT and sets up the stream.
 func (d *MPEGTSDemuxer) initialize() error {
-	// Create the MPEG-TS enhanced reader
 	d.tsReader = &mpegts.EnhancedReader{R: d.rtpReader}
 	err := d.tsReader.Initialize()
 	if err != nil {
