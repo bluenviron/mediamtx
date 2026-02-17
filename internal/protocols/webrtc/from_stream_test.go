@@ -7,7 +7,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -112,24 +111,20 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	require.NoError(t, err)
 
 	pc1 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            false,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
 	err = pc1.Start()
 	require.NoError(t, err)
 	defer pc1.Close()
 
 	pc2 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            true,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
+		Log:               test.NilLogger,
 	}
 
 	r := &stream.Reader{Parent: nil}
@@ -150,10 +145,10 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	err = pc1.SetAnswer(answer)
 	require.NoError(t, err)
 
-	err = pc1.WaitUntilConnected()
+	err = pc1.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
-	err = pc2.WaitUntilConnected()
+	err = pc2.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
 	strm.AddReader(r)
@@ -191,7 +186,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	err = pc1.GatherIncomingTracks()
+	err = pc1.GatherIncomingTracks(2 * time.Second)
 	require.NoError(t, err)
 
 	tracks := pc1.IncomingTracks()

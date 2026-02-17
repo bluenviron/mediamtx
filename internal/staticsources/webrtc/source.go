@@ -59,8 +59,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
 		},
-		UDPReadBufferSize: s.UDPReadBufferSize,
-		Log:               s,
+		UDPReadBufferSize:  s.UDPReadBufferSize,
+		STUNGatherTimeout:  time.Duration(params.Conf.WHEPSTUNGatherTimeout),
+		HandshakeTimeout:   time.Duration(params.Conf.WHEPHandshakeTimeout),
+		TrackGatherTimeout: time.Duration(params.Conf.WHEPTrackGatherTimeout),
+		Log:                s,
 	}
 	err = client.Initialize(params.Context)
 	if err != nil {

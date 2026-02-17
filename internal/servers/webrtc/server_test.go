@@ -161,9 +161,9 @@ func TestServerOptionsICEServer(t *testing.T) {
 			Username: "myuser",
 			Password: "mypass",
 		}},
+		STUNGatherTimeout:  conf.Duration(5 * time.Second),
 		HandshakeTimeout:   conf.Duration(10 * time.Second),
 		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		STUNGatherTimeout:  conf.Duration(5 * time.Second),
 		PathManager:        pathManager,
 		Parent:             test.NilLogger,
 	}
@@ -267,9 +267,9 @@ func TestServerPublish(t *testing.T) {
 		IPsFromInterfacesList: []string{},
 		AdditionalHosts:       []string{},
 		ICEServers:            []conf.WebRTCICEServer{},
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
-		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		PathManager:           pathManager,
 		Parent:                test.NilLogger,
 	}
@@ -514,9 +514,9 @@ func TestServerRead(t *testing.T) {
 				IPsFromInterfacesList: []string{},
 				AdditionalHosts:       []string{},
 				ICEServers:            []conf.WebRTCICEServer{},
+				STUNGatherTimeout:     conf.Duration(5 * time.Second),
 				HandshakeTimeout:      conf.Duration(10 * time.Second),
 				TrackGatherTimeout:    conf.Duration(2 * time.Second),
-				STUNGatherTimeout:     conf.Duration(5 * time.Second),
 				PathManager:           pathManager,
 				Parent:                test.NilLogger,
 			}
@@ -603,9 +603,9 @@ func TestServerReadNotFound(t *testing.T) {
 		IPsFromInterfacesList: []string{},
 		AdditionalHosts:       []string{},
 		ICEServers:            []conf.WebRTCICEServer{},
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
 		TrackGatherTimeout:    conf.Duration(2 * time.Second),
-		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		PathManager:           pm,
 		Parent:                test.NilLogger,
 	}

@@ -364,24 +364,24 @@ func TestAPIProtocolListGet(t *testing.T) {
 		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "api: yes\n"
+			cnf := "api: yes\n"
 
 			switch ca {
 			case "rtsps conns", "rtsps sessions":
-				conf += "rtspEncryption: strict\n" +
+				cnf += "rtspEncryption: strict\n" +
 					"rtspServerCert: " + serverCertFpath + "\n" +
 					"rtspServerKey: " + serverKeyFpath + "\n"
 
 			case "rtmps":
-				conf += "rtmpEncryption: strict\n" +
+				cnf += "rtmpEncryption: strict\n" +
 					"rtmpServerCert: " + serverCertFpath + "\n" +
 					"rtmpServerKey: " + serverKeyFpath + "\n"
 			}
 
-			conf += "paths:\n" +
+			cnf += "paths:\n" +
 				"  all_others:\n"
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 
@@ -893,25 +893,25 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "api: yes\n"
+			cnf := "api: yes\n"
 
 			switch ca {
 			case "rtsps conns", "rtsps sessions":
-				conf += "rtspTransports: [tcp]\n" +
+				cnf += "rtspTransports: [tcp]\n" +
 					"rtspEncryption: strict\n" +
 					"rtspServerCert: " + serverCertFpath + "\n" +
 					"rtspServerKey: " + serverKeyFpath + "\n"
 
 			case "rtmps":
-				conf += "rtmpEncryption: strict\n" +
+				cnf += "rtmpEncryption: strict\n" +
 					"rtmpServerCert: " + serverCertFpath + "\n" +
 					"rtmpServerKey: " + serverKeyFpath + "\n"
 			}
 
-			conf += "paths:\n" +
+			cnf += "paths:\n" +
 				"  all_others:\n"
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 
@@ -993,19 +993,19 @@ func TestAPIProtocolKick(t *testing.T) {
 		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "api: yes\n"
+			cnf := "api: yes\n"
 
 			if ca == "rtsps" {
-				conf += "rtspTransports: [tcp]\n" +
+				cnf += "rtspTransports: [tcp]\n" +
 					"rtspEncryption: strict\n" +
 					"rtspServerCert: " + serverCertFpath + "\n" +
 					"rtspServerKey: " + serverKeyFpath + "\n"
 			}
 
-			conf += "paths:\n" +
+			cnf += "paths:\n" +
 				"  all_others:\n"
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 
@@ -1171,19 +1171,19 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "api: yes\n"
+			cnf := "api: yes\n"
 
 			if ca == "rtsps" {
-				conf += "rtspTransports: [tcp]\n" +
+				cnf += "rtspTransports: [tcp]\n" +
 					"rtspEncryption: strict\n" +
 					"rtspServerCert: " + serverCertFpath + "\n" +
 					"rtspServerKey: " + serverKeyFpath + "\n"
 			}
 
-			conf += "paths:\n" +
+			cnf += "paths:\n" +
 				"  all_others:\n"
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 

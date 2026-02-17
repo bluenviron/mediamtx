@@ -18,7 +18,6 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -140,9 +139,7 @@ type PeerConnection struct {
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
-	HandshakeTimeout      conf.Duration
-	TrackGatherTimeout    conf.Duration
-	STUNGatherTimeout     conf.Duration
+	STUNGatherTimeout     time.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
 	OutgoingDataChannels  []*OutgoingDataChannel
@@ -167,6 +164,10 @@ type PeerConnection struct {
 
 // Start starts the peer connection.
 func (co *PeerConnection) Start() error {
+	if co.STUNGatherTimeout == 0 {
+		co.STUNGatherTimeout = 5 * time.Second
+	}
+
 	settingsEngine := webrtc.SettingEngine{}
 
 	settingsEngine.SetIncludeLoopbackCandidate(true)
@@ -191,7 +192,7 @@ func (co *PeerConnection) Start() error {
 		settingsEngine.SetICETCPMux(co.ICETCPMux.Mux)
 	}
 
-	settingsEngine.SetSTUNGatherTimeout(time.Duration(co.STUNGatherTimeout))
+	settingsEngine.SetSTUNGatherTimeout(co.STUNGatherTimeout)
 
 	webrtcNet := &webrtcNet{
 		udpReadBufferSize: int(co.UDPReadBufferSize),
@@ -669,8 +670,8 @@ func (co *PeerConnection) waitGatheringDone() error {
 }
 
 // WaitUntilConnected waits until connection is established.
-func (co *PeerConnection) WaitUntilConnected() error {
-	t := time.NewTimer(time.Duration(co.HandshakeTimeout))
+func (co *PeerConnection) WaitUntilConnected(timeout time.Duration) error {
+	t := time.NewTimer(timeout)
 	defer t.Stop()
 
 outer:
@@ -691,13 +692,13 @@ outer:
 }
 
 // GatherIncomingTracks gathers incoming tracks.
-func (co *PeerConnection) GatherIncomingTracks() error {
+func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 	var sdp sdp.SessionDescription
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
 	maxTrackCount := len(sdp.MediaDescriptions)
 
-	t := time.NewTimer(time.Duration(co.TrackGatherTimeout))
+	t := time.NewTimer(timeout)
 	defer t.Stop()
 
 	for {

@@ -13,25 +13,22 @@ import (
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v4"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
-const (
-	handshakeTimeout   = 10 * time.Second
-	trackGatherTimeout = 2 * time.Second
-)
-
 // Client is a WHIP client.
 type Client struct {
-	URL               *url.URL
-	Publish           bool
-	OutgoingTracks    []*webrtc.OutgoingTrack
-	HTTPClient        *http.Client
-	UDPReadBufferSize uint
-	Log               logger.Writer
+	URL                *url.URL
+	Publish            bool
+	OutgoingTracks     []*webrtc.OutgoingTrack
+	HTTPClient         *http.Client
+	UDPReadBufferSize  uint
+	STUNGatherTimeout  time.Duration
+	HandshakeTimeout   time.Duration
+	TrackGatherTimeout time.Duration
+	Log                logger.Writer
 
 	pc               *webrtc.PeerConnection
 	patchIsSupported bool
@@ -39,21 +36,30 @@ type Client struct {
 
 // Initialize initializes the Client.
 func (c *Client) Initialize(ctx context.Context) error {
+	if c.STUNGatherTimeout == 0 {
+		c.STUNGatherTimeout = 5 * time.Second
+	}
+	if c.HandshakeTimeout == 0 {
+		c.HandshakeTimeout = 10 * time.Second
+	}
+	if c.TrackGatherTimeout == 0 {
+		c.TrackGatherTimeout = 2 * time.Second
+	}
+
 	iceServers, err := c.optionsICEServers(ctx)
 	if err != nil {
 		return err
 	}
 
 	c.pc = &webrtc.PeerConnection{
-		UDPReadBufferSize:  c.UDPReadBufferSize,
-		LocalRandomUDP:     true,
-		ICEServers:         iceServers,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            c.Publish,
-		OutgoingTracks:     c.OutgoingTracks,
-		Log:                c.Log,
+		UDPReadBufferSize: c.UDPReadBufferSize,
+		LocalRandomUDP:    true,
+		ICEServers:        iceServers,
+		IPsFromInterfaces: true,
+		Publish:           c.Publish,
+		STUNGatherTimeout: c.STUNGatherTimeout,
+		OutgoingTracks:    c.OutgoingTracks,
+		Log:               c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
@@ -120,7 +126,7 @@ func (c *Client) initializeInner(ctx context.Context) error {
 		return err
 	}
 
-	t := time.NewTimer(handshakeTimeout)
+	t := time.NewTimer(c.HandshakeTimeout)
 	defer t.Stop()
 
 outer:
@@ -145,7 +151,7 @@ outer:
 	}
 
 	if !c.Publish {
-		err = c.pc.GatherIncomingTracks()
+		err = c.pc.GatherIncomingTracks(c.TrackGatherTimeout)
 		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
 			return err

@@ -339,11 +339,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WebRTCICEServer'
+        webrtcSTUNGatherTimeout:
+          type: string
         webrtcHandshakeTimeout:
           type: string
         webrtcTrackGatherTimeout:
-          type: string
-        webrtcSTUNGatherTimeout:
           type: string
 
         # SRT server
@@ -428,6 +428,14 @@ components:
 
         # RTP source
         rtpSDP:
+          type: string
+
+        # WHEP source
+        whepSTUNGatherTimeout:
+          type: string
+        whepHandshakeTimeout:
+          type: string
+        whepTrackGatherTimeout:
           type: string
 
         # Redirect source
