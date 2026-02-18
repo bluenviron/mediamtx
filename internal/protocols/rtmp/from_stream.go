@@ -48,6 +48,10 @@ func FromStream(
 	var tracks []*gortmplib.Track
 	var w *gortmplib.Writer
 
+	isEnhanced := len(conn.FourCcList) != 0
+	legacyVideoTrackCount := 0
+	legacyAudioTrackCount := 0
+
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
@@ -142,63 +146,66 @@ func FromStream(
 				}
 
 			case *format.H264:
-				sps, pps := forma.SafeParams()
-				track := &gortmplib.Track{
-					Codec: &codecs.H264{
-						SPS: sps,
-						PPS: pps,
-					},
-				}
-				tracks = append(tracks, track)
+				if isEnhanced || legacyVideoTrackCount == 0 {
+					legacyVideoTrackCount++
+					sps, pps := forma.SafeParams()
+					track := &gortmplib.Track{
+						Codec: &codecs.H264{
+							SPS: sps,
+							PPS: pps,
+						},
+					}
+					tracks = append(tracks, track)
 
-				var videoDTSExtractor *h264.DTSExtractor
+					var videoDTSExtractor *h264.DTSExtractor
 
-				r.OnData(
-					media,
-					forma,
-					func(u *unit.Unit) error {
-						if u.NilPayload() {
-							return nil
-						}
-
-						idrPresent := false
-						nonIDRPresent := false
-
-						for _, nalu := range u.Payload.(unit.PayloadH264) {
-							typ := h264.NALUType(nalu[0] & 0x1F)
-							switch typ {
-							case h264.NALUTypeIDR:
-								idrPresent = true
-
-							case h264.NALUTypeNonIDR:
-								nonIDRPresent = true
-							}
-						}
-
-						// wait until we receive an IDR
-						if videoDTSExtractor == nil {
-							if !idrPresent {
+					r.OnData(
+						media,
+						forma,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
 								return nil
 							}
 
-							videoDTSExtractor = &h264.DTSExtractor{}
-							videoDTSExtractor.Initialize()
-						} else if !idrPresent && !nonIDRPresent {
-							return nil
-						}
+							idrPresent := false
+							nonIDRPresent := false
 
-						dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
-						if err != nil {
-							return err
-						}
+							for _, nalu := range u.Payload.(unit.PayloadH264) {
+								typ := h264.NALUType(nalu[0] & 0x1F)
+								switch typ {
+								case h264.NALUTypeIDR:
+									idrPresent = true
 
-						nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						return (*w).WriteH264(
-							track,
-							timestampToDuration(u.PTS, forma.ClockRate()),
-							timestampToDuration(dts, forma.ClockRate()),
-							u.Payload.(unit.PayloadH264))
-					})
+								case h264.NALUTypeNonIDR:
+									nonIDRPresent = true
+								}
+							}
+
+							// wait until we receive an IDR
+							if videoDTSExtractor == nil {
+								if !idrPresent {
+									return nil
+								}
+
+								videoDTSExtractor = &h264.DTSExtractor{}
+								videoDTSExtractor.Initialize()
+							} else if !idrPresent && !nonIDRPresent {
+								return nil
+							}
+
+							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
+							if err != nil {
+								return err
+							}
+
+							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							return (*w).WriteH264(
+								track,
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								timestampToDuration(dts, forma.ClockRate()),
+								u.Payload.(unit.PayloadH264))
+						})
+				}
 
 			case *format.Opus:
 				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCOpus))) {
@@ -238,40 +245,44 @@ func FromStream(
 				}
 
 			case *format.MPEG4Audio:
-				track := &gortmplib.Track{
-					Codec: &codecs.MPEG4Audio{
-						Config: forma.Config,
-					},
-				}
-				tracks = append(tracks, track)
+				if isEnhanced || legacyAudioTrackCount == 0 {
+					legacyAudioTrackCount++
+					track := &gortmplib.Track{
+						Codec: &codecs.MPEG4Audio{
+							Config: forma.Config,
+						},
+					}
+					tracks = append(tracks, track)
 
-				r.OnData(
-					media,
-					forma,
-					func(u *unit.Unit) error {
-						if u.NilPayload() {
-							return nil
-						}
-
-						for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
-							pts := u.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
-
-							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-							err := (*w).WriteMPEG4Audio(
-								track,
-								timestampToDuration(pts, forma.ClockRate()),
-								au,
-							)
-							if err != nil {
-								return err
+					r.OnData(
+						media,
+						forma,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
 							}
-						}
 
-						return nil
-					})
+							for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
+								pts := u.PTS + int64(i)*mpeg4audio.SamplesPerAccessUnit
+
+								nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+								err := (*w).WriteMPEG4Audio(
+									track,
+									timestampToDuration(pts, forma.ClockRate()),
+									au,
+								)
+								if err != nil {
+									return err
+								}
+							}
+
+							return nil
+						})
+				}
 
 			case *format.MPEG4AudioLATM:
-				if !forma.CPresent {
+				if !forma.CPresent && (isEnhanced || legacyAudioTrackCount == 0) {
+					legacyAudioTrackCount++
 					track := &gortmplib.Track{
 						Codec: &codecs.MPEG4Audio{
 							Config: forma.StreamMuxConfig.Programs[0].Layers[0].AudioSpecificConfig,
@@ -304,43 +315,46 @@ func FromStream(
 				}
 
 			case *format.MPEG1Audio:
-				track := &gortmplib.Track{
-					Codec: &codecs.MPEG1Audio{},
-				}
-				tracks = append(tracks, track)
+				if isEnhanced || legacyAudioTrackCount == 0 {
+					legacyAudioTrackCount++
+					track := &gortmplib.Track{
+						Codec: &codecs.MPEG1Audio{},
+					}
+					tracks = append(tracks, track)
 
-				r.OnData(
-					media,
-					forma,
-					func(u *unit.Unit) error {
-						if u.NilPayload() {
+					r.OnData(
+						media,
+						forma,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
+							}
+
+							pts := u.PTS
+
+							for _, frame := range u.Payload.(unit.PayloadMPEG1Audio) {
+								var h mpeg1audio.FrameHeader
+								err := h.Unmarshal(frame)
+								if err != nil {
+									return err
+								}
+
+								nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+								err = (*w).WriteMPEG1Audio(
+									track,
+									timestampToDuration(pts, forma.ClockRate()),
+									frame)
+								if err != nil {
+									return err
+								}
+
+								pts += int64(h.SampleCount()) *
+									int64(forma.ClockRate()) / int64(h.SampleRate)
+							}
+
 							return nil
-						}
-
-						pts := u.PTS
-
-						for _, frame := range u.Payload.(unit.PayloadMPEG1Audio) {
-							var h mpeg1audio.FrameHeader
-							err := h.Unmarshal(frame)
-							if err != nil {
-								return err
-							}
-
-							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
-							err = (*w).WriteMPEG1Audio(
-								track,
-								timestampToDuration(pts, forma.ClockRate()),
-								frame)
-							if err != nil {
-								return err
-							}
-
-							pts += int64(h.SampleCount()) *
-								int64(forma.ClockRate()) / int64(h.SampleRate)
-						}
-
-						return nil
-					})
+						})
+				}
 
 			case *format.AC3:
 				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCAC3))) {
@@ -378,7 +392,8 @@ func FromStream(
 				}
 
 			case *format.G711:
-				if forma.SampleRate == 8000 {
+				if forma.SampleRate == 8000 && (isEnhanced || legacyAudioTrackCount == 0) {
+					legacyAudioTrackCount++
 					track := &gortmplib.Track{
 						Codec: &codecs.G711{
 							MULaw:        forma.MULaw,
@@ -409,7 +424,9 @@ func FromStream(
 					(forma.SampleRate == 5512 ||
 						forma.SampleRate == 11025 ||
 						forma.SampleRate == 22050 ||
-						forma.SampleRate == 44100) {
+						forma.SampleRate == 44100) &&
+					(isEnhanced || legacyAudioTrackCount == 0) {
+					legacyAudioTrackCount++
 					track := &gortmplib.Track{
 						Codec: &codecs.LPCM{
 							BitDepth:     forma.BitDepth,
