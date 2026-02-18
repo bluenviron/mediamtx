@@ -1,7 +1,9 @@
 package conf
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -66,12 +68,42 @@ func checkRedirect(v string) error {
 	return nil
 }
 
+func checkMP4MagicBytes(f io.ReadSeeker) error {
+	magicBytes := make([]byte, 4)
+
+	_, err := f.Seek(4, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.ReadFull(f, magicBytes)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(magicBytes, []byte("ftyp")) {
+		return fmt.Errorf("file is not MP4, magic bytes are '%v'", magicBytes)
+	}
+
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func checkAlwaysAvailableFile(fpath string) error {
 	f, err := os.Open(fpath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+
+	err = checkMP4MagicBytes(f)
+	if err != nil {
+		return err
+	}
 
 	var presentation pmp4.Presentation
 	err = presentation.Unmarshal(f)
