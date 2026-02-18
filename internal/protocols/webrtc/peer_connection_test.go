@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
@@ -37,13 +36,10 @@ func gatherCodecs(tracks []*IncomingTrack) []webrtc.RTPCodecParameters {
 
 func TestPeerConnectionCloseImmediately(t *testing.T) {
 	pc := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		STUNGatherTimeout:  conf.Duration(5 * time.Second),
-		Publish:            false,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
 	err := pc.Start()
 	require.NoError(t, err)
@@ -115,8 +111,6 @@ func TestPeerConnectionCandidates(t *testing.T) {
 				ICETCPMux:             tcpMux,
 				IPsFromInterfaces:     true,
 				IPsFromInterfacesList: []string{"lo"},
-				HandshakeTimeout:      conf.Duration(10 * time.Second),
-				TrackGatherTimeout:    conf.Duration(2 * time.Second),
 				Log:                   test.NilLogger,
 			}
 
@@ -188,8 +182,6 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 					IPsFromInterfaces:     true,
 					IPsFromInterfacesList: []string{"lo"},
 					ICEServers:            iceServers,
-					HandshakeTimeout:      conf.Duration(10 * time.Second),
-					TrackGatherTimeout:    conf.Duration(2 * time.Second),
 					Log:                   test.NilLogger,
 				}
 				err := clientPC.Start()
@@ -219,13 +211,11 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 				}
 
 				serverPC := &PeerConnection{
-					LocalRandomUDP:     (mode == "active udp"),
-					ICEUDPMux:          udpMux,
-					ICETCPMux:          tcpMux,
-					ICEServers:         iceServers,
-					HandshakeTimeout:   conf.Duration(10 * time.Second),
-					TrackGatherTimeout: conf.Duration(2 * time.Second),
-					Publish:            true,
+					LocalRandomUDP: (mode == "active udp"),
+					ICEUDPMux:      udpMux,
+					ICETCPMux:      tcpMux,
+					ICEServers:     iceServers,
+					Publish:        true,
 					OutgoingTracks: []*OutgoingTrack{{
 						Caps: webrtc.RTPCodecCapability{
 							MimeType:  webrtc.MimeTypeAV1,
@@ -270,7 +260,7 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 					}
 				}()
 
-				err = serverPC.WaitUntilConnected()
+				err = serverPC.WaitUntilConnected(10 * time.Second)
 				require.NoError(t, err)
 			})
 		}
@@ -307,12 +297,10 @@ func TestPeerConnectionRead(t *testing.T) {
 	require.NoError(t, err)
 
 	reader := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            false,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
 	err = reader.Start()
 	require.NoError(t, err)
@@ -330,7 +318,7 @@ func TestPeerConnectionRead(t *testing.T) {
 	err = pub.SetRemoteDescription(*answer)
 	require.NoError(t, err)
 
-	err = reader.WaitUntilConnected()
+	err = reader.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
 	go func() {
@@ -363,7 +351,7 @@ func TestPeerConnectionRead(t *testing.T) {
 		require.NoError(t, err2)
 	}()
 
-	err = reader.GatherIncomingTracks()
+	err = reader.GatherIncomingTracks(2 * time.Second)
 	require.NoError(t, err)
 
 	codecs := gatherCodecs(reader.IncomingTracks())
@@ -428,23 +416,19 @@ func TestPeerConnectionRead(t *testing.T) {
 
 func TestPeerConnectionPublishRead(t *testing.T) {
 	pc1 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            false,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
 	err := pc1.Start()
 	require.NoError(t, err)
 	defer pc1.Close()
 
 	pc2 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            true,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
 		OutgoingTracks: []*OutgoingTrack{
 			{
 				Caps: webrtc.RTPCodecCapability{
@@ -475,10 +459,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 	err = pc1.SetAnswer(answer)
 	require.NoError(t, err)
 
-	err = pc1.WaitUntilConnected()
+	err = pc1.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
-	err = pc2.WaitUntilConnected()
+	err = pc2.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
 	for _, track := range pc2.OutgoingTracks {
@@ -496,7 +480,7 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = pc1.GatherIncomingTracks()
+	err = pc1.GatherIncomingTracks(2 * time.Second)
 	require.NoError(t, err)
 
 	codecs := gatherCodecs(pc1.IncomingTracks())
@@ -531,23 +515,19 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 // test that an audio codec is present regardless of the fact that an audio track is.
 func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	pc1 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            false,
-		Log:                test.NilLogger,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
 	}
 	err := pc1.Start()
 	require.NoError(t, err)
 	defer pc1.Close()
 
 	pc2 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		Publish:            true,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
 		OutgoingTracks: []*OutgoingTrack{{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeAV1,
@@ -621,12 +601,9 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	require.NoError(t, err)
 
 	pc2 := &PeerConnection{
-		LocalRandomUDP:     true,
-		IPsFromInterfaces:  true,
-		HandshakeTimeout:   conf.Duration(10 * time.Second),
-		TrackGatherTimeout: conf.Duration(2 * time.Second),
-		STUNGatherTimeout:  conf.Duration(5 * time.Second),
-		Publish:            true,
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
 		OutgoingDataChannels: []*OutgoingDataChannel{
 			{
 				Label: "test-channel",
@@ -644,7 +621,7 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	err = pc1.SetRemoteDescription(*answer)
 	require.NoError(t, err)
 
-	err = pc2.WaitUntilConnected()
+	err = pc2.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
 	<-dataChanCreated

@@ -417,12 +417,12 @@ webrtcICEServers2: []
   # username: ''
   # password: ''
   # clientOnly: false
+# Maximum time to gather STUN candidates.
+webrtcSTUNGatherTimeout: 5s
 # Time to wait for the WebRTC handshake to complete.
 webrtcHandshakeTimeout: 10s
-# Maximum time to gather video tracks.
+# Maximum time to gather tracks.
 webrtcTrackGatherTimeout: 2s
-# The maximum time to gather STUN candidates.
-webrtcSTUNGatherTimeout: 5s
 
 ###############################################
 # Global settings -> SRT server
@@ -458,8 +458,8 @@ pathDefaults:
   # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
   # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
   # * srt://existing-url -> the stream is pulled from another SRT server / camera
-  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
-  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
+  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
+  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
   # The following variables can be used in the source string:
@@ -567,6 +567,16 @@ pathDefaults:
 
   # session description protocol (SDP) of the RTP stream.
   rtpSDP:
+
+  ###############################################
+  # Default path settings -> WebRTC / WHEP source (when source is WHEP)
+
+  # Maximum time to gather STUN candidates.
+  whepSTUNGatherTimeout: 5s
+  # Time to wait for the WebRTC handshake to complete.
+  whepHandshakeTimeout: 10s
+  # Maximum time to gather tracks.
+  whepTrackGatherTimeout: 2s
 
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")

@@ -196,6 +196,11 @@ type Path struct {
 	RTPSDP               string `json:"rtpSDP"`
 	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty"` // deprecated
 
+	// WHEP source
+	WHEPSTUNGatherTimeout  Duration `json:"whepSTUNGatherTimeout"`
+	WHEPHandshakeTimeout   Duration `json:"whepHandshakeTimeout"`
+	WHEPTrackGatherTimeout Duration `json:"whepTrackGatherTimeout"`
+
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`
 
@@ -290,6 +295,11 @@ func (pconf *Path) setDefaults() {
 
 	// RTSP source
 	pconf.RTSPUDPSourcePortRange = []uint{10000, 65535}
+
+	// WHEP source
+	pconf.WHEPSTUNGatherTimeout = Duration(5 * time.Second)
+	pconf.WHEPHandshakeTimeout = Duration(10 * time.Second)
+	pconf.WHEPTrackGatherTimeout = Duration(2 * time.Second)
 
 	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920

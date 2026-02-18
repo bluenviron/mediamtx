@@ -789,30 +789,30 @@ func TestPathFallback(t *testing.T) {
 		"source",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			var conf string
+			var cnf string
 
 			switch ca {
 			case "absolute":
-				conf = "paths:\n" +
+				cnf = "paths:\n" +
 					"  path1:\n" +
 					"    fallback: rtsp://localhost:8554/path2\n" +
 					"  path2:\n"
 
 			case "relative":
-				conf = "paths:\n" +
+				cnf = "paths:\n" +
 					"  path1:\n" +
 					"    fallback: /path2\n" +
 					"  path2:\n"
 
 			case "source":
-				conf = "paths:\n" +
+				cnf = "paths:\n" +
 					"  path1:\n" +
 					"    fallback: /path2\n" +
 					"    source: rtsp://localhost:3333/nonexistent\n" +
 					"  path2:\n"
 			}
 
-			p1, ok := newInstance(conf)
+			p1, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p1.Close()
 
@@ -911,15 +911,15 @@ func TestPathOverridePublisher(t *testing.T) {
 		"disabled",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "rtmp: no\n" +
+			cnf := "rtmp: no\n" +
 				"paths:\n" +
 				"  all_others:\n"
 
 			if ca == "disabled" {
-				conf += "    overridePublisher: no\n"
+				cnf += "    overridePublisher: no\n"
 			}
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 

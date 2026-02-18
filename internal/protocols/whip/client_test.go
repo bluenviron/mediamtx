@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/rtp"
@@ -70,14 +69,11 @@ func TestClientRead(t *testing.T) {
 			}
 
 			pc := &webrtc.PeerConnection{
-				LocalRandomUDP:     true,
-				IPsFromInterfaces:  true,
-				Publish:            true,
-				HandshakeTimeout:   conf.Duration(10 * time.Second),
-				TrackGatherTimeout: conf.Duration(2 * time.Second),
-				STUNGatherTimeout:  conf.Duration(5 * time.Second),
-				OutgoingTracks:     outgoingTracks,
-				Log:                test.NilLogger,
+				LocalRandomUDP:    true,
+				IPsFromInterfaces: true,
+				Publish:           true,
+				OutgoingTracks:    outgoingTracks,
+				Log:               test.NilLogger,
 			}
 			err := pc.Start()
 			require.NoError(t, err)
@@ -116,7 +112,7 @@ func TestClientRead(t *testing.T) {
 						w.Write([]byte(answer.SDP))
 
 						go func() {
-							err3 := pc.WaitUntilConnected()
+							err3 := pc.WaitUntilConnected(10 * time.Second)
 							require.NoError(t, err3)
 
 							for _, track := range outgoingTracks {
@@ -243,12 +239,9 @@ func TestClientPublish(t *testing.T) {
 	for _, ca := range []string{"audio", "video+audio"} {
 		t.Run(ca, func(t *testing.T) {
 			pc := &webrtc.PeerConnection{
-				LocalRandomUDP:     true,
-				IPsFromInterfaces:  true,
-				HandshakeTimeout:   conf.Duration(10 * time.Second),
-				TrackGatherTimeout: conf.Duration(2 * time.Second),
-				STUNGatherTimeout:  conf.Duration(5 * time.Second),
-				Log:                test.NilLogger,
+				LocalRandomUDP:    true,
+				IPsFromInterfaces: true,
+				Log:               test.NilLogger,
 			}
 			err := pc.Start()
 			require.NoError(t, err)
@@ -288,10 +281,10 @@ func TestClientPublish(t *testing.T) {
 						w.Write([]byte(answer.SDP))
 
 						go func() {
-							err3 := pc.WaitUntilConnected()
+							err3 := pc.WaitUntilConnected(10 * time.Second)
 							require.NoError(t, err3)
 
-							err3 = pc.GatherIncomingTracks()
+							err3 = pc.GatherIncomingTracks(2 * time.Second)
 							require.NoError(t, err3)
 
 							codecs := gatherCodecs(pc.IncomingTracks())
