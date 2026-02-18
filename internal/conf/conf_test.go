@@ -746,6 +746,22 @@ func TestConfErrors(t *testing.T) {
 	}
 }
 
+func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
+	tmpf, err := createTempFile([]byte("not an mp4 file"))
+	require.NoError(t, err)
+	defer os.Remove(tmpf)
+
+	tmpConf, err := createTempFile([]byte("paths:\n" +
+		"  mypath:\n" +
+		"    alwaysAvailable: yes\n" +
+		"    alwaysAvailableFile: " + tmpf + "\n"))
+	require.NoError(t, err)
+	defer os.Remove(tmpConf)
+
+	_, _, err = Load(tmpConf, nil, nil)
+	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are '[97 110 32 109]'")
+}
+
 func TestSampleConfFile(t *testing.T) {
 	func() {
 		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
