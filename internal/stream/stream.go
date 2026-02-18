@@ -58,6 +58,9 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H265{
 					PayloadTyp: 96,
+					VPS:        codec.VPS,
+					SPS:        codec.SPS,
+					PPS:        codec.PPS,
 				}},
 			})
 
@@ -67,6 +70,8 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Formats: []format.Format{&format.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
+					SPS:               codec.SPS,
+					PPS:               codec.PPS,
 				}},
 			})
 
@@ -75,7 +80,7 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
 					PayloadTyp:   96,
-					ChannelCount: 2,
+					ChannelCount: codec.ChannelCount,
 				}},
 			})
 
