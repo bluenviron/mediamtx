@@ -24,6 +24,7 @@ type Client struct {
 	Publish            bool
 	OutgoingTracks     []*webrtc.OutgoingTrack
 	HTTPClient         *http.Client
+	BearerToken        string
 	UDPReadBufferSize  uint
 	STUNGatherTimeout  time.Duration
 	HandshakeTimeout   time.Duration
@@ -197,6 +198,10 @@ func (c *Client) optionsICEServers(
 		return nil, err
 	}
 
+	if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
+	}
+
 	res, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -223,6 +228,10 @@ func (c *Client) postOffer(
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL.String(), bytes.NewReader([]byte(offer.SDP)))
 	if err != nil {
 		return nil, err
+	}
+
+	if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
 	}
 
 	req.Header.Set("Content-Type", "application/sdp")
@@ -288,6 +297,10 @@ func (c *Client) patchCandidate(
 		return err
 	}
 
+	if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
+	}
+
 	req.Header.Set("Content-Type", "application/trickle-ice-sdpfrag")
 	req.Header.Set("If-Match", etag)
 
@@ -310,6 +323,10 @@ func (c *Client) deleteSession(
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.URL.String(), nil)
 	if err != nil {
 		return err
+	}
+
+	if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
 	}
 
 	res, err := c.HTTPClient.Do(req)

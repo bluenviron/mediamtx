@@ -59,6 +59,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			Timeout:   time.Duration(s.ReadTimeout),
 			Transport: tr,
 		},
+		BearerToken:        params.Conf.WHEPBearerToken,
 		UDPReadBufferSize:  s.UDPReadBufferSize,
 		STUNGatherTimeout:  time.Duration(params.Conf.WHEPSTUNGatherTimeout),
 		HandshakeTimeout:   time.Duration(params.Conf.WHEPHandshakeTimeout),

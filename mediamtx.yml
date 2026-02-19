@@ -571,6 +571,8 @@ pathDefaults:
   ###############################################
   # Default path settings -> WebRTC / WHEP source (when source is WHEP)
 
+  # Token to insert in the Authorization: Bearer header.
+  whepBearerToken: ''
   # Maximum time to gather STUN candidates.
   whepSTUNGatherTimeout: 5s
   # Time to wait for the WebRTC handshake to complete.
