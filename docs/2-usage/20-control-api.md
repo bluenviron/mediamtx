@@ -6,7 +6,7 @@ The server can be queried and controlled with an API, that can be enabled by tog
 api: yes
 ```
 
-To obtain a list of of active paths, run:
+To obtain a list of active paths, run:
 
 ```
 curl http://127.0.0.1:9997/v3/paths/list

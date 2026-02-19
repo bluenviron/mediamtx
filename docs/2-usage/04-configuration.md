@@ -34,7 +34,7 @@ There are several ways to change the configuration:
    MTX_PATHS_TEST_SOURCE=rtsp://myurl ./mediamtx
    ```
 
-   Parameters in lists can be overridden in the same way as parameters in maps, using their position like an additional key. This is particularly useful if you want to use internal users but define credentials through enviroment variables:
+   Parameters in lists can be overridden in the same way as parameters in maps, using their position like an additional key. This is particularly useful if you want to use internal users but define credentials through environment variables:
 
    ```
    MTX_AUTHINTERNALUSERS_0_USER=username

@@ -16,7 +16,7 @@ Live streams can be published to the server with the following protocols and cod
 | [RTMP cameras and servers](#rtmp-cameras-and-servers) | RTMP, RTMPS, Enhanced RTMP                 | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                                                                                                           |
 | [HLS cameras and servers](#hls-cameras-and-servers)   | Low-Latency HLS, MP4-based HLS, legacy HLS | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC)                                                                                                                                                                                |
 | [MPEG-TS](#mpeg-ts)                                   | MPEG-TS over UDP, MPEG-TS over Unix socket | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3<br/>**Other**: KLV                                                                                                |
-| [RTP](#rtp)                                           | RTP over UDP, RTP over Unix socket         | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec |
+| [RTP](#rtp)                                           | RTP over UDP                               | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec |
 
 We provide instructions for publishing with the following devices:
 
@@ -28,7 +28,8 @@ We provide instructions for publishing with the following software:
 - [FFmpeg](#ffmpeg)
 - [GStreamer](#gstreamer)
 - [OBS Studio](#obs-studio)
-- [OpenCV](#opencv)
+- [Python and OpenCV](#python-and-opencv)
+- [Golang](#golang)
 - [Unity](#unity)
 - [Web browsers](#web-browsers)
 
@@ -112,7 +113,7 @@ rtsp://localhost:8554/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-Some clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [OpenCV](#opencv).
+Some clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Python and OpenCV](#python-and-opencv).
 
 ### RTSP cameras and servers
 
@@ -447,6 +448,8 @@ ffmpeg -re -stream_loop -1 -i file.mp4 -c copy -f mpegts 'udp://238.0.0.1:1234?p
 
 #### FFmpeg and MPEG-TS over Unix socket
 
+In _MediaMTX_ configuration, add a path with `source: unix+mpegts:///tmp/socket.sock`. Then:
+
 ```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
@@ -461,14 +464,6 @@ In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` 
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
 -f rtp udp://238.0.0.1:1234?pkt_size=1316
-```
-
-#### FFmpeg and RTP over Unix socket
-
-```sh
-ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
--c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k \
--f rtp unix:/tmp/socket.sock
 ```
 
 #### FFmpeg and SRT
@@ -557,18 +552,98 @@ In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following
 
 Save the configuration and click `Start streaming`.
 
+The resulting stream will be available on path `/mystream`.
+
 If you want to generate a stream that can be read with WebRTC, open `Settings -> Output -> Recording` and use the following parameters:
 
 - FFmpeg output type: `Output to URL`
 - File path or URL: `rtsp://localhost:8554/mystream`
 - Container format: `rtsp`
-- Check `show all codecs (even if potentically incompatible)`
+- Check `show all codecs (even if potentially incompatible)`
 - Video encoder: `h264_nvenc (libx264)`
 - Video encoder settings (if any): `bf=0`
 - Audio track: `1`
 - Audio encoder: `libopus`
 
 Then use the button `Start Recording` (instead of `Start Streaming`) to start streaming.
+
+#### OBS Studio and RTMP, multitrack video
+
+OBS Studio can publish multiple video tracks or renditions at once. Make sure that the OBS Studio version is &ge; 31.0.0. Open `Settings -> Stream` and use the following parameters:
+
+- Service: `Custom...`
+- Server: `rtmp://localhost/mystream`
+- Stream key: (empty)
+- Turn on `Enable Multitrack Video`
+- Leave `Maximum Streaming Bandwidth` and `Maximum Video Tracks` to `Auto`
+- Turn on `Enable Config Override`
+- Fill `Config Override (JSON)` with the following text:
+
+  ```json
+  {
+    "encoder_configurations": [
+      {
+        "type": "obs_x264",
+        "width": 1920,
+        "height": 1080,
+        "framerate": {
+          "numerator": 30,
+          "denominator": 1
+        },
+        "settings": {
+          "rate_control": "CBR",
+          "bitrate": 6000,
+          "keyint_sec": 2,
+          "preset": "veryfast",
+          "profile": "high",
+          "tune": "zerolatency"
+        },
+        "canvas_index": 0
+      },
+      {
+        "type": "obs_x264",
+        "width": 640,
+        "height": 480,
+        "framerate": {
+          "numerator": 30,
+          "denominator": 1
+        },
+        "settings": {
+          "rate_control": "CBR",
+          "bitrate": 3000,
+          "keyint_sec": 2,
+          "preset": "veryfast",
+          "profile": "main",
+          "tune": "zerolatency"
+        },
+        "canvas_index": 0
+      }
+    ],
+    "audio_configurations": {
+      "live": [
+        {
+          "codec": "ffmpeg_aac",
+          "track_id": 1,
+          "channels": 2,
+          "settings": {
+            "bitrate": 160
+          }
+        }
+      ]
+    }
+  }
+  ```
+
+  This can be adjusted according to specific needs. In particular, the `type` field is used to set the video encoder, and these are the available parameters:
+  - `obs_nvenc_av1_tex`: NVIDIA NVENC AV1
+  - `obs_nvenc_hevc_tex`: NVIDIA NVENC H265
+  - `obs_nvenc_h264_tex`: NVIDIA NVENC H264
+  - `av1_texture_amf`: AMD AV1
+  - `h265_texture_amf`: AMD H265
+  - `h264_texture_amf`: AMD H264
+  - `obs_qsv11_av1`: QuickSync AV1
+  - `obs_qsv11_v2`: QuickSync H264
+  - `obs_x264`: software H264
 
 #### OBS Studio and WebRTC
 
@@ -581,9 +656,9 @@ Save the configuration and click `Start streaming`.
 
 The resulting stream will be available on path `/mystream`.
 
-### OpenCV
+### Python and OpenCV
 
-Software which uses the OpenCV library can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with support for GStreamer, by following this procedure:
+Python-based software can publish to the server with the OpenCV library and its GStreamer plugin, acting as a [RTSP client](#rtsp-clients). OpenCV must be compiled with support for GStreamer, by following this procedure:
 
 ```sh
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
@@ -603,7 +678,7 @@ python3 -c 'import cv2; print(cv2.getBuildInformation())'
 
 Check that the output contains `GStreamer: YES`.
 
-Videos can be published with `cv2.VideoWriter`:
+Videos can then be published with `cv2.VideoWriter`:
 
 ```python
 from datetime import datetime
@@ -655,6 +730,10 @@ while True:
 ```
 
 The resulting stream will be available on path `/mystream`.
+
+### Golang
+
+You can publish to the server from the Go programming language by using [gortsplib](https://github.com/bluenviron/gortsplib), a RTSP client/server library, and [gortmplib](https://github.com/bluenviron/gortmplib), a RTMP client/server library. Both powers _MediaMTX_ itself. In the repositories of these projects there are several examples on how to connect to a server and push data.
 
 ### Unity
 
