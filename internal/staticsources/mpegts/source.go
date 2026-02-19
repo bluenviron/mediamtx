@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
@@ -27,6 +28,7 @@ type parent interface {
 
 // Source is a MPEG-TS static source.
 type Source struct {
+	DumpPackets       bool
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
 	Parent            parent
@@ -50,10 +52,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	switch u.Scheme {
 	case "unix+mpegts":
-		nc, err = unix.Listen(u)
+		params := unix.URLToParams(u)
+		l := &unix.Listener{
+			Path: params.Path,
+		}
+		err = l.Initialize()
 		if err != nil {
 			return err
 		}
+		nc = l
 
 	default:
 		udpReadBufferSize := s.UDPReadBufferSize
@@ -61,10 +68,41 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			udpReadBufferSize = *params.Conf.MPEGTSUDPReadBufferSize
 		}
 
-		nc, err = udp.Listen(u, int(udpReadBufferSize))
+		listenPacket := net.ListenPacket
+
+		if s.DumpPackets {
+			listenPacket = func(network, address string) (net.PacketConn, error) {
+				pc, err2 := net.ListenPacket(network, address)
+				if err2 != nil {
+					return nil, err2
+				}
+
+				d := &packetdumper.PacketConn{
+					Prefix:     "mpegts_source_packetconn",
+					PacketConn: pc,
+				}
+				err2 = d.Initialize()
+				if err2 != nil {
+					return nil, err2
+				}
+
+				return d, nil
+			}
+		}
+
+		params := udp.URLToParams(u)
+		l := &udp.Listener{
+			Address:           params.Address,
+			Source:            params.Source,
+			IntfName:          params.IntfName,
+			UDPReadBufferSize: int(udpReadBufferSize),
+			ListenPacket:      listenPacket,
+		}
+		err = l.Initialize()
 		if err != nil {
 			return err
 		}
+		nc = l
 	}
 
 	readerErr := make(chan error)

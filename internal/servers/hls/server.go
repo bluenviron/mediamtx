@@ -71,6 +71,7 @@ type serverParent interface {
 // Server is a HLS server.
 type Server struct {
 	Address         string
+	DumpPackets     bool
 	Encryption      bool
 	ServerKey       string
 	ServerCert      string
@@ -121,6 +122,7 @@ func (s *Server) Initialize() error {
 
 	s.httpServer = &httpServer{
 		address:        s.Address,
+		dumpPackets:    s.DumpPackets,
 		encryption:     s.Encryption,
 		serverKey:      s.ServerKey,
 		serverCert:     s.ServerCert,

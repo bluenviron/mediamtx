@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -27,6 +28,7 @@ type parent interface {
 
 // Source is a RTMP static source.
 type Source struct {
+	DumpPackets  bool
 	ReadTimeout  conf.Duration
 	WriteTimeout conf.Duration
 	Parent       parent
@@ -56,11 +58,22 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 	}
 
+	dialContext := (&net.Dialer{}).DialContext
+
+	if s.DumpPackets {
+		dialContext = (&packetdumper.DialContext{
+			Prefix:      "rtmp_source_conn",
+			DialContext: dialContext,
+		}).Do
+	}
+
 	connectCtx, connectCtxCancel := context.WithTimeout(params.Context, time.Duration(s.ReadTimeout))
+
 	conn := &gortmplib.Client{
-		URL:       u,
-		TLSConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
-		Publish:   false,
+		URL:         u,
+		TLSConfig:   tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		Publish:     false,
+		DialContext: dialContext,
 	}
 	err = conn.Initialize(connectCtx)
 	connectCtxCancel()

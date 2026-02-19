@@ -2,6 +2,7 @@
 package hls
 
 import (
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -27,6 +29,7 @@ type parent interface {
 
 // Source is a HLS static source.
 type Source struct {
+	DumpPackets bool
 	ReadTimeout conf.Duration
 	Parent      parent
 }
@@ -64,7 +67,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
+	dialContext := (&net.Dialer{}).DialContext
+
+	if s.DumpPackets {
+		dialContext = (&packetdumper.DialContext{
+			Prefix:      "hls_source_conn",
+			DialContext: dialContext,
+		}).Do
+	}
+
 	tr := &http.Transport{
+		DialContext:     dialContext,
 		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 	}
 	defer tr.CloseIdleConnections()

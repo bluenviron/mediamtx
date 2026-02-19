@@ -11,8 +11,8 @@ require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/asticode/go-astits v1.14.0
 	github.com/bluenviron/gohlslib/v2 v2.2.5
-	github.com/bluenviron/gortmplib v0.2.1
-	github.com/bluenviron/gortsplib/v5 v5.3.2-0.20260211202618-9aea8d6fc9d6
+	github.com/bluenviron/gortmplib v0.2.2-0.20260218152940-e1378f261371
+	github.com/bluenviron/gortsplib/v5 v5.3.2-0.20260222121945-18b06189ef23
 	github.com/bluenviron/mediacommon/v2 v2.7.2
 	github.com/datarhei/gosrt v0.10.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -22,6 +22,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.5
 	github.com/goccy/go-yaml v1.19.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
 	github.com/gookit/color v1.6.0
 	github.com/gorilla/websocket v1.5.3

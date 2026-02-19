@@ -71,14 +71,15 @@ type pathManagerParent interface {
 
 type pathManager struct {
 	logLevel          conf.LogLevel
-	authManager       pathManagerAuthManager
 	rtspAddress       string
+	dumpPackets       bool
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	writeQueueSize    int
 	udpReadBufferSize uint
 	rtpMaxPayloadSize int
 	pathConfs         map[string]*conf.Path
+	authManager       pathManagerAuthManager
 	externalCmdPool   *externalcmd.Pool
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
@@ -443,6 +444,7 @@ func (pm *pathManager) createPath(
 	pa := &path{
 		parentCtx:         pm.ctx,
 		logLevel:          pm.logLevel,
+		dumpPackets:       pm.dumpPackets,
 		rtspAddress:       pm.rtspAddress,
 		readTimeout:       pm.readTimeout,
 		writeTimeout:      pm.writeTimeout,

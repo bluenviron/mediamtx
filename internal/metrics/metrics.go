@@ -71,6 +71,7 @@ type metricsParent interface {
 // Metrics is a metrics provider.
 type Metrics struct {
 	Address        string
+	DumpPackets    bool
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
@@ -104,15 +105,17 @@ func (m *Metrics) Initialize() error {
 	router.GET("/metrics", m.onMetrics)
 
 	m.httpServer = &httpp.Server{
-		Address:      m.Address,
-		AllowOrigins: m.AllowOrigins,
-		ReadTimeout:  time.Duration(m.ReadTimeout),
-		WriteTimeout: time.Duration(m.WriteTimeout),
-		Encryption:   m.Encryption,
-		ServerCert:   m.ServerCert,
-		ServerKey:    m.ServerKey,
-		Handler:      router,
-		Parent:       m,
+		Address:           m.Address,
+		AllowOrigins:      m.AllowOrigins,
+		DumpPackets:       m.DumpPackets,
+		DumpPacketsPrefix: "metrics_server_conn",
+		ReadTimeout:       time.Duration(m.ReadTimeout),
+		WriteTimeout:      time.Duration(m.WriteTimeout),
+		Encryption:        m.Encryption,
+		ServerCert:        m.ServerCert,
+		ServerKey:         m.ServerKey,
+		Handler:           router,
+		Parent:            m,
 	}
 	err := m.httpServer.Initialize()
 	if err != nil {

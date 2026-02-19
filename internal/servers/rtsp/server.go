@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -90,6 +92,7 @@ type serverParent interface {
 type Server struct {
 	Address             string
 	AuthMethods         []auth.VerifyMethod
+	DumpPackets         bool
 	UDPReadBufferSize   uint
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
@@ -163,6 +166,18 @@ func (s *Server) Initialize() error {
 		}
 
 		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
+	}
+
+	if s.DumpPackets {
+		s.srv.Listen = (&packetdumper.Listen{
+			Prefix: "rtsp_server_conn",
+			Listen: net.Listen,
+		}).Do
+
+		s.srv.ListenPacket = (&packetdumper.ListenPacket{
+			Prefix:       "rtsp_server_packetconn",
+			ListenPacket: net.ListenPacket,
+		}).Do
 	}
 
 	err := s.srv.Start()

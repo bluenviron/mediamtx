@@ -79,6 +79,8 @@ components:
           type: string
         sysLogPrefix:
           type: string
+        dumpPackets:
+          type: boolean
         readTimeout:
           type: string
         writeTimeout:

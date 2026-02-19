@@ -71,21 +71,19 @@ body:
     attributes:
       label: MediaMTX logs
       description: |
-        MediaMTX logs are often useful to identify the issue. If you think this is the case, set the parameter 'logLevel' to 'debug' and attach logs.
+        MediaMTX logs are often useful to identify the issue. If you think this is the case, set 'logLevel' to 'debug' and attach logs.
       placeholder: Paste or drag the log file here
 
   - type: textarea
     id: network
     attributes:
-      label: Network dump
+      label: Packet dump
       description: |
-        If the bug arises when using MediaMTX with external hardware or software, the most helpful content you can provide is a dump of the data exchanged between the server and the target (network dump).
+        If the bug arises when using MediaMTX with external hardware or software, the most helpful information you can provide is a packet dump, that can be generated in this way:
 
-        That can be generated in this way:
-          1. Download wireshark (https://www.wireshark.org/)
-          2. Start capturing on the interface used for exchanging packets
-            * If the server and the external hardware or software are both installed on your pc, the interface is probably "loopback", otherwise it's the one of your network card.
-          3. Start the server and replicate the issue
-          4. Stop capturing, save the result in .pcap format
-          5. Attach
-      placeholder: Attach the pcap file by dragging it here
+        1. In mediamtx.yml, set 'dumpPackets' to 'true'
+        2. Start the server and replicate the issue
+        3. Stop the server, find the generated .pcapng files in the current directory
+        4. Attach the pcapng files by dragging them here
+
+      placeholder: Attach the pcapng files by dragging them here
