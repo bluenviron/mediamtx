@@ -229,6 +229,7 @@ type Path struct {
 	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty"` // deprecated
 
 	// WHEP source
+	WHEPBearerToken        string   `json:"whepBearerToken"`
 	WHEPSTUNGatherTimeout  Duration `json:"whepSTUNGatherTimeout"`
 	WHEPHandshakeTimeout   Duration `json:"whepHandshakeTimeout"`
 	WHEPTrackGatherTimeout Duration `json:"whepTrackGatherTimeout"`

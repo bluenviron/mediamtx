@@ -431,6 +431,8 @@ components:
           type: string
 
         # WHEP source
+        whepBearerToken:
+          type: string
         whepSTUNGatherTimeout:
           type: string
         whepHandshakeTimeout:

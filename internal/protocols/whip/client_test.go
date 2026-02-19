@@ -435,3 +435,67 @@ func TestClientPublish(t *testing.T) {
 		})
 	}
 }
+
+func TestClientBearerToken(t *testing.T) {
+	pc := &webrtc.PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Log:               test.NilLogger,
+	}
+	err := pc.Start()
+	require.NoError(t, err)
+	defer pc.Close()
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "Bearer my_secret_token", r.Header.Get("Authorization"))
+
+			switch r.Method {
+			case http.MethodOptions:
+				w.WriteHeader(http.StatusNoContent)
+
+			case http.MethodPost:
+				body, err2 := io.ReadAll(r.Body)
+				require.NoError(t, err2)
+				offer := whipOffer(body)
+
+				answer, err2 := pc.CreateFullAnswer(offer)
+				require.NoError(t, err2)
+
+				w.Header().Set("Content-Type", "application/sdp")
+				w.Header().Set("ETag", "test_etag")
+				w.WriteHeader(http.StatusCreated)
+				w.Write([]byte(answer.SDP))
+			}
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:9005")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	u, err := url.Parse("http://localhost:9005/my/resource")
+	require.NoError(t, err)
+
+	outgoingTracks := []*webrtc.OutgoingTrack{{
+		Caps: pwebrtc.RTPCodecCapability{
+			MimeType:  "audio/opus",
+			ClockRate: 48000,
+			Channels:  2,
+		},
+	}}
+
+	cl := &Client{
+		URL:            u,
+		HTTPClient:     &http.Client{},
+		BearerToken:    "my_secret_token",
+		Log:            test.NilLogger,
+		Publish:        true,
+		OutgoingTracks: outgoingTracks,
+	}
+	err = cl.Initialize(context.Background())
+	require.NoError(t, err)
+	defer cl.Close() //nolint:errcheck
+}
