@@ -27,6 +27,14 @@ const (
 	jwksRefreshPeriod = 60 * 60 * time.Second
 )
 
+func isHTTP(req *Request) bool {
+	return req.Protocol == ProtocolHLS || req.Protocol == ProtocolWebRTC ||
+		req.Action == conf.AuthActionPlayback ||
+		req.Action == conf.AuthActionAPI ||
+		req.Action == conf.AuthActionMetrics ||
+		req.Action == conf.AuthActionPprof
+}
+
 func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bool {
 	for _, perm := range perms {
 		if perm.Action == req.Action {
@@ -224,7 +232,8 @@ func (m *Manager) authenticateJWT(req *Request) error {
 	case req.Credentials.Pass != "":
 		encodedJWT = req.Credentials.Pass
 
-	case m.JWTInHTTPQuery:
+		// always allow passing JWT through query parameters with RTSP and RTMP since there's no alternative.
+	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP || (isHTTP(req) && m.JWTInHTTPQuery):
 		var v url.Values
 		v, err = url.ParseQuery(req.Query)
 		if err != nil {
