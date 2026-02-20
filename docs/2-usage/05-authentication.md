@@ -299,23 +299,23 @@ Authorization: Bearer username:password
 
 ### RTSP
 
-Pass the token as password, with an arbitrary user:
+Pass the token as query parameter:
 
 ```
-rtsp://user:jwt@localhost:8554/mystream
+rtsp://localhost:8554/mystream?jwt=jwt
 ```
 
-WARNING: FFmpeg implementation of RTSP does not support passwords that are longer than 1024 characters, therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
+WARNING: FFmpeg implementation of RTSP does not support URLs that are longer than 4096 characters (this is the [MAX_URL_SIZE constant](https://github.com/FFmpeg/FFmpeg/blob/f951aa9ef382d6bb517e05d04d52710f751de427/libavformat/internal.h#L30)), therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
 
 ### RTMP
 
-Pass the token as password, with an arbitrary user:
+Pass the token as query parameter:
 
 ```
-rtmp://localhost/mystream?user=user&pass=jwt
+rtmp://localhost/mystream?jwt=jwt
 ```
 
-WARNING: FFmpeg implementation of RTMP does not support passwords and query parameters that are longer than 1024 characters, therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
+WARNING: FFmpeg implementation of RTMP does not support query parameters that are longer than 1024 characters, therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
 
 ### SRT
 
@@ -339,4 +339,4 @@ In OBS Studio, this is the "Bearer Token" field.
 
 If the `Authorization: Bearer` token cannot be directly provided (for instance, with web browsers that directly access _MediaMTX_ and show a credential dialog), you can pass the token as password, using an arbitrary user.
 
-In web browsers, if you need to automatically fill credentials from a parent web page, see [Embed streams in a website](embed-streams-in-a-website).
+In web browsers, if you need to automatically fill credentials from a parent web page, read [Embed streams in a website](embed-streams-in-a-website).
