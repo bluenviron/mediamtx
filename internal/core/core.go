@@ -305,7 +305,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX "+string(version)+", "+runtime.GOOS+", "+getArch())
+		p.Log(logger.Info, "MediaMTX %s, %s, %s", string(version), runtime.GOOS, getArch())
 
 		if p.confPath != "" {
 			a, _ := filepath.Abs(p.confPath)

@@ -30,7 +30,9 @@ import (
 )
 
 func ptrOf[T any](v T) *T {
-	return &v
+	p := new(T)
+	*p = v
+	return p
 }
 
 func checkClose(t *testing.T, closeFunc func() error) {

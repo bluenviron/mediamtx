@@ -52,9 +52,7 @@ func setAllNilSlicesToEmptyRecursive(rv reflect.Value) {
 	}
 
 	if rv.Kind() == reflect.Struct {
-		for i := range rv.NumField() {
-			field := rv.Field(i)
-
+		for _, field := range rv.Fields() {
 			switch field.Kind() {
 			case reflect.Slice:
 				if field.IsNil() {
