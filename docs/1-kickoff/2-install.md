@@ -90,6 +90,6 @@ pkg install mediamtx
 
 ## OpenWrt binary
 
-If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
+If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](2-install.md#standalone-binary) and download a Linux binary that corresponds to your architecture.
 
-Otherwise, [compile the server from source](/docs/other/compile).
+Otherwise, [compile the server from source](../4-other/1-compile.md).

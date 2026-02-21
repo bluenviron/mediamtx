@@ -1,6 +1,6 @@
 # Embed streams in a website
 
-Live streams can be embedded into an external website by using the WebRTC or HLS protocol. Before embedding, check that the stream is ready and can be accessed with intended protocol by using URLs mentioned in [Read a stream](read).
+Live streams can be embedded into an external website by using the WebRTC or HLS protocol. Before embedding, check that the stream is ready and can be accessed with intended protocol by using URLs mentioned in [Read a stream](03-read.md).
 
 ## WebRTC in iframe
 
