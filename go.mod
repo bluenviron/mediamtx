@@ -35,7 +35,7 @@ require (
 	github.com/pion/rtp v1.10.1
 	github.com/pion/sdp/v3 v3.0.18
 	github.com/pion/transport/v4 v4.0.1
-	github.com/pion/webrtc/v4 v4.2.3
+	github.com/pion/webrtc/v4 v4.2.8
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.48.0
 	golang.org/x/sys v0.41.0
@@ -100,3 +100,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/pion/webrtc/v4 => github.com/aler9/webrtc/v4 v4.2.8-0.20260221130502-cd31af1f752b
