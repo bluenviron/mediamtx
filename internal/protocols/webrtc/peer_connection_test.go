@@ -44,14 +44,24 @@ func TestPeerConnectionCloseImmediately(t *testing.T) {
 	err := pc.Start()
 	require.NoError(t, err)
 	defer pc.Close()
+}
+
+func TestPeerConnectionCloseImmediately2(t *testing.T) {
+	pc := &PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
+	}
+	err := pc.Start()
+	require.NoError(t, err)
+	defer pc.Close()
 
 	_, err = pc.CreatePartialOffer()
 	require.NoError(t, err)
 
 	// wait for ICE candidates to be generated
 	time.Sleep(500 * time.Millisecond)
-
-	pc.Close()
 }
 
 func TestPeerConnectionCandidates(t *testing.T) {
