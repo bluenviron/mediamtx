@@ -148,8 +148,8 @@ type PeerConnection struct {
 	wr               *webrtc.PeerConnection
 	ctx              context.Context
 	ctxCancel        context.CancelFunc
+	readingStarted   *int64
 	incomingTracks   []*IncomingTrack
-	startedReading   *int64
 	statsInterceptor *statsInterceptor
 
 	newLocalCandidate chan *webrtc.ICECandidateInit
@@ -301,7 +301,7 @@ func (co *PeerConnection) Start() error {
 
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
-	co.startedReading = new(int64)
+	co.readingStarted = new(int64)
 
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
 	co.connected = make(chan struct{})
@@ -441,7 +441,7 @@ func (co *PeerConnection) run() {
 		// even if GracefulClose() should wait for any goroutine to return,
 		// we have to wait for OnConnectionStateChange to return anyway,
 		// since it is executed in an uncontrolled goroutine.
-		// https://github.com/pion/webrtc/blob/4742d1fd54abbc3f81c3b56013654574ba7254f3/peerconnection.go#L509
+		// https://github.com/pion/webrtc/blob/v4.2.8/peerconnection.go#L529
 		<-co.closed
 	}()
 
@@ -451,7 +451,7 @@ func (co *PeerConnection) run() {
 			for _, track := range co.incomingTracks {
 				track.start()
 			}
-			atomic.StoreInt64(co.startedReading, 1)
+			atomic.StoreInt64(co.readingStarted, 1)
 
 		case <-co.ctx.Done():
 			return
@@ -816,7 +816,7 @@ func (co *PeerConnection) Stats() *Stats {
 	packetsSent := uint64(0)
 	packetsLost := uint64(0)
 
-	if atomic.LoadInt64(co.startedReading) == 1 {
+	if atomic.LoadInt64(co.readingStarted) == 1 {
 		for _, tr := range co.incomingTracks {
 			if recvStats := tr.rtpReceiver.Stats(); recvStats != nil {
 				v += recvStats.Jitter
