@@ -6,6 +6,7 @@ import (
 	"maps"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -92,6 +93,7 @@ type pathManager struct {
 	chReloadConf      chan map[string]*conf.Path
 	chSetHLSServer    chan pathSetHLSServerReq
 	chRemovePath      chan *path
+	chClosePathIfIdle chan *path
 	chSetPathReady    chan *path
 	chSetPathNotReady chan *path
 	chFindPathConf    chan defs.PathFindPathConfReq
@@ -111,6 +113,7 @@ func (pm *pathManager) initialize() {
 	pm.chReloadConf = make(chan map[string]*conf.Path)
 	pm.chSetHLSServer = make(chan pathSetHLSServerReq)
 	pm.chRemovePath = make(chan *path)
+	pm.chClosePathIfIdle = make(chan *path)
 	pm.chSetPathReady = make(chan *path)
 	pm.chSetPathNotReady = make(chan *path)
 	pm.chFindPathConf = make(chan defs.PathFindPathConfReq)
@@ -168,6 +171,11 @@ outer:
 		case pa := <-pm.chRemovePath:
 			if pa2, ok := pm.paths[pa.name]; ok && pa2 == pa {
 				delete(pm.paths, pa.name)
+			}
+
+		case pa := <-pm.chClosePathIfIdle:
+			if atomic.LoadInt64(pa.pendingRequests) == 0 {
+				pm.doClosePath(pa)
 			}
 
 		case pa := <-pm.chSetPathReady:
@@ -346,6 +354,8 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 
 	pa := pm.paths[req.AccessRequest.Name]
 
+	atomic.AddInt64(pa.pendingRequests, 1)
+
 	req.Res <- defs.PathDescribeRes{Path: pa}
 }
 
@@ -370,6 +380,8 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	pa := pm.paths[req.AccessRequest.Name]
+
+	atomic.AddInt64(pa.pendingRequests, 1)
 
 	req.Res <- defs.PathAddReaderRes{Path: pa}
 }
@@ -400,6 +412,8 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	pa := pm.paths[req.AccessRequest.Name]
+
+	atomic.AddInt64(pa.pendingRequests, 1)
 
 	req.Res <- defs.PathAddPublisherRes{Path: pa}
 }
@@ -476,6 +490,15 @@ func (pm *pathManager) setPathNotReady(pa *path) {
 func (pm *pathManager) removePath(pa *path) {
 	select {
 	case pm.chRemovePath <- pa:
+	case <-pm.ctx.Done():
+	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
+	}
+}
+
+// closePath is called by path.
+func (pm *pathManager) closePathIfIdle(pa *path) {
+	select {
+	case pm.chClosePathIfIdle <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}

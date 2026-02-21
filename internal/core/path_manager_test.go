@@ -85,6 +85,43 @@ func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
 	}
 }
 
+func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {
+	pathConfs := map[string]*conf.Path{
+		"all_others": {
+			Regexp: regexp.MustCompile("^.*$"),
+			Name:   "all_others",
+			Source: "publisher",
+		},
+	}
+
+	pm := &pathManager{
+		authManager: test.NilAuthManager,
+		pathConfs:   pathConfs,
+		parent:      test.NilLogger,
+	}
+	pm.initialize()
+	defer pm.close()
+
+	go func() {
+		for range 10 {
+			pm.Describe(defs.PathDescribeReq{
+				AccessRequest: defs.PathAccessRequest{
+					Name: "mypath",
+				},
+			})
+		}
+	}()
+
+	_, _, err := pm.AddPublisher(defs.PathAddPublisherReq{
+		Author: &dummyPublisher{},
+		Desc:   &description.Session{},
+		AccessRequest: defs.PathAccessRequest{
+			Name: "mypath",
+		},
+	})
+	require.NoError(t, err)
+}
+
 func TestPathManagerConfigHotReload(t *testing.T) {
 	// Start MediaMTX with basic configuration
 	p, ok := newInstance("api: yes\n" +
