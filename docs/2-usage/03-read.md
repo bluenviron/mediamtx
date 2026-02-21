@@ -33,7 +33,7 @@ srt://localhost:8890?streamid=read:mystream
 
 Replace `mystream` with the path name.
 
-If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](23-srt-specific-features.md#standard-stream-id-syntax).
 
 Some clients that can read with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer) and [VLC](#vlc).
 
@@ -51,15 +51,15 @@ WHEP is a WebRTC extensions that allows to read streams by using a URL, without 
 http://localhost:8889/mystream/whep
 ```
 
-Be aware that not all browsers can read any codec, check [Supported browsers](webrtc-specific-features#supported-browsers).
+Be aware that not all browsers can read any codec, check [Supported browsers](24-webrtc-specific-features.md#supported-browsers).
 
-Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
+Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](24-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
 Some clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [Unity](#unity) and [web browsers](#web-browsers).
 
 ### RTSP
 
-RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and encryption (see [RTSP-specific features](rtsp-specific-features)). In order to read a stream with the RTSP protocol, use this URL:
+RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and encryption (see [RTSP-specific features](25-rtsp-specific-features.md)). In order to read a stream with the RTSP protocol, use this URL:
 
 ```
 rtsp://localhost:8554/mystream
@@ -77,7 +77,7 @@ vlc --network-caching=50 rtsp://...
 
 ### RTMP
 
-RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](rtmp-specific-features). Streams can be read from the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](26-rtmp-specific-features.md). Streams can be read from the server by using the URL:
 
 ```
 rtmp://localhost/mystream
@@ -207,7 +207,7 @@ GStreamer can read a stream from the server in several ways. The recommended one
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
 ```
 
-For advanced options, see [RTSP-specific features](rtsp-specific-features).
+For advanced options, see [RTSP-specific features](25-rtsp-specific-features.md).
 
 #### GStreamer and WebRTC
 
@@ -414,7 +414,7 @@ You can read a stream by using the [WebRTC protocol](#webrtc) by visiting the we
 http://localhost:8889/mystream
 ```
 
-See [Embed streams in a website](embed-streams-in-a-website) for instructions on how to embed the stream into an external website.
+See [Embed streams in a website](16-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.
 
 #### Web browsers and HLS
 
@@ -424,4 +424,4 @@ Web browsers can also read a stream with the [HLS protocol](#hls). Latency is hi
 http://localhost:8888/mystream
 ```
 
-See [Embed streams in a website](embed-streams-in-a-website) for instructions on how to embed the stream into an external website.
+See [Embed streams in a website](16-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.

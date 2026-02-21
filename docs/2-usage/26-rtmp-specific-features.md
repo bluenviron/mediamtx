@@ -1,6 +1,6 @@
 # RTMP-specific features
 
-RTMP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](publish#rtmp-clients) and [Read](read#rtmp). Features in this page are shared among both tasks.
+RTMP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](02-publish.md#rtmp-clients) and [Read](03-read.md#rtmp). Features in this page are shared among both tasks.
 
 ## Encryption
 

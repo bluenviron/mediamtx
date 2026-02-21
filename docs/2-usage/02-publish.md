@@ -45,7 +45,7 @@ srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 
 Replace `mystream` with any name you want. The resulting stream will be available on path `/mystream`.
 
-If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](srt-specific-features#standard-stream-id-syntax).
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](23-srt-specific-features.md#standard-stream-id-syntax).
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
@@ -78,9 +78,9 @@ WHIP is a WebRTC extensions that allows to publish streams by using a URL, witho
 http://localhost:8889/mystream/whip
 ```
 
-Be aware that not all browsers can read any codec, check [Supported browsers](webrtc-specific-features#supported-browsers).
+Be aware that not all browsers can read any codec, check [Supported browsers](24-webrtc-specific-features.md#supported-browsers).
 
-Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](webrtc-specific-features#solving-webrtc-connectivity-issues).
+Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](24-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
 Some clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio), [Unity](#unity) and [Web browsers](#web-browsers).
 
@@ -95,7 +95,7 @@ paths:
     source: wheps://host:port/path
 ```
 
-If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](read#webrtc):
+If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](03-read.md#webrtc):
 
 ```yml
 paths:
@@ -105,7 +105,7 @@ paths:
 
 ### RTSP clients
 
-RTSP is a protocol that allows to publish and read streams. It supports several underlying transport protocols and encryption (see [RTSP-specific features](rtsp-specific-features)). In order to publish a stream to the server with the RTSP protocol, use this URL:
+RTSP is a protocol that allows to publish and read streams. It supports several underlying transport protocols and encryption (see [RTSP-specific features](25-rtsp-specific-features.md)). In order to publish a stream to the server with the RTSP protocol, use this URL:
 
 ```
 rtsp://localhost:8554/mystream
@@ -159,13 +159,13 @@ paths:
     rtspUDPSourcePortRange: [10000, 65535]
 ```
 
-All available parameters are listed in the [configuration file](/docs/references/configuration-file).
+All available parameters are listed in the [configuration file](../3-references/1-configuration-file.md).
 
-Advanced RTSP features are described in [RTSP-specific features](rtsp-specific-features).
+Advanced RTSP features are described in [RTSP-specific features](25-rtsp-specific-features.md).
 
 ### RTMP clients
 
-RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](rtmp-specific-features). Streams can be published to the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](26-rtmp-specific-features.md). Streams can be published to the server by using the URL:
 
 ```
 rtmp://localhost/mystream
@@ -310,7 +310,7 @@ The setup procedure depends on whether you want to run the server outside or ins
 
 The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](/docs/references/configuration-file).
 
-Be aware that cameras that require a custom `libcamera` (like some ArduCam products) are not compatible with precompiled binaries and Docker images of _MediaMTX_, since these come with a bundled `libcamera`. If you want to use a custom one, you need to [compile from source](/docs/other/compile#custom-libcamera).
+Be aware that cameras that require a custom `libcamera` (like some ArduCam products) are not compatible with precompiled binaries and Docker images of _MediaMTX_, since these come with a bundled `libcamera`. If you want to use a custom one, you need to [compile from source](../4-other/1-compile.md#custom-libcamera).
 
 #### Adding audio
 
@@ -506,7 +506,7 @@ d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-For advanced options, see [RTSP-specific features](rtsp-specific-features).
+For advanced options, see [RTSP-specific features](25-rtsp-specific-features.md).
 
 #### GStreamer and RTMP
 
@@ -524,7 +524,7 @@ videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-pre
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
-For advanced options, see [RTSP-specific features](rtsp-specific-features).
+For advanced options, see [RTSP-specific features](25-rtsp-specific-features.md).
 
 #### GStreamer and WebRTC
 

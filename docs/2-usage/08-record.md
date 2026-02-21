@@ -47,7 +47,7 @@ pathDefaults:
   recordDeleteAfter: 1d
 ```
 
-All available recording parameters are listed in the [configuration file](/docs/references/configuration-file).
+All available recording parameters are listed in the [configuration file](../3-references/1-configuration-file.md).
 
 ## Remote upload
 

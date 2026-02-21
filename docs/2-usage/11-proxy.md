@@ -5,7 +5,7 @@ The server allows to proxy incoming requests to other servers or cameras. This i
 ```yml
 paths:
   "~^proxy_(.+)$":
-    # If path name is a regular expression, $G1, G2, etc will be replaced
+    # If path name is a regular expression, $G1, $G2, etc will be replaced
     # with regular expression groups.
     source: rtsp://other-server:8554/$G1
     sourceOnDemand: yes

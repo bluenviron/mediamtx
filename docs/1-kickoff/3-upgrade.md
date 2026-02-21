@@ -27,7 +27,7 @@ Remove the _MediaMTX_ image from cache:
 docker rm bluenviron/mediamtx:1
 ```
 
-Then recreate the container as described in [Install](install#docker-image).
+Then recreate the container as described in [Install](2-install.md#docker-image).
 
 ## Arch Linux package
 

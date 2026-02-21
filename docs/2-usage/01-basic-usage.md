@@ -1,6 +1,6 @@
 # Basic usage
 
-1. [Publish](publish) a stream. For instance, you can publish a stream from a MP4 file with _FFmpeg_:
+1. [Publish](02-publish.md) a stream. For instance, you can publish a stream from a MP4 file with _FFmpeg_:
 
    ```sh
    ffmpeg -re -stream_loop -1 -i file.mp4 -c copy \
@@ -14,7 +14,7 @@
    ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
-2. [Read](read) the stream. For instance, you can read the stream with _VLC_:
+2. [Read](03-read.md) the stream. For instance, you can read the stream with _VLC_:
 
    ```sh
    vlc --network-caching=50 rtsp://localhost:8554/mystream

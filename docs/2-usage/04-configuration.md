@@ -1,6 +1,6 @@
 # Configuration
 
-All the configuration parameters are listed and commented in the [configuration file](/docs/references/configuration-file) (`mediamtx.yml`).
+All the configuration parameters are listed and commented in the [configuration file](../3-references/1-configuration-file.md) (`mediamtx.yml`).
 
 ## Change the configuration
 
@@ -47,7 +47,7 @@ There are several ways to change the configuration:
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx:1
    ```
 
-3. By using the [Control API](control-api).
+3. By using the [Control API](20-control-api.md).
 
 ## Encrypt the configuration
 
