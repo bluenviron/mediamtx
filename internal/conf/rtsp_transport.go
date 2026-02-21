@@ -9,7 +9,9 @@ import (
 )
 
 func ptrOf[T any](v T) *T {
-	return &v
+	p := new(T)
+	*p = v
+	return p
 }
 
 // RTSPTransport is the rtspTransport parameter.
