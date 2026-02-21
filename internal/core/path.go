@@ -28,9 +28,9 @@ func emptyTimer() *time.Timer {
 
 type pathParent interface {
 	logger.Writer
-	pathReady(*path)
-	pathNotReady(*path)
-	closePath(*path)
+	setPathReady(*path)
+	setPathNotReady(*path)
+	removePath(*path)
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
@@ -79,6 +79,10 @@ type path struct {
 	externalCmdPool   *externalcmd.Pool
 	parent            pathParent
 
+	// accessed by pathManager only
+	ready    bool
+	confName string
+
 	ctx                            context.Context
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
@@ -118,6 +122,7 @@ type path struct {
 func (pa *path) initialize() {
 	ctx, ctxCancel := context.WithCancel(pa.parentCtx)
 
+	pa.confName = pa.conf.Name
 	pa.ctx = ctx
 	pa.ctxCancel = ctxCancel
 	pa.readers = make(map[defs.Reader]struct{})
@@ -210,7 +215,7 @@ func (pa *path) run() {
 	err := pa.runInner()
 
 	// call before destroying context
-	pa.parent.closePath(pa)
+	pa.parent.removePath(pa)
 
 	pa.ctxCancel()
 
@@ -299,6 +304,10 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chAddPublisher:
 			pa.doAddPublisher(req)
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
 
 		case req := <-pa.chRemovePublisher:
 			pa.doRemovePublisher(req)
@@ -809,7 +818,7 @@ func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
 		pa.Log(logger.Info, "stream is available and online, %s", defs.MediasInfo(pa.stream.Desc.Medias))
 	}
 
-	pa.parent.pathReady(pa)
+	pa.parent.setPathReady(pa)
 
 	return nil
 }
@@ -829,7 +838,7 @@ func (pa *path) consumeOnHoldRequests() {
 }
 
 func (pa *path) setNotAvailable() {
-	pa.parent.pathNotReady(pa)
+	pa.parent.setPathNotReady(pa)
 
 	for r := range pa.readers {
 		pa.executeRemoveReader(r)

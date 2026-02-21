@@ -9,7 +9,7 @@ type AuthManager struct {
 	RefreshJWTJWKSImpl func()
 }
 
-// Authenticate replicates auth.Manager.Replicate
+// Authenticate replicates auth.Manager.Authenticate.
 func (m *AuthManager) Authenticate(req *auth.Request) *auth.Error {
 	return m.AuthenticateImpl(req)
 }
