@@ -401,7 +401,6 @@ func (s *session) onRecordMPEGTSDemux() (*base.Response, error) {
 		s.pathConf,
 		s,
 		s,
-		s.packetsLost,
 		s.decodeErrors,
 		s.rsession.Path()[1:],
 		s.rsession.Query(),
