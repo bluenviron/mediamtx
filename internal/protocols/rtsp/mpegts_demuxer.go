@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -12,7 +13,6 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -28,34 +28,33 @@ type serverPathManager interface {
 	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
 }
 
+// MPEGTSDemuxer demuxes an MPEG-TS stream received via RTP into component streams.
 type MPEGTSDemuxer struct {
 	rsession     *gortsplib.ServerSession
 	pathManager  serverPathManager
 	pathConf     *conf.Path
 	author       defs.Publisher
 	logger       logger.Writer
-	packetsLost  *counterdumper.Dumper
 	decodeErrors *errordumper.Dumper
 	pathName     string
 	query        string
 
 	ctx        context.Context
 	ctxCancel  context.CancelFunc
-	rtpReader  *rtpMPEGTSReader
-	tsReader   *mpegts.EnhancedReader
+	pipeWriter *io.PipeWriter
 	path       defs.Path
 	subStream  *stream.SubStream
 	initDone   chan error
 	loopErr    chan error
 }
 
+// NewMPEGTSDemuxer creates a new MPEGTSDemuxer.
 func NewMPEGTSDemuxer(
 	rsession *gortsplib.ServerSession,
 	pathManager serverPathManager,
 	pathConf *conf.Path,
 	author defs.Publisher,
 	l logger.Writer,
-	packetsLost *counterdumper.Dumper,
 	decodeErrors *errordumper.Dumper,
 	pathName string,
 	query string,
@@ -68,7 +67,6 @@ func NewMPEGTSDemuxer(
 		pathConf:     pathConf,
 		author:       author,
 		logger:       l,
-		packetsLost:  packetsLost,
 		decodeErrors: decodeErrors,
 		pathName:     pathName,
 		query:        query,
@@ -79,23 +77,39 @@ func NewMPEGTSDemuxer(
 	}
 }
 
+// Start begins the demuxing process.
 func (d *MPEGTSDemuxer) Start() {
-	d.rtpReader = newRTPMPEGTSReader(d.packetsLost)
-
-	// Find the MPEG-TS media and format
 	medias := d.rsession.AnnouncedDescription().Medias
 	if len(medias) != 1 || len(medias[0].Formats) != 1 {
 		d.initDone <- errors.New("expected exactly one MPEG-TS track")
 		return
 	}
 	medi := medias[0]
-	forma := medi.Formats[0]
+	forma, ok := medi.Formats[0].(*format.MPEGTS)
+	if !ok {
+		d.initDone <- errors.New("expected MPEG-TS format")
+		return
+	}
+
+	decoder, err := forma.CreateDecoder()
+	if err != nil {
+		d.initDone <- fmt.Errorf("failed to create MPEG-TS decoder: %w", err)
+		return
+	}
+
+	pr, pw := io.Pipe()
+	d.pipeWriter = pw
 
 	d.rsession.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-		d.rtpReader.push(pkt)
+		tsData, err := decoder.Decode(pkt)
+		if err != nil {
+			d.decodeErrors.Add(err)
+			return
+		}
+		pw.Write(tsData) //nolint:errcheck
 	})
 
-	go d.initializeAndRun()
+	go d.run(pr)
 }
 
 // WaitForInit blocks until initialization completes or times out.
@@ -110,7 +124,7 @@ func (d *MPEGTSDemuxer) WaitForInit() (defs.Path, *stream.SubStream, error) {
 
 	case <-time.After(mpegtsInitTimeout):
 		d.ctxCancel()
-		d.rtpReader.close()
+		d.pipeWriter.CloseWithError(errors.New("initialization timeout"))
 		return nil, nil, errors.New("MPEG-TS initialization timeout: PMT not received")
 
 	case <-d.ctx.Done():
@@ -118,29 +132,25 @@ func (d *MPEGTSDemuxer) WaitForInit() (defs.Path, *stream.SubStream, error) {
 	}
 }
 
-func (d *MPEGTSDemuxer) initializeAndRun() {
-	err := d.initialize()
-	d.initDone <- err
+func (d *MPEGTSDemuxer) run(pr *io.PipeReader) {
+	err := d.doRun(pr)
 	if err != nil {
-		return
+		d.initDone <- err
 	}
-
-	err = d.runLoop()
-	d.loopErr <- err
 }
 
-func (d *MPEGTSDemuxer) initialize() error {
-	d.tsReader = &mpegts.EnhancedReader{R: d.rtpReader}
-	err := d.tsReader.Initialize()
+func (d *MPEGTSDemuxer) doRun(pr *io.PipeReader) error {
+	r := &mpegts.EnhancedReader{R: pr}
+	err := r.Initialize()
 	if err != nil {
 		return fmt.Errorf("failed to initialize MPEG-TS reader: %w", err)
 	}
 
-	d.tsReader.OnDecodeError(func(err error) {
+	r.OnDecodeError(func(err error) {
 		d.decodeErrors.Add(err)
 	})
 
-	medias, err := mpegts.ToStream(d.tsReader, &d.subStream, d.logger)
+	medias, err := mpegts.ToStream(r, &d.subStream, d.logger)
 	if err != nil {
 		return fmt.Errorf("failed to map MPEG-TS to stream: %w", err)
 	}
@@ -148,11 +158,11 @@ func (d *MPEGTSDemuxer) initialize() error {
 	d.logger.Log(logger.Info, "MPEG-TS demux discovered %d tracks", len(medias))
 
 	d.path, d.subStream, err = d.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:             d.author,
-		Desc:               &description.Session{Medias: medias},
-		UseRTPPackets:      false,
-		ReplaceNTP:         true,
-		ConfToCompare:      d.pathConf,
+		Author:        d.author,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: false,
+		ReplaceNTP:    true,
+		ConfToCompare: d.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     d.pathName,
 			Query:    d.query,
@@ -164,29 +174,24 @@ func (d *MPEGTSDemuxer) initialize() error {
 		return fmt.Errorf("failed to add publisher: %w", err)
 	}
 
-	return nil
-}
+	d.initDone <- nil
 
-func (d *MPEGTSDemuxer) runLoop() error {
 	for {
-		select {
-		case <-d.ctx.Done():
-			return nil
-		default:
-		}
-
-		err := d.tsReader.Read()
+		err = r.Read()
 		if err != nil {
-			return err
+			d.loopErr <- err
+			return nil
 		}
 	}
 }
 
+// Stop stops the demuxer.
 func (d *MPEGTSDemuxer) Stop() {
 	d.ctxCancel()
-	d.rtpReader.close()
+	d.pipeWriter.CloseWithError(errors.New("demuxer stopped"))
 }
 
+// WaitForLoopError blocks until the read loop exits with an error.
 func (d *MPEGTSDemuxer) WaitForLoopError() error {
 	select {
 	case err := <-d.loopErr:
@@ -196,6 +201,7 @@ func (d *MPEGTSDemuxer) WaitForLoopError() error {
 	}
 }
 
+// IsMPEGTSFormat checks if a format is MPEG-TS.
 func IsMPEGTSFormat(forma format.Format) bool {
 	return forma.Codec() == "MPEG-TS"
 }
