@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -74,6 +75,7 @@ type serverParent interface {
 // Server is a RTMP server.
 type Server struct {
 	Address             string
+	DumpPackets         bool
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	IsTLS               bool
@@ -106,31 +108,36 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	ln, err := func() (net.Listener, error) {
-		if !s.IsTLS {
-			return net.Listen(restrictnetwork.Restrict("tcp", s.Address))
-		}
+	var err error
+	s.ln, err = net.Listen(restrictnetwork.Restrict("tcp", s.Address))
+	if err != nil {
+		return err
+	}
 
+	if s.DumpPackets {
+		s.ln = &packetdumper.Listener{
+			Prefix:   "rtmp_server_conn",
+			Listener: s.ln,
+		}
+	}
+
+	if s.IsTLS {
 		s.loader = &certloader.CertLoader{
 			CertPath: s.ServerCert,
 			KeyPath:  s.ServerKey,
 			Parent:   s.Parent,
 		}
-		err := s.loader.Initialize()
+		err = s.loader.Initialize()
 		if err != nil {
-			return nil, err
+			s.ln.Close()
+			return err
 		}
 
-		network, address := restrictnetwork.Restrict("tcp", s.Address)
-		return tls.Listen(network, address, &tls.Config{GetCertificate: s.loader.GetCertificate()})
-	}()
-	if err != nil {
-		return err
+		s.ln = tls.NewListener(s.ln, &tls.Config{GetCertificate: s.loader.GetCertificate()})
 	}
 
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 
-	s.ln = ln
 	s.conns = make(map[*conn]struct{})
 	s.chNewConn = make(chan net.Conn)
 	s.chAcceptErr = make(chan error)

@@ -245,6 +245,7 @@ type Conf struct {
 	LogStructured       bool            `json:"logStructured"`
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
+	DumpPackets         bool            `json:"dumpPackets"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated

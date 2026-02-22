@@ -3,6 +3,7 @@ package webrtc
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
@@ -27,6 +29,7 @@ type parent interface {
 
 // Source is a WebRTC static source.
 type Source struct {
+	DumpPackets       bool
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
 	Parent            parent
@@ -48,7 +51,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
+	dialContext := (&net.Dialer{}).DialContext
+
+	if s.DumpPackets {
+		dialContext = (&packetdumper.DialContext{
+			Prefix:      "webrtc_source_conn",
+			DialContext: dialContext,
+		}).Do
+	}
+
 	tr := &http.Transport{
+		DialContext:     dialContext,
 		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 	}
 	defer tr.CloseIdleConnections()

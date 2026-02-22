@@ -68,6 +68,7 @@ type pathAPIPathsGetReq struct {
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
+	dumpPackets       bool
 	rtspAddress       string
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
@@ -193,6 +194,7 @@ func (pa *path) run() {
 		pa.source = &staticsources.Handler{
 			Conf:              pa.conf,
 			LogLevel:          pa.logLevel,
+			DumpPackets:       pa.dumpPackets,
 			ReadTimeout:       pa.readTimeout,
 			WriteTimeout:      pa.writeTimeout,
 			WriteQueueSize:    pa.writeQueueSize,

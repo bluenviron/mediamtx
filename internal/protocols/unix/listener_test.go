@@ -2,7 +2,6 @@ package unix
 
 import (
 	"net"
-	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -16,12 +15,12 @@ func TestListen(t *testing.T) {
 	socket.Close()
 	defer os.Remove(socket.Name())
 
-	u, err := url.Parse("unix://" + socket.Name())
+	l := &Listener{
+		Path: socket.Name(),
+	}
+	err = l.Initialize()
 	require.NoError(t, err)
-
-	conn, err := Listen(u)
-	require.NoError(t, err)
-	defer conn.Close()
+	defer l.Close() //nolint:errcheck
 
 	done := make(chan struct{})
 
@@ -29,8 +28,8 @@ func TestListen(t *testing.T) {
 		defer close(done)
 
 		buf := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		n, err2 := conn.Read(buf)
+		l.SetReadDeadline(time.Now().Add(2 * time.Second)) //nolint:errcheck
+		n, err2 := l.Read(buf)
 		require.NoError(t, err2)
 		require.Equal(t, []byte("testing"), buf[:n])
 	}()

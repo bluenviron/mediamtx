@@ -16,6 +16,8 @@ logStructured: false
 logFile: mediamtx.log
 # When "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
+# Dump packets to disk. This is useful for debugging.
+dumpPackets: false
 
 # Timeout of read operations.
 readTimeout: 10s

@@ -36,6 +36,7 @@ func mergePathAndQuery(path string, rawQuery string) string {
 
 type httpServer struct {
 	address        string
+	dumpPackets    bool
 	encryption     bool
 	serverKey      string
 	serverCert     string
@@ -58,15 +59,17 @@ func (s *httpServer) initialize() error {
 	router.Use(s.onRequest)
 
 	s.inner = &httpp.Server{
-		Address:      s.address,
-		AllowOrigins: s.allowOrigins,
-		ReadTimeout:  time.Duration(s.readTimeout),
-		WriteTimeout: time.Duration(s.writeTimeout),
-		Encryption:   s.encryption,
-		ServerCert:   s.serverCert,
-		ServerKey:    s.serverKey,
-		Handler:      router,
-		Parent:       s,
+		Address:           s.address,
+		AllowOrigins:      s.allowOrigins,
+		DumpPackets:       s.dumpPackets,
+		DumpPacketsPrefix: "hls_server_conn",
+		ReadTimeout:       time.Duration(s.readTimeout),
+		WriteTimeout:      time.Duration(s.writeTimeout),
+		Encryption:        s.encryption,
+		ServerCert:        s.serverCert,
+		ServerKey:         s.serverKey,
+		Handler:           router,
+		Parent:            s,
 	}
 	err := s.inner.Initialize()
 	if err != nil {

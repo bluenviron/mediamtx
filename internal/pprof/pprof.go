@@ -27,6 +27,7 @@ type pprofParent interface {
 // PPROF is a pprof exporter.
 type PPROF struct {
 	Address        string
+	DumpPackets    bool
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
@@ -51,15 +52,17 @@ func (pp *PPROF) Initialize() error {
 	pprof.Register(router)
 
 	pp.httpServer = &httpp.Server{
-		Address:      pp.Address,
-		AllowOrigins: pp.AllowOrigins,
-		ReadTimeout:  time.Duration(pp.ReadTimeout),
-		WriteTimeout: time.Duration(pp.WriteTimeout),
-		Encryption:   pp.Encryption,
-		ServerCert:   pp.ServerCert,
-		ServerKey:    pp.ServerKey,
-		Handler:      router,
-		Parent:       pp,
+		Address:           pp.Address,
+		DumpPackets:       pp.DumpPackets,
+		AllowOrigins:      pp.AllowOrigins,
+		DumpPacketsPrefix: "pprof_server_conn",
+		ReadTimeout:       time.Duration(pp.ReadTimeout),
+		WriteTimeout:      time.Duration(pp.WriteTimeout),
+		Encryption:        pp.Encryption,
+		ServerCert:        pp.ServerCert,
+		ServerKey:         pp.ServerKey,
+		Handler:           router,
+		Parent:            pp,
 	}
 	err := pp.httpServer.Initialize()
 	if err != nil {
