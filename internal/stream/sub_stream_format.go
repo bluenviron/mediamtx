@@ -139,7 +139,9 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 
 					ssf.streamFormat.rtpTimeOffset = pkt.Timestamp - uint32(u.PTS)
 
-					ssf.streamFormat.parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
+					ssf.streamFormat.parent.Log(logger.Info,
+						"RTP packets are too big (%d > %d), remuxing them into smaller ones",
+						len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
 					break
 				}
 			}
