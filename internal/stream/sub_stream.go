@@ -187,7 +187,7 @@ func (ss *SubStream) Initialize() error {
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
-			ssf.initialize2()
+			ssf.initialize2(ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
 		}
 	}
 

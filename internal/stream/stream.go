@@ -239,6 +239,11 @@ type Stream struct {
 	readers          map[*Reader]struct{}
 	processingErrors *errordumper.Dumper
 
+	timeMutex         sync.Mutex
+	firstTimeReceived bool
+	lastPTS           time.Duration
+	lastSystemTime    time.Time
+
 	hasReaders chan struct{}
 }
 
@@ -286,14 +291,17 @@ func (s *Stream) Initialize() error {
 	}
 	s.processingErrors.Start()
 
+	s.lastSystemTime = time.Now()
+
 	for _, media := range s.Desc.Medias {
 		sm := &streamMedia{
 			media:             media,
 			alwaysAvailable:   s.AlwaysAvailable,
 			rtpMaxPayloadSize: s.RTPMaxPayloadSize,
 			replaceNTP:        s.ReplaceNTP,
-			onBytesReceived:   s.onBytesReceived,
-			onBytesSent:       s.onBytesSent,
+			addBytesReceived:  s.addBytesReceived,
+			addBytesSent:      s.addBytesSent,
+			updateLastTime:    s.updateLastTime,
 			writeRTSP:         s.writeRTSP,
 			processingErrors:  s.processingErrors,
 			parent:            s.Parent,
@@ -466,12 +474,25 @@ func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
 }
 
-func (s *Stream) onBytesReceived(v uint64) {
+func (s *Stream) addBytesReceived(v uint64) {
 	atomic.AddUint64(s.bytesReceived, v)
 }
 
-func (s *Stream) onBytesSent(v uint64) {
+func (s *Stream) addBytesSent(v uint64) {
 	atomic.AddUint64(s.bytesSent, v)
+}
+
+func (s *Stream) updateLastTime(pts time.Duration) {
+	s.timeMutex.Lock()
+	defer s.timeMutex.Unlock()
+
+	s.firstTimeReceived = true
+
+	if pts > s.lastPTS {
+		s.lastPTS = pts
+	}
+
+	s.lastSystemTime = time.Now()
 }
 
 func (s *Stream) writeRTSP(medi *description.Media, pkts []*rtp.Packet, ntp time.Time) {

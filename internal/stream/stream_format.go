@@ -44,26 +44,22 @@ type streamFormat struct {
 	rtpMaxPayloadSize int
 	replaceNTP        bool
 	processingErrors  *errordumper.Dumper
-	onBytesReceived   func(uint64)
-	onBytesSent       func(uint64)
+	addBytesReceived  func(uint64)
+	addBytesSent      func(uint64)
+	updateLastTime    func(time.Duration)
 	writeRTSP         func(*description.Media, []*rtp.Packet, time.Time)
 	parent            logger.Writer
 
-	firstReceived  bool
-	lastPTS        int64
-	lastSystemTime time.Time
-	ptsOffset      int64
-	formatUpdater  formatUpdater
-	unitRemuxer    unitRemuxer
-	rtpEncoder     rtpEncoder
-	rtpTimeOffset  uint32
-	ntpEstimator   *ntpestimator.Estimator
-	onDatas        map[*Reader]OnDataFunc
+	ptsOffset     int64
+	formatUpdater formatUpdater
+	unitRemuxer   unitRemuxer
+	rtpEncoder    rtpEncoder
+	rtpTimeOffset uint32
+	ntpEstimator  *ntpestimator.Estimator
+	onDatas       map[*Reader]OnDataFunc
 }
 
 func (sf *streamFormat) initialize() error {
-	sf.lastSystemTime = time.Now()
-
 	sf.formatUpdater = newFormatUpdater(sf.format)
 	sf.unitRemuxer = newUnitRemuxer(sf.format)
 
