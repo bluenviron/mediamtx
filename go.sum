@@ -33,8 +33,8 @@ github.com/asticode/go-astits v1.14.0 h1:zkgnZzipx2XX5mWycqsSBeEyDH58+i4HtyF4j2R
 github.com/asticode/go-astits v1.14.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYhJeJ2aZxADI2tGADS15AzIF8MQ8XAhT4=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
-github.com/bluenviron/gohlslib/v2 v2.2.5 h1:gQyVmymInXSwm7QgMBwaq6eZZAM0FaT+hX41iueMSyw=
-github.com/bluenviron/gohlslib/v2 v2.2.5/go.mod h1:4ZQMhQ1m9SMFWfh65lptaz0YwHbRxDIza7mM9OZsydo=
+github.com/bluenviron/gohlslib/v2 v2.2.6 h1:SD3abpS3msZlnky9dAm8TSZm2zp6KLXT5021QPTnBFw=
+github.com/bluenviron/gohlslib/v2 v2.2.6/go.mod h1:irIxK0AHSxMCeuB4niMBrF2y9TQH+WL+I4JRRYqLrq4=
 github.com/bluenviron/gortmplib v0.2.2-0.20260218152940-e1378f261371 h1:xoizvABlBF+G2N3CO7IuV0/IrLzL964Av9IkkR6lE+s=
 github.com/bluenviron/gortmplib v0.2.2-0.20260218152940-e1378f261371/go.mod h1:HWpYpjVjl9pZlT3VRY9zciLrG1+JvYVY16VC6R7kB6M=
 github.com/bluenviron/gortsplib/v5 v5.3.2 h1:eGoOsJzV015A+9xuBPcDYNhqYjogH25zXhMoU1lNeXI=
