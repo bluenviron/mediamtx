@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/substructs"
 	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -201,7 +202,9 @@ func FromStream(
 
 			case *format.Opus:
 				track := &mcmpegts.Track{Codec: &tscodecs.Opus{
-					ChannelCount: forma.ChannelCount,
+					Desc: &substructs.OpusAudioDescriptor{
+						ChannelConfigCode: uint8(forma.ChannelCount),
+					},
 				}}
 
 				addTrack(
