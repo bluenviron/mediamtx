@@ -1,2 +1,37 @@
 kickoff/installation: kickoff/install
-usage/log-management: usage/logging
+
+usage/publish: publish/overview
+usage/read: read/overview
+
+usage/log-management: other/logging
+usage/basic-usage: other/basic-usage
+usage/configuration: other/configuration
+usage/authentication: other/authentication
+usage/remuxing-reencoding-compression: other/remuxing-reencoding-compression
+usage/always-available: other/always-available
+usage/record: other/record
+usage/playback: other/playback
+usage/forward: other/forward
+usage/proxy: other/proxy
+usage/extract-snapshots: other/extract-snapshots
+usage/on-demand-publishing: other/on-demand-publishing
+usage/route-absolute-timestamps: other/route-absolute-timestamps
+usage/expose-the-server-in-a-subfolder: other/expose-the-server-in-a-subfolder
+usage/embed-streams-in-a-website: other/embed-streams-in-a-website
+usage/start-on-boot: other/start-on-boot
+usage/logging: other/logging
+usage/hooks: other/hooks
+usage/control-api: other/control-api
+usage/metrics: other/metrics
+usage/performance: other/performance
+usage/srt-specific-features: other/srt-specific-features
+usage/webrtc-specific-features: other/webrtc-specific-features
+usage/rtsp-specific-features: other/rtsp-specific-features
+usage/rtmp-specific-features: other/rtmp-specific-features
+usage/decrease-packet-loss: other/decrease-packet-loss
+
+other/compile: misc/compile
+other/license: misc/license
+other/security: misc/security
+other/specifications: misc/specifications
+other/related-projects: misc/related-projects
