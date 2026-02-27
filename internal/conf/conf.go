@@ -622,6 +622,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		return fmt.Errorf("'writeTimeout' must be greater than zero")
 	}
 
+	if conf.WriteQueueSize <= 0 {
+		return fmt.Errorf("'writeQueueSize' must be greater than zero")
+	}
+
 	if (conf.WriteQueueSize & (conf.WriteQueueSize - 1)) != 0 {
 		return fmt.Errorf("'writeQueueSize' must be a power of two")
 	}

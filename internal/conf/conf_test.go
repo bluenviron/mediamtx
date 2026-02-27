@@ -292,7 +292,12 @@ func TestConfErrors(t *testing.T) {
 			"'writeTimeout' must be greater than zero",
 		},
 		{
-			"invalid writeQueueSize",
+			"invalid writeQueueSize 1",
+			"writeQueueSize: 0\n",
+			"'writeQueueSize' must be greater than zero",
+		},
+		{
+			"invalid writeQueueSize 2",
 			"writeQueueSize: 1001\n",
 			"'writeQueueSize' must be a power of two",
 		},
