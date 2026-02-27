@@ -11,53 +11,136 @@ import (
 )
 
 // differences with respect to the standard package:
-// - prevents setting unknown fields
-// - prevents using existing elements of slices, fixing https://github.com/golang/go/issues/21092
-// - prevents setting slices to nil
+// - JSON cannot contain unknown fields
+// - existing elements of slices are never used, fixing https://github.com/golang/go/issues/21092
+// - slices cannot be set to nil
 
-func process(v reflect.Value, raw any, path string) error {
-	switch v.Kind() {
-	case reflect.Slice:
-		if raw == nil {
+func jsonFieldKey(f reflect.StructField) string {
+	tag := f.Tag.Get("json")
+	if tag == "" || tag == "-" {
+		return ""
+	}
+	return strings.Split(tag, ",")[0]
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return string(bytes.TrimSpace(raw)) == "null"
+}
+
+func needsCustomDecode(t reflect.Type) bool {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.Kind() == reflect.Struct || t.Kind() == reflect.Slice
+}
+
+func checkForUnknownFields(rawMap map[string]json.RawMessage, known map[string]int, path string) error {
+	for k := range rawMap {
+		if _, ok := known[k]; !ok {
 			if path != "" {
-				return fmt.Errorf("cannot set slice '%s' to nil", path)
+				return fmt.Errorf("json: unknown field %q", path+"."+k)
+			}
+			return fmt.Errorf("json: unknown field %q", k)
+		}
+	}
+	return nil
+}
+
+func decode(v reflect.Value, raw json.RawMessage, path string) error {
+	for v.Kind() == reflect.Ptr {
+		if isJSONNull(raw) {
+			v.Set(reflect.Zero(v.Type()))
+			return nil
+		}
+
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
+		v = v.Elem()
+	}
+
+	if unm, ok := v.Addr().Interface().(json.Unmarshaler); ok {
+		return unm.UnmarshalJSON(raw)
+	}
+
+	switch v.Kind() {
+	case reflect.Struct:
+		var rawMap map[string]json.RawMessage
+		err := json.Unmarshal(raw, &rawMap)
+		if err != nil {
+			return err
+		}
+
+		vType := v.Type()
+		known := make(map[string]int, v.NumField())
+
+		for i := 0; i < v.NumField(); i++ {
+			if key := jsonFieldKey(vType.Field(i)); key != "" {
+				known[key] = i
+			}
+		}
+
+		err = checkForUnknownFields(rawMap, known, path)
+		if err != nil {
+			return err
+		}
+
+		for key, fieldIdx := range known {
+			rawVal, ok := rawMap[key]
+			if !ok {
+				continue
+			}
+
+			fieldPath := key
+			if path != "" {
+				fieldPath = path + "." + key
+			}
+
+			err = decode(v.Field(fieldIdx), rawVal, fieldPath)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case reflect.Slice:
+		if isJSONNull(raw) {
+			if path != "" {
+				return fmt.Errorf("cannot set slice %q to nil", path)
 			}
 			return fmt.Errorf("cannot set slice to nil")
 		}
 
-		// nil existing slice to prevent reuse of elements
 		if !v.IsNil() {
 			v.Set(reflect.Zero(v.Type()))
 		}
 
-	case reflect.Struct:
-		if rawMap, ok := raw.(map[string]any); ok {
-			vType := v.Type()
-			for i := 0; i < v.NumField(); i++ {
-				field := v.Field(i)
-				fieldType := vType.Field(i)
+		elemType := v.Type().Elem()
 
-				jsonKey := fieldType.Tag.Get("json")
-				if jsonKey == "" || jsonKey == "-" {
-					continue
-				}
-				jsonKey = strings.Split(jsonKey, ",")[0]
+		if needsCustomDecode(elemType) {
+			var rawElems []json.RawMessage
+			if err := json.Unmarshal(raw, &rawElems); err != nil {
+				return err
+			}
 
-				if rawVal, ok2 := rawMap[jsonKey]; ok2 {
-					fieldPath := jsonKey
-					if path != "" {
-						fieldPath = path + "." + jsonKey
-					}
-					err := process(field, rawVal, fieldPath)
-					if err != nil {
-						return err
-					}
+			slice := reflect.MakeSlice(v.Type(), len(rawElems), len(rawElems))
+			for i, re := range rawElems {
+				err := decode(slice.Index(i), re, fmt.Sprintf("%s[%d]", path, i))
+				if err != nil {
+					return err
 				}
 			}
-		}
-	}
+			v.Set(slice)
 
-	return nil
+			return nil
+		}
+
+		return json.Unmarshal(raw, v.Addr().Interface())
+
+	default:
+		return json.Unmarshal(raw, v.Addr().Interface())
+	}
 }
 
 // Unmarshal decodes JSON.
@@ -71,19 +154,5 @@ func Decode(r io.Reader, dest any) error {
 	if err != nil {
 		return err
 	}
-
-	var raw any
-	err = json.Unmarshal(buf, &raw)
-	if err != nil {
-		return err
-	}
-
-	err = process(reflect.ValueOf(dest).Elem(), raw, "")
-	if err != nil {
-		return err
-	}
-
-	d := json.NewDecoder(bytes.NewReader(buf))
-	d.DisallowUnknownFields()
-	return d.Decode(dest)
+	return decode(reflect.ValueOf(dest).Elem(), buf, "")
 }

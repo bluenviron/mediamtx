@@ -1,6 +1,6 @@
 # RTP
 
-The server supports ingesting RTP streams, shipped in two different ways (UDP packets or Unix sockets).
+The server supports ingesting RTP streams, transmitted with UDP packets.
 
 In order to read a UDP RTP stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
