@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: binaries
         path: binaries
@@ -150,7 +150,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: binaries
         path: binaries
