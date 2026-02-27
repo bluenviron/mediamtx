@@ -1,6 +1,7 @@
 package jsonwrapper
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -83,13 +84,13 @@ func TestUnmarshalSetSliceToNil(t *testing.T) {
 
 		json := []byte(`{"items": null}`)
 		err := Unmarshal(json, &data)
-		require.EqualError(t, err, "cannot set slice 'items' to nil")
+		require.EqualError(t, err, "cannot set slice \"items\" to nil")
 
 		data = Data{Items: []string{"a", "b"}}
 
 		json = []byte(`{"items": null}`)
 		err = Unmarshal(json, &data)
-		require.EqualError(t, err, "cannot set slice 'items' to nil")
+		require.EqualError(t, err, "cannot set slice \"items\" to nil")
 	})
 
 	t.Run("nested", func(t *testing.T) {
@@ -103,7 +104,7 @@ func TestUnmarshalSetSliceToNil(t *testing.T) {
 		var data Outer
 		json := []byte(`{"inner": {"values": null}}`)
 		err := Unmarshal(json, &data)
-		require.EqualError(t, err, "cannot set slice 'inner.values' to nil")
+		require.EqualError(t, err, "cannot set slice \"inner.values\" to nil")
 	})
 }
 
@@ -123,4 +124,35 @@ func TestUnmarshalSetNullableSliceToNil(t *testing.T) {
 	json = []byte(`{"items": null}`)
 	err = Unmarshal(json, &data)
 	require.NoError(t, err)
+}
+
+type testStructWithUnmarshaler struct {
+	Field1 string `json:"field1"`
+}
+
+func (s *testStructWithUnmarshaler) UnmarshalJSON(b []byte) error {
+	var t string
+	if err := json.Unmarshal(b, &t); err != nil {
+		return err
+	}
+
+	s.Field1 = t
+	return nil
+}
+
+func TestUnmarshalStructWithCustomUnmarshalerFromString(t *testing.T) {
+	var data testStructWithUnmarshaler
+
+	json := []byte(`"testing"`)
+	err := Unmarshal(json, &data)
+	require.NoError(t, err)
+
+	require.Equal(t, &testStructWithUnmarshaler{Field1: "testing"}, &data)
+}
+
+func FuzzUnmarshal(f *testing.F) {
+	f.Fuzz(func(_ *testing.T, buf []byte) {
+		var dest any
+		Unmarshal(buf, &dest) //nolint:errcheck
+	})
 }

@@ -317,7 +317,7 @@ func TestConfErrors(t *testing.T) {
 			"non existent parameter in auth",
 			"authInternalUsers:\n" +
 				"- users: test\n",
-			"json: unknown field \"users\"",
+			"json: unknown field \"authInternalUsers[0].users\"",
 		},
 		{
 			"invalid path name",
