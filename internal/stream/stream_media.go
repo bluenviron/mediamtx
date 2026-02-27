@@ -15,8 +15,9 @@ type streamMedia struct {
 	alwaysAvailable   bool
 	rtpMaxPayloadSize int
 	replaceNTP        bool
-	onBytesReceived   func(uint64)
-	onBytesSent       func(uint64)
+	addBytesReceived  func(uint64)
+	addBytesSent      func(uint64)
+	updateLastTime    func(time.Duration)
 	writeRTSP         func(*description.Media, []*rtp.Packet, time.Time)
 	processingErrors  *errordumper.Dumper
 	parent            logger.Writer
@@ -35,8 +36,9 @@ func (sm *streamMedia) initialize() error {
 			rtpMaxPayloadSize: sm.rtpMaxPayloadSize,
 			replaceNTP:        sm.replaceNTP,
 			processingErrors:  sm.processingErrors,
-			onBytesReceived:   sm.onBytesReceived,
-			onBytesSent:       sm.onBytesSent,
+			addBytesReceived:  sm.addBytesReceived,
+			addBytesSent:      sm.addBytesSent,
+			updateLastTime:    sm.updateLastTime,
 			writeRTSP:         sm.writeRTSP,
 			parent:            sm.parent,
 		}

@@ -1,4 +1,4 @@
-//go:build !enableUpgrade
+//go:build !enable_upgrade
 
 package core
 

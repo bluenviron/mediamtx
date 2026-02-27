@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -43,24 +44,76 @@ func mediasToCodecs(medias []*description.Media) []string {
 	return FormatsToCodecs(gatherFormats(medias))
 }
 
-func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Media) bool {
+func formatMPEG4AudioConfig(asc *mpeg4audio.AudioSpecificConfig) string {
+	return fmt.Sprintf("type=%d, sampleRate=%d, channelCount=%d",
+		asc.Type, asc.SampleRate, asc.ChannelConfig)
+}
+
+func formatG711Config(f *format.G711) string {
+	return fmt.Sprintf("MULaw=%v, sampleRate=%d, channelCount=%d",
+		f.MULaw, f.SampleRate, f.ChannelCount)
+}
+
+func formatLPCMConfig(f *format.LPCM) string {
+	return fmt.Sprintf("bitDepth=%d, sampleRate=%d, channelCount=%d",
+		f.BitDepth, f.SampleRate, f.ChannelCount)
+}
+
+func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Media) error {
 	if len(medias1) != len(medias2) {
-		return false
+		return fmt.Errorf("wants to publish %v, but stream expects %v",
+			mediasToCodecs(medias2), mediasToCodecs(medias1))
 	}
 
 	for i := range medias1 {
 		if len(medias1[i].Formats) != len(medias2[i].Formats) {
-			return false
+			return fmt.Errorf("wants to publish %v, but stream expects %v",
+				mediasToCodecs(medias2), mediasToCodecs(medias1))
 		}
 
 		for j := range medias1[i].Formats {
 			if reflect.TypeOf(medias1[i].Formats[j]) != reflect.TypeOf(medias2[i].Formats[j]) {
-				return false
+				return fmt.Errorf("wants to publish %v, but stream expects %v",
+					mediasToCodecs(medias2), mediasToCodecs(medias1))
 			}
 		}
 	}
 
-	return true
+	for i := range medias1 {
+		for j := range medias1[i].Formats {
+			switch format1 := medias1[i].Formats[j].(type) {
+			case *format.MPEG4Audio:
+				format2 := medias2[i].Formats[j].(*format.MPEG4Audio)
+
+				if !reflect.DeepEqual(format1.Config, format2.Config) {
+					return fmt.Errorf("MPEG-4 audio configuration does not match, is %s, but stream expects %s",
+						formatMPEG4AudioConfig(format2.Config), formatMPEG4AudioConfig(format1.Config))
+				}
+
+			case *format.G711:
+				format2 := medias2[i].Formats[j].(*format.G711)
+
+				if format1.MULaw != format2.MULaw ||
+					format1.SampleRate != format2.SampleRate ||
+					format1.ChannelCount != format2.ChannelCount {
+					return fmt.Errorf("G711 configuration does not match, is %s, but stream expects %s",
+						formatG711Config(format2), formatG711Config(format1))
+				}
+
+			case *format.LPCM:
+				format2 := medias2[i].Formats[j].(*format.LPCM)
+
+				if format1.BitDepth != format2.BitDepth ||
+					format1.SampleRate != format2.SampleRate ||
+					format1.ChannelCount != format2.ChannelCount {
+					return fmt.Errorf("LPCM configuration does not match, is %s, but stream expects %s",
+						formatLPCMConfig(format2), formatLPCMConfig(format1))
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // SubStream is a Stream without interruptions.
@@ -87,9 +140,9 @@ func (ss *SubStream) Initialize() error {
 			panic("should not happen")
 		}
 
-		if !mediasAreCompatible(ss.Stream.Desc.Medias, ss.CurDesc.Medias) {
-			return fmt.Errorf("want to publish %v, but stream expects %v",
-				mediasToCodecs(ss.CurDesc.Medias), mediasToCodecs(ss.Stream.Desc.Medias))
+		err := mediasAreCompatible(ss.Stream.Desc.Medias, ss.CurDesc.Medias)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -134,7 +187,7 @@ func (ss *SubStream) Initialize() error {
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
-			ssf.initialize2()
+			ssf.initialize2(ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
 		}
 	}
 

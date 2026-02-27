@@ -11,11 +11,13 @@ logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
 # When destination is "stdout" or "file", emit logs in structured format (JSONL).
-logStructured: no
+logStructured: false
 # When "file" is in logDestinations, this is the file which will receive logs.
 logFile: mediamtx.log
 # When "syslog" is in logDestinations, use prefix for logs.
 sysLogPrefix: mediamtx
+# Dump packets to disk. This is useful for debugging.
+dumpPackets: false
 
 # Timeout of read operations.
 readTimeout: 10s
@@ -24,9 +26,10 @@ writeTimeout: 10s
 # Size of the queue of outgoing packets.
 # A higher value allows to increase throughput, a lower value allows to save RAM.
 writeQueueSize: 512
-# Maximum size of outgoing UDP packets.
-# This can be decreased to avoid fragmentation on networks with a low UDP MTU.
-udpMaxPayloadSize: 1472
+# Maximum size of outgoing UDP payloads.
+# It defaults to the maximum packet size on ethernet (1500) minus IPv6 and UDP headers (48).
+# This can be decreased to avoid fragmentation on networks with a low MTU.
+udpMaxPayloadSize: 1452
 # Size of the read buffer of every UDP socket.
 # This can be increased to decrease packet losses.
 # It defaults to the default value of the operating system.
@@ -40,7 +43,7 @@ udpReadBufferSize: 0
 # * RTSP_PORT: RTSP server port
 runOnConnect:
 # Restart the command if it exits.
-runOnConnectRestart: no
+runOnConnectRestart: false
 # Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
 runOnDisconnect:
@@ -106,6 +109,12 @@ authInternalUsers:
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
 authHTTPAddress:
+# If the HTTP authentication URL has a self-signed or invalid certificate,
+# you can provide the fingerprint of the certificate in order to
+# validate it anyway. It can be obtained by running:
+# openssl s_client -connect auth_http_domain:443 </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+# openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+authHTTPFingerprint:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
@@ -141,18 +150,18 @@ authJWTClaimKey: mediamtx_permissions
 # Format is the same as the one of user permissions.
 authJWTExclude: []
 # allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
-# This is a security risk and will be disabled by default in the future.
+# This is a security risk and will be disabled in the future.
 authJWTInHTTPQuery: true
 
 ###############################################
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+api: false
 # Address of the Control API listener.
 apiAddress: :9997
 # Enable HTTPS on the Control API server.
-apiEncryption: no
+apiEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -164,19 +173,19 @@ apiServerCert: server.crt
 # Supports wildcards: ['http://*.example.com']
 apiAllowOrigins: ['*']
 # IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
-# will be taken from the X-Forwarded-For header.
+# These proxies can use the X-Forwarded-For header to set the real IP of clients,
+# and the X-Forwarded-Proto header to set the original protocol.
 apiTrustedProxies: []
 
 ###############################################
 # Global settings -> Metrics
 
 # Enable Prometheus-compatible metrics.
-metrics: no
+metrics: false
 # Address of the metrics HTTP listener.
 metricsAddress: :9998
 # Enable HTTPS on the Metrics server.
-metricsEncryption: no
+metricsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -188,19 +197,19 @@ metricsServerCert: server.crt
 # Supports wildcards: ['http://*.example.com']
 metricsAllowOrigins: ['*']
 # IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
-# will be taken from the X-Forwarded-For header.
+# These proxies can use the X-Forwarded-For header to set the real IP of clients,
+# and the X-Forwarded-Proto header to set the original protocol.
 metricsTrustedProxies: []
 
 ###############################################
 # Global settings -> PPROF
 
 # Enable pprof-compatible endpoint to monitor performances.
-pprof: no
+pprof: false
 # Address of the pprof listener.
 pprofAddress: :9999
 # Enable HTTPS on the pprof server.
-pprofEncryption: no
+pprofEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -212,19 +221,19 @@ pprofServerCert: server.crt
 # Supports wildcards: ['http://*.example.com']
 pprofAllowOrigins: ['*']
 # IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
-# will be taken from the X-Forwarded-For header.
+# These proxies can use the X-Forwarded-For header to set the real IP of clients,
+# and the X-Forwarded-Proto header to set the original protocol.
 pprofTrustedProxies: []
 
 ###############################################
 # Global settings -> Playback server
 
 # Enable downloading recordings from the playback server.
-playback: no
+playback: false
 # Address of the playback server listener.
 playbackAddress: :9996
 # Enable HTTPS on the playback server.
-playbackEncryption: no
+playbackEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -236,15 +245,15 @@ playbackServerCert: server.crt
 # Supports wildcards: ['http://*.example.com']
 playbackAllowOrigins: ['*']
 # IPs or CIDRs of proxies placed before the HTTP server.
-# If the server receives a request from one of these entries, IP in logs
-# will be taken from the X-Forwarded-For header.
+# These proxies can use the X-Forwarded-For header to set the real IP of clients,
+# and the X-Forwarded-Proto header to set the original protocol.
 playbackTrustedProxies: []
 
 ###############################################
 # Global settings -> RTSP server
 
 # Enable publishing and reading streams with the RTSP protocol.
-rtsp: yes
+rtsp: true
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
 # Use secure protocol variants (RTSPS, SRTP, SRTCP).
@@ -287,7 +296,7 @@ rtspAuthMethods: [basic]
 # Global settings -> RTMP server
 
 # Enable publishing and reading streams with the RTMP protocol.
-rtmp: yes
+rtmp: true
 # Use the secure protocol variant (RTMP).
 # Available values are "no", "strict", "optional".
 rtmpEncryption: "no"
@@ -307,12 +316,12 @@ rtmpServerCert: server.crt
 # Global settings -> HLS server
 
 # Enable reading streams with the HLS protocol.
-hls: yes
+hls: true
 # Address of the HLS listener.
 hlsAddress: :8888
 # Enable HTTPS on the HLS server.
 # This is required for Low-Latency HLS to function correctly on Apple devices.
-hlsEncryption: no
+hlsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -329,7 +338,7 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: []
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
-hlsAlwaysRemux: no
+hlsAlwaysRemux: false
 # Variant of the HLS protocol to use. Available options are:
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
@@ -366,11 +375,13 @@ hlsMuxerCloseAfter: 60s
 # Global settings -> WebRTC server
 
 # Enable publishing and reading streams with the WebRTC protocol.
-webrtc: yes
+webrtc: true
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
 # Enable HTTPS on the WebRTC server.
-webrtcEncryption: no
+# This covers only the WebRTC handshake and does not influence the encryption of WebRTC streams
+# which are always encrypted, with a key that is exchanged during the WebRTC handshake.
+webrtcEncryption: false
 # Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -394,7 +405,7 @@ webrtcLocalUDPAddress: :8189
 webrtcLocalTCPAddress: ''
 # WebRTC clients need to know the IP of the server.
 # Gather IPs from interfaces and send them to clients.
-webrtcIPsFromInterfaces: yes
+webrtcIPsFromInterfaces: true
 # Interfaces whose IPs will be sent to clients.
 # An empty value means to use all available interfaces.
 webrtcIPsFromInterfacesList: []
@@ -410,18 +421,18 @@ webrtcICEServers2: []
   # username: ''
   # password: ''
   # clientOnly: false
+# Maximum time to gather STUN candidates.
+webrtcSTUNGatherTimeout: 5s
 # Time to wait for the WebRTC handshake to complete.
 webrtcHandshakeTimeout: 10s
-# Maximum time to gather video tracks.
+# Maximum time to gather tracks.
 webrtcTrackGatherTimeout: 2s
-# The maximum time to gather STUN candidates.
-webrtcSTUNGatherTimeout: 5s
 
 ###############################################
 # Global settings -> SRT server
 
 # Enable publishing and reading streams with the SRT protocol.
-srt: yes
+srt: true
 # Address of the SRT listener.
 srtAddress: :8890
 
@@ -450,10 +461,9 @@ pathDefaults:
   # * udp+mpegts://ip:port -> the stream is pulled from MPEG-TS over UDP, by listening on the specified address
   # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
   # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
-  # * unix+rtp://socket -> the stream is pulled from RTP over Unix socket, by using the socket
   # * srt://existing-url -> the stream is pulled from another SRT server / camera
-  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
-  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
+  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
+  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
   # The following variables can be used in the source string:
@@ -469,7 +479,7 @@ pathDefaults:
   sourceFingerprint:
   # If the source is a URL, it will be pulled only when at least
   # one reader is connected, saving bandwidth.
-  sourceOnDemand: no
+  sourceOnDemand: false
   # If sourceOnDemand is "yes", readers will be put on hold until the source is
   # ready or until this amount of time has passed.
   sourceOnDemandStartTimeout: 10s
@@ -490,7 +500,7 @@ pathDefaults:
   alwaysAvailable: false
   # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ''
-  # Tracks of the offline segment.
+  # Tracks of the default offline segment.
   alwaysAvailableTracks:
     # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
     - codec: H264
@@ -504,7 +514,7 @@ pathDefaults:
   # Default path settings -> Record
 
   # Record streams to disk.
-  record: no
+  record: false
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d (year, month, day),
@@ -530,7 +540,7 @@ pathDefaults:
   # Default path settings -> Publisher source (when source is "publisher")
 
   # Allow another client to disconnect the current publisher and publish in its place.
-  overridePublisher: yes
+  overridePublisher: true
   # SRT encryption passphrase required to publish to this path.
   srtPublishPassphrase:
 
@@ -541,7 +551,7 @@ pathDefaults:
   rtspTransport: automatic
   # Support sources that don't provide server ports or use random server ports. This is a security issue
   # and must be used only when interacting with sources that require it.
-  rtspAnyPort: no
+  rtspAnyPort: false
   # Range header to send to the source, in order to start streaming from the specified offset.
   # available values:
   # * clock: Absolute time
@@ -561,6 +571,18 @@ pathDefaults:
 
   # session description protocol (SDP) of the RTP stream.
   rtpSDP:
+
+  ###############################################
+  # Default path settings -> WebRTC / WHEP source (when source is WHEP)
+
+  # Token to insert in the Authorization: Bearer header.
+  whepBearerToken: ''
+  # Maximum time to gather STUN candidates.
+  whepSTUNGatherTimeout: 5s
+  # Time to wait for the WebRTC handshake to complete.
+  whepHandshakeTimeout: 10s
+  # Maximum time to gather tracks.
+  whepTrackGatherTimeout: 2s
 
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")
@@ -676,7 +698,7 @@ pathDefaults:
   #   a regular expression.
   runOnInit:
   # Restart the command if it exits.
-  runOnInitRestart: no
+  runOnInitRestart: false
 
   # Command to run when this path is requested by a reader
   # and no one is publishing to this path yet.
@@ -690,7 +712,7 @@ pathDefaults:
   #   a regular expression.
   runOnDemand:
   # Restart the command if it exits.
-  runOnDemandRestart: no
+  runOnDemandRestart: false
   # Readers will be put on hold until the runOnDemand command starts publishing
   # or until this amount of time has passed.
   runOnDemandStartTimeout: 10s
@@ -714,7 +736,7 @@ pathDefaults:
   #   a regular expression.
   runOnReady:
   # Restart the command if it exits.
-  runOnReadyRestart: no
+  runOnReadyRestart: false
   # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
   runOnNotReady:
@@ -731,7 +753,7 @@ pathDefaults:
   #   a regular expression.
   runOnRead:
   # Restart the command if it exits.
-  runOnReadRestart: no
+  runOnReadRestart: false
   # Command to run when a client stops reading.
   # Environment variables are the same of runOnRead.
   runOnUnread:

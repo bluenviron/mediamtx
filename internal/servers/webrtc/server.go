@@ -187,6 +187,7 @@ type serverParent interface {
 // Server is a WebRTC server.
 type Server struct {
 	Address               string
+	DumpPackets           bool
 	Encryption            bool
 	ServerKey             string
 	ServerCert            string
@@ -201,9 +202,9 @@ type Server struct {
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
 	ICEServers            []conf.WebRTCICEServer
+	STUNGatherTimeout     conf.Duration
 	HandshakeTimeout      conf.Duration
 	TrackGatherTimeout    conf.Duration
-	STUNGatherTimeout     conf.Duration
 	ExternalCmdPool       *externalcmd.Pool
 	Metrics               serverMetrics
 	PathManager           serverPathManager
@@ -251,6 +252,7 @@ func (s *Server) Initialize() error {
 
 	s.httpServer = &httpServer{
 		address:        s.Address,
+		dumpPackets:    s.DumpPackets,
 		encryption:     s.Encryption,
 		serverKey:      s.ServerKey,
 		serverCert:     s.ServerCert,
@@ -357,9 +359,9 @@ outer:
 				additionalHosts:       s.AdditionalHosts,
 				iceUDPMux:             s.iceUDPMux,
 				iceTCPMux:             s.iceTCPMux,
+				stunGatherTimeout:     s.STUNGatherTimeout,
 				handshakeTimeout:      s.HandshakeTimeout,
 				trackGatherTimeout:    s.TrackGatherTimeout,
-				stunGatherTimeout:     s.STUNGatherTimeout,
 				req:                   req,
 				wg:                    &wg,
 				externalCmdPool:       s.ExternalCmdPool,

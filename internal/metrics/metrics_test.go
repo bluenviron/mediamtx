@@ -1,4 +1,4 @@
-package metrics
+package metrics //nolint:revive
 
 import (
 	"fmt"
@@ -17,7 +17,9 @@ import (
 )
 
 func ptrOf[T any](v T) *T {
-	return &v
+	p := new(T)
+	*p = v
+	return p
 }
 
 type dummyPathManager struct{}

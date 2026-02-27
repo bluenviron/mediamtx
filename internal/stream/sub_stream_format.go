@@ -45,7 +45,7 @@ func (ssf *subStreamFormat) initialize() error {
 	return nil
 }
 
-func (ssf *subStreamFormat) initialize2() {
+func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
 	if ssf.tempRTPEncoder != nil {
 		if ssf.streamFormat.rtpEncoder == nil {
 			ssf.streamFormat.rtpEncoder = ssf.tempRTPEncoder
@@ -57,10 +57,10 @@ func (ssf *subStreamFormat) initialize2() {
 	}
 
 	if ssf.streamFormat.alwaysAvailable {
-		if ssf.streamFormat.firstReceived {
-			deltaT := max(1, multiplyAndDivide(
-				int64(time.Since(ssf.streamFormat.lastSystemTime)), int64(ssf.streamFormat.format.ClockRate()), int64(time.Second)))
-			ssf.streamFormat.ptsOffset = ssf.streamFormat.lastPTS + deltaT
+		if firstTimeReceived {
+			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
+			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo),
+				int64(ssf.streamFormat.format.ClockRate()), int64(time.Second))
 		}
 
 		switch curFormat := ssf.curFormat.(type) {
@@ -101,12 +101,11 @@ func (ssf *subStreamFormat) writeUnit(u *unit.Unit) {
 
 func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	if ssf.streamFormat.alwaysAvailable {
-		ssf.streamFormat.firstReceived = true
 		u.PTS += ssf.streamFormat.ptsOffset
-		if u.PTS > ssf.streamFormat.lastPTS {
-			ssf.streamFormat.lastPTS = u.PTS
-		}
-		ssf.streamFormat.lastSystemTime = time.Now()
+
+		ssf.streamFormat.updateLastTime(
+			multiplyAndDivide2(time.Duration(u.PTS),
+				time.Second, time.Duration(ssf.streamFormat.format.ClockRate())))
 	}
 
 	if ssf.streamFormat.replaceNTP {
@@ -139,7 +138,9 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 
 					ssf.streamFormat.rtpTimeOffset = pkt.Timestamp - uint32(u.PTS)
 
-					ssf.streamFormat.parent.Log(logger.Info, "RTP packets are too big, remuxing them into smaller ones")
+					ssf.streamFormat.parent.Log(logger.Info,
+						"RTP packets are too big (%d > %d), remuxing them into smaller ones",
+						len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
 					break
 				}
 			}
@@ -169,7 +170,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	}
 
 	size := unitSize(u)
-	ssf.streamFormat.onBytesReceived(size)
+	ssf.streamFormat.addBytesReceived(size)
 
 	ssf.streamFormat.writeRTSP(ssf.streamFormat.media, u.RTPPackets, u.NTP)
 
@@ -178,7 +179,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		cOnData := onData
 		sr.push(func() error {
 			if !csr.SkipBytesSent {
-				ssf.streamFormat.onBytesSent(size)
+				ssf.streamFormat.addBytesSent(size)
 			}
 			return cOnData(u)
 		})

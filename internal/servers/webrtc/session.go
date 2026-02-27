@@ -48,9 +48,9 @@ type session struct {
 	additionalHosts       []string
 	iceUDPMux             ice.UDPMux
 	iceTCPMux             *webrtc.TCPMuxWrapper
+	stunGatherTimeout     conf.Duration
 	handshakeTimeout      conf.Duration
 	trackGatherTimeout    conf.Duration
-	stunGatherTimeout     conf.Duration
 	req                   webRTCNewSessionReq
 	wg                    *sync.WaitGroup
 	externalCmdPool       *externalcmd.Pool
@@ -166,9 +166,7 @@ func (s *session) runPublish() (int, error) {
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		HandshakeTimeout:      s.handshakeTimeout,
-		TrackGatherTimeout:    s.trackGatherTimeout,
-		STUNGatherTimeout:     s.stunGatherTimeout,
+		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
 		Publish:               false,
 		Log:                   s,
 	}
@@ -219,7 +217,7 @@ func (s *session) runPublish() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected()
+	err = pc.WaitUntilConnected(time.Duration(s.handshakeTimeout))
 	if err != nil {
 		return 0, err
 	}
@@ -228,7 +226,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	err = pc.GatherIncomingTracks()
+	err = pc.GatherIncomingTracks(time.Duration(s.trackGatherTimeout))
 	if err != nil {
 		return 0, err
 	}
@@ -311,9 +309,7 @@ func (s *session) runRead() (int, error) {
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
 		AdditionalHosts:       s.additionalHosts,
-		HandshakeTimeout:      s.handshakeTimeout,
-		TrackGatherTimeout:    s.trackGatherTimeout,
-		STUNGatherTimeout:     s.stunGatherTimeout,
+		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
 		Publish:               true,
 		Log:                   s,
 	}
@@ -356,7 +352,7 @@ func (s *session) runRead() (int, error) {
 
 	go s.readRemoteCandidates(pc)
 
-	err = pc.WaitUntilConnected()
+	err = pc.WaitUntilConnected(time.Duration(s.handshakeTimeout))
 	if err != nil {
 		return 0, err
 	}

@@ -1,0 +1,78 @@
+name: lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  go:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version: "1.26"
+
+    - run: go generate ./...
+
+    - uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.10.1
+
+  go_mod:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version: "1.26"
+
+    - run: make lint-go-mod
+
+  conf:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version: "1.26"
+
+    - run: make lint-conf
+
+  go2api:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version: "1.26"
+
+    - run: make lint-go2api
+
+  docs:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - run: make lint-docs
+
+  api_docs:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - run: make lint-api-docs

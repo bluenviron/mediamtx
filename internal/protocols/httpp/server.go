@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -30,15 +31,17 @@ func (nilWriter) Write(p []byte) (int, error) {
 // - server header
 // - filtering of invalid requests
 type Server struct {
-	Address      string
-	AllowOrigins []string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	Encryption   bool
-	ServerCert   string
-	ServerKey    string
-	Handler      http.Handler
-	Parent       logger.Writer
+	Address           string
+	AllowOrigins      []string
+	DumpPackets       bool
+	DumpPacketsPrefix string
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	Encryption        bool
+	ServerCert        string
+	ServerKey         string
+	Handler           http.Handler
+	Parent            logger.Writer
 
 	ln      net.Listener
 	inner   *http.Server
@@ -94,6 +97,13 @@ func (s *Server) Initialize() error {
 	s.ln, err = net.Listen(network, address)
 	if err != nil {
 		return err
+	}
+
+	if s.DumpPackets {
+		s.ln = &packetdumper.Listener{
+			Prefix:   s.DumpPacketsPrefix,
+			Listener: s.ln,
+		}
 	}
 
 	if network == "unix" {

@@ -1,7 +1,9 @@
 package conf
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -66,12 +68,42 @@ func checkRedirect(v string) error {
 	return nil
 }
 
+func checkMP4MagicBytes(f io.ReadSeeker) error {
+	magicBytes := make([]byte, 4)
+
+	_, err := f.Seek(4, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.ReadFull(f, magicBytes)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(magicBytes, []byte("ftyp")) {
+		return fmt.Errorf("file is not MP4, magic bytes are '%v'", magicBytes)
+	}
+
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func checkAlwaysAvailableFile(fpath string) error {
 	f, err := os.Open(fpath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+
+	err = checkMP4MagicBytes(f)
+	if err != nil {
+		return err
+	}
 
 	var presentation pmp4.Presentation
 	err = presentation.Unmarshal(f)
@@ -196,6 +228,12 @@ type Path struct {
 	RTPSDP               string `json:"rtpSDP"`
 	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty"` // deprecated
 
+	// WHEP source
+	WHEPBearerToken        string   `json:"whepBearerToken"`
+	WHEPSTUNGatherTimeout  Duration `json:"whepSTUNGatherTimeout"`
+	WHEPHandshakeTimeout   Duration `json:"whepHandshakeTimeout"`
+	WHEPTrackGatherTimeout Duration `json:"whepTrackGatherTimeout"`
+
 	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`
 
@@ -293,6 +331,11 @@ func (pconf *Path) setDefaults() {
 
 	// RTSP source
 	pconf.RTSPUDPSourcePortRange = []uint{10000, 65535}
+
+	// WHEP source
+	pconf.WHEPSTUNGatherTimeout = Duration(5 * time.Second)
+	pconf.WHEPHandshakeTimeout = Duration(10 * time.Second)
+	pconf.WHEPTrackGatherTimeout = Duration(2 * time.Second)
 
 	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920
@@ -468,6 +511,7 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
+		l.Log(logger.Warn, "source 'unix+rtp' is deprecated due to intrinsic instability, use 'udp+rtp' instead")
 		if pconf.RTPSDP == "" {
 			return fmt.Errorf("`rtpSDP` was not provided")
 		}
@@ -695,7 +739,7 @@ func (pconf *Path) validate(
 		if pconf.AlwaysAvailableFile != "" {
 			err := checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
 			if err != nil {
-				return fmt.Errorf("invalid 'alwaysAvailableVideo': %w", err)
+				return fmt.Errorf("invalid 'alwaysAvailableFile': %w", err)
 			}
 		} else if len(pconf.AlwaysAvailableTracks) == 0 {
 			return fmt.Errorf("'alwaysAvailableTracks' must contain at least one track")

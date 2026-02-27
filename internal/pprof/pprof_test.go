@@ -1,4 +1,4 @@
-package pprof
+package pprof //nolint:revive
 
 import (
 	"fmt"

@@ -46,13 +46,13 @@ func TestHLSServerAuth(t *testing.T) {
 		"fail",
 	} {
 		t.Run(result, func(t *testing.T) {
-			conf := "paths:\n" +
+			cnf := "paths:\n" +
 				"  all_others:\n" +
 				"    readUser: testreader\n" +
 				"    readPass: testpass\n" +
 				"    readIPs: [127.0.0.0/16]\n"
 
-			p, ok := newInstance(conf)
+			p, ok := newInstance(cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 

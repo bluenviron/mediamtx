@@ -113,7 +113,7 @@ func ToStream(
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
 					PayloadTyp:   96,
-					ChannelCount: codec.ChannelCount,
+					ChannelCount: codec.Desc.ChannelCount(),
 				}},
 			}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -1390,4 +1391,114 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 	})
 
 	<-recv2
+}
+
+func TestStreamAlwaysAvailableErrors(t *testing.T) {
+	for _, ca := range []struct {
+		name   string
+		tracks []conf.AlwaysAvailableTrack
+		desc   *description.Session
+		err    string
+	}{
+		{
+			"wrong tracks",
+			[]conf.AlwaysAvailableTrack{
+				{Codec: "H264"},
+				{Codec: "H265"},
+			},
+			&description.Session{
+				Medias: []*description.Media{
+					{
+						Type:    description.MediaTypeVideo,
+						Formats: []format.Format{&format.H264{}},
+					},
+				},
+			},
+			"wants to publish [H264], but stream expects [H264 H265]",
+		},
+		{
+			"wrong mpeg-4 audio config",
+			[]conf.AlwaysAvailableTrack{
+				{Codec: "MPEG4Audio", SampleRate: 44100, ChannelCount: 2},
+			},
+			&description.Session{
+				Medias: []*description.Media{
+					{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.MPEG4Audio{
+							Config: &mpeg4audio.AudioSpecificConfig{
+								Type:          2,
+								SampleRate:    48000,
+								ChannelConfig: 1,
+							},
+						}},
+					},
+				},
+			},
+			"MPEG-4 audio configuration does not match, is type=2, sampleRate=48000, " +
+				"channelCount=1, but stream expects type=2, sampleRate=44100, channelCount=2",
+		},
+		{
+			"wrong g711 config",
+			[]conf.AlwaysAvailableTrack{
+				{Codec: "G711", MULaw: true, SampleRate: 8000, ChannelCount: 2},
+			},
+			&description.Session{
+				Medias: []*description.Media{
+					{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.G711{
+							MULaw:        false,
+							SampleRate:   8000,
+							ChannelCount: 2,
+						}},
+					},
+				},
+			},
+			"G711 configuration does not match, is MULaw=false, sampleRate=8000, " +
+				"channelCount=2, but stream expects MULaw=true, sampleRate=8000, channelCount=2",
+		},
+		{
+			"wrong lpcm config",
+			[]conf.AlwaysAvailableTrack{
+				{Codec: "LPCM", SampleRate: 44100, ChannelCount: 2},
+			},
+			&description.Session{
+				Medias: []*description.Media{
+					{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.LPCM{
+							BitDepth:     16,
+							SampleRate:   48000,
+							ChannelCount: 2,
+						}},
+					},
+				},
+			},
+			"LPCM configuration does not match, is bitDepth=16, sampleRate=48000, " +
+				"channelCount=2, but stream expects bitDepth=16, sampleRate=44100, channelCount=2",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			strm := &Stream{
+				AlwaysAvailable:       true,
+				AlwaysAvailableTracks: ca.tracks,
+				WriteQueueSize:        512,
+				RTPMaxPayloadSize:     1450,
+				ReplaceNTP:            true,
+				Parent:                &nilLogger{},
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			subStream := &SubStream{
+				Stream:        strm,
+				CurDesc:       ca.desc,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.EqualError(t, err, ca.err)
+		})
+	}
 }

@@ -58,6 +58,9 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H265{
 					PayloadTyp: 96,
+					VPS:        codec.VPS,
+					SPS:        codec.SPS,
+					PPS:        codec.PPS,
 				}},
 			})
 
@@ -67,6 +70,8 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Formats: []format.Format{&format.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
+					SPS:               codec.SPS,
+					PPS:               codec.PPS,
 				}},
 			})
 
@@ -75,7 +80,7 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
 					PayloadTyp:   96,
-					ChannelCount: 2,
+					ChannelCount: codec.ChannelCount,
 				}},
 			})
 
@@ -170,6 +175,7 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 						Type:          mpeg4audio.ObjectTypeAACLC,
 						SampleRate:    track.SampleRate,
 						ChannelConfig: uint8(track.ChannelCount),
+						ChannelCount:  track.ChannelCount,
 					},
 				}},
 			})
@@ -233,6 +239,11 @@ type Stream struct {
 	readers          map[*Reader]struct{}
 	processingErrors *errordumper.Dumper
 
+	timeMutex         sync.Mutex
+	firstTimeReceived bool
+	lastPTS           time.Duration
+	lastSystemTime    time.Time
+
 	hasReaders chan struct{}
 }
 
@@ -280,14 +291,17 @@ func (s *Stream) Initialize() error {
 	}
 	s.processingErrors.Start()
 
+	s.lastSystemTime = time.Now()
+
 	for _, media := range s.Desc.Medias {
 		sm := &streamMedia{
 			media:             media,
 			alwaysAvailable:   s.AlwaysAvailable,
 			rtpMaxPayloadSize: s.RTPMaxPayloadSize,
 			replaceNTP:        s.ReplaceNTP,
-			onBytesReceived:   s.onBytesReceived,
-			onBytesSent:       s.onBytesSent,
+			addBytesReceived:  s.addBytesReceived,
+			addBytesSent:      s.addBytesSent,
+			updateLastTime:    s.updateLastTime,
 			writeRTSP:         s.writeRTSP,
 			processingErrors:  s.processingErrors,
 			parent:            s.Parent,
@@ -460,12 +474,25 @@ func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
 }
 
-func (s *Stream) onBytesReceived(v uint64) {
+func (s *Stream) addBytesReceived(v uint64) {
 	atomic.AddUint64(s.bytesReceived, v)
 }
 
-func (s *Stream) onBytesSent(v uint64) {
+func (s *Stream) addBytesSent(v uint64) {
 	atomic.AddUint64(s.bytesSent, v)
+}
+
+func (s *Stream) updateLastTime(pts time.Duration) {
+	s.timeMutex.Lock()
+	defer s.timeMutex.Unlock()
+
+	s.firstTimeReceived = true
+
+	if pts > s.lastPTS {
+		s.lastPTS = pts
+	}
+
+	s.lastSystemTime = time.Now()
 }
 
 func (s *Stream) writeRTSP(medi *description.Media, pkts []*rtp.Packet, ntp time.Time) {

@@ -231,6 +231,12 @@ func (c *camera) initialize() error {
 	c.cmd.Env = env
 	c.cmd.Dir = dumpPath
 
+	// prevent the subprocess from receiving signals (in particular SIGINT and SIGTERM)
+	// from the parent process.
+	c.cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
 	err = c.cmd.Start()
 	if err != nil {
 		c.pipeOut.close()
@@ -282,23 +288,24 @@ func (c *camera) runInner() error {
 			return err
 
 		case err := <-readDone:
-			c.pipeIn.close()
-
 			c.pipeOut.write([]byte{'e'})
-			c.pipeOut.close()
 
 			<-cmdDone
+
+			c.pipeIn.close()
+			c.pipeOut.close()
 
 			return err
 
 		case <-c.terminate:
-			c.pipeIn.close()
-			<-readDone
-
 			c.pipeOut.write([]byte{'e'})
-			c.pipeOut.close()
 
 			<-cmdDone
+
+			c.pipeOut.close()
+			c.pipeIn.close()
+
+			<-readDone
 
 			return fmt.Errorf("terminated")
 		}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -28,9 +29,10 @@ func emptyTimer() *time.Timer {
 
 type pathParent interface {
 	logger.Writer
-	pathReady(*path)
-	pathNotReady(*path)
-	closePath(*path)
+	setPathReady(*path)
+	setPathNotReady(*path)
+	closePathIfIdle(*path)
+	removePath(*path)
 	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
@@ -66,6 +68,7 @@ type pathAPIPathsGetReq struct {
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
+	dumpPackets       bool
 	rtspAddress       string
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
@@ -79,8 +82,13 @@ type path struct {
 	externalCmdPool   *externalcmd.Pool
 	parent            pathParent
 
+	// accessed by pathManager only
+	ready    bool
+	confName string
+
 	ctx                            context.Context
 	ctxCancel                      func()
+	pendingRequests                *int64
 	confMutex                      sync.RWMutex
 	source                         defs.Source
 	publisherQuery                 string
@@ -118,8 +126,10 @@ type path struct {
 func (pa *path) initialize() {
 	ctx, ctxCancel := context.WithCancel(pa.parentCtx)
 
+	pa.confName = pa.conf.Name
 	pa.ctx = ctx
 	pa.ctxCancel = ctxCancel
+	pa.pendingRequests = new(int64)
 	pa.readers = make(map[defs.Reader]struct{})
 	pa.onDemandStaticSourceReadyTimer = emptyTimer()
 	pa.onDemandStaticSourceCloseTimer = emptyTimer()
@@ -184,6 +194,7 @@ func (pa *path) run() {
 		pa.source = &staticsources.Handler{
 			Conf:              pa.conf,
 			LogLevel:          pa.logLevel,
+			DumpPackets:       pa.dumpPackets,
 			ReadTimeout:       pa.readTimeout,
 			WriteTimeout:      pa.writeTimeout,
 			WriteQueueSize:    pa.writeQueueSize,
@@ -210,7 +221,7 @@ func (pa *path) run() {
 	err := pa.runInner()
 
 	// call before destroying context
-	pa.parent.closePath(pa)
+	pa.parent.removePath(pa)
 
 	pa.ctxCancel()
 
@@ -257,21 +268,21 @@ func (pa *path) runInner() error {
 			pa.doOnDemandStaticSourceReadyTimer()
 
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case <-pa.onDemandStaticSourceCloseTimer.C:
 			pa.doOnDemandStaticSourceCloseTimer()
 
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case <-pa.onDemandPublisherReadyTimer.C:
 			pa.doOnDemandPublisherReadyTimer()
 
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case <-pa.onDemandPublisherCloseTimer.C:
@@ -287,31 +298,41 @@ func (pa *path) runInner() error {
 			pa.doSourceStaticSetNotReady(req)
 
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case req := <-pa.chDescribe:
 			pa.doDescribe(req)
 
+			atomic.AddInt64(pa.pendingRequests, -1)
+
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case req := <-pa.chAddPublisher:
 			pa.doAddPublisher(req)
 
+			atomic.AddInt64(pa.pendingRequests, -1)
+
+			if pa.shouldClose() {
+				pa.parent.closePathIfIdle(pa)
+			}
+
 		case req := <-pa.chRemovePublisher:
 			pa.doRemovePublisher(req)
 
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case req := <-pa.chAddReader:
 			pa.doAddReader(req)
 
+			atomic.AddInt64(pa.pendingRequests, -1)
+
 			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
+				pa.parent.closePathIfIdle(pa)
 			}
 
 		case req := <-pa.chRemoveReader:
@@ -809,7 +830,7 @@ func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
 		pa.Log(logger.Info, "stream is available and online, %s", defs.MediasInfo(pa.stream.Desc.Medias))
 	}
 
-	pa.parent.pathReady(pa)
+	pa.parent.setPathReady(pa)
 
 	return nil
 }
@@ -829,7 +850,7 @@ func (pa *path) consumeOnHoldRequests() {
 }
 
 func (pa *path) setNotAvailable() {
-	pa.parent.pathNotReady(pa)
+	pa.parent.setPathNotReady(pa)
 
 	for r := range pa.readers {
 		pa.executeRemoveReader(r)

@@ -42,7 +42,9 @@ var errNoSupportedCodecsFrom = errors.New(
 		"AV1, VP9, VP8, H265, H264, Opus, G722, G711, LPCM")
 
 func ptrOf[T any](v T) *T {
-	return &v
+	p := new(T)
+	*p = v
+	return p
 }
 
 func randUint32() (uint32, error) {

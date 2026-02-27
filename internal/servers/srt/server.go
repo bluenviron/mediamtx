@@ -107,6 +107,7 @@ type Server struct {
 func (s *Server) Initialize() error {
 	conf := srt.DefaultConfig()
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
+	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
 
 	var err error

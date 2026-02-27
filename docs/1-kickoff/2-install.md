@@ -48,17 +48,17 @@ There are four image variants:
 
 The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
 
-The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by using the _MediaMTX_ image as a base stage, by creating a file name `Dockerfile` with this content:
+The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by using the _MediaMTX_ image as a base stage, by creating a file named `Dockerfile` with this content:
 
 ```
 FROM bluenviron/mediamtx:1 AS mediamtx
 FROM ubuntu:24.04
 
 COPY --from=mediamtx /mediamtx /
-COPY --from=mediamtx.yml /
+COPY --from=mediamtx /mediamtx.yml /
 
 RUN apt update && apt install -y \
-   (insert here additional utilities)
+   (insert additional utilities here)
 
 ENTRYPOINT [ "/mediamtx" ]
 ```
@@ -92,4 +92,4 @@ pkg install mediamtx
 
 If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
 
-Otherwise, [compile the server from source](/docs/other/compile).
+Otherwise, [compile the server from source](../6-misc/1-compile.md).

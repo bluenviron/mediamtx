@@ -52,9 +52,7 @@ func setAllNilSlicesToEmptyRecursive(rv reflect.Value) {
 	}
 
 	if rv.Kind() == reflect.Struct {
-		for i := range rv.NumField() {
-			field := rv.Field(i)
-
+		for _, field := range rv.Fields() {
 			switch field.Kind() {
 			case reflect.Slice:
 				if field.IsNil() {
@@ -247,6 +245,7 @@ type Conf struct {
 	LogStructured       bool            `json:"logStructured"`
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
+	DumpPackets         bool            `json:"dumpPackets"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
@@ -262,6 +261,7 @@ type Conf struct {
 	AuthInternalUsers         []AuthInternalUser           `json:"authInternalUsers"`
 	AuthHTTPAddress           string                       `json:"authHTTPAddress"`
 	ExternalAuthenticationURL *string                      `json:"externalAuthenticationURL,omitempty"` // deprecated
+	AuthHTTPFingerprint       string                       `json:"authHTTPFingerprint"`
 	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
 	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
 	AuthJWTJWKSFingerprint    string                       `json:"authJWTJWKSFingerprint"`
@@ -379,9 +379,9 @@ type Conf struct {
 	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
 	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
 	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
+	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
 	WebRTCHandshakeTimeout      Duration          `json:"webrtcHandshakeTimeout"`
 	WebRTCTrackGatherTimeout    Duration          `json:"webrtcTrackGatherTimeout"`
-	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
 	WebRTCICEUDPMuxAddress      *string           `json:"webrtcICEUDPMuxAddress,omitempty"`  // deprecated
 	WebRTCICETCPMuxAddress      *string           `json:"webrtcICETCPMuxAddress,omitempty"`  // deprecated
 	WebRTCICEHostNAT1To1IPs     *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
@@ -417,7 +417,7 @@ func (conf *Conf) setDefaults() {
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512
-	conf.UDPMaxPayloadSize = 1472
+	conf.UDPMaxPayloadSize = 1452
 
 	// Authentication
 	conf.AuthMethod = AuthMethodInternal
@@ -512,9 +512,9 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCAllowOrigins = []string{"*"}
 	conf.WebRTCLocalUDPAddress = ":8189"
 	conf.WebRTCIPsFromInterfaces = true
+	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
 	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
 	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
-	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
 
 	// SRT server
 	conf.SRT = true

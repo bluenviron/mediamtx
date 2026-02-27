@@ -1,90 +1,83 @@
 package core
 
 import (
-	"bufio"
-	"net"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
-	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func TestPathAutoDeletion(t *testing.T) {
-	for _, ca := range []string{"describe", "setup"} {
+type dummyPublisher struct{}
+
+func (d *dummyPublisher) Close() {}
+
+func (d *dummyPublisher) Log(_ logger.Level, _ string, _ ...any) {}
+
+func (d *dummyPublisher) APISourceDescribe() *defs.APIPathSource {
+	return nil
+}
+
+type dummyReader struct{}
+
+func (d *dummyReader) Close() {}
+
+func (d *dummyReader) Log(_ logger.Level, _ string, _ ...any) {}
+
+func (d *dummyReader) APIReaderDescribe() *defs.APIPathReader {
+	return nil
+}
+
+func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
+	for _, ca := range []string{"describe", "add reader"} {
 		t.Run(ca, func(t *testing.T) {
-			p, ok := newInstance("paths:\n" +
-				"  all_others:\n")
-			require.Equal(t, true, ok)
-			defer p.Close()
+			pathConfs := map[string]*conf.Path{
+				"all_others": {
+					Regexp: regexp.MustCompile("^.*$"),
+					Name:   "all_others",
+					Source: "publisher",
+				},
+			}
+
+			pm := &pathManager{
+				authManager: test.NilAuthManager,
+				pathConfs:   pathConfs,
+				parent:      test.NilLogger,
+			}
+			pm.initialize()
+			defer pm.close()
 
 			func() {
-				conn, err := net.Dial("tcp", "localhost:8554")
-				require.NoError(t, err)
-				defer conn.Close()
-				br := bufio.NewReader(conn)
-
 				if ca == "describe" {
-					var u *base.URL
-					u, err = base.ParseURL("rtsp://localhost:8554/mypath")
-					require.NoError(t, err)
-
-					byts, _ := base.Request{
-						Method: base.Describe,
-						URL:    u,
-						Header: base.Header{
-							"CSeq": base.HeaderValue{"1"},
+					res := pm.Describe(defs.PathDescribeReq{
+						AccessRequest: defs.PathAccessRequest{
+							Name: "mypath",
 						},
-					}.Marshal()
-					_, err = conn.Write(byts)
-					require.NoError(t, err)
-
-					var res base.Response
-					err = res.Unmarshal(br)
-					require.NoError(t, err)
-					require.Equal(t, base.StatusNotFound, res.StatusCode)
+					})
+					require.EqualError(t, res.Err, "no stream is available on path 'mypath'")
 				} else {
-					var u *base.URL
-					u, err = base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
-					require.NoError(t, err)
-
-					byts, _ := base.Request{
-						Method: base.Setup,
-						URL:    u,
-						Header: base.Header{
-							"CSeq": base.HeaderValue{"1"},
-							"Transport": headers.Transport{
-								Mode: func() *headers.TransportMode {
-									v := headers.TransportModePlay
-									return &v
-								}(),
-								Delivery: func() *headers.TransportDelivery {
-									v := headers.TransportDeliveryUnicast
-									return &v
-								}(),
-								Protocol:    headers.TransportProtocolUDP,
-								ClientPorts: &[2]int{35466, 35467},
-							}.Marshal(),
+					_, _, err := pm.AddReader(defs.PathAddReaderReq{
+						Author: &dummyReader{},
+						AccessRequest: defs.PathAccessRequest{
+							Name: "mypath",
 						},
-					}.Marshal()
-					_, err = conn.Write(byts)
-					require.NoError(t, err)
-
-					var res base.Response
-					err = res.Unmarshal(br)
-					require.NoError(t, err)
-					require.Equal(t, base.StatusNotFound, res.StatusCode)
+					})
+					require.EqualError(t, err, "no stream is available on path 'mypath'")
 				}
 			}()
 
-			data, err := p.pathManager.APIPathsList()
+			time.Sleep(100 * time.Millisecond)
+
+			data, err := pm.APIPathsList()
 			require.NoError(t, err)
 
 			require.Empty(t, data.Items)
@@ -92,7 +85,44 @@ func TestPathAutoDeletion(t *testing.T) {
 	}
 }
 
-func TestPathConfigurationHotReload(t *testing.T) {
+func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {
+	pathConfs := map[string]*conf.Path{
+		"all_others": {
+			Regexp: regexp.MustCompile("^.*$"),
+			Name:   "all_others",
+			Source: "publisher",
+		},
+	}
+
+	pm := &pathManager{
+		authManager: test.NilAuthManager,
+		pathConfs:   pathConfs,
+		parent:      test.NilLogger,
+	}
+	pm.initialize()
+	defer pm.close()
+
+	go func() {
+		for range 10 {
+			pm.Describe(defs.PathDescribeReq{
+				AccessRequest: defs.PathAccessRequest{
+					Name: "mypath",
+				},
+			})
+		}
+	}()
+
+	_, _, err := pm.AddPublisher(defs.PathAddPublisherReq{
+		Author: &dummyPublisher{},
+		Desc:   &description.Session{},
+		AccessRequest: defs.PathAccessRequest{
+			Name: "mypath",
+		},
+	})
+	require.NoError(t, err)
+}
+
+func TestPathManagerConfigHotReload(t *testing.T) {
 	// Start MediaMTX with basic configuration
 	p, ok := newInstance("api: yes\n" +
 		"paths:\n" +

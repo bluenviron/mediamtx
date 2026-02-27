@@ -6,61 +6,93 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
-	"gopkg.in/yaml.v2"
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
+	"github.com/goccy/go-yaml/token"
 )
 
 // differences with respect to the standard package:
-// - unknown fields cause an error
-// - integer map keys cause an error
+// - some legacy YAML 1.1 boolean values (yes, no) are supported
+// - all differences of jsonwrapper are inherited
 
-func convertKeys(i any) (any, error) {
-	switch x := i.(type) {
-	case map[any]any:
-		m2 := map[string]any{}
-		for k, v := range x {
-			ks, ok := k.(string)
-			if !ok {
-				return nil, fmt.Errorf("integer keys are not supported (%v)", k)
+func convertLegacyBools(node ast.Node) ast.Node {
+	if node != nil {
+		switch n := node.(type) {
+		case *ast.MappingNode:
+			for _, value := range n.Values {
+				convertLegacyBools(value)
 			}
 
-			var err error
-			m2[ks], err = convertKeys(v)
-			if err != nil {
-				return nil, err
+		case *ast.MappingValueNode:
+			n.Key = convertLegacyBools(n.Key).(ast.MapKeyNode)
+			n.Value = convertLegacyBools(n.Value)
+
+		case *ast.SequenceNode:
+			for i, value := range n.Values {
+				n.Values[i] = convertLegacyBools(value)
+			}
+
+		case *ast.DocumentNode:
+			n.Body = convertLegacyBools(n.Body)
+
+		case *ast.StringNode:
+			if n.Token.Type == token.StringType {
+				var boolVal bool
+				shouldConvert := false
+
+				switch n.Token.Value {
+				case "yes", "Yes", "YES", "on", "On", "ON":
+					boolVal = true
+					shouldConvert = true
+
+				case "no", "No", "NO", "off", "Off", "OFF":
+					boolVal = false
+					shouldConvert = true
+				}
+
+				if shouldConvert {
+					newToken := &token.Token{
+						Type:  token.BoolType,
+						Value: n.Token.Value,
+					}
+
+					if boolVal {
+						newToken.Value = "true"
+					} else {
+						newToken.Value = "false"
+					}
+
+					boolNode := ast.Bool(newToken)
+					boolNode.Value = boolVal
+					return boolNode
+				}
 			}
 		}
-		return m2, nil
-
-	case []any:
-		a2 := make([]any, len(x))
-		for i, v := range x {
-			var err error
-			a2[i], err = convertKeys(v)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return a2, nil
 	}
 
-	return i, nil
+	return node
 }
 
 // Unmarshal loads the configuration from YAML.
 func Unmarshal(buf []byte, dest any) error {
-	// load YAML into a generic map.
-	// "UnmarshalStrict is like Unmarshal except that any fields that are found in the data
-	// that do not have corresponding struct members, or mapping keys that are duplicates, will result in an error."
-	var temp any
-	err := yaml.UnmarshalStrict(buf, &temp)
+	file, err := parser.ParseBytes(buf, parser.ParseComments)
 	if err != nil {
 		return err
 	}
 
-	// convert interface{} keys into string keys to avoid JSON errors
-	temp, err = convertKeys(temp)
-	if err != nil {
-		return err
+	if len(file.Docs) != 1 {
+		return fmt.Errorf("invalid YAML")
+	}
+
+	file.Docs[0] = convertLegacyBools(file.Docs[0]).(*ast.DocumentNode)
+
+	var temp any
+	if file.Docs[0].Body != nil {
+		err = yaml.NodeToValue(file.Docs[0].Body, &temp)
+		if err != nil {
+			return err
+		}
 	}
 
 	// convert the generic map into JSON

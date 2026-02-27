@@ -63,6 +63,9 @@ func TestConfFromFile(t *testing.T) {
 			RecordSegmentDuration:        3600000000000,
 			RecordDeleteAfter:            86400000000000,
 			RTSPUDPSourcePortRange:       []uint{10000, 65535},
+			WHEPSTUNGatherTimeout:        5 * Duration(time.Second),
+			WHEPHandshakeTimeout:         10 * Duration(time.Second),
+			WHEPTrackGatherTimeout:       2 * Duration(time.Second),
 			RPICameraWidth:               1920,
 			RPICameraHeight:              1080,
 			RPICameraContrast:            1,
@@ -271,7 +274,7 @@ func TestConfErrors(t *testing.T) {
 			"duplicate parameter",
 			"paths:\n" +
 				"paths:\n",
-			"yaml: unmarshal errors:\n  line 2: key \"paths\" already set in map",
+			"[2:1] mapping key \"paths\" already defined at [1:1]\n   1 |  null\n>  2 | paths:\n       ^\n",
 		},
 		{
 			"non existent parameter",
@@ -741,6 +744,22 @@ func TestConfErrors(t *testing.T) {
 			require.EqualError(t, err, ca.err)
 		})
 	}
+}
+
+func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
+	tmpf, err := createTempFile([]byte("not an mp4 file"))
+	require.NoError(t, err)
+	defer os.Remove(tmpf)
+
+	tmpConf, err := createTempFile([]byte("paths:\n" +
+		"  mypath:\n" +
+		"    alwaysAvailable: yes\n" +
+		"    alwaysAvailableFile: " + tmpf + "\n"))
+	require.NoError(t, err)
+	defer os.Remove(tmpConf)
+
+	_, _, err = Load(tmpConf, nil, nil)
+	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are '[97 110 32 109]'")
 }
 
 func TestSampleConfFile(t *testing.T) {
