@@ -310,6 +310,27 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 					NTP:     time.Time{},
 					Payload: unit.PayloadH264(avcc),
 				})
+
+			case *mcodecs.Opus:
+				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
+					PTS:     pts,
+					NTP:     time.Time{},
+					Payload: unit.PayloadOpus([][]byte{payload}),
+				})
+
+			case *mcodecs.MPEG4Audio:
+				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
+					PTS:     pts,
+					NTP:     time.Time{},
+					Payload: unit.PayloadMPEG4Audio([][]byte{payload}),
+				})
+
+			case *mcodecs.LPCM:
+				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
+					PTS:     pts,
+					NTP:     time.Time{},
+					Payload: unit.PayloadLPCM(payload),
+				})
 			}
 
 			pts += multiplyAndDivide(int64(sample.Duration)+int64(sample.PTSOffset),
