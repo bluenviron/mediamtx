@@ -1,6 +1,6 @@
 # Always-available streams
 
-When the publisher or source of a stream is offline, the server can be configured to fill gaps in the stream with an offline segment that is played on repeat until a publisher comes back online. This allows readers to stay connected regardless of the state of the stream. The offline segment and any future online stream are concatenated without decoding or re-encoding packets, using the original codec.
+When the publisher or source of a stream is offline, the server can be configured to fill gaps in the stream with an offline segment that is played on repeat until a publisher comes back online. This allows readers to stay connected regardless of the state of the stream. The offline segment and online stream are concatenated without re-encoding any frame, using the original codec.
 
 This feature can be enabled by toggling the `alwaysAvailable` flag and filling `alwaysAvailableTracks`:
 

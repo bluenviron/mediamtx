@@ -50,9 +50,6 @@ func (t *offlineSubStreamTrack) initialize() {
 func (t *offlineSubStreamTrack) run() {
 	defer t.wg.Done()
 
-	var pts int64
-	systemTime := time.Now()
-
 	if t.file != "" {
 		f, err := os.Open(t.file)
 		if err != nil {
@@ -60,7 +57,7 @@ func (t *offlineSubStreamTrack) run() {
 		}
 		defer f.Close()
 
-		err = t.runFile(pts, systemTime, f, t.pos)
+		err = t.runFile(f, t.pos)
 		if err != nil {
 			panic(err)
 		}
@@ -68,12 +65,13 @@ func (t *offlineSubStreamTrack) run() {
 	}
 
 	const audioWritesPerSecond = 10
+	var pts int64
+	startSystemTime := time.Now()
 
 	switch forma := t.format.(type) {
 	case *format.Opus:
 		unitsPerWrite := (forma.ClockRate() / 960) / audioWritesPerSecond
 		writeDuration := 960 * int64(unitsPerWrite)
-		writeDurationGo := multiplyAndDivide2(time.Duration(writeDuration), time.Second, 48000)
 
 		for {
 			payload := make(unit.PayloadOpus, unitsPerWrite)
@@ -88,7 +86,9 @@ func (t *offlineSubStreamTrack) run() {
 			})
 
 			pts += writeDuration
-			systemTime = systemTime.Add(writeDurationGo)
+
+			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, 48000)
+			systemTime := startSystemTime.Add(ptsGo)
 
 			if !t.sleep(systemTime) {
 				return
@@ -98,7 +98,6 @@ func (t *offlineSubStreamTrack) run() {
 	case *format.MPEG4Audio:
 		unitsPerWrite := (forma.ClockRate() / mpeg4audio.SamplesPerAccessUnit) / audioWritesPerSecond
 		writeDuration := mpeg4audio.SamplesPerAccessUnit * int64(unitsPerWrite)
-		writeDurationGo := multiplyAndDivide2(time.Duration(writeDuration), time.Second, time.Duration(forma.ClockRate()))
 
 		for {
 			var frame []byte
@@ -122,7 +121,9 @@ func (t *offlineSubStreamTrack) run() {
 			})
 
 			pts += writeDuration
-			systemTime = systemTime.Add(writeDurationGo)
+
+			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, time.Duration(forma.ClockRate()))
+			systemTime := startSystemTime.Add(ptsGo)
 
 			if !t.sleep(systemTime) {
 				return
@@ -132,7 +133,6 @@ func (t *offlineSubStreamTrack) run() {
 	case *format.G711:
 		samplesPerWrite := forma.ClockRate() / audioWritesPerSecond
 		writeDuration := samplesPerWrite
-		writeDurationGo := multiplyAndDivide2(time.Duration(writeDuration), time.Second, time.Duration(forma.ClockRate()))
 
 		for {
 			var sample byte
@@ -154,7 +154,9 @@ func (t *offlineSubStreamTrack) run() {
 			})
 
 			pts += int64(writeDuration)
-			systemTime = systemTime.Add(writeDurationGo)
+
+			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, time.Duration(forma.ClockRate()))
+			systemTime := startSystemTime.Add(ptsGo)
 
 			if !t.sleep(systemTime) {
 				return
@@ -164,7 +166,6 @@ func (t *offlineSubStreamTrack) run() {
 	case *format.LPCM:
 		samplesPerWrite := forma.ClockRate() / audioWritesPerSecond
 		writeDuration := samplesPerWrite
-		writeDurationGo := multiplyAndDivide2(time.Duration(writeDuration), time.Second, time.Duration(forma.ClockRate()))
 
 		for {
 			payload := make(unit.PayloadLPCM, samplesPerWrite*forma.ChannelCount*(forma.BitDepth/8))
@@ -176,7 +177,9 @@ func (t *offlineSubStreamTrack) run() {
 			})
 
 			pts += int64(writeDuration)
-			systemTime = systemTime.Add(writeDurationGo)
+
+			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, time.Duration(forma.ClockRate()))
+			systemTime := startSystemTime.Add(ptsGo)
 
 			if !t.sleep(systemTime) {
 				return
@@ -205,14 +208,14 @@ func (t *offlineSubStreamTrack) run() {
 
 		r := bytes.NewReader(buf)
 
-		err := t.runFile(pts, systemTime, r, 0)
+		err := t.runFile(r, 0)
 		if err != nil {
 			panic(err)
 		}
 	}
 }
 
-func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.ReadSeeker, pos int) error {
+func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 	var presentation pmp4.Presentation
 	err := presentation.Unmarshal(r)
 	if err != nil {
@@ -220,6 +223,8 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 	}
 
 	track := presentation.Tracks[pos]
+	var pts int64
+	startSystemTime := time.Now()
 
 	for {
 		// in case of the embedded video, codec parameters are not in the description
@@ -303,9 +308,9 @@ func (t *offlineSubStreamTrack) runFile(pts int64, systemTime time.Time, r io.Re
 
 			pts += multiplyAndDivide(int64(sample.Duration)+int64(sample.PTSOffset),
 				int64(t.format.ClockRate()), int64(track.TimeScale))
-			durationGo := multiplyAndDivide2(time.Duration(int64(sample.Duration)+int64(sample.PTSOffset)),
-				time.Second, time.Duration(track.TimeScale))
-			systemTime = systemTime.Add(durationGo)
+
+			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, time.Duration(t.format.ClockRate()))
+			systemTime := startSystemTime.Add(ptsGo)
 
 			if !t.sleep(systemTime) {
 				return nil
