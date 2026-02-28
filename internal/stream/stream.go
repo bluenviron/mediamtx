@@ -143,9 +143,9 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H265{
 					PayloadTyp: 96,
+					VPS:        offlineH265VPS,
 					SPS:        offlineH265SPS,
 					PPS:        offlineH265PPS,
-					VPS:        offlineH265VPS,
 				}},
 			})
 

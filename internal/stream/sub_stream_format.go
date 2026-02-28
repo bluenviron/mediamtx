@@ -65,14 +65,14 @@ func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Dur
 
 		switch curFormat := ssf.curFormat.(type) {
 		case *format.H265:
-			sps, pps, vps := curFormat.SafeParams()
+			vps, sps, pps := curFormat.SafeParams()
 
-			if sps != nil && pps != nil && vps != nil {
+			if vps != nil && sps != nil && pps != nil {
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
 					RTPPackets: nil,
-					Payload:    unit.PayloadH265([][]byte{sps, pps, vps}),
+					Payload:    unit.PayloadH265([][]byte{vps, sps, pps}),
 				})
 			}
 
