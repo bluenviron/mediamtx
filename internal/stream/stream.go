@@ -143,6 +143,9 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H265{
 					PayloadTyp: 96,
+					SPS:        offlineH265SPS,
+					PPS:        offlineH265PPS,
+					VPS:        offlineH265VPS,
 				}},
 			})
 
@@ -152,6 +155,8 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 				Formats: []format.Format{&format.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
+					SPS:               offlineH264SPS,
+					PPS:               offlineH264PPS,
 				}},
 			})
 
@@ -217,6 +222,93 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 	return medias
 }
 
+// only fields filled by mediasFromAlwaysAvailableFile and mediasFromAlwaysAvailableTracks are cloned
+func cloneFormat(forma format.Format) format.Format {
+	switch forma := forma.(type) {
+	case *format.AV1:
+		return &format.AV1{
+			PayloadTyp: forma.PayloadTyp,
+		}
+
+	case *format.VP9:
+		return &format.VP9{
+			PayloadTyp: forma.PayloadTyp,
+		}
+
+	case *format.H265:
+		return &format.H265{
+			PayloadTyp: forma.PayloadTyp,
+			VPS:        forma.VPS,
+			SPS:        forma.SPS,
+			PPS:        forma.PPS,
+		}
+
+	case *format.H264:
+		return &format.H264{
+			PayloadTyp:        forma.PayloadTyp,
+			PacketizationMode: forma.PacketizationMode,
+			SPS:               forma.SPS,
+			PPS:               forma.PPS,
+		}
+
+	case *format.Opus:
+		return &format.Opus{
+			PayloadTyp:   forma.PayloadTyp,
+			ChannelCount: forma.ChannelCount,
+		}
+
+	case *format.MPEG4Audio:
+		return &format.MPEG4Audio{
+			PayloadTyp:       forma.PayloadTyp,
+			SizeLength:       forma.SizeLength,
+			IndexLength:      forma.IndexLength,
+			IndexDeltaLength: forma.IndexDeltaLength,
+			Config:           forma.Config,
+		}
+
+	case *format.G711:
+		return &format.G711{
+			PayloadTyp:   forma.PayloadTyp,
+			MULaw:        forma.MULaw,
+			SampleRate:   forma.SampleRate,
+			ChannelCount: forma.ChannelCount,
+		}
+
+	case *format.LPCM:
+		return &format.LPCM{
+			PayloadTyp:   forma.PayloadTyp,
+			BitDepth:     forma.BitDepth,
+			SampleRate:   forma.SampleRate,
+			ChannelCount: forma.ChannelCount,
+		}
+
+	default:
+		panic("unsupported format")
+	}
+}
+
+// only fields filled by mediasFromAlwaysAvailableFile and mediasFromAlwaysAvailableTracks are cloned
+func cloneDesc(desc *description.Session) *description.Session {
+	medias := make([]*description.Media, len(desc.Medias))
+
+	for i, media := range desc.Medias {
+		formats := make([]format.Format, len(media.Formats))
+
+		for j, forma := range media.Formats {
+			formats[j] = cloneFormat(forma)
+		}
+
+		medias[i] = &description.Media{
+			Type:    media.Type,
+			Formats: formats,
+		}
+	}
+
+	return &description.Session{
+		Medias: medias,
+	}
+}
+
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, remuxing it when needed.
 type Stream struct {
@@ -229,6 +321,7 @@ type Stream struct {
 	ReplaceNTP            bool
 	Parent                logger.Writer
 
+	offlineDesc      *description.Session
 	mutex            sync.RWMutex
 	subStream        *SubStream
 	offlineSubStream *offlineSubStream
@@ -270,9 +363,12 @@ func (s *Stream) Initialize() error {
 			medias = mediasFromAlwaysAvailableTracks(s.AlwaysAvailableTracks)
 		}
 
-		s.Desc = &description.Session{
+		s.offlineDesc = &description.Session{
 			Medias: medias,
 		}
+
+		// clone the description since its parameters can be modified
+		s.Desc = cloneDesc(s.offlineDesc)
 	}
 
 	s.bytesReceived = new(uint64)

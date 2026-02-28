@@ -25,7 +25,7 @@ type offlineSubStream struct {
 func (o *offlineSubStream) initialize() error {
 	o.subStream = &SubStream{
 		Stream:        o.stream,
-		CurDesc:       o.stream.Desc,
+		CurDesc:       o.stream.offlineDesc,
 		UseRTPPackets: false,
 	}
 	err := o.subStream.Initialize()
