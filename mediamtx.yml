@@ -498,17 +498,17 @@ pathDefaults:
 
   # Enable always-available mode, in which a offline segment is played on repeat when the stream is not available.
   alwaysAvailable: false
-  # An MP4 file can be used instead of the default offline segment.
-  alwaysAvailableFile: ''
   # Tracks of the default offline segment.
-  alwaysAvailableTracks:
+  alwaysAvailableTracks: []
     # Available values are: AV1, VP9, H265, H264, Opus, MPEG4Audio, G711, LPCM
-    - codec: H264
-      # in case of MPEG4Audio, G711, LPCM, sampleRate and ChannelCount must be provided too.
-      #  sampleRate: 48000
-      #  channelCount: 2
-      #  in case of G711, muLaw must be provided too.
-      #  muLaw: false
+    # - codec: H264
+    #   # in case of MPEG4Audio, G711, LPCM, sampleRate and ChannelCount must be provided too.
+    #   sampleRate: 48000
+    #   channelCount: 2
+    #   # in case of G711, muLaw must be provided too.
+    #   muLaw: false
+  # A MP4 file can be used instead of the default offline segment.
+  alwaysAvailableFile: ''
 
   ###############################################
   # Default path settings -> Record

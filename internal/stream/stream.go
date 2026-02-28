@@ -221,8 +221,8 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 type Stream struct {
 	Desc                  *description.Session
 	AlwaysAvailable       bool
-	AlwaysAvailableFile   string
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
+	AlwaysAvailableFile   string
 	WriteQueueSize        int
 	RTPMaxPayloadSize     int
 	ReplaceNTP            bool

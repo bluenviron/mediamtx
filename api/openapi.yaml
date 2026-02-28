@@ -382,12 +382,12 @@ components:
         # Always available
         alwaysAvailable:
           type: boolean
-        alwaysAvailableFile:
-          type: string
         alwaysAvailableTracks:
           type: array
           items:
             $ref: '#/components/schemas/AlwaysAvailableTrack'
+        alwaysAvailableFile:
+          type: string
 
         # Record
         record:
