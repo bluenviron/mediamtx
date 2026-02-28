@@ -91,7 +91,6 @@ type path struct {
 	pendingRequests                *int64
 	confMutex                      sync.RWMutex
 	source                         defs.Source
-	publisherQuery                 string
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
 	availableTime                  time.Time
@@ -182,7 +181,7 @@ func (pa *path) run() {
 	defer pa.wg.Done()
 
 	if pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(nil, true)
+		err := pa.setAvailable(nil, "", nil, true)
 		if err != nil {
 			panic(err)
 		}
@@ -416,7 +415,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(pa.source, "", req.Desc, req.ReplaceNTP)
 		if err != nil {
 			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 			return
@@ -535,16 +534,9 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.executeRemovePublisher()
 	}
 
-	pa.source = req.Author
-	pa.publisherQuery = req.AccessRequest.Query
-
-	req.Author.Log(logger.Info, "is publishing to path '%s'",
-		pa.name)
-
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(req.Author, req.AccessRequest.Query, req.Desc, req.ReplaceNTP)
 		if err != nil {
-			pa.source = nil
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return
 		}
@@ -562,6 +554,11 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		req.Res <- defs.PathAddPublisherRes{Err: err}
 		return
 	}
+
+	pa.source = req.Author
+
+	req.Author.Log(logger.Info, "is publishing to path '%s'",
+		pa.name)
 
 	if pa.conf.AlwaysAvailable {
 		pa.onlineTime = time.Now()
@@ -784,7 +781,12 @@ func (pa *path) onDemandPublisherStop(reason string) {
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
-func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
+func (pa *path) setAvailable(
+	source defs.Source,
+	publisherQuery string,
+	desc *description.Session,
+	replaceNTP bool,
+) error {
 	pa.stream = &stream.Stream{
 		Desc:                  desc,
 		AlwaysAvailable:       pa.conf.AlwaysAvailable,
@@ -811,8 +813,8 @@ func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
 	}
 
 	var sourceDesc *defs.APIPathSource
-	if pa.source != nil {
-		sourceDesc = pa.source.APISourceDescribe()
+	if source != nil {
+		sourceDesc = source.APISourceDescribe()
 	}
 
 	pa.onNotReadyHook = hooks.OnReady(hooks.OnReadyParams{
@@ -821,7 +823,7 @@ func (pa *path) setAvailable(desc *description.Session, replaceNTP bool) error {
 		Conf:            pa.conf,
 		ExternalCmdEnv:  pa.ExternalCmdEnv(),
 		Desc:            sourceDesc,
-		Query:           pa.publisherQuery,
+		Query:           publisherQuery,
 	})
 
 	if pa.conf.AlwaysAvailable {
