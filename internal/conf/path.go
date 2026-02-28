@@ -82,7 +82,7 @@ func checkMP4MagicBytes(f io.ReadSeeker) error {
 	}
 
 	if !bytes.Equal(magicBytes, []byte("ftyp")) {
-		return fmt.Errorf("file is not MP4, magic bytes are '%v'", magicBytes)
+		return fmt.Errorf("file is not MP4, magic bytes are %v", magicBytes)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
@@ -185,8 +185,8 @@ type Path struct {
 
 	// Always available
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
-	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
 	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
+	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -309,11 +309,6 @@ func (pconf *Path) setDefaults() {
 	pconf.Source = "publisher"
 	pconf.SourceOnDemandStartTimeout = 10 * Duration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
-
-	// Always available
-	pconf.AlwaysAvailableTracks = []AlwaysAvailableTrack{
-		{Codec: "H264"},
-	}
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
@@ -734,6 +729,10 @@ func (pconf *Path) validate(
 		}
 
 		if pconf.AlwaysAvailableFile != "" {
+			if len(pconf.AlwaysAvailableTracks) != 0 {
+				return fmt.Errorf("'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together")
+			}
+
 			err := checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
 			if err != nil {
 				return fmt.Errorf("invalid 'alwaysAvailableFile': %w", err)
