@@ -29,8 +29,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/asticode/go-astikit v0.30.0 h1:DkBkRQRIxYcknlaU7W7ksNfn4gMFsB0tqMJflxkRsZA=
 github.com/asticode/go-astikit v0.30.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
-github.com/asticode/go-astits v1.14.0 h1:zkgnZzipx2XX5mWycqsSBeEyDH58+i4HtyF4j2ROb00=
-github.com/asticode/go-astits v1.14.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
+github.com/asticode/go-astits v1.15.0 h1:yRyCiUc8Jj4F7clt2GDxHghMpWuFL5rkaLuGUd2/0J4=
+github.com/asticode/go-astits v1.15.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c h1:8XZeJrs4+ZYhJeJ2aZxADI2tGADS15AzIF8MQ8XAhT4=
 github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c/go.mod h1:x1vxHcL/9AVzuk5HOloOEPrtJY0MaalYr78afXZ+pWI=
 github.com/bluenviron/gohlslib/v2 v2.2.6 h1:SD3abpS3msZlnky9dAm8TSZm2zp6KLXT5021QPTnBFw=
@@ -39,8 +39,8 @@ github.com/bluenviron/gortmplib v0.3.0 h1:jBNl7bYtXSq+USx70gQ4kzRsffM1h0XRjGwlHQ
 github.com/bluenviron/gortmplib v0.3.0/go.mod h1:3tUsWceMOrs8Ylt5UyQEHNHCVl52V1gi9tz+IaLTafI=
 github.com/bluenviron/gortsplib/v5 v5.3.2 h1:eGoOsJzV015A+9xuBPcDYNhqYjogH25zXhMoU1lNeXI=
 github.com/bluenviron/gortsplib/v5 v5.3.2/go.mod h1:x2Pn+7CYoASW4jz8O3Ae1cNTcfOoFMjUCGcafN4qzc8=
-github.com/bluenviron/mediacommon/v2 v2.8.0 h1:sacjx0Jwdl44awqN5jQhpm7LgVmDKf881hRqL9/fNgQ=
-github.com/bluenviron/mediacommon/v2 v2.8.0/go.mod h1:D63vIFWAgTIo0OLsk9EVKVH4yrs8AKHlNqjzVsBTMwc=
+github.com/bluenviron/mediacommon/v2 v2.8.1 h1:UfR+AxqpL9fl5+KeT5BGklBfWgKS0OaSA7LsL8eVYS8=
+github.com/bluenviron/mediacommon/v2 v2.8.1/go.mod h1:4AsE74EnTxkHeUs1VMER31fivU0jufZUAepaKFRV1lM=
 github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
 github.com/bytedance/gopkg v0.1.3/go.mod h1:576VvJ+eJgyCzdjS+c4+77QF3p7ubbtiKARP3TxducM=
 github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uSE=
