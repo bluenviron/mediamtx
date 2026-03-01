@@ -9,11 +9,11 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/abema/go-mp4 v1.4.1
 	github.com/alecthomas/kong v1.14.0
-	github.com/asticode/go-astits v1.14.0
-	github.com/bluenviron/gohlslib/v2 v2.2.6
+	github.com/asticode/go-astits v1.15.0
+	github.com/bluenviron/gohlslib/v2 v2.2.8
 	github.com/bluenviron/gortmplib v0.3.0
 	github.com/bluenviron/gortsplib/v5 v5.3.2
-	github.com/bluenviron/mediacommon/v2 v2.8.0
+	github.com/bluenviron/mediacommon/v2 v2.8.2
 	github.com/datarhei/gosrt v0.10.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.3
