@@ -93,7 +93,7 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 					IndexLength:      3,
 					IndexDeltaLength: 3,
 					Config: &mpeg4audio.AudioSpecificConfig{
-						Type:          mpeg4audio.ObjectTypeAACLC,
+						Type:          codec.Config.Type,
 						SampleRate:    codec.Config.SampleRate,
 						ChannelConfig: codec.Config.ChannelConfig,
 						ChannelCount:  codec.Config.ChannelCount, //nolint:staticcheck
