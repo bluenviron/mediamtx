@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -123,28 +122,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	u0, err := url.Parse(params.ResolvedSource)
-	if err != nil {
-		return err
-	}
-
-	var scheme string
-	if u0.Scheme == "rtsp" || u0.Scheme == "rtsp+http" || u0.Scheme == "rtsp+ws" {
-		scheme = "rtsp"
-	} else {
-		scheme = "rtsps"
-	}
-
-	u, err := base.ParseURL(regexp.MustCompile("^.*?://").ReplaceAllString(params.ResolvedSource, "rtsp://"))
-	if err != nil {
-		return err
-	}
-
 	c := &gortsplib.Client{
-		Scheme:            scheme,
-		Host:              u.Host,
 		Protocol:          params.Conf.RTSPTransport.Protocol,
-		TLSConfig:         tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		UDPReadBufferSize: int(s.UDPReadBufferSize),
@@ -171,12 +150,33 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
+	u0, err := url.Parse(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
 		c.Tunnel = gortsplib.TunnelHTTP
 	case "rtsp+ws", "rtsps+ws":
 		c.Tunnel = gortsplib.TunnelWebSocket
 	}
+
+	switch u0.Scheme {
+	case "rtsp", "rtsp+http", "rtsp+ws":
+		u0.Scheme = "rtsp"
+	default:
+		u0.Scheme = "rtsps"
+		c.TLSConfig = tls.MakeConfig(u0.Hostname(), params.Conf.SourceFingerprint)
+	}
+
+	u, err := base.ParseURL(u0.String())
+	if err != nil {
+		return err
+	}
+
+	c.Scheme = u.Scheme
+	c.Host = u.Host
 
 	if params.Conf.RTSPUDPReadBufferSize != nil {
 		s.UDPReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
