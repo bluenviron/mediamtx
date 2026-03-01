@@ -2,7 +2,7 @@
 
 ## Standard procedure
 
-1. Install git and Go &ge; 1.26.
+1. Install git and Go &ge; 1.25.
 
 2. Clone the repository, enter into the folder and start the building process:
 
@@ -21,7 +21,7 @@ If you need to use a custom or external libcamera to interact with some Raspberr
 
 1. Download [mediamtx-rpicamera source code](https://github.com/bluenviron/mediamtx-rpicamera) and compile it against the external libcamera. Instructions are in the repository.
 
-2. Install git and Go &ge; 1.26.
+2. Install git and Go &ge; 1.25.
 
 3. Clone the _MediaMTX_ repository:
 
@@ -49,7 +49,7 @@ If you need to use a custom or external libcamera to interact with some Raspberr
 
 Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
 
-1. On the machine you want to use to compile, install git and Go &ge; 1.26.
+1. On the machine you want to use to compile, install git and Go &ge; 1.25.
 
 2. Clone the repository, enter into the folder and start the building process:
 
