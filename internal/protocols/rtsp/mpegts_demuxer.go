@@ -106,7 +106,9 @@ func (d *MPEGTSDemuxer) Start() {
 			d.decodeErrors.Add(err)
 			return
 		}
-		pw.Write(tsData) //nolint:errcheck
+		for _, data := range tsData {
+			pw.Write(data)
+		}
 	})
 
 	go d.run(pr)
