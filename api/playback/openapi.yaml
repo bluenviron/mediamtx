@@ -1,0 +1,158 @@
+openapi: 3.0.0
+
+info:
+  version: 1.0.0
+  title: MediaMTX Playback API
+  description: Playback API of MediaMTX, used to list and retrieve recorded segments.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:9996
+
+security:
+  - basicAuth: []
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error:
+          type: string
+
+    ListEntry:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        duration:
+          type: number
+          format: double
+        url:
+          type: string
+
+  parameters:
+    pathName:
+      name: path
+      in: query
+      required: true
+      schema:
+        type: string
+
+paths:
+  /list:
+    get:
+      operationId: listSegments
+      summary: List recorded segments for a path.
+      parameters:
+        - $ref: '#/components/parameters/pathName'
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Segments found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListEntry'
+        '400':
+          description: Bad request.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Authentication error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No segments found.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Internal server error.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /get:
+    get:
+      operationId: getSegment
+      summary: Get a recording as a video file.
+      parameters:
+        - $ref: '#/components/parameters/pathName'
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: duration
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [fmp4, mp4]
+            default: fmp4
+      responses:
+        '200':
+          description: Video file.
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+                enum: [none]
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Authentication error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No segments found.
+          content:
+            text/plain:
+              schema:
+                type: string
