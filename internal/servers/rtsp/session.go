@@ -61,6 +61,7 @@ type session struct {
 	packetsLost     *counterdumper.Dumper
 	decodeErrors    *errordumper.Dumper
 	discardedFrames *counterdumper.Dumper
+	mpegTSDemuxer   *rtsp.MPEGTSDemuxer
 }
 
 func (s *session) initialize() {
@@ -132,12 +133,22 @@ func (s *session) onClose(err error) {
 		s.onUnreadHook()
 	}
 
+	// Stop MPEG-TS demuxer if running
+	if s.mpegTSDemuxer != nil {
+		s.mpegTSDemuxer.Stop()
+		s.mpegTSDemuxer = nil
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
-		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+		if s.path != nil {
+			s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+		}
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+		if s.path != nil {
+			s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+		}
 	}
 
 	s.path = nil
@@ -315,8 +326,26 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 	}, nil
 }
 
+// shouldDemuxMPEGTS checks if MPEG-TS demuxing should be used.
+func (s *session) shouldDemuxMPEGTS() bool {
+	if !s.pathConf.RtspDemuxMpegts {
+		return false
+	}
+	medias := s.rsession.AnnouncedDescription().Medias
+	if len(medias) != 1 || len(medias[0].Formats) != 1 {
+		return false
+	}
+	return rtsp.IsMPEGTSFormat(medias[0].Formats[0])
+}
+
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+	// Check for MPEG-TS demux mode
+	if s.shouldDemuxMPEGTS() {
+		return s.onRecordMPEGTSDemux()
+	}
+
+	// Standard RTSP flow
 	path, subStream, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        s,
 		Desc:          s.rsession.AnnouncedDescription(),
@@ -349,6 +378,43 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, nil
+}
+
+// onRecordMPEGTSDemux handles MPEG-TS demuxing for publishers.
+func (s *session) onRecordMPEGTSDemux() (*base.Response, error) {
+	s.Log(logger.Info, "MPEG-TS demux mode enabled, starting demuxer...")
+
+	s.mpegTSDemuxer = rtsp.NewMPEGTSDemuxer(
+		s.rsession,
+		s.pathManager,
+		s.pathConf,
+		s,
+		s,
+		s.decodeErrors,
+		s.rsession.Path()[1:],
+		s.rsession.Query(),
+	)
+
+	s.mpegTSDemuxer.Start()
+
+	go s.waitForMPEGTSInit()
+
+	return &base.Response{
+		StatusCode: base.StatusOK,
+	}, nil
+}
+
+func (s *session) waitForMPEGTSInit() {
+	path, subStream, err := s.mpegTSDemuxer.WaitForInit()
+	if err != nil {
+		s.Log(logger.Error, "MPEG-TS demux failed: %v", err)
+		s.rsession.Close()
+		return
+	}
+
+	s.path = path
+	s.subStream = subStream
+	s.Log(logger.Info, "MPEG-TS demux initialized successfully")
 }
 
 // onPause is called by rtspServer.
