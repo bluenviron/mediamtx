@@ -103,4 +103,4 @@ paths:
   source: rtsp+http://standard-rtsp-url
 ```
 
-There are also the `rtsp+https`, `rtsp+ws`, `rtsp+wss` schemes to handle any variant.
+There are also the `rtsp+https`, `rtsp+ws`, `rtsp+wss` schemes to handle any combination.
