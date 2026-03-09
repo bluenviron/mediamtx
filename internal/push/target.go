@@ -4,6 +4,7 @@ package push
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -14,7 +15,11 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/amf0"
+	"github.com/bluenviron/gortmplib/pkg/bytecounter"
 	"github.com/bluenviron/gortmplib/pkg/codecs"
+	"github.com/bluenviron/gortmplib/pkg/handshake"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -28,14 +33,310 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	mtls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const (
-	retryPause = 5 * time.Second
+	retryPause   = 5 * time.Second
+	encodingAMF0 = 0
+	fmleFlashVer = "FMLE/3.0 (compatible; mediamtx)"
 )
+
+type fmleRTMPClient struct {
+	nconn net.Conn
+	bc    *bytecounter.ReadWriter
+	mrw   *message.ReadWriter
+}
+
+func splitPath(u *url.URL) (string, string) {
+	pathsegs := strings.Split(u.Path, "/")
+
+	var app string
+	var streamKey string
+
+	switch {
+	case len(pathsegs) == 2:
+		app = pathsegs[1]
+
+	case len(pathsegs) == 3:
+		app = pathsegs[1]
+		streamKey = pathsegs[2]
+
+	case len(pathsegs) > 3:
+		app = strings.Join(pathsegs[1:3], "/")
+		streamKey = strings.Join(pathsegs[3:], "/")
+	}
+
+	return app, streamKey
+}
+
+func getTcURL(u *url.URL) string {
+	app, _ := splitPath(u)
+	nu, _ := url.Parse(u.String())
+	nu.RawQuery = ""
+	nu.Path = "/"
+	return nu.String() + app
+}
+
+func readCommandResult(mrw *message.ReadWriter, commandID int) (*message.CommandAMF0, error) {
+	for {
+		msg, err := mrw.Read()
+		if err != nil {
+			return nil, err
+		}
+
+		if cmd, ok := msg.(*message.CommandAMF0); ok {
+			if cmd.CommandID == commandID || (cmd.CommandID == 0 &&
+				(cmd.Name == "_result" || cmd.Name == "_error")) {
+				return cmd, nil
+			}
+		}
+	}
+}
+
+func resultIsOK2(res *message.CommandAMF0) bool {
+	if len(res.Arguments) < 2 {
+		return false
+	}
+
+	v, ok := res.Arguments[1].(float64)
+	if !ok {
+		return false
+	}
+
+	return v == 1
+}
+
+func objectOrArray(v interface{}) (amf0.Object, bool) {
+	switch vv := v.(type) {
+	case amf0.Object:
+		return vv, true
+	case amf0.ECMAArray:
+		return amf0.Object(vv), true
+	}
+	return nil, false
+}
+
+func resultIsOK1(res *message.CommandAMF0) bool {
+	if len(res.Arguments) < 2 {
+		return false
+	}
+
+	ma, ok := objectOrArray(res.Arguments[1])
+	if !ok {
+		return false
+	}
+
+	v, ok := ma.Get("level")
+	if !ok {
+		return false
+	}
+
+	return v == "status"
+}
+
+func newFMLERTMPClient(ctx context.Context, u *url.URL, tlsConfig *tls.Config) (*fmleRTMPClient, error) {
+	var nconn net.Conn
+	var err error
+
+	if u.Scheme == "rtmp" {
+		dialer := &net.Dialer{}
+		nconn, err = dialer.DialContext(ctx, "tcp", u.Host)
+	} else {
+		dialer := &tls.Dialer{Config: tlsConfig}
+		nconn, err = dialer.DialContext(ctx, "tcp", u.Host)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	closerDone := make(chan struct{})
+	closerTerminate := make(chan struct{})
+
+	go func() {
+		defer close(closerDone)
+		select {
+		case <-closerTerminate:
+		case <-ctx.Done():
+			nconn.Close()
+		}
+	}()
+
+	c := &fmleRTMPClient{nconn: nconn}
+
+	err = c.initialize(u)
+	close(closerTerminate)
+	<-closerDone
+
+	if err != nil {
+		nconn.Close()
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (c *fmleRTMPClient) initialize(u *url.URL) error {
+	c.bc = bytecounter.NewReadWriter(c.nconn)
+
+	_, _, err := handshake.DoClient(c.bc, false, false)
+	if err != nil {
+		return fmt.Errorf("handshake failed: %w", err)
+	}
+
+	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
+
+	err = c.mrw.Write(&message.SetWindowAckSize{Value: 2500000})
+	if err != nil {
+		return fmt.Errorf("SetWindowAckSize failed: %w", err)
+	}
+
+	err = c.mrw.Write(&message.SetPeerBandwidth{Value: 2500000, Type: 2})
+	if err != nil {
+		return fmt.Errorf("SetPeerBandwidth failed: %w", err)
+	}
+
+	err = c.mrw.Write(&message.SetChunkSize{Value: 65536})
+	if err != nil {
+		return fmt.Errorf("SetChunkSize failed: %w", err)
+	}
+
+	app, streamKey := splitPath(u)
+	tcURL := getTcURL(u)
+
+	connectArg := amf0.Object{
+		{Key: "app", Value: app},
+		{Key: "flashVer", Value: fmleFlashVer},
+		{Key: "tcUrl", Value: tcURL},
+		{Key: "fpad", Value: false},
+		{Key: "capabilities", Value: float64(15)},
+		{Key: "audioCodecs", Value: float64(4071)},
+		{Key: "videoCodecs", Value: float64(252)},
+		{Key: "videoFunction", Value: float64(1)},
+		{Key: "objectEncoding", Value: float64(encodingAMF0)},
+		{Key: "type", Value: "nonprivate"},
+	}
+
+	err = c.mrw.Write(&message.CommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "connect",
+		CommandID:     1,
+		Arguments:     []any{connectArg},
+	})
+	if err != nil {
+		return fmt.Errorf("connect command failed: %w", err)
+	}
+
+	res, err := readCommandResult(c.mrw, 1)
+	if err != nil {
+		return fmt.Errorf("connect result read failed: %w", err)
+	}
+
+	if res.Name == "_error" {
+		return fmt.Errorf("connect rejected: %v", res.Arguments)
+	}
+
+	if res.Name != "_result" {
+		return fmt.Errorf("unexpected connect result: %s", res.Name)
+	}
+
+	err = c.mrw.Write(&message.CommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "releaseStream",
+		CommandID:     2,
+		Arguments:     []any{nil, streamKey},
+	})
+	if err != nil {
+		return fmt.Errorf("releaseStream failed: %w", err)
+	}
+
+	err = c.mrw.Write(&message.CommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "FCPublish",
+		CommandID:     3,
+		Arguments:     []any{nil, streamKey},
+	})
+	if err != nil {
+		return fmt.Errorf("FCPublish failed: %w", err)
+	}
+
+	err = c.mrw.Write(&message.CommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "createStream",
+		CommandID:     4,
+		Arguments:     []any{nil},
+	})
+	if err != nil {
+		return fmt.Errorf("createStream failed: %w", err)
+	}
+
+	res, err = readCommandResult(c.mrw, 4)
+	if err != nil {
+		return fmt.Errorf("createStream result read failed: %w", err)
+	}
+
+	if res.Name != "_result" || !resultIsOK2(res) {
+		return fmt.Errorf("createStream rejected: %v", res)
+	}
+
+	err = c.mrw.Write(&message.CommandAMF0{
+		ChunkStreamID:   4,
+		MessageStreamID: 0x1000000,
+		Name:            "publish",
+		CommandID:       5,
+		Arguments:       []any{nil, streamKey, "live"},
+	})
+	if err != nil {
+		return fmt.Errorf("publish command failed: %w", err)
+	}
+
+	for i := 0; i < 10; i++ {
+		msg, err := c.mrw.Read()
+		if err != nil {
+			return fmt.Errorf("publish status read failed (attempt %d): %w", i+1, err)
+		}
+
+		if cmd, ok := msg.(*message.CommandAMF0); ok {
+			if cmd.Name == "onStatus" {
+				if !resultIsOK1(cmd) {
+					return fmt.Errorf("publish rejected: %v", cmd)
+				}
+				return nil
+			}
+			if cmd.Name == "_error" {
+				return fmt.Errorf("publish error: %v", cmd.Arguments)
+			}
+		}
+	}
+
+	return fmt.Errorf("no publish response received after 10 attempts")
+}
+
+func (c *fmleRTMPClient) Close() {
+	c.nconn.Close()
+}
+
+func (c *fmleRTMPClient) NetConn() net.Conn {
+	return c.nconn
+}
+
+func (c *fmleRTMPClient) BytesReceived() uint64 {
+	return c.bc.Reader.Count()
+}
+
+func (c *fmleRTMPClient) BytesSent() uint64 {
+	return c.bc.Writer.Count()
+}
+
+func (c *fmleRTMPClient) Read() (message.Message, error) {
+	return c.mrw.Read()
+}
+
+func (c *fmleRTMPClient) Write(msg message.Message) error {
+	return c.mrw.Write(msg)
+}
 
 func multiplyAndDivide(v, m, d time.Duration) time.Duration {
 	secs := v / d
@@ -420,14 +721,8 @@ func (t *Target) runRTMP() error {
 		return fmt.Errorf("no supported tracks found for RTMP push")
 	}
 
-	// Connect to RTMP server
-	connectCtx, connectCtxCancel := context.WithTimeout(t.ctx, time.Duration(t.ReadTimeout))
-	conn := &gortmplib.Client{
-		URL:       u,
-		TLSConfig: tls.MakeConfig(u.Hostname(), ""),
-		Publish:   true,
-	}
-	err = conn.Initialize(connectCtx)
+	connectCtx, connectCtxCancel := context.WithTimeout(t.ctx, 30*time.Second)
+	conn, err := newFMLERTMPClient(connectCtx, u, mtls.MakeConfig(u.Hostname(), ""))
 	connectCtxCancel()
 	if err != nil {
 		return err
@@ -455,9 +750,29 @@ func (t *Target) runRTMP() error {
 	t.reader = reader
 	t.mutex.Unlock()
 
+	conn.NetConn().SetReadDeadline(time.Time{})
+	conn.NetConn().SetWriteDeadline(time.Time{})
+
+	rtmpErr := make(chan error, 1)
+
+	go func() {
+		for {
+			_, err := conn.Read()
+			if err != nil {
+				select {
+				case rtmpErr <- fmt.Errorf("RTMP read error: %w", err):
+				default:
+				}
+				return
+			}
+		}
+	}()
+
 	// Wait for error or context cancellation
 	select {
 	case err := <-reader.Error():
+		return err
+	case err := <-rtmpErr:
 		return err
 	case <-t.ctx.Done():
 		return nil
@@ -495,7 +810,7 @@ func (t *Target) runRTSP() error {
 		Host:         u.Host,
 		ReadTimeout:  time.Duration(t.ReadTimeout),
 		WriteTimeout: time.Duration(t.WriteTimeout),
-		TLSConfig:    tls.MakeConfig(u.Host, ""),
+		TLSConfig:    mtls.MakeConfig(u.Host, ""),
 	}
 
 	err = client.Start()
