@@ -343,7 +343,7 @@ func TestAPIPathsGet(t *testing.T) {
 	}
 }
 
-func TestAPIPushTargetsAlwaysAvailableIdleWhileOffline(t *testing.T) {
+func TestAPIPushTargetsAlwaysAvailablePushesWhileOffline(t *testing.T) {
 	type pushTarget struct {
 		ID        uuid.UUID `json:"id"`
 		State     string    `json:"state"`
@@ -396,8 +396,8 @@ func TestAPIPushTargetsAlwaysAvailableIdleWhileOffline(t *testing.T) {
 	require.Equal(t, 1, listed.PageCount)
 	require.Len(t, listed.Items, 1)
 	require.Equal(t, added.ID, listed.Items[0].ID)
-	require.Equal(t, "idle", listed.Items[0].State)
-	require.Equal(t, "", listed.Items[0].Error)
+	require.Equal(t, "error", listed.Items[0].State)
+	require.NotEqual(t, "", listed.Items[0].Error)
 	require.Equal(t, uint64(0), listed.Items[0].BytesSent)
 }
 
