@@ -779,12 +779,12 @@ func (pa *path) doAPIPushTargetsList(req pathAPIPushTargetsListReq) {
 
 func (pa *path) doAPIPushTargetsGet(req pathAPIPushTargetsGetReq) {
 	if pa.pushManager == nil {
-		req.res <- pathAPIPushTargetsGetRes{err: fmt.Errorf("push target not found")}
+		req.res <- pathAPIPushTargetsGetRes{err: push.ErrTargetNotFound}
 		return
 	}
 	target, err := pa.pushManager.GetTarget(req.id)
 	if err != nil {
-		req.res <- pathAPIPushTargetsGetRes{err: fmt.Errorf("push target not found")}
+		req.res <- pathAPIPushTargetsGetRes{err: err}
 		return
 	}
 	req.res <- pathAPIPushTargetsGetRes{data: target.APIItem()}
@@ -810,7 +810,7 @@ func (pa *path) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
 
 func (pa *path) doAPIPushTargetsRemove(req pathAPIPushTargetsRemoveReq) {
 	if pa.pushManager == nil {
-		req.res <- pathAPIPushTargetsRemoveRes{err: fmt.Errorf("push target not found")}
+		req.res <- pathAPIPushTargetsRemoveRes{err: push.ErrTargetNotFound}
 		return
 	}
 

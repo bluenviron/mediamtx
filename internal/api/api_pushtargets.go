@@ -12,7 +12,22 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/push"
 )
+
+func splitPushTargetPath(value string) (string, uuid.UUID, error) {
+	i := strings.LastIndex(value, "/")
+	if i < 0 {
+		return "", uuid.UUID{}, fmt.Errorf("invalid path format, expected: /path/targetID")
+	}
+
+	id, err := uuid.Parse(value[i+1:])
+	if err != nil {
+		return "", uuid.UUID{}, fmt.Errorf("invalid target ID: %w", err)
+	}
+
+	return value[:i], id, nil
+}
 
 func (a *API) onPushTargetsList(ctx *gin.Context) {
 	pathName, ok := paramName(ctx)
@@ -49,23 +64,15 @@ func (a *API) onPushTargetsGet(ctx *gin.Context) {
 		return
 	}
 
-	// Extract ID from path: /pathName/targetID
-	parts := strings.SplitN(pathName, "/", 2)
-	if len(parts) != 2 {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path format, expected: /path/targetID"))
-		return
-	}
-	pathName = parts[0]
-
-	id, err := uuid.Parse(parts[1])
+	pathName, id, err := splitPushTargetPath(pathName)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid target ID: %w", err))
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.PathManager.APIPushTargetsGet(pathName, id)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
+		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, push.ErrTargetNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
 		} else {
 			a.writeError(ctx, http.StatusInternalServerError, err)
@@ -114,23 +121,15 @@ func (a *API) onPushTargetsRemove(ctx *gin.Context) {
 		return
 	}
 
-	// Extract ID from path: /pathName/targetID
-	parts := strings.SplitN(pathName, "/", 2)
-	if len(parts) != 2 {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path format, expected: /path/targetID"))
-		return
-	}
-	pathName = parts[0]
-
-	id, err := uuid.Parse(parts[1])
+	pathName, id, err := splitPushTargetPath(pathName)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid target ID: %w", err))
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.PathManager.APIPushTargetsRemove(pathName, id)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
+		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, push.ErrTargetNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
 		} else {
 			a.writeError(ctx, http.StatusInternalServerError, err)
@@ -138,5 +137,5 @@ func (a *API) onPushTargetsRemove(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{})
+	a.writeOK(ctx)
 }
