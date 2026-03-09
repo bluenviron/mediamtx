@@ -748,6 +748,14 @@ func TestConfErrors(t *testing.T) {
 				"    alwaysAvailableFile: /path/to/file.mp4\n",
 			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
 		},
+		{
+			"invalid push target URL",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    pushTargets:\n" +
+				"    - url: http://example.com/live/test\n",
+			"invalid 'pushTargets': push target 0: push target URL must start with rtmp://, rtmps://, rtsp://, rtsps://, or srt://",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := createTempFile([]byte(ca.conf))
