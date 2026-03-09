@@ -348,6 +348,21 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 	return multiplyAndDivide(time.Duration(t), time.Second, time.Duration(clockRate))
 }
 
+func rtmpHostCandidates(u *url.URL) []string {
+	if _, _, err := net.SplitHostPort(u.Host); err == nil {
+		return []string{u.Host}
+	}
+
+	if u.Scheme == "rtmps" {
+		return []string{
+			net.JoinHostPort(u.Host, "443"),
+			net.JoinHostPort(u.Host, "1936"),
+		}
+	}
+
+	return []string{net.JoinHostPort(u.Host, "1935")}
+}
+
 // countingWriter wraps an io.Writer and counts bytes written.
 type countingWriter struct {
 	w     io.Writer
@@ -535,16 +550,6 @@ func (t *Target) runRTMP() error {
 		return err
 	}
 
-	// Add default port
-	_, _, err = net.SplitHostPort(u.Host)
-	if err != nil {
-		if u.Scheme == "rtmp" {
-			u.Host = net.JoinHostPort(u.Host, "1935")
-		} else {
-			u.Host = net.JoinHostPort(u.Host, "1936")
-		}
-	}
-
 	t.mutex.RLock()
 	strm := t.stream
 	t.mutex.RUnlock()
@@ -721,9 +726,22 @@ func (t *Target) runRTMP() error {
 		return fmt.Errorf("no supported tracks found for RTMP push")
 	}
 
-	connectCtx, connectCtxCancel := context.WithTimeout(t.ctx, 30*time.Second)
-	conn, err := newFMLERTMPClient(connectCtx, u, mtls.MakeConfig(u.Hostname(), ""))
-	connectCtxCancel()
+	hostCandidates := rtmpHostCandidates(u)
+
+	var conn *fmleRTMPClient
+	for _, host := range hostCandidates {
+		candidate := *u
+		candidate.Host = host
+
+		connectCtx, connectCtxCancel := context.WithTimeout(t.ctx, 30*time.Second)
+		conn, err = newFMLERTMPClient(connectCtx, &candidate, mtls.MakeConfig(candidate.Hostname(), ""))
+		connectCtxCancel()
+		if err == nil {
+			break
+		}
+
+		t.Log(logger.Debug, "RTMP connection to %s failed: %v", host, err)
+	}
 	if err != nil {
 		return err
 	}
