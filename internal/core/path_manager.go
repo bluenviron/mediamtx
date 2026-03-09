@@ -25,6 +25,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 
 	clone.Name = newPathConf.Name
 	clone.Regexp = newPathConf.Regexp
+	clone.PushTargets = newPathConf.PushTargets
 
 	clone.Record = newPathConf.Record
 	clone.RecordPath = newPathConf.RecordPath

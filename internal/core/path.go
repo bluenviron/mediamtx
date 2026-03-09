@@ -195,19 +195,7 @@ func (pa *path) initialize() {
 	pa.chAPIPushTargetsRemove = make(chan pathAPIPushTargetsRemoveReq)
 	pa.done = make(chan struct{})
 
-	if len(pa.conf.PushTargets) != 0 {
-		pa.pushManager = &push.Manager{
-			ReadTimeout:  pa.readTimeout,
-			WriteTimeout: pa.writeTimeout,
-			PathName:     pa.name,
-			Parent:       pa,
-		}
-		pa.pushManager.Initialize()
-
-		for _, pt := range pa.conf.PushTargets {
-			pa.pushManager.AddTarget(pt.URL)
-		}
-	}
+	pa.syncPushTargets(pa.conf.PushTargets)
 
 	pa.Log(logger.Debug, "created")
 
@@ -472,6 +460,8 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	oldConf := pa.conf
 	pa.conf = newConf
 	pa.confMutex.Unlock()
+
+	pa.syncPushTargets(newConf.PushTargets)
 
 	if pa.conf.HasStaticSource() {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
@@ -808,19 +798,7 @@ func (pa *path) doAPIPushTargetsGet(req pathAPIPushTargetsGetReq) {
 }
 
 func (pa *path) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
-	if pa.pushManager == nil {
-		pa.pushManager = &push.Manager{
-			ReadTimeout:  pa.readTimeout,
-			WriteTimeout: pa.writeTimeout,
-			PathName:     pa.name,
-			Parent:       pa,
-		}
-		pa.pushManager.Initialize()
-		if pa.sourceReady && pa.stream != nil {
-			pa.pushManager.SetStream(pa.stream)
-		}
-	}
-	target := pa.pushManager.AddTarget(req.req.URL)
+	target := pa.ensurePushManager().AddTarget(req.req.URL)
 
 	req.res <- pathAPIPushTargetsAddRes{data: target.APIItem()}
 }
@@ -837,7 +815,64 @@ func (pa *path) doAPIPushTargetsRemove(req pathAPIPushTargetsRemoveReq) {
 		return
 	}
 
+	if len(pa.pushManager.TargetsList()) == 0 {
+		pa.pushManager.Close()
+		pa.pushManager = nil
+	}
+
 	req.res <- pathAPIPushTargetsRemoveRes{}
+}
+
+func (pa *path) ensurePushManager() *push.Manager {
+	if pa.pushManager == nil {
+		pa.pushManager = &push.Manager{
+			ReadTimeout:  pa.readTimeout,
+			WriteTimeout: pa.writeTimeout,
+			PathName:     pa.name,
+			Parent:       pa,
+		}
+		pa.pushManager.Initialize()
+
+		if pa.sourceReady && pa.stream != nil {
+			pa.pushManager.SetStream(pa.stream)
+		}
+	}
+
+	return pa.pushManager
+}
+
+func (pa *path) syncPushTargets(targets conf.PushTargets) {
+	if len(targets) == 0 {
+		if pa.pushManager != nil {
+			pa.pushManager.Close()
+			pa.pushManager = nil
+		}
+		return
+	}
+
+	pm := pa.ensurePushManager()
+	pending := make(map[string]int, len(targets))
+	for _, target := range targets {
+		pending[target.URL]++
+	}
+
+	for _, current := range pm.TargetsList() {
+		if pending[current.URL] > 0 {
+			pending[current.URL]--
+			continue
+		}
+
+		_ = pm.RemoveTarget(current.UUID())
+	}
+
+	for _, target := range targets {
+		if pending[target.URL] == 0 {
+			continue
+		}
+
+		pm.AddTarget(target.URL)
+		pending[target.URL]--
+	}
 }
 
 func (pa *path) SafeConf() *conf.Path {

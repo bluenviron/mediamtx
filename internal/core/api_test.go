@@ -401,6 +401,75 @@ func TestAPIPushTargetsAlwaysAvailableIdleWhileOffline(t *testing.T) {
 	require.Equal(t, uint64(0), listed.Items[0].BytesSent)
 }
 
+func TestAPIPushTargetsPersistAcrossLiveReload(t *testing.T) {
+	type pushTarget struct {
+		ID  uuid.UUID `json:"id"`
+		URL string    `json:"url"`
+	}
+
+	type pushTargetList struct {
+		ItemCount int          `json:"itemCount"`
+		Items     []pushTarget `json:"items"`
+	}
+
+	p, ok := newInstance("api: yes\n" +
+		"apiAddress: 127.0.0.1:19997\n" +
+		"rtsp: no\n" +
+		"rtmp: no\n" +
+		"hls: no\n" +
+		"webrtc: no\n" +
+		"srt: no\n" +
+		"paths:\n" +
+		"  test:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var added pushTarget
+	httpRequest(t, hc, http.MethodPost,
+		"http://localhost:19997/v3/paths/pushtargets/add/test",
+		map[string]any{"url": "rtmp://127.0.0.1:29999/test"},
+		&added)
+
+	httpRequest(t, hc, http.MethodPatch,
+		"http://localhost:19997/v3/config/paths/patch/test",
+		map[string]any{"record": true},
+		nil)
+
+	require.Eventually(t, func() bool {
+		var listed pushTargetList
+		httpRequest(t, hc, http.MethodGet,
+			"http://localhost:19997/v3/paths/pushtargets/list/test",
+			nil,
+			&listed)
+
+		return listed.ItemCount == 1 && len(listed.Items) == 1 && listed.Items[0].URL == added.URL
+	}, 5*time.Second, 100*time.Millisecond)
+
+	httpRequest(t, hc, http.MethodDelete,
+		"http://localhost:19997/v3/paths/pushtargets/remove/test/"+added.ID.String(),
+		nil,
+		nil)
+
+	httpRequest(t, hc, http.MethodPatch,
+		"http://localhost:19997/v3/config/paths/patch/test",
+		map[string]any{"record": false},
+		nil)
+
+	require.Eventually(t, func() bool {
+		var listed pushTargetList
+		httpRequest(t, hc, http.MethodGet,
+			"http://localhost:19997/v3/paths/pushtargets/list/test",
+			nil,
+			&listed)
+
+		return listed.ItemCount == 0 && len(listed.Items) == 0
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestAPIProtocolListGet(t *testing.T) {
 	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
