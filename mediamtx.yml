@@ -537,6 +537,18 @@ pathDefaults:
   recordDeleteAfter: 1d
 
   ###############################################
+  # Default path settings -> Push Targets
+
+  # Push the stream to external servers (e.g., YouTube Live, Twitch, etc.).
+  # Supported protocols: rtmp, rtmps.
+  # The URL can contain variables such as $MTX_PATH or $path (the path name).
+  # Push targets can also be added/removed dynamically via the API.
+  # Example:
+  # pushTargets:
+  # - url: rtmp://a.rtmp.youtube.com/live2/xxxx-xxxx-xxxx-xxxx-xxxx
+  # - url: rtmps://live.twitch.tv/app/live_xxxxxxxxx_xxxxxxxxxxxxxxxxxxxx
+
+  ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
 
   # Allow another client to disconnect the current publisher and publish in its place.
@@ -684,6 +696,20 @@ pathDefaults:
   rpiCameraSoftwareH264Level: '4.1'
   # M-JPEG JPEG quality (when codec is mjpeg).
   rpiCameraMJPEGQuality: 60
+
+  ###############################################
+  # Default path settings -> Push
+
+  # List of push targets to forward the stream to.
+  # The stream will be automatically pushed to these targets when available.
+  # If the source stream is interrupted, pushing will resume automatically
+  # when the stream becomes available again.
+  # Supported protocols: RTMP, RTSP, SRT
+  # Example:
+  # pushTargets:
+  # - url: rtmp://youtube.com/live/YOUR_STREAM_KEY
+  # - url: srt://server.com:1234/?streamid=publish:mystream
+  # - url: rtsp://server.com:8554/mystream
 
   ###############################################
   # Default path settings -> Hooks
