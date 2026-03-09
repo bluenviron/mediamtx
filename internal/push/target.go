@@ -3,12 +3,14 @@ package push
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,6 +45,8 @@ const (
 	encodingAMF0 = 0
 	fmleFlashVer = "FMLE/3.0 (compatible; mediamtx)"
 )
+
+var errRTMPTrackParametersChanged = fmt.Errorf("RTMP track parameters changed")
 
 type fmleRTMPClient struct {
 	nconn net.Conn
@@ -363,6 +367,20 @@ func rtmpHostCandidates(u *url.URL) []string {
 	return []string{net.JoinHostPort(u.Host, "1935")}
 }
 
+func h264TrackParametersChanged(forma *format.H264, codec *codecs.H264) bool {
+	sps, pps := forma.SafeParams()
+	return !bytes.Equal(sps, codec.SPS) || !bytes.Equal(pps, codec.PPS)
+}
+
+func h265TrackParametersChanged(forma *format.H265, codec *codecs.H265) bool {
+	vps, sps, pps := forma.SafeParams()
+	return !bytes.Equal(vps, codec.VPS) || !bytes.Equal(sps, codec.SPS) || !bytes.Equal(pps, codec.PPS)
+}
+
+func mpeg4AudioTrackParametersChanged(forma *format.MPEG4Audio, codec *codecs.MPEG4Audio) bool {
+	return !reflect.DeepEqual(forma.Config, codec.Config)
+}
+
 // countingWriter wraps an io.Writer and counts bytes written.
 type countingWriter struct {
 	w     io.Writer
@@ -467,9 +485,12 @@ func (t *Target) run() {
 	defer close(t.done)
 
 	for {
-		ok := t.runInner()
-		if !ok {
+		shouldRetry, waitRetry := t.runInner()
+		if !shouldRetry {
 			return
+		}
+		if !waitRetry {
+			continue
 		}
 
 		select {
@@ -480,7 +501,7 @@ func (t *Target) run() {
 	}
 }
 
-func (t *Target) runInner() bool {
+func (t *Target) runInner() (bool, bool) {
 	// Wait for stream to be available
 	for {
 		t.mutex.RLock()
@@ -501,7 +522,7 @@ func (t *Target) runInner() bool {
 		select {
 		case <-time.After(500 * time.Millisecond):
 		case <-t.ctx.Done():
-			return false
+			return false, false
 		}
 	}
 
@@ -524,15 +545,22 @@ func (t *Target) runInner() bool {
 	}
 
 	if err != nil {
+		if err == errRTMPTrackParametersChanged {
+			t.Log(logger.Info, "stream parameters changed, reconnecting push target")
+			return true, false
+		}
+
 		t.Log(logger.Error, "push error: %v", err)
 
 		t.mutex.Lock()
 		t.state = defs.APIPushTargetStateError
 		t.errorMsg = err.Error()
 		t.mutex.Unlock()
+
+		return true, true
 	}
 
-	return true
+	return false, false
 }
 
 func (t *Target) addBytesSent(n uint64) {
@@ -572,12 +600,13 @@ func (t *Target) runRTMP() error {
 			switch forma := forma.(type) {
 			case *format.H265:
 				vps, sps, pps := forma.SafeParams()
+				codec := &codecs.H265{
+					VPS: vps,
+					SPS: sps,
+					PPS: pps,
+				}
 				track := &gortmplib.Track{
-					Codec: &codecs.H265{
-						VPS: vps,
-						SPS: sps,
-						PPS: pps,
-					},
+					Codec: codec,
 				}
 				tracks = append(tracks, track)
 
@@ -589,6 +618,10 @@ func (t *Target) runRTMP() error {
 					func(u *unit.Unit) error {
 						if u.NilPayload() {
 							return nil
+						}
+
+						if h265TrackParametersChanged(forma, codec) {
+							return errRTMPTrackParametersChanged
 						}
 
 						if videoDTSExtractor == nil {
@@ -622,11 +655,12 @@ func (t *Target) runRTMP() error {
 
 			case *format.H264:
 				sps, pps := forma.SafeParams()
+				codec := &codecs.H264{
+					SPS: sps,
+					PPS: pps,
+				}
 				track := &gortmplib.Track{
-					Codec: &codecs.H264{
-						SPS: sps,
-						PPS: pps,
-					},
+					Codec: codec,
 				}
 				tracks = append(tracks, track)
 
@@ -638,6 +672,10 @@ func (t *Target) runRTMP() error {
 					func(u *unit.Unit) error {
 						if u.NilPayload() {
 							return nil
+						}
+
+						if h264TrackParametersChanged(forma, codec) {
+							return errRTMPTrackParametersChanged
 						}
 
 						idrPresent := false
@@ -685,10 +723,11 @@ func (t *Target) runRTMP() error {
 					})
 
 			case *format.MPEG4Audio:
+				codec := &codecs.MPEG4Audio{
+					Config: forma.Config,
+				}
 				track := &gortmplib.Track{
-					Codec: &codecs.MPEG4Audio{
-						Config: forma.Config,
-					},
+					Codec: codec,
 				}
 				tracks = append(tracks, track)
 
@@ -698,6 +737,10 @@ func (t *Target) runRTMP() error {
 					func(u *unit.Unit) error {
 						if u.NilPayload() {
 							return nil
+						}
+
+						if mpeg4AudioTrackParametersChanged(forma, codec) {
+							return errRTMPTrackParametersChanged
 						}
 
 						for i, au := range u.Payload.(unit.PayloadMPEG4Audio) {
