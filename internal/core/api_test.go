@@ -343,6 +343,64 @@ func TestAPIPathsGet(t *testing.T) {
 	}
 }
 
+func TestAPIPushTargetsAlwaysAvailableIdleWhileOffline(t *testing.T) {
+	type pushTarget struct {
+		ID        uuid.UUID `json:"id"`
+		State     string    `json:"state"`
+		Error     string    `json:"error"`
+		BytesSent uint64    `json:"bytesSent"`
+	}
+
+	type pushTargetList struct {
+		ItemCount int          `json:"itemCount"`
+		PageCount int          `json:"pageCount"`
+		Items     []pushTarget `json:"items"`
+	}
+
+	p, ok := newInstance("api: yes\n" +
+		"apiAddress: 127.0.0.1:19997\n" +
+		"rtsp: no\n" +
+		"rtmp: no\n" +
+		"hls: no\n" +
+		"webrtc: no\n" +
+		"srt: no\n" +
+		"paths:\n" +
+		"  test:\n" +
+		"    alwaysAvailable: yes\n" +
+		"    alwaysAvailableTracks:\n" +
+		"    - codec: H264\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var added pushTarget
+	httpRequest(t, hc, http.MethodPost,
+		"http://localhost:19997/v3/paths/pushtargets/add/test",
+		map[string]any{"url": "rtmp://127.0.0.1:29999/test"},
+		&added)
+
+	require.NotEqual(t, uuid.Nil, added.ID)
+
+	time.Sleep(1500 * time.Millisecond)
+
+	var listed pushTargetList
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:19997/v3/paths/pushtargets/list/test",
+		nil,
+		&listed)
+
+	require.Equal(t, 1, listed.ItemCount)
+	require.Equal(t, 1, listed.PageCount)
+	require.Len(t, listed.Items, 1)
+	require.Equal(t, added.ID, listed.Items[0].ID)
+	require.Equal(t, "idle", listed.Items[0].State)
+	require.Equal(t, "", listed.Items[0].Error)
+	require.Equal(t, uint64(0), listed.Items[0].BytesSent)
+}
+
 func TestAPIProtocolListGet(t *testing.T) {
 	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)

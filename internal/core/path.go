@@ -97,6 +97,7 @@ type path struct {
 	recorder                       *recorder.Recorder
 	availableTime                  time.Time
 	onlineTime                     time.Time
+	sourceReady                    bool
 	pushManager                    *push.Manager
 	onUnDemandHook                 func(string)
 	onNotReadyHook                 func()
@@ -517,6 +518,11 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 
 	if pa.conf.AlwaysAvailable {
 		pa.onlineTime = time.Now()
+		pa.sourceReady = true
+
+		if pa.pushManager != nil {
+			pa.pushManager.SetStream(pa.stream)
+		}
 	}
 
 	if pa.conf.HasOnDemandStaticSource() {
@@ -534,6 +540,12 @@ func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyRe
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {
+		pa.sourceReady = false
+
+		if pa.pushManager != nil {
+			pa.pushManager.ClearStream()
+		}
+
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
 			panic("should not happen")
@@ -642,6 +654,11 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	if pa.conf.AlwaysAvailable {
 		pa.onlineTime = time.Now()
+		pa.sourceReady = true
+
+		if pa.pushManager != nil {
+			pa.pushManager.SetStream(pa.stream)
+		}
 	}
 
 	if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
@@ -799,7 +816,7 @@ func (pa *path) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
 			Parent:       pa,
 		}
 		pa.pushManager.Initialize()
-		if pa.stream != nil {
+		if pa.sourceReady && pa.stream != nil {
 			pa.pushManager.SetStream(pa.stream)
 		}
 	}
@@ -937,6 +954,7 @@ func (pa *path) setAvailable(
 	}
 
 	pa.availableTime = time.Now()
+	pa.sourceReady = !pa.conf.AlwaysAvailable || source != nil
 
 	if !pa.conf.AlwaysAvailable {
 		pa.onlineTime = time.Now()
@@ -951,7 +969,7 @@ func (pa *path) setAvailable(
 		sourceDesc = source.APISourceDescribe()
 	}
 
-	if pa.pushManager != nil {
+	if pa.pushManager != nil && pa.sourceReady {
 		pa.pushManager.SetStream(pa.stream)
 	}
 
@@ -1003,6 +1021,8 @@ func (pa *path) setNotAvailable() {
 		pa.recorder.Close()
 		pa.recorder = nil
 	}
+
+	pa.sourceReady = false
 
 	// Stop pushing to external targets
 	if pa.pushManager != nil {
@@ -1066,6 +1086,12 @@ func (pa *path) executeRemovePublisher() {
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {
+		pa.sourceReady = false
+
+		if pa.pushManager != nil {
+			pa.pushManager.ClearStream()
+		}
+
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
 			panic("should not happen")
