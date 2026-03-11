@@ -53,14 +53,14 @@ func TestServerPublish(t *testing.T) {
 	n := 0
 
 	pathManager := &test.PathManager{
-		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-			return &conf.Path{}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
-		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.True(t, req.AccessRequest.SkipAuth)
@@ -113,7 +113,7 @@ func TestServerPublish(t *testing.T) {
 
 			strm.AddReader(reader)
 
-			return &dummyPath{}, subStream, nil
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
 		},
 	}
 
@@ -174,6 +174,75 @@ func TestServerPublish(t *testing.T) {
 
 	<-dataReceived
 
+	list, err := s.APIConnsList()
+	require.NoError(t, err)
+	require.Equal(t, &defs.APISRTConnList{ //nolint:dupl
+		Items: []defs.APISRTConn{
+			{
+				ID:                            list.Items[0].ID,
+				Created:                       list.Items[0].Created,
+				RemoteAddr:                    list.Items[0].RemoteAddr,
+				State:                         "publish",
+				Path:                          "teststream",
+				Query:                         "param=value",
+				User:                          "myuser",
+				PacketsSent:                   list.Items[0].PacketsSent,
+				PacketsReceived:               list.Items[0].PacketsReceived,
+				PacketsSentUnique:             list.Items[0].PacketsSentUnique,
+				PacketsReceivedUnique:         list.Items[0].PacketsReceivedUnique,
+				PacketsSendLoss:               list.Items[0].PacketsSendLoss,
+				PacketsReceivedLoss:           list.Items[0].PacketsReceivedLoss,
+				PacketsRetrans:                list.Items[0].PacketsRetrans,
+				PacketsReceivedRetrans:        list.Items[0].PacketsReceivedRetrans,
+				PacketsSentACK:                list.Items[0].PacketsSentACK,
+				PacketsReceivedACK:            list.Items[0].PacketsReceivedACK,
+				PacketsSentNAK:                list.Items[0].PacketsSentNAK,
+				PacketsReceivedNAK:            list.Items[0].PacketsReceivedNAK,
+				PacketsSentKM:                 list.Items[0].PacketsSentKM,
+				PacketsReceivedKM:             list.Items[0].PacketsReceivedKM,
+				UsSndDuration:                 list.Items[0].UsSndDuration,
+				PacketsReceivedBelated:        list.Items[0].PacketsReceivedBelated,
+				PacketsSendDrop:               list.Items[0].PacketsSendDrop,
+				PacketsReceivedDrop:           list.Items[0].PacketsReceivedDrop,
+				PacketsReceivedUndecrypt:      list.Items[0].PacketsReceivedUndecrypt,
+				BytesReceived:                 list.Items[0].BytesReceived,
+				BytesSent:                     list.Items[0].BytesSent,
+				BytesSentUnique:               list.Items[0].BytesSentUnique,
+				BytesReceivedUnique:           list.Items[0].BytesReceivedUnique,
+				BytesReceivedLoss:             list.Items[0].BytesReceivedLoss,
+				BytesRetrans:                  list.Items[0].BytesRetrans,
+				BytesReceivedRetrans:          list.Items[0].BytesReceivedRetrans,
+				BytesReceivedBelated:          list.Items[0].BytesReceivedBelated,
+				BytesSendDrop:                 list.Items[0].BytesSendDrop,
+				BytesReceivedDrop:             list.Items[0].BytesReceivedDrop,
+				BytesReceivedUndecrypt:        list.Items[0].BytesReceivedUndecrypt,
+				UsPacketsSendPeriod:           list.Items[0].UsPacketsSendPeriod,
+				PacketsFlowWindow:             list.Items[0].PacketsFlowWindow,
+				PacketsFlightSize:             list.Items[0].PacketsFlightSize,
+				MsRTT:                         list.Items[0].MsRTT,
+				MbpsSendRate:                  list.Items[0].MbpsSendRate,
+				MbpsReceiveRate:               list.Items[0].MbpsReceiveRate,
+				MbpsLinkCapacity:              list.Items[0].MbpsLinkCapacity,
+				BytesAvailSendBuf:             list.Items[0].BytesAvailSendBuf,
+				BytesAvailReceiveBuf:          list.Items[0].BytesAvailReceiveBuf,
+				MbpsMaxBW:                     list.Items[0].MbpsMaxBW,
+				ByteMSS:                       list.Items[0].ByteMSS,
+				PacketsSendBuf:                list.Items[0].PacketsSendBuf,
+				BytesSendBuf:                  list.Items[0].BytesSendBuf,
+				MsSendBuf:                     list.Items[0].MsSendBuf,
+				MsSendTsbPdDelay:              list.Items[0].MsSendTsbPdDelay,
+				PacketsReceiveBuf:             list.Items[0].PacketsReceiveBuf,
+				BytesReceiveBuf:               list.Items[0].BytesReceiveBuf,
+				MsReceiveBuf:                  list.Items[0].MsReceiveBuf,
+				MsReceiveTsbPdDelay:           list.Items[0].MsReceiveTsbPdDelay,
+				PacketsReorderTolerance:       list.Items[0].PacketsReorderTolerance,
+				PacketsReceivedAvgBelatedTime: list.Items[0].PacketsReceivedAvgBelatedTime,
+				PacketsSendLossRate:           list.Items[0].PacketsSendLossRate,
+				PacketsReceivedLossRate:       list.Items[0].PacketsReceivedLossRate,
+			},
+		},
+	}, list)
+
 	// the second PES is written after writer is closed
 	publisher.Close()
 	<-dataReceived2
@@ -203,12 +272,12 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 
 	pathManager := &test.PathManager{
-		AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+		AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-			return &dummyPath{}, strm, nil
+			return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
 		},
 	}
 
@@ -288,4 +357,73 @@ func TestServerRead(t *testing.T) {
 			break
 		}
 	}
+
+	list, err := s.APIConnsList()
+	require.NoError(t, err)
+	require.Equal(t, &defs.APISRTConnList{ //nolint:dupl
+		Items: []defs.APISRTConn{
+			{
+				ID:                            list.Items[0].ID,
+				Created:                       list.Items[0].Created,
+				RemoteAddr:                    list.Items[0].RemoteAddr,
+				State:                         "read",
+				Path:                          "teststream",
+				Query:                         "param=value",
+				User:                          "myuser",
+				PacketsSent:                   list.Items[0].PacketsSent,
+				PacketsReceived:               list.Items[0].PacketsReceived,
+				PacketsSentUnique:             list.Items[0].PacketsSentUnique,
+				PacketsReceivedUnique:         list.Items[0].PacketsReceivedUnique,
+				PacketsSendLoss:               list.Items[0].PacketsSendLoss,
+				PacketsReceivedLoss:           list.Items[0].PacketsReceivedLoss,
+				PacketsRetrans:                list.Items[0].PacketsRetrans,
+				PacketsReceivedRetrans:        list.Items[0].PacketsReceivedRetrans,
+				PacketsSentACK:                list.Items[0].PacketsSentACK,
+				PacketsReceivedACK:            list.Items[0].PacketsReceivedACK,
+				PacketsSentNAK:                list.Items[0].PacketsSentNAK,
+				PacketsReceivedNAK:            list.Items[0].PacketsReceivedNAK,
+				PacketsSentKM:                 list.Items[0].PacketsSentKM,
+				PacketsReceivedKM:             list.Items[0].PacketsReceivedKM,
+				UsSndDuration:                 list.Items[0].UsSndDuration,
+				PacketsReceivedBelated:        list.Items[0].PacketsReceivedBelated,
+				PacketsSendDrop:               list.Items[0].PacketsSendDrop,
+				PacketsReceivedDrop:           list.Items[0].PacketsReceivedDrop,
+				PacketsReceivedUndecrypt:      list.Items[0].PacketsReceivedUndecrypt,
+				BytesReceived:                 list.Items[0].BytesReceived,
+				BytesSent:                     list.Items[0].BytesSent,
+				BytesSentUnique:               list.Items[0].BytesSentUnique,
+				BytesReceivedUnique:           list.Items[0].BytesReceivedUnique,
+				BytesReceivedLoss:             list.Items[0].BytesReceivedLoss,
+				BytesRetrans:                  list.Items[0].BytesRetrans,
+				BytesReceivedRetrans:          list.Items[0].BytesReceivedRetrans,
+				BytesReceivedBelated:          list.Items[0].BytesReceivedBelated,
+				BytesSendDrop:                 list.Items[0].BytesSendDrop,
+				BytesReceivedDrop:             list.Items[0].BytesReceivedDrop,
+				BytesReceivedUndecrypt:        list.Items[0].BytesReceivedUndecrypt,
+				UsPacketsSendPeriod:           list.Items[0].UsPacketsSendPeriod,
+				PacketsFlowWindow:             list.Items[0].PacketsFlowWindow,
+				PacketsFlightSize:             list.Items[0].PacketsFlightSize,
+				MsRTT:                         list.Items[0].MsRTT,
+				MbpsSendRate:                  list.Items[0].MbpsSendRate,
+				MbpsReceiveRate:               list.Items[0].MbpsReceiveRate,
+				MbpsLinkCapacity:              list.Items[0].MbpsLinkCapacity,
+				BytesAvailSendBuf:             list.Items[0].BytesAvailSendBuf,
+				BytesAvailReceiveBuf:          list.Items[0].BytesAvailReceiveBuf,
+				MbpsMaxBW:                     list.Items[0].MbpsMaxBW,
+				ByteMSS:                       list.Items[0].ByteMSS,
+				PacketsSendBuf:                list.Items[0].PacketsSendBuf,
+				BytesSendBuf:                  list.Items[0].BytesSendBuf,
+				MsSendBuf:                     list.Items[0].MsSendBuf,
+				MsSendTsbPdDelay:              list.Items[0].MsSendTsbPdDelay,
+				PacketsReceiveBuf:             list.Items[0].PacketsReceiveBuf,
+				BytesReceiveBuf:               list.Items[0].BytesReceiveBuf,
+				MsReceiveBuf:                  list.Items[0].MsReceiveBuf,
+				MsReceiveTsbPdDelay:           list.Items[0].MsReceiveTsbPdDelay,
+				PacketsReorderTolerance:       list.Items[0].PacketsReorderTolerance,
+				PacketsReceivedAvgBelatedTime: list.Items[0].PacketsReceivedAvgBelatedTime,
+				PacketsSendLossRate:           list.Items[0].PacketsSendLossRate,
+				PacketsReceivedLossRate:       list.Items[0].PacketsReceivedLossRate,
+			},
+		},
+	}, list)
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/metrics"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
-	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
@@ -62,7 +61,7 @@ type pathSetHLSServerReq struct {
 }
 
 type pathManagerAuthManager interface {
-	Authenticate(req *auth.Request) *auth.Error
+	Authenticate(req *auth.Request) (string, *auth.Error)
 }
 
 type pathManagerParent interface {
@@ -326,13 +325,16 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 		return
 	}
 
-	err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+	user, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 	if err2 != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err2}
 		return
 	}
 
-	req.Res <- defs.PathFindPathConfRes{Conf: pathConf}
+	req.Res <- defs.PathFindPathConfRes{
+		Conf: pathConf,
+		User: user,
+	}
 }
 
 func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
@@ -342,7 +344,7 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+	_, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 	if err2 != nil {
 		req.Res <- defs.PathDescribeRes{Err: err2}
 		return
@@ -367,10 +369,13 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 		return
 	}
 
+	var user string
+
 	if !req.AccessRequest.SkipAuth {
-		err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-		if err2 != nil {
-			req.Res <- defs.PathAddReaderRes{Err: err2}
+		var authErr *auth.Error
+		user, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if authErr != nil {
+			req.Res <- defs.PathAddReaderRes{Err: authErr}
 			return
 		}
 	}
@@ -384,7 +389,10 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 
 	atomic.AddInt64(pa.pendingRequests, 1)
 
-	req.Res <- defs.PathAddReaderRes{Path: pa}
+	req.Res <- defs.PathAddReaderRes{
+		Path: pa,
+		User: user,
+	}
 }
 
 func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
@@ -399,10 +407,13 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 		return
 	}
 
+	var user string
+
 	if !req.AccessRequest.SkipAuth {
-		err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-		if err2 != nil {
-			req.Res <- defs.PathAddPublisherRes{Err: err2}
+		var authErr *auth.Error
+		user, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if authErr != nil {
+			req.Res <- defs.PathAddPublisherRes{Err: authErr}
 			return
 		}
 	}
@@ -416,7 +427,10 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	atomic.AddInt64(pa.pendingRequests, 1)
 
-	req.Res <- defs.PathAddPublisherRes{Path: pa}
+	req.Res <- defs.PathAddPublisherRes{
+		Path: pa,
+		User: user,
+	}
 }
 
 func (pm *pathManager) doAPIPathsList(req pathAPIPathsListReq) {
@@ -507,12 +521,12 @@ func (pm *pathManager) closePathIfIdle(pa *path) {
 }
 
 // FindPathConf is called by a reader or publisher.
-func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 	req.Res = make(chan defs.PathFindPathConfRes)
 	select {
 	case pm.chFindPathConf <- req:
 		res := <-req.Res
-		return res.Conf, res.Err
+		return &res, res.Err
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -543,36 +557,52 @@ func (pm *pathManager) Describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // AddPublisher is called by a publisher.
-func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
+func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 	req.Res = make(chan defs.PathAddPublisherRes)
 	select {
 	case pm.chAddPublisher <- req:
-		res := <-req.Res
-		if res.Err != nil {
-			return nil, nil, res.Err
+		res1 := <-req.Res
+		if res1.Err != nil {
+			return nil, res1.Err
 		}
 
-		return res.Path.(*path).addPublisher(req)
+		res2, err := res1.Path.(*path).addPublisher(req)
+		if err != nil {
+			return nil, err
+		}
+
+		res2.Path = res1.Path
+		res2.User = res1.User
+
+		return res2, nil
 
 	case <-pm.ctx.Done():
-		return nil, nil, fmt.Errorf("terminated")
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
 // AddReader is called by a reader.
-func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 	req.Res = make(chan defs.PathAddReaderRes)
 	select {
 	case pm.chAddReader <- req:
-		res := <-req.Res
-		if res.Err != nil {
-			return nil, nil, res.Err
+		res1 := <-req.Res
+		if res1.Err != nil {
+			return nil, res1.Err
 		}
 
-		return res.Path.(*path).addReader(req)
+		res2, err := res1.Path.(*path).addReader(req)
+		if err != nil {
+			return nil, err
+		}
+
+		res2.Path = res1.Path
+		res2.User = res1.User
+
+		return res2, nil
 
 	case <-pm.ctx.Done():
-		return nil, nil, fmt.Errorf("terminated")
+		return nil, fmt.Errorf("terminated")
 	}
 }
 

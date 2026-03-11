@@ -70,12 +70,12 @@ func TestOnList(t *testing.T) {
 					},
 				},
 				AuthManager: &test.AuthManager{
-					AuthenticateImpl: func(req *auth.Request) *auth.Error {
+					AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
 						require.Equal(t, conf.AuthActionPlayback, req.Action)
 						require.Equal(t, "myuser", req.Credentials.User)
 						require.Equal(t, "mypass", req.Credentials.Pass)
 						checked = true
-						return nil
+						return req.Credentials.User, nil
 					},
 				},
 				Parent: test.NilLogger,

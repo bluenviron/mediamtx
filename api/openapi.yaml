@@ -763,6 +763,8 @@ components:
           type: string
         query:
           type: string
+        user:
+          type: string
         bytesReceived:
           type: integer
           format: uint64
@@ -838,6 +840,8 @@ components:
           type: string
         query:
           type: string
+        user:
+          type: string
         transport:
           type: string
           nullable: true
@@ -910,6 +914,8 @@ components:
         path:
           type: string
         query:
+          type: string
+        user:
           type: string
         packetsSent:
           type: integer
@@ -1184,6 +1190,8 @@ components:
         path:
           type: string
         query:
+          type: string
+        user:
           type: string
         bytesReceived:
           type: integer

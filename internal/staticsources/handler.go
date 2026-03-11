@@ -19,7 +19,6 @@ import (
 	ssrtsp "github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
 	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
-	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (
@@ -51,7 +50,7 @@ type staticSource interface {
 }
 
 type handlerPathManager interface {
-	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
 type handlerParent interface {
@@ -334,6 +333,6 @@ func (s *Handler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 }
 
 // AddReader is called by a staticSource.
-func (s *Handler) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+func (s *Handler) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 	return s.PathManager.AddReader(req)
 }

@@ -61,7 +61,7 @@ func metricFloat(key string, tags string, value float64) string {
 }
 
 type metricsAuthManager interface {
-	Authenticate(req *auth.Request) *auth.Error
+	Authenticate(req *auth.Request) (string, *auth.Error)
 }
 
 type metricsParent interface {
@@ -156,7 +156,7 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 		IP:          net.ParseIP(ctx.ClientIP()),
 	}
 
-	err := m.AuthManager.Authenticate(req)
+	_, err := m.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

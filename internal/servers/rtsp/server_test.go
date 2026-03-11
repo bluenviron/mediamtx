@@ -23,6 +23,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func ptrOf[T any](v T) *T {
+	p := new(T)
+	*p = v
+	return p
+}
+
 type dummyPath struct{}
 
 func (p *dummyPath) Name() string {
@@ -56,7 +62,7 @@ func TestServerPublish(t *testing.T) {
 			n := 0
 
 			pathManager := &test.PathManager{
-				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 
@@ -79,9 +85,9 @@ func TestServerPublish(t *testing.T) {
 						require.True(t, ok)
 					}
 
-					return &conf.Path{}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 				},
-				AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
+				AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.True(t, req.AccessRequest.SkipAuth)
@@ -119,7 +125,7 @@ func TestServerPublish(t *testing.T) {
 
 					strm.AddReader(reader)
 
-					return &dummyPath{}, subStream, nil
+					return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
 				},
 			}
 
@@ -171,6 +177,28 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 
 			<-dataReceived
+
+			list, err := s.APISessionsList()
+			require.NoError(t, err)
+			require.Equal(t, &defs.APIRTSPSessionList{
+				Items: []defs.APIRTSPSession{
+					{
+						ID:                 list.Items[0].ID,
+						Created:            list.Items[0].Created,
+						RemoteAddr:         list.Items[0].RemoteAddr,
+						State:              "publish",
+						Path:               "teststream",
+						Query:              "param=value",
+						User:               "myuser",
+						BytesReceived:      list.Items[0].BytesReceived,
+						BytesSent:          list.Items[0].BytesSent,
+						Conns:              list.Items[0].Conns,
+						RTPPacketsReceived: list.Items[0].RTPPacketsReceived,
+						Transport:          ptrOf("TCP"),
+						Profile:            ptrOf("AVP"),
+					},
+				},
+			}, list)
 		})
 	}
 }
@@ -228,7 +256,7 @@ func TestServerRead(t *testing.T) {
 						Err:    nil,
 					}
 				},
-				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 
@@ -241,7 +269,7 @@ func TestServerRead(t *testing.T) {
 						require.True(t, ok)
 					}
 
-					return &dummyPath{}, strm, nil
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
 				},
 			}
 
@@ -321,6 +349,29 @@ func TestServerRead(t *testing.T) {
 			})
 
 			<-recv
+
+			list, err := s.APISessionsList()
+			require.NoError(t, err)
+			require.Equal(t, &defs.APIRTSPSessionList{
+				Items: []defs.APIRTSPSession{
+					{
+						ID:                 list.Items[0].ID,
+						Created:            list.Items[0].Created,
+						RemoteAddr:         list.Items[0].RemoteAddr,
+						State:              "read",
+						Path:               "teststream",
+						Query:              "param=value",
+						User:               "myuser",
+						BytesReceived:      list.Items[0].BytesReceived,
+						BytesSent:          list.Items[0].BytesSent,
+						Conns:              list.Items[0].Conns,
+						RTPPacketsReceived: list.Items[0].RTPPacketsReceived,
+						RTPPacketsSent:     list.Items[0].RTPPacketsSent,
+						Transport:          ptrOf("TCP"),
+						Profile:            ptrOf("AVP"),
+					},
+				},
+			}, list)
 		})
 	}
 }

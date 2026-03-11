@@ -64,6 +64,7 @@ type conn struct {
 	state     defs.APISRTConnState
 	pathName  string
 	query     string
+	user      string
 	sconn     srt.Conn
 }
 
@@ -131,7 +132,7 @@ func (c *conn) runInner() error {
 }
 
 func (c *conn) runPublish(streamID *streamID) error {
-	pathConf, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+	res, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
 			Query:   streamID.query,
@@ -157,7 +158,11 @@ func (c *conn) runPublish(streamID *streamID) error {
 		return err
 	}
 
-	err = srtCheckPassphrase(c.connReq, pathConf.SRTPublishPassphrase)
+	c.mutex.Lock()
+	c.user = res.User
+	c.mutex.Unlock()
+
+	err = srtCheckPassphrase(c.connReq, res.Conf.SRTPublishPassphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
@@ -170,7 +175,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 
 	readerErr := make(chan error)
 	go func() {
-		readerErr <- c.runPublishReader(sconn, streamID, pathConf)
+		readerErr <- c.runPublishReader(sconn, streamID, res.Conf)
 	}()
 
 	select {
@@ -217,8 +222,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		return err
 	}
 
-	var path defs.Path
-	path, subStream, err = c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	res, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        c,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
@@ -235,7 +239,9 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		return err
 	}
 
-	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+
+	subStream = res.SubStream
 
 	c.mutex.Lock()
 	c.state = defs.APISRTConnStatePublish
@@ -253,7 +259,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 }
 
 func (c *conn) runRead(streamID *streamID) error {
-	path, strm, err := c.pathManager.AddReader(defs.PathAddReaderReq{
+	res, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  streamID.path,
@@ -279,9 +285,9 @@ func (c *conn) runRead(streamID *streamID) error {
 		return err
 	}
 
-	defer path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
+	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
-	err = srtCheckPassphrase(c.connReq, path.SafeConf().SRTReadPassphrase)
+	err = srtCheckPassphrase(c.connReq, res.Path.SafeConf().SRTReadPassphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
@@ -297,7 +303,7 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = mpegts.FromStream(strm.Desc, r, bw, sconn, time.Duration(c.writeTimeout))
+	err = mpegts.FromStream(res.Stream.Desc, r, bw, sconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}
@@ -306,17 +312,18 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.state = defs.APISRTConnStateRead
 	c.pathName = streamID.path
 	c.query = streamID.query
+	c.user = res.User
 	c.sconn = sconn
 	c.mutex.Unlock()
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), defs.FormatsInfo(r.Formats()))
+		res.Path.Name(), defs.FormatsInfo(r.Formats()))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
 		ExternalCmdPool: c.externalCmdPool,
-		Conf:            path.SafeConf(),
-		ExternalCmdEnv:  path.ExternalCmdEnv(),
+		Conf:            res.Path.SafeConf(),
+		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
 		Reader:          *c.APIReaderDescribe(),
 		Query:           streamID.query,
 	})
@@ -325,8 +332,8 @@ func (c *conn) runRead(streamID *streamID) error {
 	// disable read deadline
 	sconn.SetReadDeadline(time.Time{})
 
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
+	res.Stream.AddReader(r)
+	defer res.Stream.RemoveReader(r)
 
 	select {
 	case <-c.ctx.Done():
@@ -364,6 +371,7 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		State:      c.state,
 		Path:       c.pathName,
 		Query:      c.query,
+		User:       c.user,
 	}
 
 	if c.sconn != nil {

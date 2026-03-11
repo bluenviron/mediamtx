@@ -62,8 +62,8 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 
 func initializeTestServer(t *testing.T) *Server {
 	pm := &test.PathManager{
-		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
-			return &conf.Path{}, nil
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
 	}
 
@@ -144,8 +144,8 @@ func TestPreflightRequest(t *testing.T) {
 
 func TestServerOptionsICEServer(t *testing.T) {
 	pathManager := &test.PathManager{
-		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
-			return &conf.Path{}, nil
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
 	}
 
@@ -207,14 +207,14 @@ func TestServerPublish(t *testing.T) {
 	dataReceived := make(chan struct{})
 
 	pathManager := &test.PathManager{
-		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-			return &conf.Path{}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
-		AddPublisherImpl: func(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.True(t, req.AccessRequest.SkipAuth)
@@ -255,7 +255,7 @@ func TestServerPublish(t *testing.T) {
 
 			strm.AddReader(reader)
 
-			return &dummyPath{}, subStream, nil
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
 		},
 	}
 
@@ -321,6 +321,31 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 
 	<-dataReceived
+
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Equal(t, &defs.APIWebRTCSessionList{
+		Items: []defs.APIWebRTCSession{
+			{
+				ID:                        list.Items[0].ID,
+				Created:                   list.Items[0].Created,
+				RemoteAddr:                list.Items[0].RemoteAddr,
+				State:                     "publish",
+				Path:                      "teststream",
+				Query:                     "param=value",
+				User:                      "myuser",
+				BytesReceived:             list.Items[0].BytesReceived,
+				BytesSent:                 list.Items[0].BytesSent,
+				RTPPacketsReceived:        list.Items[0].RTPPacketsReceived,
+				RTPPacketsSent:            list.Items[0].RTPPacketsSent,
+				RTCPPacketsReceived:       list.Items[0].RTCPPacketsReceived,
+				RTCPPacketsSent:           list.Items[0].RTCPPacketsSent,
+				PeerConnectionEstablished: true,
+				LocalCandidate:            list.Items[0].LocalCandidate,
+				RemoteCandidate:           list.Items[0].RemoteCandidate,
+			},
+		},
+	}, list)
 }
 
 func TestServerRead(t *testing.T) {
@@ -491,19 +516,19 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 
 			pathManager := &test.PathManager{
-				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &conf.Path{}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 				},
-				AddReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &dummyPath{}, strm, nil
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
 				},
 			}
 
@@ -581,17 +606,42 @@ func TestServerRead(t *testing.T) {
 
 			<-writerDone
 			<-done
+
+			list, err := s.APISessionsList()
+			require.NoError(t, err)
+			require.Equal(t, &defs.APIWebRTCSessionList{
+				Items: []defs.APIWebRTCSession{
+					{
+						ID:                        list.Items[0].ID,
+						Created:                   list.Items[0].Created,
+						RemoteAddr:                list.Items[0].RemoteAddr,
+						State:                     "read",
+						Path:                      "teststream",
+						Query:                     "param=value",
+						User:                      "myuser",
+						BytesReceived:             list.Items[0].BytesReceived,
+						BytesSent:                 list.Items[0].BytesSent,
+						RTPPacketsReceived:        list.Items[0].RTPPacketsReceived,
+						RTPPacketsSent:            list.Items[0].RTPPacketsSent,
+						RTCPPacketsReceived:       list.Items[0].RTCPPacketsReceived,
+						RTCPPacketsSent:           list.Items[0].RTCPPacketsSent,
+						PeerConnectionEstablished: true,
+						LocalCandidate:            list.Items[0].LocalCandidate,
+						RemoteCandidate:           list.Items[0].RemoteCandidate,
+					},
+				},
+			}, list)
 		})
 	}
 }
 
 func TestServerReadNotFound(t *testing.T) {
 	pm := &test.PathManager{
-		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*conf.Path, error) {
-			return &conf.Path{}, nil
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
-		AddReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			return nil, nil, defs.PathNoStreamAvailableError{}
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			return nil, defs.PathNoStreamAvailableError{}
 		},
 	}
 
@@ -750,7 +800,7 @@ func TestAuthError(t *testing.T) {
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
 				PathManager: &test.PathManager{
-					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}

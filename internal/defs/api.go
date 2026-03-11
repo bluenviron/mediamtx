@@ -143,6 +143,7 @@ type APIRTMPConn struct {
 	State         APIRTMPConnState `json:"state"`
 	Path          string           `json:"path"`
 	Query         string           `json:"query"`
+	User          string           `json:"user"`
 	BytesReceived uint64           `json:"bytesReceived"`
 	BytesSent     uint64           `json:"bytesSent"`
 }
@@ -190,6 +191,7 @@ type APIRTSPSession struct {
 	State               APIRTSPSessionState `json:"state"`
 	Path                string              `json:"path"`
 	Query               string              `json:"query"`
+	User                string              `json:"user"`
 	Transport           *string             `json:"transport"`
 	Profile             *string             `json:"profile"`
 	Conns               []uuid.UUID         `json:"conns"`
@@ -230,6 +232,7 @@ type APISRTConn struct {
 	State      APISRTConnState `json:"state"`
 	Path       string          `json:"path"`
 	Query      string          `json:"query"`
+	User       string          `json:"user"`
 
 	// The metric names/comments are pulled from GoSRT
 
@@ -380,6 +383,7 @@ type APIWebRTCSession struct {
 	State                     APIWebRTCSessionState `json:"state"`
 	Path                      string                `json:"path"`
 	Query                     string                `json:"query"`
+	User                      string                `json:"user"`
 	BytesReceived             uint64                `json:"bytesReceived"`
 	BytesSent                 uint64                `json:"bytesSent"`
 	RTPPacketsReceived        uint64                `json:"rtpPacketsReceived"`

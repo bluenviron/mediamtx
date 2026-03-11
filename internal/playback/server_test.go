@@ -60,11 +60,11 @@ func TestAuthError(t *testing.T) {
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(req *auth.Request) *auth.Error {
+			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
 				if req.Credentials.User == "" {
-					return &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+					return "", &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
-				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				return "", &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
 		Parent: test.Logger(func(l logger.Level, s string, i ...any) {

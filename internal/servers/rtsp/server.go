@@ -25,7 +25,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
-	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -78,10 +77,10 @@ type serverMetrics interface {
 }
 
 type serverPathManager interface {
-	FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error)
+	FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error)
 	Describe(req defs.PathDescribeReq) defs.PathDescribeRes
-	AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
-	AddReader(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+	AddPublisher(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error)
+	AddReader(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
 type serverParent interface {

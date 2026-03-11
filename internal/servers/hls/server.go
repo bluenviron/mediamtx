@@ -12,7 +12,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
@@ -60,8 +59,8 @@ type serverMetrics interface {
 
 type serverPathManager interface {
 	SetHLSServer(*Server) []defs.Path
-	FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error)
-	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+	FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error)
+	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
 type serverParent interface {
