@@ -23,7 +23,7 @@ jobs:
 
     - uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.11.2
+        version: v2.11.3
 
   go_mod:
     runs-on: ubuntu-22.04
