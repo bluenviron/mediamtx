@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -736,56 +737,126 @@ func TestICEServerClientOnly(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	n := 0
+	for _, ca := range []string{
+		"publish page",
+		"whip options",
+		"whip post",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			n := uint64(0)
+			authFailed := false
 
-	s := &Server{
-		Address:      "127.0.0.1:8886",
-		ReadTimeout:  conf.Duration(10 * time.Second),
-		WriteTimeout: conf.Duration(10 * time.Second),
-		PathManager: &test.PathManager{
-			FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
-				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-					return nil, &auth.Error{AskCredentials: true}
-				}
+			s := &Server{
+				Address:      "127.0.0.1:8886",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathManager: &test.PathManager{
+					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+							return nil, &auth.Error{AskCredentials: true}
+						}
 
-				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
-			},
-		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-			if l == logger.Info {
-				if n == 1 {
-					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
-				}
-				n++
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					},
+				},
+				Parent: test.Logger(func(l logger.Level, s string, i ...any) {
+					switch ca {
+					case "whip post":
+						if l == logger.Info {
+							if atomic.AddUint64(&n, 1) == 5 {
+								require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
+								authFailed = true
+							}
+						}
+
+					default:
+						if l == logger.Info {
+							if atomic.AddUint64(&n, 1) == 2 {
+								require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
+								authFailed = true
+							}
+						}
+					}
+				}),
 			}
-		}),
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			var req *http.Request
+
+			switch ca {
+			case "publish page":
+				req, err = http.NewRequest(http.MethodGet, "http://127.0.0.1:8886/stream/publish", nil)
+
+			case "whip options":
+				req, err = http.NewRequest(http.MethodOptions, "http://127.0.0.1:8886/teststream/whip", nil)
+
+			case "whip post":
+				var pc *pwebrtc.PeerConnection
+				pc, err = pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
+				require.NoError(t, err)
+				defer pc.GracefulClose() //nolint:errcheck
+
+				_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
+				require.NoError(t, err)
+
+				var offer pwebrtc.SessionDescription
+				offer, err = pc.CreateOffer(nil)
+				require.NoError(t, err)
+
+				req, err = http.NewRequest(http.MethodPost, "http://127.0.0.1:8886/teststream/whip",
+					bytes.NewReader([]byte(offer.SDP)))
+				req.Header.Set("Content-Type", "application/sdp")
+			}
+
+			require.NoError(t, err)
+
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+			require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+
+			switch ca {
+			case "publish page":
+				req, err = http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8886/stream/publish", nil)
+
+			case "whip options":
+				req, err = http.NewRequest(http.MethodOptions, "http://myuser:mypass@127.0.0.1:8886/teststream/whip", nil)
+
+			case "whip post":
+				var pc *pwebrtc.PeerConnection
+				pc, err = pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
+				require.NoError(t, err)
+				defer pc.GracefulClose() //nolint:errcheck
+
+				_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
+				require.NoError(t, err)
+
+				var offer pwebrtc.SessionDescription
+				offer, err = pc.CreateOffer(nil)
+				require.NoError(t, err)
+
+				req, err = http.NewRequest(http.MethodPost, "http://myuser:mypass@127.0.0.1:8886/teststream/whip",
+					bytes.NewReader([]byte(offer.SDP)))
+				req.Header.Set("Content-Type", "application/sdp")
+			}
+
+			require.NoError(t, err)
+
+			start := time.Now()
+
+			res, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Greater(t, time.Since(start), 2*time.Second)
+
+			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+			require.True(t, authFailed)
+		})
 	}
-	err := s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8886/stream/publish", nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-	require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
-
-	req, err = http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8886/stream/publish", nil)
-	require.NoError(t, err)
-
-	start := time.Now()
-
-	res, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-
-	require.Greater(t, time.Since(start), 2*time.Second)
-
-	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-
-	require.Equal(t, 2, n)
 }

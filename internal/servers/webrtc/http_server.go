@@ -204,7 +204,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	})
 	if res.err != nil {
 		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if errors.As(res.err, &terr) {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
