@@ -105,7 +105,7 @@ func TestAuthError(t *testing.T) {
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) *auth.Error {
 				if req.Credentials.User == "" {
-					return &auth.Error{AskCredentials: true}
+					return &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
 				return &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},

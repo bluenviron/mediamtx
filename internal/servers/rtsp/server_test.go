@@ -64,7 +64,7 @@ func TestServerPublish(t *testing.T) {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, &auth.Error{AskCredentials: true}
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}
 
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -74,7 +74,7 @@ func TestServerPublish(t *testing.T) {
 						if n == 0 {
 							require.False(t, ok)
 							n++
-							return nil, &auth.Error{AskCredentials: true}
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}
 						require.True(t, ok)
 					}
@@ -207,7 +207,7 @@ func TestServerRead(t *testing.T) {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
+							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
 						}
 
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -217,7 +217,7 @@ func TestServerRead(t *testing.T) {
 						if n == 0 {
 							require.False(t, ok)
 							n++
-							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
+							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
 						}
 						require.True(t, ok)
 					}
@@ -360,7 +360,7 @@ func TestServerRedirect(t *testing.T) {
 					}
 
 					if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-						return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
+						return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
 					}
 
 					require.Equal(t, "path2", req.AccessRequest.Name)
@@ -413,7 +413,7 @@ func TestAuthError(t *testing.T) {
 	pathManager := &test.PathManager{
 		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
 			if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-				return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true}}
+				return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
 			}
 
 			return defs.PathDescribeRes{Err: &auth.Error{Wrapped: fmt.Errorf("auth error")}}

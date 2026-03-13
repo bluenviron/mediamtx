@@ -48,7 +48,7 @@ func TestToStream(t *testing.T) {
 					"#EXTINF:2,\n" +
 					"segment2.ts\n" +
 					"#EXTINF:2,\n" +
-					"segment2.ts\n" +
+					"segment3.ts\n" +
 					"#EXT-X-ENDLIST\n"))
 
 			case r.Method == http.MethodGet && r.URL.Path == "/segment1.ts":
@@ -61,6 +61,7 @@ func TestToStream(t *testing.T) {
 				err = w.WriteH264(track1, 2*90000, 2*90000, [][]byte{
 					{7, 1, 2, 3}, // SPS
 					{8},          // PPS
+					{5, 1},
 				})
 				require.NoError(t, err)
 
@@ -72,7 +73,7 @@ func TestToStream(t *testing.T) {
 				require.NoError(t, err)
 
 				err = w.WriteH264(track1, 2*90000, 2*90000, [][]byte{
-					{5, 1},
+					{5, 2},
 				})
 				require.NoError(t, err)
 			}
@@ -132,8 +133,18 @@ func TestToStream(t *testing.T) {
 				func(u *unit.Unit) error {
 					switch n {
 					case 0:
-						require.True(t, u.NilPayload())
+						require.Equal(t, unit.PayloadH264{
+							{7, 1, 2, 3},
+							{8},
+							{5, 1},
+						}, u.Payload)
+						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
 					case 1:
+						require.Equal(t, unit.PayloadH264{
+							{7, 1, 2, 3},
+							{8},
+							{5, 2},
+						}, u.Payload)
 						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
 						close(done)
 					default:
