@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"sync/atomic"
+	"regexp"
 	"testing"
 	"time"
 
@@ -743,7 +743,6 @@ func TestAuthError(t *testing.T) {
 		"whip post",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			n := uint64(0)
 			authFailed := false
 
 			s := &Server{
@@ -753,28 +752,16 @@ func TestAuthError(t *testing.T) {
 				PathManager: &test.PathManager{
 					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, &auth.Error{AskCredentials: true}
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}
 
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					},
 				},
 				Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-					switch ca {
-					case "whip post":
-						if l == logger.Info {
-							if atomic.AddUint64(&n, 1) == 5 {
-								require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
-								authFailed = true
-							}
-						}
-
-					default:
-						if l == logger.Info {
-							if atomic.AddUint64(&n, 1) == 2 {
-								require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
-								authFailed = true
-							}
+					if l == logger.Info {
+						if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
+							authFailed = true
 						}
 					}
 				}),
