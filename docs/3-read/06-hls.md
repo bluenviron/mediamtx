@@ -12,4 +12,4 @@ and can also be accessed without using the browsers, by software that supports t
 http://localhost:8888/mystream/index.m3u8
 ```
 
-Some clients that can read with HLS are [FFmpeg](07-ffmpeg.md), [GStreamer](08-gstreamer.md), [VLC](09-vlc.md) and [web browsers](12-web-browsers.md).
+Some clients that can read with HLS are [FFmpeg](07-ffmpeg.md), [GStreamer](08-gstreamer.md), [VLC](09-vlc.md) and [web browsers](14-web-browsers.md).

@@ -1,6 +1,6 @@
 # Python and OpenCV
 
-Python-based software can publish to the server with the OpenCV library and its GStreamer plugin, acting as a [RTSP client](06-rtsp-clients.md). OpenCV must be compiled with support for GStreamer, by following this procedure:
+Python-based software can publish streams to the server with the OpenCV library and its GStreamer plugin, acting as a [RTSP client](06-rtsp-clients.md). OpenCV must be compiled with support for GStreamer, by following this procedure:
 
 ```sh
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
