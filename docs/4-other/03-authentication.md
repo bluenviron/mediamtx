@@ -313,7 +313,7 @@ Pass the token as a query parameter:
 rtmp://localhost/mystream?jwt=jwt
 ```
 
-WARNING: FFmpeg implementation of RTMP does not support query parameters that are longer than 1024 characters, therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
+WARNING: FFmpeg implementation of RTMP does not support URLs that are longer than 1024 characters (this is the [TCURL_MAX_LENGTH constant](https://github.com/FFmpeg/FFmpeg/blob/f951aa9ef382d6bb517e05d04d52710f751de427/libavformat/rtmpproto.c#L55)), therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
 
 ### SRT
 

@@ -1,4 +1,4 @@
-# RTSP
+# RTSP clients
 
 RTSP is a protocol that allows to publish and read streams. It supports several underlying transport protocols and encryption (see [RTSP-specific features](../4-other/23-rtsp-specific-features.md)). In order to read a stream with the RTSP protocol, use this URL:
 

@@ -1,6 +1,6 @@
 # OBS Studio
 
-OBS Studio can publish to the server in several ways. The recommended one consists in publishing with RTMP.
+OBS Studio can publish streams to the server in several ways. The recommended one consists in publishing with RTMP.
 
 ## OBS Studio and RTMP
 
@@ -107,7 +107,7 @@ OBS Studio can publish multiple video tracks or renditions at once. Make sure th
 
 ## OBS Studio and WebRTC
 
-Recent versions of OBS Studio can also publish to the server with the [WebRTC / WHIP protocol](21-webrtc-clients.md) Use the following parameters:
+Recent versions of OBS Studio can also publish streams to the server with the [WebRTC / WHIP protocol](04-webrtc-clients.md) Use the following parameters:
 
 - Service: `WHIP`
 - Server: `http://localhost:8889/mystream/whip`
