@@ -344,6 +344,8 @@ func (p *Core) createResources(initial bool) error {
 			JWTClaimKey:        p.conf.AuthJWTClaimKey,
 			JWTExclude:         p.conf.AuthJWTExclude,
 			JWTInHTTPQuery:     p.conf.AuthJWTInHTTPQuery,
+			JWTIssuer:          p.conf.AuthJWTIssuer,
+			JWTAudience:        p.conf.AuthJWTAudience,
 			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
 		}
 	}
@@ -738,6 +740,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
 		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
 		newConf.AuthJWTInHTTPQuery != p.conf.AuthJWTInHTTPQuery ||
+		newConf.AuthJWTIssuer != p.conf.AuthJWTIssuer ||
+		newConf.AuthJWTAudience != p.conf.AuthJWTAudience ||
 		newConf.ReadTimeout != p.conf.ReadTimeout
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)

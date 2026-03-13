@@ -269,6 +269,8 @@ type Conf struct {
 	AuthJWTClaimKey           string                       `json:"authJWTClaimKey"`
 	AuthJWTExclude            []AuthInternalUserPermission `json:"authJWTExclude"`
 	AuthJWTInHTTPQuery        bool                         `json:"authJWTInHTTPQuery"`
+	AuthJWTIssuer             string                       `json:"authJWTIssuer"`
+	AuthJWTAudience           string                       `json:"authJWTAudience"`
 
 	// Control API
 	API               bool       `json:"api"`
