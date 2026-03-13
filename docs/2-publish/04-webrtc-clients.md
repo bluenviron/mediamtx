@@ -8,7 +8,7 @@ http://localhost:8889/mystream/publish
 
 The resulting stream will be available on path `/mystream`.
 
-WHIP is a WebRTC extensions that allows to publish streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHIP (for instance, latest versions of OBS Studio), you can publish a stream to the server by using this URL:
+WHIP is a WebRTC extension that allows to publish streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHIP (for instance, latest versions of OBS Studio), you can publish a stream to the server by using this URL:
 
 ```
 http://localhost:8889/mystream/whip

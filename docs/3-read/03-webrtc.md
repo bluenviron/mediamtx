@@ -6,7 +6,7 @@ WebRTC is an API that makes use of a set of protocols and methods to connect two
 http://localhost:8889/mystream
 ```
 
-WHEP is a WebRTC extensions that allows to read streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHEP, you can read a stream from the server by using this URL:
+WHEP is a WebRTC extension that allows to read streams by using a URL, without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol. If you are using a software that supports WHEP, you can read a stream from the server by using this URL:
 
 ```
 http://localhost:8889/mystream/whep

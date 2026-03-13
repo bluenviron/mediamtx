@@ -539,7 +539,7 @@ func TestAuthError(t *testing.T) {
 		PathManager: &dummyPathManager{
 			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-					return nil, &auth.Error{AskCredentials: true}
+					return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
 
 				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
