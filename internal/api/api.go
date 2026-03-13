@@ -66,7 +66,7 @@ func recordingsOfPath(
 }
 
 type apiAuthManager interface {
-	Authenticate(req *auth.Request) *auth.Error
+	Authenticate(req *auth.Request) (string, *auth.Error)
 	RefreshJWTJWKS()
 }
 
@@ -250,7 +250,7 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		IP:          net.ParseIP(ctx.ClientIP()),
 	}
 
-	err := a.AuthManager.Authenticate(req)
+	_, err := a.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

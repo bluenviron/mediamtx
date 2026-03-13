@@ -65,7 +65,7 @@ func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
 					})
 					require.EqualError(t, res.Err, "no stream is available on path 'mypath'")
 				} else {
-					_, _, err := pm.AddReader(defs.PathAddReaderReq{
+					_, err := pm.AddReader(defs.PathAddReaderReq{
 						Author: &dummyReader{},
 						AccessRequest: defs.PathAccessRequest{
 							Name: "mypath",
@@ -112,7 +112,7 @@ func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {
 		}
 	}()
 
-	_, _, err := pm.AddPublisher(defs.PathAddPublisherReq{
+	_, err := pm.AddPublisher(defs.PathAddPublisherReq{
 		Author: &dummyPublisher{},
 		Desc:   &description.Session{},
 		AccessRequest: defs.PathAccessRequest{

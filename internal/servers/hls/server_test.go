@@ -26,8 +26,8 @@ import (
 
 type dummyPathManager struct {
 	setHLSServerImpl func() []defs.Path
-	findPathConfImpl func(req defs.PathFindPathConfReq) (*conf.Path, error)
-	addReaderImpl    func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+	findPathConfImpl func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error)
+	addReaderImpl    func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
 func (pm *dummyPathManager) SetHLSServer(*Server) []defs.Path {
@@ -37,11 +37,11 @@ func (pm *dummyPathManager) SetHLSServer(*Server) []defs.Path {
 	return nil
 }
 
-func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 	return pm.findPathConfImpl(req)
 }
 
-func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 	return pm.addReaderImpl(req)
 }
 
@@ -110,13 +110,13 @@ func TestServerNotFound(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			pm := &dummyPathManager{
-				findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					return &conf.Path{}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 				},
-				addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					return nil, nil, fmt.Errorf("not found")
+					return nil, fmt.Errorf("not found")
 				},
 			}
 
@@ -202,21 +202,21 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 
 			pm := &dummyPathManager{
-				findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &conf.Path{}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 				},
-				addReaderImpl: func(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					if ca == "always remux off" {
 						require.Equal(t, "param=value", req.AccessRequest.Query)
 					} else {
 						require.Equal(t, "", req.AccessRequest.Query)
 					}
-					return &dummyPath{}, strm, nil
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
 				},
 			}
 
@@ -431,8 +431,8 @@ func TestServerDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	pm := &dummyPathManager{
-		addReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
-			return &dummyPath{}, strm, nil
+		addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
 		},
 	}
 
@@ -491,9 +491,9 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 		setHLSServerImpl: func() []defs.Path {
 			return []defs.Path{&dummyPath{}}
 		},
-		addReaderImpl: func(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+		addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 			close(done)
-			return &dummyPath{}, strm, nil
+			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
 		},
 	}
 
@@ -537,7 +537,7 @@ func TestAuthError(t *testing.T) {
 		ReadTimeout:     conf.Duration(10 * time.Second),
 		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
-			findPathConfImpl: func(req defs.PathFindPathConfReq) (*conf.Path, error) {
+			findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 					return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}

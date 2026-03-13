@@ -122,7 +122,7 @@ func (m *muxer) run() {
 }
 
 func (m *muxer) runInner() error {
-	path, stream, err := m.pathManager.AddReader(defs.PathAddReaderReq{
+	res, err := m.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: m,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     m.pathName,
@@ -134,7 +134,7 @@ func (m *muxer) runInner() error {
 		return err
 	}
 
-	m.path = path
+	m.path = res.Path
 
 	defer m.path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
 
@@ -149,7 +149,7 @@ func (m *muxer) runInner() error {
 		segmentMaxSize:  m.segmentMaxSize,
 		directory:       m.directory,
 		pathName:        m.pathName,
-		stream:          stream,
+		stream:          res.Stream,
 		bytesSent:       m.bytesSent,
 		parent:          m,
 	}
@@ -206,7 +206,7 @@ func (m *muxer) runInner() error {
 				segmentMaxSize:  m.segmentMaxSize,
 				directory:       m.directory,
 				pathName:        m.pathName,
-				stream:          stream,
+				stream:          res.Stream,
 				bytesSent:       m.bytesSent,
 				parent:          m,
 			}

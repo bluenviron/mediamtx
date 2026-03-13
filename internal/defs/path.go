@@ -32,6 +32,7 @@ type Path interface {
 // PathFindPathConfRes contains the response of FindPathConf().
 type PathFindPathConfRes struct {
 	Conf *conf.Path
+	User string
 	Err  error
 }
 
@@ -58,6 +59,7 @@ type PathDescribeReq struct {
 // PathAddPublisherRes contains the response of AddPublisher().
 type PathAddPublisherRes struct {
 	Path      Path
+	User      string
 	SubStream *stream.SubStream
 	Err       error
 }
@@ -82,6 +84,7 @@ type PathRemovePublisherReq struct {
 // PathAddReaderRes contains the response of AddReader().
 type PathAddReaderRes struct {
 	Path   Path
+	User   string
 	Stream *stream.Stream
 	Err    error
 }

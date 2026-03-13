@@ -33,7 +33,7 @@ type pathParent interface {
 	setPathNotReady(*path)
 	closePathIfIdle(*path)
 	removePath(*path)
-	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
+	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
 type pathOnDemandState int
@@ -572,10 +572,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	pa.consumeOnHoldRequests()
 
-	req.Res <- defs.PathAddPublisherRes{
-		Path:      pa,
-		SubStream: subStream,
-	}
+	req.Res <- defs.PathAddPublisherRes{SubStream: subStream}
 }
 
 func (pa *path) doAddReader(req defs.PathAddReaderReq) {
@@ -933,10 +930,7 @@ func (pa *path) executeRemovePublisher() {
 
 func (pa *path) addReaderPost(req defs.PathAddReaderReq) {
 	if _, ok := pa.readers[req.Author]; ok {
-		req.Res <- defs.PathAddReaderRes{
-			Path:   pa,
-			Stream: pa.stream,
-		}
+		req.Res <- defs.PathAddReaderRes{Stream: pa.stream}
 		return
 	}
 
@@ -961,10 +955,7 @@ func (pa *path) addReaderPost(req defs.PathAddReaderReq) {
 		}
 	}
 
-	req.Res <- defs.PathAddReaderRes{
-		Path:   pa,
-		Stream: pa.stream,
-	}
+	req.Res <- defs.PathAddReaderRes{Stream: pa.stream}
 }
 
 // reloadConf is called by pathManager.
@@ -1022,13 +1013,13 @@ func (pa *path) describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // addPublisher is called by a publisher through pathManager.
-func (pa *path) addPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error) {
+func (pa *path) addPublisher(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 	select {
 	case pa.chAddPublisher <- req:
 		res := <-req.Res
-		return res.Path, res.SubStream, res.Err
+		return &res, res.Err
 	case <-pa.ctx.Done():
-		return nil, nil, fmt.Errorf("terminated")
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
@@ -1043,13 +1034,13 @@ func (pa *path) RemovePublisher(req defs.PathRemovePublisherReq) {
 }
 
 // addReader is called by a reader through pathManager.
-func (pa *path) addReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
+func (pa *path) addReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 	select {
 	case pa.chAddReader <- req:
 		res := <-req.Res
-		return res.Path, res.Stream, res.Err
+		return &res, res.Err
 	case <-pa.ctx.Done():
-		return nil, nil, fmt.Errorf("terminated")
+		return nil, fmt.Errorf("terminated")
 	}
 }
 

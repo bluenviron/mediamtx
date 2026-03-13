@@ -145,7 +145,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		return
 	}
 
-	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:        dir,
 			Query:       ctx.Request.URL.RawQuery,
@@ -196,7 +196,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			path:           dir,
 			remoteAddr:     httpp.RemoteAddr(ctx),
 			query:          ctx.Request.URL.RawQuery,
-			sourceOnDemand: pathConf.SourceOnDemand,
+			sourceOnDemand: res.Conf.SourceOnDemand,
 		})
 		if err != nil {
 			ctx.Writer.WriteHeader(http.StatusNotFound)

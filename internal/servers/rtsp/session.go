@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -61,6 +62,8 @@ type session struct {
 	packetsLost     *counterdumper.Dumper
 	decodeErrors    *errordumper.Dumper
 	discardedFrames *counterdumper.Dumper
+	mutex           sync.RWMutex
+	user            string
 }
 
 func (s *session) initialize() {
@@ -169,7 +172,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}
 	}
 
-	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:             ctx.Path,
 			Query:            ctx.Query,
@@ -192,7 +195,11 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}, err
 	}
 
-	s.pathConf = pathConf
+	s.pathConf = res.Conf
+
+	s.mutex.Lock()
+	s.user = res.User
+	s.mutex.Unlock()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -239,7 +246,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial: // play
-		path, stream, err := s.pathManager.AddReader(defs.PathAddReaderReq{
+		res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 			Author: s,
 			AccessRequest: defs.PathAccessRequest{
 				Name:             ctx.Path,
@@ -270,8 +277,12 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			}, nil, err
 		}
 
-		s.path = path
-		s.stream = stream
+		s.path = res.Path
+		s.stream = res.Stream
+
+		s.mutex.Lock()
+		s.user = res.User
+		s.mutex.Unlock()
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
@@ -317,7 +328,7 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	path, subStream, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	res, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        s,
 		Desc:          s.rsession.AnnouncedDescription(),
 		UseRTPPackets: true,
@@ -339,12 +350,12 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 	rtsp.ToStream(
 		s.rsession,
 		s.rsession.AnnouncedDescription().Medias,
-		path.SafeConf(),
+		res.Path.SafeConf(),
 		&s.subStream,
 		s)
 
-	s.path = path
-	s.subStream = subStream
+	s.path = res.Path
+	s.subStream = res.SubStream
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -411,6 +422,9 @@ func (s *session) onStreamWriteError(_ *gortsplib.ServerHandlerOnStreamWriteErro
 func (s *session) apiItem() *defs.APIRTSPSession {
 	stats := s.rsession.Stats()
 
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return &defs.APIRTSPSession{
 		ID:         s.uuid,
 		Created:    s.created,
@@ -436,6 +450,7 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			return ""
 		}(),
 		Query: s.rsession.Query(),
+		User:  s.user,
 		Transport: func() *string {
 			transport := s.rsession.Transport()
 			if transport == nil {
