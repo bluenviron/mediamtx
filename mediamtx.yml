@@ -152,6 +152,10 @@ authJWTExclude: []
 # allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
 # This is a security risk and will be disabled in the future.
 authJWTInHTTPQuery: true
+# Expected issuer (iss) claim in the JWT. Leave empty to skip validation.
+authJWTIssuer:
+# Expected audience (aud) claim in the JWT. Leave empty to skip validation.
+authJWTAudience:
 
 ###############################################
 # Global settings -> Control API

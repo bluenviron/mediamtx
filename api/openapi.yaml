@@ -122,6 +122,10 @@ components:
           type: string
         authJWTClaimKey:
           type: string
+        authJWTIssuer:
+          type: string
+        authJWTAudience:
+          type: string
         authJWTExclude:
           type: array
           items:

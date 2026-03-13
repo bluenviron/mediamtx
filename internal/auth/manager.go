@@ -75,6 +75,8 @@ type Manager struct {
 	JWTClaimKey        string
 	JWTExclude         []conf.AuthInternalUserPermission
 	JWTInHTTPQuery     bool
+	JWTIssuer          string
+	JWTAudience        string
 	ReadTimeout        time.Duration
 
 	mutex           sync.RWMutex
@@ -250,9 +252,17 @@ func (m *Manager) authenticateJWT(req *Request) error {
 		return fmt.Errorf("JWT not provided")
 	}
 
+	var opts []jwt.ParserOption
+	if m.JWTIssuer != "" {
+		opts = append(opts, jwt.WithIssuer(m.JWTIssuer))
+	}
+	if m.JWTAudience != "" {
+		opts = append(opts, jwt.WithAudience(m.JWTAudience))
+	}
+
 	var cc jwtClaims
 	cc.permissionsKey = m.JWTClaimKey
-	_, err = jwt.ParseWithClaims(encodedJWT, &cc, keyfunc)
+	_, err = jwt.ParseWithClaims(encodedJWT, &cc, keyfunc, opts...)
 	if err != nil {
 		return err
 	}

@@ -175,6 +175,18 @@ openssl s_client -connect my_identity_server:443 </dev/null 2>/dev/null | sed -n
 openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
 ```
 
+Optionally, the JWT `iss` (issuer) and `aud` (audience) claims can be validated by setting `authJWTIssuer` and `authJWTAudience`. When set, tokens that don't contain the expected values will be rejected:
+
+```yml
+authMethod: jwt
+authJWTJWKS: http://my_identity_server/jwks_endpoint
+authJWTClaimKey: mediamtx_permissions
+authJWTIssuer: http://my_identity_server
+authJWTAudience: mediamtx
+```
+
+Leave these fields empty to skip validation of the respective claims.
+
 #### Keycloak setup
 
 Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide JWTs.

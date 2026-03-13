@@ -606,6 +606,228 @@ func TestAuthJWTExclude(t *testing.T) {
 	require.Nil(t, err)
 }
 
+func TestAuthJWTIssuer(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			jwk, err2 := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+				Metadata: jwkset.JWKMetadataOptions{
+					KID: "test-key-id",
+				},
+			})
+			require.NoError(t, err2)
+
+			jwkSet := jwkset.NewMemoryStorage()
+			err2 = jwkSet.KeyWrite(context.Background(), jwk)
+			require.NoError(t, err2)
+
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(response)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:4568")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	signToken := func(issuer string) string {
+		type customClaims struct {
+			jwt.RegisteredClaims
+			MediaMTXPermissions []conf.AuthInternalUserPermission `json:"my_permission_key"`
+		}
+
+		claims := customClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+				NotBefore: jwt.NewNumericDate(time.Now()),
+				Issuer:    issuer,
+			},
+			MediaMTXPermissions: []conf.AuthInternalUserPermission{{
+				Action: conf.AuthActionPublish,
+				Path:   "mypath",
+			}},
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		token.Header[jwkset.HeaderKID] = "test-key-id"
+		ss, err2 := token.SignedString(key)
+		require.NoError(t, err2)
+		return ss
+	}
+
+	for _, ca := range []struct {
+		name      string
+		jwtIssuer string
+		tokenIss  string
+		expectErr bool
+	}{
+		{
+			name:      "matching",
+			jwtIssuer: "my-issuer",
+			tokenIss:  "my-issuer",
+			expectErr: false,
+		},
+		{
+			name:      "mismatched",
+			jwtIssuer: "my-issuer",
+			tokenIss:  "wrong-issuer",
+			expectErr: true,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			ss := signToken(ca.tokenIss)
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     "http://localhost:4568/jwks",
+				JWTClaimKey: "my_permission_key",
+				JWTIssuer:   ca.jwtIssuer,
+			}
+
+			err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Protocol: ProtocolRTSP,
+				Credentials: &Credentials{
+					Token: ss,
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+
+			if ca.expectErr {
+				require.NotNil(t, err2)
+			} else {
+				require.Nil(t, err2)
+			}
+		})
+	}
+}
+
+func TestAuthJWTAudience(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			jwk, err2 := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+				Metadata: jwkset.JWKMetadataOptions{
+					KID: "test-key-id",
+				},
+			})
+			require.NoError(t, err2)
+
+			jwkSet := jwkset.NewMemoryStorage()
+			err2 = jwkSet.KeyWrite(context.Background(), jwk)
+			require.NoError(t, err2)
+
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(response)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:4569")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	signToken := func(audience jwt.ClaimStrings) string {
+		type customClaims struct {
+			jwt.RegisteredClaims
+			MediaMTXPermissions []conf.AuthInternalUserPermission `json:"my_permission_key"`
+		}
+
+		claims := customClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+				NotBefore: jwt.NewNumericDate(time.Now()),
+				Audience:  audience,
+			},
+			MediaMTXPermissions: []conf.AuthInternalUserPermission{{
+				Action: conf.AuthActionPublish,
+				Path:   "mypath",
+			}},
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		token.Header[jwkset.HeaderKID] = "test-key-id"
+		ss, err2 := token.SignedString(key)
+		require.NoError(t, err2)
+		return ss
+	}
+
+	for _, ca := range []struct {
+		name        string
+		jwtAudience string
+		tokenAud    jwt.ClaimStrings
+		expectErr   bool
+	}{
+		{
+			name:        "matching",
+			jwtAudience: "my-audience",
+			tokenAud:    jwt.ClaimStrings{"my-audience"},
+			expectErr:   false,
+		},
+		{
+			name:        "mismatched",
+			jwtAudience: "my-audience",
+			tokenAud:    jwt.ClaimStrings{"wrong-audience"},
+			expectErr:   true,
+		},
+		{
+			name:        "present in list",
+			jwtAudience: "my-audience",
+			tokenAud:    jwt.ClaimStrings{"other", "my-audience"},
+			expectErr:   false,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			ss := signToken(ca.tokenAud)
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     "http://localhost:4569/jwks",
+				JWTClaimKey: "my_permission_key",
+				JWTAudience: ca.jwtAudience,
+			}
+
+			err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Protocol: ProtocolRTSP,
+				Credentials: &Credentials{
+					Token: ss,
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+
+			if ca.expectErr {
+				require.NotNil(t, err2)
+			} else {
+				require.Nil(t, err2)
+			}
+		})
+	}
+}
+
 func TestAuthJWTRefresh(t *testing.T) {
 	// reference:
 	// https://github.com/MicahParks/jwkset/blob/master/examples/http_server/main.go
