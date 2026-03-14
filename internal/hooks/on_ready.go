@@ -29,6 +29,7 @@ func OnReady(params OnReadyParams) func() {
 			env["MTX_SOURCE_TYPE"] = params.Desc.Type
 			env["MTX_SOURCE_ID"] = params.Desc.ID
 		}
+		env["MTX_CUSTOM"] = params.Conf.Custom
 	}
 
 	if params.Conf.RunOnReady != "" {
