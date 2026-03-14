@@ -101,13 +101,17 @@ func (d *MPEGTSDemuxer) Start() {
 	d.pipeWriter = pw
 
 	d.rsession.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-		tsData, err := decoder.Decode(pkt)
-		if err != nil {
-			d.decodeErrors.Add(err)
+		tsData, dec_err := decoder.Decode(pkt)
+		if dec_err != nil {
+			d.decodeErrors.Add(dec_err)
 			return
 		}
 		for _, data := range tsData {
-			pw.Write(data)
+			_, err := pw.Write(data)
+			if err != nil {
+				d.logger.Log(logger.Warn, "demuxer pipe write error: %v", err)
+				return
+			}
 		}
 	})
 
@@ -183,7 +187,7 @@ func (d *MPEGTSDemuxer) doRun(pr *io.PipeReader) error {
 		err = r.Read()
 		if err != nil {
 			d.loopErr <- err
-			return nil
+			return err
 		}
 	}
 }
