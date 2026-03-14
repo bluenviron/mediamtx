@@ -101,9 +101,9 @@ func (d *MPEGTSDemuxer) Start() {
 	d.pipeWriter = pw
 
 	d.rsession.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-		tsData, dec_err := decoder.Decode(pkt)
-		if dec_err != nil {
-			d.decodeErrors.Add(dec_err)
+		tsData, decErr := decoder.Decode(pkt)
+		if decErr != nil {
+			d.decodeErrors.Add(decErr)
 			return
 		}
 		for _, data := range tsData {
