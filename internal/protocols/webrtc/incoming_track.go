@@ -240,6 +240,7 @@ type IncomingTrack struct {
 
 	track     *webrtc.TrackRemote
 	receiver  *webrtc.RTPReceiver
+	rid       string
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 
@@ -299,7 +300,7 @@ func (t *IncomingTrack) start() {
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			n, _, err2 := t.receiver.Read(buf)
+			n, _, err2 := t.receiver.ReadSimulcast(buf, t.rid)
 			if err2 != nil {
 				return
 			}

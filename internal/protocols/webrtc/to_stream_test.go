@@ -99,7 +99,7 @@ var toFromStreamCases = []struct {
 	{
 		"opus multichannel",
 		&format.Opus{
-			PayloadTyp:   112,
+			PayloadTyp:   96,
 			ChannelCount: 6,
 		},
 		webrtc.RTPCodecCapability{
@@ -116,7 +116,7 @@ var toFromStreamCases = []struct {
 	{
 		"opus stereo",
 		&format.Opus{
-			PayloadTyp:   111,
+			PayloadTyp:   96,
 			ChannelCount: 2,
 		},
 		webrtc.RTPCodecCapability{
@@ -133,7 +133,7 @@ var toFromStreamCases = []struct {
 	{
 		"opus mono",
 		&format.Opus{
-			PayloadTyp:   111,
+			PayloadTyp:   96,
 			ChannelCount: 1,
 		},
 		webrtc.RTPCodecCapability{
@@ -205,7 +205,7 @@ var toFromStreamCases = []struct {
 			Channels:  2,
 		},
 		&format.G711{
-			PayloadTyp:   119,
+			PayloadTyp:   96,
 			SampleRate:   8000,
 			ChannelCount: 2,
 		},
@@ -225,7 +225,7 @@ var toFromStreamCases = []struct {
 		},
 		&format.G711{
 			MULaw:        true,
-			PayloadTyp:   118,
+			PayloadTyp:   96,
 			SampleRate:   8000,
 			ChannelCount: 2,
 		},

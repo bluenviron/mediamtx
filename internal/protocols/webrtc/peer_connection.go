@@ -59,6 +59,25 @@ func interfaceIPs(interfaceList []string) ([]string, error) {
 	return ips, nil
 }
 
+func maxTrackCount(medias []*sdp.MediaDescription) int {
+	total := 0
+	for _, media := range medias {
+		ridCount := 0
+
+		for _, attr := range media.Attributes {
+			if attr.Key == "rid" {
+				ridCount++
+			}
+		}
+
+		if ridCount == 0 {
+			ridCount = 1
+		}
+		total += ridCount
+	}
+	return total
+}
+
 // * skip ConfigureRTCPReports
 // * add statsInterceptor
 func registerInterceptors(
@@ -696,7 +715,7 @@ func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 	var sdp sdp.SessionDescription
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
-	maxTrackCount := len(sdp.MediaDescriptions)
+	maxTrackCount := maxTrackCount(sdp.MediaDescriptions)
 
 	t := time.NewTimer(timeout)
 	defer t.Stop()
@@ -713,6 +732,7 @@ func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 			t := &IncomingTrack{
 				track:     pair.track,
 				receiver:  pair.receiver,
+				rid:       pair.track.RID(),
 				writeRTCP: co.wr.WriteRTCP,
 				log:       co.Log,
 			}
