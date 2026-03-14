@@ -424,6 +424,159 @@ func TestPeerConnectionRead(t *testing.T) {
 	}, pkts)
 }
 
+func TestPeerConnectionReadSimulcast(t *testing.T) {
+	pub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(t, err)
+	defer pub.Close() //nolint:errcheck
+
+	videoTrackL, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		"video", "publisher",
+		webrtc.WithRTPStreamID("l"),
+	)
+	require.NoError(t, err)
+
+	videoTrackM, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		"video", "publisher",
+		webrtc.WithRTPStreamID("m"),
+	)
+	require.NoError(t, err)
+
+	videoTrackH, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		"video", "publisher",
+		webrtc.WithRTPStreamID("h"),
+	)
+	require.NoError(t, err)
+
+	transceiver, err := pub.AddTransceiverFromTrack(videoTrackL, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionSendonly,
+		SendEncodings: []webrtc.RTPEncodingParameters{
+			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "l"}},
+			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "m"}},
+			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "h"}},
+		},
+	})
+	require.NoError(t, err)
+
+	err = transceiver.Sender().AddEncoding(videoTrackM)
+	require.NoError(t, err)
+
+	err = transceiver.Sender().AddEncoding(videoTrackH)
+	require.NoError(t, err)
+
+	reader := &PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
+	}
+	err = reader.Start()
+	require.NoError(t, err)
+	defer reader.Close()
+
+	offer, err := pub.CreateOffer(nil)
+	require.NoError(t, err)
+
+	err = pub.SetLocalDescription(offer)
+	require.NoError(t, err)
+
+	answer, err := reader.CreateFullAnswer(&offer)
+	require.NoError(t, err)
+
+	err = pub.SetRemoteDescription(*answer)
+	require.NoError(t, err)
+
+	err = reader.WaitUntilConnected(10 * time.Second)
+	require.NoError(t, err)
+
+	var midExtID, ridExtID uint8
+	for _, ext := range transceiver.Sender().GetParameters().HeaderExtensions {
+		switch ext.URI {
+		case sdp.SDESMidURI:
+			midExtID = uint8(ext.ID)
+		case sdp.SDESRTPStreamIDURI:
+			ridExtID = uint8(ext.ID)
+		}
+	}
+	require.NotZero(t, midExtID)
+	require.NotZero(t, ridExtID)
+
+	mid := transceiver.Mid()
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		layers := []struct {
+			track  *webrtc.TrackLocalStaticRTP
+			rid    string
+			ssrc   uint32
+			seqNum uint16
+		}{
+			{videoTrackL, "l", 100001, 1000},
+			{videoTrackM, "m", 100002, 2000},
+			{videoTrackH, "h", 100003, 3000},
+		}
+
+		for i, layer := range layers {
+			pkt := &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: layer.seqNum,
+					Timestamp:      45343,
+					SSRC:           layer.ssrc,
+				},
+				Payload: []byte{5, 2},
+			}
+
+			pkt.ExtensionProfile = 0xBEDE
+			require.NoError(t, pkt.SetExtension(midExtID, []byte(mid)))
+			require.NoError(t, pkt.SetExtension(ridExtID, []byte(layer.rid)))
+
+			err2 := layer.track.WriteRTP(pkt)
+			if err2 != nil {
+				return
+			}
+			layers[i].seqNum++
+		}
+	}()
+
+	err = reader.GatherIncomingTracks(5 * time.Second)
+	require.NoError(t, err)
+
+	tracks := reader.IncomingTracks()
+	codecs := gatherCodecs(tracks)
+
+	require.Equal(t, 3, len(codecs))
+
+	for _, codec := range codecs {
+		require.Equal(t, webrtc.RTPCodecCapability{
+			MimeType:     webrtc.MimeTypeVP8,
+			ClockRate:    90000,
+			RTCPFeedback: codec.RTCPFeedback,
+		}, codec.RTPCodecCapability)
+	}
+
+	rids := make([]string, len(tracks))
+	for i, track := range tracks {
+		rids[i] = track.track.RID()
+	}
+	sort.Strings(rids)
+	require.Equal(t, []string{"h", "l", "m"}, rids)
+}
+
 func TestPeerConnectionPublishRead(t *testing.T) {
 	pc1 := &PeerConnection{
 		LocalRandomUDP:    true,

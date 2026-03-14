@@ -1,6 +1,12 @@
 # Install
 
-There are several installation methods available: standalone binary, Docker image, Arch Linux package, FreeBSD or OpenWrt binary.
+There are several installation methods available:
+
+- [Standalone binary](#standalone-binary): use this if you are running Windows, macOS or you just want to try out _MediaMTX_.
+- [Docker image](#docker-image): use this if you want to run _MediaMTX_ in an isolated and deterministic way. This is recommended for production environments.
+- [Arch Linux package](#arch-linux-package): use this if you are running Arch Linux.
+- [FreeBSD package](#freebsd-package): use this if you are running FreeBSD.
+- [OpenWrt binary](#openwrt-binary): use this if you are running OpenWrt.
 
 ## Standalone binary
 
@@ -48,26 +54,29 @@ There are four image variants:
 
 The `1` tag corresponds to the latest `1.x.x` release, that should guarantee backward compatibility when upgrading. It is also possible to bind the image to a specific release, by using the release name as tag (`bluenviron/mediamtx:{docker_version_tag}`).
 
-The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by using the _MediaMTX_ image as a base stage, by creating a file named `Dockerfile` with this content:
+The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by creating a file named `Dockerfile` with this content:
 
-```
+```Dockerfile
 FROM bluenviron/mediamtx:1 AS mediamtx
 FROM ubuntu:24.04
 
 COPY --from=mediamtx /mediamtx /
 COPY --from=mediamtx /mediamtx.yml /
 
+# add anything you need.
 RUN apt update && apt install -y \
-   (insert additional utilities here)
+   gstreamer1.0-tools
 
 ENTRYPOINT [ "/mediamtx" ]
 ```
 
 And then build it:
 
-```
+```sh
 docker build . -t my-mediamtx
 ```
+
+In particular, the custom image is using the official _MediaMTX_ image as a base stage, and then adds a Linux-based operating system on top of it. Since _MediaMTX_ binaries are not tied to a specific Linux distribution or version, you can use anything you like.
 
 ## Arch Linux package
 
@@ -79,7 +88,7 @@ cd mediamtx
 makepkg -si
 ```
 
-## FreeBSD
+## FreeBSD package
 
 Available via ports tree or using packages (2025Q2 and later) as listed below:
 

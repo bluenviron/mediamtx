@@ -33,7 +33,7 @@ Then recreate the container as described in [Install](2-install.md#docker-image)
 
 Repeat the installation procedure.
 
-## FreeBSD
+## FreeBSD package
 
 Repeat the installation procedure.
 
