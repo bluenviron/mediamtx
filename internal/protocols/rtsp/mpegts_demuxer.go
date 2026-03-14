@@ -25,7 +25,7 @@ const (
 )
 
 type serverPathManager interface {
-	AddPublisher(req defs.PathAddPublisherReq) (defs.Path, *stream.SubStream, error)
+	AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error)
 }
 
 // MPEGTSDemuxer demuxes an MPEG-TS stream received via RTP into component streams.
@@ -159,7 +159,7 @@ func (d *MPEGTSDemuxer) doRun(pr *io.PipeReader) error {
 
 	d.logger.Log(logger.Info, "MPEG-TS demux discovered %d tracks", len(medias))
 
-	d.path, d.subStream, err = d.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	res, err := d.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        d.author,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
@@ -175,7 +175,8 @@ func (d *MPEGTSDemuxer) doRun(pr *io.PipeReader) error {
 	if err != nil {
 		return fmt.Errorf("failed to add publisher: %w", err)
 	}
-
+	d.path = res.Path
+	d.subStream = res.SubStream
 	d.initDone <- nil
 
 	for {
