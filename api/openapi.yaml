@@ -689,6 +689,56 @@ components:
         id:
           type: string
 
+    PushTarget:
+      type: object
+      properties:
+        id:
+          type: string
+          description: unique identifier of the push target (UUID).
+        url:
+          type: string
+          description: URL of the push target.
+        state:
+          type: string
+          enum:
+          - idle
+          - running
+          - error
+          description: current state of the push target.
+        error:
+          type: string
+          description: error message if state is "error".
+        resolvedURL:
+          type: string
+          description: resolved URL with variables expanded.
+        bytesSent:
+          type: integer
+          format: int64
+          description: total bytes sent to the push target.
+
+    PushTargetList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+          format: int64
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PushTarget'
+
+    PushTargetAdd:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: URL of the push target (supports rtmp://, rtmps://).
+
     HLSMuxer:
       type: object
       properties:
@@ -1779,6 +1829,192 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/pushtargets/list/{name}:
+    get:
+      operationId: pushTargetsList
+      tags: [Paths, Push Targets]
+      summary: returns all push targets for a path.
+      description: 'Push targets are external servers to which the stream is pushed (e.g., YouTube Live, Twitch).'
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: integer
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushTargetList'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/pushtargets/get/{name}/{id}:
+    get:
+      operationId: pushTargetsGet
+      tags: [Paths, Push Targets]
+      summary: returns a push target.
+      description: ''
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: UUID of the push target.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushTarget'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path or push target not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/pushtargets/add/{name}:
+    post:
+      operationId: pushTargetsAdd
+      tags: [Paths, Push Targets]
+      summary: adds a push target to a path.
+      description: 'Push the stream to an external server (e.g., YouTube Live, Twitch).'
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushTargetAdd'
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushTarget'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/paths/pushtargets/remove/{name}/{id}:
+    delete:
+      operationId: pushTargetsRemove
+      tags: [Paths, Push Targets]
+      summary: removes a push target from a path.
+      description: ''
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: UUID of the push target.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path or push target not found.
           content:
             application/json:
               schema:

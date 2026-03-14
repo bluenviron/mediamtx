@@ -54,6 +54,22 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
+func (dummyPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
+	panic("unused")
+}
+
+func (dummyPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
+	panic("unused")
+}
+
+func (dummyPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+	panic("unused")
+}
+
+func (dummyPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
+	panic("unused")
+}
+
 type dummyHLSServer struct{}
 
 func (dummyHLSServer) APIMuxersList() (*defs.APIHLSMuxerList, error) {

@@ -87,6 +87,7 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraSoftwareH264Profile: "baseline",
 			RPICameraSoftwareH264Level:   "4.1",
 			RPICameraMJPEGQuality:        60,
+			PushTargets:                  PushTargets{},
 			RunOnDemandStartTimeout:      5 * Duration(time.Second),
 			RunOnDemandCloseAfter:        10 * Duration(time.Second),
 		}, pa)
@@ -746,6 +747,14 @@ func TestConfErrors(t *testing.T) {
 				"    - codec: H264\n" +
 				"    alwaysAvailableFile: /path/to/file.mp4\n",
 			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
+		},
+		{
+			"invalid push target URL",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    pushTargets:\n" +
+				"    - url: http://example.com/live/test\n",
+			"push target 0: push target URL must start with rtmp://, rtmps://, rtsp://, rtsps://, or srt://",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

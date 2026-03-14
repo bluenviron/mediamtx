@@ -12,6 +12,10 @@ import (
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	APIPushTargetsList(pathName string) (*APIPushTargetList, error)
+	APIPushTargetsGet(pathName string, id uuid.UUID) (*APIPushTarget, error)
+	APIPushTargetsAdd(pathName string, req APIPushTargetAdd) (*APIPushTarget, error)
+	APIPushTargetsRemove(pathName string, id uuid.UUID) error
 }
 
 // APIHLSServer contains methods used by the API and Metrics server.
@@ -399,6 +403,46 @@ type APIWebRTCSessionList struct {
 	ItemCount int                `json:"itemCount"`
 	PageCount int                `json:"pageCount"`
 	Items     []APIWebRTCSession `json:"items"`
+}
+
+// APIPushTargetState is the state of a push target.
+type APIPushTargetState string
+
+// states.
+const (
+	APIPushTargetStateIdle      APIPushTargetState = "idle"
+	APIPushTargetStateRunning   APIPushTargetState = "running"
+	APIPushTargetStateError     APIPushTargetState = "error"
+)
+
+// APIPushTarget is a push target.
+type APIPushTarget struct {
+	ID         uuid.UUID          `json:"id"`
+	Created    time.Time          `json:"created"`
+	URL        string             `json:"url"`
+	State      APIPushTargetState `json:"state"`
+	Error      string             `json:"error,omitempty"`
+	BytesSent  uint64             `json:"bytesSent"`
+}
+
+// APIPushTargetList is a list of push targets.
+type APIPushTargetList struct {
+	ItemCount int              `json:"itemCount"`
+	PageCount int              `json:"pageCount"`
+	Items     []*APIPushTarget `json:"items"`
+}
+
+// APIPushTargetAdd is the payload for adding a push target.
+type APIPushTargetAdd struct {
+	URL string `json:"url"`
+}
+
+// APIPushManager contains methods used by the API.
+type APIPushManager interface {
+	APIPushTargetsList(pathName string) (*APIPushTargetList, error)
+	APIPushTargetsGet(pathName string, id uuid.UUID) (*APIPushTarget, error)
+	APIPushTargetsAdd(pathName string, req APIPushTargetAdd) (*APIPushTarget, error)
+	APIPushTargetsRemove(pathName string, id uuid.UUID) error
 }
 
 // APIRecordingSegment is a recording segment.

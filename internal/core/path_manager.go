@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -22,6 +24,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 
 	clone.Name = newPathConf.Name
 	clone.Regexp = newPathConf.Regexp
+	clone.PushTargets = newPathConf.PushTargets
 
 	clone.Record = newPathConf.Record
 	clone.RecordPath = newPathConf.RecordPath
@@ -674,5 +677,89 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIPushTargetsList is called by api.
+func (pm *pathManager) APIPushTargetsList(name string) (*defs.APIPushTargetList, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		return res.path.APIPushTargetsList()
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIPushTargetsGet is called by api.
+func (pm *pathManager) APIPushTargetsGet(name string, id uuid.UUID) (*defs.APIPushTarget, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		return res.path.APIPushTargetsGet(id)
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIPushTargetsAdd is called by api.
+func (pm *pathManager) APIPushTargetsAdd(name string, add defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		return res.path.APIPushTargetsAdd(add)
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIPushTargetsRemove is called by api.
+func (pm *pathManager) APIPushTargetsRemove(name string, id uuid.UUID) error {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return res.err
+		}
+
+		return res.path.APIPushTargetsRemove(id)
+
+	case <-pm.ctx.Done():
+		return fmt.Errorf("terminated")
 	}
 }
