@@ -380,11 +380,11 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 // APIReaderDescribe implements reader.
 func (s *session) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: func() string {
+		Type: func() defs.APIPathReaderType {
 			if s.isTLS {
-				return "rtspsSession"
+				return defs.APIPathReaderTypeRTSPSSession
 			}
-			return "rtspSession"
+			return defs.APIPathReaderTypeRTSPSession
 		}(),
 		ID: s.uuid.String(),
 	}
@@ -393,11 +393,11 @@ func (s *session) APIReaderDescribe() *defs.APIPathReader {
 // APISourceDescribe implements source.
 func (s *session) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: func() string {
+		Type: func() defs.APIPathSourceType {
 			if s.isTLS {
-				return "rtspsSession"
+				return defs.APIPathSourceTypeRTSPSSession
 			}
-			return "rtspSession"
+			return defs.APIPathSourceTypeRTSPSession
 		}(),
 		ID: s.uuid.String(),
 	}

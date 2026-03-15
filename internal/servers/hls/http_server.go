@@ -161,7 +161,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-					Status: "error",
+					Status: defs.APIErrorStatusError,
 					Error:  "authentication error",
 				})
 				return
@@ -173,7 +173,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			<-time.After(auth.PauseAfterError)
 
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: "error",
+				Status: defs.APIErrorStatusError,
 				Error:  "authentication error",
 			})
 			return

@@ -655,9 +655,9 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.source.APISourceDescribe()
 				return v
 			}(),
-			Tracks: func() []string {
+			Tracks: func() []defs.APIPathTrackCodec {
 				if !pa.isAvailable() {
-					return []string{}
+					return []defs.APIPathTrackCodec{}
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),

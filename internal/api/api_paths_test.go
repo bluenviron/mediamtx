@@ -38,21 +38,21 @@ func TestPathsList(t *testing.T) {
 			"test1": {
 				Name:          "test1",
 				ConfName:      "test1",
-				Source:        &defs.APIPathSource{Type: "publisher", ID: "pub1"},
+				Source:        &defs.APIPathSource{Type: defs.APIPathSourceTypeRTSPSession, ID: "pub1"},
 				Ready:         true,
 				ReadyTime:     &now,
-				Tracks:        []string{"H264", "Opus"},
+				Tracks:        []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecOpus},
 				BytesReceived: 1000,
 				BytesSent:     2000,
 				Readers: []defs.APIPathReader{
-					{Type: "reader", ID: "reader1"},
+					{Type: defs.APIPathReaderTypeRTSPSession, ID: "reader1"},
 				},
 			},
 			"test2": {
 				Name:          "test2",
 				ConfName:      "test2",
 				Ready:         false,
-				Tracks:        []string{},
+				Tracks:        []defs.APIPathTrackCodec{},
 				BytesReceived: 500,
 				BytesSent:     100,
 				Readers:       []defs.APIPathReader{},
@@ -91,15 +91,15 @@ func TestPathsGet(t *testing.T) {
 			"mystream": {
 				Name:          "mystream",
 				ConfName:      "mystream",
-				Source:        &defs.APIPathSource{Type: "rtspSession", ID: "session123"},
+				Source:        &defs.APIPathSource{Type: defs.APIPathSourceTypeRTSPSession, ID: "session123"},
 				Ready:         true,
 				ReadyTime:     &now,
-				Tracks:        []string{"H264", "Opus"},
+				Tracks:        []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecOpus},
 				BytesReceived: 123456,
 				BytesSent:     789012,
 				Readers: []defs.APIPathReader{
-					{Type: "hlsMuxer", ID: "muxer1"},
-					{Type: "webRTCSession", ID: "session456"},
+					{Type: defs.APIPathReaderTypeHLSMuxer, ID: "muxer1"},
+					{Type: defs.APIPathReaderTypeWebRTCSession, ID: "session456"},
 				},
 			},
 		},
@@ -128,7 +128,7 @@ func TestPathsGet(t *testing.T) {
 	require.Equal(t, "mystream", out.ConfName)
 	require.True(t, out.Ready)
 	require.NotNil(t, out.Source)
-	require.Equal(t, "rtspSession", out.Source.Type)
+	require.Equal(t, defs.APIPathSourceTypeRTSPSession, out.Source.Type)
 	require.Len(t, out.Tracks, 2)
 	require.Len(t, out.Readers, 2)
 	require.Equal(t, uint64(123456), out.BytesReceived)

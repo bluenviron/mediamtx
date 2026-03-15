@@ -86,11 +86,11 @@ func (c *conn) initialize() {
 		RunOnDisconnect:     c.runOnDisconnect,
 		RTSPAddress:         c.rtspAddress,
 		Desc: defs.APIPathReader{
-			Type: func() string {
+			Type: func() defs.APIPathReaderType {
 				if c.isTLS {
-					return "rtspsConn"
+					return defs.APIPathReaderTypeRTSPSConn
 				}
-				return "rtspConn"
+				return defs.APIPathReaderTypeRTSPConn
 			}(),
 			ID: c.uuid.String(),
 		},

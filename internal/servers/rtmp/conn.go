@@ -291,11 +291,11 @@ func (c *conn) runPublish() error {
 // APIReaderDescribe implements reader.
 func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: func() string {
+		Type: func() defs.APIPathReaderType {
 			if c.isTLS {
-				return "rtmpsConn"
+				return defs.APIPathReaderTypeRTMPSConn
 			}
-			return "rtmpConn"
+			return defs.APIPathReaderTypeRTMPConn
 		}(),
 		ID: c.uuid.String(),
 	}
@@ -304,11 +304,11 @@ func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 // APISourceDescribe implements source.
 func (c *conn) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: func() string {
+		Type: func() defs.APIPathSourceType {
 			if c.isTLS {
-				return "rtmpsConn"
+				return defs.APIPathSourceTypeRTMPSConn
 			}
-			return "rtmpConn"
+			return defs.APIPathSourceTypeRTMPConn
 		}(),
 		ID: c.uuid.String(),
 	}

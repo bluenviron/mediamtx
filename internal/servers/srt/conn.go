@@ -347,7 +347,7 @@ func (c *conn) runRead(streamID *streamID) error {
 // APIReaderDescribe implements reader.
 func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: "srtConn",
+		Type: defs.APIPathReaderTypeSRTConn,
 		ID:   c.uuid.String(),
 	}
 }
@@ -355,7 +355,7 @@ func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 // APISourceDescribe implements source.
 func (c *conn) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "srtConn",
+		Type: defs.APIPathSourceTypeSRTConn,
 		ID:   c.uuid.String(),
 	}
 }

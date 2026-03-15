@@ -1,0 +1,5 @@
+extends:
+  - recommended
+
+rules:
+  operation-4xx-response: off

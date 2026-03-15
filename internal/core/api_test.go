@@ -26,6 +26,7 @@ import (
 	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -79,12 +80,12 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type path struct {
-		Name          string     `json:"name"`
-		Source        pathSource `json:"source"`
-		Ready         bool       `json:"ready"`
-		Tracks        []string   `json:"tracks"`
-		BytesReceived uint64     `json:"bytesReceived"`
-		BytesSent     uint64     `json:"bytesSent"`
+		Name          string                   `json:"name"`
+		Source        pathSource               `json:"source"`
+		Ready         bool                     `json:"ready"`
+		Tracks        []defs.APIPathTrackCodec `json:"tracks"`
+		BytesReceived uint64                   `json:"bytesReceived"`
+		BytesSent     uint64                   `json:"bytesSent"`
 	}
 
 	type pathList struct {
@@ -136,7 +137,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSession",
 				},
 				Ready:         true,
-				Tracks:        []string{"H264", "MPEG-4 Audio"},
+				Tracks:        []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecMPEG4Audio},
 				BytesReceived: 17,
 			}},
 		}, out)
@@ -184,7 +185,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspsSession",
 				},
 				Ready:  true,
-				Tracks: []string{"H264", "MPEG-4 Audio"},
+				Tracks: []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecMPEG4Audio},
 			}},
 		}, out)
 	})
@@ -213,7 +214,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []defs.APIPathTrackCodec{},
 			}},
 		}, out)
 	})
@@ -242,7 +243,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtmpSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []defs.APIPathTrackCodec{},
 			}},
 		}, out)
 	})
@@ -271,7 +272,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "hlsSource",
 				},
 				Ready:  false,
-				Tracks: []string{},
+				Tracks: []defs.APIPathTrackCodec{},
 			}},
 		}, out)
 	})
@@ -295,12 +296,12 @@ func TestAPIPathsGet(t *testing.T) {
 			}
 
 			type path struct {
-				Name          string     `json:"name"`
-				Source        pathSource `json:"source"`
-				Ready         bool       `json:"Ready"`
-				Tracks        []string   `json:"tracks"`
-				BytesReceived uint64     `json:"bytesReceived"`
-				BytesSent     uint64     `json:"bytesSent"`
+				Name          string                   `json:"name"`
+				Source        pathSource               `json:"source"`
+				Ready         bool                     `json:"Ready"`
+				Tracks        []defs.APIPathTrackCodec `json:"tracks"`
+				BytesReceived uint64                   `json:"bytesReceived"`
+				BytesSent     uint64                   `json:"bytesSent"`
 			}
 
 			var pathName string
@@ -329,7 +330,7 @@ func TestAPIPathsGet(t *testing.T) {
 						Type: "rtspSession",
 					},
 					Ready:  true,
-					Tracks: []string{"H264"},
+					Tracks: []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264},
 				}, out)
 			} else {
 				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)

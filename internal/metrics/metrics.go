@@ -161,7 +161,7 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: "error",
+				Status: defs.APIErrorStatusError,
 				Error:  "authentication error",
 			})
 			return
@@ -173,7 +173,7 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 		<-time.After(auth.PauseAfterError)
 
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: "error",
+			Status: defs.APIErrorStatusError,
 			Error:  "authentication error",
 		})
 		return
