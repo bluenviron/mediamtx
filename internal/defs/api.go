@@ -90,8 +90,8 @@ type APIPathReader struct {
 type APIPath struct {
 	Name          string          `json:"name"`
 	ConfName      string          `json:"confName"`
-	Ready         bool            `json:"ready"`     // deprecated
-	ReadyTime     *time.Time      `json:"readyTime"` // deprecated
+	Ready         bool            `json:"ready" deprecated:"true"`
+	ReadyTime     *time.Time      `json:"readyTime" deprecated:"true"`
 	Available     bool            `json:"available"`
 	AvailableTime *time.Time      `json:"availableTime"`
 	Online        bool            `json:"online"`
