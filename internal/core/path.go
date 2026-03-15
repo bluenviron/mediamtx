@@ -661,6 +661,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
+			Tracks2: func() []defs.APIPathTrack {
+				if !pa.isAvailable() {
+					return []defs.APIPathTrack{}
+				}
+				return defs.MediasToTracks(pa.stream.Desc.Medias)
+			}(),
 			InboundBytes: func() uint64 {
 				if !pa.isAvailable() {
 					return 0
