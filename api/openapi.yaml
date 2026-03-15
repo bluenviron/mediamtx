@@ -85,6 +85,11 @@ components:
           type: string
         writeTimeout:
           type: string
+        readBufferCount:
+          type: integer
+          format: int64
+          nullable: true
+          deprecated: true
         writeQueueSize:
           type: integer
           format: int64
@@ -110,6 +115,10 @@ components:
             $ref: '#/components/schemas/AuthInternalUser'
         authHTTPAddress:
           type: string
+        externalAuthenticationURL:
+          type: string
+          nullable: true
+          deprecated: true
         authHTTPFingerprint:
           type: string
         authHTTPExclude:
@@ -144,6 +153,10 @@ components:
           type: string
         apiServerCert:
           type: string
+        apiAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         apiAllowOrigins:
           type: array
           items:
@@ -164,6 +177,10 @@ components:
           type: string
         metricsServerCert:
           type: string
+        metricsAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         metricsAllowOrigins:
           type: array
           items:
@@ -184,6 +201,10 @@ components:
           type: string
         pprofServerCert:
           type: string
+        pprofAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         pprofAllowOrigins:
           type: array
           items:
@@ -204,6 +225,10 @@ components:
           type: string
         playbackServerCert:
           type: string
+        playbackAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         playbackAllowOrigins:
           type: array
           items:
@@ -216,10 +241,24 @@ components:
         # RTSP server
         rtsp:
           type: boolean
+        rtspDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
+        protocols:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
         rtspTransports:
           type: array
           items:
             type: string
+        encryption:
+          type: string
+          nullable: true
+          deprecated: true
         rtspEncryption:
           type: string
         rtspAddress:
@@ -252,14 +291,29 @@ components:
           type: string
         rtspServerCert:
           type: string
+        authMethods:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
         rtspAuthMethods:
           type: array
           items:
             type: string
+        rtspUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
 
         # RTMP server
         rtmp:
           type: boolean
+        rtmpDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         rtmpEncryption:
           type: string
         rtmpAddress:
@@ -274,6 +328,10 @@ components:
         # HLS server
         hls:
           type: boolean
+        hlsDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         hlsAddress:
           type: string
         hlsEncryption:
@@ -282,6 +340,10 @@ components:
           type: string
         hlsServerCert:
           type: string
+        hlsAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         hlsAllowOrigins:
           type: array
           items:
@@ -311,6 +373,10 @@ components:
         # WebRTC server
         webrtc:
           type: boolean
+        webrtcDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         webrtcAddress:
           type: string
         webrtcEncryption:
@@ -319,6 +385,10 @@ components:
           type: string
         webrtcServerCert:
           type: string
+        webrtcAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         webrtcAllowOrigins:
           type: array
           items:
@@ -351,12 +421,58 @@ components:
           type: string
         webrtcTrackGatherTimeout:
           type: string
+        webrtcICEUDPMuxAddress:
+          type: string
+          nullable: true
+          deprecated: true
+        webrtcICETCPMuxAddress:
+          type: string
+          nullable: true
+          deprecated: true
+        webrtcICEHostNAT1To1IPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+        webrtcICEServers:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
 
         # SRT server
         srt:
           type: boolean
         srtAddress:
           type: string
+
+        # Record (deprecated)
+        record:
+          type: boolean
+          nullable: true
+          deprecated: true
+        recordPath:
+          type: string
+          nullable: true
+          deprecated: true
+        recordFormat:
+          type: string
+          nullable: true
+          deprecated: true
+        recordPartDuration:
+          type: string
+          nullable: true
+          deprecated: true
+        recordSegmentDuration:
+          type: string
+          nullable: true
+          deprecated: true
+        recordDeleteAfter:
+          type: string
+          nullable: true
+          deprecated: true
 
     PathConf:
       type: object
@@ -380,6 +496,10 @@ components:
           format: int64
         srtReadPassphrase:
           type: string
+        fallback:
+          type: string
+          nullable: true
+          deprecated: true
         useAbsoluteTimestamp:
           type: boolean
 
@@ -396,6 +516,10 @@ components:
         # Record
         record:
           type: boolean
+        playback:
+          type: boolean
+          nullable: true
+          deprecated: true
         recordPath:
           type: string
         recordFormat:
@@ -409,9 +533,43 @@ components:
         recordDeleteAfter:
           type: string
 
+        # Authentication (deprecated)
+        publishUser:
+          type: string
+          nullable: true
+          deprecated: true
+        publishPass:
+          type: string
+          nullable: true
+          deprecated: true
+        publishIPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+        readUser:
+          type: string
+          nullable: true
+          deprecated: true
+        readPass:
+          type: string
+          nullable: true
+          deprecated: true
+        readIPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+
         # Publisher source
         overridePublisher:
           type: boolean
+        disablePublisherOverride:
+          type: boolean
+          nullable: true
+          deprecated: true
         srtPublishPassphrase:
           type: string
 
@@ -420,10 +578,23 @@ components:
           type: string
         rtspAnyPort:
           type: boolean
+        sourceProtocol:
+          type: string
+          nullable: true
+          deprecated: true
+        sourceAnyPortEnable:
+          type: boolean
+          nullable: true
+          deprecated: true
         rtspRangeType:
           type: string
         rtspRangeStart:
           type: string
+        rtspUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
         rtspUDPSourcePortRange:
           type: array
           minItems: 2
@@ -432,9 +603,21 @@ components:
             type: integer
             format: uint64
 
+        # MPEG-TS source
+        mpegtsUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
+
         # RTP source
         rtpSDP:
           type: string
+        rtpUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
 
         # WHEP source
         whepBearerToken:
@@ -539,6 +722,14 @@ components:
         rpiCameraBitrate:
           type: integer
           format: uint64
+        rpiCameraProfile:
+          type: string
+          nullable: true
+          deprecated: true
+        rpiCameraLevel:
+          type: string
+          nullable: true
+          deprecated: true
         rpiCameraHardwareH264Profile:
           type: string
         rpiCameraHardwareH264Level:
@@ -547,6 +738,11 @@ components:
           type: string
         rpiCameraSoftwareH264Level:
           type: string
+        rpiCameraJPEGQuality:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
         rpiCameraMJPEGQuality:
           type: integer
           format: uint64
@@ -609,9 +805,11 @@ components:
           nullable: true
         ready:
           type: boolean
+          deprecated: true
         readyTime:
           type: string
           nullable: true
+          deprecated: true
         available:
           type: boolean
         availableTime:

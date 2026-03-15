@@ -17,11 +17,12 @@ import (
 )
 
 type openAPIProperty struct {
-	Ref      string           `yaml:"$ref"`
-	Type     string           `yaml:"type"`
-	Format   string           `yaml:"format"`
-	Nullable bool             `yaml:"nullable"`
-	Items    *openAPIProperty `yaml:"items"`
+	Ref        string           `yaml:"$ref"`
+	Type       string           `yaml:"type"`
+	Format     string           `yaml:"format"`
+	Nullable   bool             `yaml:"nullable"`
+	Deprecated bool             `yaml:"deprecated"`
+	Items      *openAPIProperty `yaml:"items"`
 }
 
 type openAPISchema struct {
@@ -35,16 +36,16 @@ type openAPI struct {
 	} `yaml:"components"`
 }
 
-func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openAPIProperty {
+func fillProperty(t *testing.T, rt reflect.Type) openAPIProperty {
+	if rt.Kind() == reflect.Pointer {
+		prop := fillProperty(t, rt.Elem())
+		prop.Nullable = true
+		return prop
+	}
+
 	switch {
 	case rt == reflect.TypeOf(""):
 		return openAPIProperty{Type: "string"}
-
-	case rt == reflect.PointerTo(reflect.TypeOf("")):
-		return openAPIProperty{
-			Type:     "string",
-			Nullable: true,
-		}
 
 	case rt == reflect.TypeOf(int(0)):
 		return openAPIProperty{Type: "integer", Format: "int64"}
@@ -61,14 +62,8 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 	case rt == reflect.TypeOf(false):
 		return openAPIProperty{Type: "boolean"}
 
-	case rt == reflect.TypeOf(&time.Time{}):
-		return openAPIProperty{Type: "string", Nullable: true}
-
 	case rt == reflect.TypeOf(uuid.UUID{}):
 		return openAPIProperty{Type: "string", Format: "uuid"}
-
-	case rt == reflect.PointerTo(reflect.TypeOf(uuid.UUID{})):
-		return openAPIProperty{Type: "string", Format: "uuid", Nullable: true}
 
 	case rt == reflect.TypeOf(time.Time{}) ||
 		rt == reflect.TypeOf(conf.Duration(0)) ||
@@ -110,13 +105,8 @@ func fillProperty(t *testing.T, rt reflect.Type, existing openAPIProperty) openA
 			Ref: "#/components/schemas/" + schemaName,
 		}
 
-	case rt.Kind() == reflect.Pointer && rt.Elem().Kind() == reflect.Struct:
-		prop := fillProperty(t, rt.Elem(), existing)
-		prop.Nullable = true
-		return prop
-
 	case rt.Kind() == reflect.Slice:
-		items := fillProperty(t, rt.Elem(), *existing.Items)
+		items := fillProperty(t, rt.Elem())
 		return openAPIProperty{
 			Type:  "array",
 			Items: &items,
@@ -258,9 +248,14 @@ func TestGo2API(t *testing.T) {
 			for i := range ty.NumField() {
 				sf := ty.Field(i)
 				js := sf.Tag.Get("json")
+				name, _, _ := strings.Cut(js, ",")
+				deprecated := sf.Tag.Get("deprecated") == "true"
 
-				if js != "-" && js != "paths" && js != "pathDefaults" && !strings.Contains(js, ",omitempty") {
-					content2.Properties[js] = fillProperty(t, sf.Type, content1.Properties[js])
+				if name != "" && name != "-" && name != "paths" && name != "pathDefaults" &&
+					(!strings.Contains(js, ",omitempty") || deprecated) {
+					prop := fillProperty(t, sf.Type)
+					prop.Deprecated = deprecated
+					content2.Properties[name] = prop
 				}
 			}
 
