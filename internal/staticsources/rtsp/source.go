@@ -286,7 +286,7 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "rtspSource",
+		Type: defs.APIPathSourceTypeRTSPSource,
 		ID:   "",
 	}
 }

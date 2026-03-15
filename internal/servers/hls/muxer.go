@@ -249,7 +249,7 @@ func (m *muxer) getInstance() *muxerInstance {
 // APIReaderDescribe implements reader.
 func (m *muxer) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: "hlsMuxer",
+		Type: defs.APIPathReaderTypeHLSMuxer,
 		ID:   "",
 	}
 }

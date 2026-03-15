@@ -451,7 +451,7 @@ func (s *session) addCandidates(
 // APIReaderDescribe implements reader.
 func (s *session) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: "webRTCSession",
+		Type: defs.APIPathReaderTypeWebRTCSession,
 		ID:   s.uuid.String(),
 	}
 }
@@ -459,7 +459,7 @@ func (s *session) APIReaderDescribe() *defs.APIPathReader {
 // APISourceDescribe implements source.
 func (s *session) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "webRTCSession",
+		Type: defs.APIPathSourceTypeWebRTCSession,
 		ID:   s.uuid.String(),
 	}
 }

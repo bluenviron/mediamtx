@@ -28,7 +28,7 @@ func OnConnect(params OnConnectParams) func() {
 		_, port, _ := net.SplitHostPort(params.RTSPAddress)
 		env = externalcmd.Environment{
 			"RTSP_PORT":     port,
-			"MTX_CONN_TYPE": params.Desc.Type,
+			"MTX_CONN_TYPE": string(params.Desc.Type),
 			"MTX_CONN_ID":   params.Desc.ID,
 		}
 	}

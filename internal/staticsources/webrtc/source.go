@@ -133,7 +133,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "webRTCSource",
+		Type: defs.APIPathSourceTypeWebRTCSource,
 		ID:   "",
 	}
 }

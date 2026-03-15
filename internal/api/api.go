@@ -223,13 +223,13 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 
 	// add error to response
 	ctx.JSON(status, &defs.APIError{
-		Status: "error",
+		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
 }
 
 func (a *API) writeOK(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, &defs.APIOK{Status: "ok"})
+	ctx.JSON(http.StatusOK, &defs.APIOK{Status: defs.APIOKStatusOK})
 }
 
 func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
@@ -255,7 +255,7 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: "error",
+				Status: defs.APIErrorStatusError,
 				Error:  "authentication error",
 			})
 			return
@@ -267,7 +267,7 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		<-time.After(auth.PauseAfterError)
 
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: "error",
+			Status: defs.APIErrorStatusError,
 			Error:  "authentication error",
 		})
 		return

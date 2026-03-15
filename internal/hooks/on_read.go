@@ -26,7 +26,7 @@ func OnRead(params OnReadParams) func() {
 		env = params.ExternalCmdEnv
 		desc := params.Reader
 		env["MTX_QUERY"] = params.Query
-		env["MTX_READER_TYPE"] = desc.Type
+		env["MTX_READER_TYPE"] = string(desc.Type)
 		env["MTX_READER_ID"] = desc.ID
 	}
 

@@ -15,19 +15,158 @@ security: []
 
 components:
   schemas:
+    OKStatus:
+      type: string
+      enum: [ok]
+
+    ErrorStatus:
+      type: string
+      enum: [error]
+
+    PathSourceType:
+      type: string
+      enum:
+      - hlsSource
+      - redirect
+      - rpiCameraSource
+      - rtmpConn
+      - rtmpsConn
+      - rtmpSource
+      - rtspSession
+      - rtspSource
+      - rtspsSession
+      - srtConn
+      - srtSource
+      - mpegtsSource
+      - rtpSource
+      - webRTCSession
+      - webRTCSource
+
+    PathReaderType:
+      type: string
+      enum:
+      - hlsMuxer
+      - rpiCameraSecondary
+      - rtmpConn
+      - rtmpsConn
+      - rtspConn
+      - rtspSession
+      - rtspsConn
+      - rtspsSession
+      - srtConn
+      - webRTCSession
+
+    PathTrackCodec:
+      type: string
+      enum:
+      - AV1
+      - VP9
+      - VP8
+      - H265
+      - H264
+      - MPEG-4 Video
+      - MPEG-1 Video
+      - MJPEG
+      - Opus
+      - Vorbis
+      - MPEG-4 Audio
+      - MPEG-4 Audio LATM
+      - MPEG-1 Audio
+      - AC3
+      - Speex
+      - G726
+      - G722
+      - G711
+      - LPCM
+      - MPEG-TS
+      - KLV
+      - Generic
+
+    AlwaysAvailableTrackCodec:
+      type: string
+      enum:
+      - AV1
+      - VP9
+      - H265
+      - H264
+      - MPEG4Audio
+      - Opus
+      - G711
+      - LPCM
+
+    AuthAction:
+      type: string
+      enum:
+      - publish
+      - read
+      - playback
+      - api
+      - metrics
+      - pprof
+
+    AuthMethod:
+      type: string
+      enum: [internal, http, jwt]
+
+    Encryption:
+      type: string
+      enum: [no, optional, strict]
+
+    HLSVariant:
+      type: string
+      enum: [mpegts, fmp4, lowLatency]
+
+    LogDestination:
+      type: string
+      enum: [stdout, file, syslog]
+
+    LogLevel:
+      type: string
+      enum: [error, warn, info, debug]
+
+    RecordFormat:
+      type: string
+      enum: [fmp4, mpegts]
+
+    RTSPAuthMethod:
+      type: string
+      enum: [basic, digest]
+
+    RTSPRangeType:
+      type: string
+      enum: ['', clock, npt, smpte]
+
+    RTSPTransport:
+      type: string
+      enum: [udp, multicast, tcp, automatic]
+
+    RTMPConnState:
+      type: string
+      enum: [idle, read, publish]
+
+    RTSPSessionState:
+      type: string
+      enum: [idle, read, publish]
+
+    SRTConnState:
+      type: string
+      enum: [idle, read, publish]
+
+    WebRTCSessionState:
+      type: string
+      enum: [read, publish]
+
     OK:
       type: object
       properties:
         status:
-          type: string
-          enum: [ok]
+          $ref: '#/components/schemas/OKStatus'
 
     Error:
       type: object
       properties:
         status:
-          type: string
-          enum: [error]
+          $ref: '#/components/schemas/ErrorStatus'
         error:
           type: string
 
@@ -59,7 +198,7 @@ components:
       type: object
       properties:
         action:
-          type: string
+          $ref: '#/components/schemas/AuthAction'
         path:
           type: string
 
@@ -68,11 +207,11 @@ components:
       properties:
         # General
         logLevel:
-          type: string
+          $ref: '#/components/schemas/LogLevel'
         logDestinations:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/LogDestination'
         logStructured:
           type: boolean
         logFile:
@@ -108,7 +247,7 @@ components:
 
         # Authentication
         authMethod:
-          type: string
+          $ref: '#/components/schemas/AuthMethod'
         authInternalUsers:
           type: array
           items:
@@ -250,17 +389,21 @@ components:
           nullable: true
           items:
             type: string
+            enum: [udp, multicast, tcp]
           deprecated: true
         rtspTransports:
           type: array
           items:
             type: string
+            enum: [udp, multicast, tcp]
         encryption:
           type: string
           nullable: true
           deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/Encryption'
         rtspEncryption:
-          type: string
+          $ref: '#/components/schemas/Encryption'
         rtspAddress:
           type: string
         rtspsAddress:
@@ -295,12 +438,12 @@ components:
           type: array
           nullable: true
           items:
-            type: string
+            $ref: '#/components/schemas/RTSPAuthMethod'
           deprecated: true
         rtspAuthMethods:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/RTSPAuthMethod'
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
@@ -315,7 +458,7 @@ components:
           nullable: true
           deprecated: true
         rtmpEncryption:
-          type: string
+          $ref: '#/components/schemas/Encryption'
         rtmpAddress:
           type: string
         rtmpsAddress:
@@ -355,7 +498,7 @@ components:
         hlsAlwaysRemux:
           type: boolean
         hlsVariant:
-          type: string
+          $ref: '#/components/schemas/HLSVariant'
         hlsSegmentCount:
           type: integer
           format: int64
@@ -461,6 +604,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/RecordFormat'
         recordPartDuration:
           type: string
           nullable: true
@@ -523,7 +668,7 @@ components:
         recordPath:
           type: string
         recordFormat:
-          type: string
+          $ref: '#/components/schemas/RecordFormat'
         recordPartDuration:
           type: string
         recordMaxPartSize:
@@ -575,19 +720,21 @@ components:
 
         # RTSP source
         rtspTransport:
-          type: string
+          $ref: '#/components/schemas/RTSPTransport'
         rtspAnyPort:
           type: boolean
         sourceProtocol:
           type: string
           nullable: true
           deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/RTSPTransport'
         sourceAnyPortEnable:
           type: boolean
           nullable: true
           deprecated: true
         rtspRangeType:
-          type: string
+          $ref: '#/components/schemas/RTSPRangeType'
         rtspRangeStart:
           type: string
         rtspUDPReadBufferSize:
@@ -801,8 +948,10 @@ components:
         confName:
           type: string
         source:
-          $ref: '#/components/schemas/PathSource'
+          type: object
           nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PathSource'
         ready:
           type: boolean
           deprecated: true
@@ -823,7 +972,7 @@ components:
         tracks:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/PathTrackCodec'
         bytesReceived:
           type: integer
           format: uint64
@@ -853,22 +1002,7 @@ components:
       type: object
       properties:
         type:
-          type: string
-          enum:
-          - hlsSource
-          - redirect
-          - rpiCameraSource
-          - rtmpConn
-          - rtmpSource
-          - rtspSession
-          - rtspSource
-          - rtspsSession
-          - srtConn
-          - srtSource
-          - mpegtsSource
-          - rtpSource
-          - webRTCSession
-          - webRTCSource
+          $ref: '#/components/schemas/PathSourceType'
         id:
           type: string
 
@@ -876,14 +1010,7 @@ components:
       type: object
       properties:
         type:
-          type: string
-          enum:
-          - hlsMuxer
-          - rtmpConn
-          - rtspSession
-          - rtspsSession
-          - srtConn
-          - webRTCSession
+          $ref: '#/components/schemas/PathReaderType'
         id:
           type: string
 
@@ -955,8 +1082,7 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/RTMPConnState'
         path:
           type: string
         query:
@@ -1032,8 +1158,7 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/RTSPSessionState'
         path:
           type: string
         query:
@@ -1107,8 +1232,7 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/SRTConnState'
         path:
           type: string
         query:
@@ -1344,7 +1468,7 @@ components:
       type: object
       properties:
         codec:
-          type: string
+          $ref: '#/components/schemas/AlwaysAvailableTrackCodec'
         sampleRate:
           type: integer
           format: int64
@@ -1383,8 +1507,7 @@ components:
         remoteCandidate:
           type: string
         state:
-          type: string
-          enum: [read, publish]
+          $ref: '#/components/schemas/WebRTCSessionState'
         path:
           type: string
         query:
