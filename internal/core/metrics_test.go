@@ -157,6 +157,7 @@ srt_conns_packets_received_nak 0
 srt_conns_packets_sent_km 0
 srt_conns_packets_received_km 0
 srt_conns_us_snd_duration 0
+srt_conns_packets_received_belated 0
 srt_conns_packets_send_drop 0
 srt_conns_packets_received_drop 0
 srt_conns_packets_received_undecrypt 0
@@ -167,6 +168,7 @@ srt_conns_bytes_received_unique 0
 srt_conns_bytes_received_loss 0
 srt_conns_bytes_retrans 0
 srt_conns_bytes_received_retrans 0
+srt_conns_bytes_received_belated 0
 srt_conns_bytes_send_drop 0
 srt_conns_bytes_received_drop 0
 srt_conns_bytes_received_undecrypt 0
@@ -498,6 +500,7 @@ webrtc_sessions_rtcp_packets_sent 0
 				`srt_conns_packets_sent_km\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_km\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_us_snd_duration\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_belated\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_send_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_undecrypt\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
@@ -508,6 +511,7 @@ webrtc_sessions_rtcp_packets_sent 0
 				`srt_conns_bytes_received_loss\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_belated\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_send_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_undecrypt\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
