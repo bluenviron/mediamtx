@@ -324,7 +324,7 @@ func TestServerPublish(t *testing.T) {
 
 	list, err := s.APISessionsList()
 	require.NoError(t, err)
-	require.Equal(t, &defs.APIWebRTCSessionList{
+	require.Equal(t, &defs.APIWebRTCSessionList{ //nolint:dupl
 		Items: []defs.APIWebRTCSession{
 			{
 				ID:                        list.Items[0].ID,
@@ -334,6 +334,14 @@ func TestServerPublish(t *testing.T) {
 				Path:                      "teststream",
 				Query:                     "param=value",
 				User:                      "myuser",
+				InboundBytes:              list.Items[0].InboundBytes,
+				InboundRTPPackets:         list.Items[0].InboundRTPPackets,
+				InboundRTPPacketsLost:     list.Items[0].InboundRTPPacketsLost,
+				InboundRTPPacketsJitter:   list.Items[0].InboundRTPPacketsJitter,
+				InboundRTCPPackets:        list.Items[0].InboundRTCPPackets,
+				OutboundBytes:             list.Items[0].OutboundBytes,
+				OutboundRTPPackets:        list.Items[0].OutboundRTPPackets,
+				OutboundRTCPPackets:       list.Items[0].OutboundRTCPPackets,
 				BytesReceived:             list.Items[0].BytesReceived,
 				BytesSent:                 list.Items[0].BytesSent,
 				RTPPacketsReceived:        list.Items[0].RTPPacketsReceived,
@@ -609,7 +617,7 @@ func TestServerRead(t *testing.T) {
 
 			list, err := s.APISessionsList()
 			require.NoError(t, err)
-			require.Equal(t, &defs.APIWebRTCSessionList{
+			require.Equal(t, &defs.APIWebRTCSessionList{ //nolint:dupl
 				Items: []defs.APIWebRTCSession{
 					{
 						ID:                        list.Items[0].ID,
@@ -619,6 +627,14 @@ func TestServerRead(t *testing.T) {
 						Path:                      "teststream",
 						Query:                     "param=value",
 						User:                      "myuser",
+						InboundBytes:              list.Items[0].InboundBytes,
+						InboundRTPPackets:         list.Items[0].InboundRTPPackets,
+						InboundRTPPacketsLost:     list.Items[0].InboundRTPPacketsLost,
+						InboundRTPPacketsJitter:   list.Items[0].InboundRTPPacketsJitter,
+						InboundRTCPPackets:        list.Items[0].InboundRTCPPackets,
+						OutboundBytes:             list.Items[0].OutboundBytes,
+						OutboundRTPPackets:        list.Items[0].OutboundRTPPackets,
+						OutboundRTCPPackets:       list.Items[0].OutboundRTCPPackets,
 						BytesReceived:             list.Items[0].BytesReceived,
 						BytesSent:                 list.Items[0].BytesSent,
 						RTPPacketsReceived:        list.Items[0].RTPPacketsReceived,

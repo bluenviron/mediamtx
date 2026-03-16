@@ -94,7 +94,7 @@ func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Dur
 func (ssf *subStreamFormat) writeUnit(u *unit.Unit) {
 	err := ssf.writeUnitInner(u)
 	if err != nil {
-		ssf.streamFormat.processingErrors.Add(err)
+		ssf.streamFormat.inboundFramesInError.Add(err)
 		return
 	}
 }
@@ -170,7 +170,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	}
 
 	size := unitSize(u)
-	ssf.streamFormat.addBytesReceived(size)
+	ssf.streamFormat.addInboundBytes(size)
 
 	ssf.streamFormat.writeRTSP(ssf.streamFormat.media, u.RTPPackets, u.NTP)
 
@@ -179,7 +179,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		cOnData := onData
 		sr.push(func() error {
 			if !csr.SkipBytesSent {
-				ssf.streamFormat.addBytesSent(size)
+				ssf.streamFormat.addOutboundBytes(size)
 			}
 			return cOnData(u)
 		})

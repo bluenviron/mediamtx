@@ -68,16 +68,17 @@ type APIRTSPSession struct {
 	OutboundRTPPackets             uint64              `json:"outboundRTPPackets"`
 	OutboundRTPPacketsReportedLost uint64              `json:"outboundRTPPacketsReportedLost"`
 	OutboundRTCPPackets            uint64              `json:"outboundRTCPPackets"`
-	BytesReceived                  uint64              `json:"bytesReceived" deprecated:"true"`
-	BytesSent                      uint64              `json:"bytesSent" deprecated:"true"`
-	RTPPacketsReceived             uint64              `json:"rtpPacketsReceived" deprecated:"true"`
-	RTPPacketsSent                 uint64              `json:"rtpPacketsSent" deprecated:"true"`
-	RTPPacketsLost                 uint64              `json:"rtpPacketsLost" deprecated:"true"`
-	RTPPacketsInError              uint64              `json:"rtpPacketsInError" deprecated:"true"`
-	RTPPacketsJitter               float64             `json:"rtpPacketsJitter" deprecated:"true"`
-	RTCPPacketsReceived            uint64              `json:"rtcpPacketsReceived" deprecated:"true"`
-	RTCPPacketsSent                uint64              `json:"rtcpPacketsSent" deprecated:"true"`
-	RTCPPacketsInError             uint64              `json:"rtcpPacketsInError" deprecated:"true"`
+	// deprecated
+	BytesReceived       uint64  `json:"bytesReceived" deprecated:"true"`
+	BytesSent           uint64  `json:"bytesSent" deprecated:"true"`
+	RTPPacketsReceived  uint64  `json:"rtpPacketsReceived" deprecated:"true"`
+	RTPPacketsSent      uint64  `json:"rtpPacketsSent" deprecated:"true"`
+	RTPPacketsLost      uint64  `json:"rtpPacketsLost" deprecated:"true"`
+	RTPPacketsInError   uint64  `json:"rtpPacketsInError" deprecated:"true"`
+	RTPPacketsJitter    float64 `json:"rtpPacketsJitter" deprecated:"true"`
+	RTCPPacketsReceived uint64  `json:"rtcpPacketsReceived" deprecated:"true"`
+	RTCPPacketsSent     uint64  `json:"rtcpPacketsSent" deprecated:"true"`
+	RTCPPacketsInError  uint64  `json:"rtcpPacketsInError" deprecated:"true"`
 }
 
 // APIRTSPSessionList is a list of RTSP sessions.

@@ -52,25 +52,25 @@ type session struct {
 	pathManager     serverPathManager
 	parent          sessionParent
 
-	uuid            uuid.UUID
-	created         time.Time
-	pathConf        *conf.Path // record only
-	path            defs.Path
-	stream          *stream.Stream
-	subStream       *stream.SubStream
-	onUnreadHook    func()
-	packetsLost     *counterdumper.Dumper
-	decodeErrors    *errordumper.Dumper
-	discardedFrames *counterdumper.Dumper
-	mutex           sync.RWMutex
-	user            string
+	uuid                        uuid.UUID
+	created                     time.Time
+	pathConf                    *conf.Path // record only
+	path                        defs.Path
+	stream                      *stream.Stream
+	subStream                   *stream.SubStream
+	onUnreadHook                func()
+	inboundRTPPacketsLost       *counterdumper.Dumper
+	inboundRTPPacketsInError    *errordumper.Dumper
+	outboundRTPPacketsDiscarded *counterdumper.Dumper
+	mutex                       sync.RWMutex
+	user                        string
 }
 
 func (s *session) initialize() {
 	s.uuid = uuid.New()
 	s.created = time.Now()
 
-	s.packetsLost = &counterdumper.Dumper{
+	s.inboundRTPPacketsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d RTP %s lost",
 				val,
@@ -82,9 +82,9 @@ func (s *session) initialize() {
 				}())
 		},
 	}
-	s.packetsLost.Start()
+	s.inboundRTPPacketsLost.Start()
 
-	s.decodeErrors = &errordumper.Dumper{
+	s.inboundRTPPacketsInError = &errordumper.Dumper{
 		OnReport: func(val uint64, last error) {
 			if val == 1 {
 				s.Log(logger.Warn, "decode error: %v", last)
@@ -93,9 +93,9 @@ func (s *session) initialize() {
 			}
 		},
 	}
-	s.decodeErrors.Start()
+	s.inboundRTPPacketsInError.Start()
 
-	s.discardedFrames = &counterdumper.Dumper{
+	s.outboundRTPPacketsDiscarded = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,
@@ -107,7 +107,7 @@ func (s *session) initialize() {
 				}())
 		},
 	}
-	s.discardedFrames.Start()
+	s.outboundRTPPacketsDiscarded.Start()
 
 	s.Log(logger.Info, "created by %v", s.rconn.NetConn().RemoteAddr())
 }
@@ -147,9 +147,9 @@ func (s *session) onClose(err error) {
 	s.stream = nil
 	s.subStream = nil
 
-	s.discardedFrames.Stop()
-	s.decodeErrors.Stop()
-	s.packetsLost.Stop()
+	s.outboundRTPPacketsDiscarded.Stop()
+	s.inboundRTPPacketsInError.Stop()
+	s.inboundRTPPacketsLost.Stop()
 
 	s.Log(logger.Info, "destroyed: %v", err)
 }
@@ -405,18 +405,18 @@ func (s *session) APISourceDescribe() *defs.APIPathSource {
 
 // onPacketLost is called by rtspServer.
 func (s *session) onPacketsLost(ctx *gortsplib.ServerHandlerOnPacketsLostCtx) {
-	s.packetsLost.Add(ctx.Lost)
+	s.inboundRTPPacketsLost.Add(ctx.Lost)
 }
 
 // onDecodeError is called by rtspServer.
 func (s *session) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
-	s.decodeErrors.Add(ctx.Error)
+	s.inboundRTPPacketsInError.Add(ctx.Error)
 }
 
 // onStreamWriteError is called by rtspServer.
 func (s *session) onStreamWriteError(_ *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
 	// currently the only error returned by OnStreamWriteError is ErrServerWriteQueueFull
-	s.discardedFrames.Increase()
+	s.outboundRTPPacketsDiscarded.Increase()
 }
 
 func (s *session) apiItem() *defs.APIRTSPSession {
