@@ -149,8 +149,9 @@ authJWTClaimKey: mediamtx_permissions
 # Actions to exclude from JWT-based authentication.
 # Format is the same as the one of user permissions.
 authJWTExclude: []
-# allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
+# Allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
 # This is a security risk and will be disabled in the future.
+# RTSP and RTMP always allow JWT in query even if disabled, since there is no alternative.
 authJWTInHTTPQuery: true
 # Expected issuer (iss) claim in the JWT. Leave empty to skip validation.
 authJWTIssuer:
