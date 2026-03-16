@@ -841,15 +841,15 @@ func (co *PeerConnection) Stats() *Stats {
 			if recvStats := tr.rtpReceiver.Stats(); recvStats != nil {
 				v += recvStats.Jitter
 				n++
-				packetsReceived += recvStats.TotalReceived
-				packetsLost += recvStats.TotalLost
+				packetsReceived += recvStats.Received
+				packetsLost += recvStats.Lost
 			}
 		}
 	}
 
 	for _, tr := range co.OutgoingTracks {
 		if sentStats := tr.rtcpSender.Stats(); sentStats != nil {
-			packetsSent += sentStats.TotalSent
+			packetsSent += sentStats.Sent
 		}
 	}
 

@@ -665,13 +665,13 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				if !pa.isAvailable() {
 					return 0
 				}
-				return pa.stream.BytesReceived()
+				return pa.stream.InboundBytes()
 			}(),
 			BytesSent: func() uint64 {
 				if !pa.isAvailable() {
 					return 0
 				}
-				return pa.stream.BytesSent()
+				return pa.stream.OutboundBytes()
 			}(),
 			Readers: func() []defs.APIPathReader {
 				ret := make([]defs.APIPathReader, len(pa.readers))

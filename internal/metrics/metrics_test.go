@@ -83,6 +83,8 @@ func (dummyRTSPServer) APIConnsList() (*defs.APIRTSPConnsList, error) {
 			ID:            uuid.MustParse("18294761-f9d1-4ea9-9a35-fe265b62eb41"),
 			Created:       time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
 			RemoteAddr:    "124.5.5.5:34542",
+			InboundBytes:  123,
+			OutboundBytes: 456,
 			BytesReceived: 123,
 			BytesSent:     456,
 			Session:       nil,
@@ -99,23 +101,34 @@ func (dummyRTSPServer) APISessionsList() (*defs.APIRTSPSessionList, error) {
 		ItemCount: 1,
 		PageCount: 1,
 		Items: []defs.APIRTSPSession{{
-			ID:                  uuid.MustParse("124b22ce-9c34-4387-b045-44caf98049f7"),
-			Created:             time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
-			RemoteAddr:          "124.5.5.5:34542",
-			State:               defs.APIRTSPSessionStatePublish,
-			Path:                "mypath",
-			Query:               "myquery",
-			Transport:           nil,
-			BytesReceived:       123,
-			BytesSent:           456,
-			RTPPacketsReceived:  789,
-			RTPPacketsSent:      123,
-			RTPPacketsLost:      456,
-			RTPPacketsInError:   789,
-			RTPPacketsJitter:    123,
-			RTCPPacketsReceived: 456,
-			RTCPPacketsSent:     789,
-			RTCPPacketsInError:  456,
+			ID:                             uuid.MustParse("124b22ce-9c34-4387-b045-44caf98049f7"),
+			Created:                        time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			RemoteAddr:                     "124.5.5.5:34542",
+			State:                          defs.APIRTSPSessionStatePublish,
+			Path:                           "mypath",
+			Query:                          "myquery",
+			Transport:                      nil,
+			InboundBytes:                   123,
+			InboundRTPPackets:              789,
+			InboundRTPPacketsLost:          456,
+			InboundRTPPacketsInError:       789,
+			InboundRTPPacketsJitter:        123,
+			InboundRTCPPackets:             456,
+			InboundRTCPPacketsInError:      456,
+			OutboundBytes:                  456,
+			OutboundRTPPackets:             123,
+			OutboundRTPPacketsReportedLost: 321,
+			OutboundRTCPPackets:            789,
+			BytesReceived:                  123,
+			BytesSent:                      456,
+			RTPPacketsReceived:             789,
+			RTPPacketsSent:                 123,
+			RTPPacketsLost:                 456,
+			RTPPacketsInError:              789,
+			RTPPacketsJitter:               123,
+			RTCPPacketsReceived:            456,
+			RTCPPacketsSent:                789,
+			RTCPPacketsInError:             456,
 		}},
 	}, nil
 }
@@ -281,10 +294,34 @@ func TestMetrics(t *testing.T) {
 			`hls_muxers{name="mypath"} 1`+"\n"+
 			`hls_muxers_bytes_sent{name="mypath"} 789`+"\n"+
 			`rtsp_conns{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 1`+"\n"+
+			`rtsp_conns_inbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
+			`rtsp_conns_outbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n"+
 			`rtsp_conns_bytes_received{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
 			`rtsp_conns_bytes_sent{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n"+
 			`rtsp_sessions{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 1`+"\n"+
+			`rtsp_sessions_inbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsp_sessions_inbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+			`rtsp_sessions_inbound_rtp_packets_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsp_sessions_inbound_rtp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+			`rtsp_sessions_inbound_rtp_packets_jitter{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsp_sessions_inbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsp_sessions_inbound_rtcp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsp_sessions_outbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsp_sessions_outbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsp_sessions_outbound_rtp_packets_reported_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 321`+"\n"+
+			`rtsp_sessions_outbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
 			`rtsp_sessions_bytes_received{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
 			`rtsp_sessions_bytes_sent{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
@@ -306,10 +343,34 @@ func TestMetrics(t *testing.T) {
 			`rtsp_sessions_rtcp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
 			`rtsps_conns{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 1`+"\n"+
+			`rtsps_conns_inbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
+			`rtsps_conns_outbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n"+
 			`rtsps_conns_bytes_received{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
 			`rtsps_conns_bytes_sent{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n"+
 			`rtsps_sessions{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 1`+"\n"+
+			`rtsps_sessions_inbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsps_sessions_inbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+			`rtsps_sessions_inbound_rtp_packets_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsps_sessions_inbound_rtp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+			`rtsps_sessions_inbound_rtp_packets_jitter{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsps_sessions_inbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsps_sessions_inbound_rtcp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsps_sessions_outbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+			`rtsps_sessions_outbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+			`rtsps_sessions_outbound_rtp_packets_reported_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 321`+"\n"+
+			`rtsps_sessions_outbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
 			`rtsps_sessions_bytes_received{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 			`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
 			`rtsps_sessions_bytes_sent{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
@@ -487,6 +548,8 @@ func TestFilter(t *testing.T) {
 			case "rtsp_conn":
 				require.Equal(t,
 					`rtsp_conns{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 1`+"\n"+
+						`rtsp_conns_inbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
+						`rtsp_conns_outbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n"+
 						`rtsp_conns_bytes_received{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 123`+"\n"+
 						`rtsp_conns_bytes_sent{id="18294761-f9d1-4ea9-9a35-fe265b62eb41"} 456`+"\n",
 					string(byts))
@@ -495,6 +558,28 @@ func TestFilter(t *testing.T) {
 				require.Equal(t,
 					`rtsp_sessions{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 1`+"\n"+
+						`rtsp_sessions_inbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+						`rtsp_sessions_inbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+						`rtsp_sessions_inbound_rtp_packets_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+						`rtsp_sessions_inbound_rtp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
+						`rtsp_sessions_inbound_rtp_packets_jitter{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+						`rtsp_sessions_inbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+						`rtsp_sessions_inbound_rtcp_packets_in_error{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+						`rtsp_sessions_outbound_bytes{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 456`+"\n"+
+						`rtsp_sessions_outbound_rtp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
+						`rtsp_sessions_outbound_rtp_packets_reported_lost{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 321`+"\n"+
+						`rtsp_sessions_outbound_rtcp_packets{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
+						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 789`+"\n"+
 						`rtsp_sessions_bytes_received{id="124b22ce-9c34-4387-b045-44caf98049f7",`+
 						`path="mypath",remoteAddr="124.5.5.5:34542",state="publish"} 123`+"\n"+
 						`rtsp_sessions_bytes_sent{id="124b22ce-9c34-4387-b045-44caf98049f7",`+

@@ -22,8 +22,10 @@ type APIRTSPConn struct {
 	RemoteAddr    string     `json:"remoteAddr"`
 	Session       *uuid.UUID `json:"session"`
 	Tunnel        string     `json:"tunnel"`
-	BytesReceived uint64     `json:"bytesReceived"`
-	BytesSent     uint64     `json:"bytesSent"`
+	InboundBytes  uint64     `json:"inboundBytes"`
+	OutboundBytes uint64     `json:"outboundBytes"`
+	BytesReceived uint64     `json:"bytesReceived" deprecated:"true"`
+	BytesSent     uint64     `json:"bytesSent" deprecated:"true"`
 }
 
 // APIRTSPConnsList is a list of RTSP connections.
@@ -45,26 +47,37 @@ const (
 
 // APIRTSPSession is a RTSP session.
 type APIRTSPSession struct {
-	ID                  uuid.UUID           `json:"id"`
-	Created             time.Time           `json:"created"`
-	RemoteAddr          string              `json:"remoteAddr"`
-	State               APIRTSPSessionState `json:"state"`
-	Path                string              `json:"path"`
-	Query               string              `json:"query"`
-	User                string              `json:"user"`
-	Transport           *string             `json:"transport"`
-	Profile             *string             `json:"profile"`
-	Conns               []uuid.UUID         `json:"conns"`
-	BytesReceived       uint64              `json:"bytesReceived"`
-	BytesSent           uint64              `json:"bytesSent"`
-	RTPPacketsReceived  uint64              `json:"rtpPacketsReceived"`
-	RTPPacketsSent      uint64              `json:"rtpPacketsSent"`
-	RTPPacketsLost      uint64              `json:"rtpPacketsLost"`
-	RTPPacketsInError   uint64              `json:"rtpPacketsInError"`
-	RTPPacketsJitter    float64             `json:"rtpPacketsJitter"`
-	RTCPPacketsReceived uint64              `json:"rtcpPacketsReceived"`
-	RTCPPacketsSent     uint64              `json:"rtcpPacketsSent"`
-	RTCPPacketsInError  uint64              `json:"rtcpPacketsInError"`
+	ID                             uuid.UUID           `json:"id"`
+	Created                        time.Time           `json:"created"`
+	RemoteAddr                     string              `json:"remoteAddr"`
+	State                          APIRTSPSessionState `json:"state"`
+	Path                           string              `json:"path"`
+	Query                          string              `json:"query"`
+	User                           string              `json:"user"`
+	Transport                      *string             `json:"transport"`
+	Profile                        *string             `json:"profile"`
+	Conns                          []uuid.UUID         `json:"conns"`
+	InboundBytes                   uint64              `json:"inboundBytes"`
+	InboundRTPPackets              uint64              `json:"inboundRTPPackets"`
+	InboundRTPPacketsLost          uint64              `json:"inboundRTPPacketsLost"`
+	InboundRTPPacketsInError       uint64              `json:"inboundRTPPacketsInError"`
+	InboundRTPPacketsJitter        float64             `json:"inboundRTPPacketsJitter"`
+	InboundRTCPPackets             uint64              `json:"inboundRTCPPackets"`
+	InboundRTCPPacketsInError      uint64              `json:"inboundRTCPPacketsInError"`
+	OutboundBytes                  uint64              `json:"outboundBytes"`
+	OutboundRTPPackets             uint64              `json:"outboundRTPPackets"`
+	OutboundRTPPacketsReportedLost uint64              `json:"outboundRTPPacketsReportedLost"`
+	OutboundRTCPPackets            uint64              `json:"outboundRTCPPackets"`
+	BytesReceived                  uint64              `json:"bytesReceived" deprecated:"true"`
+	BytesSent                      uint64              `json:"bytesSent" deprecated:"true"`
+	RTPPacketsReceived             uint64              `json:"rtpPacketsReceived" deprecated:"true"`
+	RTPPacketsSent                 uint64              `json:"rtpPacketsSent" deprecated:"true"`
+	RTPPacketsLost                 uint64              `json:"rtpPacketsLost" deprecated:"true"`
+	RTPPacketsInError              uint64              `json:"rtpPacketsInError" deprecated:"true"`
+	RTPPacketsJitter               float64             `json:"rtpPacketsJitter" deprecated:"true"`
+	RTCPPacketsReceived            uint64              `json:"rtcpPacketsReceived" deprecated:"true"`
+	RTCPPacketsSent                uint64              `json:"rtcpPacketsSent" deprecated:"true"`
+	RTCPPacketsInError             uint64              `json:"rtcpPacketsInError" deprecated:"true"`
 }
 
 // APIRTSPSessionList is a list of RTSP sessions.

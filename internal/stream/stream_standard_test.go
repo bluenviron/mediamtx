@@ -65,8 +65,8 @@ func TestStream(t *testing.T) {
 
 	<-recv
 
-	require.Equal(t, uint64(14), strm.BytesReceived())
-	require.Equal(t, uint64(14), strm.BytesSent())
+	require.Equal(t, uint64(14), strm.InboundBytes())
+	require.Equal(t, uint64(14), strm.OutboundBytes())
 }
 
 func TestStreamSkipBytesSent(t *testing.T) {
@@ -120,8 +120,8 @@ func TestStreamSkipBytesSent(t *testing.T) {
 
 	<-recv
 
-	require.Equal(t, uint64(14), strm.BytesReceived())
-	require.Equal(t, uint64(0), strm.BytesSent())
+	require.Equal(t, uint64(14), strm.InboundBytes())
+	require.Equal(t, uint64(0), strm.OutboundBytes())
 }
 
 func TestStreamResizeOversizedRTPPackets(t *testing.T) {
