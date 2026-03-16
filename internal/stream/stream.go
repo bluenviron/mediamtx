@@ -325,8 +325,8 @@ type Stream struct {
 	mutex            sync.RWMutex
 	subStream        *SubStream
 	offlineSubStream *offlineSubStream
-	bytesReceived    *uint64
-	bytesSent        *uint64
+	inboundBytes     *uint64
+	outboundBytes    *uint64
 	medias           map[*description.Media]*streamMedia
 	rtspStream       *gortsplib.ServerStream
 	rtspsStream      *gortsplib.ServerStream
@@ -371,8 +371,8 @@ func (s *Stream) Initialize() error {
 		s.Desc = cloneDesc(s.offlineDesc)
 	}
 
-	s.bytesReceived = new(uint64)
-	s.bytesSent = new(uint64)
+	s.inboundBytes = new(uint64)
+	s.outboundBytes = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 	s.hasReaders = make(chan struct{})
@@ -459,28 +459,28 @@ func (s *Stream) StartOfflineSubStream() error {
 	return nil
 }
 
-// BytesReceived returns received bytes.
-func (s *Stream) BytesReceived() uint64 {
-	return atomic.LoadUint64(s.bytesReceived)
+// InboundBytes returns received bytes.
+func (s *Stream) InboundBytes() uint64 {
+	return atomic.LoadUint64(s.inboundBytes)
 }
 
-// BytesSent returns sent bytes.
-func (s *Stream) BytesSent() uint64 {
-	bytesSent := atomic.LoadUint64(s.bytesSent)
+// OutboundBytes returns sent bytes.
+func (s *Stream) OutboundBytes() uint64 {
+	outboundBytes := atomic.LoadUint64(s.outboundBytes)
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	if s.rtspStream != nil {
 		stats := s.rtspStream.Stats()
-		bytesSent += stats.BytesSent
+		outboundBytes += stats.OutboundBytes
 	}
 	if s.rtspsStream != nil {
 		stats := s.rtspsStream.Stats()
-		bytesSent += stats.BytesSent
+		outboundBytes += stats.OutboundBytes
 	}
 
-	return bytesSent
+	return outboundBytes
 }
 
 // RTSPStream returns the RTSP stream.
@@ -572,11 +572,11 @@ func (s *Stream) WaitForReaders() {
 }
 
 func (s *Stream) addBytesReceived(v uint64) {
-	atomic.AddUint64(s.bytesReceived, v)
+	atomic.AddUint64(s.inboundBytes, v)
 }
 
 func (s *Stream) addBytesSent(v uint64) {
-	atomic.AddUint64(s.bytesSent, v)
+	atomic.AddUint64(s.outboundBytes, v)
 }
 
 func (s *Stream) updateLastTime(pts time.Duration) {

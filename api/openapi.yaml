@@ -1126,12 +1126,20 @@ components:
           nullable: true
         tunnel:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     RTSPConnList:
       type: object
@@ -1176,36 +1184,79 @@ components:
           items:
             type: string
             format: uuid
+        inboundBytes:
+          type: integer
+          format: uint64
+        inboundRTPPackets:
+          type: integer
+          format: uint64
+        inboundRTPPacketsLost:
+          type: integer
+          format: uint64
+        inboundRTPPacketsInError:
+          type: integer
+          format: uint64
+        inboundRTPPacketsJitter:
+          type: number
+          format: double
+        inboundRTCPPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPacketsInError:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTPPacketsReportedLost:
+          type: integer
+          format: uint64
+        outboundRTCPPackets:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsLost:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsInError:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsJitter:
           type: number
           format: double
+          deprecated: true
         rtcpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsInError:
           type: integer
           format: uint64
+          deprecated: true
 
     RTSPSessionList:
       type: object

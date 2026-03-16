@@ -233,7 +233,9 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 			return nil
 		}(),
 		Tunnel:        tunnelLabel(c.rconn.Transport().Tunnel),
-		BytesReceived: stats.BytesReceived,
-		BytesSent:     stats.BytesSent,
+		InboundBytes:  stats.InboundBytes,
+		OutboundBytes: stats.OutboundBytes,
+		BytesReceived: stats.InboundBytes,
+		BytesSent:     stats.OutboundBytes,
 	}
 }
