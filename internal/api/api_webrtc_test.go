@@ -59,6 +59,14 @@ func TestWebRTCSessionsList(t *testing.T) {
 				State:                     defs.APIWebRTCSessionStatePublish,
 				Path:                      "stream1",
 				Query:                     "token=abc",
+				InboundBytes:              1000,
+				InboundRTPPackets:         100,
+				InboundRTPPacketsLost:     5,
+				InboundRTPPacketsJitter:   0.5,
+				InboundRTCPPackets:        10,
+				OutboundBytes:             2000,
+				OutboundRTPPackets:        200,
+				OutboundRTCPPackets:       15,
 				BytesReceived:             1000,
 				BytesSent:                 2000,
 				RTPPacketsReceived:        100,
@@ -78,6 +86,14 @@ func TestWebRTCSessionsList(t *testing.T) {
 				State:                     defs.APIWebRTCSessionStateRead,
 				Path:                      "stream2",
 				Query:                     "",
+				InboundBytes:              500,
+				InboundRTPPackets:         50,
+				InboundRTPPacketsLost:     0,
+				InboundRTPPacketsJitter:   0.1,
+				InboundRTCPPackets:        5,
+				OutboundBytes:             1500,
+				OutboundRTPPackets:        150,
+				OutboundRTCPPackets:       10,
 				BytesReceived:             500,
 				BytesSent:                 1500,
 				RTPPacketsReceived:        50,
@@ -130,6 +146,14 @@ func TestWebRTCSessionsGet(t *testing.T) {
 				State:                     defs.APIWebRTCSessionStatePublish,
 				Path:                      "mystream",
 				Query:                     "key=value",
+				InboundBytes:              999999,
+				InboundRTPPackets:         10000,
+				InboundRTPPacketsLost:     50,
+				InboundRTPPacketsJitter:   1.5,
+				InboundRTCPPackets:        100,
+				OutboundBytes:             888888,
+				OutboundRTPPackets:        20000,
+				OutboundRTCPPackets:       200,
 				BytesReceived:             999999,
 				BytesSent:                 888888,
 				RTPPacketsReceived:        10000,
@@ -168,6 +192,10 @@ func TestWebRTCSessionsGet(t *testing.T) {
 	require.True(t, out.PeerConnectionEstablished)
 	require.Equal(t, "192.168.1.200:8000", out.LocalCandidate)
 	require.Equal(t, "192.168.1.100:5000", out.RemoteCandidate)
+	require.Equal(t, uint64(999999), out.InboundBytes)
+	require.Equal(t, uint64(888888), out.OutboundBytes)
+	require.Equal(t, uint64(10000), out.InboundRTPPackets)
+	require.Equal(t, uint64(20000), out.OutboundRTPPackets)
 	require.Equal(t, uint64(999999), out.BytesReceived)
 	require.Equal(t, uint64(888888), out.BytesSent)
 	require.Equal(t, uint64(10000), out.RTPPacketsReceived)
@@ -192,6 +220,14 @@ func TestWebRTCSessionsKick(t *testing.T) {
 				State:                     defs.APIWebRTCSessionStatePublish,
 				Path:                      "mystream",
 				Query:                     "",
+				InboundBytes:              1000,
+				InboundRTPPackets:         100,
+				InboundRTPPacketsLost:     0,
+				InboundRTPPacketsJitter:   0.5,
+				InboundRTCPPackets:        10,
+				OutboundBytes:             2000,
+				OutboundRTPPackets:        200,
+				OutboundRTCPPackets:       15,
 				BytesReceived:             1000,
 				BytesSent:                 2000,
 				RTPPacketsReceived:        100,

@@ -638,6 +638,15 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 					out += metric("webrtc_sessions", ta, 1)
+					out += metric("webrtc_sessions_inbound_bytes", ta, int64(i.InboundBytes))
+					out += metric("webrtc_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
+					out += metric("webrtc_sessions_inbound_rtp_packets_lost", ta, int64(i.InboundRTPPacketsLost))
+					out += metricFloat("webrtc_sessions_inbound_rtp_packets_jitter", ta, i.InboundRTPPacketsJitter)
+					out += metric("webrtc_sessions_inbound_rtcp_packets", ta, int64(i.InboundRTCPPackets))
+					out += metric("webrtc_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
+					out += metric("webrtc_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
+					out += metric("webrtc_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
+					// deprecated
 					out += metric("webrtc_sessions_bytes_received", ta, int64(i.BytesReceived))
 					out += metric("webrtc_sessions_bytes_sent", ta, int64(i.BytesSent))
 					out += metric("webrtc_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
@@ -650,6 +659,15 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 		} else if webrtcSessionFilter == "" {
 			out += metric("webrtc_sessions", "", 0)
+			out += metric("webrtc_sessions_inbound_bytes", "", 0)
+			out += metric("webrtc_sessions_inbound_rtp_packets", "", 0)
+			out += metric("webrtc_sessions_inbound_rtp_packets_lost", "", 0)
+			out += metricFloat("webrtc_sessions_inbound_rtp_packets_jitter", "", 0)
+			out += metric("webrtc_sessions_inbound_rtcp_packets", "", 0)
+			out += metric("webrtc_sessions_outbound_bytes", "", 0)
+			out += metric("webrtc_sessions_outbound_rtp_packets", "", 0)
+			out += metric("webrtc_sessions_outbound_rtcp_packets", "", 0)
+			// deprecated
 			out += metric("webrtc_sessions_bytes_received", "", 0)
 			out += metric("webrtc_sessions_bytes_sent", "", 0)
 			out += metric("webrtc_sessions_rtp_packets_received", "", 0)

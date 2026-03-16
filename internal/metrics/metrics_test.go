@@ -184,6 +184,14 @@ func (dummyWebRTCServer) APISessionsList() (*defs.APIWebRTCSessionList, error) {
 			State:                     defs.APIWebRTCSessionStateRead,
 			Path:                      "mypath",
 			Query:                     "myquery",
+			InboundBytes:              123,
+			InboundRTPPackets:         789,
+			InboundRTPPacketsLost:     456,
+			InboundRTPPacketsJitter:   789,
+			InboundRTCPPackets:        123,
+			OutboundBytes:             456,
+			OutboundRTPPackets:        123,
+			OutboundRTCPPackets:       456,
 			BytesReceived:             123,
 			BytesSent:                 456,
 			RTPPacketsReceived:        789,
@@ -405,6 +413,22 @@ func TestMetrics(t *testing.T) {
 			`path="mypath",remoteAddr="3.3.3.3:5678",state="read"} 456`+"\n"+
 			`webrtc_sessions{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 1`+"\n"+
+			`webrtc_sessions_inbound_bytes{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_inbound_rtp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 789`+"\n"+
+			`webrtc_sessions_inbound_rtp_packets_lost{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
+			`webrtc_sessions_inbound_rtp_packets_jitter{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 789`+"\n"+
+			`webrtc_sessions_inbound_rtcp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_outbound_bytes{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
+			`webrtc_sessions_outbound_rtp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+			`webrtc_sessions_outbound_rtcp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
 			`webrtc_sessions_bytes_received{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 			`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
 			`webrtc_sessions_bytes_sent{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+

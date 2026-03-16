@@ -34,14 +34,23 @@ type APIWebRTCSession struct {
 	Path                      string                `json:"path"`
 	Query                     string                `json:"query"`
 	User                      string                `json:"user"`
-	BytesReceived             uint64                `json:"bytesReceived"`
-	BytesSent                 uint64                `json:"bytesSent"`
-	RTPPacketsReceived        uint64                `json:"rtpPacketsReceived"`
-	RTPPacketsSent            uint64                `json:"rtpPacketsSent"`
-	RTPPacketsLost            uint64                `json:"rtpPacketsLost"`
-	RTPPacketsJitter          float64               `json:"rtpPacketsJitter"`
-	RTCPPacketsReceived       uint64                `json:"rtcpPacketsReceived"`
-	RTCPPacketsSent           uint64                `json:"rtcpPacketsSent"`
+	InboundBytes              uint64                `json:"inboundBytes"`
+	InboundRTPPackets         uint64                `json:"inboundRTPPackets"`
+	InboundRTPPacketsLost     uint64                `json:"inboundRTPPacketsLost"`
+	InboundRTPPacketsJitter   float64               `json:"inboundRTPPacketsJitter"`
+	InboundRTCPPackets        uint64                `json:"inboundRTCPPackets"`
+	OutboundBytes             uint64                `json:"outboundBytes"`
+	OutboundRTPPackets        uint64                `json:"outboundRTPPackets"`
+	OutboundRTCPPackets       uint64                `json:"outboundRTCPPackets"`
+	// deprecated
+	BytesReceived       uint64  `json:"bytesReceived" deprecated:"true"`
+	BytesSent           uint64  `json:"bytesSent" deprecated:"true"`
+	RTPPacketsReceived  uint64  `json:"rtpPacketsReceived" deprecated:"true"`
+	RTPPacketsSent      uint64  `json:"rtpPacketsSent" deprecated:"true"`
+	RTPPacketsLost      uint64  `json:"rtpPacketsLost" deprecated:"true"`
+	RTPPacketsJitter    float64 `json:"rtpPacketsJitter" deprecated:"true"`
+	RTCPPacketsReceived uint64  `json:"rtcpPacketsReceived" deprecated:"true"`
+	RTCPPacketsSent     uint64  `json:"rtcpPacketsSent" deprecated:"true"`
 }
 
 // APIWebRTCSessionList is a list of WebRTC sessions.

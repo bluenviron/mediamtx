@@ -653,7 +653,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"outboundRTPPackets":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"],
 							"outboundRTPPacketsReportedLost": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPacketsReportedLost"],
 							"outboundRTCPPackets":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTCPPackets"],
-							"bytesReceived":                  float64(0),
+							"bytesReceived":                  out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
 							"bytesSent":                      out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
 							"created":                        out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
 							"id":                             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
@@ -713,7 +713,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"outboundRTPPackets":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"],
 							"outboundRTPPacketsReportedLost": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPacketsReportedLost"],
 							"outboundRTCPPackets":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTCPPackets"],
-							"bytesReceived":                  float64(0),
+							"bytesReceived":                  out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
 							"bytesSent":                      out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
 							"created":                        out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
 							"id":                             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
@@ -795,6 +795,14 @@ func TestAPIProtocolListGet(t *testing.T) {
 					"pageCount": float64(1),
 					"items": []any{
 						map[string]any{
+							"inboundBytes":              out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundBytes"],
+							"inboundRTPPackets":         out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPackets"],
+							"inboundRTPPacketsLost":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsLost"],
+							"inboundRTPPacketsJitter":   out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsJitter"],
+							"inboundRTCPPackets":        out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPackets"],
+							"outboundBytes":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
+							"outboundRTPPackets":        out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"],
+							"outboundRTCPPackets":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTCPPackets"],
 							"bytesReceived":             out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
 							"bytesSent":                 out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"],
 							"created":                   out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
@@ -898,6 +906,55 @@ func TestAPIProtocolListGet(t *testing.T) {
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+
 					out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"].(string),
 					nil, &out2)
+			}
+
+			switch ca {
+			case "rtsp conns", "rtsps conns":
+				out2.(map[string]any)["inboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundBytes"]
+				out2.(map[string]any)["outboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"]
+				out2.(map[string]any)["bytesReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"]
+				out2.(map[string]any)["bytesSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"]
+
+			case "rtsp sessions", "rtsps sessions":
+				out2.(map[string]any)["inboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundBytes"]
+				out2.(map[string]any)["inboundRTPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPackets"]
+				out2.(map[string]any)["inboundRTPPacketsLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsLost"]
+				out2.(map[string]any)["inboundRTPPacketsInError"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsInError"]
+				out2.(map[string]any)["inboundRTPPacketsJitter"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsJitter"]
+				out2.(map[string]any)["inboundRTCPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPackets"]
+				out2.(map[string]any)["inboundRTCPPacketsInError"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPacketsInError"]
+				out2.(map[string]any)["outboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"]
+				out2.(map[string]any)["outboundRTPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"]
+				out2.(map[string]any)["outboundRTPPacketsReportedLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPacketsReportedLost"]
+				out2.(map[string]any)["outboundRTCPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTCPPackets"]
+				out2.(map[string]any)["bytesReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"]
+				out2.(map[string]any)["bytesSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"]
+				out2.(map[string]any)["rtpPacketsReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsReceived"]
+				out2.(map[string]any)["rtpPacketsSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsSent"]
+				out2.(map[string]any)["rtpPacketsLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsLost"]
+				out2.(map[string]any)["rtpPacketsInError"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsInError"]
+				out2.(map[string]any)["rtpPacketsJitter"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsJitter"]
+				out2.(map[string]any)["rtcpPacketsReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsReceived"]
+				out2.(map[string]any)["rtcpPacketsSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsSent"]
+				out2.(map[string]any)["rtcpPacketsInError"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsInError"]
+
+			case "webrtc":
+				out2.(map[string]any)["inboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundBytes"]
+				out2.(map[string]any)["inboundRTPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPackets"]
+				out2.(map[string]any)["inboundRTPPacketsLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsLost"]
+				out2.(map[string]any)["inboundRTPPacketsJitter"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsJitter"]
+				out2.(map[string]any)["inboundRTCPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPackets"]
+				out2.(map[string]any)["outboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"]
+				out2.(map[string]any)["outboundRTPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"]
+				out2.(map[string]any)["outboundRTCPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTCPPackets"]
+				out2.(map[string]any)["bytesReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"]
+				out2.(map[string]any)["bytesSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesSent"]
+				out2.(map[string]any)["rtpPacketsReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsReceived"]
+				out2.(map[string]any)["rtpPacketsSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsSent"]
+				out2.(map[string]any)["rtpPacketsLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsLost"]
+				out2.(map[string]any)["rtpPacketsJitter"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtpPacketsJitter"]
+				out2.(map[string]any)["rtcpPacketsReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsReceived"]
+				out2.(map[string]any)["rtcpPacketsSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsSent"]
 			}
 
 			require.Equal(t, out1.(map[string]any)["items"].([]any)[0], out2)

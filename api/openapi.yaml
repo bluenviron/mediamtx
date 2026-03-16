@@ -1565,30 +1565,62 @@ components:
           type: string
         user:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        inboundRTPPackets:
+          type: integer
+          format: uint64
+        inboundRTPPacketsLost:
+          type: integer
+          format: uint64
+        inboundRTPPacketsJitter:
+          type: number
+          format: double
+        inboundRTCPPackets:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTCPPackets:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsLost:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsJitter:
           type: number
           format: double
+          deprecated: true
         rtcpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
 
     WebRTCSessionList:
       type: object

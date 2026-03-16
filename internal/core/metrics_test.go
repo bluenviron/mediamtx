@@ -196,6 +196,14 @@ srt_conns_packets_received_avg_belated_time 0
 srt_conns_packets_send_loss_rate 0
 srt_conns_packets_received_loss_rate 0
 webrtc_sessions 0
+webrtc_sessions_inbound_bytes 0
+webrtc_sessions_inbound_rtp_packets 0
+webrtc_sessions_inbound_rtp_packets_lost 0
+webrtc_sessions_inbound_rtp_packets_jitter 0
+webrtc_sessions_inbound_rtcp_packets 0
+webrtc_sessions_outbound_bytes 0
+webrtc_sessions_outbound_rtp_packets 0
+webrtc_sessions_outbound_rtcp_packets 0
 webrtc_sessions_bytes_received 0
 webrtc_sessions_bytes_sent 0
 webrtc_sessions_rtp_packets_received 0
@@ -539,6 +547,14 @@ webrtc_sessions_rtcp_packets_sent 0
 				`srt_conns_packets_send_loss_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_loss_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
+				`webrtc_sessions_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_inbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_inbound_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_inbound_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_inbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_outbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
+				`webrtc_sessions_outbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions_rtp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+

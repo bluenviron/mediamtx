@@ -38,17 +38,17 @@ func randUint32() (uint32, error) {
 }
 
 type streamFormat struct {
-	format            format.Format
-	media             *description.Media
-	alwaysAvailable   bool
-	rtpMaxPayloadSize int
-	replaceNTP        bool
-	processingErrors  *errordumper.Dumper
-	addBytesReceived  func(uint64)
-	addBytesSent      func(uint64)
-	updateLastTime    func(time.Duration)
-	writeRTSP         func(*description.Media, []*rtp.Packet, time.Time)
-	parent            logger.Writer
+	format               format.Format
+	media                *description.Media
+	alwaysAvailable      bool
+	rtpMaxPayloadSize    int
+	replaceNTP           bool
+	inboundFramesInError *errordumper.Dumper
+	addInboundBytes      func(uint64)
+	addOutboundBytes     func(uint64)
+	updateLastTime       func(time.Duration)
+	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
+	parent               logger.Writer
 
 	ptsOffset     int64
 	formatUpdater formatUpdater
