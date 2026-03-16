@@ -65,6 +65,11 @@ func (r *Reader) Formats() []format.Format {
 	return out
 }
 
+// OutboundFramesDiscarded returns the number of frames discarded because the reader is too slow.
+func (r *Reader) OutboundFramesDiscarded() uint64 {
+	return r.outboundFramesDiscarded.Get()
+}
+
 // error returns whenever there's an error.
 // It can be called only after stream.AddReader().
 func (r *Reader) Error() chan error {

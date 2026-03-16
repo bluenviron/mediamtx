@@ -973,12 +973,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PathTrackCodec'
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        inboundFramesInError:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         readers:
           type: array
           items:
@@ -1023,9 +1034,16 @@ components:
           type: string
         lastRequest:
           type: string
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     HLSMuxerList:
       type: object
@@ -1089,12 +1107,23 @@ components:
           type: string
         user:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     RTMPConnList:
       type: object
@@ -1212,6 +1241,9 @@ components:
           type: integer
           format: uint64
         outboundRTPPacketsReportedLost:
+          type: integer
+          format: uint64
+        outboundRTPPacketsDiscarded:
           type: integer
           format: uint64
         outboundRTCPPackets:
@@ -1500,6 +1532,9 @@ components:
           type: number
           format: double
           description: Percentage of retransmitted data vs. received data
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
 
     SRTConnList:
       type: object
@@ -1587,6 +1622,9 @@ components:
           type: integer
           format: uint64
         outboundRTCPPackets:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
           type: integer
           format: uint64
         bytesReceived:

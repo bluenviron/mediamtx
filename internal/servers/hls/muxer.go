@@ -13,6 +13,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
+	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -43,8 +45,13 @@ func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	return n, err
 }
 
+type muxerGetInstanceRes struct {
+	instance                         *muxerInstance
+	cumulatedOutboundFramesDiscarded uint64
+}
+
 type muxerGetInstanceReq struct {
-	res chan *muxerInstance
+	res chan muxerGetInstanceRes
 }
 
 type muxer struct {
@@ -138,22 +145,7 @@ func (m *muxer) runInner() error {
 
 	defer m.path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
 
-	var instanceError chan error
-	var recreateTimer *time.Timer
-
-	mi := &muxerInstance{
-		variant:         m.variant,
-		segmentCount:    m.segmentCount,
-		segmentDuration: m.segmentDuration,
-		partDuration:    m.partDuration,
-		segmentMaxSize:  m.segmentMaxSize,
-		directory:       m.directory,
-		pathName:        m.pathName,
-		stream:          res.Stream,
-		bytesSent:       m.bytesSent,
-		parent:          m,
-	}
-	err = mi.initialize()
+	mi, err := m.createInstance(res.Stream)
 	if err != nil {
 		if m.remoteAddr != "" || errors.Is(err, hls.ErrNoSupportedCodecs) {
 			return err
@@ -161,11 +153,6 @@ func (m *muxer) runInner() error {
 
 		m.Log(logger.Error, err.Error())
 		mi = nil
-		instanceError = make(chan error)
-		recreateTimer = time.NewTimer(recreatePause)
-	} else {
-		instanceError = mi.errorChan()
-		recreateTimer = emptyTimer()
 	}
 
 	defer func() {
@@ -174,6 +161,17 @@ func (m *muxer) runInner() error {
 		}
 	}()
 
+	var instanceError chan error
+	var recreateTimer *time.Timer
+
+	if mi != nil {
+		instanceError = mi.errorChan()
+		recreateTimer = emptyTimer()
+	} else {
+		instanceError = make(chan error)
+		recreateTimer = time.NewTimer(recreatePause)
+	}
+
 	var activityCheckTimer *time.Timer
 	if m.remoteAddr != "" {
 		activityCheckTimer = time.NewTimer(closeCheckPeriod)
@@ -181,10 +179,15 @@ func (m *muxer) runInner() error {
 		activityCheckTimer = emptyTimer()
 	}
 
+	cumulatedOutboundFramesDiscarded := uint64(0)
+
 	for {
 		select {
 		case req := <-m.chGetInstance:
-			req.res <- mi
+			req.res <- muxerGetInstanceRes{
+				instance:                         mi,
+				cumulatedOutboundFramesDiscarded: cumulatedOutboundFramesDiscarded,
+			}
 
 		case err = <-instanceError:
 			if m.remoteAddr != "" {
@@ -193,24 +196,13 @@ func (m *muxer) runInner() error {
 
 			m.Log(logger.Error, err.Error())
 			mi.close()
+			cumulatedOutboundFramesDiscarded += mi.reader.OutboundFramesDiscarded()
 			mi = nil
 			instanceError = make(chan error)
 			recreateTimer = time.NewTimer(recreatePause)
 
 		case <-recreateTimer.C:
-			mi = &muxerInstance{
-				variant:         m.variant,
-				segmentCount:    m.segmentCount,
-				segmentDuration: m.segmentDuration,
-				partDuration:    m.partDuration,
-				segmentMaxSize:  m.segmentMaxSize,
-				directory:       m.directory,
-				pathName:        m.pathName,
-				stream:          res.Stream,
-				bytesSent:       m.bytesSent,
-				parent:          m,
-			}
-			err = mi.initialize()
+			mi, err = m.createInstance(res.Stream)
 			if err != nil {
 				m.Log(logger.Error, err.Error())
 				mi = nil
@@ -232,17 +224,31 @@ func (m *muxer) runInner() error {
 	}
 }
 
-func (m *muxer) getInstance() *muxerInstance {
-	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
+func (m *muxer) createInstance(strm *stream.Stream) (*muxerInstance, error) {
+	mi := &muxerInstance{
+		variant:         m.variant,
+		segmentCount:    m.segmentCount,
+		segmentDuration: m.segmentDuration,
+		partDuration:    m.partDuration,
+		segmentMaxSize:  m.segmentMaxSize,
+		directory:       m.directory,
+		pathName:        m.pathName,
+		stream:          strm,
+		parent:          m,
+	}
+	err := mi.initialize()
+	return mi, err
+}
 
-	req := muxerGetInstanceReq{res: make(chan *muxerInstance)}
+func (m *muxer) getInstance() muxerGetInstanceRes {
+	req := muxerGetInstanceReq{res: make(chan muxerGetInstanceRes)}
 
 	select {
 	case m.chGetInstance <- req:
 		return <-req.res
 
 	case <-m.ctx.Done():
-		return nil
+		return muxerGetInstanceRes{}
 	}
 }
 
@@ -254,11 +260,37 @@ func (m *muxer) APIReaderDescribe() *defs.APIPathReader {
 	}
 }
 
+func (m *muxer) handleRequest(ctx *gin.Context) {
+	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
+
+	res := m.getInstance()
+	if res.instance == nil {
+		ctx.Writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w := &responseWriterWithCounter{
+		ResponseWriter: ctx.Writer,
+		bytesSent:      m.bytesSent,
+	}
+
+	res.instance.handleRequest(w, ctx.Request)
+}
+
 func (m *muxer) apiItem() *defs.APIHLSMuxer {
+	res := m.getInstance()
+
+	outboundFramesDiscarded := res.cumulatedOutboundFramesDiscarded
+	if res.instance != nil {
+		outboundFramesDiscarded += res.instance.reader.OutboundFramesDiscarded()
+	}
+
 	return &defs.APIHLSMuxer{
-		Path:        m.pathName,
-		Created:     m.created,
-		LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
-		BytesSent:   atomic.LoadUint64(m.bytesSent),
+		Path:                    m.pathName,
+		Created:                 m.created,
+		LastRequest:             time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
+		OutboundBytes:           atomic.LoadUint64(m.bytesSent),
+		OutboundFramesDiscarded: outboundFramesDiscarded,
+		BytesSent:               atomic.LoadUint64(m.bytesSent),
 	}
 }

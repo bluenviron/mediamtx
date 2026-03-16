@@ -661,6 +661,24 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
 			}(),
+			InboundBytes: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.InboundBytes()
+			}(),
+			OutboundBytes: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.OutboundBytes()
+			}(),
+			InboundFramesInError: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.InboundFramesInError()
+			}(),
 			BytesReceived: func() uint64 {
 				if !pa.isAvailable() {
 					return 0

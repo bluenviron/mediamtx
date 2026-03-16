@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/gin-gonic/gin"
 )
 
 type muxerInstance struct {
@@ -23,7 +23,6 @@ type muxerInstance struct {
 	directory       string
 	pathName        string
 	stream          *stream.Stream
-	bytesSent       *uint64
 	parent          logger.Writer
 
 	hmuxer *gohlslib.Muxer
@@ -89,11 +88,6 @@ func (mi *muxerInstance) errorChan() chan error {
 	return mi.reader.Error()
 }
 
-func (mi *muxerInstance) handleRequest(ctx *gin.Context) {
-	w := &responseWriterWithCounter{
-		ResponseWriter: ctx.Writer,
-		bytesSent:      mi.bytesSent,
-	}
-
-	mi.hmuxer.Handle(w, ctx.Request)
+func (mi *muxerInstance) handleRequest(w http.ResponseWriter, r *http.Request) {
+	mi.hmuxer.Handle(w, r)
 }

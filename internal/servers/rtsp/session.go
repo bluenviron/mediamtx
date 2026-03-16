@@ -489,6 +489,7 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 		OutboundBytes:                  stats.OutboundBytes,
 		OutboundRTPPackets:             stats.OutboundRTPPackets,
 		OutboundRTPPacketsReportedLost: stats.OutboundRTPPacketsReportedLost,
+		OutboundRTPPacketsDiscarded:    s.outboundRTPPacketsDiscarded.Get(),
 		OutboundRTCPPackets:            stats.OutboundRTCPPackets,
 		BytesReceived:                  stats.InboundBytes,
 		BytesSent:                      stats.OutboundBytes,

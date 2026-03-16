@@ -153,6 +153,8 @@ type APISRTConn struct {
 	PacketsSendLossRate float64 `json:"packetsSendLossRate"`
 	// Percentage of retransmitted data vs. received data
 	PacketsReceivedLossRate float64 `json:"packetsReceivedLossRate"`
+
+	OutboundFramesDiscarded uint64 `json:"outboundFramesDiscarded"`
 }
 
 // APISRTConnList is a list of SRT connections.

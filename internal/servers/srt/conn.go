@@ -66,6 +66,7 @@ type conn struct {
 	query     string
 	user      string
 	sconn     srt.Conn
+	reader    *stream.Reader
 }
 
 func (c *conn) initialize() {
@@ -335,6 +336,10 @@ func (c *conn) runRead(streamID *streamID) error {
 	res.Stream.AddReader(r)
 	defer res.Stream.RemoveReader(r)
 
+	c.mutex.Lock()
+	c.reader = r
+	c.mutex.Unlock()
+
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
@@ -431,6 +436,10 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		item.PacketsReceivedAvgBelatedTime = s.Instantaneous.PktRecvAvgBelatedTime
 		item.PacketsSendLossRate = s.Instantaneous.PktSendLossRate
 		item.PacketsReceivedLossRate = s.Instantaneous.PktRecvLossRate
+	}
+
+	if c.reader != nil {
+		item.OutboundFramesDiscarded = c.reader.OutboundFramesDiscarded()
 	}
 
 	return item

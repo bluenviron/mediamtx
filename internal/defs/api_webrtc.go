@@ -42,6 +42,7 @@ type APIWebRTCSession struct {
 	OutboundBytes             uint64                `json:"outboundBytes"`
 	OutboundRTPPackets        uint64                `json:"outboundRTPPackets"`
 	OutboundRTCPPackets       uint64                `json:"outboundRTCPPackets"`
+	OutboundFramesDiscarded   uint64                `json:"outboundFramesDiscarded"`
 	// deprecated
 	BytesReceived       uint64  `json:"bytesReceived" deprecated:"true"`
 	BytesSent           uint64  `json:"bytesSent" deprecated:"true"`

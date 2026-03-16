@@ -10,10 +10,13 @@ type APIHLSServer interface {
 
 // APIHLSMuxer is an HLS muxer.
 type APIHLSMuxer struct {
-	Path        string    `json:"path"`
-	Created     time.Time `json:"created"`
-	LastRequest time.Time `json:"lastRequest"`
-	BytesSent   uint64    `json:"bytesSent"`
+	Path                    string    `json:"path"`
+	Created                 time.Time `json:"created"`
+	LastRequest             time.Time `json:"lastRequest"`
+	OutboundBytes           uint64    `json:"outboundBytes"`
+	OutboundFramesDiscarded uint64    `json:"outboundFramesDiscarded"`
+	// deprecated
+	BytesSent uint64 `json:"bytesSent" deprecated:"true"`
 }
 
 // APIHLSMuxerList is a list of HLS muxers.

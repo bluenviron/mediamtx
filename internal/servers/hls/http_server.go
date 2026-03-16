@@ -203,13 +203,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			return
 		}
 
-		mi := mux.getInstance()
-		if mi == nil {
-			ctx.Writer.WriteHeader(http.StatusNotFound)
-			return
-		}
-
 		ctx.Request.URL.Path = fname
-		mi.handleRequest(ctx)
+		mux.handleRequest(ctx)
 	}
 }

@@ -67,6 +67,7 @@ func TestWebRTCSessionsList(t *testing.T) {
 				OutboundBytes:             2000,
 				OutboundRTPPackets:        200,
 				OutboundRTCPPackets:       15,
+				OutboundFramesDiscarded:   11,
 				BytesReceived:             1000,
 				BytesSent:                 2000,
 				RTPPacketsReceived:        100,
@@ -94,6 +95,7 @@ func TestWebRTCSessionsList(t *testing.T) {
 				OutboundBytes:             1500,
 				OutboundRTPPackets:        150,
 				OutboundRTCPPackets:       10,
+				OutboundFramesDiscarded:   22,
 				BytesReceived:             500,
 				BytesSent:                 1500,
 				RTPPacketsReceived:        50,
@@ -154,6 +156,7 @@ func TestWebRTCSessionsGet(t *testing.T) {
 				OutboundBytes:             888888,
 				OutboundRTPPackets:        20000,
 				OutboundRTCPPackets:       200,
+				OutboundFramesDiscarded:   33,
 				BytesReceived:             999999,
 				BytesSent:                 888888,
 				RTPPacketsReceived:        10000,
@@ -196,6 +199,7 @@ func TestWebRTCSessionsGet(t *testing.T) {
 	require.Equal(t, uint64(888888), out.OutboundBytes)
 	require.Equal(t, uint64(10000), out.InboundRTPPackets)
 	require.Equal(t, uint64(20000), out.OutboundRTPPackets)
+	require.Equal(t, uint64(33), out.OutboundFramesDiscarded)
 	require.Equal(t, uint64(999999), out.BytesReceived)
 	require.Equal(t, uint64(888888), out.BytesSent)
 	require.Equal(t, uint64(10000), out.RTPPacketsReceived)
