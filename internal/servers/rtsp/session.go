@@ -12,6 +12,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	rtspauth "github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 	"github.com/google/uuid"
 
@@ -35,6 +37,19 @@ func profileLabel(p headers.TransportProfile) string {
 		return "AVP"
 	}
 	return "unknown"
+}
+
+func findSingleMPEGTSFormat(desc *description.Session) (*description.Media, *format.MPEGTS) {
+	if len(desc.Medias) != 1 || len(desc.Medias[0].Formats) != 1 {
+		return nil, nil
+	}
+
+	forma := desc.Medias[0].Formats[0]
+	if forma, ok := forma.(*format.MPEGTS); ok {
+		return desc.Medias[0], forma
+	}
+
+	return nil, nil
 }
 
 type sessionParent interface {
@@ -64,6 +79,7 @@ type session struct {
 	outboundRTPPacketsDiscarded *counterdumper.Dumper
 	mutex                       sync.RWMutex
 	user                        string
+	mpegtsDemuxer               *mpegtsDemuxer
 }
 
 func (s *session) initialize() {
@@ -135,12 +151,18 @@ func (s *session) onClose(err error) {
 		s.onUnreadHook()
 	}
 
+	if s.mpegtsDemuxer != nil {
+		s.mpegtsDemuxer.close()
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
 		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+		if s.path != nil {
+			s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+		}
 	}
 
 	s.path = nil
@@ -328,6 +350,34 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+	if s.pathConf.RTSPDemuxMpegts {
+		mpegtsMedia, mpegtsFormat := findSingleMPEGTSFormat(s.rsession.AnnouncedDescription())
+		if mpegtsFormat != nil {
+			s.Log(logger.Info, "MPEG-TS demux mode enabled, starting demuxer...")
+
+			s.mpegtsDemuxer = &mpegtsDemuxer{
+				session:      s,
+				pathManager:  s.pathManager,
+				pathConf:     s.pathConf,
+				mpegtsMedia:  mpegtsMedia,
+				mpegtsFormat: mpegtsFormat,
+				decodeErrors: s.inboundRTPPacketsInError,
+				pathName:     s.rsession.Path()[1:],
+				query:        s.rsession.Query(),
+			}
+			err := s.mpegtsDemuxer.initialize()
+			if err != nil {
+				return &base.Response{
+					StatusCode: base.StatusInternalServerError,
+				}, err
+			}
+
+			return &base.Response{
+				StatusCode: base.StatusOK,
+			}, nil
+		}
+	}
+
 	res, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        s,
 		Desc:          s.rsession.AnnouncedDescription(),
@@ -364,6 +414,14 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 
 // onPause is called by rtspServer.
 func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
+	// we can't close mpegtsDemuxer during pause because OnPacketRTP() is paused after onPause(),
+	// therefore a call to pipeWriter.CloseWithError() would cause a race condition.
+	if s.mpegtsDemuxer != nil {
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, fmt.Errorf("cannot pause in MPEG-TS demux mode")
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStatePlay:
 		s.onUnreadHook()

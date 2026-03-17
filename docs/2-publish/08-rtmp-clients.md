@@ -1,6 +1,6 @@
 # RTMP clients
 
-RTMP is a protocol that allows to read and publish streams. It supports encryption, see [RTMP-specific features](../4-other/24-rtmp-specific-features.md). Streams can be published to the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It supports encryption, read [RTMP-specific features](../4-other/24-rtmp-specific-features.md). Streams can be published to the server by using the URL:
 
 ```
 rtmp://localhost/mystream

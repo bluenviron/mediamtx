@@ -8,7 +8,7 @@ srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 
 Replace `mystream` with any name you want. The resulting stream will be available on path `/mystream`.
 
-If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](../4-other/21-srt-specific-features.md#standard-stream-id-syntax).
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, read [Standard stream ID syntax](../4-other/21-srt-specific-features.md#standard-stream-id-syntax).
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 

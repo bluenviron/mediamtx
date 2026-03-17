@@ -36,7 +36,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 
 ## FFmpeg and RTP over UDP
 
-In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (see [RTP](12-rtp.md)). Then:
+In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (read [RTP](12-rtp.md)). Then:
 
 ```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \

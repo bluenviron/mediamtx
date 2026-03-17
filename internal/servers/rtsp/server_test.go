@@ -1,6 +1,8 @@
 package rtsp
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -11,6 +13,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	mpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -204,6 +208,153 @@ func TestServerPublish(t *testing.T) {
 			}, list)
 		})
 	}
+}
+
+func TestServerPublishMPEGTS(t *testing.T) {
+	var strm *stream.Stream
+	var reader *stream.Reader
+	defer func() {
+		if strm != nil && reader != nil {
+			strm.RemoveReader(reader)
+		}
+	}()
+
+	dataReceived := make(chan struct{})
+
+	pathConf := &conf.Path{RTSPDemuxMpegts: true}
+
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			return &defs.PathFindPathConfRes{Conf: pathConf}, nil
+		},
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			require.Equal(t, "teststream", req.AccessRequest.Name)
+			require.Equal(t, "param=value", req.AccessRequest.Query)
+			require.True(t, req.AccessRequest.SkipAuth)
+			require.False(t, req.UseRTPPackets)
+			require.True(t, req.ReplaceNTP)
+			require.Same(t, pathConf, req.ConfToCompare)
+			require.Equal(t, &description.Session{Medias: []*description.Media{{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+				}},
+			}}}, req.Desc)
+
+			strm = &stream.Stream{
+				Desc:              req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			reader = &stream.Reader{Parent: test.NilLogger}
+			n := 0
+
+			reader.OnData(
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
+				func(u *unit.Unit) error {
+					if n == 0 {
+						require.Equal(t, unit.PayloadH264{
+							test.FormatH264.SPS,
+							test.FormatH264.PPS,
+							{5, 1},
+						}, u.Payload)
+						close(dataReceived)
+					}
+					n++
+					return nil
+				})
+
+			strm.AddReader(reader)
+
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
+		},
+	}
+
+	s := &Server{
+		Address:        "127.0.0.1:8557",
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	source := gortsplib.Client{}
+
+	media0 := &description.Media{
+		Type:    description.MediaTypeApplication,
+		Formats: []format.Format{&format.MPEGTS{}},
+	}
+
+	err = source.StartRecording(
+		"rtsp://127.0.0.1:8557/teststream?param=value",
+		&description.Session{Medias: []*description.Media{media0}})
+	require.NoError(t, err)
+	defer source.Close()
+
+	track := &mpegts.Track{Codec: &tscodecs.H264{}}
+
+	var buf bytes.Buffer
+	bw := bufio.NewWriter(&buf)
+	w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+	err = w.Initialize()
+	require.NoError(t, err)
+
+	// the MPEG-TS muxer needs two PES packets in order to write the first one
+	err = w.WriteH264(track, 0, 0, [][]byte{
+		test.FormatH264.SPS,
+		test.FormatH264.PPS,
+		{5, 1},
+	})
+	require.NoError(t, err)
+
+	err = w.WriteH264(track, 0, 0, [][]byte{{5, 2}})
+	require.NoError(t, err)
+
+	err = bw.Flush()
+	require.NoError(t, err)
+
+	raw := buf.Bytes()
+	require.NotEmpty(t, raw)
+	require.Zero(t, len(raw)%188)
+
+	tsPackets := make([][]byte, 0, len(raw)/188)
+	for len(raw) > 0 {
+		tsPackets = append(tsPackets, raw[:188:188])
+		raw = raw[188:]
+	}
+
+	encoder, err := media0.Formats[0].(*format.MPEGTS).CreateEncoder()
+	require.NoError(t, err)
+
+	rtpPackets, err := encoder.Encode(tsPackets)
+	require.NoError(t, err)
+
+	for _, pkt := range rtpPackets {
+		err = source.WritePacketRTP(media0, pkt)
+		require.NoError(t, err)
+	}
+
+	<-dataReceived
 }
 
 func TestServerRead(t *testing.T) {

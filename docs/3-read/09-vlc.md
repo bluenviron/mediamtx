@@ -8,7 +8,7 @@ vlc --network-caching=50 rtsp://localhost:8554/mystream
 
 ## RTSP and Ubuntu compatibility
 
-The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license issue (see [here](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299) and [here](https://stackoverflow.com/questions/69766748/cvlc-cannot-play-rtsp-omxplayer-instead-can)). To fix the issue, remove the default VLC instance and install the snap version:
+The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license issue (read [here](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299) and [here](https://stackoverflow.com/questions/69766748/cvlc-cannot-play-rtsp-omxplayer-instead-can)). To fix the issue, remove the default VLC instance and install the snap version:
 
 ```sh
 sudo apt purge -y vlc

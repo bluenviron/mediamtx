@@ -1,6 +1,6 @@
 # WebRTC-specific features
 
-WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, see [Publish](../2-publish/04-webrtc-clients.md) and [Read](../3-read/03-webrtc.md). Features in this page are shared among both tasks.
+WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, read [Publish](../2-publish/04-webrtc-clients.md) and [Read](../3-read/03-webrtc.md). Features in this page are shared among both tasks.
 
 ## Codec support in browsers
 
