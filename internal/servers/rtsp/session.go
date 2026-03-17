@@ -414,6 +414,11 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 
 // onPause is called by rtspServer.
 func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
+	if s.mpegtsDemuxer != nil {
+		s.mpegtsDemuxer.close()
+		s.mpegtsDemuxer = nil
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStatePlay:
 		s.onUnreadHook()

@@ -63,13 +63,13 @@ func (d *mpegtsDemuxer) initialize() error {
 
 func (d *mpegtsDemuxer) close() {
 	d.pipeWriter.CloseWithError(io.EOF)
-	d.session.Close()
 }
 
 func (d *mpegtsDemuxer) run(pr *io.PipeReader) {
 	err := d.doRun(pr)
 	if err != nil {
 		d.session.Log(logger.Error, "MPEG-TS demuxer error: %v", err)
+		d.session.Close()
 	}
 }
 
