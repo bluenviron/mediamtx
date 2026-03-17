@@ -77,6 +77,14 @@ func goStructToApi(t *testing.T, rt reflect.Type) openAPIProperty {
 		return openAPIProperty{Ref: "#/components/schemas/" + schemaName(rt)}
 	}
 
+	if rt == reflect.TypeOf((*defs.APIPathTrackCodecProps)(nil)).Elem() {
+		return openAPIProperty{
+			Type:     "object",
+			AllOf:    []openAPIProperty{{Ref: "#/components/schemas/" + schemaName(rt)}},
+			Nullable: true,
+		}
+	}
+
 	switch {
 	case rt == reflect.TypeOf(""):
 		return openAPIProperty{Type: "string"}
@@ -366,6 +374,10 @@ func TestGo2API(t *testing.T) {
 			{
 				"PathSource",
 				defs.APIPathSource{},
+			},
+			{
+				"PathTrack",
+				defs.APIPathTrack{},
 			},
 			{
 				"Recording",

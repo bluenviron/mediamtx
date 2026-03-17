@@ -973,8 +973,13 @@ components:
           nullable: true
         tracks:
           type: array
+          deprecated: true
           items:
             $ref: '#/components/schemas/PathTrackCodec'
+        tracks2:
+          type: array
+          items:
+            $ref: '#/components/schemas/PathTrack'
         inboundBytes:
           type: integer
           format: uint64
@@ -1026,6 +1031,134 @@ components:
           $ref: '#/components/schemas/PathReaderType'
         id:
           type: string
+
+    PathTrack:
+      type: object
+      properties:
+        codec:
+          $ref: '#/components/schemas/PathTrackCodec'
+        codecProps:
+          type: object
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/PathTrackCodecProps'
+
+    PathTrackCodecProps:
+      oneOf:
+      - $ref: '#/components/schemas/PathTrackCodecPropsAV1'
+      - $ref: '#/components/schemas/PathTrackCodecPropsVP9'
+      - $ref: '#/components/schemas/PathTrackCodecPropsH265'
+      - $ref: '#/components/schemas/PathTrackCodecPropsH264'
+      - $ref: '#/components/schemas/PathTrackCodecPropsOpus'
+      - $ref: '#/components/schemas/PathTrackCodecPropsMPEG4Audio'
+      - $ref: '#/components/schemas/PathTrackCodecPropsAC3'
+      - $ref: '#/components/schemas/PathTrackCodecPropsG711'
+      - $ref: '#/components/schemas/PathTrackCodecPropsLPCM'
+
+    PathTrackCodecPropsAV1:
+      type: object
+      properties:
+        width:
+          type: integer
+          format: int64
+        height:
+          type: integer
+          format: int64
+        profile:
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        tier:
+          type: integer
+          format: int64
+    PathTrackCodecPropsVP9:
+      type: object
+      properties:
+        profile:
+          type: integer
+          format: int64
+
+    PathTrackCodecPropsH265:
+      type: object
+      properties:
+        width:
+          type: integer
+          format: int64
+        height:
+          type: integer
+          format: int64
+        profile:
+          type: string
+        level:
+          type: string
+
+    PathTrackCodecPropsH264:
+      type: object
+      properties:
+        width:
+          type: integer
+          format: int64
+        height:
+          type: integer
+          format: int64
+        profile:
+          type: string
+        level:
+          type: string
+
+    PathTrackCodecPropsOpus:
+      type: object
+      properties:
+        channelCount:
+          type: integer
+          format: int64
+
+    PathTrackCodecPropsMPEG4Audio:
+      type: object
+      properties:
+        sampleRate:
+          type: integer
+          format: int64
+        channelCount:
+          type: integer
+          format: int64
+
+    PathTrackCodecPropsAC3:
+      type: object
+      properties:
+        sampleRate:
+          type: integer
+          format: int64
+        channelCount:
+          type: integer
+          format: int64
+
+    PathTrackCodecPropsG711:
+      type: object
+      properties:
+        muLaw:
+          type: boolean
+        sampleRate:
+          type: integer
+          format: int64
+        channelCount:
+          type: integer
+          format: int64
+
+    PathTrackCodecPropsLPCM:
+      type: object
+      properties:
+        bitDepth:
+          type: integer
+          format: int64
+        sampleRate:
+          type: integer
+          format: int64
+        channelCount:
+          type: integer
+          format: int64
 
     HLSMuxer:
       type: object
