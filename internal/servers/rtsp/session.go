@@ -415,7 +415,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 // onPause is called by rtspServer.
 func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	// we can't close mpegtsDemuxer during pause because OnPacketRTP() is paused after onPause(),
-	// therefore a call to pipeWriter.CloseWithError() would case a race condition.
+	// therefore a call to pipeWriter.CloseWithError() would cause a race condition.
 	if s.mpegtsDemuxer != nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
