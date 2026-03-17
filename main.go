@@ -4,6 +4,8 @@ package main
 import (
 	"os"
 
+	_ "github.com/KimMachineGun/automemlimit"
+
 	"github.com/bluenviron/mediamtx/internal/core"
 )
 
