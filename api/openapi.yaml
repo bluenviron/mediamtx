@@ -717,6 +717,8 @@ components:
           deprecated: true
         srtPublishPassphrase:
           type: string
+        rtspDemuxMpegts:
+          type: boolean
 
         # RTSP source
         rtspTransport:

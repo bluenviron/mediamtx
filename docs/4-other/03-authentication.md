@@ -297,7 +297,7 @@ Username and password can be passed through the `Authorization: Basic` HTTP head
 Authorization: Basic base64(user:pass)
 ```
 
-When using a web browser, a dialog is first shown to users, asking for credentials, and then the header is automatically inserted into every request. If you need to automatically fill credentials from a parent web page, see [Embed streams in a website](14-embed-streams-in-a-website.md).
+When using a web browser, a dialog is first shown to users, asking for credentials, and then the header is automatically inserted into every request. If you need to automatically fill credentials from a parent web page, read [Embed streams in a website](14-embed-streams-in-a-website.md).
 
 If the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio, which only allows to provide a "Bearer Token"), credentials can be passed through the `Authorization: Bearer` header (i.e. the "Bearer Token" in OBS), where the value is the concatenation of username and password, separated by a colon:
 

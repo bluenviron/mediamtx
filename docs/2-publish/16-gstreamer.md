@@ -20,7 +20,7 @@ d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-For advanced options, see [RTSP-specific features](../4-other/23-rtsp-specific-features.md).
+For advanced options, read [RTSP-specific features](../4-other/23-rtsp-specific-features.md).
 
 ## GStreamer and RTMP
 
@@ -38,7 +38,7 @@ videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-pre
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
-For advanced options, see [RTSP-specific features](../4-other/23-rtsp-specific-features.md).
+For advanced options, read [RTSP-specific features](../4-other/23-rtsp-specific-features.md).
 
 ## GStreamer and WebRTC
 
