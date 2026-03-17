@@ -240,11 +240,12 @@ type IncomingTrack struct {
 
 	track     *webrtc.TrackRemote
 	receiver  *webrtc.RTPReceiver
+	rid       string
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 
-	packetsLost *counterdumper.Dumper
-	rtpReceiver *rtpreceiver.Receiver
+	inboundRTPPacketsLost *counterdumper.Dumper
+	rtpReceiver           *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
@@ -267,7 +268,7 @@ func (*IncomingTrack) PTSEqualsDTS(*rtp.Packet) bool {
 }
 
 func (t *IncomingTrack) start() {
-	t.packetsLost = &counterdumper.Dumper{
+	t.inboundRTPPacketsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			t.log.Log(logger.Warn, "%d RTP %s lost",
 				val,
@@ -279,7 +280,7 @@ func (t *IncomingTrack) start() {
 				}())
 		},
 	}
-	t.packetsLost.Start()
+	t.inboundRTPPacketsLost.Start()
 
 	t.rtpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
@@ -299,7 +300,7 @@ func (t *IncomingTrack) start() {
 	go func() {
 		buf := make([]byte, 1500)
 		for {
-			n, _, err2 := t.receiver.Read(buf)
+			n, _, err2 := t.receiver.ReadSimulcast(buf, t.rid)
 			if err2 != nil {
 				return
 			}
@@ -347,7 +348,7 @@ func (t *IncomingTrack) start() {
 			packets, lost := t.rtpReceiver.ProcessPacket2(pkt, time.Now(), true)
 
 			if lost != 0 {
-				t.packetsLost.Add(lost)
+				t.inboundRTPPacketsLost.Add(lost)
 				// do not return
 			}
 
@@ -369,8 +370,8 @@ func (t *IncomingTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
 }
 
 func (t *IncomingTrack) close() {
-	if t.packetsLost != nil {
-		t.packetsLost.Stop()
+	if t.inboundRTPPacketsLost != nil {
+		t.inboundRTPPacketsLost.Stop()
 	}
 	if t.rtpReceiver != nil {
 		t.rtpReceiver.Close()

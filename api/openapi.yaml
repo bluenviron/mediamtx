@@ -15,19 +15,158 @@ security: []
 
 components:
   schemas:
+    OKStatus:
+      type: string
+      enum: [ok]
+
+    ErrorStatus:
+      type: string
+      enum: [error]
+
+    PathSourceType:
+      type: string
+      enum:
+      - hlsSource
+      - redirect
+      - rpiCameraSource
+      - rtmpConn
+      - rtmpsConn
+      - rtmpSource
+      - rtspSession
+      - rtspSource
+      - rtspsSession
+      - srtConn
+      - srtSource
+      - mpegtsSource
+      - rtpSource
+      - webRTCSession
+      - webRTCSource
+
+    PathReaderType:
+      type: string
+      enum:
+      - hlsMuxer
+      - rpiCameraSecondary
+      - rtmpConn
+      - rtmpsConn
+      - rtspConn
+      - rtspSession
+      - rtspsConn
+      - rtspsSession
+      - srtConn
+      - webRTCSession
+
+    PathTrackCodec:
+      type: string
+      enum:
+      - AV1
+      - VP9
+      - VP8
+      - H265
+      - H264
+      - MPEG-4 Video
+      - MPEG-1 Video
+      - MJPEG
+      - Opus
+      - Vorbis
+      - MPEG-4 Audio
+      - MPEG-4 Audio LATM
+      - MPEG-1 Audio
+      - AC3
+      - Speex
+      - G726
+      - G722
+      - G711
+      - LPCM
+      - MPEG-TS
+      - KLV
+      - Generic
+
+    AlwaysAvailableTrackCodec:
+      type: string
+      enum:
+      - AV1
+      - VP9
+      - H265
+      - H264
+      - MPEG4Audio
+      - Opus
+      - G711
+      - LPCM
+
+    AuthAction:
+      type: string
+      enum:
+      - publish
+      - read
+      - playback
+      - api
+      - metrics
+      - pprof
+
+    AuthMethod:
+      type: string
+      enum: [internal, http, jwt]
+
+    Encryption:
+      type: string
+      enum: [no, optional, strict]
+
+    HLSVariant:
+      type: string
+      enum: [mpegts, fmp4, lowLatency]
+
+    LogDestination:
+      type: string
+      enum: [stdout, file, syslog]
+
+    LogLevel:
+      type: string
+      enum: [error, warn, info, debug]
+
+    RecordFormat:
+      type: string
+      enum: [fmp4, mpegts]
+
+    RTSPAuthMethod:
+      type: string
+      enum: [basic, digest]
+
+    RTSPRangeType:
+      type: string
+      enum: ['', clock, npt, smpte]
+
+    RTSPTransport:
+      type: string
+      enum: [udp, multicast, tcp, automatic]
+
+    RTMPConnState:
+      type: string
+      enum: [idle, read, publish]
+
+    RTSPSessionState:
+      type: string
+      enum: [idle, read, publish]
+
+    SRTConnState:
+      type: string
+      enum: [idle, read, publish]
+
+    WebRTCSessionState:
+      type: string
+      enum: [read, publish]
+
     OK:
       type: object
       properties:
         status:
-          type: string
-          enum: [ok]
+          $ref: '#/components/schemas/OKStatus'
 
     Error:
       type: object
       properties:
         status:
-          type: string
-          enum: [error]
+          $ref: '#/components/schemas/ErrorStatus'
         error:
           type: string
 
@@ -59,7 +198,7 @@ components:
       type: object
       properties:
         action:
-          type: string
+          $ref: '#/components/schemas/AuthAction'
         path:
           type: string
 
@@ -68,11 +207,11 @@ components:
       properties:
         # General
         logLevel:
-          type: string
+          $ref: '#/components/schemas/LogLevel'
         logDestinations:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/LogDestination'
         logStructured:
           type: boolean
         logFile:
@@ -85,6 +224,11 @@ components:
           type: string
         writeTimeout:
           type: string
+        readBufferCount:
+          type: integer
+          format: int64
+          nullable: true
+          deprecated: true
         writeQueueSize:
           type: integer
           format: int64
@@ -103,13 +247,17 @@ components:
 
         # Authentication
         authMethod:
-          type: string
+          $ref: '#/components/schemas/AuthMethod'
         authInternalUsers:
           type: array
           items:
             $ref: '#/components/schemas/AuthInternalUser'
         authHTTPAddress:
           type: string
+        externalAuthenticationURL:
+          type: string
+          nullable: true
+          deprecated: true
         authHTTPFingerprint:
           type: string
         authHTTPExclude:
@@ -144,6 +292,10 @@ components:
           type: string
         apiServerCert:
           type: string
+        apiAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         apiAllowOrigins:
           type: array
           items:
@@ -164,6 +316,10 @@ components:
           type: string
         metricsServerCert:
           type: string
+        metricsAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         metricsAllowOrigins:
           type: array
           items:
@@ -184,6 +340,10 @@ components:
           type: string
         pprofServerCert:
           type: string
+        pprofAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         pprofAllowOrigins:
           type: array
           items:
@@ -204,6 +364,10 @@ components:
           type: string
         playbackServerCert:
           type: string
+        playbackAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         playbackAllowOrigins:
           type: array
           items:
@@ -216,12 +380,30 @@ components:
         # RTSP server
         rtsp:
           type: boolean
+        rtspDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
+        protocols:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [udp, multicast, tcp]
+          deprecated: true
         rtspTransports:
           type: array
           items:
             type: string
-        rtspEncryption:
+            enum: [udp, multicast, tcp]
+        encryption:
           type: string
+          nullable: true
+          deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/Encryption'
+        rtspEncryption:
+          $ref: '#/components/schemas/Encryption'
         rtspAddress:
           type: string
         rtspsAddress:
@@ -252,16 +434,31 @@ components:
           type: string
         rtspServerCert:
           type: string
+        authMethods:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RTSPAuthMethod'
+          deprecated: true
         rtspAuthMethods:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/RTSPAuthMethod'
+        rtspUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
 
         # RTMP server
         rtmp:
           type: boolean
+        rtmpDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         rtmpEncryption:
-          type: string
+          $ref: '#/components/schemas/Encryption'
         rtmpAddress:
           type: string
         rtmpsAddress:
@@ -274,6 +471,10 @@ components:
         # HLS server
         hls:
           type: boolean
+        hlsDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         hlsAddress:
           type: string
         hlsEncryption:
@@ -282,6 +483,10 @@ components:
           type: string
         hlsServerCert:
           type: string
+        hlsAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         hlsAllowOrigins:
           type: array
           items:
@@ -293,7 +498,7 @@ components:
         hlsAlwaysRemux:
           type: boolean
         hlsVariant:
-          type: string
+          $ref: '#/components/schemas/HLSVariant'
         hlsSegmentCount:
           type: integer
           format: int64
@@ -311,6 +516,10 @@ components:
         # WebRTC server
         webrtc:
           type: boolean
+        webrtcDisable:
+          type: boolean
+          nullable: true
+          deprecated: true
         webrtcAddress:
           type: string
         webrtcEncryption:
@@ -319,6 +528,10 @@ components:
           type: string
         webrtcServerCert:
           type: string
+        webrtcAllowOrigin:
+          type: string
+          nullable: true
+          deprecated: true
         webrtcAllowOrigins:
           type: array
           items:
@@ -351,12 +564,60 @@ components:
           type: string
         webrtcTrackGatherTimeout:
           type: string
+        webrtcICEUDPMuxAddress:
+          type: string
+          nullable: true
+          deprecated: true
+        webrtcICETCPMuxAddress:
+          type: string
+          nullable: true
+          deprecated: true
+        webrtcICEHostNAT1To1IPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+        webrtcICEServers:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
 
         # SRT server
         srt:
           type: boolean
         srtAddress:
           type: string
+
+        # Record (deprecated)
+        record:
+          type: boolean
+          nullable: true
+          deprecated: true
+        recordPath:
+          type: string
+          nullable: true
+          deprecated: true
+        recordFormat:
+          type: string
+          nullable: true
+          deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/RecordFormat'
+        recordPartDuration:
+          type: string
+          nullable: true
+          deprecated: true
+        recordSegmentDuration:
+          type: string
+          nullable: true
+          deprecated: true
+        recordDeleteAfter:
+          type: string
+          nullable: true
+          deprecated: true
 
     PathConf:
       type: object
@@ -380,6 +641,10 @@ components:
           format: int64
         srtReadPassphrase:
           type: string
+        fallback:
+          type: string
+          nullable: true
+          deprecated: true
         useAbsoluteTimestamp:
           type: boolean
 
@@ -396,10 +661,14 @@ components:
         # Record
         record:
           type: boolean
+        playback:
+          type: boolean
+          nullable: true
+          deprecated: true
         recordPath:
           type: string
         recordFormat:
-          type: string
+          $ref: '#/components/schemas/RecordFormat'
         recordPartDuration:
           type: string
         recordMaxPartSize:
@@ -409,21 +678,70 @@ components:
         recordDeleteAfter:
           type: string
 
+        # Authentication (deprecated)
+        publishUser:
+          type: string
+          nullable: true
+          deprecated: true
+        publishPass:
+          type: string
+          nullable: true
+          deprecated: true
+        publishIPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+        readUser:
+          type: string
+          nullable: true
+          deprecated: true
+        readPass:
+          type: string
+          nullable: true
+          deprecated: true
+        readIPs:
+          type: array
+          nullable: true
+          items:
+            type: string
+          deprecated: true
+
         # Publisher source
         overridePublisher:
           type: boolean
+        disablePublisherOverride:
+          type: boolean
+          nullable: true
+          deprecated: true
         srtPublishPassphrase:
           type: string
 
         # RTSP source
         rtspTransport:
-          type: string
+          $ref: '#/components/schemas/RTSPTransport'
         rtspAnyPort:
           type: boolean
-        rtspRangeType:
+        sourceProtocol:
           type: string
+          nullable: true
+          deprecated: true
+          allOf:
+            - $ref: '#/components/schemas/RTSPTransport'
+        sourceAnyPortEnable:
+          type: boolean
+          nullable: true
+          deprecated: true
+        rtspRangeType:
+          $ref: '#/components/schemas/RTSPRangeType'
         rtspRangeStart:
           type: string
+        rtspUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
         rtspUDPSourcePortRange:
           type: array
           minItems: 2
@@ -432,9 +750,21 @@ components:
             type: integer
             format: uint64
 
+        # MPEG-TS source
+        mpegtsUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
+
         # RTP source
         rtpSDP:
           type: string
+        rtpUDPReadBufferSize:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
 
         # WHEP source
         whepBearerToken:
@@ -539,6 +869,14 @@ components:
         rpiCameraBitrate:
           type: integer
           format: uint64
+        rpiCameraProfile:
+          type: string
+          nullable: true
+          deprecated: true
+        rpiCameraLevel:
+          type: string
+          nullable: true
+          deprecated: true
         rpiCameraHardwareH264Profile:
           type: string
         rpiCameraHardwareH264Level:
@@ -547,6 +885,11 @@ components:
           type: string
         rpiCameraSoftwareH264Level:
           type: string
+        rpiCameraJPEGQuality:
+          type: integer
+          format: uint64
+          nullable: true
+          deprecated: true
         rpiCameraMJPEGQuality:
           type: integer
           format: uint64
@@ -605,13 +948,17 @@ components:
         confName:
           type: string
         source:
-          $ref: '#/components/schemas/PathSource'
+          type: object
           nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PathSource'
         ready:
           type: boolean
+          deprecated: true
         readyTime:
           type: string
           nullable: true
+          deprecated: true
         available:
           type: boolean
         availableTime:
@@ -625,13 +972,24 @@ components:
         tracks:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/PathTrackCodec'
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        inboundFramesInError:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         readers:
           type: array
           items:
@@ -655,22 +1013,7 @@ components:
       type: object
       properties:
         type:
-          type: string
-          enum:
-          - hlsSource
-          - redirect
-          - rpiCameraSource
-          - rtmpConn
-          - rtmpSource
-          - rtspSession
-          - rtspSource
-          - rtspsSession
-          - srtConn
-          - srtSource
-          - mpegtsSource
-          - rtpSource
-          - webRTCSession
-          - webRTCSource
+          $ref: '#/components/schemas/PathSourceType'
         id:
           type: string
 
@@ -678,14 +1021,7 @@ components:
       type: object
       properties:
         type:
-          type: string
-          enum:
-          - hlsMuxer
-          - rtmpConn
-          - rtspSession
-          - rtspsSession
-          - srtConn
-          - webRTCSession
+          $ref: '#/components/schemas/PathReaderType'
         id:
           type: string
 
@@ -698,9 +1034,16 @@ components:
           type: string
         lastRequest:
           type: string
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     HLSMuxerList:
       type: object
@@ -757,20 +1100,30 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/RTMPConnState'
         path:
           type: string
         query:
           type: string
         user:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     RTMPConnList:
       type: object
@@ -802,12 +1155,20 @@ components:
           nullable: true
         tunnel:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
 
     RTSPConnList:
       type: object
@@ -834,8 +1195,7 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/RTSPSessionState'
         path:
           type: string
         query:
@@ -853,36 +1213,82 @@ components:
           items:
             type: string
             format: uuid
+        inboundBytes:
+          type: integer
+          format: uint64
+        inboundRTPPackets:
+          type: integer
+          format: uint64
+        inboundRTPPacketsLost:
+          type: integer
+          format: uint64
+        inboundRTPPacketsInError:
+          type: integer
+          format: uint64
+        inboundRTPPacketsJitter:
+          type: number
+          format: double
+        inboundRTCPPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPacketsInError:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTPPacketsReportedLost:
+          type: integer
+          format: uint64
+        outboundRTPPacketsDiscarded:
+          type: integer
+          format: uint64
+        outboundRTCPPackets:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsLost:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsInError:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsJitter:
           type: number
           format: double
+          deprecated: true
         rtcpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsInError:
           type: integer
           format: uint64
+          deprecated: true
 
     RTSPSessionList:
       type: object
@@ -909,8 +1315,7 @@ components:
         remoteAddr:
           type: string
         state:
-          type: string
-          enum: [idle, read, publish]
+          $ref: '#/components/schemas/SRTConnState'
         path:
           type: string
         query:
@@ -1127,6 +1532,9 @@ components:
           type: number
           format: double
           description: Percentage of retransmitted data vs. received data
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
 
     SRTConnList:
       type: object
@@ -1146,7 +1554,7 @@ components:
       type: object
       properties:
         codec:
-          type: string
+          $ref: '#/components/schemas/AlwaysAvailableTrackCodec'
         sampleRate:
           type: integer
           format: int64
@@ -1185,38 +1593,72 @@ components:
         remoteCandidate:
           type: string
         state:
-          type: string
-          enum: [read, publish]
+          $ref: '#/components/schemas/WebRTCSessionState'
         path:
           type: string
         query:
           type: string
         user:
           type: string
+        inboundBytes:
+          type: integer
+          format: uint64
+        inboundRTPPackets:
+          type: integer
+          format: uint64
+        inboundRTPPacketsLost:
+          type: integer
+          format: uint64
+        inboundRTPPacketsJitter:
+          type: number
+          format: double
+        inboundRTCPPackets:
+          type: integer
+          format: uint64
+        outboundBytes:
+          type: integer
+          format: uint64
+        outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTCPPackets:
+          type: integer
+          format: uint64
+        outboundFramesDiscarded:
+          type: integer
+          format: uint64
         bytesReceived:
           type: integer
           format: uint64
+          deprecated: true
         bytesSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsLost:
           type: integer
           format: uint64
+          deprecated: true
         rtpPacketsJitter:
           type: number
           format: double
+          deprecated: true
         rtcpPacketsReceived:
           type: integer
           format: uint64
+          deprecated: true
         rtcpPacketsSent:
           type: integer
           format: uint64
+          deprecated: true
 
     WebRTCSessionList:
       type: object

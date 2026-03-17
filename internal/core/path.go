@@ -655,23 +655,41 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.source.APISourceDescribe()
 				return v
 			}(),
-			Tracks: func() []string {
+			Tracks: func() []defs.APIPathTrackCodec {
 				if !pa.isAvailable() {
-					return []string{}
+					return []defs.APIPathTrackCodec{}
 				}
 				return defs.MediasToCodecs(pa.stream.Desc.Medias)
+			}(),
+			InboundBytes: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.InboundBytes()
+			}(),
+			OutboundBytes: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.OutboundBytes()
+			}(),
+			InboundFramesInError: func() uint64 {
+				if !pa.isAvailable() {
+					return 0
+				}
+				return pa.stream.InboundFramesInError()
 			}(),
 			BytesReceived: func() uint64 {
 				if !pa.isAvailable() {
 					return 0
 				}
-				return pa.stream.BytesReceived()
+				return pa.stream.InboundBytes()
 			}(),
 			BytesSent: func() uint64 {
 				if !pa.isAvailable() {
 					return 0
 				}
-				return pa.stream.BytesSent()
+				return pa.stream.OutboundBytes()
 			}(),
 			Readers: func() []defs.APIPathReader {
 				ret := make([]defs.APIPathReader, len(pa.readers))

@@ -129,7 +129,7 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: "error",
+				Status: defs.APIErrorStatusError,
 				Error:  "authentication error",
 			})
 			return false
@@ -142,7 +142,7 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		<-time.After(auth.PauseAfterError)
 
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: "error",
+			Status: defs.APIErrorStatusError,
 			Error:  "authentication error",
 		})
 		return false

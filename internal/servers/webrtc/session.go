@@ -63,6 +63,7 @@ type session struct {
 	uuid      uuid.UUID
 	secret    uuid.UUID
 	mutex     sync.RWMutex
+	reader    *stream.Reader
 	pc        *webrtc.PeerConnection
 	user      string
 
@@ -387,6 +388,10 @@ func (s *session) runRead() (int, error) {
 	res.Stream.AddReader(r)
 	defer res.Stream.RemoveReader(r)
 
+	s.mutex.Lock()
+	s.reader = r
+	s.mutex.Unlock()
+
 	select {
 	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
@@ -451,7 +456,7 @@ func (s *session) addCandidates(
 // APIReaderDescribe implements reader.
 func (s *session) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: "webRTCSession",
+		Type: defs.APIPathReaderTypeWebRTCSession,
 		ID:   s.uuid.String(),
 	}
 }
@@ -459,7 +464,7 @@ func (s *session) APIReaderDescribe() *defs.APIPathReader {
 // APISourceDescribe implements source.
 func (s *session) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "webRTCSession",
+		Type: defs.APIPathSourceTypeWebRTCSession,
 		ID:   s.uuid.String(),
 	}
 }
@@ -479,6 +484,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	rtpPacketsJitter := float64(0)
 	rtcpPacketsReceived := uint64(0)
 	rtcpPacketsSent := uint64(0)
+	outboundFramesDiscarded := uint64(0)
 
 	if s.pc != nil {
 		peerConnectionEstablished = true
@@ -495,6 +501,10 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		rtcpPacketsSent = stats.RTCPPacketsSent
 	}
 
+	if s.reader != nil {
+		outboundFramesDiscarded = s.reader.OutboundFramesDiscarded()
+	}
+
 	return &defs.APIWebRTCSession{
 		ID:                        s.uuid,
 		Created:                   s.created,
@@ -508,16 +518,25 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			}
 			return defs.APIWebRTCSessionStateRead
 		}(),
-		Path:                s.req.pathName,
-		Query:               s.req.httpRequest.URL.RawQuery,
-		User:                s.user,
-		BytesReceived:       bytesReceived,
-		BytesSent:           bytesSent,
-		RTPPacketsReceived:  rtpPacketsReceived,
-		RTPPacketsSent:      rtpPacketsSent,
-		RTPPacketsLost:      rtpPacketsLost,
-		RTPPacketsJitter:    rtpPacketsJitter,
-		RTCPPacketsReceived: rtcpPacketsReceived,
-		RTCPPacketsSent:     rtcpPacketsSent,
+		Path:                    s.req.pathName,
+		Query:                   s.req.httpRequest.URL.RawQuery,
+		User:                    s.user,
+		InboundBytes:            bytesReceived,
+		InboundRTPPackets:       rtpPacketsReceived,
+		InboundRTPPacketsLost:   rtpPacketsLost,
+		InboundRTPPacketsJitter: rtpPacketsJitter,
+		InboundRTCPPackets:      rtcpPacketsReceived,
+		OutboundBytes:           bytesSent,
+		OutboundRTPPackets:      rtpPacketsSent,
+		OutboundRTCPPackets:     rtcpPacketsSent,
+		OutboundFramesDiscarded: outboundFramesDiscarded,
+		BytesReceived:           bytesReceived,
+		BytesSent:               bytesSent,
+		RTPPacketsReceived:      rtpPacketsReceived,
+		RTPPacketsSent:          rtpPacketsSent,
+		RTPPacketsLost:          rtpPacketsLost,
+		RTPPacketsJitter:        rtpPacketsJitter,
+		RTCPPacketsReceived:     rtcpPacketsReceived,
+		RTCPPacketsSent:         rtcpPacketsSent,
 	}
 }

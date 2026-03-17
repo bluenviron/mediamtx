@@ -19,10 +19,10 @@ type Reader struct {
 	SkipBytesSent bool
 	Parent        logger.Writer
 
-	onDatas         map[*description.Media]map[format.Format]OnDataFunc
-	queueSize       int
-	buffer          *ringbuffer.RingBuffer
-	discardedFrames *counterdumper.Dumper
+	onDatas                 map[*description.Media]map[format.Format]OnDataFunc
+	queueSize               int
+	buffer                  *ringbuffer.RingBuffer
+	outboundFramesDiscarded *counterdumper.Dumper
 
 	// out
 	err chan error
@@ -65,6 +65,11 @@ func (r *Reader) Formats() []format.Format {
 	return out
 }
 
+// OutboundFramesDiscarded returns the number of frames discarded because the reader is too slow.
+func (r *Reader) OutboundFramesDiscarded() uint64 {
+	return r.outboundFramesDiscarded.Get()
+}
+
 // error returns whenever there's an error.
 // It can be called only after stream.AddReader().
 func (r *Reader) Error() chan error {
@@ -76,7 +81,7 @@ func (r *Reader) start() {
 	r.buffer = buffer
 	r.err = make(chan error)
 
-	r.discardedFrames = &counterdumper.Dumper{
+	r.outboundFramesDiscarded = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			r.Parent.Log(logger.Warn, "reader is too slow, discarding %d %s",
 				val,
@@ -88,14 +93,14 @@ func (r *Reader) start() {
 				}())
 		},
 	}
-	r.discardedFrames.Start()
+	r.outboundFramesDiscarded.Start()
 
 	go r.run()
 }
 
 func (r *Reader) stop() {
 	r.buffer.Close()
-	r.discardedFrames.Stop()
+	r.outboundFramesDiscarded.Stop()
 	<-r.err
 }
 
@@ -121,6 +126,6 @@ func (r *Reader) runInner() error {
 func (r *Reader) push(cb func() error) {
 	ok := r.buffer.Push(cb)
 	if !ok {
-		r.discardedFrames.Increase()
+		r.outboundFramesDiscarded.Increase()
 	}
 }

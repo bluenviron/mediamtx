@@ -257,7 +257,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "rtpSource",
+		Type: defs.APIPathSourceTypeRTPSource,
 		ID:   "",
 	}
 }

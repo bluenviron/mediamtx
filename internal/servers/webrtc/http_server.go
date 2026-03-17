@@ -49,7 +49,7 @@ func mergePathAndQuery(path string, rawQuery string) string {
 
 func writeError(ctx *gin.Context, statusCode int, err error) {
 	ctx.JSON(statusCode, &defs.APIError{
-		Status: "error",
+		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
 }
@@ -143,7 +143,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-					Status: "error",
+					Status: defs.APIErrorStatusError,
 					Error:  "authentication error",
 				})
 				return false
@@ -208,7 +208,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-					Status: "error",
+					Status: defs.APIErrorStatusError,
 					Error:  "authentication error",
 				})
 				return
@@ -220,7 +220,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 			<-time.After(auth.PauseAfterError)
 
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: "error",
+				Status: defs.APIErrorStatusError,
 				Error:  "authentication error",
 			})
 			return
@@ -288,7 +288,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 	}
 
 	ctx.AbortWithStatusJSON(http.StatusNoContent, &defs.APIOK{
-		Status: "ok",
+		Status: defs.APIOKStatusOK,
 	})
 }
 
@@ -313,7 +313,7 @@ func (s *httpServer) onWHIPDelete(ctx *gin.Context, pathName string, rawSecret s
 	}
 
 	ctx.AbortWithStatusJSON(http.StatusOK, &defs.APIOK{
-		Status: "ok",
+		Status: defs.APIOKStatusOK,
 	})
 }
 

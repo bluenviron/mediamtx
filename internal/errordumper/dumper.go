@@ -14,9 +14,10 @@ const (
 type Dumper struct {
 	OnReport func(v uint64, last error)
 
-	mutex   sync.Mutex
-	counter uint64
-	last    error
+	mutex      sync.Mutex
+	counter    uint64
+	absCounter uint64
+	last       error
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -41,7 +42,15 @@ func (c *Dumper) Add(err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.counter++
+	c.absCounter++
 	c.last = err
+}
+
+// Get returns the total number of errors.
+func (c *Dumper) Get() uint64 {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.absCounter
 }
 
 func (c *Dumper) run() {

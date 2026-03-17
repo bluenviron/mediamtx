@@ -29,7 +29,7 @@ Then use the button `Start Recording` (instead of `Start Streaming`) to start st
 
 ## OBS Studio and RTMP, multitrack video
 
-OBS Studio can publish multiple video tracks or renditions at once. Make sure that the OBS Studio version is &ge; 31.0.0. Open `Settings -> Stream` and use the following parameters:
+OBS Studio can publish multiple video tracks or renditions at once (simulcast). Make sure that the OBS Studio version is &ge; 31.0.0. Open `Settings -> Stream` and use the following parameters:
 
 - Service: `Custom...`
 - Server: `rtmp://localhost/mystream`
@@ -105,12 +105,30 @@ OBS Studio can publish multiple video tracks or renditions at once. Make sure th
   - `obs_qsv11_v2`: QuickSync H264
   - `obs_x264`: software H264
 
+Save the configuration and click `Start streaming`.
+
+The resulting stream will be available on path `/mystream`.
+
 ## OBS Studio and WebRTC
 
 Recent versions of OBS Studio can also publish streams to the server with the [WebRTC / WHIP protocol](04-webrtc-clients.md) Use the following parameters:
 
 - Service: `WHIP`
 - Server: `http://localhost:8889/mystream/whip`
+
+Save the configuration and click `Start streaming`.
+
+The resulting stream will be available on path `/mystream`.
+
+## OBS Studio and WebRTC, multitrack video
+
+OBS Studio can publish multiple video tracks or renditions at once (simulcast) with WebRTC / WHIP too. Make sure that the OBS Studio version is &ge; 32.1.0. Open `Settings -> Stream` and use the following parameters:
+
+- Service: `WHIP`
+- Server: `http://localhost:8889/mystream/whip`
+- Simulcast, Total Layers: `2` (or greater)
+
+Currently it's not possible to change resolution or bitrate (or canvas) of renditions, since quality of secondary renditions is hardcoded as a percentage of the main one. You can find details on the [OBS documentation](https://obsproject.com/kb/whip-streaming-guide).
 
 Save the configuration and click `Start streaming`.
 

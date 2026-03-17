@@ -6,32 +6,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
-// Codec is a codec of AlwaysAvailableTrack.
-type Codec string
-
-// available codecs.
-const (
-	CodecAV1        Codec = "AV1"
-	CodecVP9        Codec = "VP9"
-	CodecH265       Codec = "H265"
-	CodecH264       Codec = "H264"
-	CodecMPEG4Audio Codec = "MPEG4Audio"
-	CodecOpus       Codec = "Opus"
-	CodecG711       Codec = "G711"
-	CodecLPCM       Codec = "LPCM"
-)
-
-// UnmarshalEnv implements env.Unmarshaler.
-func (d *Codec) UnmarshalEnv(_ string, v string) error {
-	return jsonwrapper.Unmarshal([]byte(`"`+v+`"`), d)
-}
-
 // AlwaysAvailableTrack is an item of alwaysAvailableTracks.
 type AlwaysAvailableTrack struct {
-	Codec        Codec `json:"codec"`
-	SampleRate   int   `json:"sampleRate"`
-	ChannelCount int   `json:"channelCount"`
-	MULaw        bool  `json:"muLaw"`
+	Codec        AlwaysAvailableTrackCodec `json:"codec"`
+	SampleRate   int                       `json:"sampleRate"`
+	ChannelCount int                       `json:"channelCount"`
+	MULaw        bool                      `json:"muLaw"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

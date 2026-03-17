@@ -61,9 +61,9 @@ jobs:
             + `\n`
             + `## Security\n`
             + `\n`
-            + `Binaries are compiled from source code by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml) without human intervention.\n`
+            + `Binaries are compiled from source code by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml), which is a fully-visible process that prevents any change or external interference in produced artifacts.\n`
             + `\n`
-            + 'You can verify that binaries have been produced by the workflow by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations):\n'
+            + 'Checksums of binaries are also published in a public blockchain by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations), and they can be verified by running:\n'
             + `\n`
             + '```\n'
             + `ls mediamtx_* | xargs -L1 gh attestation verify --repo bluenviron/mediamtx\n`

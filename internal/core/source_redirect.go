@@ -14,7 +14,7 @@ func (*sourceRedirect) Log(logger.Level, string, ...any) {
 // APISourceDescribe implements source.
 func (*sourceRedirect) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "redirect",
+		Type: defs.APIPathSourceTypeRedirect,
 		ID:   "",
 	}
 }

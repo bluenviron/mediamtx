@@ -94,9 +94,9 @@ In environments where HTTP is the only protocol available for exposing services 
 - RTSP over WebSocket: more efficient, requires WebSocket support from the gateway / firewall
 - RTSP over HTTP: older variant, should work even in extreme cases
 
-_MediaMTX_ is automatically able to handle incoming HTTP tunneled connections, without any configuration required.
+_MediaMTX_ is automatically able to handle incoming HTTP-tunneled RTSP connections without any configuration required.
 
-In order to read a RTSP from an external server using HTTP tunneling, you can use the `rtsp+http` scheme:
+In order to read a stream from an external RTSP server using HTTP tunneling, you can use the `rtsp+http` scheme:
 
 ```yml
 paths:

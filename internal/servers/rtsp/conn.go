@@ -86,11 +86,11 @@ func (c *conn) initialize() {
 		RunOnDisconnect:     c.runOnDisconnect,
 		RTSPAddress:         c.rtspAddress,
 		Desc: defs.APIPathReader{
-			Type: func() string {
+			Type: func() defs.APIPathReaderType {
 				if c.isTLS {
-					return "rtspsConn"
+					return defs.APIPathReaderTypeRTSPSConn
 				}
-				return "rtspConn"
+				return defs.APIPathReaderTypeRTSPConn
 			}(),
 			ID: c.uuid.String(),
 		},
@@ -233,7 +233,9 @@ func (c *conn) apiItem() *defs.APIRTSPConn {
 			return nil
 		}(),
 		Tunnel:        tunnelLabel(c.rconn.Transport().Tunnel),
-		BytesReceived: stats.BytesReceived,
-		BytesSent:     stats.BytesSent,
+		InboundBytes:  stats.InboundBytes,
+		OutboundBytes: stats.OutboundBytes,
+		BytesReceived: stats.InboundBytes,
+		BytesSent:     stats.OutboundBytes,
 	}
 }

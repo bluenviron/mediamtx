@@ -26,7 +26,7 @@ func OnReady(params OnReadyParams) func() {
 		env = params.ExternalCmdEnv
 		env["MTX_QUERY"] = params.Query
 		if params.Desc != nil {
-			env["MTX_SOURCE_TYPE"] = params.Desc.Type
+			env["MTX_SOURCE_TYPE"] = string(params.Desc.Type)
 			env["MTX_SOURCE_ID"] = params.Desc.ID
 		}
 	}

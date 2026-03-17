@@ -183,7 +183,7 @@ func (s *Source) runReader(nc net.Conn) error {
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "mpegtsSource",
+		Type: defs.APIPathSourceTypeMPEGTSSource,
 		ID:   "",
 	}
 }

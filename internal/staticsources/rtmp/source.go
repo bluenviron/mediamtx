@@ -152,7 +152,7 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
-		Type: "rtmpSource",
+		Type: defs.APIPathSourceTypeRTMPSource,
 		ID:   "",
 	}
 }

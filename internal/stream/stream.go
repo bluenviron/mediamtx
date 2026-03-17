@@ -321,17 +321,17 @@ type Stream struct {
 	ReplaceNTP            bool
 	Parent                logger.Writer
 
-	offlineDesc      *description.Session
-	mutex            sync.RWMutex
-	subStream        *SubStream
-	offlineSubStream *offlineSubStream
-	bytesReceived    *uint64
-	bytesSent        *uint64
-	medias           map[*description.Media]*streamMedia
-	rtspStream       *gortsplib.ServerStream
-	rtspsStream      *gortsplib.ServerStream
-	readers          map[*Reader]struct{}
-	processingErrors *errordumper.Dumper
+	offlineDesc          *description.Session
+	mutex                sync.RWMutex
+	subStream            *SubStream
+	offlineSubStream     *offlineSubStream
+	inboundBytes         *uint64
+	outboundBytes        *uint64
+	medias               map[*description.Media]*streamMedia
+	rtspStream           *gortsplib.ServerStream
+	rtspsStream          *gortsplib.ServerStream
+	readers              map[*Reader]struct{}
+	inboundFramesInError *errordumper.Dumper
 
 	timeMutex         sync.Mutex
 	firstTimeReceived bool
@@ -371,13 +371,13 @@ func (s *Stream) Initialize() error {
 		s.Desc = cloneDesc(s.offlineDesc)
 	}
 
-	s.bytesReceived = new(uint64)
-	s.bytesSent = new(uint64)
+	s.inboundBytes = new(uint64)
+	s.outboundBytes = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 	s.hasReaders = make(chan struct{})
 
-	s.processingErrors = &errordumper.Dumper{
+	s.inboundFramesInError = &errordumper.Dumper{
 		OnReport: func(val uint64, last error) {
 			if val == 1 {
 				s.Parent.Log(logger.Warn, "processing error: %v", last)
@@ -386,22 +386,22 @@ func (s *Stream) Initialize() error {
 			}
 		},
 	}
-	s.processingErrors.Start()
+	s.inboundFramesInError.Start()
 
 	s.lastSystemTime = time.Now()
 
 	for _, media := range s.Desc.Medias {
 		sm := &streamMedia{
-			media:             media,
-			alwaysAvailable:   s.AlwaysAvailable,
-			rtpMaxPayloadSize: s.RTPMaxPayloadSize,
-			replaceNTP:        s.ReplaceNTP,
-			addBytesReceived:  s.addBytesReceived,
-			addBytesSent:      s.addBytesSent,
-			updateLastTime:    s.updateLastTime,
-			writeRTSP:         s.writeRTSP,
-			processingErrors:  s.processingErrors,
-			parent:            s.Parent,
+			media:                media,
+			alwaysAvailable:      s.AlwaysAvailable,
+			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
+			replaceNTP:           s.ReplaceNTP,
+			addInboundBytes:      s.addInboundBytes,
+			addOutboundBytes:     s.addOutboundBytes,
+			updateLastTime:       s.updateLastTime,
+			writeRTSP:            s.writeRTSP,
+			inboundFramesInError: s.inboundFramesInError,
+			parent:               s.Parent,
 		}
 		err := sm.initialize()
 		if err != nil {
@@ -426,7 +426,7 @@ func (s *Stream) Close() {
 		s.offlineSubStream.close(false)
 	}
 
-	s.processingErrors.Stop()
+	s.inboundFramesInError.Stop()
 
 	if s.rtspStream != nil {
 		s.rtspStream.Close()
@@ -459,28 +459,33 @@ func (s *Stream) StartOfflineSubStream() error {
 	return nil
 }
 
-// BytesReceived returns received bytes.
-func (s *Stream) BytesReceived() uint64 {
-	return atomic.LoadUint64(s.bytesReceived)
+// InboundBytes returns received bytes.
+func (s *Stream) InboundBytes() uint64 {
+	return atomic.LoadUint64(s.inboundBytes)
 }
 
-// BytesSent returns sent bytes.
-func (s *Stream) BytesSent() uint64 {
-	bytesSent := atomic.LoadUint64(s.bytesSent)
+// OutboundBytes returns sent bytes.
+func (s *Stream) OutboundBytes() uint64 {
+	outboundBytes := atomic.LoadUint64(s.outboundBytes)
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	if s.rtspStream != nil {
 		stats := s.rtspStream.Stats()
-		bytesSent += stats.BytesSent
+		outboundBytes += stats.OutboundBytes
 	}
 	if s.rtspsStream != nil {
 		stats := s.rtspsStream.Stats()
-		bytesSent += stats.BytesSent
+		outboundBytes += stats.OutboundBytes
 	}
 
-	return bytesSent
+	return outboundBytes
+}
+
+// InboundFramesInError returns the number of frames received with processing errors.
+func (s *Stream) InboundFramesInError() uint64 {
+	return s.inboundFramesInError.Get()
 }
 
 // RTSPStream returns the RTSP stream.
@@ -571,12 +576,12 @@ func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
 }
 
-func (s *Stream) addBytesReceived(v uint64) {
-	atomic.AddUint64(s.bytesReceived, v)
+func (s *Stream) addInboundBytes(v uint64) {
+	atomic.AddUint64(s.inboundBytes, v)
 }
 
-func (s *Stream) addBytesSent(v uint64) {
-	atomic.AddUint64(s.bytesSent, v)
+func (s *Stream) addOutboundBytes(v uint64) {
+	atomic.AddUint64(s.outboundBytes, v)
 }
 
 func (s *Stream) updateLastTime(pts time.Duration) {
