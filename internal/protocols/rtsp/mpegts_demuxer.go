@@ -35,6 +35,8 @@ type MPEGTSDemuxer struct {
 	pathConf     *conf.Path
 	author       defs.Publisher
 	logger       logger.Writer
+	mpegtsMedia  *description.Media
+	mpegtsFormat *format.MPEGTS
 	decodeErrors *errordumper.Dumper
 	pathName     string
 	query        string
@@ -55,6 +57,8 @@ func NewMPEGTSDemuxer(
 	pathConf *conf.Path,
 	author defs.Publisher,
 	l logger.Writer,
+	mpegtsMedia *description.Media,
+	mpegtsFormat *format.MPEGTS,
 	decodeErrors *errordumper.Dumper,
 	pathName string,
 	query string,
@@ -67,6 +71,8 @@ func NewMPEGTSDemuxer(
 		pathConf:     pathConf,
 		author:       author,
 		logger:       l,
+		mpegtsMedia:  mpegtsMedia,
+		mpegtsFormat: mpegtsFormat,
 		decodeErrors: decodeErrors,
 		pathName:     pathName,
 		query:        query,
@@ -79,19 +85,7 @@ func NewMPEGTSDemuxer(
 
 // Start begins the demuxing process.
 func (d *MPEGTSDemuxer) Start() {
-	medias := d.rsession.AnnouncedDescription().Medias
-	if len(medias) != 1 || len(medias[0].Formats) != 1 {
-		d.initDone <- errors.New("expected exactly one MPEG-TS track")
-		return
-	}
-	medi := medias[0]
-	forma, ok := medi.Formats[0].(*format.MPEGTS)
-	if !ok {
-		d.initDone <- errors.New("expected MPEG-TS format")
-		return
-	}
-
-	decoder, err := forma.CreateDecoder()
+	decoder, err := d.mpegtsFormat.CreateDecoder()
 	if err != nil {
 		d.initDone <- fmt.Errorf("failed to create MPEG-TS decoder: %w", err)
 		return
@@ -100,7 +94,7 @@ func (d *MPEGTSDemuxer) Start() {
 	pr, pw := io.Pipe()
 	d.pipeWriter = pw
 
-	d.rsession.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+	d.rsession.OnPacketRTP(d.mpegtsMedia, d.mpegtsFormat, func(pkt *rtp.Packet) {
 		tsData, decErr := decoder.Decode(pkt)
 		if decErr != nil {
 			d.decodeErrors.Add(decErr)
@@ -206,9 +200,4 @@ func (d *MPEGTSDemuxer) WaitForLoopError() error {
 	case <-d.ctx.Done():
 		return nil
 	}
-}
-
-// IsMPEGTSFormat checks if a format is MPEG-TS.
-func IsMPEGTSFormat(forma format.Format) bool {
-	return forma.Codec() == "MPEG-TS"
 }

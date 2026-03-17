@@ -12,6 +12,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	rtspauth "github.com/bluenviron/gortsplib/v5/pkg/auth"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
 	"github.com/google/uuid"
 
@@ -35,6 +37,19 @@ func profileLabel(p headers.TransportProfile) string {
 		return "AVP"
 	}
 	return "unknown"
+}
+
+func findSingleMPEGTSFormat(desc *description.Session) (*description.Media, *format.MPEGTS) {
+	if len(desc.Medias) != 1 || len(desc.Medias[0].Formats) != 1 {
+		return nil, nil
+	}
+
+	forma := desc.Medias[0].Formats[0]
+	if forma, ok := forma.(*format.MPEGTS); ok {
+		return desc.Medias[0], forma
+	}
+
+	return nil, nil
 }
 
 type sessionParent interface {
@@ -337,23 +352,13 @@ func (s *session) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, e
 	}, nil
 }
 
-// shouldDemuxMPEGTS checks if MPEG-TS demuxing should be used.
-func (s *session) shouldDemuxMPEGTS() bool {
-	if !s.pathConf.RtspDemuxMpegts {
-		return false
-	}
-	medias := s.rsession.AnnouncedDescription().Medias
-	if len(medias) != 1 || len(medias[0].Formats) != 1 {
-		return false
-	}
-	return rtsp.IsMPEGTSFormat(medias[0].Formats[0])
-}
-
 // onRecord is called by rtspServer.
 func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	// Check for MPEG-TS demux mode
-	if s.shouldDemuxMPEGTS() {
-		return s.onRecordMPEGTSDemux()
+	if s.pathConf.RtspDemuxMpegts {
+		mpegtsMedia, mpegtsFormat := findSingleMPEGTSFormat(s.rsession.AnnouncedDescription())
+		if mpegtsFormat != nil {
+			return s.onRecordMPEGTSDemux(mpegtsMedia, mpegtsFormat)
+		}
 	}
 
 	// Standard RTSP flow
@@ -392,7 +397,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 }
 
 // onRecordMPEGTSDemux handles MPEG-TS demuxing for publishers.
-func (s *session) onRecordMPEGTSDemux() (*base.Response, error) {
+func (s *session) onRecordMPEGTSDemux(mpegtsMedia *description.Media, mpegtsFormat *format.MPEGTS) (*base.Response, error) {
 	s.Log(logger.Info, "MPEG-TS demux mode enabled, starting demuxer...")
 
 	s.mpegTSDemuxer = rtsp.NewMPEGTSDemuxer(
@@ -401,6 +406,8 @@ func (s *session) onRecordMPEGTSDemux() (*base.Response, error) {
 		s.pathConf,
 		s,
 		s,
+		mpegtsMedia,
+		mpegtsFormat,
 		s.inboundRTPPacketsInError,
 		s.rsession.Path()[1:],
 		s.rsession.Query(),
