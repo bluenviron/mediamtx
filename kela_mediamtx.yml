@@ -17,6 +17,7 @@ hlsAddress: :8888
 hlsAlwaysRemux: yes
 hlsSegmentDuration: 8s
 hlsSegmentCount: 20
+hlsSegmentMaxSize: 12M
 hlsPartDuration: 4000ms
 hlsMuxerCloseAfter: 60s
 
@@ -67,7 +68,7 @@ pathDefaults:
   recordPath: ./recordings/%path/kela_%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 8s
-  recordMaxPartSize: 50M
+  recordMaxPartSize: 12M
   recordSegmentDuration: 30m
   recordDeleteAfter: 24h
 
