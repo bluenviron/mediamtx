@@ -67,6 +67,7 @@ type APIRTSPSession struct {
 	OutboundBytes                  uint64              `json:"outboundBytes"`
 	OutboundRTPPackets             uint64              `json:"outboundRTPPackets"`
 	OutboundRTPPacketsReportedLost uint64              `json:"outboundRTPPacketsReportedLost"`
+	OutboundRTPPacketsDiscarded    uint64              `json:"outboundRTPPacketsDiscarded"`
 	OutboundRTCPPackets            uint64              `json:"outboundRTCPPackets"`
 	// deprecated
 	BytesReceived       uint64  `json:"bytesReceived" deprecated:"true"`

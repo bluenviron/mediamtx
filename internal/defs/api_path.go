@@ -63,19 +63,23 @@ type APIPathReader struct {
 
 // APIPath is a path.
 type APIPath struct {
-	Name          string              `json:"name"`
-	ConfName      string              `json:"confName"`
-	Ready         bool                `json:"ready" deprecated:"true"`
-	ReadyTime     *time.Time          `json:"readyTime" deprecated:"true"`
-	Available     bool                `json:"available"`
-	AvailableTime *time.Time          `json:"availableTime"`
-	Online        bool                `json:"online"`
-	OnlineTime    *time.Time          `json:"onlineTime"`
-	Source        *APIPathSource      `json:"source"`
-	Tracks        []APIPathTrackCodec `json:"tracks"`
-	BytesReceived uint64              `json:"bytesReceived"`
-	BytesSent     uint64              `json:"bytesSent"`
-	Readers       []APIPathReader     `json:"readers"`
+	Name                 string              `json:"name"`
+	ConfName             string              `json:"confName"`
+	Ready                bool                `json:"ready" deprecated:"true"`
+	ReadyTime            *time.Time          `json:"readyTime" deprecated:"true"`
+	Available            bool                `json:"available"`
+	AvailableTime        *time.Time          `json:"availableTime"`
+	Online               bool                `json:"online"`
+	OnlineTime           *time.Time          `json:"onlineTime"`
+	Source               *APIPathSource      `json:"source"`
+	Tracks               []APIPathTrackCodec `json:"tracks"`
+	Readers              []APIPathReader     `json:"readers"`
+	InboundBytes         uint64              `json:"inboundBytes"`
+	OutboundBytes        uint64              `json:"outboundBytes"`
+	InboundFramesInError uint64              `json:"inboundFramesInError"`
+	// deprecated
+	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
+	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`
 }
 
 // APIPathList is a list of paths.

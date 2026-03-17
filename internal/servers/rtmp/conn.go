@@ -48,6 +48,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	reader    *stream.Reader
 }
 
 func (c *conn) initialize() {
@@ -210,6 +211,10 @@ func (c *conn) runRead() error {
 	res.Stream.AddReader(r)
 	defer res.Stream.RemoveReader(r)
 
+	c.mutex.Lock()
+	c.reader = r
+	c.mutex.Unlock()
+
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
@@ -320,21 +325,29 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
+	outboundFramesDiscarded := uint64(0)
 
 	if c.rconn != nil {
 		bytesReceived = c.rconn.BytesReceived()
 		bytesSent = c.rconn.BytesSent()
 	}
 
+	if c.reader != nil {
+		outboundFramesDiscarded = c.reader.OutboundFramesDiscarded()
+	}
+
 	return &defs.APIRTMPConn{
-		ID:            c.uuid,
-		Created:       c.created,
-		RemoteAddr:    c.remoteAddr().String(),
-		State:         c.state,
-		Path:          c.pathName,
-		Query:         c.query,
-		User:          c.user,
-		BytesReceived: bytesReceived,
-		BytesSent:     bytesSent,
+		ID:                      c.uuid,
+		Created:                 c.created,
+		RemoteAddr:              c.remoteAddr().String(),
+		State:                   c.state,
+		Path:                    c.pathName,
+		Query:                   c.query,
+		User:                    c.user,
+		InboundBytes:            bytesReceived,
+		OutboundBytes:           bytesSent,
+		BytesReceived:           bytesReceived,
+		BytesSent:               bytesSent,
+		OutboundFramesDiscarded: outboundFramesDiscarded,
 	}
 }

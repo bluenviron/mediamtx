@@ -37,16 +37,20 @@ func TestHLSMuxersList(t *testing.T) {
 	hlsServer := &testHLSServer{
 		muxers: map[string]*defs.APIHLSMuxer{
 			"test1": {
-				Path:        "test1",
-				Created:     now,
-				LastRequest: now.Add(5 * time.Second),
-				BytesSent:   1234,
+				Path:                    "test1",
+				Created:                 now,
+				LastRequest:             now.Add(5 * time.Second),
+				OutboundBytes:           1234,
+				OutboundFramesDiscarded: 10,
+				BytesSent:               1234,
 			},
 			"test2": {
-				Path:        "test2",
-				Created:     now.Add(time.Minute),
-				LastRequest: now.Add(time.Minute + 10*time.Second),
-				BytesSent:   5678,
+				Path:                    "test2",
+				Created:                 now.Add(time.Minute),
+				LastRequest:             now.Add(time.Minute + 10*time.Second),
+				OutboundBytes:           5678,
+				OutboundFramesDiscarded: 20,
+				BytesSent:               5678,
 			},
 		},
 	}
@@ -80,10 +84,12 @@ func TestHLSMuxersGet(t *testing.T) {
 	hlsServer := &testHLSServer{
 		muxers: map[string]*defs.APIHLSMuxer{
 			"mypath": {
-				Path:        "mypath",
-				Created:     now,
-				LastRequest: now.Add(5 * time.Second),
-				BytesSent:   9999,
+				Path:                    "mypath",
+				Created:                 now,
+				LastRequest:             now.Add(5 * time.Second),
+				OutboundBytes:           9999,
+				OutboundFramesDiscarded: 12,
+				BytesSent:               9999,
 			},
 		},
 	}
@@ -108,5 +114,7 @@ func TestHLSMuxersGet(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/hlsmuxers/get/mypath", nil, &out)
 
 	require.Equal(t, "mypath", out.Path)
+	require.Equal(t, uint64(9999), out.OutboundBytes)
+	require.Equal(t, uint64(12), out.OutboundFramesDiscarded)
 	require.Equal(t, uint64(9999), out.BytesSent)
 }

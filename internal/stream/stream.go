@@ -483,6 +483,11 @@ func (s *Stream) OutboundBytes() uint64 {
 	return outboundBytes
 }
 
+// InboundFramesInError returns the number of frames received with processing errors.
+func (s *Stream) InboundFramesInError() uint64 {
+	return s.inboundFramesInError.Get()
+}
+
 // RTSPStream returns the RTSP stream.
 func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
 	s.mutex.Lock()

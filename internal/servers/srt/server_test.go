@@ -216,6 +216,7 @@ func TestServerPublish(t *testing.T) {
 				BytesSendDrop:                 list.Items[0].BytesSendDrop,
 				BytesReceivedDrop:             list.Items[0].BytesReceivedDrop,
 				BytesReceivedUndecrypt:        list.Items[0].BytesReceivedUndecrypt,
+				OutboundFramesDiscarded:       list.Items[0].OutboundFramesDiscarded,
 				UsPacketsSendPeriod:           list.Items[0].UsPacketsSendPeriod,
 				PacketsFlowWindow:             list.Items[0].PacketsFlowWindow,
 				PacketsFlightSize:             list.Items[0].PacketsFlightSize,

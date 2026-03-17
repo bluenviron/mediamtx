@@ -63,6 +63,7 @@ type session struct {
 	uuid      uuid.UUID
 	secret    uuid.UUID
 	mutex     sync.RWMutex
+	reader    *stream.Reader
 	pc        *webrtc.PeerConnection
 	user      string
 
@@ -387,6 +388,10 @@ func (s *session) runRead() (int, error) {
 	res.Stream.AddReader(r)
 	defer res.Stream.RemoveReader(r)
 
+	s.mutex.Lock()
+	s.reader = r
+	s.mutex.Unlock()
+
 	select {
 	case <-pc.Failed():
 		return 0, fmt.Errorf("peer connection closed")
@@ -479,6 +484,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	rtpPacketsJitter := float64(0)
 	rtcpPacketsReceived := uint64(0)
 	rtcpPacketsSent := uint64(0)
+	outboundFramesDiscarded := uint64(0)
 
 	if s.pc != nil {
 		peerConnectionEstablished = true
@@ -493,6 +499,10 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		rtpPacketsJitter = stats.RTPPacketsJitter
 		rtcpPacketsReceived = stats.RTCPPacketsReceived
 		rtcpPacketsSent = stats.RTCPPacketsSent
+	}
+
+	if s.reader != nil {
+		outboundFramesDiscarded = s.reader.OutboundFramesDiscarded()
 	}
 
 	return &defs.APIWebRTCSession{
@@ -519,6 +529,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		OutboundBytes:           bytesSent,
 		OutboundRTPPackets:      rtpPacketsSent,
 		OutboundRTCPPackets:     rtcpPacketsSent,
+		OutboundFramesDiscarded: outboundFramesDiscarded,
 		BytesReceived:           bytesReceived,
 		BytesSent:               bytesSent,
 		RTPPacketsReceived:      rtpPacketsReceived,

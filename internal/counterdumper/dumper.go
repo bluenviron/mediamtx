@@ -2,7 +2,7 @@
 package counterdumper
 
 import (
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
@@ -14,7 +14,9 @@ const (
 type Dumper struct {
 	OnReport func(v uint64)
 
-	counter *uint64
+	mutex      sync.Mutex
+	counter    uint64
+	absCounter uint64
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -22,7 +24,6 @@ type Dumper struct {
 
 // Start starts the counter.
 func (c *Dumper) Start() {
-	c.counter = new(uint64)
 	c.terminate = make(chan struct{})
 	c.done = make(chan struct{})
 
@@ -37,12 +38,25 @@ func (c *Dumper) Stop() {
 
 // Increase increases the counter value by 1.
 func (c *Dumper) Increase() {
-	atomic.AddUint64(c.counter, 1)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.counter++
+	c.absCounter++
 }
 
 // Add adds value to the counter.
 func (c *Dumper) Add(v uint64) {
-	atomic.AddUint64(c.counter, v)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.counter += v
+	c.absCounter += v
+}
+
+// Get returns the counter value.
+func (c *Dumper) Get() uint64 {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.absCounter
 }
 
 func (c *Dumper) run() {
@@ -57,7 +71,11 @@ func (c *Dumper) run() {
 			return
 
 		case <-t.C:
-			v := atomic.SwapUint64(c.counter, 0)
+			c.mutex.Lock()
+			var v uint64
+			v, c.counter = c.counter, 0
+			c.mutex.Unlock()
+
 			if v != 0 {
 				c.OnReport(v)
 			}

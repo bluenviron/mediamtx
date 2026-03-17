@@ -25,15 +25,19 @@ const (
 
 // APIRTMPConn is a RTMP connection.
 type APIRTMPConn struct {
-	ID            uuid.UUID        `json:"id"`
-	Created       time.Time        `json:"created"`
-	RemoteAddr    string           `json:"remoteAddr"`
-	State         APIRTMPConnState `json:"state"`
-	Path          string           `json:"path"`
-	Query         string           `json:"query"`
-	User          string           `json:"user"`
-	BytesReceived uint64           `json:"bytesReceived"`
-	BytesSent     uint64           `json:"bytesSent"`
+	ID                      uuid.UUID        `json:"id"`
+	Created                 time.Time        `json:"created"`
+	RemoteAddr              string           `json:"remoteAddr"`
+	State                   APIRTMPConnState `json:"state"`
+	Path                    string           `json:"path"`
+	Query                   string           `json:"query"`
+	User                    string           `json:"user"`
+	InboundBytes            uint64           `json:"inboundBytes"`
+	OutboundBytes           uint64           `json:"outboundBytes"`
+	OutboundFramesDiscarded uint64           `json:"outboundFramesDiscarded"`
+	// deprecated
+	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
+	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`
 }
 
 // APIRTMPConnList is a list of RTMP connections.
