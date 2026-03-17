@@ -414,9 +414,12 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 
 // onPause is called by rtspServer.
 func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
+	// we can't close mpegtsDemuxer during pause because OnPacketRTP() is paused after onPause(),
+	// therefore a call to pipeWriter.CloseWithError() would case a race condition.
 	if s.mpegtsDemuxer != nil {
-		s.mpegtsDemuxer.close()
-		s.mpegtsDemuxer = nil
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, fmt.Errorf("cannot pause in MPEG-TS demux mode")
 	}
 
 	switch s.rsession.State() {
@@ -424,9 +427,7 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 		s.onUnreadHook()
 
 	case gortsplib.ServerSessionStateRecord:
-		if s.path != nil {
-			s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
-		}
+		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 	}
 
 	return &base.Response{
