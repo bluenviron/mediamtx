@@ -47,7 +47,7 @@ If you need to use a custom or external libcamera to interact with some Raspberr
 
 ## Cross compile
 
-Cross compilation allows to build an executable for a target machine from another machine with different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
+Cross compilation allows to build an executable for a target machine from another machine with a different operating system or architecture. This is useful in case the target machine doesn't have enough resources for compilation or if you don't want to install the compilation dependencies on it.
 
 1. On the machine you want to use to compile, install git and Go &ge; 1.25.
 

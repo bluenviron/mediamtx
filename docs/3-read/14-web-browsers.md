@@ -14,7 +14,7 @@ See [Embed streams in a website](../4-other/14-embed-streams-in-a-website.md) fo
 
 ## Web browsers and HLS
 
-Web browsers can also read a stream with the [HLS protocol](06-hls.md). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like Cloudflare or CloudFront), and this allows to handle an unlimited amount of readers. Visit the web page:
+Web browsers can also read a stream with the [HLS protocol](06-hls.md). Latency is higher but there are fewer problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like Cloudflare or CloudFront), and this allows to handle an unlimited amount of readers. Visit the web page:
 
 ```
 http://localhost:8888/mystream

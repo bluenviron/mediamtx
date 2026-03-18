@@ -111,7 +111,7 @@ coturn/coturn \
 
 We are suggesting and using the following settings:
 
-- enable the TCP transport only. We are assuming you are setupping Coturn because other connectivity methods have failed, thus TCP is more reliable.
+- enable the TCP transport only. We are assuming you are setting up Coturn because other connectivity methods have failed, thus TCP is more reliable.
 - toggle `--network=host` since Coturn allocates a TCP port for each peer connection.
 - set `min-port` and `max-port` to specify the range of TCP ports.
 - enable secret-based authentication, that prevents clients from storing permanently valid credentials.

@@ -45,7 +45,7 @@ runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: false
 # Command to run when a client disconnects from the server.
-# Environment variables are the same of runOnConnect.
+# Environment variables are the same as runOnConnect.
 runOnDisconnect:
 
 ###############################################
@@ -123,7 +123,7 @@ authHTTPExclude:
 - action: pprof
 
 # JWT-based authentication.
-# Users have to login through an external identity server and obtain a JWT.
+# Users have to log in through an external identity server and obtain a JWT.
 # This JWT must contain the claim "mediamtx_permissions" with permissions,
 # for instance:
 # {
@@ -302,7 +302,7 @@ rtspAuthMethods: [basic]
 
 # Enable publishing and reading streams with the RTMP protocol.
 rtmp: true
-# Use the secure protocol variant (RTMP).
+# Use the secure protocol variant (RTMPS).
 # Available values are "no", "strict", "optional".
 rtmpEncryption: "no"
 # Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
@@ -501,7 +501,7 @@ pathDefaults:
   ###############################################
   # Default path settings -> Always available
 
-  # Enable always-available mode, in which a offline segment is played on repeat when the stream is not available.
+  # Enable always-available mode, in which an offline segment is played on repeat when the stream is not available.
   alwaysAvailable: false
   # Tracks of the default offline segment.
   alwaysAvailableTracks: []
@@ -512,7 +512,7 @@ pathDefaults:
     #   channelCount: 2
     #   # in case of G711, muLaw must be provided too.
     #   muLaw: false
-  # A MP4 file can be used instead of the default offline segment.
+  # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ''
 
   ###############################################
@@ -597,8 +597,8 @@ pathDefaults:
   ###############################################
   # Default path settings -> Redirect source (when source is "redirect")
 
-  # path which clients will be redirected to.
-  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
+  # Path to which clients will be redirected.
+  # It can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   sourceRedirect:
 
   ###############################################
@@ -730,7 +730,7 @@ pathDefaults:
   # readers connected and this amount of time has passed.
   runOnDemandCloseAfter: 10s
   # Command to run when there are no readers anymore.
-  # Environment variables are the same of runOnDemand.
+  # Environment variables are the same as runOnDemand.
   runOnUnDemand:
 
   # Command to run when the stream is ready to be read, whenever it is
@@ -748,7 +748,7 @@ pathDefaults:
   # Restart the command if it exits.
   runOnReadyRestart: false
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same of runOnReady.
+  # Environment variables are the same as runOnReady.
   runOnNotReady:
 
   # Command to run when a client starts reading.
@@ -765,7 +765,7 @@ pathDefaults:
   # Restart the command if it exits.
   runOnReadRestart: false
   # Command to run when a client stops reading.
-  # Environment variables are the same of runOnRead.
+  # Environment variables are the same as runOnRead.
   runOnUnread:
 
   # Command to run when a recording segment is created.
