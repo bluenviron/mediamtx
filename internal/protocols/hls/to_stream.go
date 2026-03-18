@@ -215,7 +215,6 @@ func ToStream(
 				})
 			})
 
-
 		default:
 			panic("should not happen")
 		}
