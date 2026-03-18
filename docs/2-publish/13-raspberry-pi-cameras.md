@@ -44,7 +44,7 @@ Be aware that cameras that require a custom `libcamera` (like some ArduCam produ
 
 ## Adding audio
 
-In order to add audio from a USB microfone, install GStreamer and alsa-utils:
+In order to add audio from a USB microphone, install GStreamer and alsa-utils:
 
 ```sh
 sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-alsa alsa-utils
@@ -67,7 +67,7 @@ default:CARD=U0x46d0x809
     Default Audio Device
 ```
 
-Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then create a new path that takes the video stream from the camera and audio from the microphone:
+Find the audio card of the microphone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then create a new path that takes the video stream from the camera and audio from the microphone:
 
 ```yml
 paths:

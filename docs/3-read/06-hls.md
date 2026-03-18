@@ -1,6 +1,6 @@
 # HLS
 
-HLS is a protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to generate a HLS stream, that is accessible through a web page:
+HLS is a protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to generate an HLS stream, that is accessible through a web page:
 
 ```
 http://localhost:8888/mystream

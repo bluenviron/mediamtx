@@ -2,12 +2,12 @@
 
 MediaMTX is meant for routing live streams, and makes use of a series of protocols and techniques which try to preserve the real-time aspect of streams and minimize latency at cost of losing packets in transmit, in particular:
 
-- most protocols are built on UDP, which is an "unreliable transport", specifically picked because it allows to drop late packets in case of network congestions.
+- most protocols are built on UDP, which is an "unreliable transport", specifically picked because it allows dropping late packets in case of network congestion.
 - there's a circular buffer that stores outgoing packets and drops packets if full.
 
 Packet losses are usually detected and printed in _MediaMTX_ logs.
 
-If you need to improve the stream reliability and decrease packet losses, the first thing to do is to check whether the physical network between the _MediaMTX_ instance and the intended publishers and readers has sufficient bandwidth for transmitting the media stream. Most of the times, packet losses are caused by a network which is not fit for this scope. This limitation can be overcome by either recompressing the stream with a lower bitrate, or by upgrading the network infrastructure (routers, cables, Wi-Fi, firewalls, topology, etc).
+If you need to improve the stream reliability and decrease packet losses, the first thing to do is to check whether the physical network between the _MediaMTX_ instance and the intended publishers and readers has sufficient bandwidth for transmitting the media stream. Most of the time, packet losses are caused by a network which is not fit for this scope. This limitation can be overcome by either recompressing the stream with a lower bitrate, or by upgrading the network infrastructure (routers, cables, Wi-Fi, firewalls, topology, etc).
 
 Nonetheless there are some parameters that can be tuned to improve the situation, at cost of increasing RAM consumption:
 

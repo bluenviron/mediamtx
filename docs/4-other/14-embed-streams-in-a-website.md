@@ -117,7 +117,7 @@ The iframe method is fit for most use cases, but it has some limitations:
 
 In order to overcome the limitations of the iframe-based method, it is possible to load the stream directly inside a `<video>` tag in the web page, through the _hls.js_ library.
 
-If you are using a JavaScript bundler, you can import _hls.js_ it by adding [its npm package](https://www.npmjs.com/package/hls.js) as dependency and then importing it:
+If you are using a JavaScript bundler, you can import _hls.js_ by adding [its npm package](https://www.npmjs.com/package/hls.js) as dependency and then importing it:
 
 ```js
 import Hls from "hls.js";

@@ -24,7 +24,7 @@ runOnConnectRestart: no
 
 ```yml
 # Command to run when a client disconnects from the server.
-# Environment variables are the same of runOnConnect.
+# Environment variables are the same as runOnConnect.
 runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn_id=$MTX_CONN_ID
 ```
 
@@ -74,7 +74,7 @@ pathDefaults:
 ```yml
 pathDefaults:
   # Command to run when there are no readers anymore.
-  # Environment variables are the same of runOnDemand.
+  # Environment variables are the same as runOnDemand.
   runOnUnDemand:
 ```
 
@@ -107,7 +107,7 @@ pathDefaults:
 ```yml
 pathDefaults:
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same of runOnReady.
+  # Environment variables are the same as runOnReady.
   runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
 
@@ -139,7 +139,7 @@ pathDefaults:
 ```yml
 pathDefaults:
   # Command to run when a client stops reading.
-  # Environment variables are the same of runOnRead.
+  # Environment variables are the same as runOnRead.
   runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
 ```
 
