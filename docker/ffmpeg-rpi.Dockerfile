@@ -21,6 +21,7 @@ RUN apt update \
 
 RUN apt update && apt install --reinstall -y \
     libc6 \
+    libc-bin \
     libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
