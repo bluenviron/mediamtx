@@ -29,10 +29,7 @@ func subdivideForPlayback(parsed []*parsedSegment, maxDuration time.Duration) []
 		}
 		elapsed := time.Duration(0)
 		for elapsed < seg.duration {
-			d := seg.duration - elapsed
-			if d > maxDuration {
-				d = maxDuration
-			}
+			d := min(seg.duration-elapsed, maxDuration)
 			flat = append(flat, &parsedSegment{
 				start:    seg.start.Add(elapsed),
 				init:     seg.init,

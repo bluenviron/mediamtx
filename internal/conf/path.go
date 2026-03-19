@@ -132,9 +132,10 @@ type Path struct {
 	RecordFormat          RecordFormat `json:"recordFormat"`
 	RecordPartDuration    Duration     `json:"recordPartDuration"`
 	RecordMaxPartSize     StringSize   `json:"recordMaxPartSize"`
-	RecordSegmentDuration  Duration     `json:"recordSegmentDuration"`
-	RecordDeleteAfter      Duration     `json:"recordDeleteAfter"`
-	PlaybackSegmentDuration Duration    `json:"playbackSegmentDuration"` // max HLS segment duration when serving recordings (0 = no subdivision)
+	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
+	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
+	// max HLS segment duration when serving recordings (0 = no subdivision)
+	PlaybackSegmentDuration Duration `json:"playbackSegmentDuration"`
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty"` // deprecated
