@@ -396,6 +396,8 @@ components:
           type: string
         recordDeleteAfter:
           type: string
+        playbackSegmentDuration:
+          type: string
 
         # Publisher source
         overridePublisher:

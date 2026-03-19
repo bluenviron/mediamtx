@@ -59,6 +59,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordMaxPartSize:            50 * 1024 * 1024,
 			RecordSegmentDuration:        3600000000000,
 			RecordDeleteAfter:            86400000000000,
+			PlaybackSegmentDuration:      8 * Duration(time.Second),
 			OverridePublisher:            true,
 			RPICameraWidth:               1920,
 			RPICameraHeight:              1080,

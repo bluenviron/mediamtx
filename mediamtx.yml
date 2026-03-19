@@ -514,6 +514,11 @@ pathDefaults:
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
   recordDeleteAfter: 1d
+  # Maximum duration of each HLS segment when serving recordings for playback.
+  # When > 0, record segments longer than this are subdivided in the HLS manifest,
+  # allowing the player to start playback after fetching a small chunk instead of
+  # waiting for a full record file (e.g. 30m). Set to 0 to use record segments as-is.
+  playbackSegmentDuration: 8s
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
