@@ -14,6 +14,36 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// subdivideForPlayback splits large record segments into smaller HLS segments
+// when maxDuration > 0. This improves playback startup since the player can
+// begin after fetching the first small segment instead of a 30-minute file.
+func subdivideForPlayback(parsed []*parsedSegment, maxDuration time.Duration) []*parsedSegment {
+	if maxDuration <= 0 {
+		return parsed
+	}
+	var flat []*parsedSegment
+	for _, seg := range parsed {
+		if seg.duration <= maxDuration {
+			flat = append(flat, seg)
+			continue
+		}
+		elapsed := time.Duration(0)
+		for elapsed < seg.duration {
+			d := seg.duration - elapsed
+			if d > maxDuration {
+				d = maxDuration
+			}
+			flat = append(flat, &parsedSegment{
+				start:    seg.start.Add(elapsed),
+				init:     seg.init,
+				duration: d,
+			})
+			elapsed += d
+		}
+	}
+	return flat
+}
+
 func (s *Server) onHLS(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 
@@ -102,6 +132,11 @@ func (s *Server) onHLS(ctx *gin.Context) {
 		return
 	}
 
+	// Subdivide large record segments into smaller HLS segments for faster startup.
+	// When playbackSegmentDuration > 0, segments longer than that are split into
+	// multiple manifest entries. Each sub-segment is served via /get with start+duration.
+	flat := subdivideForPlayback(parsed, time.Duration(pathConf.PlaybackSegmentDuration))
+
 	// Generate HLS manifest
 	var manifest strings.Builder
 	manifest.WriteString("#EXTM3U\n")
@@ -110,7 +145,7 @@ func (s *Server) onHLS(ctx *gin.Context) {
 
 	// Find maximum duration for TARGETDURATION
 	maxDuration := 0.0
-	for _, seg := range parsed {
+	for _, seg := range flat {
 		dur := seg.duration.Seconds()
 		if dur > maxDuration {
 			maxDuration = dur
@@ -126,13 +161,13 @@ func (s *Server) onHLS(ctx *gin.Context) {
 	initParams.Add("path", pathName)
 	manifest.WriteString(fmt.Sprintf("#EXT-X-MAP:URI=\"hls_init.mp4?%s\"\n", initParams.Encode()))
 
-	// Add each recording file as an individual HLS segment.
+	// Add each segment (possibly subdivided from record files).
 	// skipInit=true tells the segment endpoint to omit the init data
 	// since EXT-X-MAP already provides it.
 	// timeOffset ensures each segment's baseMediaDecodeTime continues
 	// where the previous segment ended (required for MSE).
 	cumulativeOffset := 0.0
-	for i, seg := range parsed {
+	for i, seg := range flat {
 		duration := seg.duration.Seconds()
 		manifest.WriteString(fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s\n", seg.start.Format(time.RFC3339Nano)))
 		manifest.WriteString(fmt.Sprintf("#EXTINF:%.3f,\n", duration))

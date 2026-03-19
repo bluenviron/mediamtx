@@ -71,6 +71,8 @@ pathDefaults:
   recordMaxPartSize: 12M
   recordSegmentDuration: 30m
   recordDeleteAfter: 24h
+  # Subdivide 30m record segments into 6s HLS chunks for fast playback startup
+  playbackSegmentDuration: 8s
 
 paths:
   all:

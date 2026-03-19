@@ -132,8 +132,9 @@ type Path struct {
 	RecordFormat          RecordFormat `json:"recordFormat"`
 	RecordPartDuration    Duration     `json:"recordPartDuration"`
 	RecordMaxPartSize     StringSize   `json:"recordMaxPartSize"`
-	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
-	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
+	RecordSegmentDuration  Duration     `json:"recordSegmentDuration"`
+	RecordDeleteAfter      Duration     `json:"recordDeleteAfter"`
+	PlaybackSegmentDuration Duration    `json:"playbackSegmentDuration"` // max HLS segment duration when serving recordings (0 = no subdivision)
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty"` // deprecated
@@ -248,6 +249,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
 	pconf.RecordSegmentDuration = 3600 * Duration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * Duration(time.Second)
+	pconf.PlaybackSegmentDuration = 8 * Duration(time.Second)
 
 	// Publisher source
 	pconf.OverridePublisher = true
