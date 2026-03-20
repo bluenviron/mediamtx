@@ -85,7 +85,9 @@ func TestFromStream(t *testing.T) {
 	}
 }
 
-func TestFromStreamResampleOpus(t *testing.T) {
+func setupFromStreamOpusLoopback(t *testing.T) (*stream.Stream, *stream.SubStream, *PeerConnection) {
+	t.Helper()
+
 	strm := &stream.Stream{
 		Desc: &description.Session{Medias: []*description.Media{
 			{
@@ -110,17 +112,17 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	pc1 := &PeerConnection{
+	pcReader := &PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
 		Publish:           false,
 		Log:               test.NilLogger,
 	}
-	err = pc1.Start()
+	err = pcReader.Start()
 	require.NoError(t, err)
-	defer pc1.Close()
+	t.Cleanup(pcReader.Close)
 
-	pc2 := &PeerConnection{
+	pcPublisher := &PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
 		Publish:           true,
@@ -129,30 +131,36 @@ func TestFromStreamResampleOpus(t *testing.T) {
 
 	r := &stream.Reader{Parent: nil}
 
-	err = FromStream(strm.Desc, r, pc2)
+	err = FromStream(strm.Desc, r, pcPublisher)
 	require.NoError(t, err)
 
-	err = pc2.Start()
+	err = pcPublisher.Start()
 	require.NoError(t, err)
-	defer pc2.Close()
+	t.Cleanup(pcPublisher.Close)
 
-	offer, err := pc1.CreatePartialOffer()
-	require.NoError(t, err)
-
-	answer, err := pc2.CreateFullAnswer(offer)
+	offer, err := pcReader.CreatePartialOffer()
 	require.NoError(t, err)
 
-	err = pc1.SetAnswer(answer)
+	answer, err := pcPublisher.CreateFullAnswer(offer)
 	require.NoError(t, err)
 
-	err = pc1.WaitUntilConnected(10 * time.Second)
+	err = pcReader.SetAnswer(answer)
 	require.NoError(t, err)
 
-	err = pc2.WaitUntilConnected(10 * time.Second)
+	err = pcReader.WaitUntilConnected(10 * time.Second)
+	require.NoError(t, err)
+
+	err = pcPublisher.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
 	strm.AddReader(r)
-	defer strm.RemoveReader(r)
+	t.Cleanup(func() { strm.RemoveReader(r) })
+
+	return strm, subStream, pcReader
+}
+
+func TestFromStreamResampleOpus(t *testing.T) {
+	strm, subStream, pc1 := setupFromStreamOpusLoopback(t)
 
 	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
@@ -186,7 +194,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	err = pc1.GatherIncomingTracks(2 * time.Second)
+	err := pc1.GatherIncomingTracks(2 * time.Second)
 	require.NoError(t, err)
 
 	tracks := pc1.IncomingTracks()
@@ -211,4 +219,108 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	pc1.StartReading()
 
 	<-done
+}
+
+func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
+	strm, subStream, pc1 := setupFromStreamOpusLoopback(t)
+	baseNTP := time.Unix(1710000000, 0)
+	step := 20 * time.Millisecond
+
+	// prime the pipeline to allow track gathering
+	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+		PTS: 0,
+		NTP: baseNTP,
+		RTPPackets: []*rtp.Packet{{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    111,
+				SequenceNumber: 1123,
+				Timestamp:      45343,
+				SSRC:           563424,
+			},
+			Payload: []byte{1},
+		}},
+	})
+
+	err := pc1.GatherIncomingTracks(2 * time.Second)
+	require.NoError(t, err)
+
+	tracks := pc1.IncomingTracks()
+	require.Len(t, tracks, 1)
+
+	done := make(chan struct{})
+	errCh := make(chan string, 1)
+	const startSeq = uint16(2000)
+
+	expectedNTP := func(seq uint16) (time.Time, bool) {
+		if seq < startSeq {
+			return time.Time{}, false
+		}
+		return baseNTP.Add(time.Duration(seq-startSeq) * step), true
+	}
+
+	tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
+		expected, ok := expectedNTP(pkt.SequenceNumber)
+		if !ok {
+			return
+		}
+
+		ntp, avail := tracks[0].PacketNTP(pkt)
+		if !avail {
+			return
+		}
+
+		if ntp.Sub(expected).Abs() > 50*time.Millisecond {
+			select {
+			case errCh <- fmt.Sprintf("absolute NTP mismatch for seq=%d: got=%v expected=%v",
+				pkt.SequenceNumber, ntp, expected):
+			default:
+			}
+			return
+		}
+
+		select {
+		case done <- struct{}{}:
+		default:
+		}
+	}
+
+	pc1.StartReading()
+
+	go func() {
+		ticker := time.NewTicker(step)
+		defer ticker.Stop()
+
+		for i := uint16(0); i < 150; i++ {
+			seq := startSeq + i
+			expected, _ := expectedNTP(seq)
+
+			subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+				PTS: 0,
+				NTP: expected,
+				RTPPackets: []*rtp.Packet{{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    111,
+						SequenceNumber: seq,
+						Timestamp:      45343,
+						SSRC:           563424,
+					},
+					Payload: []byte{1},
+				}},
+			})
+
+			<-ticker.C
+		}
+	}()
+
+	select {
+	case <-done:
+	case err := <-errCh:
+		t.Fatal(err)
+	case <-time.After(8 * time.Second):
+		t.Fatal("absolute timestamp mapping did not become available")
+	}
 }
