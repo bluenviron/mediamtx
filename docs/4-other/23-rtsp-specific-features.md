@@ -1,6 +1,6 @@
 # RTSP-specific features
 
-RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, read [Publish](../2-publish/06-rtsp-clients.md) and [Read](../3-read/04-rtsp.md). Features in this page are shared among both tasks.
+RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish](../2-publish/06-rtsp-clients.md) and [Read](../3-read/04-rtsp.md). Features in this page are shared among both tasks.
 
 ## Transport protocols
 

@@ -1,19 +1,20 @@
 # WebRTC-specific features
 
-WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, read [Publish](../2-publish/04-webrtc-clients.md) and [Read](../3-read/03-webrtc.md). Features in this page are shared among both tasks.
+WebRTC is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish](../2-publish/04-webrtc-clients.md) and [Read](../3-read/03-webrtc.md). Features in this page are shared among both tasks.
 
 ## Codec support in browsers
 
-The server can ingest and broadcast with WebRTC a wide variety of video and audio codecs (that are listed at the beginning of the README), but not all browsers can publish and read all codecs due to internal limitations that cannot be overcome by this or any other server.
+WebRTC can be used to publish and read streams encoded with a wide variety of video and audio codecs, that are listed in [Publish a stream](../2-publish/01-overview.md) and [Read a stream](../3-read/01-overview.md), but not every browser can publish and read streams with every codec due to internal limitations that cannot be overcome by this or any other server.
 
-In particular, reading and publishing H265 tracks with WebRTC was not possible until some time ago due to lack of browser support. The situation improved recently and can be described as following:
+You can check what codecs your browser supports by [using this tool](https://jsfiddle.net/v24s8q1f/).
 
-- Safari on iOS and macOS fully support publishing and reading H265 tracks.
-- Chrome on Windows supports publishing and reading H265 tracks when a capable GPU is present.
+In particular, the following codecs might cause compatibility issues:
 
-You can check what codecs your browser can publish or read with WebRTC by [using this tool](https://jsfiddle.net/v24s8q1f/).
+- H265. Lots of browsers do not support reading H265 tracks with WebRTC, others do only if some strict conditions are met. For instance, Chrome supports publishing and reading H265 tracks only on Windows and only when a capable GPU is present.
 
-If you want to support most browsers, you can re-encode the stream by using H264 and Opus codecs, for instance by using FFmpeg:
+- H264, when the stream contains B-frames. These are not part of the WebRTC specification and support for them has been intentionally left out by every browser.
+
+In order to support most browsers, you can re-encode the stream by using the H264 codec with the baseline profile (which does not produce B-frames) and the Opus codec, for instance by using FFmpeg:
 
 ```sh
 ffmpeg -i rtsp://original-source \

@@ -6,9 +6,11 @@ body:
         * If you are asking for help because you're having trouble doing something, provide enough informations to replicate the problem. In particular, include in the question:
 
           * MediaMTX version
-          * precise instructions on how to replicate the problem
+          * List and version of any other software or device involved
           * MediaMTX configuration
           * MediaMTX logs with setting `logLevel` set to `debug`
+          * MediaMTX packet dumps, generated with `dumpPackets` set to `true`
+          * precise instructions on how to replicate the problem
 
         * If you are asking for help and you think MediaMTX is misbehaving, open a bug report, NOT a discussion.
 

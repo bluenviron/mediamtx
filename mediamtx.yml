@@ -161,7 +161,7 @@ authJWTAudience:
 ###############################################
 # Global settings -> Control API
 
-# Enable controlling the server through the Control API.
+# Allow clients to control the server through the Control API.
 api: false
 # Address of the Control API listener.
 apiAddress: :9997
@@ -185,7 +185,7 @@ apiTrustedProxies: []
 ###############################################
 # Global settings -> Metrics
 
-# Enable Prometheus-compatible metrics.
+# Allow clients to extract Prometheus-compatible metrics.
 metrics: false
 # Address of the metrics HTTP listener.
 metricsAddress: :9998
@@ -209,7 +209,7 @@ metricsTrustedProxies: []
 ###############################################
 # Global settings -> PPROF
 
-# Enable pprof-compatible endpoint to monitor performances.
+# Allow clients to extract pprof-compatible performance reports.
 pprof: false
 # Address of the pprof listener.
 pprofAddress: :9999
@@ -233,7 +233,7 @@ pprofTrustedProxies: []
 ###############################################
 # Global settings -> Playback server
 
-# Enable downloading recordings from the playback server.
+# Allow clients to download recordings from the playback server.
 playback: false
 # Address of the playback server listener.
 playbackAddress: :9996
@@ -257,7 +257,7 @@ playbackTrustedProxies: []
 ###############################################
 # Global settings -> RTSP server
 
-# Enable publishing and reading streams with the RTSP protocol.
+# Allow clients to publish and read streams with the RTSP protocol.
 rtsp: true
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
@@ -300,7 +300,7 @@ rtspAuthMethods: [basic]
 ###############################################
 # Global settings -> RTMP server
 
-# Enable publishing and reading streams with the RTMP protocol.
+# Allow clients to publish and read streams with the RTMP protocol.
 rtmp: true
 # Use the secure protocol variant (RTMPS).
 # Available values are "no", "strict", "optional".
@@ -320,7 +320,7 @@ rtmpServerCert: server.crt
 ###############################################
 # Global settings -> HLS server
 
-# Enable reading streams with the HLS protocol.
+# Allow clients to read streams with the HLS protocol.
 hls: true
 # Address of the HLS listener.
 hlsAddress: :8888
@@ -379,7 +379,7 @@ hlsMuxerCloseAfter: 60s
 ###############################################
 # Global settings -> WebRTC server
 
-# Enable publishing and reading streams with the WebRTC protocol.
+# Allow clients to publish and read streams with the WebRTC protocol.
 webrtc: true
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
@@ -436,7 +436,7 @@ webrtcTrackGatherTimeout: 2s
 ###############################################
 # Global settings -> SRT server
 
-# Enable publishing and reading streams with the SRT protocol.
+# Allow clients to publish and read streams with the SRT protocol.
 srt: true
 # Address of the SRT listener.
 srtAddress: :8890
