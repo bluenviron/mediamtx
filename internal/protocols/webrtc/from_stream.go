@@ -66,6 +66,10 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 	return multiplyAndDivide2(time.Duration(t), time.Second, time.Duration(clockRate))
 }
 
+func addDurationToNTP(baseNTP time.Time, earlierTimestamp uint32, laterTimestamp uint32, clockRate int) time.Time {
+	return baseNTP.Add(timestampToDuration(int64(laterTimestamp-earlierTimestamp), clockRate))
+}
+
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
@@ -372,6 +376,8 @@ func setupAudioTrack(
 			media,
 			opusFormat,
 			func(u *unit.Unit) error {
+				baseTimestamp := curTimestamp
+
 				for _, orig := range u.RTPPackets {
 					pkt := &rtp.Packet{
 						Header:  orig.Header,
@@ -383,7 +389,7 @@ func setupAudioTrack(
 					pkt.Timestamp = curTimestamp
 					curTimestamp += uint32(opus.PacketDuration2(pkt.Payload))
 
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp), 48000))
+					ntp := addDurationToNTP(u.NTP, baseTimestamp, pkt.Timestamp, 48000)
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -486,6 +492,8 @@ func setupAudioTrack(
 				media,
 				g711Format,
 				func(u *unit.Unit) error {
+					baseTimestamp := curTimestamp
+
 					for _, orig := range u.RTPPackets {
 						pkt := &rtp.Packet{
 							Header:  orig.Header,
@@ -497,7 +505,7 @@ func setupAudioTrack(
 						pkt.Timestamp = curTimestamp
 						curTimestamp += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
 
-						ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp), 8000))
+						ntp := addDurationToNTP(u.NTP, baseTimestamp, pkt.Timestamp, 8000)
 						track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 					}
 
@@ -528,6 +536,8 @@ func setupAudioTrack(
 						return nil
 					}
 
+					baseTimestamp := curTimestamp
+
 					var lpcm []byte
 					if g711Format.MULaw {
 						var mu g711.Mulaw
@@ -550,8 +560,7 @@ func setupAudioTrack(
 						pkt.Timestamp = curTimestamp
 						curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
 
-						ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp),
-							g711Format.ClockRate()))
+						ntp := addDurationToNTP(u.NTP, baseTimestamp, pkt.Timestamp, g711Format.ClockRate())
 						track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 					}
 
@@ -613,6 +622,8 @@ func setupAudioTrack(
 					return nil
 				}
 
+				baseTimestamp := curTimestamp
+
 				packets, err2 := encoder.Encode(u.Payload.(unit.PayloadLPCM))
 				if err2 != nil {
 					return nil //nolint:nilerr
@@ -624,8 +635,7 @@ func setupAudioTrack(
 					pkt.Timestamp = curTimestamp
 					curTimestamp += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
 
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp),
-						lpcmFormat.ClockRate()))
+					ntp := addDurationToNTP(u.NTP, baseTimestamp, pkt.Timestamp, lpcmFormat.ClockRate())
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
