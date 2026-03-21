@@ -12,7 +12,7 @@ WHEP is a WebRTC extension that allows to read streams by using a URL, without p
 http://localhost:8889/mystream/whep
 ```
 
-Be aware that not all browsers can read any codec, check [Supported browsers](../4-other/22-webrtc-specific-features.md#supported-browsers).
+Be aware that not all browsers can read any codec, check [Supported browsers](../4-other/22-webrtc-specific-features.md#codec-support-in-browsers).
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](../4-other/22-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
