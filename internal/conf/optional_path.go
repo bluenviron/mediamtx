@@ -54,6 +54,12 @@ func (p *OptionalPath) UnmarshalJSON(b []byte) error {
 	return jsonwrapper.Unmarshal(b, p.Values)
 }
 
+// UnmarshalJSONAllowUnknownFields implements jsonwrapper.TolerantUnmarshaler.
+func (p *OptionalPath) UnmarshalJSONAllowUnknownFields(b []byte) ([]string, error) {
+	p.Values = newOptionalPathValues()
+	return jsonwrapper.UnmarshalAllowUnknownFields(b, p.Values)
+}
+
 // UnmarshalEnv implements env.Unmarshaler.
 func (p *OptionalPath) UnmarshalEnv(prefix string, _ string) error {
 	if p.Values == nil {

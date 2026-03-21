@@ -11,7 +11,7 @@ import (
 )
 
 // differences with respect to the standard package:
-// - JSON cannot contain unknown fields
+// - JSON cannot contain unknown fields (unless AllowUnknownFields is set)
 // - existing elements of slices are never used, fixing https://github.com/golang/go/issues/21092
 // - slices cannot be set to nil
 
@@ -46,7 +46,33 @@ func checkForUnknownFields(rawMap map[string]json.RawMessage, known map[string]i
 	return nil
 }
 
-func decode(v reflect.Value, raw json.RawMessage, path string) error {
+func collectUnknownFields(rawMap map[string]json.RawMessage, known map[string]int, path string) []string {
+	var warnings []string
+	for k := range rawMap {
+		if _, ok := known[k]; !ok {
+			if path != "" {
+				warnings = append(warnings, fmt.Sprintf("json: unknown field %q", path+"."+k))
+			} else {
+				warnings = append(warnings, fmt.Sprintf("json: unknown field %q", k))
+			}
+		}
+	}
+	return warnings
+}
+
+// TolerantUnmarshaler can be implemented by types that support unmarshaling
+// with unknown field tolerance. When decoding in tolerant mode, this method
+// is called instead of json.Unmarshaler.UnmarshalJSON.
+type TolerantUnmarshaler interface {
+	UnmarshalJSONAllowUnknownFields(b []byte) ([]string, error)
+}
+
+type decodeOptions struct {
+	allowUnknownFields bool
+	warnings           *[]string
+}
+
+func decode(v reflect.Value, raw json.RawMessage, path string, opts *decodeOptions) error {
 	for v.Kind() == reflect.Ptr {
 		if isJSONNull(raw) {
 			v.Set(reflect.Zero(v.Type()))
@@ -58,6 +84,16 @@ func decode(v reflect.Value, raw json.RawMessage, path string) error {
 		}
 
 		v = v.Elem()
+	}
+
+	if opts != nil && opts.allowUnknownFields {
+		if tunm, ok := v.Addr().Interface().(TolerantUnmarshaler); ok {
+			w, err := tunm.UnmarshalJSONAllowUnknownFields(raw)
+			if opts.warnings != nil {
+				*opts.warnings = append(*opts.warnings, w...)
+			}
+			return err
+		}
 	}
 
 	if unm, ok := v.Addr().Interface().(json.Unmarshaler); ok {
@@ -81,9 +117,16 @@ func decode(v reflect.Value, raw json.RawMessage, path string) error {
 			}
 		}
 
-		err = checkForUnknownFields(rawMap, known, path)
-		if err != nil {
-			return err
+		if opts != nil && opts.allowUnknownFields {
+			w := collectUnknownFields(rawMap, known, path)
+			if opts.warnings != nil {
+				*opts.warnings = append(*opts.warnings, w...)
+			}
+		} else {
+			err = checkForUnknownFields(rawMap, known, path)
+			if err != nil {
+				return err
+			}
 		}
 
 		for key, fieldIdx := range known {
@@ -97,7 +140,7 @@ func decode(v reflect.Value, raw json.RawMessage, path string) error {
 				fieldPath = path + "." + key
 			}
 
-			err = decode(v.Field(fieldIdx), rawVal, fieldPath)
+			err = decode(v.Field(fieldIdx), rawVal, fieldPath, opts)
 			if err != nil {
 				return err
 			}
@@ -126,13 +169,55 @@ func decode(v reflect.Value, raw json.RawMessage, path string) error {
 
 			slice := reflect.MakeSlice(v.Type(), len(rawElems), len(rawElems))
 			for i, re := range rawElems {
-				err := decode(slice.Index(i), re, fmt.Sprintf("%s[%d]", path, i))
+				err := decode(slice.Index(i), re, fmt.Sprintf("%s[%d]", path, i), opts)
 				if err != nil {
 					return err
 				}
 			}
 			v.Set(slice)
 
+			return nil
+		}
+
+		return json.Unmarshal(raw, v.Addr().Interface())
+
+	case reflect.Map:
+		if opts != nil && opts.allowUnknownFields {
+			var rawMap map[string]json.RawMessage
+			err := json.Unmarshal(raw, &rawMap)
+			if err != nil {
+				return json.Unmarshal(raw, v.Addr().Interface())
+			}
+
+			if v.IsNil() {
+				v.Set(reflect.MakeMap(v.Type()))
+			}
+
+			elemType := v.Type().Elem()
+
+			for k, rawVal := range rawMap {
+				elem := reflect.New(elemType).Elem()
+				if elem.Kind() == reflect.Ptr {
+					elem.Set(reflect.New(elemType.Elem()))
+				}
+
+				target := elem
+				if target.Kind() == reflect.Ptr {
+					target = target.Elem()
+				}
+
+				keyPath := k
+				if path != "" {
+					keyPath = path + "." + k
+				}
+
+				err = decode(target, rawVal, keyPath, opts)
+				if err != nil {
+					return err
+				}
+
+				v.SetMapIndex(reflect.ValueOf(k), elem)
+			}
 			return nil
 		}
 
@@ -154,5 +239,20 @@ func Decode(r io.Reader, dest any) error {
 	if err != nil {
 		return err
 	}
-	return decode(reflect.ValueOf(dest).Elem(), buf, "")
+	return decode(reflect.ValueOf(dest).Elem(), buf, "", nil)
+}
+
+// UnmarshalAllowUnknownFields decodes JSON, collecting unknown fields as warnings
+// instead of returning an error. Unknown fields are skipped and their values
+// are discarded. This is used for config file loading to provide forward
+// compatibility when a config file contains fields not recognized by the
+// current binary version.
+func UnmarshalAllowUnknownFields(buf []byte, dest any) ([]string, error) {
+	var warnings []string
+	opts := &decodeOptions{
+		allowUnknownFields: true,
+		warnings:           &warnings,
+	}
+	err := decode(reflect.ValueOf(dest).Elem(), buf, "", opts)
+	return warnings, err
 }
