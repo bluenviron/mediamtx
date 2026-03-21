@@ -375,6 +375,7 @@ func setupAudioTrack(
 				baseTimestamp := curTimestamp
 
 				for _, orig := range u.RTPPackets {
+					// create a copy of the packet that we can edit freely
 					pkt := &rtp.Packet{
 						Header:  orig.Header,
 						Payload: orig.Payload,
@@ -491,6 +492,7 @@ func setupAudioTrack(
 					baseTimestamp := curTimestamp
 
 					for _, orig := range u.RTPPackets {
+						// create a copy of the packet that we can edit freely
 						pkt := &rtp.Packet{
 							Header:  orig.Header,
 							Payload: orig.Payload,
