@@ -7,42 +7,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// FormatsToCodecs returns the name of codecs of given formats.
-func FormatsToCodecs(formats []format.Format) []string {
-	ret := make([]string, len(formats))
-	for i, forma := range formats {
-		ret[i] = forma.Codec()
-	}
-	return ret
-}
-
-func gatherFormats(medias []*description.Media) []format.Format {
-	n := 0
-	for _, media := range medias {
-		n += len(media.Formats)
-	}
-
-	if n == 0 {
-		return nil
-	}
-
-	formats := make([]format.Format, n)
-	n = 0
-
-	for _, media := range medias {
-		n += copy(formats[n:], media.Formats)
-	}
-
-	return formats
-}
-
-func mediasToCodecs(medias []*description.Media) []string {
-	return FormatsToCodecs(gatherFormats(medias))
-}
 
 func formatMPEG4AudioConfig(asc *mpeg4audio.AudioSpecificConfig) string {
 	return fmt.Sprintf("type=%d, sampleRate=%d, channelCount=%d",
@@ -62,19 +30,19 @@ func formatLPCMConfig(f *format.LPCM) string {
 func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Media) error {
 	if len(medias1) != len(medias2) {
 		return fmt.Errorf("wants to publish %v, but stream expects %v",
-			mediasToCodecs(medias2), mediasToCodecs(medias1))
+			formatlabel.MediasToLabels(medias2), formatlabel.MediasToLabels(medias1))
 	}
 
 	for i := range medias1 {
 		if len(medias1[i].Formats) != len(medias2[i].Formats) {
 			return fmt.Errorf("wants to publish %v, but stream expects %v",
-				mediasToCodecs(medias2), mediasToCodecs(medias1))
+				formatlabel.MediasToLabels(medias2), formatlabel.MediasToLabels(medias1))
 		}
 
 		for j := range medias1[i].Formats {
 			if reflect.TypeOf(medias1[i].Formats[j]) != reflect.TypeOf(medias2[i].Formats[j]) {
 				return fmt.Errorf("wants to publish %v, but stream expects %v",
-					mediasToCodecs(medias2), mediasToCodecs(medias1))
+					formatlabel.MediasToLabels(medias2), formatlabel.MediasToLabels(medias1))
 			}
 		}
 	}

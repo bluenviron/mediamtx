@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func TestPathsList(t *testing.T) {
 				Source:               &defs.APIPathSource{Type: defs.APIPathSourceTypeRTSPSession, ID: "pub1"},
 				Ready:                true,
 				ReadyTime:            &now,
-				Tracks:               []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecOpus},
+				Tracks:               []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.Opus},
 				InboundBytes:         1000,
 				OutboundBytes:        2000,
 				InboundFramesInError: 3,
@@ -100,7 +101,7 @@ func TestPathsGet(t *testing.T) {
 				Source:               &defs.APIPathSource{Type: defs.APIPathSourceTypeRTSPSession, ID: "session123"},
 				Ready:                true,
 				ReadyTime:            &now,
-				Tracks:               []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecOpus},
+				Tracks:               []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.Opus},
 				InboundBytes:         123456,
 				OutboundBytes:        789012,
 				InboundFramesInError: 12,

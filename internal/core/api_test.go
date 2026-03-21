@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -140,7 +141,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSession",
 				},
 				Ready:                true,
-				Tracks:               []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecMPEG4Audio},
+				Tracks:               []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.MPEG4Audio},
 				InboundBytes:         17,
 				InboundFramesInError: 0,
 				BytesReceived:        17,
@@ -190,7 +191,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspsSession",
 				},
 				Ready:  true,
-				Tracks: []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecMPEG4Audio},
+				Tracks: []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.MPEG4Audio},
 			}},
 		}, out)
 	})
@@ -338,7 +339,7 @@ func TestAPIPathsGet(t *testing.T) {
 						Type: "rtspSession",
 					},
 					Ready:  true,
-					Tracks: []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264},
+					Tracks: []defs.APIPathTrackCodec{formatlabel.H264},
 				}, out)
 			} else {
 				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)

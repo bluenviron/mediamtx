@@ -7,6 +7,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -22,10 +23,10 @@ type Source interface {
 
 // FormatsInfo returns a description of formats.
 func FormatsInfo(formats []format.Format) string {
-	codecs := FormatsToCodecs(formats)
-	codecNames := make([]string, len(codecs))
-	for i, codec := range codecs {
-		codecNames[i] = string(codec)
+	labels := formatlabel.FormatsToLabels(formats)
+	codecNames := make([]string, len(labels))
+	for i, label := range labels {
+		codecNames[i] = string(label)
 	}
 
 	return fmt.Sprintf("%d %s (%s)",

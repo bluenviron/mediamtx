@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/substructs"
 	srt "github.com/datarhei/gosrt"
 
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -185,7 +186,7 @@ func FromStream(
 						if !firstReceived {
 							firstReceived = true
 						} else if u.PTS < lastPTS {
-							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+							return fmt.Errorf("MPEG-1/2 Video streams with B-frames are not supported (yet)")
 						}
 						lastPTS = u.PTS
 
@@ -402,7 +403,7 @@ func FromStream(
 	for _, medi := range desc.Medias {
 		for _, forma := range medi.Formats {
 			if !slices.Contains(setuppedFormats, forma) {
-				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, formatlabel.FormatToLabel(forma))
 			}
 			n++
 		}

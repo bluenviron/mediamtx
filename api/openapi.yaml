@@ -65,13 +65,13 @@ components:
       - H265
       - H264
       - MPEG-4 Video
-      - MPEG-1 Video
-      - MJPEG
+      - MPEG-1/2 Video
+      - M-JPEG
       - Opus
       - Vorbis
       - MPEG-4 Audio
       - MPEG-4 Audio LATM
-      - MPEG-1 Audio
+      - MPEG-1/2 Audio
       - AC3
       - Speex
       - G726
