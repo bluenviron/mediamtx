@@ -873,6 +873,41 @@ func TestOnGetInMiddleOfLastSample(t *testing.T) {
 	}
 }
 
+func TestOnGetInvalidPath(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"all_others": {
+				Name:         "all_others",
+				RecordPath:   filepath.Join(t.TempDir(), "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://localhost:9996/get")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "group/../cam1")
+	v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("duration", "3")
+	u.RawQuery = v.Encode()
+
+	res, err := http.Get(u.String())
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
 func TestOnGetBetweenSegments(t *testing.T) {
 	for _, ca := range []string{
 		"idr before",

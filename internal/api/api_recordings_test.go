@@ -156,10 +156,11 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	err = os.Mkdir(filepath.Join(dir, "mypath1"), 0o755)
+	err = os.MkdirAll(filepath.Join(dir, "group", "cam1"), 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
+	segmentPath := filepath.Join(dir, "group", "cam1", "2008-11-07_11-22-00-900000.mp4")
+	err = os.WriteFile(segmentPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	tr := &http.Transport{}
@@ -170,9 +171,105 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	require.NoError(t, err)
 
 	v := url.Values{}
-	v.Set("path", "mypath1")
+	v.Set("path", "group/cam1")
 	v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
 	u.RawQuery = v.Encode()
 
-	httpRequest(t, hc, http.MethodDelete, u.String(), nil, nil)
+	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
+	require.NoError(t, err)
+
+	resp, err := hc.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	_, err = os.Stat(segmentPath)
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
+}
+
+func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	cnf := tempConf(t, "pathDefaults:\n"+
+		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
+		"paths:\n"+
+		"  all_others:\n")
+
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
+	}
+	err = api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	err = os.MkdirAll(filepath.Join(dir, "group", "cam1"), 0o755)
+	require.NoError(t, err)
+
+	segmentPath := filepath.Join(dir, "group", "cam1", "2008-11-07_11-22-00-900000.mp4")
+	err = os.WriteFile(segmentPath, []byte(""), 0o644)
+	require.NoError(t, err)
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	u, err := url.Parse("http://localhost:9997/v3/recordings/deletesegment")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "group/../cam1")
+	v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
+	u.RawQuery = v.Encode()
+
+	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
+	require.NoError(t, err)
+
+	resp, err := hc.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	_, err = os.Stat(segmentPath)
+	require.NoError(t, err)
+}
+
+func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	cnf := tempConf(t, "pathDefaults:\n"+
+		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
+		"paths:\n"+
+		"  all_others:\n")
+
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Conf:         cnf,
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{},
+	}
+	err = api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	resp, err := hc.Get("http://localhost:9997/v3/recordings/get/group/../cam1")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
