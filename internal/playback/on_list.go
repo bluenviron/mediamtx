@@ -151,6 +151,13 @@ func parseAndConcatenate(
 func (s *Server) onList(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 
+	// validate path name before passing it to the authentication manager
+	err := conf.IsValidPathName(pathName)
+	if err != nil {
+		s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path name: %w (%s)", err, pathName))
+		return
+	}
+
 	if !s.doAuth(ctx, pathName) {
 		return
 	}

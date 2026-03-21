@@ -16,7 +16,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
-	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 func interfaceIsEmpty(i any) bool {
@@ -42,27 +41,6 @@ func paramName(ctx *gin.Context) (string, bool) {
 	}
 
 	return name[1:], true
-}
-
-func recordingsOfPath(
-	pathConf *conf.Path,
-	pathName string,
-) *defs.APIRecording {
-	ret := &defs.APIRecording{
-		Name: pathName,
-	}
-
-	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
-
-	ret.Segments = make([]defs.APIRecordingSegment, len(segments))
-
-	for i, seg := range segments {
-		ret.Segments[i] = defs.APIRecordingSegment{
-			Start: seg.Start,
-		}
-	}
-
-	return ret
 }
 
 type apiAuthManager interface {
