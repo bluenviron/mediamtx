@@ -351,7 +351,7 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 		ticker := time.NewTicker(step)
 		defer ticker.Stop()
 
-		for i := uint16(0); i < 150; i++ {
+		for i := range uint16(150) {
 			seq := startSeq + i
 			expected, _ := expectedNTP(seq)
 
