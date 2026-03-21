@@ -22,6 +22,7 @@ import (
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -576,7 +577,7 @@ func (f *formatFMP4) initialize() bool {
 							}
 							firstReceived = true
 						} else if u.PTS < lastPTS {
-							return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+							return fmt.Errorf("MPEG-1/2 Video streams with B-frames are not supported (yet)")
 						}
 						lastPTS = u.PTS
 
@@ -921,7 +922,7 @@ func (f *formatFMP4) initialize() bool {
 	for _, medi := range f.ri.stream.Desc.Medias {
 		for _, forma := range medi.Formats {
 			if !slices.Contains(setuppedFormats, forma) {
-				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, forma.Codec())
+				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, formatlabel.FormatToLabel(forma))
 			}
 			n++
 		}

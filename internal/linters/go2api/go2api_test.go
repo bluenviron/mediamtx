@@ -46,6 +46,7 @@ func wrapRef(rt reflect.Type, p openAPIProperty) openAPIProperty {
 type openAPISchema struct {
 	Type       string                     `yaml:"type"`
 	Enum       []string                   `yaml:"enum"`
+	OneOf      []openAPIProperty          `yaml:"oneOf"`
 	Properties map[string]openAPIProperty `yaml:"properties"`
 }
 
@@ -60,6 +61,10 @@ func schemaName(rt reflect.Type) string {
 
 	if rt.PkgPath() == "github.com/bluenviron/mediamtx/internal/conf" && name == "Path" {
 		return "PathConf"
+	}
+
+	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
+		return "PathTrackCodec"
 	}
 
 	return name
@@ -190,13 +195,13 @@ func goEnumToApi(rt reflect.Type) (openAPISchema, bool) {
 			"H265",
 			"H264",
 			"MPEG-4 Video",
-			"MPEG-1 Video",
-			"MJPEG",
+			"MPEG-1/2 Video",
+			"M-JPEG",
 			"Opus",
 			"Vorbis",
 			"MPEG-4 Audio",
 			"MPEG-4 Audio LATM",
-			"MPEG-1 Audio",
+			"MPEG-1/2 Audio",
 			"AC3",
 			"Speex",
 			"G726",
@@ -380,6 +385,42 @@ func TestGo2API(t *testing.T) {
 				defs.APIPathTrack{},
 			},
 			{
+				"PathTrackCodecPropsAV1",
+				defs.APIPathTrackCodecPropsAV1{},
+			},
+			{
+				"PathTrackCodecPropsVP9",
+				defs.APIPathTrackCodecPropsVP9{},
+			},
+			{
+				"PathTrackCodecPropsH265",
+				defs.APIPathTrackCodecPropsH265{},
+			},
+			{
+				"PathTrackCodecPropsH264",
+				defs.APIPathTrackCodecPropsH264{},
+			},
+			{
+				"PathTrackCodecPropsOpus",
+				defs.APIPathTrackCodecPropsOpus{},
+			},
+			{
+				"PathTrackCodecPropsMPEG4Audio",
+				defs.APIPathTrackCodecPropsMPEG4Audio{},
+			},
+			{
+				"PathTrackCodecPropsAC3",
+				defs.APIPathTrackCodecPropsAC3{},
+			},
+			{
+				"PathTrackCodecPropsG711",
+				defs.APIPathTrackCodecPropsG711{},
+			},
+			{
+				"PathTrackCodecPropsLPCM",
+				defs.APIPathTrackCodecPropsLPCM{},
+			},
+			{
 				"Recording",
 				defs.APIRecording{},
 			},
@@ -462,6 +503,20 @@ func TestGo2API(t *testing.T) {
 				require.Equal(t, content2, content1)
 			})
 		}
+	})
+
+	t.Run("oneOfs", func(t *testing.T) {
+		require.Equal(t, openAPISchema{OneOf: []openAPIProperty{
+			{Ref: "#/components/schemas/PathTrackCodecPropsAV1"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsVP9"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsH265"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsH264"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsOpus"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsMPEG4Audio"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsAC3"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsG711"},
+			{Ref: "#/components/schemas/PathTrackCodecPropsLPCM"},
+		}}, doc.Components.Schemas["PathTrackCodecProps"])
 	})
 
 	t.Run("enums", func(t *testing.T) {

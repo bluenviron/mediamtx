@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 			},
 			Ready:                true,
 			ReadyTime:            ptrOf(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
-			Tracks:               []defs.APIPathTrackCodec{defs.APIPathTrackCodecH264, defs.APIPathTrackCodecH265},
+			Tracks:               []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.H265},
 			InboundBytes:         123,
 			OutboundBytes:        456,
 			InboundFramesInError: 7,
