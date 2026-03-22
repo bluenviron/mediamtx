@@ -304,8 +304,7 @@ func setupDataTracks(
 
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
-			switch forma := forma.(type) {
-			case *format.KLV:
+			if forma, ok := forma.(*format.KLV); ok {
 				track := &gohlslib.Track{
 					Codec:     &codecs.KLV{Synchronous: true},
 					ClockRate: forma.ClockRate(),
