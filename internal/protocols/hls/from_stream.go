@@ -333,7 +333,6 @@ func setupDataTracks(
 			}
 		}
 	}
-
 }
 
 // FromStream maps a MediaMTX stream to a HLS muxer.
