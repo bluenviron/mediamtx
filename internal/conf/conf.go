@@ -247,6 +247,7 @@ type Conf struct {
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
 	DumpPackets         bool            `json:"dumpPackets"`
+	ReloadOnError       ReloadOnError   `json:"reloadOnError"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
 	ReadBufferCount     *int            `json:"readBufferCount,omitempty" deprecated:"true"`
@@ -417,6 +418,7 @@ func (conf *Conf) setDefaults() {
 	conf.LogStructured = false
 	conf.LogFile = "mediamtx.log"
 	conf.SysLogPrefix = "mediamtx"
+	conf.ReloadOnError = ReloadOnErrorExit
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512
