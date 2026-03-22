@@ -2,6 +2,7 @@ package recordstore
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -127,6 +128,11 @@ func FindSegments(
 	start *time.Time,
 	end *time.Time,
 ) ([]*Segment, error) {
+	// double protection against directory traversal attacks
+	if err := conf.IsValidPathName(pathName); err != nil {
+		return nil, fmt.Errorf("invalid path name: %w (%s)", err, pathName)
+	}
+
 	recordPath := PathAddExtension(
 		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
 		pathConf.RecordFormat,
