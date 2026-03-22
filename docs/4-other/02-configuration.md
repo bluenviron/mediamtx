@@ -18,32 +18,32 @@ There are several ways to change the configuration:
 
 2. By overriding configuration parameters with environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
-   ```
+   ```sh
    MTX_RTSPADDRESS="127.0.0.1:8554" ./mediamtx
    ```
 
    Parameters that have array as value can be overridden by setting a comma-separated list. For example:
 
-   ```
+   ```sh
    MTX_RTSPTRANSPORTS="tcp,udp"
    ```
 
    Parameters in maps can be overridden by using underscores, in the following way:
 
-   ```
+   ```sh
    MTX_PATHS_TEST_SOURCE=rtsp://myurl ./mediamtx
    ```
 
    Parameters in lists can be overridden in the same way as parameters in maps, using their position like an additional key. This is particularly useful if you want to use internal users but define credentials through environment variables:
 
-   ```
+   ```sh
    MTX_AUTHINTERNALUSERS_0_USER=username
    MTX_AUTHINTERNALUSERS_0_PASS=password
    ```
 
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
-   ```
+   ```sh
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx:1
    ```
 
@@ -51,10 +51,10 @@ There are several ways to change the configuration:
 
 ## Encrypt the configuration
 
-The configuration file can be entirely encrypted for security purposes by using the `crypto_secretbox` function of the NaCL function. An online tool for performing this operation is [available here](https://play.golang.org/p/rX29jwObNe4).
+The configuration file can be entirely encrypted for security purposes by using the `crypto_secretbox` function of the NaCL library. An online tool for performing this operation is [available here](https://play.golang.org/p/rX29jwObNe4).
 
 After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `MTX_CONFKEY` variable:
 
-```
+```sh
 MTX_CONFKEY=mykey ./mediamtx
 ```
