@@ -202,7 +202,7 @@ func ToStream(
 		case *codecs.KLV:
 			medi = &description.Media{
 				Type: description.MediaTypeApplication,
-				Formats: []format.Format{&format.KLV {
+				Formats: []format.Format{&format.KLV{
 					PayloadTyp: 96,
 				}},
 			}
