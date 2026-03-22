@@ -18,6 +18,15 @@ const (
 	mimeTypeL16       = "audio/L16"
 )
 
+func incomingTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
+	for _, ext := range params.HeaderExtensions {
+		if ext.URI == twccExtensionURI {
+			return uint8(ext.ID)
+		}
+	}
+	return 0
+}
+
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -244,12 +253,30 @@ type IncomingTrack struct {
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 
+	twccExtID             uint8
 	inboundRTPPacketsLost *counterdumper.Dumper
 	rtpReceiver           *rtpreceiver.Receiver
 }
 
 func (t *IncomingTrack) initialize() {
 	t.OnPacketRTP = func(*rtp.Packet) {}
+	t.twccExtID = incomingTrackTWCCExtensionID(t.receiver.GetParameters())
+}
+
+func (t *IncomingTrack) stripTWCCExtension(pkt *rtp.Packet) {
+	if t.twccExtID == 0 || pkt.GetExtension(t.twccExtID) == nil {
+		return
+	}
+
+	err := pkt.DelExtension(t.twccExtID)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(pkt.GetExtensionIDs()) == 0 {
+		pkt.Extension = false
+		pkt.ExtensionProfile = 0
+	}
 }
 
 // Codec returns the track codec.
@@ -358,6 +385,7 @@ func (t *IncomingTrack) start() {
 					continue
 				}
 
+				t.stripTWCCExtension(pkt)
 				t.OnPacketRTP(pkt)
 			}
 		}
