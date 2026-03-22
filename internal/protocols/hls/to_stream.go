@@ -210,6 +210,7 @@ func ToStream(
 
 			c.OnDataKLV(ctrack, func(pts int64, uni []byte) {
 				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadKLV(uni),
 				})
