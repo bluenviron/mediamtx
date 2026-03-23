@@ -2,12 +2,19 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 
-	_ "github.com/KimMachineGun/automemlimit"
-
+	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/bluenviron/mediamtx/internal/core"
 )
+
+func init() {
+	memlimit.SetGoMemLimitWithOpts(
+		memlimit.WithRatio(0.7),
+		memlimit.WithLogger(slog.Default()),
+	)
+}
 
 func main() {
 	s, ok := core.New(os.Args[1:])
