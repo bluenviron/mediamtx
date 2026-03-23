@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	webrtcStreamID = "mediamtx"
+	webrtcStreamID   = "mediamtx"
+	twccExtensionURI = "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
 )
 
 func interfaceIPs(interfaceList []string) ([]string, error) {
