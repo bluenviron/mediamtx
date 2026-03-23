@@ -255,6 +255,39 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 	return nil
 }
 
+func TestOnListInvalidPath(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"all_others": {
+				Name:         "all_others",
+				RecordPath:   filepath.Join(t.TempDir(), "mypath/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://localhost:9996/list")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "group/../cam1")
+	u.RawQuery = v.Encode()
+
+	res, err := http.Get(u.String())
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
 func TestOnListCachedDuration(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)

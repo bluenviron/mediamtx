@@ -19,7 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~:]+$`)
+var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
 
 // IsValidPathName checks whether the path name is valid.
 func IsValidPathName(name string) error {
@@ -36,7 +36,14 @@ func IsValidPathName(name string) error {
 	}
 
 	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alphanumeric characters, underscore, dot, tilde, minus, slash, colon")
+		return fmt.Errorf("can contain only alphanumeric characters, underscore, dot, minus, slash")
+	}
+
+	// prevent directory traversal attacks
+	for segment := range strings.SplitSeq(name, "/") {
+		if segment == "." || segment == ".." {
+			return fmt.Errorf("can't contain dot path segments")
+		}
 	}
 
 	return nil
@@ -128,17 +135,19 @@ func checkAlwaysAvailableFile(fpath string) error {
 
 // FindPathConf returns the configuration corresponding to the given path name.
 func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, error) {
-	// normal path
+	// static path configuration
 	if pathConf, ok := pathConfs[name]; ok {
 		return pathConf, nil, nil
 	}
+
+	// regexp path configuration
 
 	err := IsValidPathName(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
 	}
 
-	// gather and sort all regexp-based path configs
+	// gather and sort all regexp path configs
 	var regexpPathConfs []*Path
 	for _, pathConf := range pathConfs {
 		if pathConf.Regexp != nil {
@@ -156,7 +165,7 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 		return regexpPathConfs[i].Name < regexpPathConfs[j].Name
 	})
 
-	// check path against regexp-based path configs
+	// check path against regexp path configs
 	for _, pathConf := range regexpPathConfs {
 		m := pathConf.Regexp.FindStringSubmatch(name)
 		if m != nil {

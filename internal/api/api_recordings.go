@@ -13,6 +13,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func recordingsOfPath(
+	pathConf *conf.Path,
+	pathName string,
+) *defs.APIRecording {
+	ret := &defs.APIRecording{
+		Name: pathName,
+	}
+
+	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
+
+	ret.Segments = make([]defs.APIRecordingSegment, len(segments))
+
+	for i, seg := range segments {
+		ret.Segments[i] = defs.APIRecordingSegment{
+			Start: seg.Start,
+		}
+	}
+
+	return ret
+}
+
 func (a *API) onRecordingsList(ctx *gin.Context) {
 	a.mutex.RLock()
 	c := a.Conf
