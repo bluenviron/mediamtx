@@ -457,6 +457,8 @@ func (s *formatFMP4Segment) close() error {
 			err = err2
 		}
 
+		fadviseDropCache(s.fi)
+
 		err2 = s.fi.Close()
 		if err == nil {
 			err = err2

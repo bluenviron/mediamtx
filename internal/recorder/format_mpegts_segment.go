@@ -34,6 +34,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 	if s.fi != nil {
 		s.log.Log(logger.Debug, "closing segment %s", s.path)
+		fadviseDropCache(s.fi)
 		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
