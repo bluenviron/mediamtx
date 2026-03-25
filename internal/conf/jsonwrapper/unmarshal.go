@@ -60,9 +60,7 @@ func collectUnknownFields(rawMap map[string]json.RawMessage, known map[string]in
 	return warnings
 }
 
-// TolerantUnmarshaler can be implemented by types that support unmarshaling
-// with unknown field tolerance. When decoding in tolerant mode, this method
-// is called instead of json.Unmarshaler.UnmarshalJSON.
+// TolerantUnmarshaler is implemented by types that handle unknown fields during decoding.
 type TolerantUnmarshaler interface {
 	UnmarshalJSONAllowUnknownFields(b []byte) ([]string, error)
 }
@@ -242,11 +240,7 @@ func Decode(r io.Reader, dest any) error {
 	return decode(reflect.ValueOf(dest).Elem(), buf, "", nil)
 }
 
-// UnmarshalAllowUnknownFields decodes JSON, collecting unknown fields as warnings
-// instead of returning an error. Unknown fields are skipped and their values
-// are discarded. This is used for config file loading to provide forward
-// compatibility when a config file contains fields not recognized by the
-// current binary version.
+// UnmarshalAllowUnknownFields decodes JSON, collecting unknown fields as warnings instead of errors.
 func UnmarshalAllowUnknownFields(buf []byte, dest any) ([]string, error) {
 	var warnings []string
 	opts := &decodeOptions{

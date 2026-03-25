@@ -107,8 +107,7 @@ func Unmarshal(buf []byte, dest any) error {
 	return jsonwrapper.Unmarshal(jsonBuf, dest)
 }
 
-// UnmarshalAllowUnknownFields loads the configuration from YAML,
-// collecting unknown fields as warnings instead of returning errors.
+// UnmarshalAllowUnknownFields loads the configuration from YAML, collecting unknown fields as warnings.
 func UnmarshalAllowUnknownFields(buf []byte, dest any) ([]string, error) {
 	jsonBuf, err := yamlToJSON(buf)
 	if err != nil {

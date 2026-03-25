@@ -275,7 +275,6 @@ func TestConfErrors(t *testing.T) {
 				"paths:\n",
 			"[2:1] mapping key \"paths\" already defined at [1:1]\n   1 |  null\n>  2 | paths:\n       ^\n",
 		},
-		// "non existent parameter" is handled as a warning, tested in TestConfUnknownFieldWarning
 		{
 			"invalid readTimeout",
 			"readTimeout: 0s\n",
@@ -306,7 +305,6 @@ func TestConfErrors(t *testing.T) {
 			"webrtcICEServers: [testing]\n",
 			"invalid ICE server: 'testing'",
 		},
-		// "non existent parameter in path" is handled as a warning, tested in TestConfUnknownFieldWarning
 		{
 			"non existent parameter in auth",
 			"authInternalUsers:\n" +
