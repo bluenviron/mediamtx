@@ -254,6 +254,10 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 	}
 }
 
+func (*Source) SourceStats() any {
+	return nil
+}
+
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{

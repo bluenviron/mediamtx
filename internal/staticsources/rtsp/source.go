@@ -82,6 +82,7 @@ type Source struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	Parent            parent
+	client            *gortsplib.Client
 }
 
 // Log implements logger.Writer.
@@ -149,6 +150,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			decodeErrors.Add(err)
 		},
 	}
+
+	s.client = c
 
 	u0, err := url.Parse(params.ResolvedSource)
 	if err != nil {
@@ -289,4 +292,12 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 		Type: defs.APIPathSourceTypeRTSPSource,
 		ID:   "",
 	}
+}
+
+// SourceStats method exports RTSP Client source statistiscs
+func (s *Source) SourceStats() any {
+	if s.client == nil {
+		return nil
+	}
+	return s.client.Stats()
 }

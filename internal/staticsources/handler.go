@@ -47,6 +47,7 @@ type staticSource interface {
 	logger.Writer
 	Run(defs.StaticSourceRunParams) error
 	APISourceDescribe() *defs.APIPathSource
+	SourceStats() any
 }
 
 type handlerPathManager interface {
@@ -335,4 +336,8 @@ func (s *Handler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 // AddReader is called by a staticSource.
 func (s *Handler) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 	return s.PathManager.AddReader(req)
+}
+
+func (s Handler) GetSourceStats() any {
+	return s.instance.SourceStats()
 }

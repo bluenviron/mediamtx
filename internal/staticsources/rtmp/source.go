@@ -156,3 +156,8 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 		ID:   "",
 	}
 }
+
+// Stats provides RTMP source statistics
+func (*Source) SourceStats() any {
+	return nil
+}
