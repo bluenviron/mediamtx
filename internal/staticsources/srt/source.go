@@ -127,10 +127,6 @@ func (s *Source) runReader(sconn srt.Conn) error {
 	}
 }
 
-func (*Source) SourceStats() any {
-	return nil
-}
-
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{

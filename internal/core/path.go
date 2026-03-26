@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -178,17 +177,15 @@ func (pa *path) isOnline() bool {
 	return pa.source != nil
 }
 
-func (pa *path) sourceStats() *defs.APIPathRTPSourceStats {
-	if pa.source == nil || !pa.conf.HasStaticSource() {
+func (pa *path) sourceStats() defs.SourceStats {
+	if pa.source == nil {
 		return nil
 	}
-	clientstats := pa.source.(*staticsources.Handler).GetSourceStats().(*gortsplib.ClientStats)
 
-	return &defs.APIPathRTPSourceStats{
-		InboundRTPPackets:       clientstats.Session.InboundRTPPackets,
-		InboundRTPPacketsLost:   clientstats.Session.InboundRTPPacketsLost,
-		InboundRTPPacketsJitter: clientstats.Session.InboundRTPPacketsJitter,
+	if sp, ok := pa.source.(defs.SourceStatsProvider); ok {
+		return sp.SourceStats()
 	}
+	return nil
 }
 
 func (pa *path) run() {
@@ -706,8 +703,8 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundBytes()
 			}(),
-			RTPStats: func() *defs.APIPathRTPSourceStats {
-				if !pa.isAvailable() || pa.source.APISourceDescribe().Type != defs.APIPathSourceTypeRTSPSource {
+			Stats: func() defs.SourceStats {
+				if !pa.isAvailable() {
 					return nil
 				}
 				return pa.sourceStats()

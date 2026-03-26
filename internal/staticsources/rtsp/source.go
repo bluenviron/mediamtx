@@ -294,10 +294,22 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	}
 }
 
+var _ defs.SourceStatsProvider = (*Source)(nil)
+
 // SourceStats method exports RTSP Client source statistiscs
-func (s *Source) SourceStats() any {
+func (s *Source) SourceStats() defs.SourceStats {
 	if s.client == nil {
 		return nil
 	}
-	return s.client.Stats()
+	cs := s.client.Stats()
+
+	if cs == nil {
+		return nil
+	}
+	return &defs.RTSPSourceStats{
+		PacketsReceived: &cs.Session.InboundRTPPackets,
+		PacketsLost:     &cs.Session.InboundRTPPacketsLost,
+		PacketsInError:  &cs.Session.InboundRTPPacketsInError,
+		Jitter:          &cs.Session.InboundRTPPacketsJitter,
+	}
 }

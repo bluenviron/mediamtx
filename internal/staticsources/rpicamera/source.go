@@ -358,10 +358,6 @@ func (s *Source) waitForPrimary(
 	}
 }
 
-func (*Source) SourceStats() any {
-	return nil
-}
-
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
