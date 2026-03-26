@@ -63,33 +63,32 @@ type APIPathReader struct {
 
 // APIPath is a path.
 type APIPath struct {
-	Name                 string              `json:"name"`
-	ConfName             string              `json:"confName"`
-	Ready                bool                `json:"ready" deprecated:"true"`
-	ReadyTime            *time.Time          `json:"readyTime" deprecated:"true"`
-	Available            bool                `json:"available"`
-	AvailableTime        *time.Time          `json:"availableTime"`
-	Online               bool                `json:"online"`
-	OnlineTime           *time.Time          `json:"onlineTime"`
-	Source               *APIPathSource      `json:"source"`
-	SourceStats          *APIPathSourceStats `json:"sourceStats,omitempty"`
-	Tracks               []APIPathTrackCodec `json:"tracks" deprecated:"true"`
-	Tracks2              []APIPathTrack      `json:"tracks2"`
-	Readers              []APIPathReader     `json:"readers"`
-	InboundBytes         uint64              `json:"inboundBytes"`
-	OutboundBytes        uint64              `json:"outboundBytes"`
-	InboundFramesInError uint64              `json:"inboundFramesInError"`
+	Name                 string                 `json:"name"`
+	ConfName             string                 `json:"confName"`
+	Ready                bool                   `json:"ready" deprecated:"true"`
+	ReadyTime            *time.Time             `json:"readyTime" deprecated:"true"`
+	Available            bool                   `json:"available"`
+	AvailableTime        *time.Time             `json:"availableTime"`
+	Online               bool                   `json:"online"`
+	OnlineTime           *time.Time             `json:"onlineTime"`
+	Source               *APIPathSource         `json:"source"`
+	RTPStats             *APIPathRTPSourceStats `json:"rtpStats,omitempty"`
+	Tracks               []APIPathTrackCodec    `json:"tracks" deprecated:"true"`
+	Tracks2              []APIPathTrack         `json:"tracks2"`
+	Readers              []APIPathReader        `json:"readers"`
+	InboundBytes         uint64                 `json:"inboundBytes"`
+	OutboundBytes        uint64                 `json:"outboundBytes"`
+	InboundFramesInError uint64                 `json:"inboundFramesInError"`
 	// deprecated
 	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
 	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`
 }
 
-// APIPathSourceStats contains RTP protocol staticsources inbound stats
-type APIPathSourceStats struct {
+// APIPathRTPSourceStats contains RTP protocol staticsources inbound stats
+type APIPathRTPSourceStats struct {
 	InboundRTPPackets       uint64  `json:"inboundRTPPackets"`
 	InboundRTPPacketsLost   uint64  `json:"inboundRTPPacketsLost"`
 	InboundRTPPacketsJitter float64 `json:"inboundRTPPacketsJitter"`
-	InboundRTCPPackets      uint64  `json:"inboundRTCPPackets"`
 }
 
 // APIPathList is a list of paths.

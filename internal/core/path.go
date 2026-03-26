@@ -178,17 +178,16 @@ func (pa *path) isOnline() bool {
 	return pa.source != nil
 }
 
-func (pa *path) sourceStats() *defs.APIPathSourceStats {
+func (pa *path) sourceStats() *defs.APIPathRTPSourceStats {
 	if pa.source == nil || !pa.conf.HasStaticSource() {
 		return nil
 	}
 	clientstats := pa.source.(*staticsources.Handler).GetSourceStats().(*gortsplib.ClientStats)
 
-	return &defs.APIPathSourceStats{
+	return &defs.APIPathRTPSourceStats{
 		InboundRTPPackets:       clientstats.Session.InboundRTPPackets,
 		InboundRTPPacketsLost:   clientstats.Session.InboundRTPPacketsLost,
 		InboundRTPPacketsJitter: clientstats.Session.InboundRTPPacketsJitter,
-		InboundRTCPPackets:      clientstats.Session.InboundRTCPPackets,
 	}
 }
 
@@ -707,7 +706,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundBytes()
 			}(),
-			SourceStats: func() *defs.APIPathSourceStats {
+			RTPStats: func() *defs.APIPathRTPSourceStats {
 				if !pa.isAvailable() || pa.source.APISourceDescribe().Type != defs.APIPathSourceTypeRTSPSource {
 					return nil
 				}
