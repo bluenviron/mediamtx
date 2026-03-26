@@ -150,6 +150,43 @@ func TestUnmarshalStructWithCustomUnmarshalerFromString(t *testing.T) {
 	require.Equal(t, &testStructWithUnmarshaler{Field1: "testing"}, &data)
 }
 
+func TestUnmarshalAllowUnknownFields(t *testing.T) {
+	t.Run("collects warnings for unknown fields", func(t *testing.T) {
+		var result testStruct
+		warnings, err := UnmarshalAllowUnknownFields(
+			[]byte(`{"field1": "test", "unknownField": "value", "field2": 456}`), &result)
+		require.NoError(t, err)
+		require.Equal(t, "test", result.Field1)
+		require.Equal(t, 456, result.Field2)
+		require.Equal(t, []string{`json: unknown field "unknownField"`}, warnings)
+	})
+
+	t.Run("no warnings when all fields known", func(t *testing.T) {
+		var result testStruct
+		warnings, err := UnmarshalAllowUnknownFields(
+			[]byte(`{"field1": "test", "field2": 456}`), &result)
+		require.NoError(t, err)
+		require.Equal(t, "test", result.Field1)
+		require.Equal(t, 456, result.Field2)
+		require.Empty(t, warnings)
+	})
+
+	t.Run("nested unknown fields", func(t *testing.T) {
+		type inner struct {
+			Name string `json:"name"`
+		}
+		type outer struct {
+			Inner inner `json:"inner"`
+		}
+		var result outer
+		warnings, err := UnmarshalAllowUnknownFields(
+			[]byte(`{"inner": {"name": "test", "extra": true}}`), &result)
+		require.NoError(t, err)
+		require.Equal(t, "test", result.Inner.Name)
+		require.Equal(t, []string{`json: unknown field "inner.extra"`}, warnings)
+	})
+}
+
 func FuzzUnmarshal(f *testing.F) {
 	f.Fuzz(func(_ *testing.T, buf []byte) {
 		var dest any
