@@ -629,7 +629,7 @@ func TestAuthError(t *testing.T) {
 		},
 	}
 
-	n := new(int64)
+	var n atomic.Int64
 	done := make(chan struct{})
 
 	s := &Server{
@@ -640,7 +640,7 @@ func TestAuthError(t *testing.T) {
 		PathManager:    pathManager,
 		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
 			if l == logger.Info {
-				if atomic.AddInt64(n, 1) == 3 {
+				if n.Add(1) == 3 {
 					require.Regexp(t, "authentication failed: auth error$", fmt.Sprintf(s, i...))
 					close(done)
 				}

@@ -6,7 +6,6 @@ import (
 	"maps"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -174,7 +173,7 @@ outer:
 			}
 
 		case pa := <-pm.chClosePathIfIdle:
-			if atomic.LoadInt64(pa.pendingRequests) == 0 {
+			if pa.pendingRequests.Load() == 0 {
 				pm.doClosePath(pa)
 			}
 
@@ -357,7 +356,7 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 
 	pa := pm.paths[req.AccessRequest.Name]
 
-	atomic.AddInt64(pa.pendingRequests, 1)
+	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathDescribeRes{Path: pa}
 }
@@ -387,7 +386,7 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 
 	pa := pm.paths[req.AccessRequest.Name]
 
-	atomic.AddInt64(pa.pendingRequests, 1)
+	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathAddReaderRes{
 		Path: pa,
@@ -425,7 +424,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	pa := pm.paths[req.AccessRequest.Name]
 
-	atomic.AddInt64(pa.pendingRequests, 1)
+	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathAddPublisherRes{
 		Path: pa,
