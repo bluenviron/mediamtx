@@ -325,8 +325,8 @@ type Stream struct {
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
-	inboundBytes         *uint64
-	outboundBytes        *uint64
+	inboundBytes         atomic.Uint64
+	outboundBytes        atomic.Uint64
 	medias               map[*description.Media]*streamMedia
 	rtspStream           *gortsplib.ServerStream
 	rtspsStream          *gortsplib.ServerStream
@@ -371,8 +371,6 @@ func (s *Stream) Initialize() error {
 		s.Desc = cloneDesc(s.offlineDesc)
 	}
 
-	s.inboundBytes = new(uint64)
-	s.outboundBytes = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 	s.hasReaders = make(chan struct{})
@@ -461,12 +459,12 @@ func (s *Stream) StartOfflineSubStream() error {
 
 // InboundBytes returns received bytes.
 func (s *Stream) InboundBytes() uint64 {
-	return atomic.LoadUint64(s.inboundBytes)
+	return s.inboundBytes.Load()
 }
 
 // OutboundBytes returns sent bytes.
 func (s *Stream) OutboundBytes() uint64 {
-	outboundBytes := atomic.LoadUint64(s.outboundBytes)
+	outboundBytes := s.outboundBytes.Load()
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -577,11 +575,11 @@ func (s *Stream) WaitForReaders() {
 }
 
 func (s *Stream) addInboundBytes(v uint64) {
-	atomic.AddUint64(s.inboundBytes, v)
+	s.inboundBytes.Add(v)
 }
 
 func (s *Stream) addOutboundBytes(v uint64) {
-	atomic.AddUint64(s.outboundBytes, v)
+	s.outboundBytes.Add(v)
 }
 
 func (s *Stream) updateLastTime(pts time.Duration) {
