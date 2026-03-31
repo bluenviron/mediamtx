@@ -9,15 +9,11 @@ import (
 	"strings"
 )
 
-// MakeConfig returns a tls.Config with:
-// - server name indicator (SNI) support
-// - fingerprint support
-func MakeConfig(serverName string, fingerprint string) *tls.Config {
-	conf := &tls.Config{
-		ServerName: serverName,
-	}
-
+// MakeConfig returns a tls.Config with fingerprint support.
+func MakeConfig(fingerprint string) *tls.Config {
 	if fingerprint != "" {
+		conf := &tls.Config{}
+
 		fingerprintLower := strings.ToLower(fingerprint)
 		conf.InsecureSkipVerify = true
 		conf.VerifyConnection = func(cs tls.ConnectionState) error {
@@ -32,7 +28,9 @@ func MakeConfig(serverName string, fingerprint string) *tls.Config {
 
 			return nil
 		}
+
+		return conf
 	}
 
-	return conf
+	return nil
 }

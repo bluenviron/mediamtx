@@ -11,7 +11,8 @@ import (
 
 // Listener is a listener on a Unix socket.
 type Listener struct {
-	Path string
+	Path   string
+	Listen func(network string, address string) (net.Listener, error)
 
 	l        net.Listener
 	c        net.Conn
@@ -25,11 +26,14 @@ func (l *Listener) Initialize() error {
 	if l.Path == "" {
 		return fmt.Errorf("invalid unix path")
 	}
+	if l.Listen == nil {
+		l.Listen = net.Listen
+	}
 
 	os.Remove(l.Path)
 
 	var err error
-	l.l, err = net.Listen("unix", l.Path)
+	l.l, err = l.Listen("unix", l.Path)
 	if err != nil {
 		return err
 	}

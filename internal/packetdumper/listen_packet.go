@@ -6,25 +6,25 @@ import (
 
 // ListenPacket is a wrapper around net.ListenPacket that dumps packets to disk.
 type ListenPacket struct {
-	Prefix       string
-	ListenPacket func(network, address string) (net.PacketConn, error)
+	Prefix string
 }
 
-// Do mimics net.ListenPacket
+// Do mimics net.ListenPacket.
 func (l *ListenPacket) Do(network, address string) (net.PacketConn, error) {
-	pc, err := l.ListenPacket(network, address)
+	netPacketConn, err := net.ListenPacket(network, address)
 	if err != nil {
 		return nil, err
 	}
 
-	d := &PacketConn{
+	pdPacketConn := &packetConn{
 		Prefix:     l.Prefix,
-		PacketConn: pc,
+		PacketConn: netPacketConn,
 	}
-	err = d.Initialize()
+	err = pdPacketConn.Initialize()
 	if err != nil {
+		netPacketConn.Close()
 		return nil, err
 	}
 
-	return d, nil
+	return pdPacketConn, nil
 }

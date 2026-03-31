@@ -58,7 +58,7 @@ type sessionParent interface {
 }
 
 type session struct {
-	isTLS           bool
+	encryption      bool
 	transports      conf.RTSPTransports
 	rsession        *gortsplib.ServerSession
 	rconn           *gortsplib.ServerConn
@@ -229,7 +229,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 }
 
 func (s *session) rtspStream() *gortsplib.ServerStream {
-	if !s.isTLS {
+	if !s.encryption {
 		return s.stream.RTSPStream(s.rserver)
 	}
 	return s.stream.RTSPSStream(s.rserver)
@@ -439,7 +439,7 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 func (s *session) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
 		Type: func() defs.APIPathReaderType {
-			if s.isTLS {
+			if s.encryption {
 				return defs.APIPathReaderTypeRTSPSSession
 			}
 			return defs.APIPathReaderTypeRTSPSession
@@ -452,7 +452,7 @@ func (s *session) APIReaderDescribe() *defs.APIPathReader {
 func (s *session) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: func() defs.APIPathSourceType {
-			if s.isTLS {
+			if s.encryption {
 				return defs.APIPathSourceTypeRTSPSSession
 			}
 			return defs.APIPathSourceTypeRTSPSession

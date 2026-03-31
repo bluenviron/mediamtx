@@ -54,7 +54,7 @@ type connParent interface {
 }
 
 type conn struct {
-	isTLS               bool
+	encryption          bool
 	rtspAddress         string
 	authMethods         []rtspauth.VerifyMethod
 	readTimeout         conf.Duration
@@ -87,7 +87,7 @@ func (c *conn) initialize() {
 		RTSPAddress:         c.rtspAddress,
 		Desc: defs.APIPathReader{
 			Type: func() defs.APIPathReaderType {
-				if c.isTLS {
+				if c.encryption {
 					return defs.APIPathReaderTypeRTSPSConn
 				}
 				return defs.APIPathReaderTypeRTSPConn
@@ -192,7 +192,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}
 
 	var strm *gortsplib.ServerStream
-	if !c.isTLS {
+	if !c.encryption {
 		strm = res.Stream.RTSPStream(c.rserver)
 	} else {
 		strm = res.Stream.RTSPSStream(c.rserver)

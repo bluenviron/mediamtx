@@ -77,7 +77,7 @@ type Server struct {
 	DumpPackets         bool
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
-	IsTLS               bool
+	Encryption          bool
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
@@ -107,32 +107,51 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	var err error
-	s.ln, err = net.Listen(restrictnetwork.Restrict("tcp", s.Address))
-	if err != nil {
-		return err
-	}
+	var listen func(network string, address string) (net.Listener, error)
+	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
 
 	if s.DumpPackets {
-		s.ln = &packetdumper.Listener{
-			Prefix:   "rtmp_server_conn",
-			Listener: s.ln,
+		var proto string
+		if s.Encryption {
+			proto = "rtmps"
+		} else {
+			proto = "rtmp"
 		}
+
+		listen = (&packetdumper.Listen{
+			Prefix: proto + "_server_conn",
+		}).Do
+
+		tlsListen = (&packetdumper.TLSListen{
+			Listen: listen,
+		}).Do
+	} else {
+		listen = net.Listen
+		tlsListen = tls.Listen
 	}
 
-	if s.IsTLS {
+	if s.Encryption {
 		s.loader = &certloader.CertLoader{
 			CertPath: s.ServerCert,
 			KeyPath:  s.ServerKey,
 			Parent:   s.Parent,
 		}
-		err = s.loader.Initialize()
+		err := s.loader.Initialize()
 		if err != nil {
-			s.ln.Close()
 			return err
 		}
 
-		s.ln = tls.NewListener(s.ln, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+		net, addr := restrictnetwork.Restrict("tcp", s.Address)
+		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		s.ln, err = listen(restrictnetwork.Restrict("tcp", s.Address))
+		if err != nil {
+			return err
+		}
 	}
 
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
@@ -146,7 +165,7 @@ func (s *Server) Initialize() error {
 	s.chAPIConnsKick = make(chan serverAPIConnsKickReq)
 
 	str := "listener opened on " + s.Address
-	if s.IsTLS {
+	if s.Encryption {
 		str += " (TCP/RTMPS)"
 	} else {
 		str += " (TCP/RTMP)"
@@ -164,7 +183,7 @@ func (s *Server) Initialize() error {
 	go s.run()
 
 	if !interfaceIsEmpty(s.Metrics) {
-		if s.IsTLS {
+		if s.Encryption {
 			s.Metrics.SetRTMPSServer(s)
 		} else {
 			s.Metrics.SetRTMPServer(s)
@@ -177,7 +196,7 @@ func (s *Server) Initialize() error {
 // Log implements logger.Writer.
 func (s *Server) Log(level logger.Level, format string, args ...any) {
 	label := func() string {
-		if s.IsTLS {
+		if s.Encryption {
 			return "RTMPS"
 		}
 		return "RTMP"
@@ -190,7 +209,7 @@ func (s *Server) Close() {
 	s.Log(logger.Info, "listener is closing")
 
 	if !interfaceIsEmpty((s.Metrics)) {
-		if s.IsTLS {
+		if s.Encryption {
 			s.Metrics.SetRTMPSServer(nil)
 		} else {
 			s.Metrics.SetRTMPServer(nil)
@@ -218,7 +237,7 @@ outer:
 		case nconn := <-s.chNewConn:
 			c := &conn{
 				parentCtx:           s.ctx,
-				isTLS:               s.IsTLS,
+				encryption:          s.Encryption,
 				rtspAddress:         s.RTSPAddress,
 				readTimeout:         s.ReadTimeout,
 				writeTimeout:        s.WriteTimeout,

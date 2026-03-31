@@ -3,7 +3,6 @@ package webrtc
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -49,22 +48,25 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
-	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
 
-	dialContext := (&net.Dialer{}).DialContext
+	tlsConfig := ptls.MakeConfig(params.Conf.SourceFingerprint)
 
 	if s.DumpPackets {
-		dialContext = (&packetdumper.DialContext{
-			Prefix:      "webrtc_source_conn",
-			DialContext: dialContext,
+		tr.DialContext = (&packetdumper.DialContext{
+			Prefix: u.Scheme + "_source_conn",
 		}).Do
+
+		tr.DialTLSContext = (&packetdumper.DialTLSContext{
+			DialContext: tr.DialContext,
+			TLSConfig:   tlsConfig,
+		}).Do
+	} else {
+		tr.TLSClientConfig = tlsConfig
 	}
 
-	tr := &http.Transport{
-		DialContext:     dialContext,
-		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
-	}
-	defer tr.CloseIdleConnections()
+	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
 	client := whip.Client{
 		URL: u,

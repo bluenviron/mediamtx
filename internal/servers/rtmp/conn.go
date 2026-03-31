@@ -25,7 +25,7 @@ import (
 
 type conn struct {
 	parentCtx           context.Context
-	isTLS               bool
+	encryption          bool
 	rtspAddress         string
 	readTimeout         conf.Duration
 	writeTimeout        conf.Duration
@@ -297,7 +297,7 @@ func (c *conn) runPublish() error {
 func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
 		Type: func() defs.APIPathReaderType {
-			if c.isTLS {
+			if c.encryption {
 				return defs.APIPathReaderTypeRTMPSConn
 			}
 			return defs.APIPathReaderTypeRTMPConn
@@ -310,7 +310,7 @@ func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 func (c *conn) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: func() defs.APIPathSourceType {
-			if c.isTLS {
+			if c.encryption {
 				return defs.APIPathSourceTypeRTMPSConn
 			}
 			return defs.APIPathSourceTypeRTMPConn
