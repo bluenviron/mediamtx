@@ -89,7 +89,7 @@ type path struct {
 
 	ctx                            context.Context
 	ctxCancel                      func()
-	pendingRequests                *int64
+	pendingRequests                atomic.Int64
 	confMutex                      sync.RWMutex
 	source                         defs.Source
 	stream                         *stream.Stream
@@ -129,7 +129,6 @@ func (pa *path) initialize() {
 	pa.confName = pa.conf.Name
 	pa.ctx = ctx
 	pa.ctxCancel = ctxCancel
-	pa.pendingRequests = new(int64)
 	pa.readers = make(map[defs.Reader]struct{})
 	pa.onDemandStaticSourceReadyTimer = emptyTimer()
 	pa.onDemandStaticSourceCloseTimer = emptyTimer()
@@ -304,7 +303,7 @@ func (pa *path) runInner() error {
 		case req := <-pa.chDescribe:
 			pa.doDescribe(req)
 
-			atomic.AddInt64(pa.pendingRequests, -1)
+			pa.pendingRequests.Add(-1)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)
@@ -313,7 +312,7 @@ func (pa *path) runInner() error {
 		case req := <-pa.chAddPublisher:
 			pa.doAddPublisher(req)
 
-			atomic.AddInt64(pa.pendingRequests, -1)
+			pa.pendingRequests.Add(-1)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)
@@ -329,7 +328,7 @@ func (pa *path) runInner() error {
 		case req := <-pa.chAddReader:
 			pa.doAddReader(req)
 
-			atomic.AddInt64(pa.pendingRequests, -1)
+			pa.pendingRequests.Add(-1)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)

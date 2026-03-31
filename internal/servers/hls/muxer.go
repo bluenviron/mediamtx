@@ -22,12 +22,6 @@ const (
 	recreatePause    = 10 * time.Second
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 func emptyTimer() *time.Timer {
 	t := time.NewTimer(0)
 	<-t.C
@@ -36,12 +30,12 @@ func emptyTimer() *time.Timer {
 
 type responseWriterWithCounter struct {
 	http.ResponseWriter
-	bytesSent *uint64
+	bytesSent *atomic.Uint64
 }
 
 func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(p)
-	atomic.AddUint64(w.bytesSent, uint64(n))
+	w.bytesSent.Add(uint64(n))
 	return n, err
 }
 
@@ -74,8 +68,8 @@ type muxer struct {
 	ctxCancel       func()
 	created         time.Time
 	path            defs.Path
-	lastRequestTime *int64
-	bytesSent       *uint64
+	lastRequestTime atomic.Int64
+	bytesSent       atomic.Uint64
 
 	// in
 	chGetInstance chan muxerGetInstanceReq
@@ -87,8 +81,8 @@ func (m *muxer) initialize() {
 	m.ctx = ctx
 	m.ctxCancel = ctxCancel
 	m.created = time.Now()
-	m.lastRequestTime = ptrOf(time.Now().UnixNano())
-	m.bytesSent = new(uint64)
+	m.lastRequestTime.Store(time.Now().UnixNano())
+	m.bytesSent.Store(0)
 	m.chGetInstance = make(chan muxerGetInstanceReq)
 
 	m.Log(logger.Info, "created %s", func() string {
@@ -212,7 +206,7 @@ func (m *muxer) runInner() error {
 			}
 
 		case <-activityCheckTimer.C:
-			t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
+			t := time.Unix(0, m.lastRequestTime.Load())
 			if time.Since(t) >= time.Duration(m.closeAfter) {
 				return fmt.Errorf("not used anymore")
 			}
@@ -261,7 +255,7 @@ func (m *muxer) APIReaderDescribe() *defs.APIPathReader {
 }
 
 func (m *muxer) handleRequest(ctx *gin.Context) {
-	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
+	m.lastRequestTime.Store(time.Now().UnixNano())
 
 	res := m.getInstance()
 	if res.instance == nil {
@@ -271,7 +265,7 @@ func (m *muxer) handleRequest(ctx *gin.Context) {
 
 	w := &responseWriterWithCounter{
 		ResponseWriter: ctx.Writer,
-		bytesSent:      m.bytesSent,
+		bytesSent:      &m.bytesSent,
 	}
 
 	res.instance.handleRequest(w, ctx.Request)
@@ -288,9 +282,9 @@ func (m *muxer) apiItem() *defs.APIHLSMuxer {
 	return &defs.APIHLSMuxer{
 		Path:                    m.pathName,
 		Created:                 m.created,
-		LastRequest:             time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
-		OutboundBytes:           atomic.LoadUint64(m.bytesSent),
+		LastRequest:             time.Unix(0, m.lastRequestTime.Load()),
+		OutboundBytes:           m.bytesSent.Load(),
 		OutboundFramesDiscarded: outboundFramesDiscarded,
-		BytesSent:               atomic.LoadUint64(m.bytesSent),
+		BytesSent:               m.bytesSent.Load(),
 	}
 }
