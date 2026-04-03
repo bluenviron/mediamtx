@@ -179,7 +179,13 @@ func (a *API) Initialize() error {
 		return err
 	}
 
-	a.Log(logger.Info, "listener opened on "+a.Address)
+	str := "listener opened on " + a.Address
+	if !a.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	a.Log(logger.Info, str)
 
 	return nil
 }

@@ -306,12 +306,17 @@ func (s *Server) Initialize() error {
 		}
 	}
 
-	str := "listener opened on " + s.Address + " (HTTP)"
+	str := "listener opened on " + s.Address
+	if !s.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
 	if s.udpMuxLn != nil {
-		str += ", " + s.LocalUDPAddress + " (ICE/UDP)"
+		str += ", " + s.LocalUDPAddress + " (UDP/ICE)"
 	}
 	if s.tcpMuxLn != nil {
-		str += ", " + s.LocalTCPAddress + " (ICE/TCP)"
+		str += ", " + s.LocalTCPAddress + " (TCP/ICE)"
 	}
 	s.Log(logger.Info, str)
 
