@@ -69,7 +69,13 @@ func (pp *PPROF) Initialize() error {
 		return err
 	}
 
-	pp.Log(logger.Info, "listener opened on "+pp.Address)
+	str := "listener opened on " + pp.Address
+	if !pp.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	pp.Log(logger.Info, str)
 
 	return nil
 }

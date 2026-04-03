@@ -138,7 +138,13 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.Log(logger.Info, "listener opened on "+s.Address)
+	str := "listener opened on " + s.Address
+	if !s.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	s.Log(logger.Info, str)
 
 	s.wg.Add(1)
 	go s.run()

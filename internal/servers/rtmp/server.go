@@ -145,7 +145,13 @@ func (s *Server) Initialize() error {
 	s.chAPIConnsGet = make(chan serverAPIConnsGetReq)
 	s.chAPIConnsKick = make(chan serverAPIConnsKickReq)
 
-	s.Log(logger.Info, "listener opened on %s", s.Address)
+	str := "listener opened on " + s.Address
+	if s.IsTLS {
+		str += " (TCP/RTMPS)"
+	} else {
+		str += " (TCP/RTMP)"
+	}
+	s.Log(logger.Info, str)
 
 	l := &listener{
 		ln:     s.ln,
