@@ -4,6 +4,8 @@ OBS Studio can publish streams to the server in several ways. The recommended on
 
 ## OBS Studio and RTMP
 
+### Standard
+
 In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
 - Service: `Custom...`
@@ -27,7 +29,7 @@ If you want to generate a stream that can be read with WebRTC, open `Settings ->
 
 Then use the button `Start Recording` (instead of `Start Streaming`) to start streaming.
 
-## OBS Studio and RTMP, multitrack video
+### Multitrack video
 
 OBS Studio can publish multiple video tracks or renditions at once (simulcast). Make sure that the OBS Studio version is &ge; 31.0.0. Open `Settings -> Stream` and use the following parameters:
 
@@ -109,7 +111,71 @@ Save the configuration and click `Start streaming`.
 
 The resulting stream will be available on path `/mystream`.
 
+### Encryption (RTMPS)
+
+When publishing streams to _MediaMTX_ with RTMP, you can encrypt streams in transit by using the encrypted variant of RTMP (RTMPS). This can be enabled by using the `rtmps` scheme and the 1936 port:
+
+```
+rtmps://localhost:1936/mystream
+```
+
+Make sure that RTMP encryption is allowed in _MediaMTX_ (`rtmpEncryption: "optional"`).
+
+OBS Studio requires _MediaMTX_ to use a TLS certificate signed by a public certificate authority and silently rejects self-signed certificates. You can either buy a certificate from a public certificate authority or create a local certificate authority and use it to generate the server certificate and validate it on the OBS Studio machine, by following these instructions:
+
+1. Create the key pair of the local certificate authority:
+
+   ```sh
+   openssl req \
+   -x509 \
+   -nodes \
+   -days 3650 \
+   -newkey rsa:4096 \
+   -keyout myca.key \
+   -out myca.crt \
+   -subj "/O=myca/CN=myca"
+   ```
+
+2. Use the key pair to create the server certificate. Replace `localhost` with the domain name OBS Studio will use to connect to the server:
+
+   ```sh
+   openssl req \
+   -newkey rsa:4096 \
+   -nodes \
+   -keyout server.key \
+   -CA myca.crt \
+   -CAkey myca.key \
+   -subj "/CN=localhost" \
+   -x509 \
+   -days 3650 \
+   -out server.crt
+   ```
+
+   You must use a domain name to connect to the server, not an IP address. If you do not have a domain name, edit the `/etc/hosts` file of the OBS Studio machine and associate a dummy domain name to the IP address of the server.
+
+3. Put the newly-generated `server.key` and `server.cert` on the _MediaMTX_ machine, in the same folder of the _MediaMTX_ executable, and check that the configuration points to them.
+
+4. Install the public key (`ca.crt`) of the local certificate authority on the OBS Studio machine.
+
+   If you are using Linux, this can be accomplished with these commands:
+
+   ```sh
+   sudo mkdir -p /usr/local/share/ca-certificates
+   sudo cp myca.crt /usr/local/share/ca-certificates/
+   sudo update-ca-certificates
+   ```
+
+   WARNING: this will still not work when OBS Studio is installed with Flatpak, since Flatpak isolates OBS Studio from the host and prevents it from reading the `ca-certificates` folder. Install OBS Studio through another mean (snap / ppa / .deb).
+
+   If you are using Windows, this can be accomplished with the command:
+
+   ```sh
+   certutil -addstore "Root" myca.crt
+   ```
+
 ## OBS Studio and WebRTC
+
+### Standard
 
 Recent versions of OBS Studio can also publish streams to the server with the [WebRTC / WHIP protocol](04-webrtc-clients.md) Use the following parameters:
 
@@ -120,7 +186,7 @@ Save the configuration and click `Start streaming`.
 
 The resulting stream will be available on path `/mystream`.
 
-## OBS Studio and WebRTC, multitrack video
+### Multitrack video
 
 OBS Studio can publish multiple video tracks or renditions at once (simulcast) with WebRTC / WHIP too. Make sure that the OBS Studio version is &ge; 32.1.0. Open `Settings -> Stream` and use the following parameters:
 
@@ -133,3 +199,15 @@ Currently it's not possible to change resolution or bitrate (or canvas) of rendi
 Save the configuration and click `Start streaming`.
 
 The resulting stream will be available on path `/mystream`.
+
+### Encryption
+
+When publishing streams to _MediaMTX_ with WebRTC, you can encrypt the WebRTC handshake by using the HTTPS-based variant of WHIP. This can be enabled by using the `https` scheme:
+
+```
+https://localhost:8889/mystream
+```
+
+Make sure that WebRTC encryption is enabled in _MediaMTX_ (`webrtcEncryption: true`).
+
+OBS Studio requires _MediaMTX_ to use a TLS certificate signed by a public certificate authority and silently rejects self-signed certificates. You can either buy a certificate from a public certificate authority or create a local certificate authority and use it to generate the server certificate and validate it on the OBS Studio machine. Instructions are reported in [OBS Studio and RTMP, encryption (RTMPS)](#encryption-rtmps).
