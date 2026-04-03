@@ -253,12 +253,20 @@ outer:
 
 			newConf, _, err := conf.Load(p.confPath, nil, p.logger)
 			if err != nil {
+				if p.conf.ReloadOnError == conf.ReloadOnErrorContinue {
+					p.Log(logger.Error, "configuration error: %s (keeping current configuration)", err)
+					continue
+				}
 				p.Log(logger.Error, "%s", err)
 				break outer
 			}
 
 			err = p.reloadConf(newConf, false)
 			if err != nil {
+				if p.conf.ReloadOnError == conf.ReloadOnErrorContinue {
+					p.Log(logger.Error, "configuration apply error: %s (keeping current configuration)", err)
+					continue
+				}
 				p.Log(logger.Error, "%s", err)
 				break outer
 			}

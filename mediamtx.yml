@@ -18,6 +18,10 @@ logFile: mediamtx.log
 sysLogPrefix: mediamtx
 # Dump packets to disk. This is useful for debugging.
 dumpPackets: false
+# Behavior when a configuration reload fails due to a parse or apply error.
+# "exit" (default): exit the process.
+# "continue": log the error and keep running with the current configuration.
+reloadOnError: exit
 
 # Timeout of read operations.
 readTimeout: 10s
