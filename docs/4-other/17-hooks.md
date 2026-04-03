@@ -40,6 +40,7 @@ paths:
     # The following environment variables are available:
     # * MTX_PATH: path name
     # * RTSP_PORT: RTSP server port
+    # * MTX_CUSTOM: value of the path config field "Custom"
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnInit: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
@@ -59,6 +60,7 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by first reader)
+  # * MTX_CUSTOM: value of the path config field "Custom"
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
@@ -90,6 +92,7 @@ pathDefaults:
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher)
+  # * MTX_CUSTOM: value of the path config field "Custom"
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
   # * RTSP_PORT: RTSP server port
