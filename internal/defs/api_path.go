@@ -72,6 +72,7 @@ type APIPath struct {
 	Online               bool                `json:"online"`
 	OnlineTime           *time.Time          `json:"onlineTime"`
 	Source               *APIPathSource      `json:"source"`
+	Stats                SourceStats         `json:"sourceStats,omitempty"`
 	Tracks               []APIPathTrackCodec `json:"tracks" deprecated:"true"`
 	Tracks2              []APIPathTrack      `json:"tracks2"`
 	Readers              []APIPathReader     `json:"readers"`
@@ -82,6 +83,14 @@ type APIPath struct {
 	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
 	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`
 }
+
+/*
+// APIPathRTPSourceStats contains RTP protocol staticsources inbound stats
+type APIPathRTPSourceStats struct {
+	InboundRTPPackets       uint64  `json:"inboundRTPPackets"`
+	InboundRTPPacketsLost   uint64  `json:"inboundRTPPacketsLost"`
+	InboundRTPPacketsJitter float64 `json:"inboundRTPPacketsJitter"`
+}*/
 
 // APIPathList is a list of paths.
 type APIPathList struct {
