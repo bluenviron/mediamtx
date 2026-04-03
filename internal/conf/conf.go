@@ -532,7 +532,7 @@ func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, stri
 
 	conf.setDefaults()
 
-	fpath, err := conf.loadFromFile(fpath, defaultConfPaths)
+	fpath, err := conf.loadFromFile(fpath, defaultConfPaths, l)
 	if err != nil {
 		return nil, "", err
 	}
@@ -558,7 +558,7 @@ func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, stri
 	return conf, fpath, nil
 }
 
-func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string) (string, error) {
+func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string, l logger.Writer) (string, error) {
 	if fpath == "" {
 		fpath = firstThatExists(defaultConfPaths)
 
@@ -588,9 +588,15 @@ func (conf *Conf) loadFromFile(fpath string, defaultConfPaths []string) (string,
 		}
 	}
 
-	err = yamlwrapper.Unmarshal(byts, conf)
+	warnings, err := yamlwrapper.UnmarshalAllowUnknownFields(byts, conf)
 	if err != nil {
 		return "", err
+	}
+
+	for _, w := range warnings {
+		if l != nil {
+			l.Log(logger.Warn, w)
+		}
 	}
 
 	return fpath, nil

@@ -74,15 +74,14 @@ func convertLegacyBools(node ast.Node) ast.Node {
 	return node
 }
 
-// Unmarshal loads the configuration from YAML.
-func Unmarshal(buf []byte, dest any) error {
+func yamlToJSON(buf []byte) ([]byte, error) {
 	file, err := parser.ParseBytes(buf, parser.ParseComments)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(file.Docs) != 1 {
-		return fmt.Errorf("invalid YAML")
+		return nil, fmt.Errorf("invalid YAML")
 	}
 
 	file.Docs[0] = convertLegacyBools(file.Docs[0]).(*ast.DocumentNode)
@@ -91,16 +90,29 @@ func Unmarshal(buf []byte, dest any) error {
 	if file.Docs[0].Body != nil {
 		err = yaml.NodeToValue(file.Docs[0].Body, &temp)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	// convert the generic map into JSON
-	buf, err = json.Marshal(temp)
+	return json.Marshal(temp)
+}
+
+// Unmarshal loads the configuration from YAML.
+func Unmarshal(buf []byte, dest any) error {
+	jsonBuf, err := yamlToJSON(buf)
 	if err != nil {
 		return err
 	}
 
-	// load JSON into destination
-	return jsonwrapper.Unmarshal(buf, dest)
+	return jsonwrapper.Unmarshal(jsonBuf, dest)
+}
+
+// UnmarshalAllowUnknownFields loads the configuration from YAML, collecting unknown fields as warnings.
+func UnmarshalAllowUnknownFields(buf []byte, dest any) ([]string, error) {
+	jsonBuf, err := yamlToJSON(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonwrapper.UnmarshalAllowUnknownFields(jsonBuf, dest)
 }

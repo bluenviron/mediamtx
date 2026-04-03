@@ -3,6 +3,7 @@ package conf
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -275,11 +276,6 @@ func TestConfErrors(t *testing.T) {
 			"[2:1] mapping key \"paths\" already defined at [1:1]\n   1 |  null\n>  2 | paths:\n       ^\n",
 		},
 		{
-			"non existent parameter",
-			`invalid: param`,
-			"json: unknown field \"invalid\"",
-		},
-		{
 			"invalid readTimeout",
 			"readTimeout: 0s\n",
 			"'readTimeout' must be greater than zero",
@@ -310,17 +306,10 @@ func TestConfErrors(t *testing.T) {
 			"invalid ICE server: 'testing'",
 		},
 		{
-			"non existent parameter in path",
-			"paths:\n" +
-				"  mypath:\n" +
-				"    invalid: parameter\n",
-			"json: unknown field \"invalid\"",
-		},
-		{
 			"non existent parameter in auth",
 			"authInternalUsers:\n" +
 				"- users: test\n",
-			"json: unknown field \"authInternalUsers[0].users\"",
+			"empty usernames are not supported",
 		},
 		{
 			"invalid path name",
@@ -773,6 +762,55 @@ func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 
 	_, _, err = Load(tmpConf, nil, nil)
 	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are [69 70 71 72]")
+}
+
+type testLogger struct {
+	warnings []string
+}
+
+func (l *testLogger) Log(level logger.Level, format string, args ...any) {
+	if level == logger.Warn {
+		l.warnings = append(l.warnings, fmt.Sprintf(format, args...))
+	}
+}
+
+func TestConfUnknownFieldWarning(t *testing.T) {
+	for _, ca := range []struct {
+		name    string
+		conf    string
+		warning string
+	}{
+		{
+			"unknown top-level parameter",
+			`invalid: param`,
+			`json: unknown field "invalid"`,
+		},
+		{
+			"unknown path parameter",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    invalid: parameter\n",
+			`json: unknown field "invalid"`,
+		},
+		{
+			"unknown pathDefaults parameter",
+			"pathDefaults:\n" +
+				"  futureOption: true\n",
+			`json: unknown field "pathDefaults.futureOption"`,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			tmpf, err := createTempFile([]byte(ca.conf))
+			require.NoError(t, err)
+			defer os.Remove(tmpf)
+
+			l := &testLogger{}
+			_, _, err = Load(tmpf, nil, l)
+			require.NoError(t, err)
+			require.NotEmpty(t, l.warnings)
+			require.Equal(t, ca.warning, l.warnings[0])
+		})
+	}
 }
 
 func TestSampleConfFile(t *testing.T) {
