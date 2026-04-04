@@ -1,4 +1,6 @@
 kickoff/installation: kickoff/install
+kickoff/basic-usage: features/basic-usage
+kickoff/architecture: features/architecture
 
 usage/publish: publish/overview
 usage/read: read/overview
@@ -29,9 +31,38 @@ usage/rtsp-specific-features: other/rtsp-specific-features
 usage/rtmp-specific-features: other/rtmp-specific-features
 usage/decrease-packet-loss: other/decrease-packet-loss
 
+other/configuration: features/configuration
+other/authentication: features/authentication
+other/remuxing-reencoding-compression: features/remuxing-reencoding-compression
+other/always-available: features/always-available
+other/record: features/record
+other/playback: features/playback
+other/forward: features/forward
+other/proxy: features/proxy
+other/extract-snapshots: features/extract-snapshots
+other/on-demand-publishing: features/on-demand-publishing
+other/absolute-timestamps: features/absolute-timestamps
+other/expose-the-server-in-a-subfolder: features/expose-the-server-in-a-subfolder
+other/embed-streams-in-a-website: features/embed-streams-in-a-website
+other/start-on-boot: features/start-on-boot
+other/logging: features/logging
+other/hooks: features/hooks
+other/control-api: features/control-api
+other/metrics: features/metrics
+other/performance: features/performance
+other/srt-specific-features: features/srt-specific-features
+other/webrtc-specific-features: features/webrtc-specific-features
+other/rtsp-specific-features: features/rtsp-specific-features
+other/rtmp-specific-features: features/rtmp-specific-features
+other/decrease-packet-loss: features/decrease-packet-loss
+other/index: features/index
 other/compile: misc/compile
 other/license: misc/license
 other/security: misc/security
 other/specifications: misc/specifications
 other/related-projects: misc/related-projects
 other/route-absolute-timestamps: other/absolute-timestamps
+
+publish/overview: features/publish
+
+read/overview: features/read
