@@ -47,7 +47,7 @@ There are several ways to change the configuration:
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx:1
    ```
 
-3. By using the [Control API](18-control-api.md).
+3. By using the [Control API](17-control-api.md).
 
 ## Encrypt the configuration
 

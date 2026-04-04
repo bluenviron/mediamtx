@@ -10,7 +10,7 @@ The resulting stream will be available on path `/mystream`.
 
 Some clients that can publish with RTSP are [FFmpeg](15-ffmpeg.md), [GStreamer](16-gstreamer.md), [OBS Studio](17-obs-studio.md), [Python and OpenCV](18-python-opencv.md).
 
-Advanced RTSP features and settings are described in [RTSP-specific features](../4-other/23-rtsp-specific-features.md).
+Advanced RTSP features and settings are described in [RTSP-specific features](../4-other/22-rtsp-specific-features.md).
 
 ## MPEG-TS inside RTSP
 

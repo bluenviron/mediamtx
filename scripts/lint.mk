@@ -27,6 +27,9 @@ lint-go2api:
 lint-docslinks:
 	go test -v -tags enable_linters ./internal/linters/docslinks
 
+lint-docsorder:
+	go test -v -tags enable_linters ./internal/linters/docsorder
+
 lint-docs:
 	echo "$$DOCKERFILE_DOCS_LINT" | docker build . -f - -t temp
 	docker run --rm -v "$(shell pwd)/docs:/s" -w /s temp \
@@ -37,4 +40,4 @@ lint-api-docs:
 	docker run --rm -v "$(shell pwd)/api:/s" -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
-lint: lint-go lint-go-mod lint-conf lint-go2api lint-docslinks lint-docs lint-api-docs
+lint: lint-go lint-go-mod lint-conf lint-go2api lint-docslinks lint-docsorder lint-docs lint-api-docs
