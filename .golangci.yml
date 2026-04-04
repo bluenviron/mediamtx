@@ -78,6 +78,12 @@ linters:
       - stringsbuilder
       - testingcontext
 
+  exclusions:
+    rules:
+    - linters:
+      - lll
+      source: "^\\s*// https?://"
+
 formatters:
   enable:
   - gofmt

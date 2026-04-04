@@ -56,6 +56,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		l := &unix.Listener{
 			Path: params.Path,
 		}
+
+		if s.DumpPackets {
+			l.Listen = (&packetdumper.Listen{
+				Prefix: "mpegts_source_unix_conn",
+			}).Do
+		}
+
 		err = l.Initialize()
 		if err != nil {
 			return err
@@ -68,36 +75,20 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			udpReadBufferSize = *params.Conf.MPEGTSUDPReadBufferSize
 		}
 
-		listenPacket := net.ListenPacket
-
-		if s.DumpPackets {
-			listenPacket = func(network, address string) (net.PacketConn, error) {
-				pc, err2 := net.ListenPacket(network, address)
-				if err2 != nil {
-					return nil, err2
-				}
-
-				d := &packetdumper.PacketConn{
-					Prefix:     "mpegts_source_packetconn",
-					PacketConn: pc,
-				}
-				err2 = d.Initialize()
-				if err2 != nil {
-					return nil, err2
-				}
-
-				return d, nil
-			}
-		}
-
 		params := udp.URLToParams(u)
 		l := &udp.Listener{
 			Address:           params.Address,
 			Source:            params.Source,
 			IntfName:          params.IntfName,
 			UDPReadBufferSize: int(udpReadBufferSize),
-			ListenPacket:      listenPacket,
 		}
+
+		if s.DumpPackets {
+			l.ListenPacket = (&packetdumper.ListenPacket{
+				Prefix: "mpegts_source_packet_conn",
+			}).Do
+		}
+
 		err = l.Initialize()
 		if err != nil {
 			return err

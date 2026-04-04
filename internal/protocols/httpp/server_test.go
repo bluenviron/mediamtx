@@ -26,8 +26,9 @@ func TestUnixSocket(t *testing.T) {
 	err := s.Initialize()
 	require.NoError(t, err)
 
-	_, err = os.Stat("http.sock")
+	info, err := os.Stat("http.sock")
 	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 
 	conn, err := net.Dial("unix", "http.sock")
 	require.NoError(t, err)

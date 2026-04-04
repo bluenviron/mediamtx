@@ -60,44 +60,6 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 -----END RSA PRIVATE KEY-----
 `)
 
-func TestMakeConfigSNI(t *testing.T) {
-	l, err := net.Listen("tcp", "localhost:8556")
-	require.NoError(t, err)
-	defer l.Close()
-
-	serverDone := make(chan struct{})
-	defer func() { <-serverDone }()
-
-	go func() {
-		defer close(serverDone)
-
-		nconn, err2 := l.Accept()
-		require.NoError(t, err2)
-		defer nconn.Close()
-
-		cert, err2 := tls.X509KeyPair(testTLSCertPub, testTLSCertKey)
-		require.NoError(t, err2)
-
-		tnconn := tls.Server(nconn, &tls.Config{
-			Certificates:       []tls.Certificate{cert},
-			InsecureSkipVerify: true,
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				require.Equal(t, "myhost", cs.ServerName)
-				return nil
-			},
-		})
-
-		err2 = tnconn.Handshake()
-		require.EqualError(t, err2, "remote error: tls: bad certificate")
-	}()
-
-	conf := MakeConfig("myhost", "")
-
-	_, err = tls.Dial("tcp", "localhost:8556", conf)
-	require.EqualError(t, err, "tls: failed to verify certificate: x509: "+
-		"certificate is not valid for any names, but wanted to match myhost")
-}
-
 func TestMakeConfigFingerprint(t *testing.T) {
 	l, err := net.Listen("tcp", "localhost:8556")
 	require.NoError(t, err)
@@ -119,17 +81,13 @@ func TestMakeConfigFingerprint(t *testing.T) {
 		tnconn := tls.Server(nconn, &tls.Config{
 			Certificates:       []tls.Certificate{cert},
 			InsecureSkipVerify: true,
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				require.Equal(t, "myhost", cs.ServerName)
-				return nil
-			},
 		})
 
 		err2 = tnconn.Handshake()
 		require.NoError(t, err2)
 	}()
 
-	conf := MakeConfig("myhost", "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739")
+	conf := MakeConfig("33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739")
 
 	conn, err := tls.Dial("tcp", "localhost:8556", conf)
 	require.NoError(t, err)

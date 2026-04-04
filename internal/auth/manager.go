@@ -185,13 +185,8 @@ func (m *Manager) authenticateHTTP(req *Request) (string, error) {
 		Query:    req.Query,
 	})
 
-	u, err := url.Parse(m.HTTPAddress)
-	if err != nil {
-		return "", err
-	}
-
 	tr := &http.Transport{
-		TLSClientConfig: tls.MakeConfig(u.Hostname(), m.HTTPFingerprint),
+		TLSClientConfig: tls.MakeConfig(m.HTTPFingerprint),
 	}
 	defer tr.CloseIdleConnections()
 
@@ -283,13 +278,8 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 	defer m.mutex.Unlock()
 
 	if now.Sub(m.jwksLastRefresh) >= jwksRefreshPeriod {
-		u, err := url.Parse(m.JWTJWKS)
-		if err != nil {
-			return nil, err
-		}
-
 		tr := &http.Transport{
-			TLSClientConfig: tls.MakeConfig(u.Hostname(), m.JWTJWKSFingerprint),
+			TLSClientConfig: tls.MakeConfig(m.JWTJWKSFingerprint),
 		}
 		defer tr.CloseIdleConnections()
 
