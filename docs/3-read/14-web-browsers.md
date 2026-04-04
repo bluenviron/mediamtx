@@ -10,7 +10,7 @@ You can read a stream by using the [WebRTC protocol](03-webrtc.md) by visiting t
 http://localhost:8889/mystream
 ```
 
-See [Embed streams in a website](../4-other/14-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.
+See [Embed streams in a website](../4-other/13-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.
 
 ## Web browsers and HLS
 
@@ -20,4 +20,4 @@ Web browsers can also read a stream with the [HLS protocol](06-hls.md). Latency 
 http://localhost:8888/mystream
 ```
 
-See [Embed streams in a website](../4-other/14-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.
+See [Embed streams in a website](../4-other/13-embed-streams-in-a-website.md) for instructions on how to embed the stream into an external website.
