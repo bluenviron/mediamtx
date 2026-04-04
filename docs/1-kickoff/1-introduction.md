@@ -6,21 +6,21 @@ _MediaMTX_ is a ready-to-use and zero-dependency live media server and media pro
 
 Main features:
 
-- [Publish](../2-publish/01-overview.md) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
-- [Read](../3-read/01-overview.md) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
+- [Publish](../2-features/03-publish.md) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
+- [Read](../2-features/04-read.md) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)
-- [Serve always-available streams](../4-other/04-always-available.md) even when the publisher is offline
-- [Record](../4-other/05-record.md) streams to disk in fMP4 or MPEG-TS format
-- [Playback](../4-other/06-playback.md) recorded streams
-- [Authenticate](../4-other/02-authentication.md) users with internal, HTTP or JWT authentication
-- [Forward](../4-other/07-forward.md) streams to other servers
-- [Proxy](../4-other/08-proxy.md) requests to other servers
-- [Control](../4-other/17-control-api.md) the server through the Control API
-- [Extract metrics](../4-other/18-metrics.md) from the server in a Prometheus-compatible format
-- [Monitor performance](../4-other/19-performance.md) to investigate CPU and RAM consumption
-- [Run hooks](../4-other/16-hooks.md) (external commands) when clients connect, disconnect, read or publish streams
+- [Serve always-available streams](../2-features/08-always-available.md) even when the publisher is offline
+- [Record](../2-features/09-record.md) streams to disk in fMP4 or MPEG-TS format
+- [Playback](../2-features/10-playback.md) recorded streams
+- [Authenticate](../2-features/06-authentication.md) users with internal, HTTP or JWT authentication
+- [Forward](../2-features/11-forward.md) streams to other servers
+- [Proxy](../2-features/12-proxy.md) requests to other servers
+- [Control](../2-features/21-control-api.md) the server through the Control API
+- [Extract metrics](../2-features/22-metrics.md) from the server in a Prometheus-compatible format
+- [Monitor performance](../2-features/23-performance.md) to investigate CPU and RAM consumption
+- [Run hooks](../2-features/20-hooks.md) (external commands) when clients connect, disconnect, read or publish streams
 - Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 Use the menu to navigate through the documentation.
