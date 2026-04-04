@@ -1,12 +1,12 @@
 # Configuration
 
-All the configuration parameters are listed and commented in the [configuration file](../5-references/1-configuration-file.md) (`mediamtx.yml`).
+_MediaMTX_ can be configured through parameters that are listed and commented in the [configuration file](../5-references/1-configuration-file.md) (`mediamtx.yml`).
 
 ## Change the configuration
 
-There are several ways to change the configuration:
+There are several ways to change configuration parameters:
 
-1. By editing the configuration file, that is
+1. Edit the configuration file, that is
    - included into the release bundle
    - available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
 
@@ -16,7 +16,7 @@ There are several ways to change the configuration:
 
    The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
 
-2. By overriding configuration parameters with environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
+2. Use environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
    ```sh
    MTX_RTSPADDRESS="127.0.0.1:8554" ./mediamtx
@@ -47,7 +47,7 @@ There are several ways to change the configuration:
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx:1
    ```
 
-3. By using the [Control API](17-control-api.md).
+3. Use the [Control API](17-control-api.md).
 
 ## Encrypt the configuration
 
