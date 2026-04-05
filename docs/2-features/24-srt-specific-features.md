@@ -1,6 +1,6 @@
 # SRT-specific features
 
-SRT is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish from SRT clients](../3-publish/01-srt-clients.md) and [Read from SRT clients](../4-read/01-srt.md). Features in this page are shared among both tasks.
+SRT is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish with SRT clients](../3-publish/01-srt-clients.md) and [Read with SRT clients](../4-read/01-srt.md). Features in this page are shared among both tasks.
 
 ## Standard stream ID syntax
 
