@@ -5,9 +5,9 @@
 In order to provide its features, _MediaMTX_ performs the following network interactions:
 
 - It interacts with any external source defined in the configuration, as a client, pulling streams.
-- It exposes a series of servers that allow clients to publish and read streams with several protocols.
+- It exposes a series of servers that allow clients to publish and read streams with several protocols (RTSP, RTMP, WebRTC, SRT, HLS).
 - It exposes a playback server that allows to read streams stored on disk.
-- It exposes a series of administrative services.
+- It exposes a series of administrative services (metrics, pprof, Control API).
 
 Internally, the service revolves around these components:
 
