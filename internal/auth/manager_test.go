@@ -689,11 +689,12 @@ func TestAuthJWTExclude(t *testing.T) {
 	}
 
 	user, err := m.Authenticate(&Request{
-		Action:   conf.AuthActionPublish,
-		Path:     "teststream",
-		Query:    "param=value",
-		Protocol: ProtocolRTSP,
-		IP:       net.ParseIP("127.0.0.1"),
+		Action:      conf.AuthActionPublish,
+		Path:        "teststream",
+		Query:       "param=value",
+		Protocol:    ProtocolRTSP,
+		IP:          net.ParseIP("127.0.0.1"),
+		Credentials: &Credentials{},
 	})
 	require.Nil(t, err)
 	require.Equal(t, "", user)
