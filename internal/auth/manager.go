@@ -63,7 +63,7 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
-func getToken(jwtInHTTPQuery bool, req *Request) (string, bool) {
+func getToken(jwtInHTTPQuery *bool, req *Request) (string, bool) {
 	switch {
 	case req.Credentials.Token != "":
 		return req.Credentials.Token, true
@@ -72,7 +72,8 @@ func getToken(jwtInHTTPQuery bool, req *Request) (string, bool) {
 		return req.Credentials.Pass, true
 
 		// always allow passing tokens through query parameters with RTSP and RTMP since there's no alternative.
-	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP || (jwtInHTTPQuery && isHTTP(req)):
+	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP ||
+		(jwtInHTTPQuery != nil && *jwtInHTTPQuery && isHTTP(req)):
 		v, err := url.ParseQuery(req.Query)
 		if err == nil {
 			if len(v["token"]) == 1 {
@@ -100,7 +101,7 @@ type Manager struct {
 	JWTJWKSFingerprint string
 	JWTClaimKey        string
 	JWTExclude         []conf.AuthInternalUserPermission
-	JWTInHTTPQuery     bool
+	JWTInHTTPQuery     *bool
 	JWTIssuer          string
 	JWTAudience        string
 	ReadTimeout        time.Duration

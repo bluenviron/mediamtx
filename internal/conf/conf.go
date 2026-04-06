@@ -268,7 +268,7 @@ type Conf struct {
 	AuthJWTJWKSFingerprint    string                       `json:"authJWTJWKSFingerprint"`
 	AuthJWTClaimKey           string                       `json:"authJWTClaimKey"`
 	AuthJWTExclude            []AuthInternalUserPermission `json:"authJWTExclude"`
-	AuthJWTInHTTPQuery        bool                         `json:"authJWTInHTTPQuery"`
+	AuthJWTInHTTPQuery        *bool                        `json:"authJWTInHTTPQuery,omitempty" deprecated:"true"`
 	AuthJWTIssuer             string                       `json:"authJWTIssuer"`
 	AuthJWTAudience           string                       `json:"authJWTAudience"`
 
@@ -437,7 +437,6 @@ func (conf *Conf) setDefaults() {
 		},
 	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
-	conf.AuthJWTInHTTPQuery = true
 
 	// Control API
 	conf.APIAddress = ":9997"
@@ -725,6 +724,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		if conf.AuthJWTClaimKey == "" {
 			return fmt.Errorf("'authJWTClaimKey' is empty")
 		}
+	}
+
+	if conf.AuthJWTInHTTPQuery != nil {
+		l.Log(logger.Warn, "parameter 'authJWTInHTTPQuery' is deprecated and will be removed in a future release")
 	}
 
 	// Control API (deprecated params)
