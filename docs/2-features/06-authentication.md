@@ -7,8 +7,8 @@ _MediaMTX_ can be configured to ask clients for credentials, either in the form 
 Credentials can be validated through one of these methods:
 
 - Internal database: credentials are stored in the configuration file
-- External HTTP server: an external HTTP URL is contacted to perform authentication
-- External JWT provider: an external identity server provides signed tokens that are then verified by the server
+- External HTTP server: an external HTTP URL is contacted for each authentication request
+- External JWT provider: credentials are signed tokens released by an external identity server
 
 ### Internal database
 
@@ -136,17 +136,16 @@ openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d
 
 ### External JWT provider
 
-Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external server is contacted once, and not for every request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
+Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external identity server is contacted once, not for each authentication request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
 
 ```yml
 authMethod: jwt
 authJWTJWKS: http://my_identity_server/jwks_endpoint
-authJWTClaimKey: mediamtx_permissions
 ```
 
 Users are expected to pass the encoded JWT as token.
 
-The JWT is expected to contain a claim, with a list of permissions in the same format as the one of user permissions:
+The JWT is expected to contain a `mediamtx_permissions` claim, with a list of permissions in the same format as the one of user permissions:
 
 ```json
 {
@@ -165,7 +164,6 @@ If the JWKS server uses TLS and has a self-signed or invalid TLS certificate, yo
 authMethod: jwt
 authJWTJWKS: https://my_identity_server/jwks_endpoint
 authJWTJWKSFingerprint: 33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739
-authJWTClaimKey: mediamtx_permissions
 ```
 
 The fingerprint can be obtained with:
@@ -180,7 +178,6 @@ Optionally, the JWT `iss` (issuer) and `aud` (audience) claims can be validated 
 ```yml
 authMethod: jwt
 authJWTJWKS: http://my_identity_server/jwks_endpoint
-authJWTClaimKey: mediamtx_permissions
 authJWTIssuer: http://my_identity_server
 authJWTAudience: mediamtx
 ```
@@ -218,32 +215,34 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
 
 7. Open tab _Credentials_, copy client secret somewhere.
 
-8. Open tab _Client scopes_, set _Assigned type_ of all existing client scopes to _Optional_. This decreases the length of the JWT, since many clients impose limits on it.
+8. Open tab _Client scopes_, set _Assigned type_ of all existing client scopes to _Optional_. This decreases the length of the JWT, since many clients have limits on it.
 
-9. In tab _Client scopes_, _Add client scope_, Select `mediamtx`, _Add_, _Default_.
+9. In the same tab, click on _Add client scope_, Select `mediamtx`, _Add_, _Default_.
 
-10. Open page _Users_, _Add user_, Username `testuser`, _Create_, Tab _Credentials_, _Set password_, pick a password, _Save_.
+10. Open tab _Advanced_, set _Access token signature algorithm_ to `ES256`. _Save_. This further decreases the JWT length.
 
-11. Open tab _Attributes_, _Add an attribute_:
+11. Open page _Users_, _Add user_, pick a username, _Create_, Tab _Credentials_, _Set password_, pick a password, _Save_.
+
+12. Open tab _Attributes_, _Add an attribute_:
     - Key: `mediamtx_permissions`
     - Value: `{"action":"publish", "path": ""}`
 
     You can add as many attributes with key `mediamtx_permissions` as you want, each with a single permission in it.
 
-12. In MediaMTX, use the following JWKS URL:
+13. In MediaMTX, use the following JWKS URL:
 
     ```yml
     authJWTJWKS: http://localhost:8080/realms/mediamtx/protocol/openid-connect/certs
     ```
 
-13. Perform authentication on Keycloak:
+14. Perform authentication on Keycloak:
 
-    ```
+    ```sh
     curl \
     -d "client_id=mediamtx" \
-    -d "client_secret=$CLIENT_SECRET" \
-    -d "username=$USER" \
-    -d "password=$PASS" \
+    -d "client_secret=my-client-secret" \
+    -d "username=my-user" \
+    -d "password=my-pass" \
     -d "grant_type=password" \
     http://localhost:8080/realms/mediamtx/protocol/openid-connect/token
     ```

@@ -51,10 +51,10 @@ runOnDisconnect:
 ###############################################
 # Global settings -> Authentication
 
-# Authentication method. Available values are:
-# * internal: credentials are stored in the configuration file
-# * http: an external HTTP URL is contacted to perform authentication
-# * jwt: an external identity server provides authentication through JWTs
+# Authentication method. Available values:
+# * Internal database: credentials are stored in the configuration file
+# * External HTTP server: an external HTTP URL is contacted for each authentication request
+# * External JWT provider: credentials are signed tokens released by an external identity server
 authMethod: internal
 
 # Internal authentication.
