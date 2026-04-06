@@ -63,31 +63,31 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
-func getToken(jwtInHTTPQuery *bool, req *Request) (string, bool) {
+func getToken(tokenInHTTPQuery bool, req *Request) string {
 	switch {
 	case req.Credentials.Token != "":
-		return req.Credentials.Token, true
+		return req.Credentials.Token
 
 	case req.Credentials.Pass != "":
-		return req.Credentials.Pass, true
+		return req.Credentials.Pass
 
 		// always allow passing tokens through query parameters with RTSP and RTMP since there's no alternative.
 	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP ||
-		(jwtInHTTPQuery != nil && *jwtInHTTPQuery && isHTTP(req)):
+		(tokenInHTTPQuery && isHTTP(req)):
 		v, err := url.ParseQuery(req.Query)
 		if err == nil {
 			if len(v["token"]) == 1 {
-				return v["token"][0], true
+				return v["token"][0]
 			}
 
 			// legacy query key
 			if len(v["jwt"]) == 1 {
-				return v["jwt"][0], true
+				return v["jwt"][0]
 			}
 		}
 	}
 
-	return "", false
+	return ""
 }
 
 // Manager is the authentication manager.
@@ -121,6 +121,11 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 // Authenticate authenticates a request.
 // It returns the user name.
 func (m *Manager) Authenticate(req *Request) (string, *Error) {
+	var token string
+	if m.Method == conf.AuthMethodHTTP || m.Method == conf.AuthMethodJWT {
+		token = getToken(m.Method == conf.AuthMethodJWT && m.JWTInHTTPQuery != nil && *m.JWTInHTTPQuery, req)
+	}
+
 	var user string
 	var err error
 
@@ -129,16 +134,16 @@ func (m *Manager) Authenticate(req *Request) (string, *Error) {
 		user, err = m.authenticateInternal(req)
 
 	case conf.AuthMethodHTTP:
-		user, err = m.authenticateHTTP(req)
+		user, err = m.authenticateHTTP(req, token)
 
 	default:
-		user, err = m.authenticateJWT(req)
+		user, err = m.authenticateJWT(req, token)
 	}
 
 	if err != nil {
 		return "", &Error{
 			Wrapped:        err,
-			AskCredentials: (req.Credentials.User == "" && req.Credentials.Pass == "" && req.Credentials.Token == ""),
+			AskCredentials: (req.Credentials.User == "" && req.Credentials.Pass == "" && token == ""),
 		}
 	}
 
@@ -185,7 +190,7 @@ func (m *Manager) authenticateWithUser(
 	return true
 }
 
-func (m *Manager) authenticateHTTP(req *Request) (string, error) {
+func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	if matchesPermission(m.HTTPExclude, req) {
 		return "", nil
 	}
@@ -204,7 +209,7 @@ func (m *Manager) authenticateHTTP(req *Request) (string, error) {
 		IP:       req.IP.String(),
 		User:     req.Credentials.User,
 		Password: req.Credentials.Pass,
-		Token:    req.Credentials.Token,
+		Token:    token,
 		Action:   string(req.Action),
 		Path:     req.Path,
 		Protocol: string(req.Protocol),
@@ -239,7 +244,7 @@ func (m *Manager) authenticateHTTP(req *Request) (string, error) {
 	return req.Credentials.User, nil
 }
 
-func (m *Manager) authenticateJWT(req *Request) (string, error) {
+func (m *Manager) authenticateJWT(req *Request, token string) (string, error) {
 	if matchesPermission(m.JWTExclude, req) {
 		return "", nil
 	}
@@ -249,8 +254,7 @@ func (m *Manager) authenticateJWT(req *Request) (string, error) {
 		return "", err
 	}
 
-	token, ok := getToken(m.JWTInHTTPQuery, req)
-	if !ok {
+	if token == "" {
 		return "", fmt.Errorf("JWT not provided")
 	}
 
