@@ -595,6 +595,89 @@ func TestAuthJWT(t *testing.T) {
 	}
 }
 
+func TestAuthJWTQueryParameter(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			jwk, err2 := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+				Metadata: jwkset.JWKMetadataOptions{
+					KID: "test-key-id",
+				},
+			})
+			require.NoError(t, err2)
+
+			jwkSet := jwkset.NewMemoryStorage()
+			err2 = jwkSet.KeyWrite(context.Background(), jwk)
+			require.NoError(t, err2)
+
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(response)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:4570")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	for _, ca := range []string{"token", "jwt"} {
+		t.Run(ca, func(t *testing.T) {
+			type customClaims struct {
+				jwt.RegisteredClaims
+				MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
+			}
+
+			claims := customClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "test",
+					Subject:   "somebody",
+					ID:        "1",
+				},
+				MediaMTXPermissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+					Path:   "mypath",
+				}},
+			}
+
+			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+			token.Header[jwkset.HeaderKID] = "test-key-id"
+			ss, err2 := token.SignedString(key)
+			require.NoError(t, err2)
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     "http://localhost:4570/jwks",
+				JWTClaimKey: "mediamtx_permissions",
+			}
+
+			user, err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Query:    ca + "=" + ss,
+				Protocol: ProtocolRTSP,
+				Credentials: &Credentials{
+					Token: "",
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+			require.Nil(t, err2)
+			require.Equal(t, "somebody", user)
+		})
+	}
+}
+
 func TestAuthJWTExclude(t *testing.T) {
 	m := Manager{
 		Method:      conf.AuthMethodJWT,
