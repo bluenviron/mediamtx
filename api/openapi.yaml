@@ -270,6 +270,10 @@ components:
           type: string
         authJWTClaimKey:
           type: string
+        authJWTInHTTPQuery:
+          type: boolean
+          nullable: true
+          deprecated: true
         authJWTIssuer:
           type: string
         authJWTAudience:
@@ -278,8 +282,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuthInternalUserPermission'
-        authJWTInHTTPQuery:
-          type: boolean
 
         # Control API
         api:
