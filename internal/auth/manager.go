@@ -63,6 +63,32 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
+func getToken(jwtInHTTPQuery bool, req *Request) (string, bool) {
+	switch {
+	case req.Credentials.Token != "":
+		return req.Credentials.Token, true
+
+	case req.Credentials.Pass != "":
+		return req.Credentials.Pass, true
+
+		// always allow passing tokens through query parameters with RTSP and RTMP since there's no alternative.
+	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP || (jwtInHTTPQuery && isHTTP(req)):
+		v, err := url.ParseQuery(req.Query)
+		if err == nil {
+			if len(v["token"]) == 1 {
+				return v["token"][0], true
+			}
+
+			// legacy query key
+			if len(v["jwt"]) == 1 {
+				return v["jwt"][0], true
+			}
+		}
+	}
+
+	return "", false
+}
+
 // Manager is the authentication manager.
 type Manager struct {
 	Method             conf.AuthMethod
@@ -222,30 +248,8 @@ func (m *Manager) authenticateJWT(req *Request) (string, error) {
 		return "", err
 	}
 
-	var encodedJWT string
-
-	switch {
-	case req.Credentials.Token != "":
-		encodedJWT = req.Credentials.Token
-
-	case req.Credentials.Pass != "":
-		encodedJWT = req.Credentials.Pass
-
-		// always allow passing JWT through query parameters with RTSP and RTMP since there's no alternative.
-	case req.Protocol == ProtocolRTSP || req.Protocol == ProtocolRTMP || (isHTTP(req) && m.JWTInHTTPQuery):
-		var v url.Values
-		v, err = url.ParseQuery(req.Query)
-		if err != nil {
-			return "", err
-		}
-
-		if len(v["jwt"]) != 1 || len(v["jwt"][0]) == 0 {
-			return "", fmt.Errorf("JWT not provided")
-		}
-
-		encodedJWT = v["jwt"][0]
-
-	default:
+	token, ok := getToken(m.JWTInHTTPQuery, req)
+	if !ok {
 		return "", fmt.Errorf("JWT not provided")
 	}
 
@@ -259,7 +263,7 @@ func (m *Manager) authenticateJWT(req *Request) (string, error) {
 
 	var cc jwtClaims
 	cc.permissionsKey = m.JWTClaimKey
-	_, err = jwt.ParseWithClaims(encodedJWT, &cc, keyfunc, opts...)
+	_, err = jwt.ParseWithClaims(token, &cc, keyfunc, opts...)
 	if err != nil {
 		return "", err
 	}

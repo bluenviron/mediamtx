@@ -247,7 +247,7 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
     http://localhost:8080/realms/mediamtx/protocol/openid-connect/token
     ```
 
-    The JWT is inside the `access_token` key of the response:
+    This results in:
 
     ```json
     {
@@ -261,6 +261,8 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
       "scope": "mediamtx profile email"
     }
     ```
+
+    The JWT is inside the `access_token` key.
 
 ## Providing username and password
 
@@ -285,7 +287,7 @@ rtmp://localhost/mystream?user=myuser&pass=mypass
 Append username and password to `streamid`:
 
 ```
-srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
+srt://localhost:8890?streamid=publish:mystream:myuser:mypass&pkt_size=1316
 ```
 
 ### HLS and WebRTC
@@ -293,7 +295,7 @@ srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
 Username and password can be passed through the `Authorization: Basic` HTTP header:
 
 ```
-Authorization: Basic base64(user:pass)
+Authorization: Basic base64(myuser:mypass)
 ```
 
 When using a web browser, a dialog is first shown to users, asking for credentials, and then the header is automatically inserted into every request. If you need to automatically fill credentials from a parent web page, read [Embed streams in a website](17-embed-streams-in-a-website.md).
@@ -301,7 +303,7 @@ When using a web browser, a dialog is first shown to users, asking for credentia
 If the `Authorization: Basic` header cannot be used (for instance, in software like OBS Studio, which only allows to provide a "Bearer Token"), credentials can be passed through the `Authorization: Bearer` header (i.e. the "Bearer Token" in OBS), where the value is the concatenation of username and password, separated by a colon:
 
 ```
-Authorization: Bearer username:password
+Authorization: Bearer myuser:mypass
 ```
 
 ## Providing tokens / JWTs
@@ -311,7 +313,7 @@ Authorization: Bearer username:password
 Pass the token as a query parameter:
 
 ```
-rtsp://localhost:8554/mystream?jwt=jwt
+rtsp://localhost:8554/mystream?token=mytoken
 ```
 
 WARNING: FFmpeg implementation of RTSP does not support URLs that are longer than 4096 characters (this is the [MAX_URL_SIZE constant](https://github.com/FFmpeg/FFmpeg/blob/f951aa9ef382d6bb517e05d04d52710f751de427/libavformat/internal.h#L30)), therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
@@ -321,7 +323,7 @@ WARNING: FFmpeg implementation of RTSP does not support URLs that are longer tha
 Pass the token as a query parameter:
 
 ```
-rtmp://localhost/mystream?jwt=jwt
+rtmp://localhost/mystream?token=mytoken
 ```
 
 WARNING: FFmpeg implementation of RTMP does not support URLs that are longer than 1024 characters (this is the [TCURL_MAX_LENGTH constant](https://github.com/FFmpeg/FFmpeg/blob/f951aa9ef382d6bb517e05d04d52710f751de427/libavformat/rtmpproto.c#L55)), therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
@@ -331,7 +333,7 @@ WARNING: FFmpeg implementation of RTMP does not support URLs that are longer tha
 Pass the token as password, with an arbitrary user:
 
 ```
-srt://localhost:8890?streamid=publish:mystream:user:jwt&pkt_size=1316
+srt://localhost:8890?streamid=publish:mystream:user:mytoken&pkt_size=1316
 ```
 
 WARNING: SRT does not support Stream IDs that are longer than 512 characters, therefore you have to configure your identity server in order to produce JWTs that are shorter than this threshold.
@@ -341,7 +343,7 @@ WARNING: SRT does not support Stream IDs that are longer than 512 characters, th
 The token can be passed through the `Authorization: Bearer` header:
 
 ```
-Authorization: Bearer MY_JWT
+Authorization: Bearer mytoken
 ```
 
 In OBS Studio, this is the "Bearer Token" field.
