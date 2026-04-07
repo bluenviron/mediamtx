@@ -470,7 +470,7 @@ func (p *Core) createResources(initial bool) error {
 			MulticastIPRange:    p.conf.MulticastIPRange,
 			MulticastRTPPort:    p.conf.MulticastRTPPort,
 			MulticastRTCPPort:   p.conf.MulticastRTCPPort,
-			IsTLS:               false,
+			Encryption:          false,
 			ServerCert:          "",
 			ServerKey:           "",
 			RTSPAddress:         p.conf.RTSPAddress,
@@ -513,7 +513,7 @@ func (p *Core) createResources(initial bool) error {
 			MulticastIPRange:    p.conf.MulticastIPRange,
 			MulticastRTPPort:    p.conf.MulticastSRTPPort,
 			MulticastRTCPPort:   p.conf.MulticastSRTCPPort,
-			IsTLS:               true,
+			Encryption:          true,
 			ServerCert:          p.conf.RTSPServerCert,
 			ServerKey:           p.conf.RTSPServerKey,
 			RTSPAddress:         p.conf.RTSPAddress,
@@ -542,7 +542,7 @@ func (p *Core) createResources(initial bool) error {
 			DumpPackets:         p.conf.DumpPackets,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
-			IsTLS:               false,
+			Encryption:          false,
 			ServerCert:          "",
 			ServerKey:           "",
 			RTSPAddress:         p.conf.RTSPAddress,
@@ -569,7 +569,7 @@ func (p *Core) createResources(initial bool) error {
 			Address:             p.conf.RTMPSAddress,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
-			IsTLS:               true,
+			Encryption:          true,
 			ServerCert:          p.conf.RTMPServerCert,
 			ServerKey:           p.conf.RTMPServerKey,
 			DumpPackets:         p.conf.DumpPackets,
@@ -739,7 +739,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||
 		!reflect.DeepEqual(newConf.AuthJWTExclude, p.conf.AuthJWTExclude) ||
-		newConf.AuthJWTInHTTPQuery != p.conf.AuthJWTInHTTPQuery ||
+		!reflect.DeepEqual(newConf.AuthJWTInHTTPQuery, p.conf.AuthJWTInHTTPQuery) ||
 		newConf.AuthJWTIssuer != p.conf.AuthJWTIssuer ||
 		newConf.AuthJWTAudience != p.conf.AuthJWTAudience ||
 		newConf.ReadTimeout != p.conf.ReadTimeout

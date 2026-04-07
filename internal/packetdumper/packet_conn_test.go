@@ -51,7 +51,7 @@ func TestPacketConnInitialize_CreatesFile(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -63,7 +63,7 @@ func TestPacketConnWriteTo(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -85,7 +85,7 @@ func TestPacketConnReadFrom(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -107,7 +107,7 @@ func TestPacketConnMultipleWriteRead(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -150,7 +150,7 @@ func TestPacketConnCloseIdempotent(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -164,7 +164,7 @@ func TestPacketConnDelegatesAddrMethods(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)
@@ -182,7 +182,7 @@ func TestPacketConnReadFromRecordsSource(t *testing.T) {
 	defer server.Close() //nolint:errcheck
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, PacketConn: client}
+	c := &packetConn{Prefix: prefix, PacketConn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapngPacket(t, prefix)

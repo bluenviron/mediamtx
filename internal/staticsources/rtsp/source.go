@@ -3,7 +3,6 @@ package rtsp
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"time"
 
@@ -19,7 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -123,6 +122,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
+	u0, err := url.Parse(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+
 	c := &gortsplib.Client{
 		Protocol:          params.Conf.RTSPTransport.Protocol,
 		ReadTimeout:       time.Duration(s.ReadTimeout),
@@ -153,11 +157,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	s.client = c
 
-	u0, err := url.Parse(params.ResolvedSource)
-	if err != nil {
-		return err
-	}
-
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
 		c.Tunnel = gortsplib.TunnelHTTP
@@ -170,7 +169,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		u0.Scheme = "rtsp"
 	default:
 		u0.Scheme = "rtsps"
-		c.TLSConfig = tls.MakeConfig(u0.Hostname(), params.Conf.SourceFingerprint)
 	}
 
 	u, err := base.ParseURL(u0.String())
@@ -185,16 +183,23 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		s.UDPReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
 	}
 
+	tlsConfig := ptls.MakeConfig(params.Conf.SourceFingerprint)
+
 	if s.DumpPackets {
 		c.DialContext = (&packetdumper.DialContext{
-			Prefix:      "rtsp_source_conn",
-			DialContext: (&net.Dialer{}).DialContext,
+			Prefix: u.Scheme + "_source_conn",
 		}).Do
 
 		c.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix:       "rtsp_source_packetconn",
-			ListenPacket: net.ListenPacket,
+			Prefix: u.Scheme + "_source_packet_conn",
 		}).Do
+
+		c.DialTLSContext = (&packetdumper.DialTLSContext{
+			DialContext: c.DialContext,
+			TLSConfig:   tlsConfig,
+		}).Do
+	} else {
+		c.TLSConfig = tlsConfig
 	}
 
 	err = c.Start()

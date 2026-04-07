@@ -8,18 +8,18 @@ require (
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/abema/go-mp4 v1.5.0
-	github.com/alecthomas/kong v1.14.0
+	github.com/alecthomas/kong v1.15.0
 	github.com/asticode/go-astits v1.15.0
 	github.com/bluenviron/gohlslib/v2 v2.2.9
-	github.com/bluenviron/gortmplib v0.3.0
-	github.com/bluenviron/gortsplib/v5 v5.5.0
+	github.com/bluenviron/gortmplib v0.3.1
+	github.com/bluenviron/gortsplib/v5 v5.5.1
 	github.com/bluenviron/mediacommon/v2 v2.8.3
 	github.com/datarhei/gosrt v0.10.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/pprof v1.5.4
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-git/go-billy/v5 v5.8.0
-	github.com/go-git/go-git/v5 v5.17.1
+	github.com/go-git/go-git/v5 v5.17.2
 	github.com/goccy/go-yaml v1.19.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/gopacket v1.1.19
@@ -39,6 +39,7 @@ require (
 	github.com/pion/webrtc/v4 v4.2.11
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.49.0
+	golang.org/x/net v0.52.0
 	golang.org/x/sys v0.42.0
 	golang.org/x/term v0.41.0
 )
@@ -96,7 +97,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

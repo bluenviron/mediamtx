@@ -27,20 +27,20 @@ _MediaMTX_ is a ready-to-use and zero-dependency real-time media server and medi
 
 <h3>Features</h3>
 
-- [Publish](https://mediamtx.org/docs/usage/publish) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, web browsers, Raspberry Pi Cameras and more.
-- [Read](https://mediamtx.org/docs/usage/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, web browsers and more.
+- [Publish](https://mediamtx.org/docs/features/publish) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, web browsers, Raspberry Pi Cameras and more.
+- [Read](https://mediamtx.org/docs/features/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)
-- [Serve always-available streams](https://mediamtx.org/docs/usage/always-available) even when the publisher is offline
-- [Record](https://mediamtx.org/docs/usage/record) streams to disk in fMP4 or MPEG-TS format
-- [Playback](https://mediamtx.org/docs/usage/playback) recorded streams
-- [Authenticate](https://mediamtx.org/docs/usage/authentication) users with internal, HTTP or JWT authentication
-- [Forward](https://mediamtx.org/docs/usage/forward) streams to other servers
-- [Proxy](https://mediamtx.org/docs/usage/proxy) requests to other servers
-- [Control](https://mediamtx.org/docs/usage/control-api) the server through the Control API
-- [Extract metrics](https://mediamtx.org/docs/usage/metrics) from the server in a Prometheus-compatible format
-- [Monitor performance](https://mediamtx.org/docs/usage/performance) to investigate CPU and RAM consumption
-- [Run hooks](https://mediamtx.org/docs/usage/hooks) (external commands) when clients connect, disconnect, read or publish streams
+- [Serve always-available streams](https://mediamtx.org/docs/features/always-available) even when the publisher is offline
+- [Record](https://mediamtx.org/docs/features/record) streams to disk in fMP4 or MPEG-TS format
+- [Playback](https://mediamtx.org/docs/features/playback) recorded streams
+- [Authenticate](https://mediamtx.org/docs/features/authentication) users with internal, HTTP or JWT authentication
+- [Forward](https://mediamtx.org/docs/features/forward) streams to other servers
+- [Proxy](https://mediamtx.org/docs/features/proxy) requests to other servers
+- [Control](https://mediamtx.org/docs/features/control-api) the server through the Control API
+- [Extract metrics](https://mediamtx.org/docs/features/metrics) from the server in a Prometheus-compatible format
+- [Monitor performance](https://mediamtx.org/docs/features/performance) to investigate CPU and RAM consumption
+- [Run hooks](https://mediamtx.org/docs/features/hooks) (external commands) when clients connect, disconnect, read or publish streams
 - Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 - ...and many [others](https://mediamtx.org/docs/kickoff/introduction).

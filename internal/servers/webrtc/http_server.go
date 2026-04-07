@@ -96,11 +96,18 @@ func (s *httpServer) initialize() error {
 
 	router.Use(s.onRequest)
 
+	var proto string
+	if s.encryption {
+		proto = "webrtcs"
+	} else {
+		proto = "webrtc"
+	}
+
 	s.inner = &httpp.Server{
 		Address:           s.address,
 		AllowOrigins:      s.allowOrigins,
 		DumpPackets:       s.dumpPackets,
-		DumpPacketsPrefix: "webrtc_server_conn",
+		DumpPacketsPrefix: proto + "_server_conn",
 		ReadTimeout:       time.Duration(s.readTimeout),
 		WriteTimeout:      time.Duration(s.writeTimeout),
 		Encryption:        s.encryption,

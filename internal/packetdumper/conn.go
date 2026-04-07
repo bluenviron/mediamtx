@@ -2,7 +2,9 @@
 package packetdumper
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -14,15 +16,49 @@ import (
 	"github.com/google/uuid"
 )
 
-var _ net.Conn = (*Conn)(nil)
+var _ net.Conn = (*conn)(nil)
 
 type direction int
 
 const (
-	dirRead direction = iota
-	dirWrite
+	dirInbound direction = iota
+	dirOutbound
 	dirHandshake
+	dirSecret
 )
+
+func writeDecryptionSecretsBlock(f io.Writer, data []byte) {
+	const (
+		dsbSecretTypeTLS = 0x544c534b
+		blockType        = 0x0000000A
+		fixedHeaderBytes = 4 + 4 + 4 + 4 // type + totalLen + secretsType + secretsLen
+		trailerBytes     = 4             // repeated totalLen
+		overheadBytes    = fixedHeaderBytes + trailerBytes
+	)
+
+	secretsLen := len(data)
+	paddedLen := (secretsLen + 3) &^ 3
+	padBytes := paddedLen - secretsLen
+
+	totalLen := uint32(overheadBytes + paddedLen)
+
+	buf := make([]byte, totalLen)
+	pos := 0
+
+	binary.LittleEndian.PutUint32(buf[pos:], blockType)
+	pos += 4
+	binary.LittleEndian.PutUint32(buf[pos:], totalLen)
+	pos += 4
+	binary.LittleEndian.PutUint32(buf[pos:], dsbSecretTypeTLS)
+	pos += 4
+	binary.LittleEndian.PutUint32(buf[pos:], uint32(secretsLen)) // unpadded length, per spec
+	pos += 4
+	pos += copy(buf[pos:], data)
+	pos += padBytes                                    // zero padding already present (make zeroes)
+	binary.LittleEndian.PutUint32(buf[pos:], totalLen) // trailing repeat
+
+	f.Write(buf) //nolint:errcheck
+}
 
 type dumpEntry struct {
 	ntp       time.Time
@@ -30,23 +66,29 @@ type dumpEntry struct {
 	direction direction
 }
 
-// Conn is a wrapper around net.Conn that dumps packets to disk.
-type Conn struct {
+// conn is a wrapper around net.Conn that dumps packets to disk.
+type conn struct {
 	Prefix     string
 	Conn       net.Conn
 	ServerSide bool
 
-	f    *os.File
-	pw   *pcapgo.NgWriter
-	once sync.Once
+	expectingSecrets   int
+	f                  *os.File
+	pw                 *pcapgo.NgWriter
+	once               sync.Once
+	local              *net.TCPAddr
+	remote             *net.TCPAddr
+	nextLocalSequence  uint32
+	nextRemoteSequence uint32
+	delayed            []dumpEntry
 
 	queue      chan dumpEntry
 	terminated chan struct{}
 	done       chan struct{}
 }
 
-// Initialize initializes Conn.
-func (c *Conn) Initialize() error {
+// Initialize initializes conn.
+func (c *conn) Initialize() error {
 	var err error
 	c.f, err = os.Create(fmt.Sprintf("%s_%d_%s.pcapng", c.Prefix, time.Now().UnixNano(), uuid.New().String()))
 	if err != nil {
@@ -57,6 +99,17 @@ func (c *Conn) Initialize() error {
 	if err != nil {
 		c.f.Close()
 		return err
+	}
+
+	c.local = c.Conn.LocalAddr().(*net.TCPAddr)
+	c.remote = c.Conn.RemoteAddr().(*net.TCPAddr)
+
+	if c.ServerSide {
+		c.nextLocalSequence = uint32(2000)
+		c.nextRemoteSequence = uint32(1000)
+	} else {
+		c.nextLocalSequence = uint32(1000)
+		c.nextRemoteSequence = uint32(2000)
 	}
 
 	c.queue = make(chan dumpEntry, 64)
@@ -71,7 +124,7 @@ func (c *Conn) Initialize() error {
 }
 
 // Close implements net.Conn.
-func (c *Conn) Close() error {
+func (c *conn) Close() error {
 	c.once.Do(func() {
 		close(c.terminated)
 	})
@@ -79,29 +132,23 @@ func (c *Conn) Close() error {
 	return c.Conn.Close()
 }
 
-func (c *Conn) run() {
+func (c *conn) run() {
 	defer close(c.done)
 	defer c.f.Close()
-
-	local := c.Conn.LocalAddr().(*net.TCPAddr)
-	remote := c.Conn.RemoteAddr().(*net.TCPAddr)
-
-	nextLocalSequence := uint32(1000)
-	nextRemoteSequence := uint32(2000)
+	defer c.pw.Flush() //nolint:errcheck
 
 	for {
 		select {
 		case e := <-c.queue:
-			c.processEntry(e, local, remote, &nextLocalSequence, &nextRemoteSequence)
+			c.processEntry(e)
 
 		case <-c.terminated:
 			// Drain anything already in the queue before exiting.
 			for {
 				select {
 				case e := <-c.queue:
-					c.processEntry(e, local, remote, &nextLocalSequence, &nextRemoteSequence)
+					c.processEntry(e)
 				default:
-					c.pw.Flush() //nolint:errcheck
 					return
 				}
 			}
@@ -109,18 +156,19 @@ func (c *Conn) run() {
 	}
 }
 
-func (c *Conn) processEntry(
-	e dumpEntry,
-	local, remote *net.TCPAddr,
-	nextLocalSequence, nextRemoteSequence *uint32,
-) {
+func (c *conn) processEntry(e dumpEntry) {
+	if c.expectingSecrets > 0 && e.direction != dirSecret {
+		c.delayed = append(c.delayed, e)
+		return
+	}
+
 	switch e.direction {
 	case dirHandshake:
-		clientAddr, serverAddr := local, remote // client side: local initiates
-		clientSeq, serverSeq := nextLocalSequence, nextRemoteSequence
+		clientAddr, serverAddr := c.local, c.remote // client side: local initiates
+		clientSeq, serverSeq := &c.nextLocalSequence, &c.nextRemoteSequence
 		if c.ServerSide {
-			clientAddr, serverAddr = remote, local // server side: remote initiated
-			clientSeq, serverSeq = nextRemoteSequence, nextLocalSequence
+			clientAddr, serverAddr = c.remote, c.local // server side: remote initiates
+			clientSeq, serverSeq = &c.nextRemoteSequence, &c.nextLocalSequence
 		}
 
 		// SYN (client -> server)
@@ -137,31 +185,43 @@ func (c *Conn) processEntry(
 		c.writePacket(e.ntp, clientAddr, serverAddr,
 			layers.TCP{ACK: true, Window: 65535, Seq: *clientSeq, Ack: *serverSeq}, nil)
 
-	case dirRead:
-		tcpFlags := layers.TCP{
-			PSH:    true,
-			ACK:    true,
-			Window: 14600,
-			Seq:    *nextRemoteSequence,
-			Ack:    *nextLocalSequence,
-		}
-		c.writePacket(e.ntp, remote, local, tcpFlags, e.data)
-		*nextRemoteSequence += uint32(len(e.data))
+	case dirSecret:
+		c.pw.Flush() //nolint:errcheck
+		writeDecryptionSecretsBlock(c.f, e.data)
 
-	case dirWrite:
+		c.expectingSecrets--
+		if c.expectingSecrets == 0 {
+			for _, e2 := range c.delayed {
+				c.processEntry(e2)
+			}
+			c.delayed = nil
+		}
+
+	case dirInbound:
 		tcpFlags := layers.TCP{
 			PSH:    true,
 			ACK:    true,
 			Window: 14600,
-			Seq:    *nextLocalSequence,
-			Ack:    *nextRemoteSequence,
+			Seq:    c.nextRemoteSequence,
+			Ack:    c.nextLocalSequence,
 		}
-		c.writePacket(e.ntp, local, remote, tcpFlags, e.data)
-		*nextLocalSequence += uint32(len(e.data))
+		c.writePacket(e.ntp, c.remote, c.local, tcpFlags, e.data)
+		c.nextRemoteSequence += uint32(len(e.data))
+
+	case dirOutbound:
+		tcpFlags := layers.TCP{
+			PSH:    true,
+			ACK:    true,
+			Window: 14600,
+			Seq:    c.nextLocalSequence,
+			Ack:    c.nextRemoteSequence,
+		}
+		c.writePacket(e.ntp, c.local, c.remote, tcpFlags, e.data)
+		c.nextLocalSequence += uint32(len(e.data))
 	}
 }
 
-func (c *Conn) writePacket(
+func (c *conn) writePacket(
 	ntp time.Time,
 	src, dst *net.TCPAddr,
 	tcpFlags layers.TCP,
@@ -207,35 +267,35 @@ func (c *Conn) writePacket(
 	}, raw)
 }
 
-func (c *Conn) enqueue(e dumpEntry) {
+func (c *conn) enqueue(e dumpEntry) {
 	select {
 	case c.queue <- e:
 	case <-c.terminated:
 	}
 }
 
-func (c *Conn) Read(p []byte) (n int, err error) {
+func (c *conn) Read(p []byte) (n int, err error) {
 	n, err = c.Conn.Read(p)
 
 	if n != 0 {
 		c.enqueue(dumpEntry{
 			ntp:       time.Now(),
 			data:      append([]byte(nil), p[:n]...),
-			direction: dirRead,
+			direction: dirInbound,
 		})
 	}
 
 	return n, err
 }
 
-func (c *Conn) Write(p []byte) (n int, err error) {
+func (c *conn) Write(p []byte) (n int, err error) {
 	n, err = c.Conn.Write(p)
 
 	if err == nil {
 		c.enqueue(dumpEntry{
 			ntp:       time.Now(),
 			data:      append([]byte(nil), p...),
-			direction: dirWrite,
+			direction: dirOutbound,
 		})
 	}
 
@@ -243,16 +303,16 @@ func (c *Conn) Write(p []byte) (n int, err error) {
 }
 
 // LocalAddr implements net.Conn.
-func (c *Conn) LocalAddr() net.Addr { return c.Conn.LocalAddr() }
+func (c *conn) LocalAddr() net.Addr { return c.Conn.LocalAddr() }
 
 // RemoteAddr implements net.Conn.
-func (c *Conn) RemoteAddr() net.Addr { return c.Conn.RemoteAddr() }
+func (c *conn) RemoteAddr() net.Addr { return c.Conn.RemoteAddr() }
 
 // SetDeadline implements net.Conn.
-func (c *Conn) SetDeadline(t time.Time) error { return c.Conn.SetDeadline(t) }
+func (c *conn) SetDeadline(t time.Time) error { return c.Conn.SetDeadline(t) }
 
 // SetReadDeadline implements net.Conn.
-func (c *Conn) SetReadDeadline(t time.Time) error { return c.Conn.SetReadDeadline(t) }
+func (c *conn) SetReadDeadline(t time.Time) error { return c.Conn.SetReadDeadline(t) }
 
 // SetWriteDeadline implements net.Conn.
-func (c *Conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }
+func (c *conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }

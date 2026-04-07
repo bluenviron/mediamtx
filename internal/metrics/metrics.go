@@ -122,7 +122,13 @@ func (m *Metrics) Initialize() error {
 		return err
 	}
 
-	m.Log(logger.Info, "listener opened on "+m.Address)
+	str := "listener opened on " + m.Address
+	if !m.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	m.Log(logger.Info, str)
 
 	return nil
 }

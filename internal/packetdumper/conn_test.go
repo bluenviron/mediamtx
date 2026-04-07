@@ -57,7 +57,7 @@ func TestConnInitialize_CreatesFile(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -69,7 +69,7 @@ func TestConnWrite(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -90,7 +90,7 @@ func TestConnRead(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -110,7 +110,7 @@ func TestConnServerSide(t *testing.T) {
 	defer client.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: server, ServerSide: true}
+	c := &conn{Prefix: prefix, Conn: server, ServerSide: true}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -131,7 +131,7 @@ func TestConnMultipleWriteRead(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -164,7 +164,7 @@ func TestConnCloseIdempotent(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
@@ -178,7 +178,7 @@ func TestConnDelegatesAddrMethods(t *testing.T) {
 	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &Conn{Prefix: prefix, Conn: client}
+	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	defer cleanupPcapng(t, prefix)
