@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -101,6 +102,47 @@ func TestServerPreflightRequest(t *testing.T) {
 	require.Equal(t, "OPTIONS, GET", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Range", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
+}
+
+func TestServerIndexNotConfigured(t *testing.T) {
+	pm := &dummyPathManager{
+		findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			require.Equal(t, "nonconfigured", req.AccessRequest.Name)
+			return nil, fmt.Errorf("path is not configured")
+		},
+	}
+
+	s := &Server{
+		Address:      "127.0.0.1:8888",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pm,
+		Parent:       test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/nonconfigured/", nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	require.Contains(t, res.Header.Get("Content-Type"), "application/json")
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	var payload defs.APIError
+	err = json.Unmarshal(byts, &payload)
+	require.NoError(t, err)
+	require.Equal(t, defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  "path is not configured",
+	}, payload)
 }
 
 func TestServerNotFound(t *testing.T) {

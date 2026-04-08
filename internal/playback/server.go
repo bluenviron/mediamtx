@@ -2,6 +2,7 @@
 package playback
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -103,6 +104,13 @@ func (s *Server) writeError(ctx *gin.Context, status int, err error) {
 	ctx.String(status, err.Error())
 }
 
+func (s *Server) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
 func (s *Server) safeFindPathConf(name string) (*conf.Path, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -134,10 +142,7 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: defs.APIErrorStatusError,
-				Error:  "authentication error",
-			})
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return false
 		}
 
@@ -147,10 +152,7 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: defs.APIErrorStatusError,
-			Error:  "authentication error",
-		})
+		s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return false
 	}
 

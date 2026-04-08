@@ -3,6 +3,7 @@ package webrtc
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,6 +141,56 @@ func TestPreflightRequest(t *testing.T) {
 	require.Equal(t, "OPTIONS, GET, POST, PATCH, DELETE", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Content-Type, If-Match", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
+}
+
+func TestServerIndexNotConfigured(t *testing.T) {
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			require.Equal(t, "nonconfigured", req.AccessRequest.Name)
+			return nil, fmt.Errorf("path is not configured")
+		},
+	}
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
+		LocalUDPAddress:       "127.0.0.1:8887",
+		LocalTCPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
+		HandshakeTimeout:      conf.Duration(10 * time.Second),
+		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		PathManager:           pathManager,
+		Parent:                test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8886/nonconfigured/", nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	require.Contains(t, res.Header.Get("Content-Type"), "application/json")
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	var payload defs.APIError
+	err = json.Unmarshal(byts, &payload)
+	require.NoError(t, err)
+	require.Equal(t, defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  "path is not configured",
+	}, payload)
 }
 
 func TestServerOptionsICEServer(t *testing.T) {
