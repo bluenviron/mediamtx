@@ -14,10 +14,10 @@ type SourceStatsProvider interface {
 
 // RTSPSourceStats - RTSP-specific stats (API-safe, no gortsplib leakage)
 type RTSPSourceStats struct {
-	PacketsReceived *uint64  `json:"inboundRTPPackets"`
-	PacketsLost     *uint64  `json:"inboundRTPPacketsLost"`
-	PacketsInError  *uint64  `json:"inboundRTPPacketsInError"`
-	Jitter          *float64 `json:"inboundRTPPacketsJitter"`
+	PacketsReceived uint64  `json:"inboundRTPPackets"`
+	PacketsLost     uint64  `json:"inboundRTPPacketsLost"`
+	PacketsInError  uint64  `json:"inboundRTPPacketsInError"`
+	Jitter          float64 `json:"inboundRTPPacketsJitter"`
 }
 
 func (*RTSPSourceStats) isSourceStats() {}
