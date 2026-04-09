@@ -702,7 +702,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundBytes()
 			}(),
-			Stats: func() defs.SourceStats {
+			StaticStats: func() defs.SourceStats {
 				if !pa.isAvailable() {
 					return nil
 				}

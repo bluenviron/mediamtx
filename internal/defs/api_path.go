@@ -72,7 +72,7 @@ type APIPath struct {
 	Online               bool                `json:"online"`
 	OnlineTime           *time.Time          `json:"onlineTime"`
 	Source               *APIPathSource      `json:"source"`
-	Stats                SourceStats         `json:"sourceStats,omitempty"`
+	StaticStats          SourceStats         `json:"staticsourceStats,omitempty"`
 	Tracks               []APIPathTrackCodec `json:"tracks" deprecated:"true"`
 	Tracks2              []APIPathTrack      `json:"tracks2"`
 	Readers              []APIPathReader     `json:"readers"`
