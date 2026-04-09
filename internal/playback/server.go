@@ -101,7 +101,10 @@ func (s *Server) writeError(ctx *gin.Context, status int, err error) {
 	s.Log(logger.Error, err.Error())
 
 	// add error to response
-	ctx.String(status, err.Error())
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
 }
 
 func (s *Server) writeErrorNoLog(ctx *gin.Context, status int, err error) {
