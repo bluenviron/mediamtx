@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.25.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.67.0
+	code.cloudfoundry.org/bytefmt v0.68.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
@@ -27,7 +27,7 @@ require (
 	github.com/gookit/color v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/matthewhartstonge/argon2 v1.4.6
+	github.com/matthewhartstonge/argon2 v1.5.1
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.2.2
 	github.com/pion/interceptor v0.1.44
@@ -40,7 +40,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.49.0
 	golang.org/x/net v0.52.0
-	golang.org/x/sys v0.42.0
+	golang.org/x/sys v0.43.0
 	golang.org/x/term v0.41.0
 )
 

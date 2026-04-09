@@ -2,6 +2,7 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"reflect"
@@ -206,7 +207,14 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	a.Log(logger.Error, err.Error())
 
 	// add error to response
-	ctx.JSON(status, &defs.APIError{
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
+func (a *API) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
 		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
@@ -238,10 +246,7 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: defs.APIErrorStatusError,
-				Error:  "authentication error",
-			})
+			a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
@@ -250,10 +255,7 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		// wait some seconds to delay brute force attacks
 		<-time.After(auth.PauseAfterError)
 
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: defs.APIErrorStatusError,
-			Error:  "authentication error",
-		})
+		a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return
 	}
 }
