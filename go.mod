@@ -29,7 +29,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.1
 	github.com/minio/selfupdate v0.6.0
-	github.com/pion/ice/v4 v4.2.2
+	github.com/pion/ice/v4 v4.2.3
 	github.com/pion/interceptor v0.1.44
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.16
@@ -82,7 +82,7 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.9.4 // indirect
 	github.com/pion/srtp/v3 v3.0.10 // indirect
-	github.com/pion/stun/v3 v3.1.1 // indirect
+	github.com/pion/stun/v3 v3.1.2 // indirect
 	github.com/pion/turn/v4 v4.1.4 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
