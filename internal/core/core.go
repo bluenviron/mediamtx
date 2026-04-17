@@ -367,9 +367,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.MetricsFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "metrics listener failed to start, continuing without it: %v", err)
+		} else {
+			p.metrics = i
 		}
-		p.metrics = i
 	}
 
 	if p.conf.PPROF &&
@@ -389,9 +393,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.PPROFFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "pprof listener failed to start, continuing without it: %v", err)
+		} else {
+			p.pprof = i
 		}
-		p.pprof = i
 	}
 
 	if p.recordCleaner == nil &&
@@ -421,9 +429,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.PlaybackFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "playback listener failed to start, continuing without it: %v", err)
+		} else {
+			p.playbackServer = i
 		}
-		p.playbackServer = i
 	}
 
 	if p.pathManager == nil {
@@ -485,9 +497,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.RTSPFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "RTSP listener failed to start, continuing without it: %v", err)
+		} else {
+			p.rtspServer = i
 		}
-		p.rtspServer = i
 	}
 
 	if p.conf.RTSP &&
@@ -528,9 +544,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.RTSPSFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "RTSPS listener failed to start, continuing without it: %v", err)
+		} else {
+			p.rtspsServer = i
 		}
-		p.rtspsServer = i
 	}
 
 	if p.conf.RTMP &&
@@ -556,9 +576,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.RTMPFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "RTMP listener failed to start, continuing without it: %v", err)
+		} else {
+			p.rtmpServer = i
 		}
-		p.rtmpServer = i
 	}
 
 	if p.conf.RTMP &&
@@ -584,9 +608,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.RTMPSFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "RTMPS listener failed to start, continuing without it: %v", err)
+		} else {
+			p.rtmpsServer = i
 		}
-		p.rtmpsServer = i
 	}
 
 	if p.conf.HLS &&
@@ -615,9 +643,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.HLSFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "HLS listener failed to start, continuing without it: %v", err)
+		} else {
+			p.hlsServer = i
 		}
-		p.hlsServer = i
 	}
 
 	if p.conf.WebRTC &&
@@ -649,9 +681,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.WebRTCFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "WebRTC listener failed to start, continuing without it: %v", err)
+		} else {
+			p.webRTCServer = i
 		}
-		p.webRTCServer = i
 	}
 
 	if p.conf.SRT &&
@@ -672,9 +708,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.SRTFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "SRT listener failed to start, continuing without it: %v", err)
+		} else {
+			p.srtServer = i
 		}
-		p.srtServer = i
 	}
 
 	if p.conf.API &&
@@ -705,9 +745,13 @@ func (p *Core) createResources(initial bool) error {
 		}
 		err = i.Initialize()
 		if err != nil {
-			return err
+			if p.conf.APIFailurePolicy == conf.ListenerFailurePolicyFatal {
+				return err
+			}
+			p.Log(logger.Warn, "API listener failed to start, continuing without it: %v", err)
+		} else {
+			p.api = i
 		}
-		p.api = i
 	}
 
 	if initial && p.confPath != "" {

@@ -202,6 +202,53 @@ func TestConfEncryption(t *testing.T) {
 	require.Equal(t, true, ok)
 }
 
+func TestConfListenerFailurePolicy(t *testing.T) {
+	// default (field absent) is Fatal
+	func() {
+		tmpf, err := createTempFile([]byte(""))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, ListenerFailurePolicyFatal, conf.RTSPFailurePolicy)
+		require.Equal(t, ListenerFailurePolicyFatal, conf.HLSFailurePolicy)
+		require.Equal(t, ListenerFailurePolicyFatal, conf.APIFailurePolicy)
+	}()
+
+	// "fatal" parses to Fatal
+	func() {
+		tmpf, err := createTempFile([]byte("hlsFailurePolicy: fatal\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, ListenerFailurePolicyFatal, conf.HLSFailurePolicy)
+	}()
+
+	// "warn" parses to Warn
+	func() {
+		tmpf, err := createTempFile([]byte("hlsFailurePolicy: warn\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, ListenerFailurePolicyWarn, conf.HLSFailurePolicy)
+	}()
+
+	// unknown value is rejected
+	func() {
+		tmpf, err := createTempFile([]byte("hlsFailurePolicy: bogus\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf, nil, nil)
+		require.Error(t, err)
+	}()
+}
+
 func TestConfDeprecatedAuth(t *testing.T) {
 	tmpf, err := createTempFile([]byte(
 		"paths:\n" +
