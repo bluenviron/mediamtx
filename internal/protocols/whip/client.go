@@ -18,6 +18,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
+const (
+	maxInboundSDPSize = 128 * 1024
+)
+
 // Client is a WHIP client.
 type Client struct {
 	URL                *url.URL
@@ -260,7 +264,7 @@ func (c *Client) postOffer(
 		return nil, fmt.Errorf("ETag is missing")
 	}
 
-	sdp, err := io.ReadAll(res.Body)
+	sdp, err := io.ReadAll(io.LimitReader(res.Body, maxInboundSDPSize))
 	if err != nil {
 		return nil, err
 	}

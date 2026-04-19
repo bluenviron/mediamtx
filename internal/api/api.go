@@ -19,6 +19,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
+const (
+	maxInboundConfigSize = 10 * 1024 * 1024
+)
+
 func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }

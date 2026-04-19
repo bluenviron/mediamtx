@@ -24,7 +24,8 @@ const (
 	// PauseAfterError is the pause to apply after an authentication failure.
 	PauseAfterError = 2 * time.Second
 
-	jwksRefreshPeriod = 60 * 60 * time.Second
+	maxInboundBodySize = 128 * 1024
+	jwksRefreshPeriod  = 60 * 60 * time.Second
 )
 
 func isHTTP(req *Request) bool {
@@ -234,7 +235,8 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		if resBody, err2 := io.ReadAll(res.Body); err2 == nil && len(resBody) != 0 {
+		resBody, err2 := io.ReadAll(io.LimitReader(res.Body, maxInboundBodySize))
+		if err2 == nil && len(resBody) != 0 {
 			return "", fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
 
@@ -304,7 +306,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		defer res.Body.Close()
 
 		var raw json.RawMessage
-		err = json.NewDecoder(res.Body).Decode(&raw)
+		err = json.NewDecoder(io.LimitReader(res.Body, maxInboundBodySize)).Decode(&raw)
 		if err != nil {
 			return nil, err
 		}

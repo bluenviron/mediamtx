@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	webrtcTurnSecretExpiration = 24 * time.Hour
+	turnSecretExpiration = 24 * time.Hour
+	maxInboundSDPSize    = 128 * 1024
 )
 
 // ErrSessionNotFound is returned when a session is not found.
@@ -475,7 +476,7 @@ func (s *Server) generateICEServers(clientConfig bool) ([]pwebrtc.ICEServer, err
 	for _, server := range s.ICEServers {
 		if !server.ClientOnly || clientConfig {
 			if server.Username == "AUTH_SECRET" {
-				expireDate := time.Now().Add(webrtcTurnSecretExpiration).Unix()
+				expireDate := time.Now().Add(turnSecretExpiration).Unix()
 
 				user, err := randomTurnUser()
 				if err != nil {
