@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -18,7 +19,7 @@ func (a *API) onConfigGlobalGet(ctx *gin.Context) {
 
 func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 	var c conf.OptionalGlobal
-	err := jsonwrapper.Decode(ctx.Request.Body, &c)
+	err := jsonwrapper.Decode(io.LimitReader(ctx.Request.Body, maxInboundConfigSize), &c)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
