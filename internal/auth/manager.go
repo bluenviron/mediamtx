@@ -235,7 +235,7 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		resBody, err2 := io.ReadAll(io.LimitReader(res.Body, maxInboundBodySize))
+		resBody, err2 := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
 		if err2 == nil && len(resBody) != 0 {
 			return "", fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
@@ -306,7 +306,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		defer res.Body.Close()
 
 		var raw json.RawMessage
-		err = json.NewDecoder(io.LimitReader(res.Body, maxInboundBodySize)).Decode(&raw)
+		err = json.NewDecoder(&customLimitReader{res.Body, maxInboundBodySize}).Decode(&raw)
 		if err != nil {
 			return nil, err
 		}

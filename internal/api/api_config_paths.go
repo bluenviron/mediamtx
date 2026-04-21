@@ -3,7 +3,6 @@ package api //nolint:revive
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -64,7 +63,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(io.LimitReader(ctx.Request.Body, maxInboundConfigSize), &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -101,7 +100,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(io.LimitReader(ctx.Request.Body, maxInboundConfigSize), &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -142,7 +141,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(io.LimitReader(ctx.Request.Body, maxInboundConfigSize), &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

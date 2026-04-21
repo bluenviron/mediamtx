@@ -264,7 +264,7 @@ func (c *Client) postOffer(
 		return nil, fmt.Errorf("ETag is missing")
 	}
 
-	sdp, err := io.ReadAll(io.LimitReader(res.Body, maxInboundSDPSize))
+	sdp, err := io.ReadAll(&customLimitReader{res.Body, maxInboundSDPSize})
 	if err != nil {
 		return nil, err
 	}
