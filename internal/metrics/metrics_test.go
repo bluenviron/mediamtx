@@ -191,6 +191,85 @@ func (dummyRTMPServer) APIConnsKick(uuid.UUID) error {
 	panic("unused")
 }
 
+type dummySRTServer struct{}
+
+func (dummySRTServer) APIConnsList() (*defs.APISRTConnList, error) {
+	return &defs.APISRTConnList{
+		ItemCount: 1,
+		PageCount: 1,
+		Items: []defs.APISRTConn{{
+			ID:                            uuid.MustParse("a0b1c2d3-e4f5-6789-abcd-ef0123456789"),
+			Created:                       time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			RemoteAddr:                    "5.5.5.5:4321",
+			State:                         defs.APISRTConnStatePublish,
+			Path:                          "mypath",
+			Query:                         "myquery",
+			PacketsSent:                   100,
+			PacketsReceived:               200,
+			PacketsSentUnique:             90,
+			PacketsReceivedUnique:         180,
+			PacketsSendLoss:               10,
+			PacketsReceivedLoss:           20,
+			PacketsRetrans:                5,
+			PacketsReceivedRetrans:        3,
+			PacketsSentACK:                50,
+			PacketsReceivedACK:            40,
+			PacketsSentNAK:                2,
+			PacketsReceivedNAK:            1,
+			PacketsSentKM:                 4,
+			PacketsReceivedKM:             3,
+			UsSndDuration:                 1000000,
+			PacketsReceivedBelated:        7,
+			PacketsSendDrop:               8,
+			PacketsReceivedDrop:           6,
+			PacketsReceivedUndecrypt:      0,
+			BytesSent:                     12345,
+			BytesReceived:                 67890,
+			BytesSentUnique:               11000,
+			BytesReceivedUnique:           60000,
+			BytesReceivedLoss:             500,
+			BytesRetrans:                  300,
+			BytesReceivedRetrans:          200,
+			BytesReceivedBelated:          100,
+			BytesSendDrop:                 400,
+			BytesReceivedDrop:             350,
+			BytesReceivedUndecrypt:        0,
+			UsPacketsSendPeriod:           10.5,
+			PacketsFlowWindow:             8192,
+			PacketsFlightSize:             25,
+			MsRTT:                         1.5,
+			MbpsSendRate:                  50.0,
+			MbpsReceiveRate:               48.0,
+			MbpsLinkCapacity:              100.0,
+			BytesAvailSendBuf:             65536,
+			BytesAvailReceiveBuf:          65536,
+			MbpsMaxBW:                     100.0,
+			ByteMSS:                       1500,
+			PacketsSendBuf:                10,
+			BytesSendBuf:                  15000,
+			MsSendBuf:                     120,
+			MsSendTsbPdDelay:              120,
+			PacketsReceiveBuf:             15,
+			BytesReceiveBuf:               22500,
+			MsReceiveBuf:                  120,
+			MsReceiveTsbPdDelay:           120,
+			PacketsReorderTolerance:       3,
+			PacketsReceivedAvgBelatedTime: 50,
+			PacketsSendLossRate:           0.01,
+			PacketsReceivedLossRate:       0.02,
+			OutboundFramesDiscarded:       5,
+		}},
+	}, nil
+}
+
+func (dummySRTServer) APIConnsGet(uuid.UUID) (*defs.APISRTConn, error) {
+	panic("unused")
+}
+
+func (dummySRTServer) APIConnsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 type dummyWebRTCServer struct{}
 
 func (dummyWebRTCServer) APISessionsList() (*defs.APIWebRTCSessionList, error) {
@@ -303,6 +382,7 @@ func TestMetrics(t *testing.T) {
 	m.SetRTSPSServer(&dummyRTSPServer{})
 	m.SetRTMPServer(&dummyRTMPServer{})
 	m.SetRTMPSServer(&dummyRTMPServer{})
+	m.SetSRTServer(&dummySRTServer{})
 	m.SetWebRTCServer(&dummyWebRTCServer{})
 
 	tr := &http.Transport{}
@@ -535,5 +615,73 @@ func TestFilter(t *testing.T) {
 					string(byts))
 			}
 		})
+	}
+}
+
+func BenchmarkTags(b *testing.B) {
+	m := map[string]string{
+		"id":         "124b22ce-9c34-4387-b045-44caf98049f7",
+		"state":      "publish",
+		"path":       "mypath",
+		"remoteAddr": "124.5.5.5:34542",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tags(m)
+	}
+}
+
+func BenchmarkMetric(b *testing.B) {
+	ta := tags(map[string]string{
+		"id":         "124b22ce-9c34-4387-b045-44caf98049f7",
+		"state":      "publish",
+		"path":       "mypath",
+		"remoteAddr": "124.5.5.5:34542",
+	})
+	var out strings.Builder
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out.Reset()
+		metric(&out, "rtsp_sessions_inbound_bytes", ta, 123)
+	}
+}
+
+func BenchmarkFullMetricsHandler(b *testing.B) {
+	m := Metrics{
+		Address:      "localhost:9998",
+		AllowOrigins: []string{"*"},
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       test.NilLogger,
+	}
+	err := m.Initialize()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer m.Close()
+
+	m.SetPathManager(&dummyPathManager{})
+	m.SetHLSServer(&dummyHLSServer{})
+	m.SetRTSPServer(&dummyRTSPServer{})
+	m.SetRTSPSServer(&dummyRTSPServer{})
+	m.SetRTMPServer(&dummyRTMPServer{})
+	m.SetRTMPSServer(&dummyRTMPServer{})
+	m.SetSRTServer(&dummySRTServer{})
+	m.SetWebRTCServer(&dummyWebRTCServer{})
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var res *http.Response
+		res, err = hc.Get("http://localhost:9998/metrics")
+		if err != nil {
+			b.Fatal(err)
+		}
+		io.Copy(io.Discard, res.Body)
+		res.Body.Close()
 	}
 }
