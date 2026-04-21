@@ -177,6 +177,8 @@ apiAllowOrigins: ['*']
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 apiTrustedProxies: []
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+apiFailurePolicy: fatal
 
 ###############################################
 # Global settings -> Metrics
@@ -201,6 +203,8 @@ metricsAllowOrigins: ['*']
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 metricsTrustedProxies: []
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+metricsFailurePolicy: fatal
 
 ###############################################
 # Global settings -> PPROF
@@ -225,6 +229,8 @@ pprofAllowOrigins: ['*']
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 pprofTrustedProxies: []
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+pprofFailurePolicy: fatal
 
 ###############################################
 # Global settings -> Playback server
@@ -249,6 +255,8 @@ playbackAllowOrigins: ['*']
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 playbackTrustedProxies: []
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+playbackFailurePolicy: fatal
 
 ###############################################
 # Global settings -> RTSP server
@@ -292,6 +300,10 @@ rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
+# Behavior if the RTSP listener fails to start. Available values are 'fatal' or 'warn'.
+rtspFailurePolicy: fatal
+# Behavior if the RTSPS listener fails to start. Available values are 'fatal' or 'warn'.
+rtspsFailurePolicy: fatal
 
 ###############################################
 # Global settings -> RTMP server
@@ -312,6 +324,10 @@ rtmpsAddress: :1936
 rtmpServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtmpServerCert: server.crt
+# Behavior if the RTMP listener fails to start. Available values are 'fatal' or 'warn'.
+rtmpFailurePolicy: fatal
+# Behavior if the RTMPS listener fails to start. Available values are 'fatal' or 'warn'.
+rtmpsFailurePolicy: fatal
 
 ###############################################
 # Global settings -> HLS server
@@ -371,6 +387,8 @@ hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+hlsFailurePolicy: fatal
 
 ###############################################
 # Global settings -> WebRTC server
@@ -428,6 +446,8 @@ webrtcSTUNGatherTimeout: 5s
 webrtcHandshakeTimeout: 10s
 # Maximum time to gather tracks.
 webrtcTrackGatherTimeout: 2s
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+webrtcFailurePolicy: fatal
 
 ###############################################
 # Global settings -> SRT server
@@ -436,6 +456,8 @@ webrtcTrackGatherTimeout: 2s
 srt: true
 # Address of the SRT listener.
 srtAddress: :8890
+# Behavior if the listener fails to start. Available values are 'fatal' or 'warn'.
+srtFailurePolicy: fatal
 
 ###############################################
 # Default path settings

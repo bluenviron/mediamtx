@@ -273,126 +273,137 @@ type Conf struct {
 	AuthJWTAudience           string                       `json:"authJWTAudience"`
 
 	// Control API
-	API               bool       `json:"api"`
-	APIAddress        string     `json:"apiAddress"`
-	APIEncryption     bool       `json:"apiEncryption"`
-	APIServerKey      string     `json:"apiServerKey"`
-	APIServerCert     string     `json:"apiServerCert"`
-	APIAllowOrigin    *string    `json:"apiAllowOrigin,omitempty" deprecated:"true"`
-	APIAllowOrigins   []string   `json:"apiAllowOrigins"`
-	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
+	API               bool                  `json:"api"`
+	APIAddress        string                `json:"apiAddress"`
+	APIEncryption     bool                  `json:"apiEncryption"`
+	APIServerKey      string                `json:"apiServerKey"`
+	APIServerCert     string                `json:"apiServerCert"`
+	APIAllowOrigin    *string               `json:"apiAllowOrigin,omitempty" deprecated:"true"`
+	APIAllowOrigins   []string              `json:"apiAllowOrigins"`
+	APITrustedProxies IPNetworks            `json:"apiTrustedProxies"`
+	APIFailurePolicy  ListenerFailurePolicy `json:"apiFailurePolicy"`
 
 	// Metrics
-	Metrics               bool       `json:"metrics"`
-	MetricsAddress        string     `json:"metricsAddress"`
-	MetricsEncryption     bool       `json:"metricsEncryption"`
-	MetricsServerKey      string     `json:"metricsServerKey"`
-	MetricsServerCert     string     `json:"metricsServerCert"`
-	MetricsAllowOrigin    *string    `json:"metricsAllowOrigin,omitempty" deprecated:"true"`
-	MetricsAllowOrigins   []string   `json:"metricsAllowOrigins"`
-	MetricsTrustedProxies IPNetworks `json:"metricsTrustedProxies"`
+	Metrics               bool                  `json:"metrics"`
+	MetricsAddress        string                `json:"metricsAddress"`
+	MetricsEncryption     bool                  `json:"metricsEncryption"`
+	MetricsServerKey      string                `json:"metricsServerKey"`
+	MetricsServerCert     string                `json:"metricsServerCert"`
+	MetricsAllowOrigin    *string               `json:"metricsAllowOrigin,omitempty" deprecated:"true"`
+	MetricsAllowOrigins   []string              `json:"metricsAllowOrigins"`
+	MetricsTrustedProxies IPNetworks            `json:"metricsTrustedProxies"`
+	MetricsFailurePolicy  ListenerFailurePolicy `json:"metricsFailurePolicy"`
 
 	// PPROF
-	PPROF               bool       `json:"pprof"`
-	PPROFAddress        string     `json:"pprofAddress"`
-	PPROFEncryption     bool       `json:"pprofEncryption"`
-	PPROFServerKey      string     `json:"pprofServerKey"`
-	PPROFServerCert     string     `json:"pprofServerCert"`
-	PPROFAllowOrigin    *string    `json:"pprofAllowOrigin,omitempty" deprecated:"true"`
-	PPROFAllowOrigins   []string   `json:"pprofAllowOrigins"`
-	PPROFTrustedProxies IPNetworks `json:"pprofTrustedProxies"`
+	PPROF               bool                  `json:"pprof"`
+	PPROFAddress        string                `json:"pprofAddress"`
+	PPROFEncryption     bool                  `json:"pprofEncryption"`
+	PPROFServerKey      string                `json:"pprofServerKey"`
+	PPROFServerCert     string                `json:"pprofServerCert"`
+	PPROFAllowOrigin    *string               `json:"pprofAllowOrigin,omitempty" deprecated:"true"`
+	PPROFAllowOrigins   []string              `json:"pprofAllowOrigins"`
+	PPROFTrustedProxies IPNetworks            `json:"pprofTrustedProxies"`
+	PPROFFailurePolicy  ListenerFailurePolicy `json:"pprofFailurePolicy"`
 
 	// Playback
-	Playback               bool       `json:"playback"`
-	PlaybackAddress        string     `json:"playbackAddress"`
-	PlaybackEncryption     bool       `json:"playbackEncryption"`
-	PlaybackServerKey      string     `json:"playbackServerKey"`
-	PlaybackServerCert     string     `json:"playbackServerCert"`
-	PlaybackAllowOrigin    *string    `json:"playbackAllowOrigin,omitempty" deprecated:"true"`
-	PlaybackAllowOrigins   []string   `json:"playbackAllowOrigins"`
-	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
+	Playback               bool                  `json:"playback"`
+	PlaybackAddress        string                `json:"playbackAddress"`
+	PlaybackEncryption     bool                  `json:"playbackEncryption"`
+	PlaybackServerKey      string                `json:"playbackServerKey"`
+	PlaybackServerCert     string                `json:"playbackServerCert"`
+	PlaybackAllowOrigin    *string               `json:"playbackAllowOrigin,omitempty" deprecated:"true"`
+	PlaybackAllowOrigins   []string              `json:"playbackAllowOrigins"`
+	PlaybackTrustedProxies IPNetworks            `json:"playbackTrustedProxies"`
+	PlaybackFailurePolicy  ListenerFailurePolicy `json:"playbackFailurePolicy"`
 
 	// RTSP server
-	RTSP                  bool             `json:"rtsp"`
-	RTSPDisable           *bool            `json:"rtspDisable,omitempty" deprecated:"true"`
-	Protocols             *RTSPTransports  `json:"protocols,omitempty" deprecated:"true"`
-	RTSPTransports        RTSPTransports   `json:"rtspTransports"`
-	Encryption            *Encryption      `json:"encryption,omitempty" deprecated:"true"`
-	RTSPEncryption        Encryption       `json:"rtspEncryption"`
-	RTSPAddress           string           `json:"rtspAddress"`
-	RTSPSAddress          string           `json:"rtspsAddress"`
-	RTPAddress            string           `json:"rtpAddress"`
-	RTCPAddress           string           `json:"rtcpAddress"`
-	MulticastIPRange      string           `json:"multicastIPRange"`
-	MulticastRTPPort      int              `json:"multicastRTPPort"`
-	MulticastRTCPPort     int              `json:"multicastRTCPPort"`
-	SRTPAddress           string           `json:"srtpAddress"`
-	SRTCPAddress          string           `json:"srtcpAddress"`
-	MulticastSRTPPort     int              `json:"multicastSRTPPort"`
-	MulticastSRTCPPort    int              `json:"multicastSRTCPPort"`
-	ServerKey             *string          `json:"serverKey,omitempty"`
-	ServerCert            *string          `json:"serverCert,omitempty"`
-	RTSPServerKey         string           `json:"rtspServerKey"`
-	RTSPServerCert        string           `json:"rtspServerCert"`
-	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty" deprecated:"true"`
-	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
-	RTSPUDPReadBufferSize *uint            `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
+	RTSP                  bool                  `json:"rtsp"`
+	RTSPDisable           *bool                 `json:"rtspDisable,omitempty" deprecated:"true"`
+	Protocols             *RTSPTransports       `json:"protocols,omitempty" deprecated:"true"`
+	RTSPTransports        RTSPTransports        `json:"rtspTransports"`
+	Encryption            *Encryption           `json:"encryption,omitempty" deprecated:"true"`
+	RTSPEncryption        Encryption            `json:"rtspEncryption"`
+	RTSPAddress           string                `json:"rtspAddress"`
+	RTSPSAddress          string                `json:"rtspsAddress"`
+	RTPAddress            string                `json:"rtpAddress"`
+	RTCPAddress           string                `json:"rtcpAddress"`
+	MulticastIPRange      string                `json:"multicastIPRange"`
+	MulticastRTPPort      int                   `json:"multicastRTPPort"`
+	MulticastRTCPPort     int                   `json:"multicastRTCPPort"`
+	SRTPAddress           string                `json:"srtpAddress"`
+	SRTCPAddress          string                `json:"srtcpAddress"`
+	MulticastSRTPPort     int                   `json:"multicastSRTPPort"`
+	MulticastSRTCPPort    int                   `json:"multicastSRTCPPort"`
+	ServerKey             *string               `json:"serverKey,omitempty"`
+	ServerCert            *string               `json:"serverCert,omitempty"`
+	RTSPServerKey         string                `json:"rtspServerKey"`
+	RTSPServerCert        string                `json:"rtspServerCert"`
+	AuthMethods           *RTSPAuthMethods      `json:"authMethods,omitempty" deprecated:"true"`
+	RTSPAuthMethods       RTSPAuthMethods       `json:"rtspAuthMethods"`
+	RTSPUDPReadBufferSize *uint                 `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
+	RTSPFailurePolicy     ListenerFailurePolicy `json:"rtspFailurePolicy"`
+	RTSPSFailurePolicy    ListenerFailurePolicy `json:"rtspsFailurePolicy"`
 
 	// RTMP server
-	RTMP           bool       `json:"rtmp"`
-	RTMPDisable    *bool      `json:"rtmpDisable,omitempty" deprecated:"true"`
-	RTMPEncryption Encryption `json:"rtmpEncryption"`
-	RTMPAddress    string     `json:"rtmpAddress"`
-	RTMPSAddress   string     `json:"rtmpsAddress"`
-	RTMPServerKey  string     `json:"rtmpServerKey"`
-	RTMPServerCert string     `json:"rtmpServerCert"`
+	RTMP               bool                  `json:"rtmp"`
+	RTMPDisable        *bool                 `json:"rtmpDisable,omitempty" deprecated:"true"`
+	RTMPEncryption     Encryption            `json:"rtmpEncryption"`
+	RTMPAddress        string                `json:"rtmpAddress"`
+	RTMPSAddress       string                `json:"rtmpsAddress"`
+	RTMPServerKey      string                `json:"rtmpServerKey"`
+	RTMPServerCert     string                `json:"rtmpServerCert"`
+	RTMPFailurePolicy  ListenerFailurePolicy `json:"rtmpFailurePolicy"`
+	RTMPSFailurePolicy ListenerFailurePolicy `json:"rtmpsFailurePolicy"`
 
 	// HLS server
-	HLS                bool       `json:"hls"`
-	HLSDisable         *bool      `json:"hlsDisable,omitempty" deprecated:"true"`
-	HLSAddress         string     `json:"hlsAddress"`
-	HLSEncryption      bool       `json:"hlsEncryption"`
-	HLSServerKey       string     `json:"hlsServerKey"`
-	HLSServerCert      string     `json:"hlsServerCert"`
-	HLSAllowOrigin     *string    `json:"hlsAllowOrigin,omitempty" deprecated:"true"`
-	HLSAllowOrigins    []string   `json:"hlsAllowOrigins"`
-	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
-	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant `json:"hlsVariant"`
-	HLSSegmentCount    int        `json:"hlsSegmentCount"`
-	HLSSegmentDuration Duration   `json:"hlsSegmentDuration"`
-	HLSPartDuration    Duration   `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
-	HLSDirectory       string     `json:"hlsDirectory"`
-	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
+	HLS                bool                  `json:"hls"`
+	HLSDisable         *bool                 `json:"hlsDisable,omitempty" deprecated:"true"`
+	HLSAddress         string                `json:"hlsAddress"`
+	HLSEncryption      bool                  `json:"hlsEncryption"`
+	HLSServerKey       string                `json:"hlsServerKey"`
+	HLSServerCert      string                `json:"hlsServerCert"`
+	HLSAllowOrigin     *string               `json:"hlsAllowOrigin,omitempty" deprecated:"true"`
+	HLSAllowOrigins    []string              `json:"hlsAllowOrigins"`
+	HLSTrustedProxies  IPNetworks            `json:"hlsTrustedProxies"`
+	HLSAlwaysRemux     bool                  `json:"hlsAlwaysRemux"`
+	HLSVariant         HLSVariant            `json:"hlsVariant"`
+	HLSSegmentCount    int                   `json:"hlsSegmentCount"`
+	HLSSegmentDuration Duration              `json:"hlsSegmentDuration"`
+	HLSPartDuration    Duration              `json:"hlsPartDuration"`
+	HLSSegmentMaxSize  StringSize            `json:"hlsSegmentMaxSize"`
+	HLSDirectory       string                `json:"hlsDirectory"`
+	HLSMuxerCloseAfter Duration              `json:"hlsMuxerCloseAfter"`
+	HLSFailurePolicy   ListenerFailurePolicy `json:"hlsFailurePolicy"`
 
 	// WebRTC server
-	WebRTC                      bool              `json:"webrtc"`
-	WebRTCDisable               *bool             `json:"webrtcDisable,omitempty" deprecated:"true"`
-	WebRTCAddress               string            `json:"webrtcAddress"`
-	WebRTCEncryption            bool              `json:"webrtcEncryption"`
-	WebRTCServerKey             string            `json:"webrtcServerKey"`
-	WebRTCServerCert            string            `json:"webrtcServerCert"`
-	WebRTCAllowOrigin           *string           `json:"webrtcAllowOrigin,omitempty" deprecated:"true"`
-	WebRTCAllowOrigins          []string          `json:"webrtcAllowOrigins"`
-	WebRTCTrustedProxies        IPNetworks        `json:"webrtcTrustedProxies"`
-	WebRTCLocalUDPAddress       string            `json:"webrtcLocalUDPAddress"`
-	WebRTCLocalTCPAddress       string            `json:"webrtcLocalTCPAddress"`
-	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
-	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
-	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
-	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
-	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
-	WebRTCHandshakeTimeout      Duration          `json:"webrtcHandshakeTimeout"`
-	WebRTCTrackGatherTimeout    Duration          `json:"webrtcTrackGatherTimeout"`
-	WebRTCICEUDPMuxAddress      *string           `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICETCPMuxAddress      *string           `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICEHostNAT1To1IPs     *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
-	WebRTCICEServers            *[]string         `json:"webrtcICEServers,omitempty" deprecated:"true"`
+	WebRTC                      bool                  `json:"webrtc"`
+	WebRTCDisable               *bool                 `json:"webrtcDisable,omitempty" deprecated:"true"`
+	WebRTCAddress               string                `json:"webrtcAddress"`
+	WebRTCEncryption            bool                  `json:"webrtcEncryption"`
+	WebRTCServerKey             string                `json:"webrtcServerKey"`
+	WebRTCServerCert            string                `json:"webrtcServerCert"`
+	WebRTCAllowOrigin           *string               `json:"webrtcAllowOrigin,omitempty" deprecated:"true"`
+	WebRTCAllowOrigins          []string              `json:"webrtcAllowOrigins"`
+	WebRTCTrustedProxies        IPNetworks            `json:"webrtcTrustedProxies"`
+	WebRTCLocalUDPAddress       string                `json:"webrtcLocalUDPAddress"`
+	WebRTCLocalTCPAddress       string                `json:"webrtcLocalTCPAddress"`
+	WebRTCIPsFromInterfaces     bool                  `json:"webrtcIPsFromInterfaces"`
+	WebRTCIPsFromInterfacesList []string              `json:"webrtcIPsFromInterfacesList"`
+	WebRTCAdditionalHosts       []string              `json:"webrtcAdditionalHosts"`
+	WebRTCICEServers2           []WebRTCICEServer     `json:"webrtcICEServers2"`
+	WebRTCSTUNGatherTimeout     Duration              `json:"webrtcSTUNGatherTimeout"`
+	WebRTCHandshakeTimeout      Duration              `json:"webrtcHandshakeTimeout"`
+	WebRTCTrackGatherTimeout    Duration              `json:"webrtcTrackGatherTimeout"`
+	WebRTCICEUDPMuxAddress      *string               `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICETCPMuxAddress      *string               `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICEHostNAT1To1IPs     *[]string             `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
+	WebRTCICEServers            *[]string             `json:"webrtcICEServers,omitempty" deprecated:"true"`
+	WebRTCFailurePolicy         ListenerFailurePolicy `json:"webrtcFailurePolicy"`
 
 	// SRT server
-	SRT        bool   `json:"srt"`
-	SRTAddress string `json:"srtAddress"`
+	SRT              bool                  `json:"srt"`
+	SRTAddress       string                `json:"srtAddress"`
+	SRTFailurePolicy ListenerFailurePolicy `json:"srtFailurePolicy"`
 
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty" deprecated:"true"`
@@ -443,24 +454,28 @@ func (conf *Conf) setDefaults() {
 	conf.APIServerKey = "server.key"
 	conf.APIServerCert = "server.crt"
 	conf.APIAllowOrigins = []string{"*"}
+	conf.APIFailurePolicy = ListenerFailurePolicyFatal
 
 	// Metrics
 	conf.MetricsAddress = ":9998"
 	conf.MetricsServerKey = "server.key"
 	conf.MetricsServerCert = "server.crt"
 	conf.MetricsAllowOrigins = []string{"*"}
+	conf.MetricsFailurePolicy = ListenerFailurePolicyFatal
 
 	// PPROF
 	conf.PPROFAddress = ":9999"
 	conf.PPROFServerKey = "server.key"
 	conf.PPROFServerCert = "server.crt"
 	conf.PPROFAllowOrigins = []string{"*"}
+	conf.PPROFFailurePolicy = ListenerFailurePolicyFatal
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
 	conf.PlaybackAllowOrigins = []string{"*"}
+	conf.PlaybackFailurePolicy = ListenerFailurePolicyFatal
 
 	// RTSP server
 	conf.RTSP = true
@@ -484,6 +499,8 @@ func (conf *Conf) setDefaults() {
 	conf.RTSPServerKey = "server.key"
 	conf.RTSPServerCert = "server.crt"
 	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.VerifyMethodBasic)}
+	conf.RTSPFailurePolicy = ListenerFailurePolicyFatal
+	conf.RTSPSFailurePolicy = ListenerFailurePolicyFatal
 
 	// RTMP server
 	conf.RTMP = true
@@ -492,6 +509,8 @@ func (conf *Conf) setDefaults() {
 	conf.RTMPSAddress = ":1936"
 	conf.RTMPServerKey = "server.key"
 	conf.RTMPServerCert = "server.crt"
+	conf.RTMPFailurePolicy = ListenerFailurePolicyFatal
+	conf.RTMPSFailurePolicy = ListenerFailurePolicyFatal
 
 	// HLS
 	conf.HLS = true
@@ -505,6 +524,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
+	conf.HLSFailurePolicy = ListenerFailurePolicyFatal
 
 	// WebRTC server
 	conf.WebRTC = true
@@ -517,10 +537,12 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
 	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
 	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
+	conf.WebRTCFailurePolicy = ListenerFailurePolicyFatal
 
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+	conf.SRTFailurePolicy = ListenerFailurePolicyFatal
 
 	conf.PathDefaults.setDefaults()
 }
