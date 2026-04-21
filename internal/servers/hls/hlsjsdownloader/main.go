@@ -38,7 +38,7 @@ func do() error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	zipBuf, err := io.ReadAll(io.LimitReader(res.Body, maxInboundHLSJSSize))
+	zipBuf, err := io.ReadAll(&customLimitReader{res.Body, maxInboundHLSJSSize})
 	if err != nil {
 		return err
 	}

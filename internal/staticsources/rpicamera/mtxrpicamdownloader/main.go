@@ -79,7 +79,7 @@ func doSingle(version string, f string) error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	buf, err := io.ReadAll(io.LimitReader(res.Body, maxInboundRPICameraSize))
+	buf, err := io.ReadAll(&customLimitReader{res.Body, maxInboundRPICameraSize})
 	if err != nil {
 		return err
 	}

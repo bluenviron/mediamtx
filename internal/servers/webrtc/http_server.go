@@ -194,7 +194,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		return
 	}
 
-	offer, err := io.ReadAll(io.LimitReader(ctx.Request.Body, maxInboundSDPSize))
+	offer, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
 	}
@@ -260,7 +260,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 		return
 	}
 
-	byts, err := io.ReadAll(io.LimitReader(ctx.Request.Body, maxInboundSDPSize))
+	byts, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
 	}
