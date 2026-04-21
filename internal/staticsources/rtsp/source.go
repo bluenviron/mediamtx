@@ -81,6 +81,7 @@ type Source struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	Parent            parent
+	client            *gortsplib.Client
 }
 
 // Log implements logger.Writer.
@@ -153,6 +154,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			decodeErrors.Add(err)
 		},
 	}
+
+	s.client = c
 
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
@@ -293,5 +296,31 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: defs.APIPathSourceTypeRTSPSource,
 		ID:   "",
+	}
+}
+
+var _ defs.SourceStatsProvider = (*Source)(nil)
+
+// SourceStats method exports RTSP Client source statistiscs
+func (s *Source) SourceStats() defs.SourceStats {
+	if s.client == nil {
+		return nil
+	}
+	cs := s.client.Stats()
+
+	if cs == nil {
+		return nil
+	}
+
+	// The clockrate for both video and audio in AV1/VP9/VP8/H.26x over rtsp is by default 90k
+	// We could fetch this from ClockRate() in Format []format.Format in medias []*description.medias
+	// for individual media tracks, but for now we don't.
+	clockrate := 90000.0
+
+	return &defs.RTSPSourceStats{
+		PacketsReceived: cs.Session.InboundRTPPackets,
+		PacketsLost:     cs.Session.InboundRTPPacketsLost,
+		PacketsInError:  cs.Session.InboundRTPPacketsInError,
+		Jitter:          cs.Session.InboundRTPPacketsJitter / clockrate,
 	}
 }
