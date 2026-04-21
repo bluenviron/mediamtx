@@ -199,6 +199,23 @@ func ToStream(
 				})
 			})
 
+		case *codecs.KLV:
+			medi = &description.Media{
+				Type: description.MediaTypeApplication,
+				Formats: []format.Format{&format.KLV{
+					PayloadTyp: 96,
+				}},
+			}
+			newClockRate := medi.Formats[0].ClockRate()
+
+			c.OnDataKLV(ctrack, func(pts int64, uni []byte) {
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+					NTP:     handleNTP(pts),
+					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
+					Payload: unit.PayloadKLV(uni),
+				})
+			})
+
 		default:
 			panic("should not happen")
 		}

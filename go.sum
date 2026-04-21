@@ -4,6 +4,8 @@ code.cloudfoundry.org/bytefmt v0.69.0 h1:iLYdNRsdebJd2Tz7SohOt0VHOqIXqIfxpdVx1YM
 code.cloudfoundry.org/bytefmt v0.69.0/go.mod h1:t6RyZJtu5JDi58uyWBemnTepT30jMJgB69Ue8D7ou30=
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
+github.com/EricHenry/gohlslib/v2 v2.0.0-20260322193959-3e87c86d51aa h1:s7gblCCAkG322pEqg0vuuNAMBt+ckppK4zf6jJetQ2s=
+github.com/EricHenry/gohlslib/v2 v2.0.0-20260322193959-3e87c86d51aa/go.mod h1:kA0hTg96hmTZjeZ/Vxwpu/Njy0emAoidEoDGQ/KlMH0=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/MicahParks/jwkset v0.11.0 h1:yc0zG+jCvZpWgFDFmvs8/8jqqVBG9oyIbmBtmjOhoyQ=
