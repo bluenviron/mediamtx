@@ -89,6 +89,28 @@ func (dummyHLSServer) APIMuxersGet(string) (*defs.APIHLSMuxer, error) {
 	panic("unused")
 }
 
+func (dummyHLSServer) APISessionsList() (*defs.APIHLSSessionList, error) {
+	return &defs.APIHLSSessionList{
+		ItemCount: 1,
+		PageCount: 1,
+		Items: []defs.APIHLSSession{{
+			ID:            uuid.MustParse("18294761-f9d1-4ea9-9a35-fe265b62eb41"),
+			Created:       time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			RemoteAddr:    "124.5.5.5:34542",
+			Path:          "mypath",
+			OutboundBytes: 187,
+		}},
+	}, nil
+}
+
+func (dummyHLSServer) APISessionsGet(uuid.UUID) (*defs.APIHLSSession, error) {
+	panic("unused")
+}
+
+func (dummyHLSServer) APISessionsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 type dummyRTSPServer struct{}
 
 func (dummyRTSPServer) APIConnsList() (*defs.APIRTSPConnsList, error) {
@@ -332,6 +354,18 @@ func (emptyHLSServer) APIMuxersGet(string) (*defs.APIHLSMuxer, error) {
 	panic("unused")
 }
 
+func (emptyHLSServer) APISessionsList() (*defs.APIHLSSessionList, error) {
+	return &defs.APIHLSSessionList{}, nil
+}
+
+func (emptyHLSServer) APISessionsGet(uuid.UUID) (*defs.APIHLSSession, error) {
+	panic("unused")
+}
+
+func (emptyHLSServer) APISessionsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 type emptyRTSPServer struct{}
 
 func (emptyRTSPServer) APIConnsList() (*defs.APIRTSPConnsList, error) {
@@ -477,6 +511,12 @@ func TestMetrics(t *testing.T) {
 			"# Paths (deprecated)\n"+
 			"paths_bytes_received{name=\"mypath\",state=\"ready\"} 123\n"+
 			"paths_bytes_sent{name=\"mypath\",state=\"ready\"} 456\n"+
+			"\n"+
+			"# HLS sessions\n"+
+			"hls_sessions{id=\"18294761-f9d1-4ea9-9a35-fe265b62eb41\",path=\"mypath\","+
+			"remoteAddr=\"124.5.5.5:34542\"} 1\n"+
+			"hls_sessions_outbound_bytes{id=\"18294761-f9d1-4ea9-9a35-fe265b62eb41\",path=\"mypath\","+
+			"remoteAddr=\"124.5.5.5:34542\"} 187\n"+
 			"\n"+
 			"# HLS muxers\n"+
 			"hls_muxers{name=\"mypath\"} 1\n"+
@@ -835,6 +875,10 @@ func TestZeroMetricsFallback(t *testing.T) {
 			"paths_bytes_sent 0\n"+
 			"paths_readers 0\n"+
 			"\n"+
+			"# HLS sessions\n"+
+			"hls_sessions 0\n"+
+			`hls_sessions_outbound_bytes 0`+"\n"+
+			"\n"+
 			"# HLS muxers\n"+
 			"hls_muxers 0\n"+
 			"hls_muxers_outbound_bytes 0\n"+
@@ -965,6 +1009,7 @@ func TestFilter(t *testing.T) {
 	for _, ca := range []string{
 		"path",
 		"hls_muxer",
+		"hls_session",
 		"rtsp_conn",
 		"rtsp_session",
 		"rtsps_conn",
@@ -1007,6 +1052,8 @@ func TestFilter(t *testing.T) {
 				u += "?path=mypath"
 			case "hls_muxer":
 				u += "?hls_muxer=mypath"
+			case "hls_session":
+				u += "?hls_session=18294761-f9d1-4ea9-9a35-fe265b62eb41"
 			case "rtsp_conn":
 				u += "?rtsp_conn=18294761-f9d1-4ea9-9a35-fe265b62eb41"
 			case "rtsp_session":
@@ -1057,6 +1104,16 @@ func TestFilter(t *testing.T) {
 						"\n"+
 						"# HLS muxers (deprecated)\n"+
 						`hls_muxers_bytes_sent{name="mypath"} 789`+"\n\n",
+					string(byts))
+
+			case "hls_session":
+				require.Equal(t,
+					"# HLS sessions\n"+
+						`hls_sessions{id="18294761-f9d1-4ea9-9a35-fe265b62eb41",path="mypath",`+
+						`remoteAddr="124.5.5.5:34542"} 1`+"\n"+
+						`hls_sessions_outbound_bytes{id="18294761-f9d1-4ea9-9a35-fe265b62eb41",path="mypath",`+
+						`remoteAddr="124.5.5.5:34542"} 187`+"\n"+
+						"\n",
 					string(byts))
 
 			case "rtsp_conn":

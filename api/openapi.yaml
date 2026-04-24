@@ -45,8 +45,7 @@ components:
     PathReaderType:
       type: string
       enum:
-      - hlsMuxer
-      - rpiCameraSecondary
+      - hlsSession
       - rtmpConn
       - rtmpsConn
       - rtspConn
@@ -1196,6 +1195,40 @@ components:
           items:
             $ref: '#/components/schemas/HLSMuxer'
 
+    HLSSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created:
+          type: string
+        remoteAddr:
+          type: string
+        path:
+          type: string
+        query:
+          type: string
+        user:
+          type: string
+        outboundBytes:
+          type: integer
+          format: uint64
+
+    HLSSessionList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+          format: int64
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HLSSession'
+
     Recording:
       type: object
       properties:
@@ -2280,6 +2313,123 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: muxer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/hlssessions/list:
+    get:
+      operationId: hlssessionsList
+      tags: [HLS]
+      summary: returns all HLS sessions.
+      description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: integer
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HLSSessionList'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/hlssessions/get/{id}:
+    get:
+      operationId: hlssessionsGet
+      tags: [HLS]
+      summary: returns a HLS session.
+      description: ''
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the session.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HLSSession'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/hlssessions/kick/{id}:
+    post:
+      operationId: hlssessionsKick
+      tags: [HLS]
+      summary: kicks out a HLS session from the server.
+      description: ''
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the session.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OK'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
           content:
             application/json:
               schema:

@@ -86,6 +86,10 @@ paths_bytes_received 0
 paths_bytes_sent 0
 paths_readers 0
 
+# HLS sessions
+hls_sessions 0
+hls_sessions_outbound_bytes 0
+
 # HLS muxers
 hls_muxers 0
 hls_muxers_outbound_bytes 0

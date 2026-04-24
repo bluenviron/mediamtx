@@ -175,8 +175,7 @@ func goEnumToApi(rt reflect.Type) (openAPISchema, bool) {
 
 	case reflect.TypeOf(defs.APIPathReaderType("")):
 		return openAPISchema{Type: "string", Enum: []string{
-			"hlsMuxer",
-			"rpiCameraSecondary",
+			"hlsSession",
 			"rtmpConn",
 			"rtmpsConn",
 			"rtspConn",
@@ -351,6 +350,14 @@ func TestGo2API(t *testing.T) {
 			{
 				"HLSMuxerList",
 				defs.APIHLSMuxerList{},
+			},
+			{
+				"HLSSession",
+				defs.APIHLSSession{},
+			},
+			{
+				"HLSSessionList",
+				defs.APIHLSSessionList{},
 			},
 			{
 				"Info",

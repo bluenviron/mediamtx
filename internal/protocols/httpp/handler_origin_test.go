@@ -38,7 +38,7 @@ func TestHandlerOrigin(t *testing.T) {
 			"everything allowed, with origin",
 			"https://example.com",
 			[]string{"*"},
-			"*",
+			"https://example.com",
 		},
 		{
 			"allowed",

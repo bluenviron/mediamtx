@@ -20,6 +20,10 @@ paths_inbound_bytes{name="[path_name]",state="[state]"} 1234
 paths_outbound_bytes{name="[path_name]",state="[state]"} 1234
 paths_inbound_frames_in_error{name="[path_name]",state="[state]"} 1234
 
+# HLS sessions
+hls_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]"} 1
+hls_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]"} 187
+
 # HLS muxers
 hls_muxers{name="[name]"} 1
 hls_muxers_outbound_bytes{name="[name]"} 187
@@ -151,9 +155,10 @@ Bitrates are not provided directly as metrics because they can be computed from 
 
 Metrics can be filtered by using HTTP query parameters:
 
-- `type=[TYPE]`: show metrics of a certain type only. TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`.
+- `type=[TYPE]`: show metrics of a certain type only. TYPE can be `paths`, `hls_sessions`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`.
 - `path=[PATH]`: show metrics belonging to a specific path only
 - `hls_muxer=[PATH]`: show metrics belonging to a specific HLS muxer only
+- `hls_session=[ID]`: show metrics belonging to a specific HLS session only
 - `rtsp_conn=[ID]` show metrics belonging to a specific RTSP connection only
 - `rtsp_session=[SESSION]`: show metrics belonging to a specific RTSP session only
 - `rtsps_conn=[ID]` show metrics belonging to a specific RTSPS connection only

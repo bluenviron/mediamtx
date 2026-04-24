@@ -74,6 +74,7 @@ type metricsType string
 
 const (
 	metricsTypePaths          metricsType = "paths"
+	metricsTypeHLSSessions    metricsType = "hls_sessions"
 	metricsTypeHLSMuxers      metricsType = "hls_muxers"
 	metricsTypeRTSPConns      metricsType = "rtsp_conns"
 	metricsTypeRTSPSessions   metricsType = "rtsp_sessions"
@@ -227,6 +228,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
+	hlsSessionFilter := ctx.Query("hls_session")
 	rtspConnFilter := ctx.Query("rtsp_conn")
 	rtspSessionFilter := ctx.Query("rtsp_session")
 	rtspsConnFilter := ctx.Query("rtsps_conn")
@@ -238,6 +240,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	anyFilterActive := pathFilter != "" ||
 		hlsMuxerFilter != "" ||
+		hlsSessionFilter != "" ||
 		rtspConnFilter != "" ||
 		rtspSessionFilter != "" ||
 		rtspsConnFilter != "" ||
@@ -336,6 +339,32 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(hlsServer) {
+		if (typ == "" || typ == metricsTypeHLSSessions) && (!anyFilterActive || hlsSessionFilter != "") {
+			var data *defs.APIHLSSessionList
+			data, err := hlsServer.APISessionsList()
+			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# HLS sessions\n")
+				for _, i := range data.Items {
+					if hlsSessionFilter == "" || hlsSessionFilter == i.ID.String() {
+						ta := tags(map[string]string{
+							"id":         i.ID.String(),
+							"path":       i.Path,
+							"remoteAddr": i.RemoteAddr,
+						})
+
+						metric(&out, "hls_sessions", ta, 1)
+						metric(&out, "hls_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
+					}
+				}
+				out.WriteString("\n")
+			} else if hlsSessionFilter == "" {
+				out.WriteString("# HLS sessions\n")
+				metric(&out, "hls_sessions", "", 0)
+				metric(&out, "hls_sessions_outbound_bytes", "", 0)
+				out.WriteString("\n")
+			}
+		}
+
 		if (typ == "" || typ == metricsTypeHLSMuxers) && (!anyFilterActive || hlsMuxerFilter != "") {
 			var data *defs.APIHLSMuxerList
 			data, err := hlsServer.APIMuxersList()

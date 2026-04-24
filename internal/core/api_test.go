@@ -14,10 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gortmplib"
 	rtmpcodecs "github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
@@ -369,7 +372,8 @@ func TestAPIProtocolListGet(t *testing.T) {
 		"rtsps sessions",
 		"rtmp",
 		"rtmps",
-		"hls",
+		"hls sessions",
+		"hls muxers",
 		"webrtc",
 		"srt",
 	} {
@@ -470,7 +474,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 				time.Sleep(500 * time.Millisecond)
 
-			case "hls":
+			case "hls sessions", "hls muxers":
 				source := gortsplib.Client{}
 				err = source.StartRecording("rtsp://localhost:8554/mypath",
 					&description.Session{Medias: []*description.Media{medi}})
@@ -612,7 +616,10 @@ func TestAPIProtocolListGet(t *testing.T) {
 			case "rtmps":
 				pa = "rtmpsconns"
 
-			case "hls":
+			case "hls sessions":
+				pa = "hlssessions"
+
+			case "hls muxers":
 				pa = "hlsmuxers"
 
 			case "webrtc":
@@ -792,7 +799,24 @@ func TestAPIProtocolListGet(t *testing.T) {
 					},
 				}, out1)
 
-			case "hls":
+			case "hls sessions":
+				require.Equal(t, map[string]any{
+					"itemCount": float64(1),
+					"pageCount": float64(1),
+					"items": []any{
+						map[string]any{
+							"id":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["id"],
+							"created":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["created"],
+							"remoteAddr":    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
+							"path":          "mypath",
+							"query":         "",
+							"user":          "",
+							"outboundBytes": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
+						},
+					},
+				}, out1)
+
+			case "hls muxers":
 				require.Equal(t, map[string]any{
 					"itemCount": float64(1),
 					"pageCount": float64(1),
@@ -919,7 +943,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			var out2 any
 
-			if ca == "hls" {
+			if ca == "hls muxers" {
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+
 					out1.(map[string]any)["items"].([]any)[0].(map[string]any)["path"].(string),
 					nil, &out2)
@@ -979,7 +1003,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 				out2.(map[string]any)["rtcpPacketsReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsReceived"]
 				out2.(map[string]any)["rtcpPacketsSent"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["rtcpPacketsSent"]
 
-			case "hls":
+			case "hls muxers":
 				out2.(map[string]any)["lastRequest"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["lastRequest"]
 			}
 
@@ -1004,7 +1028,8 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 		"rtsps sessions",
 		"rtmp",
 		"rtmps",
-		"hls",
+		"hls sessions",
+		"hls muxers",
 		"webrtc",
 		"srt",
 	} {
@@ -1055,7 +1080,10 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 			case "rtmps":
 				pa = "rtmpsconns"
 
-			case "hls":
+			case "hls sessions":
+				pa = "hlssessions"
+
+			case "hls muxers":
 				pa = "hlsmuxers"
 
 			case "webrtc":
@@ -1081,10 +1109,10 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":
 					checkError(t, "connection not found", res.Body)
 
-				case "rtsp sessions", "rtsps sessions", "webrtc":
+				case "rtsp sessions", "rtsps sessions", "hls sessions", "webrtc":
 					checkError(t, "session not found", res.Body)
 
-				case "hls":
+				case "hls muxers":
 					checkError(t, "muxer not found", res.Body)
 				}
 			}()
@@ -1105,6 +1133,7 @@ func TestAPIProtocolKick(t *testing.T) {
 		"rtsp",
 		"rtsps",
 		"rtmp",
+		"hls",
 		"webrtc",
 		"srt",
 	} {
@@ -1134,7 +1163,6 @@ func TestAPIProtocolKick(t *testing.T) {
 			switch ca {
 			case "rtsp":
 				source := gortsplib.Client{}
-
 				err = source.StartRecording("rtsp://localhost:8554/mypath",
 					&description.Session{Medias: []*description.Media{medi}})
 				require.NoError(t, err)
@@ -1144,7 +1172,6 @@ func TestAPIProtocolKick(t *testing.T) {
 				source := gortsplib.Client{
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
-
 				err = source.StartRecording("rtsps://localhost:8322/mypath",
 					&description.Session{Medias: []*description.Media{medi}})
 				require.NoError(t, err)
@@ -1179,6 +1206,45 @@ func TestAPIProtocolKick(t *testing.T) {
 
 				err = w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
 				require.NoError(t, err)
+
+			case "hls":
+				source := gortsplib.Client{}
+				err = source.StartRecording("rtsp://localhost:8554/mypath",
+					&description.Session{Medias: []*description.Media{medi}})
+				require.NoError(t, err)
+				defer source.Close()
+
+				var enc *rtph264.Encoder
+				enc, err = medi.Formats[0].(*format.H264).CreateEncoder()
+				require.NoError(t, err)
+
+				tracksReceived := make(chan struct{})
+
+				client := &gohlslib.Client{
+					URI: "http://localhost:8888/mypath/index.m3u8",
+					OnTracks: func(_ []*gohlslib.Track) error {
+						close(tracksReceived)
+						return nil
+					},
+				}
+				err = client.Start()
+				require.NoError(t, err)
+				defer client.Close()
+
+				time.Sleep(500 * time.Millisecond)
+
+				for i := range 2 {
+					var pkts []*rtp.Packet
+					pkts, err = enc.Encode([][]byte{{5, 2, 3, 4}})
+					require.NoError(t, err)
+
+					pkts[0].Timestamp = uint32(i * 90000)
+
+					err = source.WritePacketRTP(medi, pkts[0])
+					require.NoError(t, err)
+				}
+
+				<-tracksReceived
 
 			case "webrtc":
 				var u *url.URL
@@ -1243,6 +1309,9 @@ func TestAPIProtocolKick(t *testing.T) {
 			case "rtmp":
 				pa = "rtmpconns"
 
+			case "hls":
+				pa = "hlssessions"
+
 			case "webrtc":
 				pa = "webrtcsessions"
 
@@ -1256,6 +1325,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				} `json:"items"`
 			}
 			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out1)
+			require.NotEmpty(t, out1.Items)
 
 			httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
 
@@ -1283,6 +1353,7 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 		"rtsp",
 		"rtsps",
 		"rtmp",
+		"hls",
 		"webrtc",
 		"srt",
 	} {
@@ -1318,6 +1389,9 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			case "rtmp":
 				pa = "rtmpconns"
 
+			case "hls":
+				pa = "hlssessions"
+
 			case "webrtc":
 				pa = "webrtcsessions"
 
@@ -1341,11 +1415,8 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":
 					checkError(t, "connection not found", res.Body)
 
-				case "rtsp sessions", "rtsps sessions", "webrtc":
+				case "rtsp sessions", "rtsps sessions", "hls", "webrtc":
 					checkError(t, "session not found", res.Body)
-
-				case "hls":
-					checkError(t, "muxer not found", res.Body)
 				}
 			}()
 		})

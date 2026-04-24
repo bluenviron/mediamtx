@@ -69,7 +69,7 @@ func TestStream(t *testing.T) {
 	require.Equal(t, uint64(14), strm.OutboundBytes())
 }
 
-func TestStreamSkipBytesSent(t *testing.T) {
+func TestStreamSkipOutboundBytes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
@@ -98,7 +98,7 @@ func TestStreamSkipBytesSent(t *testing.T) {
 	require.NoError(t, err)
 
 	r := &Reader{
-		SkipBytesSent: true,
+		SkipOutboundBytes: true,
 	}
 
 	recv := make(chan struct{})
