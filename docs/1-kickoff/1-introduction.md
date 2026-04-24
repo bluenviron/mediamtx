@@ -17,10 +17,10 @@ Main features:
 - [Authenticate](../2-features/06-authentication.md) users with internal, HTTP or JWT authentication
 - [Forward](../2-features/11-forward.md) streams to other servers
 - [Proxy](../2-features/12-proxy.md) requests to other servers
-- [Control](../2-features/21-control-api.md) the server through the Control API
-- [Extract metrics](../2-features/22-metrics.md) from the server in a Prometheus-compatible format
-- [Monitor performance](../2-features/23-performance.md) to investigate CPU and RAM consumption
-- [Run hooks](../2-features/20-hooks.md) (external commands) when clients connect, disconnect, read or publish streams
+- [Control](../2-features/20-control-api.md) the server through the Control API
+- [Extract metrics](../2-features/21-metrics.md) from the server in a Prometheus-compatible format
+- [Monitor performance](../2-features/22-performance.md) to investigate CPU and RAM consumption
+- [Run hooks](../2-features/19-hooks.md) (external commands) when clients connect, disconnect, read or publish streams
 - Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 Use the menu to navigate through the documentation.

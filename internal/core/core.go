@@ -1087,7 +1087,7 @@ func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	return nil
 }
 
-// APIConfigSet is called by api.
+// APIConfigSet implements apiParent.
 func (p *Core) APIConfigSet(conf *conf.Conf) {
 	select {
 	case p.chAPIConfigSet <- conf:

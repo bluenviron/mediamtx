@@ -8,7 +8,7 @@ GStreamer can read a stream from the server in several ways. The recommended one
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
 ```
 
-For advanced options, read [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
+For advanced options, read [RTSP-specific features](../2-features/25-rtsp-specific-features.md).
 
 ## GStreamer and WebRTC
 

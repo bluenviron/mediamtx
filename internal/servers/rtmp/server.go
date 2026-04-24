@@ -335,7 +335,7 @@ func (s *Server) closeConn(c *conn) {
 	}
 }
 
-// APIConnsList is called by api.
+// APIConnsList implements defs.APIRTMPServer.
 func (s *Server) APIConnsList() (*defs.APIRTMPConnList, error) {
 	req := serverAPIConnsListReq{
 		res: make(chan serverAPIConnsListRes),
@@ -351,7 +351,7 @@ func (s *Server) APIConnsList() (*defs.APIRTMPConnList, error) {
 	}
 }
 
-// APIConnsGet is called by api.
+// APIConnsGet implements defs.APIRTMPServer.
 func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTMPConn, error) {
 	req := serverAPIConnsGetReq{
 		uuid: uuid,
@@ -368,7 +368,7 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTMPConn, error) {
 	}
 }
 
-// APIConnsKick is called by api.
+// APIConnsKick implements defs.APIRTMPServer.
 func (s *Server) APIConnsKick(uuid uuid.UUID) error {
 	req := serverAPIConnsKickReq{
 		uuid: uuid,

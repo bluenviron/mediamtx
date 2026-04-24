@@ -66,3 +66,5 @@ other/route-absolute-timestamps: other/absolute-timestamps
 publish/overview: features/publish
 
 read/overview: features/read
+
+features/embed-streams-in-a-website: read/web-browsers

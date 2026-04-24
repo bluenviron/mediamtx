@@ -37,7 +37,7 @@ Log entries can be queried by using:
 journalctl SYSLOG_IDENTIFIER=mediamtx
 ```
 
-If _MediaMTX_ is also running as a [system service](18-start-on-boot.md), log entries can be queried by using:
+If _MediaMTX_ is also running as a [system service](17-start-on-boot.md), log entries can be queried by using:
 
 ```sh
 journalctl -u mediamtx

@@ -560,7 +560,7 @@ func (s *Server) deleteSession(req webRTCDeleteSessionReq) error {
 	}
 }
 
-// APISessionsList is called by api.
+// APISessionsList implements defs.APIWebRTCServer.
 func (s *Server) APISessionsList() (*defs.APIWebRTCSessionList, error) {
 	req := serverAPISessionsListReq{
 		res: make(chan serverAPISessionsListRes),
@@ -576,7 +576,7 @@ func (s *Server) APISessionsList() (*defs.APIWebRTCSessionList, error) {
 	}
 }
 
-// APISessionsGet is called by api.
+// APISessionsGet implements defs.APIWebRTCServer.
 func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIWebRTCSession, error) {
 	req := serverAPISessionsGetReq{
 		uuid: uuid,
@@ -593,7 +593,7 @@ func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIWebRTCSession, error) 
 	}
 }
 
-// APISessionsKick is called by api.
+// APISessionsKick implements defs.APIWebRTCServer.
 func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	req := serverAPISessionsKickReq{
 		uuid: uuid,

@@ -1078,7 +1078,7 @@ func (pa *path) RemoveReader(req defs.PathRemoveReaderReq) {
 	}
 }
 
-// APIPathsGet is called by api.
+// APIPathsGet implements defs.APIPathManager.
 func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	req.res = make(chan pathAPIPathsGetRes)
 	select {
