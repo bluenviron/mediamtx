@@ -1,16 +1,18 @@
 # Web browsers
 
-Web browsers can read a stream from the server by using the WebRTC or the HLS protocol.
+Web browsers can read a stream from the server with the WebRTC or the HLS protocol, by directly accessing web pages provided by the server. It is also possible to embed streams into an external website.
 
 ## Direct read
 
 ### WebRTC
 
-You can read a stream by using the [WebRTC protocol](02-webrtc.md) by visiting the web page:
+Web browsers can read a stream with the [WebRTC protocol](02-webrtc.md) by visiting the web page:
 
 ```
 http://localhost:8889/mystream
 ```
+
+Replace `mystream` with the path name.
 
 ### HLS
 
@@ -19,6 +21,8 @@ Web browsers can also read a stream with the [HLS protocol](05-hls.md). Latency 
 ```
 http://localhost:8888/mystream
 ```
+
+Replace `mystream` with the path name.
 
 ## Embed in a website
 
@@ -104,14 +108,6 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
-If _MediaMTX_ is hosted on a different domain with respect to the website (in the sample code this is implied), you need to set the `webrtcAllowOrigins` parameter in the configuration file. For example, to allow requests from `https://example.com`:
-
-```yaml
-webrtcAllowOrigins: ["https://example.com"]
-```
-
-The parameter also supports wildcards, for instance `['http://*.example.com']`.
-
 ### HLS in iframe
 
 Reading a stream with the HLS protocol introduces some latency, but is usually easier to setup since it doesn't involve managing additional ports that in WebRTC are used to transmit the stream.
@@ -190,11 +186,3 @@ After the video tag, add a script that initializes the stream when the page is f
   });
 </script>
 ```
-
-If _MediaMTX_ is hosted on a different domain with respect to the website (in the sample code this is implied), you need to set the `hlsAllowOrigins` parameter in the configuration file. For example:
-
-```yaml
-hlsAllowOrigins: ["https://example.com"]
-```
-
-The parameter also supports wildcards, for instance `['http://*.example.com']`.
