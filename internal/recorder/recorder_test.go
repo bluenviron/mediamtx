@@ -218,7 +218,10 @@ func TestRecorder(t *testing.T) {
 				52*90000,
 				time.Date(2008, 5, 20, 22, 15, 27, 0, time.UTC))
 
-			// simulate a write error
+			// stream discontinuity: a unit with a PTS that goes backwards.
+			// Previously this propagated as an error from the DTS extractor and
+			// killed the recorder, but the extractor now resets and logs a
+			// warning so the segment stays open.
 			subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 				PTS: 0,
 				Payload: unit.PayloadH264{
@@ -226,10 +229,8 @@ func TestRecorder(t *testing.T) {
 				},
 			})
 
-			for range 2 {
-				<-segCreated
-				<-segDone
-			}
+			<-segCreated // segment 0 (2008-05-20_22-15-25)
+			<-segDone    // segment 0 done (du = 2s)
 
 			if ca == "fmp4" {
 				var init fmp4.Init
@@ -314,31 +315,19 @@ func TestRecorder(t *testing.T) {
 						},
 					},
 				}, init)
-
-				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000."+ext))
-				require.NoError(t, err)
 			} else {
 				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext))
-				require.NoError(t, err)
-
-				_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000."+ext))
 				require.NoError(t, err)
 			}
 
 			time.Sleep(50 * time.Millisecond)
 
-			writeToStream(subStream,
-				300*90000,
-				time.Date(2010, 5, 20, 22, 15, 25, 0, time.UTC))
-
-			time.Sleep(50 * time.Millisecond)
-
 			w.Close()
 
-			<-segCreated
-			<-segDone
+			<-segCreated // segment 1 file is created lazily on close
+			<-segDone    // segment 1 done (closed by w.Close)
 
-			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext))
+			_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000."+ext))
 			require.NoError(t, err)
 
 			if ca == "fmp4" {
