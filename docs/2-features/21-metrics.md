@@ -7,7 +7,7 @@ This server can be enabled by setting `metrics: yes` in the configuration.
 Metrics can be extracted with Prometheus or with a simple HTTP request:
 
 ```
-curl localhost:9998/metrics
+curl http://localhost:9998/metrics
 ```
 
 Obtaining:
@@ -150,7 +150,7 @@ Bitrates are not provided directly as metrics because they can be computed from 
 
 Metrics can be filtered by using HTTP query parameters:
 
-- `type=[TYPE]`: show metrics of a certain type only (where TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`)
+- `type=[TYPE]`: show metrics of a certain type only. TYPE can be `paths`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`.
 - `path=[PATH]`: show metrics belonging to a specific path only
 - `hls_muxer=[PATH]`: show metrics belonging to a specific HLS muxer only
 - `rtsp_conn=[ID]` show metrics belonging to a specific RTSP connection only
