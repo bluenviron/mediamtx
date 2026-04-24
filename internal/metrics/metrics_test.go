@@ -1379,7 +1379,7 @@ func TestFilter(t *testing.T) {
 }
 
 func TestFilterByType(t *testing.T) {
-	for _, ca := range []string{"paths", "rtmp_conns", "webrtc_sessions"} {
+	for _, ca := range []string{"paths", "rtmp_conns", "rtmps_conns", "webrtc_sessions"} {
 		t.Run(ca, func(t *testing.T) {
 			m := Metrics{
 				Address:      "localhost:9998",
@@ -1413,6 +1413,9 @@ func TestFilterByType(t *testing.T) {
 
 			case "rtmp_conns":
 				query = "type=rtmp_conns"
+
+			case "rtmps_conns":
+				query = "type=rtmps_conns"
 
 			case "webrtc_sessions":
 				query = "type=webrtc_sessions"
@@ -1456,9 +1459,12 @@ func TestFilterByType(t *testing.T) {
 						"rtmp_conns_bytes_received{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 123\n"+
 						"rtmp_conns_bytes_sent{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
-						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n"+
-						"\n"+
-						"# RTMPS connections\n"+
+						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n\n",
+					string(byts))
+
+			case "rtmps_conns":
+				require.Equal(t,
+					"# RTMPS connections\n"+
 						"rtmps_conns{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 1\n"+
 						"rtmps_conns_inbound_bytes{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+

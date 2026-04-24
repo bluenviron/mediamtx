@@ -576,7 +576,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpsServer) && //nolint:dupl
-		(typ == "" || typ == "rtmp_conns") &&
+		(typ == "" || typ == "rtmps_conns") &&
 		(!anyFilterActive || rtmpsConnFilter != "") {
 		var data *defs.APIRTMPConnList
 		data, err := m.rtmpsServer.APIConnsList()
