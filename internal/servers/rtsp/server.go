@@ -421,7 +421,7 @@ func (s *Server) getSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *
 	return s.sessions[rsession]
 }
 
-// APIConnsList is called by api and metrics.
+// APIConnsList implements defs.APIRTSPServer.
 func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	select {
 	case <-s.ctx.Done():
@@ -447,7 +447,7 @@ func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	return data, nil
 }
 
-// APIConnsGet is called by api.
+// APIConnsGet implements defs.APIRTSPServer.
 func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	select {
 	case <-s.ctx.Done():
@@ -466,7 +466,7 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	return conn.apiItem(), nil
 }
 
-// APISessionsList is called by api and metrics.
+// APISessionsList implements defs.APIRTSPServer.
 func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	select {
 	case <-s.ctx.Done():
@@ -492,7 +492,7 @@ func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	return data, nil
 }
 
-// APISessionsGet is called by api.
+// APISessionsGet implements defs.APIRTSPServer.
 func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 	select {
 	case <-s.ctx.Done():
@@ -511,7 +511,7 @@ func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 	return sx.apiItem(), nil
 }
 
-// APISessionsKick is called by api.
+// APISessionsKick implements defs.APIRTSPServer.
 func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	select {
 	case <-s.ctx.Done():

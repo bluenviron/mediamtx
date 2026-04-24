@@ -317,7 +317,7 @@ func (s *Server) PathNotReady(pa defs.Path) {
 	}
 }
 
-// APIMuxersList is called by api.
+// APIMuxersList implements defs.APIHLSServer.
 func (s *Server) APIMuxersList() (*defs.APIHLSMuxerList, error) {
 	req := serverAPIMuxersListReq{
 		res: make(chan serverAPIMuxersListRes),
@@ -333,7 +333,7 @@ func (s *Server) APIMuxersList() (*defs.APIHLSMuxerList, error) {
 	}
 }
 
-// APIMuxersGet is called by api.
+// APIMuxersGet implements defs.APIHLSServer.
 func (s *Server) APIMuxersGet(name string) (*defs.APIHLSMuxer, error) {
 	req := serverAPIMuxersGetReq{
 		name: name,

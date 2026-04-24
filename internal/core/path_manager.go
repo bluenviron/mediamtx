@@ -622,7 +622,7 @@ func (pm *pathManager) SetHLSServer(s *hls.Server) []defs.Path {
 	}
 }
 
-// APIPathsList is called by api.
+// APIPathsList implements defs.APIPathManager.
 func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
@@ -654,7 +654,7 @@ func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 	}
 }
 
-// APIPathsGet is called by api.
+// APIPathsGet implements defs.APIPathManager.
 func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	req := pathAPIPathsGetReq{
 		name: name,
