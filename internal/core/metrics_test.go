@@ -75,22 +75,35 @@ func TestMetrics(t *testing.T) {
 	t.Run("initial", func(t *testing.T) {
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
-		require.Equal(t, `paths 0
+		require.Equal(t, `# Paths
+paths 0
 paths_inbound_bytes 0
 paths_outbound_bytes 0
 paths_inbound_frames_in_error 0
+
+# Paths (deprecated)
 paths_bytes_received 0
 paths_bytes_sent 0
 paths_readers 0
+
+# HLS muxers
 hls_muxers 0
 hls_muxers_outbound_bytes 0
 hls_muxers_outbound_frames_discarded 0
+
+# HLS muxers (deprecated)
 hls_muxers_bytes_sent 0
+
+# RTSP connections
 rtsp_conns 0
 rtsp_conns_inbound_bytes 0
 rtsp_conns_outbound_bytes 0
+
+# RTSP connections (deprecated)
 rtsp_conns_bytes_received 0
 rtsp_conns_bytes_sent 0
+
+# RTSP sessions
 rtsp_sessions 0
 rtsp_sessions_inbound_bytes 0
 rtsp_sessions_inbound_rtp_packets 0
@@ -104,6 +117,8 @@ rtsp_sessions_outbound_rtp_packets 0
 rtsp_sessions_outbound_rtp_packets_reported_lost 0
 rtsp_sessions_outbound_rtp_packets_discarded 0
 rtsp_sessions_outbound_rtcp_packets 0
+
+# RTSP sessions (deprecated)
 rtsp_sessions_bytes_received 0
 rtsp_sessions_bytes_sent 0
 rtsp_sessions_rtp_packets_received 0
@@ -114,11 +129,17 @@ rtsp_sessions_rtp_packets_jitter 0
 rtsp_sessions_rtcp_packets_received 0
 rtsp_sessions_rtcp_packets_sent 0
 rtsp_sessions_rtcp_packets_in_error 0
+
+# RTSPS connections
 rtsps_conns 0
 rtsps_conns_inbound_bytes 0
 rtsps_conns_outbound_bytes 0
+
+# RTSPS connections (deprecated)
 rtsps_conns_bytes_received 0
 rtsps_conns_bytes_sent 0
+
+# RTSPS sessions
 rtsps_sessions 0
 rtsps_sessions_inbound_bytes 0
 rtsps_sessions_inbound_rtp_packets 0
@@ -132,6 +153,8 @@ rtsps_sessions_outbound_rtp_packets 0
 rtsps_sessions_outbound_rtp_packets_reported_lost 0
 rtsps_sessions_outbound_rtp_packets_discarded 0
 rtsps_sessions_outbound_rtcp_packets 0
+
+# RTSPS sessions (deprecated)
 rtsps_sessions_bytes_received 0
 rtsps_sessions_bytes_sent 0
 rtsps_sessions_rtp_packets_received 0
@@ -142,18 +165,28 @@ rtsps_sessions_rtp_packets_jitter 0
 rtsps_sessions_rtcp_packets_received 0
 rtsps_sessions_rtcp_packets_sent 0
 rtsps_sessions_rtcp_packets_in_error 0
+
+# RTMP connections
 rtmp_conns 0
 rtmp_conns_inbound_bytes 0
 rtmp_conns_outbound_bytes 0
 rtmp_conns_outbound_frames_discarded 0
+
+# RTMP connections (deprecated)
 rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
+
+# RTMPS connections
 rtmps_conns 0
 rtmps_conns_inbound_bytes 0
 rtmps_conns_outbound_bytes 0
 rtmps_conns_outbound_frames_discarded 0
+
+# RTMPS connections (deprecated)
 rtmps_conns_bytes_received 0
 rtmps_conns_bytes_sent 0
+
+# SRT connections
 srt_conns 0
 srt_conns_packets_sent 0
 srt_conns_packets_received 0
@@ -209,6 +242,8 @@ srt_conns_packets_received_avg_belated_time 0
 srt_conns_packets_send_loss_rate 0
 srt_conns_packets_received_loss_rate 0
 srt_conns_outbound_frames_discarded 0
+
+# WebRTC sessions
 webrtc_sessions 0
 webrtc_sessions_inbound_bytes 0
 webrtc_sessions_inbound_rtp_packets 0
@@ -219,6 +254,8 @@ webrtc_sessions_outbound_bytes 0
 webrtc_sessions_outbound_rtp_packets 0
 webrtc_sessions_outbound_rtcp_packets 0
 webrtc_sessions_outbound_frames_discarded 0
+
+# WebRTC sessions (deprecated)
 webrtc_sessions_bytes_received 0
 webrtc_sessions_bytes_sent 0
 webrtc_sessions_rtp_packets_received 0
@@ -227,6 +264,7 @@ webrtc_sessions_rtp_packets_lost 0
 webrtc_sessions_rtp_packets_jitter 0
 webrtc_sessions_rtcp_packets_received 0
 webrtc_sessions_rtcp_packets_sent 0
+
 `, string(bo))
 	})
 
@@ -408,220 +446,31 @@ webrtc_sessions_rtcp_packets_sent 0
 
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
-		require.Regexp(t,
-			`^paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths\{name=".*?",state="ready"\} 1`+"\n"+
-				`paths_inbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_outbound_bytes\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_inbound_frames_in_error\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_readers\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_outbound_bytes\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_outbound_frames_discarded\{name=".*?"\} 0`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
-				`rtsp_conns\{id=".*?"\} 1`+"\n"+
-				`rtsp_conns_inbound_bytes\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsp_conns_outbound_bytes\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsp_sessions\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`rtsp_sessions_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_inbound_rtcp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_outbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_outbound_rtp_packets_reported_lost\{id=".*?",path=".*?",`+
-				`remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_outbound_rtp_packets_discarded\{id=".*?",path=".*?",`+
-				`remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_outbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 0`+"\n"+
-				`rtsp_sessions_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtcp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtcp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsp_sessions_rtcp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_conns\{id=".*?"\} 1`+"\n"+
-				`rtsps_conns_inbound_bytes\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsps_conns_outbound_bytes\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsps_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsps_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
-				`rtsps_sessions\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`rtsps_sessions_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_inbound_rtcp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_outbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_outbound_rtp_packets_reported_lost\{id=".*?",path=".*?",`+
-				`remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_outbound_rtp_packets_discarded\{id=".*?",path=".*?",`+
-				`remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_outbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 0`+"\n"+
-				`rtsps_sessions_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtcp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtcp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtsps_sessions_rtcp_packets_in_error\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmp_conns\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`rtmp_conns_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmp_conns_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmp_conns_outbound_frames_discarded\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmp_conns_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmp_conns_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmps_conns\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`rtmps_conns_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmps_conns_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmps_conns_outbound_frames_discarded\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmps_conns_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`rtmps_conns_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`srt_conns_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_sent_unique\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_unique\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`srt_conns_packets_send_loss\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_loss\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_sent_ack\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_ack\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_sent_nak\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_nak\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_sent_km\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_km\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_us_snd_duration\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_belated\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_send_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_undecrypt\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 0`+"\n"+
-				`srt_conns_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_sent_unique\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_unique\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_loss\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_retrans\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_belated\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_send_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_drop\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_received_undecrypt\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_us_packets_send_period\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} \d+\.\d+`+"\n"+
-				`srt_conns_packets_flow_window\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_flight_size\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_rtt\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} \d+\.\d+`+"\n"+
-				`srt_conns_mbps_send_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_mbps_receive_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_mbps_link_capacity\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_avail_send_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_avail_receive_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_mbps_max_bw\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} -1`+"\n"+
-				`srt_conns_bytes_mss\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_send_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_send_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_send_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_send_tsb_pd_delay\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_receive_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_receive_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_receive_buf\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_ms_receive_tsb_pd_delay\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_reorder_tolerance\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_avg_belated_time\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_send_loss_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_packets_received_loss_rate\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_outbound_frames_discarded\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} 1`+"\n"+
-				`webrtc_sessions_inbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_inbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_inbound_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_inbound_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_inbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_outbound_bytes\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_outbound_rtp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_outbound_rtcp_packets\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_outbound_frames_discarded\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_bytes_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_bytes_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtp_packets_lost\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtp_packets_jitter\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtcp_packets_received\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				`webrtc_sessions_rtcp_packets_sent\{id=".*?",path=".*?",remoteAddr=".*?",state="publish"\} [0-9]+`+"\n"+
-				"$",
-			string(bo))
+		boStr := string(bo)
+		require.Contains(t, boStr, "paths{name=\"rtmp_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "paths{name=\"rtmps_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "paths{name=\"rtsp_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "paths{name=\"rtsps_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "paths{name=\"srt_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "paths{name=\"webrtc_path\",state=\"ready\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"rtmp_path\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"rtmps_path\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"rtsp_path\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"rtsps_path\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"srt_path\"} 1\n")
+		require.Contains(t, boStr, "hls_muxers{name=\"webrtc_path\"} 1\n")
+		require.Regexp(t, `(?m)^rtsp_conns\{id=".*?"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^rtsp_sessions\{id=".*?",path="rtsp_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^rtsps_conns\{id=".*?"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^rtsps_sessions\{id=".*?",path="rtsps_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^rtmp_conns\{id=".*?",path="rtmp_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^rtmps_conns\{id=".*?",path="rtmps_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^srt_conns\{id=".*?",path="srt_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^srt_conns_ms_rtt\{id=".*?",path="srt_path",`+
+			`remoteAddr=".*?",state="publish"\} [0-9.]+$`, boStr)
+		require.Regexp(t, `(?m)^webrtc_sessions\{id=".*?",path="webrtc_path",remoteAddr=".*?",state="publish"\} 1$`, boStr)
+		require.Regexp(t, `(?m)^webrtc_sessions_rtcp_packets_received\{id=".*?",path="webrtc_path",`+
+			`remoteAddr=".*?",state="publish"\} [0-9]+$`, boStr)
 
 		close(terminate)
 		wg.Wait()
@@ -640,13 +489,17 @@ webrtc_sessions_rtcp_packets_sent 0
 
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
-		require.Equal(t, "paths 0\n"+
+		require.Equal(t, "# Paths\n"+
+			"paths 0\n"+
 			"paths_inbound_bytes 0\n"+
 			"paths_outbound_bytes 0\n"+
 			"paths_inbound_frames_in_error 0\n"+
+			"\n"+
+			"# Paths (deprecated)\n"+
 			"paths_bytes_received 0\n"+
 			"paths_bytes_sent 0\n"+
-			"paths_readers 0\n",
+			"paths_readers 0\n"+
+			"\n",
 			string(bo))
 	})
 }
