@@ -108,7 +108,7 @@ type Metrics struct {
 	Parent         metricsParent
 
 	httpServer   *httpp.Server
-	mutex        sync.Mutex
+	mutex        sync.RWMutex
 	pathManager  defs.APIPathManager
 	hlsServer    defs.APIHLSServer
 	rtspServer   defs.APIRTSPServer
@@ -213,6 +213,17 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 }
 
 func (m *Metrics) onMetrics(ctx *gin.Context) {
+	m.mutex.RLock()
+	pathManager := m.pathManager
+	hlsServer := m.hlsServer
+	rtspServer := m.rtspServer
+	rtspsServer := m.rtspsServer
+	rtmpServer := m.rtmpServer
+	rtmpsServer := m.rtmpsServer
+	srtServer := m.srtServer
+	webRTCServer := m.webRTCServer
+	m.mutex.RUnlock()
+
 	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
@@ -239,7 +250,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	var out strings.Builder
 
 	if (typ == "" || typ == metricsTypePaths) && (!anyFilterActive || pathFilter != "") {
-		data, err := m.pathManager.APIPathsList()
+		data, err := pathManager.APIPathsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# Paths\n")
 			for _, i := range data.Items {
@@ -324,10 +335,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.hlsServer) {
+	if !interfaceIsEmpty(hlsServer) {
 		if (typ == "" || typ == metricsTypeHLSMuxers) && (!anyFilterActive || hlsMuxerFilter != "") {
 			var data *defs.APIHLSMuxerList
-			data, err := m.hlsServer.APIMuxersList()
+			data, err := hlsServer.APIMuxersList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# HLS muxers\n")
 				for _, i := range data.Items {
@@ -368,10 +379,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
+	if !interfaceIsEmpty(rtspServer) { //nolint:dupl
 		if (typ == "" || typ == metricsTypeRTSPConns) && (!anyFilterActive || rtspConnFilter != "") {
 			var data *defs.APIRTSPConnsList
-			data, err := m.rtspServer.APIConnsList()
+			data, err := rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSP connections\n")
 				for _, i := range data.Items {
@@ -415,7 +426,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 		if (typ == "" || typ == metricsTypeRTSPSessions) && (!anyFilterActive || rtspSessionFilter != "") {
 			var data *defs.APIRTSPSessionList
-			data, err := m.rtspServer.APISessionsList()
+			data, err := rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSP sessions\n")
 				for _, i := range data.Items {
@@ -500,10 +511,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
+	if !interfaceIsEmpty(rtspsServer) { //nolint:dupl
 		if (typ == "" || typ == metricsTypeRTSPSConns) && (!anyFilterActive || rtspsConnFilter != "") {
 			var data *defs.APIRTSPConnsList
-			data, err := m.rtspsServer.APIConnsList()
+			data, err := rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSPS connections\n")
 				for _, i := range data.Items {
@@ -547,7 +558,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 		if (typ == "" || typ == metricsTypeRTSPSSessions) && (!anyFilterActive || rtspsSessionFilter != "") {
 			var data *defs.APIRTSPSessionList
-			data, err := m.rtspsServer.APISessionsList()
+			data, err := rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSPS sessions\n")
 				for _, i := range data.Items {
@@ -632,11 +643,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.rtmpServer) && //nolint:dupl
+	if !interfaceIsEmpty(rtmpServer) && //nolint:dupl
 		(typ == "" || typ == metricsTypeRTMPConns) &&
 		(!anyFilterActive || rtmpConnFilter != "") {
 		var data *defs.APIRTMPConnList
-		data, err := m.rtmpServer.APIConnsList()
+		data, err := rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# RTMP connections\n")
 			for _, i := range data.Items {
@@ -686,11 +697,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.rtmpsServer) && //nolint:dupl
+	if !interfaceIsEmpty(rtmpsServer) && //nolint:dupl
 		(typ == "" || typ == metricsTypeRTMPSConns) &&
 		(!anyFilterActive || rtmpsConnFilter != "") {
 		var data *defs.APIRTMPConnList
-		data, err := m.rtmpsServer.APIConnsList()
+		data, err := rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# RTMPS connections\n")
 			for _, i := range data.Items {
@@ -740,11 +751,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.srtServer) &&
+	if !interfaceIsEmpty(srtServer) &&
 		(typ == "" || typ == metricsTypeSRTConns) &&
 		(!anyFilterActive || srtConnFilter != "") {
 		var data *defs.APISRTConnList
-		data, err := m.srtServer.APIConnsList()
+		data, err := srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# SRT connections\n")
 			for _, i := range data.Items {
@@ -875,11 +886,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.webRTCServer) &&
+	if !interfaceIsEmpty(webRTCServer) &&
 		(typ == "" || typ == metricsTypeWebRTCSessions) &&
 		(!anyFilterActive || webrtcSessionFilter != "") {
 		var data *defs.APIWebRTCSessionList
-		data, err := m.webRTCServer.APISessionsList()
+		data, err := webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# WebRTC sessions\n")
 			for _, i := range data.Items {
