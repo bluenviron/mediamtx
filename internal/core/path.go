@@ -506,7 +506,7 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	req.Res <- defs.PathDescribeRes{Err: defs.PathNoStreamAvailableError{PathName: pa.name}}
+	req.Res <- defs.PathDescribeRes{Err: &defs.PathNoStreamAvailableError{PathName: pa.name}}
 }
 
 func (pa *path) doRemovePublisher(req defs.PathRemovePublisherReq) {
@@ -598,7 +598,7 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 		return
 	}
 
-	req.Res <- defs.PathAddReaderRes{Err: defs.PathNoStreamAvailableError{PathName: pa.name}}
+	req.Res <- defs.PathAddReaderRes{Err: &defs.PathNoStreamAvailableError{PathName: pa.name}}
 }
 
 func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
@@ -699,11 +699,13 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				return pa.stream.OutboundBytes()
 			}(),
 			Readers: func() []defs.APIPathReader {
-				ret := make([]defs.APIPathReader, len(pa.readers))
-				i := 0
+				ret := make([]defs.APIPathReader, 0, len(pa.readers))
+
 				for r := range pa.readers {
-					ret[i] = *r.APIReaderDescribe()
-					i++
+					desc := *r.APIReaderDescribe()
+					if desc.Type != defs.APIPathReaderTypeHidden {
+						ret = append(ret, desc)
+					}
 				}
 
 				sort.Slice(ret, func(i, j int) bool {

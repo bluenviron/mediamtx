@@ -120,6 +120,9 @@ func (a *API) Initialize() error {
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
 		group.GET("/hlsmuxers/get/*name", a.onHLSMuxersGet)
+		group.GET("/hlssessions/list", a.onHLSSessionsList)
+		group.GET("/hlssessions/get/:id", a.onHLSSessionsGet)
+		group.POST("/hlssessions/kick/:id", a.onHLSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTSPServer) {

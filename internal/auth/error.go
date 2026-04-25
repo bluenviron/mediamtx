@@ -7,6 +7,6 @@ type Error struct {
 }
 
 // Error implements the error interface.
-func (e Error) Error() string {
+func (e *Error) Error() string {
 	return "authentication failed: " + e.Wrapped.Error()
 }

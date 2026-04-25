@@ -95,7 +95,7 @@ func (r *secondaryReader) Close() {
 // APIReaderDescribe implements reader.
 func (*secondaryReader) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: defs.APIPathReaderTypeRPICameraSecondary,
+		Type: defs.APIPathReaderTypeHidden,
 		ID:   "",
 	}
 }
@@ -341,7 +341,7 @@ func (s *Source) waitForPrimary(
 			},
 		})
 		if err != nil {
-			var err2 defs.PathNoStreamAvailableError
+			var err2 *defs.PathNoStreamAvailableError
 			if errors.As(err, &err2) {
 				select {
 				case <-time.After(pauseBetweenErrors):

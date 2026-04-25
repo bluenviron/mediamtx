@@ -16,8 +16,8 @@ type OnDataFunc func(*unit.Unit) error
 
 // Reader is a stream reader.
 type Reader struct {
-	SkipBytesSent bool
-	Parent        logger.Writer
+	SkipOutboundBytes bool
+	Parent            logger.Writer
 
 	onDatas                 map[*description.Media]map[format.Format]OnDataFunc
 	queueSize               int

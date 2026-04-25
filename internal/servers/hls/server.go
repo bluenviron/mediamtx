@@ -11,11 +11,16 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/google/uuid"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
 var ErrMuxerNotFound = errors.New("muxer not found")
+
+// ErrSessionNotFound is returned when a session is not found.
+var ErrSessionNotFound = errors.New("session not found")
 
 func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
@@ -28,9 +33,10 @@ type serverGetMuxerRes struct {
 
 type serverGetMuxerReq struct {
 	path           string
-	remoteAddr     string
-	query          string
-	sourceOnDemand bool
+	create         bool
+	remoteAddr     string // only if create == true
+	query          string // only if create == true
+	sourceOnDemand bool   // only if create == true
 	res            chan serverGetMuxerRes
 }
 
@@ -51,6 +57,34 @@ type serverAPIMuxersGetRes struct {
 type serverAPIMuxersGetReq struct {
 	name string
 	res  chan serverAPIMuxersGetRes
+}
+
+type serverAPISessionsListRes struct {
+	data *defs.APIHLSSessionList
+	err  error
+}
+
+type serverAPISessionsListReq struct {
+	res chan serverAPISessionsListRes
+}
+
+type serverAPISessionsGetRes struct {
+	data *defs.APIHLSSession
+	err  error
+}
+
+type serverAPISessionsGetReq struct {
+	uuid uuid.UUID
+	res  chan serverAPISessionsGetRes
+}
+
+type serverAPISessionsKickRes struct {
+	err error
+}
+
+type serverAPISessionsKickReq struct {
+	uuid uuid.UUID
+	res  chan serverAPISessionsKickRes
 }
 
 type serverMetrics interface {
@@ -86,6 +120,7 @@ type Server struct {
 	ReadTimeout     conf.Duration
 	WriteTimeout    conf.Duration
 	MuxerCloseAfter conf.Duration
+	ExternalCmdPool *externalcmd.Pool
 	Metrics         serverMetrics
 	PathManager     serverPathManager
 	Parent          serverParent
@@ -97,12 +132,15 @@ type Server struct {
 	muxers     map[string]*muxer
 
 	// in
-	chPathReady    chan defs.Path
-	chPathNotReady chan defs.Path
-	chGetMuxer     chan serverGetMuxerReq
-	chCloseMuxer   chan *muxer
-	chAPIMuxerList chan serverAPIMuxersListReq
-	chAPIMuxerGet  chan serverAPIMuxersGetReq
+	chPathReady       chan defs.Path
+	chPathNotReady    chan defs.Path
+	chGetMuxer        chan serverGetMuxerReq
+	chCloseMuxer      chan *muxer
+	chAPIMuxerList    chan serverAPIMuxersListReq
+	chAPIMuxerGet     chan serverAPIMuxersGetReq
+	chAPISessionsList chan serverAPISessionsListReq
+	chAPISessionsGet  chan serverAPISessionsGetReq
+	chAPISessionsKick chan serverAPISessionsKickReq
 }
 
 // Initialize initializes the server.
@@ -118,6 +156,9 @@ func (s *Server) Initialize() error {
 	s.chCloseMuxer = make(chan *muxer)
 	s.chAPIMuxerList = make(chan serverAPIMuxersListReq)
 	s.chAPIMuxerGet = make(chan serverAPIMuxersGetReq)
+	s.chAPISessionsList = make(chan serverAPISessionsListReq)
+	s.chAPISessionsGet = make(chan serverAPISessionsGetReq)
+	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
 
 	s.httpServer = &httpServer{
 		address:        s.Address,
@@ -211,6 +252,8 @@ outer:
 			switch {
 			case ok:
 				req.res <- serverGetMuxerRes{muxer: mux}
+			case !req.create:
+				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer not found")}
 			case s.AlwaysRemux && !req.sourceOnDemand:
 				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer is waiting to be created")}
 			default:
@@ -247,6 +290,43 @@ outer:
 			}
 
 			req.res <- serverAPIMuxersGetRes{data: muxer.apiItem()}
+
+		case req := <-s.chAPISessionsList:
+			data := &defs.APIHLSSessionList{
+				Items: []defs.APIHLSSession{},
+			}
+
+			for _, muxer := range s.muxers {
+				data.Items = append(data.Items, muxer.apiSessionsList()...)
+			}
+
+			sort.Slice(data.Items, func(i, j int) bool {
+				return data.Items[i].Created.Before(data.Items[j].Created)
+			})
+
+			req.res <- serverAPISessionsListRes{data: data}
+
+		case req := <-s.chAPISessionsGet:
+			for _, muxer := range s.muxers {
+				session, ok := muxer.apiSessionsGet(req.uuid)
+				if ok {
+					req.res <- serverAPISessionsGetRes{data: session}
+					continue outer
+				}
+			}
+
+			req.res <- serverAPISessionsGetRes{err: ErrSessionNotFound}
+
+		case req := <-s.chAPISessionsKick:
+			for _, muxer := range s.muxers {
+				ok := muxer.apiSessionsKick(req.uuid)
+				if ok {
+					req.res <- serverAPISessionsKickRes{}
+					continue outer
+				}
+			}
+
+			req.res <- serverAPISessionsKickRes{err: ErrSessionNotFound}
 
 		case <-s.ctx.Done():
 			break outer
@@ -347,5 +427,55 @@ func (s *Server) APIMuxersGet(name string) (*defs.APIHLSMuxer, error) {
 
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APISessionsList implements defs.APIHLSServer.
+func (s *Server) APISessionsList() (*defs.APIHLSSessionList, error) {
+	req := serverAPISessionsListReq{
+		res: make(chan serverAPISessionsListRes),
+	}
+
+	select {
+	case s.chAPISessionsList <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-s.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APISessionsGet implements defs.APIHLSServer.
+func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIHLSSession, error) {
+	req := serverAPISessionsGetReq{
+		uuid: uuid,
+		res:  make(chan serverAPISessionsGetRes),
+	}
+
+	select {
+	case s.chAPISessionsGet <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-s.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APISessionsKick implements defs.APIHLSServer.
+func (s *Server) APISessionsKick(uuid uuid.UUID) error {
+	req := serverAPISessionsKickReq{
+		uuid: uuid,
+		res:  make(chan serverAPISessionsKickRes),
+	}
+
+	select {
+	case s.chAPISessionsKick <- req:
+		res := <-req.res
+		return res.err
+
+	case <-s.ctx.Done():
+		return fmt.Errorf("terminated")
 	}
 }

@@ -609,6 +609,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:     p.conf.ReadTimeout,
 			WriteTimeout:    p.conf.WriteTimeout,
 			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
+			ExternalCmdPool: p.externalCmdPool,
 			Metrics:         p.metrics,
 			PathManager:     p.pathManager,
 			Parent:          p,

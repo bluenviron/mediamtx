@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -158,7 +159,7 @@ func TestServerNotFound(t *testing.T) {
 				},
 				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					return nil, fmt.Errorf("not found")
+					return nil, &defs.PathNoStreamAvailableError{}
 				},
 			}
 
@@ -253,11 +254,22 @@ func TestServerRead(t *testing.T) {
 				},
 				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
-					if ca == "always remux off" {
+
+					switch req.Author.(type) {
+					case (*muxer):
+						if ca == "always remux off" {
+							require.Equal(t, "param=value", req.AccessRequest.Query)
+						} else {
+							require.Equal(t, "", req.AccessRequest.Query)
+						}
+
+					case *session:
 						require.Equal(t, "param=value", req.AccessRequest.Query)
-					} else {
-						require.Equal(t, "", req.AccessRequest.Query)
+
+					default:
+						t.Errorf("should not happen")
 					}
+
 					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
 				},
 			}
@@ -579,7 +591,7 @@ func TestAuthError(t *testing.T) {
 		ReadTimeout:     conf.Duration(10 * time.Second),
 		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
-			findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 					return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
@@ -624,4 +636,134 @@ func TestAuthError(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
 	require.Equal(t, 2, n)
+}
+
+func TestAuthQueryPreservedAcrossRedirect(t *testing.T) {
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Encryption:      false,
+		ServerKey:       "",
+		ServerCert:      "",
+		AlwaysRemux:     true,
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.Duration(1 * time.Second),
+		PartDuration:    conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
+		PathManager: &dummyPathManager{
+			findPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+				return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+			},
+		},
+		Parent: test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := client.Get("http://127.0.0.1:8888/stream/index.m3u8?jwt=mytoken")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusFound, res.StatusCode)
+	require.Equal(t, "/stream/index.m3u8?cookieCheck=1&jwt=mytoken", res.Header.Get("Location"))
+}
+
+func TestServerNoSupportedCodecs(t *testing.T) {
+	for _, ca := range []string{
+		"always remux off",
+		"always remux on",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP8{}},
+			}}}
+
+			strm := &stream.Stream{
+				Desc:              desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			pm := &dummyPathManager{
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+				},
+				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+				},
+			}
+
+			s := &Server{
+				Address:         "127.0.0.1:8888",
+				AlwaysRemux:     (ca == "always remux on"),
+				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:    7,
+				SegmentDuration: conf.Duration(1 * time.Second),
+				PartDuration:    conf.Duration(200 * time.Millisecond),
+				SegmentMaxSize:  50 * 1024 * 1024,
+				TrustedProxies:  conf.IPNetworks{},
+				ReadTimeout:     conf.Duration(10 * time.Second),
+				WriteTimeout:    conf.Duration(10 * time.Second),
+				PathManager:     pm,
+				Parent:          test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			client := &http.Client{
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			res, err := client.Get("http://127.0.0.1:8888/teststream/index.m3u8")
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusFound, res.StatusCode)
+			require.Equal(t, "/teststream/index.m3u8?cookieCheck=1", res.Header.Get("Location"))
+
+			res, err = client.Get("http://127.0.0.1:8888/teststream/index.m3u8?cookieCheck=1")
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+			require.Contains(t, res.Header.Get("Content-Type"), "application/json")
+
+			byts, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+
+			var payload defs.APIError
+			err = json.Unmarshal(byts, &payload)
+			require.NoError(t, err)
+
+			if ca == "always remux off" {
+				require.Equal(t, defs.APIError{
+					Status: defs.APIErrorStatusError,
+					Error:  "terminated",
+				}, payload)
+			} else {
+				require.Equal(t, defs.APIError{
+					Status: defs.APIErrorStatusError,
+					Error:  "muxer is waiting to be created",
+				}, payload)
+			}
+		})
+	}
 }

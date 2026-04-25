@@ -710,7 +710,7 @@ func TestServerReadNotFound(t *testing.T) {
 			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-			return nil, defs.PathNoStreamAvailableError{}
+			return nil, &defs.PathNoStreamAvailableError{}
 		},
 	}
 

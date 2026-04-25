@@ -279,21 +279,19 @@ func (s *session) runPublish() (int, error) {
 func (s *session) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	req := defs.PathAccessRequest{
-		Name:        s.req.pathName,
-		Query:       s.req.httpRequest.URL.RawQuery,
-		Proto:       auth.ProtocolWebRTC,
-		ID:          &s.uuid,
-		Credentials: httpp.Credentials(s.req.httpRequest),
-		IP:          net.ParseIP(ip),
-	}
-
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-		Author:        s,
-		AccessRequest: req,
+		Author: s,
+		AccessRequest: defs.PathAccessRequest{
+			Name:        s.req.pathName,
+			Query:       s.req.httpRequest.URL.RawQuery,
+			Proto:       auth.ProtocolWebRTC,
+			ID:          &s.uuid,
+			Credentials: httpp.Credentials(s.req.httpRequest),
+			IP:          net.ParseIP(ip),
+		},
 	})
 	if err != nil {
-		var terr2 defs.PathNoStreamAvailableError
+		var terr2 *defs.PathNoStreamAvailableError
 		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
 		}

@@ -164,6 +164,8 @@ After the video tag, add a script that initializes the stream when the page is f
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: function (xhr, url) {
+          xhr.withCredentials = true;
+
           let user = ""; // fill if needed
           let pass = ""; // fill if needed
           let token = ""; // fill if needed

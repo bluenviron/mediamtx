@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -15,8 +16,8 @@ type streamMedia struct {
 	alwaysAvailable      bool
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
-	addInboundBytes      func(uint64)
-	addOutboundBytes     func(uint64)
+	inboundBytes         *atomic.Uint64
+	outboundBytes        *atomic.Uint64
 	updateLastTime       func(time.Duration)
 	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
 	inboundFramesInError *errordumper.Dumper
@@ -36,8 +37,8 @@ func (sm *streamMedia) initialize() error {
 			rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
 			replaceNTP:           sm.replaceNTP,
 			inboundFramesInError: sm.inboundFramesInError,
-			addInboundBytes:      sm.addInboundBytes,
-			addOutboundBytes:     sm.addOutboundBytes,
+			inboundBytes:         sm.inboundBytes,
+			outboundBytes:        sm.outboundBytes,
 			updateLastTime:       sm.updateLastTime,
 			writeRTSP:            sm.writeRTSP,
 			parent:               sm.parent,

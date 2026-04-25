@@ -43,16 +43,16 @@ type APIPathReaderType string
 
 // reader types.
 const (
-	APIPathReaderTypeHLSMuxer           APIPathReaderType = "hlsMuxer"
-	APIPathReaderTypeRTMPConn           APIPathReaderType = "rtmpConn"
-	APIPathReaderTypeRTMPSConn          APIPathReaderType = "rtmpsConn"
-	APIPathReaderTypeRTSPConn           APIPathReaderType = "rtspConn"
-	APIPathReaderTypeRPICameraSecondary APIPathReaderType = "rpiCameraSecondary"
-	APIPathReaderTypeRTSPSession        APIPathReaderType = "rtspSession"
-	APIPathReaderTypeRTSPSConn          APIPathReaderType = "rtspsConn"
-	APIPathReaderTypeRTSPSSession       APIPathReaderType = "rtspsSession"
-	APIPathReaderTypeSRTConn            APIPathReaderType = "srtConn"
-	APIPathReaderTypeWebRTCSession      APIPathReaderType = "webRTCSession"
+	APIPathReaderTypeHLSSession    APIPathReaderType = "hlsSession"
+	APIPathReaderTypeRTMPConn      APIPathReaderType = "rtmpConn"
+	APIPathReaderTypeRTMPSConn     APIPathReaderType = "rtmpsConn"
+	APIPathReaderTypeRTSPConn      APIPathReaderType = "rtspConn"
+	APIPathReaderTypeRTSPSession   APIPathReaderType = "rtspSession"
+	APIPathReaderTypeRTSPSConn     APIPathReaderType = "rtspsConn"
+	APIPathReaderTypeRTSPSSession  APIPathReaderType = "rtspsSession"
+	APIPathReaderTypeSRTConn       APIPathReaderType = "srtConn"
+	APIPathReaderTypeWebRTCSession APIPathReaderType = "webRTCSession"
+	APIPathReaderTypeHidden        APIPathReaderType = "hidden"
 )
 
 // APIPathReader is a reader.
