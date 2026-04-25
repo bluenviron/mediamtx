@@ -70,6 +70,21 @@ func metricFloat(out *strings.Builder, key string, tags string, value float64) {
 	out.WriteByte('\n')
 }
 
+type metricsType string
+
+const (
+	metricsTypePaths          metricsType = "paths"
+	metricsTypeHLSMuxers      metricsType = "hls_muxers"
+	metricsTypeRTSPConns      metricsType = "rtsp_conns"
+	metricsTypeRTSPSessions   metricsType = "rtsp_sessions"
+	metricsTypeRTSPSConns     metricsType = "rtsps_conns"
+	metricsTypeRTSPSSessions  metricsType = "rtsps_sessions"
+	metricsTypeRTMPConns      metricsType = "rtmp_conns"
+	metricsTypeRTMPSConns     metricsType = "rtmps_conns"
+	metricsTypeSRTConns       metricsType = "srt_conns"
+	metricsTypeWebRTCSessions metricsType = "webrtc_sessions"
+)
+
 type metricsAuthManager interface {
 	Authenticate(req *auth.Request) (string, *auth.Error)
 }
@@ -198,7 +213,7 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 }
 
 func (m *Metrics) onMetrics(ctx *gin.Context) {
-	typ := ctx.Query("type")
+	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
 	rtspConnFilter := ctx.Query("rtsp_conn")
@@ -223,7 +238,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	var out strings.Builder
 
-	if (typ == "" || typ == "paths") && (!anyFilterActive || pathFilter != "") {
+	if (typ == "" || typ == metricsTypePaths) && (!anyFilterActive || pathFilter != "") {
 		data, err := m.pathManager.APIPathsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# Paths\n")
@@ -310,7 +325,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
-		if (typ == "" || typ == "hls_muxers") && (!anyFilterActive || hlsMuxerFilter != "") {
+		if (typ == "" || typ == metricsTypeHLSMuxers) && (!anyFilterActive || hlsMuxerFilter != "") {
 			var data *defs.APIHLSMuxerList
 			data, err := m.hlsServer.APIMuxersList()
 			if err == nil && len(data.Items) != 0 {
@@ -354,7 +369,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
-		if (typ == "" || typ == "rtsp_conns") && (!anyFilterActive || rtspConnFilter != "") {
+		if (typ == "" || typ == metricsTypeRTSPConns) && (!anyFilterActive || rtspConnFilter != "") {
 			var data *defs.APIRTSPConnsList
 			data, err := m.rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
@@ -398,7 +413,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 		}
 
-		if (typ == "" || typ == "rtsp_sessions") && (!anyFilterActive || rtspSessionFilter != "") {
+		if (typ == "" || typ == metricsTypeRTSPSessions) && (!anyFilterActive || rtspSessionFilter != "") {
 			var data *defs.APIRTSPSessionList
 			data, err := m.rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
@@ -486,7 +501,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
-		if (typ == "" || typ == "rtsps_conns") && (!anyFilterActive || rtspsConnFilter != "") {
+		if (typ == "" || typ == metricsTypeRTSPSConns) && (!anyFilterActive || rtspsConnFilter != "") {
 			var data *defs.APIRTSPConnsList
 			data, err := m.rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
@@ -530,7 +545,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 		}
 
-		if (typ == "" || typ == "rtsps_sessions") && (!anyFilterActive || rtspsSessionFilter != "") {
+		if (typ == "" || typ == metricsTypeRTSPSSessions) && (!anyFilterActive || rtspsSessionFilter != "") {
 			var data *defs.APIRTSPSessionList
 			data, err := m.rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
@@ -618,7 +633,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) && //nolint:dupl
-		(typ == "" || typ == "rtmp_conns") &&
+		(typ == "" || typ == metricsTypeRTMPConns) &&
 		(!anyFilterActive || rtmpConnFilter != "") {
 		var data *defs.APIRTMPConnList
 		data, err := m.rtmpServer.APIConnsList()
@@ -672,7 +687,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpsServer) && //nolint:dupl
-		(typ == "" || typ == "rtmps_conns") &&
+		(typ == "" || typ == metricsTypeRTMPSConns) &&
 		(!anyFilterActive || rtmpsConnFilter != "") {
 		var data *defs.APIRTMPConnList
 		data, err := m.rtmpsServer.APIConnsList()
@@ -726,7 +741,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.srtServer) &&
-		(typ == "" || typ == "srt_conns") &&
+		(typ == "" || typ == metricsTypeSRTConns) &&
 		(!anyFilterActive || srtConnFilter != "") {
 		var data *defs.APISRTConnList
 		data, err := m.srtServer.APIConnsList()
@@ -861,7 +876,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.webRTCServer) &&
-		(typ == "" || typ == "webrtc_sessions") &&
+		(typ == "" || typ == metricsTypeWebRTCSessions) &&
 		(!anyFilterActive || webrtcSessionFilter != "") {
 		var data *defs.APIWebRTCSessionList
 		data, err := m.webRTCServer.APISessionsList()
