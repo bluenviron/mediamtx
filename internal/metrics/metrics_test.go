@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1586,6 +1587,67 @@ func TestAuthError(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
 	require.Equal(t, 2, n)
+}
+
+func TestMetricsConcurrentSettersAndReads(t *testing.T) {
+	m := Metrics{
+		Address:      "localhost:9998",
+		AllowOrigins: []string{"*"},
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       test.NilLogger,
+	}
+	err := m.Initialize()
+	require.NoError(t, err)
+	defer m.Close()
+
+	m.SetPathManager(&dummyPathManager{})
+	m.SetHLSServer(&dummyHLSServer{})
+	m.SetRTSPServer(&dummyRTSPServer{})
+	m.SetRTSPSServer(&dummyRTSPServer{})
+	m.SetRTMPServer(&dummyRTMPServer{})
+	m.SetRTMPSServer(&dummyRTMPServer{})
+	m.SetSRTServer(&dummySRTServer{})
+	m.SetWebRTCServer(&dummyWebRTCServer{})
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var readers sync.WaitGroup
+	for range 8 {
+		readers.Go(func() {
+			for range 100 {
+				res, err2 := hc.Get("http://localhost:9998/metrics")
+				require.NoError(t, err2)
+				_, err2 = io.Copy(io.Discard, res.Body)
+				res.Body.Close()
+				require.NoError(t, err2)
+			}
+		})
+	}
+
+	for range 1000 {
+		m.SetPathManager(&dummyPathManager{})
+		m.SetHLSServer(&dummyHLSServer{})
+		m.SetRTSPServer(&dummyRTSPServer{})
+		m.SetRTSPSServer(&dummyRTSPServer{})
+		m.SetRTMPServer(&dummyRTMPServer{})
+		m.SetRTMPSServer(&dummyRTMPServer{})
+		m.SetSRTServer(&dummySRTServer{})
+		m.SetWebRTCServer(&dummyWebRTCServer{})
+
+		m.SetHLSServer(nil)
+		m.SetRTSPServer(nil)
+		m.SetRTSPSServer(nil)
+		m.SetRTMPServer(nil)
+		m.SetRTMPSServer(nil)
+		m.SetSRTServer(nil)
+		m.SetWebRTCServer(nil)
+	}
+
+	readers.Wait()
 }
 
 func BenchmarkTags(b *testing.B) {
