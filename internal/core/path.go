@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -704,6 +705,14 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 					ret[i] = *r.APIReaderDescribe()
 					i++
 				}
+
+				sort.Slice(ret, func(i, j int) bool {
+					if ret[i].Type != ret[j].Type {
+						return ret[i].Type < ret[j].Type
+					}
+					return ret[i].ID < ret[j].ID
+				})
+
 				return ret
 			}(),
 		},
