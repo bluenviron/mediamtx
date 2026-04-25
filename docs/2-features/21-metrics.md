@@ -15,6 +15,7 @@ Obtaining:
 ```ini
 # Paths
 paths{name="[path_name]",state="[state]"} 1
+paths_readers{name="[path_name]",state="[state]",readerType="[readerType]"} 5
 paths_inbound_bytes{name="[path_name]",state="[state]"} 1234
 paths_outbound_bytes{name="[path_name]",state="[state]"} 1234
 paths_inbound_frames_in_error{name="[path_name]",state="[state]"} 1234

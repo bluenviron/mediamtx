@@ -25,7 +25,7 @@ func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
-func sortedKeys(paths map[string]string) []string {
+func sortedKeys[T any](paths map[string]T) []string {
 	ret := make([]string, len(paths))
 	i := 0
 	for name := range paths {
@@ -226,6 +226,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	if (typ == "" || typ == "paths") && (!anyFilterActive || pathFilter != "") {
 		data, err := m.pathManager.APIPathsList()
 		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# Paths\n")
 			for _, i := range data.Items {
 				if pathFilter == "" || pathFilter == i.Name {
 					var state string
@@ -240,20 +241,58 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"state": state,
 					})
 
-					out.WriteString("# Paths\n")
 					metric(&out, "paths", ta, 1)
+
+					if len(i.Readers) != 0 {
+						readersByType := make(map[string]int)
+						for _, r := range i.Readers {
+							readersByType[string(r.Type)]++
+						}
+
+						for _, rt := range sortedKeys(readersByType) {
+							rta := tags(map[string]string{
+								"name":       i.Name,
+								"state":      state,
+								"readerType": rt,
+							})
+							metric(&out, "paths_readers", rta, int64(readersByType[rt]))
+						}
+					} else {
+						rta := tags(map[string]string{
+							"name":       i.Name,
+							"state":      state,
+							"readerType": "",
+						})
+						metric(&out, "paths_readers", rta, 0)
+					}
+
 					metric(&out, "paths_inbound_bytes", ta, int64(i.InboundBytes))
 					metric(&out, "paths_outbound_bytes", ta, int64(i.OutboundBytes))
 					metric(&out, "paths_inbound_frames_in_error", ta, int64(i.InboundFramesInError))
-					out.WriteString("\n")
-
-					out.WriteString("# Paths (deprecated)\n")
-					metric(&out, "paths_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "paths_bytes_sent", ta, int64(i.BytesSent))
-					metric(&out, "paths_readers", ta, int64(len(i.Readers)))
-					out.WriteString("\n")
 				}
 			}
+			out.WriteString("\n")
+
+			out.WriteString("# Paths (deprecated)\n")
+			for _, i := range data.Items {
+				if pathFilter == "" || pathFilter == i.Name {
+					var state string
+					if i.Ready {
+						state = "ready"
+					} else {
+						state = "notReady"
+					}
+
+					ta := tags(map[string]string{
+						"name":  i.Name,
+						"state": state,
+					})
+
+					metric(&out, "paths_bytes_received", ta, int64(i.BytesReceived))
+					metric(&out, "paths_bytes_sent", ta, int64(i.BytesSent))
+				}
+			}
+			out.WriteString("\n")
 		} else if pathFilter == "" {
 			out.WriteString("# Paths\n")
 			metric(&out, "paths", "", 0)
@@ -275,23 +314,31 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIHLSMuxerList
 			data, err := m.hlsServer.APIMuxersList()
 			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# HLS muxers\n")
 				for _, i := range data.Items {
 					if hlsMuxerFilter == "" || hlsMuxerFilter == i.Path {
 						ta := tags(map[string]string{
 							"name": i.Path,
 						})
 
-						out.WriteString("# HLS muxers\n")
 						metric(&out, "hls_muxers", ta, 1)
 						metric(&out, "hls_muxers_outbound_bytes", ta, int64(i.OutboundBytes))
 						metric(&out, "hls_muxers_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
-						out.WriteString("\n")
-
-						out.WriteString("# HLS muxers (deprecated)\n")
-						metric(&out, "hls_muxers_bytes_sent", ta, int64(i.BytesSent))
-						out.WriteString("\n")
 					}
 				}
+				out.WriteString("\n")
+
+				out.WriteString("# HLS muxers (deprecated)\n")
+				for _, i := range data.Items {
+					if hlsMuxerFilter == "" || hlsMuxerFilter == i.Path {
+						ta := tags(map[string]string{
+							"name": i.Path,
+						})
+
+						metric(&out, "hls_muxers_bytes_sent", ta, int64(i.BytesSent))
+					}
+				}
+				out.WriteString("\n")
 			} else if hlsMuxerFilter == "" {
 				out.WriteString("# HLS muxers\n")
 				metric(&out, "hls_muxers", "", 0)
@@ -311,24 +358,32 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPConnsList
 			data, err := m.rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# RTSP connections\n")
 				for _, i := range data.Items {
 					if rtspConnFilter == "" || rtspConnFilter == i.ID.String() {
 						ta := tags(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						out.WriteString("# RTSP connections\n")
 						metric(&out, "rtsp_conns", ta, 1)
 						metric(&out, "rtsp_conns_inbound_bytes", ta, int64(i.InboundBytes))
 						metric(&out, "rtsp_conns_outbound_bytes", ta, int64(i.OutboundBytes))
-						out.WriteString("\n")
-
-						out.WriteString("# RTSP connections (deprecated)\n")
-						metric(&out, "rtsp_conns_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsp_conns_bytes_sent", ta, int64(i.BytesSent))
-						out.WriteString("\n")
 					}
 				}
+				out.WriteString("\n")
+
+				out.WriteString("# RTSP connections (deprecated)\n")
+				for _, i := range data.Items {
+					if rtspConnFilter == "" || rtspConnFilter == i.ID.String() {
+						ta := tags(map[string]string{
+							"id": i.ID.String(),
+						})
+
+						metric(&out, "rtsp_conns_bytes_received", ta, int64(i.BytesReceived))
+						metric(&out, "rtsp_conns_bytes_sent", ta, int64(i.BytesSent))
+					}
+				}
+				out.WriteString("\n")
 			} else if rtspConnFilter == "" {
 				out.WriteString("# RTSP connections\n")
 				metric(&out, "rtsp_conns", "", 0)
@@ -347,6 +402,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPSessionList
 			data, err := m.rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# RTSP sessions\n")
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -356,7 +412,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						out.WriteString("# RTSP sessions\n")
 						metric(&out, "rtsp_sessions", ta, 1)
 						metric(&out, "rtsp_sessions_inbound_bytes", ta, int64(i.InboundBytes))
 						metric(&out, "rtsp_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
@@ -370,9 +425,20 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						metric(&out, "rtsp_sessions_outbound_rtp_packets_reported_lost", ta, int64(i.OutboundRTPPacketsReportedLost))
 						metric(&out, "rtsp_sessions_outbound_rtp_packets_discarded", ta, int64(i.OutboundRTPPacketsDiscarded))
 						metric(&out, "rtsp_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
-						out.WriteString("\n")
+					}
+				}
+				out.WriteString("\n")
 
-						out.WriteString("# RTSP sessions (deprecated)\n")
+				out.WriteString("# RTSP sessions (deprecated)\n")
+				for _, i := range data.Items {
+					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
+						ta := tags(map[string]string{
+							"id":         i.ID.String(),
+							"state":      string(i.State),
+							"path":       i.Path,
+							"remoteAddr": i.RemoteAddr,
+						})
+
 						metric(&out, "rtsp_sessions_bytes_received", ta, int64(i.BytesReceived))
 						metric(&out, "rtsp_sessions_bytes_sent", ta, int64(i.BytesSent))
 						metric(&out, "rtsp_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
@@ -383,9 +449,9 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						metric(&out, "rtsp_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
 						metric(&out, "rtsp_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
 						metric(&out, "rtsp_sessions_rtcp_packets_in_error", ta, int64(i.RTCPPacketsInError))
-						out.WriteString("\n")
 					}
 				}
+				out.WriteString("\n")
 			} else if rtspSessionFilter == "" {
 				out.WriteString("# RTSP sessions\n")
 				metric(&out, "rtsp_sessions", "", 0)
@@ -424,24 +490,32 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPConnsList
 			data, err := m.rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# RTSPS connections\n")
 				for _, i := range data.Items {
 					if rtspsConnFilter == "" || rtspsConnFilter == i.ID.String() {
 						ta := tags(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						out.WriteString("# RTSPS connections\n")
 						metric(&out, "rtsps_conns", ta, 1)
 						metric(&out, "rtsps_conns_inbound_bytes", ta, int64(i.InboundBytes))
 						metric(&out, "rtsps_conns_outbound_bytes", ta, int64(i.OutboundBytes))
-						out.WriteString("\n")
-
-						out.WriteString("# RTSPS connections (deprecated)\n")
-						metric(&out, "rtsps_conns_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsps_conns_bytes_sent", ta, int64(i.BytesSent))
-						out.WriteString("\n")
 					}
 				}
+				out.WriteString("\n")
+
+				out.WriteString("# RTSPS connections (deprecated)\n")
+				for _, i := range data.Items {
+					if rtspsConnFilter == "" || rtspsConnFilter == i.ID.String() {
+						ta := tags(map[string]string{
+							"id": i.ID.String(),
+						})
+
+						metric(&out, "rtsps_conns_bytes_received", ta, int64(i.BytesReceived))
+						metric(&out, "rtsps_conns_bytes_sent", ta, int64(i.BytesSent))
+					}
+				}
+				out.WriteString("\n")
 			} else if rtspsConnFilter == "" {
 				out.WriteString("# RTSPS connections\n")
 				metric(&out, "rtsps_conns", "", 0)
@@ -460,6 +534,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPSessionList
 			data, err := m.rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
+				out.WriteString("# RTSPS sessions\n")
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -469,7 +544,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						out.WriteString("# RTSPS sessions\n")
 						metric(&out, "rtsps_sessions", ta, 1)
 						metric(&out, "rtsps_sessions_inbound_bytes", ta, int64(i.InboundBytes))
 						metric(&out, "rtsps_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
@@ -483,9 +557,20 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						metric(&out, "rtsps_sessions_outbound_rtp_packets_reported_lost", ta, int64(i.OutboundRTPPacketsReportedLost))
 						metric(&out, "rtsps_sessions_outbound_rtp_packets_discarded", ta, int64(i.OutboundRTPPacketsDiscarded))
 						metric(&out, "rtsps_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
-						out.WriteString("\n")
+					}
+				}
+				out.WriteString("\n")
 
-						out.WriteString("# RTSPS sessions (deprecated)\n")
+				out.WriteString("# RTSPS sessions (deprecated)\n")
+				for _, i := range data.Items {
+					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
+						ta := tags(map[string]string{
+							"id":         i.ID.String(),
+							"state":      string(i.State),
+							"path":       i.Path,
+							"remoteAddr": i.RemoteAddr,
+						})
+
 						metric(&out, "rtsps_sessions_bytes_received", ta, int64(i.BytesReceived))
 						metric(&out, "rtsps_sessions_bytes_sent", ta, int64(i.BytesSent))
 						metric(&out, "rtsps_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
@@ -496,9 +581,9 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						metric(&out, "rtsps_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
 						metric(&out, "rtsps_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
 						metric(&out, "rtsps_sessions_rtcp_packets_in_error", ta, int64(i.RTCPPacketsInError))
-						out.WriteString("\n")
 					}
 				}
+				out.WriteString("\n")
 			} else if rtspsSessionFilter == "" {
 				out.WriteString("# RTSPS sessions\n")
 				metric(&out, "rtsps_sessions", "", 0)
@@ -538,6 +623,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIRTMPConnList
 		data, err := m.rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# RTMP connections\n")
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -547,19 +633,29 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					out.WriteString("# RTMP connections\n")
 					metric(&out, "rtmp_conns", ta, 1)
 					metric(&out, "rtmp_conns_inbound_bytes", ta, int64(i.InboundBytes))
 					metric(&out, "rtmp_conns_outbound_bytes", ta, int64(i.OutboundBytes))
 					metric(&out, "rtmp_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
-					out.WriteString("\n")
-
-					out.WriteString("# RTMP connections (deprecated)\n")
-					metric(&out, "rtmp_conns_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "rtmp_conns_bytes_sent", ta, int64(i.BytesSent))
-					out.WriteString("\n")
 				}
 			}
+			out.WriteString("\n")
+
+			out.WriteString("# RTMP connections (deprecated)\n")
+			for _, i := range data.Items {
+				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
+					ta := tags(map[string]string{
+						"id":         i.ID.String(),
+						"state":      string(i.State),
+						"path":       i.Path,
+						"remoteAddr": i.RemoteAddr,
+					})
+
+					metric(&out, "rtmp_conns_bytes_received", ta, int64(i.BytesReceived))
+					metric(&out, "rtmp_conns_bytes_sent", ta, int64(i.BytesSent))
+				}
+			}
+			out.WriteString("\n")
 		} else if rtmpConnFilter == "" {
 			out.WriteString("# RTMP connections\n")
 			metric(&out, "rtmp_conns", "", 0)
@@ -581,6 +677,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIRTMPConnList
 		data, err := m.rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# RTMPS connections\n")
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -590,19 +687,29 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					out.WriteString("# RTMPS connections\n")
 					metric(&out, "rtmps_conns", ta, 1)
 					metric(&out, "rtmps_conns_inbound_bytes", ta, int64(i.InboundBytes))
 					metric(&out, "rtmps_conns_outbound_bytes", ta, int64(i.OutboundBytes))
 					metric(&out, "rtmps_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
-					out.WriteString("\n")
-
-					out.WriteString("# RTMPS connections (deprecated)\n")
-					metric(&out, "rtmps_conns_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "rtmps_conns_bytes_sent", ta, int64(i.BytesSent))
-					out.WriteString("\n")
 				}
 			}
+			out.WriteString("\n")
+
+			out.WriteString("# RTMPS connections (deprecated)\n")
+			for _, i := range data.Items {
+				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
+					ta := tags(map[string]string{
+						"id":         i.ID.String(),
+						"state":      string(i.State),
+						"path":       i.Path,
+						"remoteAddr": i.RemoteAddr,
+					})
+
+					metric(&out, "rtmps_conns_bytes_received", ta, int64(i.BytesReceived))
+					metric(&out, "rtmps_conns_bytes_sent", ta, int64(i.BytesSent))
+				}
+			}
+			out.WriteString("\n")
 		} else if rtmpsConnFilter == "" {
 			out.WriteString("# RTMPS connections\n")
 			metric(&out, "rtmps_conns", "", 0)
@@ -624,6 +731,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APISRTConnList
 		data, err := m.srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# SRT connections\n")
 			for _, i := range data.Items {
 				if srtConnFilter == "" || srtConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -633,7 +741,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					out.WriteString("# SRT connections\n")
 					metric(&out, "srt_conns", ta, 1)
 					metric(&out, "srt_conns_packets_sent", ta, int64(i.PacketsSent))
 					metric(&out, "srt_conns_packets_received", ta, int64(i.PacketsReceived))
@@ -689,9 +796,9 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					metricFloat(&out, "srt_conns_packets_send_loss_rate", ta, i.PacketsSendLossRate)
 					metricFloat(&out, "srt_conns_packets_received_loss_rate", ta, i.PacketsReceivedLossRate)
 					metric(&out, "srt_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
-					out.WriteString("\n")
 				}
 			}
+			out.WriteString("\n")
 		} else if srtConnFilter == "" {
 			out.WriteString("# SRT connections\n")
 			metric(&out, "srt_conns", "", 0)
@@ -759,6 +866,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIWebRTCSessionList
 		data, err := m.webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# WebRTC sessions\n")
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -768,7 +876,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					out.WriteString("# WebRTC sessions\n")
 					metric(&out, "webrtc_sessions", ta, 1)
 					metric(&out, "webrtc_sessions_inbound_bytes", ta, int64(i.InboundBytes))
 					metric(&out, "webrtc_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
@@ -779,9 +886,20 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					metric(&out, "webrtc_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
 					metric(&out, "webrtc_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
 					metric(&out, "webrtc_sessions_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
-					out.WriteString("\n")
+				}
+			}
+			out.WriteString("\n")
 
-					out.WriteString("# WebRTC sessions (deprecated)\n")
+			out.WriteString("# WebRTC sessions (deprecated)\n")
+			for _, i := range data.Items {
+				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
+					ta := tags(map[string]string{
+						"id":         i.ID.String(),
+						"state":      string(i.State),
+						"path":       i.Path,
+						"remoteAddr": i.RemoteAddr,
+					})
+
 					metric(&out, "webrtc_sessions_bytes_received", ta, int64(i.BytesReceived))
 					metric(&out, "webrtc_sessions_bytes_sent", ta, int64(i.BytesSent))
 					metric(&out, "webrtc_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
@@ -790,9 +908,9 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					metricFloat(&out, "webrtc_sessions_rtp_packets_jitter", ta, i.RTPPacketsJitter)
 					metric(&out, "webrtc_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
 					metric(&out, "webrtc_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
-					out.WriteString("\n")
 				}
 			}
+			out.WriteString("\n")
 		} else if webrtcSessionFilter == "" {
 			out.WriteString("# WebRTC sessions\n")
 			metric(&out, "webrtc_sessions", "", 0)
