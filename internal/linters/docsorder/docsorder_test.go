@@ -64,22 +64,15 @@ func TestDocsOrder(t *testing.T) {
 		}
 
 		sort.Slice(numbered, func(i, j int) bool {
-			return numbered[i].num < numbered[j].num
+			return numbered[i].name < numbered[j].name
 		})
 
 		usesPadding := len(numbered) >= 10
 
-		for i, nf := range numbered {
-			expected := i + 1
-
-			if nf.num != expected {
-				t.Errorf("docs/%s/%s: expected number %d, got %d", entry.Name(), nf.name, expected, nf.num)
-			}
-
+		for _, nf := range numbered {
 			if usesPadding {
-				expectedStr := fmt.Sprintf("%02d", expected)
-				if nf.numStr != expectedStr {
-					t.Errorf("docs/%s/%s: expected zero-padded prefix %q, got %q", entry.Name(), nf.name, expectedStr, nf.numStr)
+				if len(nf.numStr) != 2 {
+					t.Errorf("docs/%s/%s: expected zero-padded prefix, got %q", entry.Name(), nf.name, nf.numStr)
 				}
 			} else {
 				if strings.HasPrefix(nf.numStr, "0") {

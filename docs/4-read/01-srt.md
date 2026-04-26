@@ -8,6 +8,6 @@ srt://localhost:8890?streamid=read:mystream
 
 Replace `mystream` with the path name.
 
-If you need to use the standard stream ID syntax instead of the custom one in use by this server, read [Standard stream ID syntax](../2-features/23-srt-specific-features.md#standard-stream-id-syntax).
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, read [Standard stream ID syntax](../2-features/25-srt-specific-features.md#standard-stream-id-syntax).
 
 Some clients that can read with SRT are [FFmpeg](06-ffmpeg.md), [GStreamer](07-gstreamer.md) and [VLC](08-vlc.md).
