@@ -364,9 +364,9 @@ hlsPartDuration: 200ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M
-# Directory in which to save segments, instead of keeping them in the RAM.
-# This decreases performance, since reading from disk is less performant than
-# reading from RAM, but allows to save RAM.
+# Directory in which to save segments and non-low-latency playlists.
+# This has two purposes: offloading RAM and creating a self-consistent directory
+# that can be served by a CDN.
 hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
