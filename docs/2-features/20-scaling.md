@@ -1,8 +1,8 @@
 # Scaling
 
-When handling large amounts of readers or publishers, streaming performance might get degraded due to bottlenecks in the underlying hardware infrastructure. In case of streaming without re-encoding (which is what MediaMTX does), these bottlenecks are almost always related to the limited bandwidth between server and readers. This issue can be strongly mitigated by enrolling horizontal scaling, which means deploying multiple coordinated server instances, and evenly distributing load on them.
+When handling large amounts of readers or publishers, streaming performance might get degraded due to bottlenecks in the underlying hardware infrastructure. In case of streaming without re-encoding (which is what MediaMTX does), these bottlenecks are almost always related to the limited bandwidth between server and readers. This issue can be strongly mitigated by implementing horizontal scalability, which means deploying multiple coordinated server instances, and evenly distributing load on them.
 
-There are several methods available to implement horizontal scaling, the main ones are described in this page.
+There are several methods available to implement horizontal scalability, the main ones are described in this page.
 
 ## Read replicas
 
@@ -256,7 +256,7 @@ This process involved all available protocols, but it can be greatly simplified 
 
 ## CDN
 
-The read replica technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations that involve scalability and costs:
+The read replicas technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations that involve scalability and costs:
 
 - Sudden load spikes can be handled by adjusting read replica count, but this adjustement is not immediate and depends on either an autoscaling policy or a manual action, leading to a potential temporary performance degradation.
 - Increasing the read replica count can lead to saturation of the bandwidth between read replicas and the origin, creating a new bottleneck.
