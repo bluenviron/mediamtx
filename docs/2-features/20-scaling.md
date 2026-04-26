@@ -151,7 +151,7 @@ The load balancer has to behave differently depending on the protocol(s) readers
 
    Then launch Traefik:
 
-   ```
+   ```sh
    docker run -d \
    --name traefik \
    --restart always \
@@ -163,7 +163,7 @@ The load balancer has to behave differently depending on the protocol(s) readers
 
 You can now use the IP address or DNS of the load balancer machines to read streams with any protocol.
 
-### AWS-based implementation
+### AWS implementation
 
 1. Create a _Security group_ called `mediamtx-load-balancer`, that will be used by the load balancers. In _Inbound rules_, add:
    - a rule with type _All TCP_, source `0.0.0.0/0` (anywhere).
@@ -179,7 +179,7 @@ You can now use the IP address or DNS of the load balancer machines to read stre
    - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
    - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
 
-4. Launch an EC2 instance that is meant to host the MediaMTX origin instance. Pick the _Amazon Linux_ AMI. Associate the `mediamtx-origin` _Security group_ to the instance. In _Advanced Details_, in the _User data_ textarea, copy and paste this:
+4. Launch an EC2 instance that is meant to host the MediaMTX origin instance. Pick the _Amazon Linux_ AMI. Assign the `mediamtx-origin` _Security group_ to the instance. In _Advanced Details_, in the _User data_ textarea, copy and paste this:
 
    ```sh
    #!/bin/bash
@@ -196,7 +196,7 @@ You can now use the IP address or DNS of the load balancer machines to read stre
    bluenviron/mediamtx:1
    ```
 
-5. Create a _Launch template_ for the read replicas. Pick the _Amazon Linux_ AMI. Associate the `mediamtx-read-replicas` _Security group_ to the launch template. In _Advanced Details_, in the _User data_ textarea, copy and paste this:
+5. Create a _Launch template_ for the read replicas. Pick the _Amazon Linux_ AMI. Assign the `mediamtx-read-replicas` _Security group_ to the launch template. In _Advanced Details_, in the _User data_ textarea, copy and paste this:
 
    ```sh
    #!/bin/bash
@@ -239,12 +239,12 @@ You can now use the IP address or DNS of the load balancer machines to read stre
 
 7. Select the `mediamtx-read-replicas-8888` target group, tab _Attributes_, _Edit_, section _Target selection configuration_, _Turn on stickiness_, _Save_. Do the same for the `mediamtx-read-replicas-8889` target group.
 
-8. Create a _Load Balancer_, type _Network Load Balancer_. Associate the `mediamtx-load-balancer` _Security group_ with the load balancer. In _Listeners_, define 3 listeners:
+8. Create a _Load Balancer_, type _Network Load Balancer_. Assign the `mediamtx-load-balancer` _Security group_ to the load balancer. In _Listeners_, define 3 listeners:
    - Protocol _TCP_, port `8554` (RTSP), forward to target group `mediamtx-read-replicas-8554`
    - Protocol _TCP_, port `1935` (RTMP), forward to target group `mediamtx-read-replicas-1935`
    - Protocol _UDP_, port `8890` (SRT), forward to target group `mediamtx-read-replicas-8890`
 
-9. Create a _Load Balancer_, type _Application Load Balancer_. Associate the `mediamtx-load-balancer` _Security group_ with the load balancer. In _Listeners_, define 2 listeners:
+9. Create a _Load Balancer_, type _Application Load Balancer_. Assign the `mediamtx-load-balancer` _Security group_ to the load balancer. In _Listeners_, define 2 listeners:
    - Protocol _HTTP_, port `8888` (HLS), forward to target group `mediamtx-read-replicas-8888`
    - Protocol _HTTP_, port `8889` (WebRTC), forward to target group `mediamtx-read-replicas-8889`
 
@@ -253,3 +253,87 @@ You can now use the IP address or DNS of the load balancer machines to read stre
 You can now use the DNS of the _Network Load Balancer_ to read streams with RTSP, RTMP and SRT, and the DNS of the _Application Load Balancer_ to read streams with HLS and WebRTC.
 
 This process involved all available protocols, but it can be greatly simplified if users are meant to read streams with a single protocol only (for instance, WebRTC), in this case, opening specific ports only (8889) and creating specific load balancers only (Application load balancer) is enough.
+
+## CDN
+
+The read replica technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations that involve scalability and costs:
+
+- Sudden load spikes can be handled by adjusting read replica count, but this adjustement is not immediate and depends on either an autoscaling policy or a manual action, leading to a potential temporary performance degradation.
+- Increasing the read replica count can lead to saturation of the bandwidth between read replicas and the origin, creating a new bottleneck.
+- Each read replica requires a dedicated and potentially expensive machine.
+
+An alternative way to serve streams consists in using the MediaMTX HLS muxer to generate directories containing HLS playlists and segments, and then serving these directories with a CDN. This method is less versatile than read replicas (only the HLS protocol is available), introduces significant latency (since the Low-Latency HLS variant cannot be used with CDNs) but overcomes scalability and costs limitations.
+
+### AWS implementation
+
+1. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
+   - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
+   - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
+
+2. Create an _EC2 instance_. Assign the `mediamtx-origin` _Security group_ to the instance. In the _Advanced Details_ section, click on _Create new IAM profile_, _Use existing policy_, pick `AmazonS3FullAccess`, then _Create Role_. Launch the instance.
+
+3. In _Amazon S3_, create a new _General purpose bucket_.
+
+4. Log into the EC2 instance. Create a script (`upload.sh`) that uploads new segments and playlists to the S3 bucket:
+
+   ```sh
+   #!/bin/bash
+   WATCH_DIR="/home/ec2-user/hls"
+   S3_BUCKET="s3://my-bucket-name"
+   inotifywait -m -r -e close_write --format '%w%f' "$WATCH_DIR" | while read FILE
+   do
+      RELATIVE_PATH="${FILE#$WATCH_DIR/}"
+      aws s3 cp "$FILE" "$S3_BUCKET/$RELATIVE_PATH"
+      if [[ "$FILE" == *.m3u8 ]]; then
+          aws s3 sync "$WATCH_DIR" "$S3_BUCKET" --delete
+      fi
+   done
+   ```
+
+   Replace `my-bucket-name` with the bucket name.
+
+   Launch the script in background:
+
+   ```sh
+   chmod +x upload.sh
+   ./upload.sh &
+   ```
+
+5. Create a MediaMTX configuration (`mediamtx.yml`) with this content:
+
+   ```yml
+   hlsAlwaysRemux: true
+   hlsVariant: fmp4
+   hlsDirectory: ./hls
+   paths:
+     all:
+   ```
+
+   Then launch MediaMTX:
+
+   ```sh
+   docker run \
+   -d \
+   --restart=always \
+   --name mediamtx \
+   --network host \
+   -v $PWD/mediamtx.yml:/mediamtx.yml \
+   -v /mnt:/mnt \
+   bluenviron/mediamtx:1
+   ```
+
+6. Create a _CloudFront_ distribution that points to the S3 bucket.
+
+   Make sure to disable caching for playlists (`*.m3u8`) or to set a really low maximum age. Contrarily, segments can be cached without any age limit.
+
+   Also, assign the `CORS-With-Preflight` response header policy to the default behavior in order to access streams from external websites.
+
+You can now use the URL of the _CloudFront_ distribution to read HLS streams.
+
+Be aware that the distribution does not come with a web player, so you have to upload one to the S3 bucket or use an external player like the one [in this page](https://hlsjs.video-dev.org/demo/). Use this URL to read streams:
+
+```
+https://xxxxxx.cloudfront.net/stream/index.m3u8
+```
+
+Replace `xxxxxx.cloudfront.net` with the distribution domain, and `stream` with the stream path.
