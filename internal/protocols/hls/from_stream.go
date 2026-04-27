@@ -304,7 +304,7 @@ func setupDataTracks(
 
 	for _, media := range desc.Medias {
 		for _, forma := range media.Formats {
-			if forma, ok := forma.(*format.KLV); ok {
+			if forma, ok := forma.(*format.KLV); ok && muxer.Variant == gohlslib.MuxerVariantMPEGTS {
 				track := &gohlslib.Track{
 					Codec:     &codecs.KLV{Synchronous: true},
 					ClockRate: forma.ClockRate(),
