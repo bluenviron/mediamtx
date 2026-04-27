@@ -34,7 +34,7 @@ The load balancer has to behave differently depending on the protocol(s) readers
    bluenviron/mediamtx:1
    ```
 
-2. On machines meant to host read replicas, create this MediaMTX configuration:
+2. On machines meant to host read replicas, create this MediaMTX configuration (`mediamtx.yml`):
 
    ```yml
    webrtcLocalUDPAddress:
@@ -256,7 +256,7 @@ This process involved all available protocols, but it can be greatly simplified 
 
 ## CDN
 
-The read replicas technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations that involve scalability and costs:
+The read replicas technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations regarding performance and costs:
 
 - Sudden load spikes can be handled by adjusting read replica count, but this adjustement is not immediate and depends on either an autoscaling policy or a manual action, leading to a potential temporary performance degradation.
 - Increasing the read replica count can lead to saturation of the bandwidth between read replicas and the origin, creating a new bottleneck.
@@ -266,20 +266,48 @@ An alternative way to serve streams consists in using the MediaMTX HLS muxer to 
 
 ### AWS implementation
 
-1. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
+1. In _Amazon S3_, create a new _General purpose bucket_.
+
+2. Create a _CloudFront_ distribution that points to the S3 bucket.
+
+   Enter into the distribution page, tab _Behaviors_, edit the default behavior, in the _Response headers policy_ field set `CORS-With-Preflight`. This allows to access streams from external websites.
+
+   Create another behavior, in _Path pattern_ insert `*.m3u8`, in _Cache policy_ insert `CachingDisabled`, in _Response header policy_ set `CORS-With-Preflight`.
+
+3. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
    - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
    - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
 
-2. Create an _EC2 instance_. Assign the `mediamtx-origin` _Security group_ to the instance. In the _Advanced Details_ section, click on _Create new IAM profile_, _Use existing policy_, pick `AmazonS3FullAccess`, then _Create Role_. Launch the instance.
+4. Create an _EC2 instance_. Assign the `mediamtx-origin` _Security group_ to the instance. In the _Advanced Details_ section, click on _Create new IAM profile_. In the _Additional policy_ section, paste this policy, that allows the instance to access the S3 bucket;
 
-3. In _Amazon S3_, create a new _General purpose bucket_.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "VisualEditor0",
+         "Effect": "Allow",
+         "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+         "Resource": "arn:aws:s3:::MYBUCKETNAME"
+       },
+       {
+         "Sid": "VisualEditor1",
+         "Effect": "Allow",
+         "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+         "Resource": "arn:aws:s3:::MYBUCKETNAME/*"
+       }
+     ]
+   }
+   ```
 
-4. Log into the EC2 instance. Create a script (`upload.sh`) that uploads new segments and playlists to the S3 bucket:
+   Replace `MYBUCKETNAME` with the bucket name.
+
+5. Log into the EC2 instance. Create a script (`upload.sh`) that uploads new segments and playlists to the S3 bucket:
 
    ```sh
    #!/bin/bash
    WATCH_DIR="/home/ec2-user/hls"
-   S3_BUCKET="s3://my-bucket-name"
+   S3_BUCKET="s3://MYBUCKETNAME"
    inotifywait -m -r -e close_write --format '%w%f' "$WATCH_DIR" | while read FILE
    do
       RELATIVE_PATH="${FILE#$WATCH_DIR/}"
@@ -290,16 +318,19 @@ An alternative way to serve streams consists in using the MediaMTX HLS muxer to 
    done
    ```
 
-   Replace `my-bucket-name` with the bucket name.
+   Replace `MYBUCKETNAME` with the bucket name.
 
    Launch the script in background:
 
    ```sh
+   dnf update -y
+   sudo dnf install -y inotify-tools
+   mkdir -p /home/ec2-user/hls
    chmod +x upload.sh
    ./upload.sh &
    ```
 
-5. Create a MediaMTX configuration (`mediamtx.yml`) with this content:
+6. Create a MediaMTX configuration (`mediamtx.yml`) with this content:
 
    ```yml
    hlsAlwaysRemux: true
@@ -312,21 +343,20 @@ An alternative way to serve streams consists in using the MediaMTX HLS muxer to 
    Then launch MediaMTX:
 
    ```sh
-   docker run \
+   sudo dnf update -y
+   sudo dnf install -y docker
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   sudo usermod -aG docker ec2-user
+   sudo docker run \
    -d \
    --restart=always \
    --name mediamtx \
    --network host \
    -v $PWD/mediamtx.yml:/mediamtx.yml \
-   -v /mnt:/mnt \
+   -v $PWD/hls:/hls \
    bluenviron/mediamtx:1
    ```
-
-6. Create a _CloudFront_ distribution that points to the S3 bucket.
-
-   Make sure to disable caching for playlists (`*.m3u8`) or to set a really low maximum age. Contrarily, segments can be cached without any age limit.
-
-   Also, assign the `CORS-With-Preflight` response header policy to the default behavior in order to access streams from external websites.
 
 You can now use the URL of the _CloudFront_ distribution to read HLS streams.
 
