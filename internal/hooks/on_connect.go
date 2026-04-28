@@ -61,7 +61,6 @@ func OnConnect(params OnConnectParams) func() {
 				Cmdstr:  params.RunOnDisconnect,
 				Restart: false,
 				Env:     env,
-				OnExit:  nil,
 			}
 			cmd.Start()
 		}

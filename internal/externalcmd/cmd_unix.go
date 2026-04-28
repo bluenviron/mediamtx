@@ -12,8 +12,8 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func (c *Cmd) runOSSpecific(env []string) error {
-	cmdParts, err := shellquote.Split(c.Cmdstr)
+func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
+	cmdParts, err := shellquote.Split(cmdstr)
 	if err != nil {
 		return err
 	}

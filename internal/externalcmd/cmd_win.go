@@ -61,7 +61,7 @@ func addProcessToGroup(h windows.Handle, p *os.Process) error {
 	return nil
 }
 
-func (c *Cmd) runOSSpecific(env []string) error {
+func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	var cmd *exec.Cmd
 
 	// from Golang documentation:
@@ -71,15 +71,15 @@ func (c *Cmd) runOSSpecific(env []string) error {
 	// msiexec.exe and cmd.exe (and thus, all batch files), which have a different unquoting algorithm.
 	// In these or other similar cases, you can do the quoting yourself and provide the full command
 	// line in SysProcAttr.CmdLine, leaving Args empty.
-	if strings.HasPrefix(c.Cmdstr, "cmd ") || strings.HasPrefix(c.Cmdstr, "cmd.exe ") {
-		args := strings.TrimPrefix(strings.TrimPrefix(c.Cmdstr, "cmd "), "cmd.exe ")
+	if strings.HasPrefix(cmdstr, "cmd ") || strings.HasPrefix(cmdstr, "cmd.exe ") {
+		args := strings.TrimPrefix(strings.TrimPrefix(cmdstr, "cmd "), "cmd.exe ")
 
 		cmd = exec.Command("cmd.exe")
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			CmdLine: args,
 		}
 	} else {
-		cmdParts, err := shellquote.Split(c.Cmdstr)
+		cmdParts, err := shellquote.Split(cmdstr)
 		if err != nil {
 			return err
 		}

@@ -53,7 +53,6 @@ func OnDemand(params OnDemandParams) func(string) {
 				Cmdstr:  params.Conf.RunOnUnDemand,
 				Restart: false,
 				Env:     env,
-				OnExit:  nil,
 			}
 			cmd.Start()
 		}

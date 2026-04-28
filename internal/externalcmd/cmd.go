@@ -34,15 +34,6 @@ type Cmd struct {
 
 // Start starts the command.
 func (c *Cmd) Start() {
-	// replace variables in both Linux and Windows, in order to allow using the
-	// same commands on both of them.
-	c.Cmdstr = os.Expand(c.Cmdstr, func(variable string) string {
-		if value, ok := c.Env[variable]; ok {
-			return value
-		}
-		return os.Getenv(variable)
-	})
-
 	if c.OnExit == nil {
 		c.OnExit = func(_ error) {}
 	}
@@ -62,13 +53,22 @@ func (c *Cmd) Close() {
 func (c *Cmd) run() {
 	defer c.Pool.wg.Done()
 
+	// replace variables in both Linux and Windows, in order to allow using the
+	// same commands on both of them.
+	cmdstr := os.Expand(c.Cmdstr, func(variable string) string {
+		if value, ok := c.Env[variable]; ok {
+			return value
+		}
+		return os.Getenv(variable)
+	})
+
 	env := append([]string(nil), os.Environ()...)
 	for key, val := range c.Env {
 		env = append(env, key+"="+val)
 	}
 
 	for {
-		err := c.runOSSpecific(env)
+		err := c.runOSSpecific(cmdstr, env)
 		if errors.Is(err, errTerminated) {
 			return
 		}

@@ -57,7 +57,6 @@ func OnRead(params OnReadParams) func() {
 				Cmdstr:  params.Conf.RunOnUnread,
 				Restart: false,
 				Env:     env,
-				OnExit:  nil,
 			}
 			cmd.Start()
 		}

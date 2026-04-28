@@ -924,7 +924,6 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
 					Restart: false,
 					Env:     env,
-					OnExit:  nil,
 				}
 				cmd.Start()
 			}
@@ -941,7 +940,6 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
 					Restart: false,
 					Env:     env,
-					OnExit:  nil,
 				}
 				cmd.Start()
 			}

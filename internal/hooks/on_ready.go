@@ -58,7 +58,6 @@ func OnReady(params OnReadyParams) func() {
 				Cmdstr:  params.Conf.RunOnNotReady,
 				Restart: false,
 				Env:     env,
-				OnExit:  nil,
 			}
 			cmd.Start()
 		}
