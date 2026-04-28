@@ -32,14 +32,16 @@ func OnRead(params OnReadParams) func() {
 
 	if params.Conf.RunOnRead != "" {
 		params.Logger.Log(logger.Info, "runOnRead command started")
-		onReadCmd = externalcmd.NewCmd(
-			params.ExternalCmdPool,
-			params.Conf.RunOnRead,
-			params.Conf.RunOnReadRestart,
-			env,
-			func(err error) {
+		onReadCmd = &externalcmd.Cmd{
+			Pool:    params.ExternalCmdPool,
+			Cmdstr:  params.Conf.RunOnRead,
+			Restart: params.Conf.RunOnReadRestart,
+			Env:     env,
+			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnRead command exited: %v", err)
-			})
+			},
+		}
+		onReadCmd.Start()
 	}
 
 	return func() {
@@ -50,12 +52,14 @@ func OnRead(params OnReadParams) func() {
 
 		if params.Conf.RunOnUnread != "" {
 			params.Logger.Log(logger.Info, "runOnUnread command launched")
-			externalcmd.NewCmd(
-				params.ExternalCmdPool,
-				params.Conf.RunOnUnread,
-				false,
-				env,
-				nil)
+			cmd := &externalcmd.Cmd{
+				Pool:    params.ExternalCmdPool,
+				Cmdstr:  params.Conf.RunOnUnread,
+				Restart: false,
+				Env:     env,
+				OnExit:  nil,
+			}
+			cmd.Start()
 		}
 	}
 }

@@ -28,14 +28,16 @@ func OnDemand(params OnDemandParams) func(string) {
 	if params.Conf.RunOnDemand != "" {
 		params.Logger.Log(logger.Info, "runOnDemand command started")
 
-		onDemandCmd = externalcmd.NewCmd(
-			params.ExternalCmdPool,
-			params.Conf.RunOnDemand,
-			params.Conf.RunOnDemandRestart,
-			env,
-			func(err error) {
+		onDemandCmd = &externalcmd.Cmd{
+			Pool:    params.ExternalCmdPool,
+			Cmdstr:  params.Conf.RunOnDemand,
+			Restart: params.Conf.RunOnDemandRestart,
+			Env:     env,
+			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnDemand command exited: %v", err)
-			})
+			},
+		}
+		onDemandCmd.Start()
 	}
 
 	return func(reason string) {
@@ -46,12 +48,14 @@ func OnDemand(params OnDemandParams) func(string) {
 
 		if params.Conf.RunOnUnDemand != "" {
 			params.Logger.Log(logger.Info, "runOnUnDemand command launched")
-			externalcmd.NewCmd(
-				params.ExternalCmdPool,
-				params.Conf.RunOnUnDemand,
-				false,
-				env,
-				nil)
+			cmd := &externalcmd.Cmd{
+				Pool:    params.ExternalCmdPool,
+				Cmdstr:  params.Conf.RunOnUnDemand,
+				Restart: false,
+				Env:     env,
+				OnExit:  nil,
+			}
+			cmd.Start()
 		}
 	}
 }

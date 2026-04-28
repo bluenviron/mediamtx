@@ -22,88 +22,73 @@ type Environment map[string]string
 
 // Cmd is an external command.
 type Cmd struct {
-	pool    *Pool
-	cmdstr  string
-	restart bool
-	env     Environment
-	onExit  func(error)
+	Pool    *Pool
+	Cmdstr  string
+	Restart bool
+	Env     Environment
+	OnExit  OnExitFunc
 
 	// in
 	terminate chan struct{}
 }
 
-// NewCmd allocates a Cmd.
-func NewCmd(
-	pool *Pool,
-	cmdstr string,
-	restart bool,
-	env Environment,
-	onExit OnExitFunc,
-) *Cmd {
+// Start starts the command.
+func (c *Cmd) Start() {
 	// replace variables in both Linux and Windows, in order to allow using the
 	// same commands on both of them.
-	cmdstr = os.Expand(cmdstr, func(variable string) string {
-		if value, ok := env[variable]; ok {
+	c.Cmdstr = os.Expand(c.Cmdstr, func(variable string) string {
+		if value, ok := c.Env[variable]; ok {
 			return value
 		}
 		return os.Getenv(variable)
 	})
 
-	if onExit == nil {
-		onExit = func(_ error) {}
+	if c.OnExit == nil {
+		c.OnExit = func(_ error) {}
 	}
 
-	e := &Cmd{
-		pool:      pool,
-		cmdstr:    cmdstr,
-		restart:   restart,
-		env:       env,
-		onExit:    onExit,
-		terminate: make(chan struct{}),
-	}
+	c.terminate = make(chan struct{})
 
-	pool.wg.Add(1)
+	c.Pool.wg.Add(1)
 
-	go e.run()
-
-	return e
+	go c.run()
 }
 
 // Close closes the command. It doesn't wait for the command to exit.
-func (e *Cmd) Close() {
-	close(e.terminate)
+func (c *Cmd) Close() {
+	close(c.terminate)
 }
 
-func (e *Cmd) run() {
-	defer e.pool.wg.Done()
+func (c *Cmd) run() {
+	defer c.Pool.wg.Done()
 
 	env := append([]string(nil), os.Environ()...)
-	for key, val := range e.env {
+	for key, val := range c.Env {
 		env = append(env, key+"="+val)
 	}
 
 	for {
-		err := e.runOSSpecific(env)
+		err := c.runOSSpecific(env)
 		if errors.Is(err, errTerminated) {
 			return
 		}
 
-		if !e.restart {
+		if !c.Restart {
 			if err != nil {
-				e.onExit(err)
+				c.OnExit(err)
 			}
 			return
 		}
 
 		if err != nil {
-			e.onExit(err)
+			c.OnExit(err)
 		} else {
-			e.onExit(fmt.Errorf("command exited with code 0"))
+			c.OnExit(fmt.Errorf("command exited with code 0"))
 		}
 
 		select {
 		case <-time.After(restartPause):
-		case <-e.terminate:
+		case <-c.terminate:
 			return
 		}
 	}
