@@ -17,13 +17,11 @@ func TestCleaner(t *testing.T) {
 		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
 	}
 
-	dir, err := os.MkdirTemp("", "mediamtx-cleaner")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	const specialChars = "_-+*?^$()[]{}|"
 
-	err = os.Mkdir(filepath.Join(dir, specialChars+"_mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, specialChars+"_mypath"), 0o755)
 	require.NoError(t, err)
 
 	err = os.WriteFile(filepath.Join(dir, specialChars+"_mypath", "2008-05-20_22-15-25-000125.mp4"), []byte{1}, 0o644)
@@ -61,11 +59,9 @@ func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
 	}
 
-	dir, err := os.MkdirTemp("", "mediamtx-cleaner")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "path1"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "path1"), 0o755)
 	require.NoError(t, err)
 
 	err = os.Mkdir(filepath.Join(dir, "path2"), 0o755)

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -44,26 +43,21 @@ func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {
 }
 
 func TestMetrics(t *testing.T) {
-	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-	require.NoError(t, err)
-	defer os.Remove(serverCertFpath)
+	serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
-	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-	require.NoError(t, err)
-	defer os.Remove(serverKeyFpath)
-
-	p, ok := newInstance("api: yes\n" +
-		"hlsAlwaysRemux: yes\n" +
-		"metrics: yes\n" +
-		"webrtcServerCert: " + serverCertFpath + "\n" +
-		"webrtcServerKey: " + serverKeyFpath + "\n" +
-		"rtspEncryption: optional\n" +
-		"rtspServerCert: " + serverCertFpath + "\n" +
-		"rtspServerKey: " + serverKeyFpath + "\n" +
-		"rtmpEncryption: optional\n" +
-		"rtmpServerCert: " + serverCertFpath + "\n" +
-		"rtmpServerKey: " + serverKeyFpath + "\n" +
-		"paths:\n" +
+	p, ok := newInstance(t, "api: yes\n"+
+		"hlsAlwaysRemux: yes\n"+
+		"metrics: yes\n"+
+		"webrtcServerCert: "+serverCertFpath+"\n"+
+		"webrtcServerKey: "+serverKeyFpath+"\n"+
+		"rtspEncryption: optional\n"+
+		"rtspServerCert: "+serverCertFpath+"\n"+
+		"rtspServerKey: "+serverKeyFpath+"\n"+
+		"rtmpEncryption: optional\n"+
+		"rtmpServerCert: "+serverCertFpath+"\n"+
+		"rtmpServerKey: "+serverKeyFpath+"\n"+
+		"paths:\n"+
 		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()

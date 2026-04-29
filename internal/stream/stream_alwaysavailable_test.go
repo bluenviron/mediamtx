@@ -148,9 +148,8 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 					{Codec: conf.CodecLPCM, SampleRate: 48000, ChannelCount: 2},
 				}
 			} else {
-				tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
+				tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
 				require.NoError(t, err)
-				defer os.Remove(tmpf.Name())
 
 				pmp4 := &pmp4.Presentation{
 					Tracks: []*pmp4.Track{

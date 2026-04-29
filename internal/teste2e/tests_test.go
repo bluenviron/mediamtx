@@ -6,22 +6,19 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/core"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func newInstance(conf string) (*core.Core, bool) {
+func newInstance(t *testing.T, conf string) (*core.Core, bool) {
 	if conf == "" {
 		return core.New([]string{})
 	}
 
-	tmpf, err := test.CreateTempFile([]byte(conf))
-	if err != nil {
-		return nil, false
-	}
-	defer os.Remove(tmpf)
+	tmpf := test.CreateTempFile(t, []byte(conf))
 
 	return core.New([]string{tmpf})
 }

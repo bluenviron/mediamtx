@@ -462,9 +462,7 @@ func TestServerRead(t *testing.T) {
 }
 
 func TestServerDirectory(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
@@ -474,7 +472,7 @@ func TestServerDirectory(t *testing.T) {
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
 	}
-	err = strm.Initialize()
+	err := strm.Initialize()
 	require.NoError(t, err)
 
 	subStream := &stream.SubStream{

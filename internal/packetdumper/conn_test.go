@@ -3,7 +3,6 @@ package packetdumper
 import (
 	"io"
 	"net"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -40,40 +39,32 @@ func startTCPPair(t *testing.T) (client, server net.Conn) {
 	return client, server
 }
 
-func cleanupPcapng(t *testing.T, prefix string) {
+func checkPcapngPresence(t *testing.T, prefix string) {
 	t.Helper()
-
 	matches, err := filepath.Glob(prefix + "_*.pcapng")
-	require.NoError(t, err, "glob for pcapng files")
+	require.NoError(t, err)
 	require.NotEmpty(t, matches, "expected at least one pcapng file to have been created")
-
-	for _, f := range matches {
-		require.NoError(t, os.Remove(f), "removing pcapng file %s", f)
-	}
 }
 
 func TestConnInitialize_CreatesFile(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
+	c.Close() //nolint:errcheck
+	server.Close()
+
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnWrite(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
-
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
 
 	n, err := c.Write([]byte("hello world"))
 	require.NoError(t, err)
@@ -83,18 +74,19 @@ func TestConnWrite(t *testing.T) {
 	_, err = io.ReadFull(server, buf)
 	require.NoError(t, err)
 	require.Equal(t, []byte("hello world"), buf)
+
+	c.Close() //nolint:errcheck
+	server.Close()
+
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnRead(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
-
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
 
 	_, err := server.Write([]byte("incoming data"))
 	require.NoError(t, err)
@@ -103,18 +95,19 @@ func TestConnRead(t *testing.T) {
 	n, err := c.Read(buf)
 	require.NoError(t, err)
 	require.Equal(t, []byte("incoming data"), buf[:n])
+
+	c.Close() //nolint:errcheck
+	server.Close()
+
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnServerSide(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer client.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: server, ServerSide: true}
 	require.NoError(t, c.Initialize())
-
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
 
 	n, err := c.Write([]byte("server response"))
 	require.NoError(t, err)
@@ -124,18 +117,19 @@ func TestConnServerSide(t *testing.T) {
 	_, err = io.ReadFull(client, buf)
 	require.NoError(t, err)
 	require.Equal(t, []byte("server response"), buf)
+
+	c.Close() //nolint:errcheck
+	client.Close()
+
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnMultipleWriteRead(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
-
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
 
 	for _, msg := range []string{"foo", "bar", "baz"} {
 		n, err := c.Write([]byte(msg))
@@ -157,32 +151,33 @@ func TestConnMultipleWriteRead(t *testing.T) {
 	_, err = io.ReadFull(c, readBuf)
 	require.NoError(t, err)
 	require.Equal(t, []byte("abcdefghij"), readBuf)
+
+	c.Close() //nolint:errcheck
+	server.Close()
+
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnCloseIdempotent(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
-	defer cleanupPcapng(t, prefix)
+	c.Close() //nolint:errcheck
+	c.Close() //nolint:errcheck
+	server.Close()
 
-	defer c.Close() //nolint:errcheck
-	defer c.Close() //nolint:errcheck
+	checkPcapngPresence(t, prefix)
 }
 
 func TestConnDelegatesAddrMethods(t *testing.T) {
 	client, server := startTCPPair(t)
-	defer server.Close()
 
 	prefix := filepath.Join(t.TempDir(), "capture")
 	c := &conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
-
-	defer cleanupPcapng(t, prefix)
-	defer c.Close() //nolint:errcheck
 
 	require.Equal(t, client.LocalAddr(), c.LocalAddr())
 	require.Equal(t, client.RemoteAddr(), c.RemoteAddr())
@@ -190,4 +185,9 @@ func TestConnDelegatesAddrMethods(t *testing.T) {
 	require.NoError(t, c.SetDeadline(time.Now().Add(time.Second)))
 	require.NoError(t, c.SetReadDeadline(time.Now().Add(time.Second)))
 	require.NoError(t, c.SetWriteDeadline(time.Now().Add(time.Second)))
+
+	c.Close() //nolint:errcheck
+	server.Close()
+
+	checkPcapngPresence(t, prefix)
 }

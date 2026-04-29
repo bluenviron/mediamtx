@@ -18,11 +18,9 @@ func ptrOf[T any](v T) *T {
 }
 
 func TestFindAllPathsWithSegments(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-recordstore")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "path1"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "path1"), 0o755)
 	require.NoError(t, err)
 
 	err = os.Mkdir(filepath.Join(dir, "path2"), 0o755)
@@ -51,11 +49,9 @@ func TestFindAllPathsWithSegments(t *testing.T) {
 }
 
 func TestFindAllPathsWithSegmentsInvalidPath(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-recordstore")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.WriteFile(filepath.Join(dir, "_2015-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
+	err := os.WriteFile(filepath.Join(dir, "_2015-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
 	paths := FindAllPathsWithSegments(map[string]*conf.Path{
@@ -76,11 +72,9 @@ func TestFindSegments(t *testing.T) {
 		"start before first",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-recordstore")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "path1"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "path1"), 0o755)
 			require.NoError(t, err)
 
 			err = os.Mkdir(filepath.Join(dir, "path2"), 0o755)

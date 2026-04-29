@@ -146,9 +146,7 @@ func TestRecorder(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -441,9 +439,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -536,9 +532,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -636,9 +630,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -704,9 +696,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -774,9 +764,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	n := 0
 
@@ -903,9 +891,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 

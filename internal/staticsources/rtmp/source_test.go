@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -34,16 +33,11 @@ func TestSource(t *testing.T) {
 					ln, err = net.Listen("tcp", "127.0.0.1:1935")
 					require.NoError(t, err)
 				} else {
-					serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-					require.NoError(t, err)
-					defer os.Remove(serverCertFpath)
-
-					serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-					require.NoError(t, err)
-					defer os.Remove(serverKeyFpath)
+					serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+					serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
 					var cert tls.Certificate
-					cert, err = tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
+					cert, err := tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
 					require.NoError(t, err)
 
 					ln, err = tls.Listen("tcp", "127.0.0.1:1936", &tls.Config{Certificates: []tls.Certificate{cert}})

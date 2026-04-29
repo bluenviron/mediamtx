@@ -12,16 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newInstance(conf string) (*Core, bool) {
+func newInstance(t *testing.T, conf string) (*Core, bool) {
 	if conf == "" {
 		return New([]string{})
 	}
 
-	tmpf, err := test.CreateTempFile([]byte(conf))
-	if err != nil {
-		return nil, false
-	}
-	defer os.Remove(tmpf)
+	tmpf := test.CreateTempFile(t, []byte(conf))
 
 	return New([]string{tmpf})
 }
@@ -89,14 +85,14 @@ func TestCoreErrors(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			_, ok := newInstance(ca.conf)
+			_, ok := newInstance(t, ca.conf)
 			require.Equal(t, false, ok)
 		})
 	}
 }
 
 func TestCoreHotReloading(t *testing.T) {
-	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
+	confPath := filepath.Join(t.TempDir(), "rtsp-conf")
 
 	err := os.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"+
@@ -104,7 +100,6 @@ func TestCoreHotReloading(t *testing.T) {
 		"    publishPass: mypass\n"),
 		0o644)
 	require.NoError(t, err)
-	defer os.Remove(confPath)
 
 	p, ok := New([]string{confPath})
 	require.Equal(t, true, ok)
@@ -134,12 +129,11 @@ func TestCoreHotReloading(t *testing.T) {
 }
 
 func TestCoreHotReloadingAndLoggerError(t *testing.T) {
-	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
+	confPath := filepath.Join(t.TempDir(), "rtsp-conf")
 
 	err := os.WriteFile(confPath, []byte(""),
 		0o644)
 	require.NoError(t, err)
-	defer os.Remove(confPath)
 
 	p, ok := New([]string{confPath})
 	require.Equal(t, true, ok)

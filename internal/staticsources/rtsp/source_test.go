@@ -3,7 +3,6 @@ package rtsp
 import (
 	"context"
 	"crypto/tls"
-	"os"
 	"testing"
 	"time"
 
@@ -131,15 +130,8 @@ func TestSource(t *testing.T) {
 				s.UDPRTCPAddress = "127.0.0.1:8003"
 
 			case "rtsps", "rtsps+http", "rtsps+ws":
-				var serverCertFpath string
-				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
-				require.NoError(t, err)
-				defer os.Remove(serverCertFpath)
-
-				var serverKeyFpath string
-				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
-				require.NoError(t, err)
-				defer os.Remove(serverKeyFpath)
+				serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+				serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
 				var cert tls.Certificate
 				cert, err = tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)

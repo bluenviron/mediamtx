@@ -15,29 +15,23 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func createTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
+func createTempFile(t *testing.T, byts []byte) string {
+	tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
+	require.NoError(t, err)
 	defer tmpf.Close()
 
 	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
+	require.NoError(t, err)
 
-	return tmpf.Name(), nil
+	return tmpf.Name()
 }
 
 func TestConfFromFile(t *testing.T) {
 	func() {
-		tmpf, err := createTempFile([]byte("logLevel: debug\n" +
-			"paths:\n" +
-			"  cam1:\n" +
+		tmpf := createTempFile(t, []byte("logLevel: debug\n"+
+			"paths:\n"+
+			"  cam1:\n"+
 			"    runOnDemandStartTimeout: 5s\n"))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
 
 		conf, confPath, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
@@ -93,31 +87,25 @@ func TestConfFromFile(t *testing.T) {
 	}()
 
 	func() {
-		tmpf, err := createTempFile([]byte(``))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
+		tmpf := createTempFile(t, []byte(``))
 
-		_, _, err = Load(tmpf, nil, nil)
+		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 
 	func() {
-		tmpf, err := createTempFile([]byte(`paths:`))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
+		tmpf := createTempFile(t, []byte(`paths:`))
 
-		_, _, err = Load(tmpf, nil, nil)
+		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 
 	func() {
-		tmpf, err := createTempFile([]byte(
-			"paths:\n" +
+		tmpf := createTempFile(t, []byte(
+			"paths:\n"+
 				"  mypath:\n"))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf, nil, nil)
+		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	}()
 }
@@ -135,9 +123,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	// deprecated path parameter
 	t.Setenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE", "yes")
 
-	tmpf, err := createTempFile([]byte("{}"))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
+	tmpf := createTempFile(t, []byte("{}"))
 
 	conf, confPath, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
@@ -187,9 +173,7 @@ func TestConfEncryption(t *testing.T) {
 
 	t.Setenv("RTSP_CONFKEY", key)
 
-	tmpf, err := createTempFile([]byte(encryptedConf))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
+	tmpf := createTempFile(t, []byte(encryptedConf))
 
 	conf, confPath, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
@@ -203,13 +187,11 @@ func TestConfEncryption(t *testing.T) {
 }
 
 func TestConfDeprecatedAuth(t *testing.T) {
-	tmpf, err := createTempFile([]byte(
-		"paths:\n" +
-			"  cam:\n" +
-			"    readUser: myuser\n" +
+	tmpf := createTempFile(t, []byte(
+		"paths:\n"+
+			"  cam:\n"+
+			"    readUser: myuser\n"+
 			"    readPass: mypass\n"))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
 
 	conf, _, err := Load(tmpf, nil, nil)
 	require.NoError(t, err)
@@ -749,29 +731,23 @@ func TestConfErrors(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			tmpf, err := createTempFile([]byte(ca.conf))
-			require.NoError(t, err)
-			defer os.Remove(tmpf)
+			tmpf := createTempFile(t, []byte(ca.conf))
 
-			_, _, err = Load(tmpf, nil, nil)
+			_, _, err := Load(tmpf, nil, nil)
 			require.EqualError(t, err, ca.err)
 		})
 	}
 }
 
 func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
-	tmpf, err := createTempFile([]byte("ABCDEFGHI"))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
+	tmpf := createTempFile(t, []byte("ABCDEFGHI"))
 
-	tmpConf, err := createTempFile([]byte("paths:\n" +
-		"  mypath:\n" +
-		"    alwaysAvailable: yes\n" +
-		"    alwaysAvailableFile: " + tmpf + "\n"))
-	require.NoError(t, err)
-	defer os.Remove(tmpConf)
+	tmpConf := createTempFile(t, []byte("paths:\n"+
+		"  mypath:\n"+
+		"    alwaysAvailable: yes\n"+
+		"    alwaysAvailableFile: "+tmpf+"\n"))
 
-	_, _, err = Load(tmpConf, nil, nil)
+	_, _, err := Load(tmpConf, nil, nil)
 	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are [69 70 71 72]")
 }
 
@@ -795,9 +771,7 @@ func TestSampleConfFile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
 
-		tmpf, err := createTempFile([]byte("paths:\n  all_others:"))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
+		tmpf := createTempFile(t, []byte("paths:\n  all_others:"))
 
 		conf2, confPath2, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)

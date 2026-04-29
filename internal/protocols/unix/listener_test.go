@@ -10,10 +10,9 @@ import (
 )
 
 func TestListen(t *testing.T) {
-	socket, err := os.CreateTemp(os.TempDir(), "mtx-unix-")
+	socket, err := os.CreateTemp(t.TempDir(), "mtx-unix-")
 	require.NoError(t, err)
 	socket.Close()
-	defer os.Remove(socket.Name())
 
 	l := &Listener{
 		Path: socket.Name(),

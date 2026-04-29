@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -31,9 +30,7 @@ func (p testParent) Log(l logger.Level, s string, a ...any) {
 func (testParent) APIConfigSet(_ *conf.Conf) {}
 
 func tempConf(t *testing.T, cnt string) *conf.Conf {
-	fi, err := test.CreateTempFile([]byte(cnt))
-	require.NoError(t, err)
-	defer os.Remove(fi)
+	fi := test.CreateTempFile(t, []byte(cnt))
 
 	cnf, _, err := conf.Load(fi, nil, nil)
 	require.NoError(t, err)
