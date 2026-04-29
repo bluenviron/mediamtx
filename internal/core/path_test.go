@@ -77,7 +77,7 @@ func TestPathRunOnDemand(t *testing.T) {
 
 				if ca == "describe" || ca == "describe and setup" {
 					var u *base.URL
-					u, err = base.ParseURL("rtsp://localhost:8554/ondemand?param=value")
+					u, err = base.ParseURL("rtsp://localhost:8554/ondemand?key1=val1&key2=val2")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -99,9 +99,9 @@ func TestPathRunOnDemand(t *testing.T) {
 					err = desc.Unmarshal(res.Body)
 					require.NoError(t, err)
 					control, _ = desc.MediaDescriptions[0].Attribute("control")
-					control = "rtsp://localhost:8554/ondemand?param=value/" + control
+					control = "rtsp://localhost:8554/ondemand?key1=val1&key2=val2/" + control
 				} else {
-					control = "rtsp://localhost:8554/ondemand?param=value/"
+					control = "rtsp://localhost:8554/ondemand?key1=val1&key2=val2/"
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
@@ -298,7 +298,7 @@ func TestPathRunOnReady(t *testing.T) {
 	require.NoError(t, err)
 	fields := strings.Split(string(byts[:len(byts)-1]), " ")
 	require.Equal(t, "test", fields[0])
-	require.Equal(t, "query=value", fields[1])
+	require.Equal(t, "query%3Dvalue", fields[1])
 	require.Equal(t, "rtspSession", fields[2])
 	require.NotEmpty(t, fields[3])
 	require.Equal(t, "8554", fields[4])
@@ -308,11 +308,62 @@ func TestPathRunOnReady(t *testing.T) {
 	require.NoError(t, err)
 	fields = strings.Split(string(byts[:len(byts)-1]), " ")
 	require.Equal(t, "test", fields[0])
-	require.Equal(t, "query=value", fields[1])
+	require.Equal(t, "query%3Dvalue", fields[1])
 	require.Equal(t, "rtspSession", fields[2])
 	require.NotEmpty(t, fields[3])
 	require.Equal(t, "8554", fields[4])
 	require.Equal(t, "st", fields[5])
+}
+
+func TestPathRunOnReadyQueryInjection(t *testing.T) {
+	sentinel := filepath.Join(t.TempDir(), "mediamtx_test_query_injection_sentinel")
+
+	for _, ca := range []struct {
+		name   string
+		cmdstr string
+		query  string
+	}{
+		{
+			// $(…) inside double quotes still triggers command substitution.
+			// ${IFS} expands to a space, avoiding a literal space in the query string.
+			name:   "command substitution dollar",
+			cmdstr: "sh -c 'echo \"$MTX_QUERY\"'",
+			query:  "$(touch${IFS}" + sentinel + "1)",
+		},
+		{
+			// > in an unquoted expansion redirects echo's output, creating the file.
+			name:   "redirect",
+			cmdstr: "sh -c 'echo $MTX_QUERY'",
+			query:  ">" + sentinel + "2",
+		},
+		{
+			// & in an unquoted expansion backgrounds echo and runs touch directly.
+			// ${IFS} expands to a space, avoiding a literal space in the query string.
+			name:   "and operator",
+			cmdstr: "sh -c 'echo $MTX_QUERY'",
+			query:  "&touch${IFS}" + sentinel + "3",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			p, ok := newInstance(t, fmt.Sprintf(
+				"rtmp: no\nhls: no\nwebrtc: no\npaths:\n  test:\n    runOnReady: %s\n",
+				ca.cmdstr))
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			c := gortsplib.Client{}
+			err := c.StartRecording(
+				"rtsp://localhost:8554/test?"+ca.query,
+				&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
+			require.NoError(t, err)
+			defer c.Close()
+
+			time.Sleep(500 * time.Millisecond)
+
+			_, statErr := os.Stat(sentinel)
+			require.ErrorIs(t, statErr, os.ErrNotExist)
+		})
+	}
 }
 
 func TestPathRunOnRead(t *testing.T) {
@@ -546,7 +597,7 @@ func TestPathRunOnRead(t *testing.T) {
 			require.NoError(t, err)
 			fields := strings.Split(string(byts[:len(byts)-1]), " ")
 			require.Equal(t, "test", fields[0])
-			require.Equal(t, "query=value", fields[1])
+			require.Equal(t, "query%3Dvalue", fields[1])
 			require.Equal(t, readerType, fields[2])
 			require.NotEmpty(t, fields[3])
 			require.Equal(t, "8554", fields[4])
@@ -556,7 +607,7 @@ func TestPathRunOnRead(t *testing.T) {
 			require.NoError(t, err)
 			fields = strings.Split(string(byts[:len(byts)-1]), " ")
 			require.Equal(t, "test", fields[0])
-			require.Equal(t, "query=value", fields[1])
+			require.Equal(t, "query%3Dvalue", fields[1])
 			require.Equal(t, readerType, fields[2])
 			require.NotEmpty(t, fields[3])
 			require.Equal(t, "8554", fields[4])

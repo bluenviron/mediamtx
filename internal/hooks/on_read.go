@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"net/url"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -25,7 +27,7 @@ func OnRead(params OnReadParams) func() {
 	if params.Conf.RunOnRead != "" || params.Conf.RunOnUnread != "" {
 		env = params.ExternalCmdEnv
 		desc := params.Reader
-		env["MTX_QUERY"] = params.Query
+		env["MTX_QUERY"] = url.QueryEscape(params.Query)
 		env["MTX_READER_TYPE"] = string(desc.Type)
 		env["MTX_READER_ID"] = desc.ID
 	}

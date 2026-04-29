@@ -50,17 +50,17 @@ func (c *Cmd) Close() {
 	close(c.terminate)
 }
 
-func (c *Cmd) run() {
-	defer c.Pool.wg.Done()
-
-	// replace variables in both Linux and Windows, in order to allow using the
-	// same commands on both of them.
-	cmdstr := os.Expand(c.Cmdstr, func(variable string) string {
-		if value, ok := c.Env[variable]; ok {
+func expandEnv(s string, env Environment) string {
+	return os.Expand(s, func(variable string) string {
+		if value, ok := env[variable]; ok {
 			return value
 		}
 		return os.Getenv(variable)
 	})
+}
+
+func (c *Cmd) run() {
+	defer c.Pool.wg.Done()
 
 	env := append([]string(nil), os.Environ()...)
 	for key, val := range c.Env {
@@ -68,7 +68,7 @@ func (c *Cmd) run() {
 	}
 
 	for {
-		err := c.runOSSpecific(cmdstr, env)
+		err := c.runOSSpecific(c.Cmdstr, env)
 		if errors.Is(err, errTerminated) {
 			return
 		}

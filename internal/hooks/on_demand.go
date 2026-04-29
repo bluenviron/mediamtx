@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"net/url"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -22,7 +24,7 @@ func OnDemand(params OnDemandParams) func(string) {
 
 	if params.Conf.RunOnDemand != "" || params.Conf.RunOnUnDemand != "" {
 		env = params.ExternalCmdEnv
-		env["MTX_QUERY"] = params.Query
+		env["MTX_QUERY"] = url.QueryEscape(params.Query)
 	}
 
 	if params.Conf.RunOnDemand != "" {
