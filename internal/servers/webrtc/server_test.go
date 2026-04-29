@@ -193,6 +193,24 @@ func TestServerIndexNotConfigured(t *testing.T) {
 	}, payload)
 }
 
+func TestServerIndexRedirect(t *testing.T) {
+	s := initializeTestServer(t)
+	defer s.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := client.Get("http://127.0.0.1:8886/stream")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusFound, res.StatusCode)
+	require.Equal(t, "/stream/", res.Header.Get("Location"))
+}
+
 func TestServerOptionsICEServer(t *testing.T) {
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {

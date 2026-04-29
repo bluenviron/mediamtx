@@ -404,7 +404,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
 				ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
-				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+				ctx.Writer.WriteHeader(http.StatusFound)
 
 			default:
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-1], false)

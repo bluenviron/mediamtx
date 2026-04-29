@@ -146,6 +146,32 @@ func TestServerIndexNotConfigured(t *testing.T) {
 	}, payload)
 }
 
+func TestServerIndexRedirect(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:8888",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  &dummyPathManager{},
+		Parent:       test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := client.Get("http://127.0.0.1:8888/stream")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusFound, res.StatusCode)
+	require.Equal(t, "/stream/", res.Header.Get("Location"))
+}
+
 func TestServerNotFound(t *testing.T) {
 	for _, ca := range []string{
 		"always remux off",

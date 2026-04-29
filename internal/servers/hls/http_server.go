@@ -177,7 +177,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 		if !strings.HasSuffix(dir, "/") {
 			ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
-			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+			ctx.Writer.WriteHeader(http.StatusFound)
 			return
 		}
 

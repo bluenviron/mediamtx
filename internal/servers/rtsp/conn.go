@@ -184,7 +184,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if res.Redirect != "" {
 		return &base.Response{
-			StatusCode: base.StatusMovedPermanently,
+			StatusCode: base.StatusFound,
 			Header: base.Header{
 				"Location": base.HeaderValue{absoluteURL(ctx.Request, res.Redirect)},
 			},
