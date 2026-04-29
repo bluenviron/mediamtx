@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	gopath "path"
+	"path"
 	"strings"
 	"time"
 
@@ -27,11 +27,27 @@ var hlsIndex []byte
 //go:embed hls.min.js
 var hlsMinJS []byte
 
-func mergePathAndQuery(path string, rawQuery string) string {
-	res := path
+func trailingSlashLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res + "/"
+
 	if rawQuery != "" {
 		res += "?" + rawQuery
 	}
+
+	return res
+}
+
+func sanitizeLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res
+
+	if rawQuery != "" {
+		res += "?" + rawQuery
+	}
+
 	return res
 }
 
@@ -153,7 +169,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		return
 
 	case strings.HasSuffix(pa, ".m3u8"):
-		dir, fname = gopath.Dir(pa), gopath.Base(pa)
+		dir, fname = path.Dir(pa), path.Base(pa)
 
 		if fname == "index.m3u8" {
 			contentTyp = multivariantPlaylist
@@ -164,7 +180,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	case strings.HasSuffix(pa, ".ts") ||
 		strings.HasSuffix(pa, ".mp4") ||
 		strings.HasSuffix(pa, ".mp"):
-		dir, fname = gopath.Dir(pa), gopath.Base(pa)
+		dir, fname = path.Dir(pa), path.Base(pa)
 
 		if strings.HasSuffix(fname, ".mp") {
 			fname += "4"
@@ -176,7 +192,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		dir = pa
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
+			ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 			ctx.Writer.WriteHeader(http.StatusFound)
 			return
 		}
@@ -243,7 +259,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			q := ctx.Request.URL.Query()
 			q.Set("cookieCheck", "1")
 			ctx.Request.URL.RawQuery = q.Encode()
-			ctx.Writer.Header().Set("Location", mergePathAndQuery(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+			ctx.Writer.Header().Set("Location", sanitizeLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 
 			ctx.Writer.WriteHeader(http.StatusFound)
 			return

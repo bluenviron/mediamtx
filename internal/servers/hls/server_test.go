@@ -172,6 +172,56 @@ func TestServerIndexRedirect(t *testing.T) {
 	require.Equal(t, "/stream/", res.Header.Get("Location"))
 }
 
+func TestServerIndexRedirectNoXSS(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{"double slash", "//double/slash", "/double/slash/"},
+		{"protocol-relative open redirect", "//evil.com", "/evil.com/"},
+		{"backslash bypass", "/%5Cevil.com", "/evil.com/"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pm := &dummyPathManager{
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+				},
+			}
+
+			s := &Server{
+				Address:      "127.0.0.1:8888",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathManager:  pm,
+				Parent:       test.NilLogger,
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{
+				Transport: tr,
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888"+ca.path, nil)
+			require.NoError(t, err)
+
+			res, err := hc.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusFound, res.StatusCode)
+			require.Equal(t, ca.expected, res.Header.Get("Location"))
+		})
+	}
+}
+
 func TestServerNotFound(t *testing.T) {
 	for _, ca := range []string{
 		"always remux off",
