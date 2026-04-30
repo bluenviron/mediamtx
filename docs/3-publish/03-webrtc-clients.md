@@ -1,9 +1,9 @@
 # WebRTC clients
 
-|       | supported codecs              |
-| ----- | ----------------------------- |
-| video | AV1, VP9, VP8, H265, H264     |
-| audio | Opus, G722, G711 (PCMA, PCMU) |
+|           | supported codecs              |
+| --------- | ----------------------------- |
+| **video** | AV1, VP9, VP8, H265, H264     |
+| **audio** | Opus, G722, G711 (PCMA, PCMU) |
 
 WebRTC is an API that makes use of a set of protocols and methods to connect two clients together and allow them to exchange live media or data streams. You can publish a stream with WebRTC and a web browser by visiting:
 

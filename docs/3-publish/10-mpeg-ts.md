@@ -1,10 +1,10 @@
 # MPEG-TS
 
-|       | supported codecs                                      |
-| ----- | ----------------------------------------------------- |
-| video | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video |
-| audio | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3  |
-| other | KLV                                                   |
+|           | supported codecs                                      |
+| --------- | ----------------------------------------------------- |
+| **video** | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video |
+| **audio** | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3  |
+| **other** | KLV                                                   |
 
 The server supports ingesting MPEG-TS streams, shipped in two different ways (UDP packets or Unix sockets).
 

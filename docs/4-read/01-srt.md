@@ -1,10 +1,10 @@
 # SRT clients
 
-|       | supported codecs                                      |
-| ----- | ----------------------------------------------------- |
-| video | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video |
-| audio | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3  |
-| other | KLV                                                   |
+|           | supported codecs                                      |
+| --------- | ----------------------------------------------------- |
+| **video** | H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video |
+| **audio** | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3  |
+| **other** | KLV                                                   |
 
 SRT is a protocol that allows to publish and read live data stream, providing encryption, integrity and a retransmission mechanism. It is usually used to transfer media streams encoded with MPEG-TS. In order to read a stream from the server with the SRT protocol, use this URL:
 
