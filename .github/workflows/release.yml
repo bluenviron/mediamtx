@@ -11,6 +11,7 @@ permissions:
   artifact-metadata: write
   contents: write
   issues: write
+  pull-requests: write
 
 jobs:
   binaries:
