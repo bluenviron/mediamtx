@@ -28,143 +28,195 @@ func TestToStreamNoSupportedCodecs(t *testing.T) {
 // func TestToStreamSkipUnsupportedTracks(t *testing.T)
 
 func TestToStream(t *testing.T) {
-	track1 := &mpegts.Track{
-		Codec: &tscodecs.H264{},
-	}
+	for _, ca := range []string{
+		"h264",
+		"klv",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			var track1 *mpegts.Track
 
-	s := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch {
-			case r.Method == http.MethodGet && r.URL.Path == "/stream.m3u8":
-				w.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
-				w.Write([]byte("#EXTM3U\n" +
-					"#EXT-X-VERSION:3\n" +
-					"#EXT-X-ALLOW-CACHE:NO\n" +
-					"#EXT-X-TARGETDURATION:2\n" +
-					"#EXT-X-MEDIA-SEQUENCE:0\n" +
-					"#EXT-X-PROGRAM-DATE-TIME:2018-05-20T08:17:15Z\n" +
-					"#EXTINF:2,\n" +
-					"segment1.ts\n" +
-					"#EXTINF:2,\n" +
-					"segment2.ts\n" +
-					"#EXTINF:2,\n" +
-					"segment3.ts\n" +
-					"#EXT-X-ENDLIST\n"))
-
-			case r.Method == http.MethodGet && r.URL.Path == "/segment1.ts":
-				w.Header().Set("Content-Type", `video/MP2T`)
-
-				w := &mpegts.Writer{W: w, Tracks: []*mpegts.Track{track1}}
-				err := w.Initialize()
-				require.NoError(t, err)
-
-				err = w.WriteH264(track1, 2*90000, 2*90000, [][]byte{
-					{7, 1, 2, 3}, // SPS
-					{8},          // PPS
-					{5, 1},
-				})
-				require.NoError(t, err)
-
-			case r.Method == http.MethodGet && r.URL.Path == "/segment2.ts":
-				w.Header().Set("Content-Type", `video/MP2T`)
-
-				w := &mpegts.Writer{W: w, Tracks: []*mpegts.Track{track1}}
-				err := w.Initialize()
-				require.NoError(t, err)
-
-				err = w.WriteH264(track1, 2*90000, 2*90000, [][]byte{
-					{5, 2},
-				})
-				require.NoError(t, err)
+			switch ca {
+			case "h264":
+				track1 = &mpegts.Track{
+					Codec: &tscodecs.H264{},
+				}
+			case "klv":
+				track1 = &mpegts.Track{
+					Codec: &tscodecs.KLV{Synchronous: true},
+				}
 			}
-		}),
-	}
 
-	ln, err := net.Listen("tcp", "localhost:5781")
-	require.NoError(t, err)
+			s := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch {
+					case r.Method == http.MethodGet && r.URL.Path == "/stream.m3u8":
+						w.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
+						w.Write([]byte("#EXTM3U\n" +
+							"#EXT-X-VERSION:3\n" +
+							"#EXT-X-ALLOW-CACHE:NO\n" +
+							"#EXT-X-TARGETDURATION:2\n" +
+							"#EXT-X-MEDIA-SEQUENCE:0\n" +
+							"#EXT-X-PROGRAM-DATE-TIME:2018-05-20T08:17:15Z\n" +
+							"#EXTINF:2,\n" +
+							"segment1.ts\n" +
+							"#EXTINF:2,\n" +
+							"segment2.ts\n" +
+							"#EXTINF:2,\n" +
+							"segment3.ts\n" +
+							"#EXT-X-ENDLIST\n"))
 
-	go s.Serve(ln)
-	defer s.Shutdown(context.Background())
+					case r.Method == http.MethodGet && r.URL.Path == "/segment1.ts":
+						w.Header().Set("Content-Type", `video/MP2T`)
 
-	var strm *stream.Stream
-	var subStream *stream.SubStream
-	done := make(chan struct{})
+						mw := &mpegts.Writer{W: w, Tracks: []*mpegts.Track{track1}}
+						err := mw.Initialize()
+						require.NoError(t, err)
 
-	r := &stream.Reader{Parent: test.NilLogger}
+						switch ca {
+						case "h264":
+							err = mw.WriteH264(track1, 2*90000, 2*90000, [][]byte{
+								{7, 1, 2, 3}, // SPS
+								{8},          // PPS
+								{5, 1},
+							})
+						case "klv":
+							err = mw.WriteKLV(track1, 2*90000, []byte{0x06, 0x0e, 0x2b, 0x34})
+						}
+						require.NoError(t, err)
 
-	var c *gohlslib.Client
-	c = &gohlslib.Client{
-		URI: "http://localhost:5781/stream.m3u8",
-		OnTracks: func(tracks []*gohlslib.Track) error {
-			medias, err2 := ToStream(c, tracks, &conf.Path{
-				UseAbsoluteTimestamp: true,
-			}, &subStream)
-			require.NoError(t, err2)
+					case r.Method == http.MethodGet && r.URL.Path == "/segment2.ts":
+						w.Header().Set("Content-Type", `video/MP2T`)
 
-			require.Equal(t, []*description.Media{{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{
-					PayloadTyp:        96,
-					PacketizationMode: 1,
-				}},
-			}}, medias)
+						mw := &mpegts.Writer{W: w, Tracks: []*mpegts.Track{track1}}
+						err := mw.Initialize()
+						require.NoError(t, err)
 
-			strm = &stream.Stream{
-				Desc:              &description.Session{Medias: medias},
-				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
-				Parent:            test.NilLogger,
-			}
-			err2 = strm.Initialize()
-			require.NoError(t, err2)
-
-			subStream = &stream.SubStream{
-				Stream:        strm,
-				UseRTPPackets: false,
-			}
-			err2 = subStream.Initialize()
-			require.NoError(t, err2)
-
-			n := 0
-
-			r.OnData(
-				medias[0],
-				medias[0].Formats[0],
-				func(u *unit.Unit) error {
-					switch n {
-					case 0:
-						require.Equal(t, unit.PayloadH264{
-							{7, 1, 2, 3},
-							{8},
-							{5, 1},
-						}, u.Payload)
-						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
-					case 1:
-						require.Equal(t, unit.PayloadH264{
-							{7, 1, 2, 3},
-							{8},
-							{5, 2},
-						}, u.Payload)
-						require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
-						close(done)
-					default:
-						t.Error("should not happen")
+						switch ca {
+						case "h264":
+							err = mw.WriteH264(track1, 2*90000, 2*90000, [][]byte{
+								{5, 2},
+							})
+						case "klv":
+							err = mw.WriteKLV(track1, 2*90000, []byte{0x01, 0x02, 0x03, 0x04})
+						}
+						require.NoError(t, err)
 					}
-					n++
+				}),
+			}
+
+			ln, err := net.Listen("tcp", "localhost:0")
+			require.NoError(t, err)
+
+			go s.Serve(ln)
+			defer s.Shutdown(context.Background())
+
+			var strm *stream.Stream
+			var subStream *stream.SubStream
+			done := make(chan struct{})
+
+			r := &stream.Reader{Parent: test.NilLogger}
+
+			var c *gohlslib.Client
+			c = &gohlslib.Client{
+				URI: "http://" + ln.Addr().String() + "/stream.m3u8",
+				OnTracks: func(tracks []*gohlslib.Track) error {
+					medias, err2 := ToStream(c, tracks, &conf.Path{
+						UseAbsoluteTimestamp: true,
+					}, &subStream)
+					require.NoError(t, err2)
+
+					switch ca {
+					case "h264":
+						require.Equal(t, []*description.Media{{
+							Type: description.MediaTypeVideo,
+							Formats: []format.Format{&format.H264{
+								PayloadTyp:        96,
+								PacketizationMode: 1,
+							}},
+						}}, medias)
+					case "klv":
+						require.Equal(t, []*description.Media{{
+							Type: description.MediaTypeApplication,
+							Formats: []format.Format{&format.KLV{
+								PayloadTyp: 96,
+							}},
+						}}, medias)
+					}
+
+					strm = &stream.Stream{
+						Desc:              &description.Session{Medias: medias},
+						WriteQueueSize:    512,
+						RTPMaxPayloadSize: 1450,
+						Parent:            test.NilLogger,
+					}
+					err2 = strm.Initialize()
+					require.NoError(t, err2)
+
+					subStream = &stream.SubStream{
+						Stream:        strm,
+						UseRTPPackets: false,
+					}
+					err2 = subStream.Initialize()
+					require.NoError(t, err2)
+
+					n := 0
+
+					r.OnData(
+						medias[0],
+						medias[0].Formats[0],
+						func(u *unit.Unit) error {
+							switch ca {
+							case "h264":
+								switch n {
+								case 0:
+									require.Equal(t, unit.PayloadH264{
+										{7, 1, 2, 3},
+										{8},
+										{5, 1},
+									}, u.Payload)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+								case 1:
+									require.Equal(t, unit.PayloadH264{
+										{7, 1, 2, 3},
+										{8},
+										{5, 2},
+									}, u.Payload)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									close(done)
+								default:
+									t.Error("should not happen")
+								}
+
+							case "klv":
+								switch n {
+								case 0:
+									require.Equal(t, unit.PayloadKLV{0x06, 0x0e, 0x2b, 0x34}, u.Payload)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+								case 1:
+									require.Equal(t, unit.PayloadKLV{0x01, 0x02, 0x03, 0x04}, u.Payload)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									close(done)
+								default:
+									t.Error("should not happen")
+								}
+							}
+							n++
+							return nil
+						})
+
+					strm.AddReader(r)
+
 					return nil
-				})
+				},
+			}
+			err = c.Start()
+			require.NoError(t, err)
+			defer c.Close()
 
-			strm.AddReader(r)
+			<-done
 
-			return nil
-		},
+			strm.RemoveReader(r)
+			strm.Close()
+		})
 	}
-	err = c.Start()
-	require.NoError(t, err)
-	defer c.Close()
-
-	<-done
-
-	strm.RemoveReader(r)
-	strm.Close()
 }
