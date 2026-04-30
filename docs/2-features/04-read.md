@@ -2,13 +2,13 @@
 
 Live streams can be read from the server with the following protocols and codecs:
 
-| protocol                                 | variants                                          | codecs                                                                                                                                                                                                                                                 |
-| ---------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [SRT clients](../4-read/01-srt.md)       |                                                   | **Video**: H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3<br/>**Other**: KLV                                                                                                |
-| [WebRTC clients](../4-read/02-webrtc.md) | WHEP                                              | **Video**: AV1, VP9, VP8, H265, H264<br/>**Audio**: Opus, G722, G711 (PCMA, PCMU)<br/>**Other**: KLV                                                                                                                                                   |
-| [RTSP clients](../4-read/03-rtsp.md)     | UDP, UDP-Multicast, TCP, RTSPS                    | **Video**: AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM<br/>**Other**: KLV, MPEG-TS, any RTP-compatible codec |
-| [RTMP clients](../4-read/04-rtmp.md)     | RTMP, RTMPS, Enhanced RTMP                        | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM                                                                                                                           |
-| [HLS](../4-read/05-hls.md)               | Low-Latency HLS, MP4-based HLS, MPEG-TS-based HLS | **Video**: AV1, VP9, H265, H264<br/>**Audio**: Opus, MPEG-4 Audio (AAC)<br/>**Other**: KLV (MPEG-TS-based HLS only)                                                                                                                                    |
+| protocol                                 | variants                                          |
+| ---------------------------------------- | ------------------------------------------------- |
+| [SRT clients](../4-read/01-srt.md)       |                                                   |
+| [WebRTC clients](../4-read/02-webrtc.md) | WHEP                                              |
+| [RTSP clients](../4-read/03-rtsp.md)     | UDP, UDP-Multicast, TCP, RTSPS                    |
+| [RTMP clients](../4-read/04-rtmp.md)     | RTMP, RTMPS, Enhanced RTMP                        |
+| [HLS](../4-read/05-hls.md)               | Low-Latency HLS, MP4-based HLS, MPEG-TS-based HLS |
 
 We provide instructions for reading with the following software:
 

@@ -1,5 +1,10 @@
 # WebRTC servers
 
+|       | supported codecs              |
+| ----- | ----------------------------- |
+| video | AV1, VP9, VP8, H265, H264     |
+| audio | Opus, G722, G711 (PCMA, PCMU) |
+
 In order to ingest a WebRTC stream from a remote server, add the corresponding WHEP URL into the `source` parameter of a path:
 
 ```yml

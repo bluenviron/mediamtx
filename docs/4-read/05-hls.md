@@ -1,5 +1,11 @@
 # HLS
 
+|       | supported codecs             |
+| ----- | ---------------------------- |
+| video | AV1, VP9, H265, H264         |
+| audio | Opus, MPEG-4 Audio (AAC)     |
+| other | KLV (MPEG-TS-based HLS only) |
+
 HLS is a protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to generate an HLS stream, that is accessible through a web page:
 
 ```
