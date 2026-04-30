@@ -4,7 +4,7 @@ WebRTC is a protocol that can be used for publishing and reading streams. Regard
 
 ## Codec support in browsers
 
-WebRTC can be used to publish and read streams encoded with a wide variety of video and audio codecs, that are listed in [Publish a stream](../2-features/03-publish.md) and [Read a stream](../2-features/04-read.md), but not every browser can publish and read streams with every codec due to internal limitations that cannot be overcome by this or any other server.
+WebRTC can be used to publish and read streams encoded with a wide variety of video and audio codecs, but not every browser can publish and read streams with every codec due to internal limitations that cannot be overcome by this or any other server.
 
 You can check what codecs your browser supports by [using this tool](https://jsfiddle.net/v24s8q1f/).
 

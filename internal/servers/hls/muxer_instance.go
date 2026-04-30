@@ -140,10 +140,12 @@ func (mi *muxerInstance) runInner() error {
 	}
 }
 
-func (mi *muxerInstance) handleRequest(ctx *gin.Context) {
+func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	w := ctx.Writer
 
-	w = &responseWriterNoCache{ResponseWriter: w}
+	if !isCDN {
+		w = &responseWriterNoCache{ResponseWriter: w}
+	}
 
 	w = &responseWriterCounter{
 		ResponseWriter: w,

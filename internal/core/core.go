@@ -606,6 +606,7 @@ func (p *Core) createResources(initial bool) error {
 			PartDuration:    p.conf.HLSPartDuration,
 			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
 			Directory:       p.conf.HLSDirectory,
+			CDNSecret:       p.conf.HLSCDNSecret,
 			ReadTimeout:     p.conf.ReadTimeout,
 			WriteTimeout:    p.conf.WriteTimeout,
 			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
@@ -913,6 +914,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
+		newConf.HLSCDNSecret != p.conf.HLSCDNSecret ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		closePathManager ||
 		closeMetrics ||

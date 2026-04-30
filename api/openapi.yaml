@@ -513,6 +513,8 @@ components:
           type: string
         hlsMuxerCloseAfter:
           type: string
+        hlsCDNSecret:
+          type: string
 
         # WebRTC server
         webrtc:
@@ -1211,6 +1213,8 @@ components:
           type: string
         user:
           type: string
+        isCDN:
+          type: boolean
         outboundBytes:
           type: integer
           format: uint64

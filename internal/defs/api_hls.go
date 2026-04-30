@@ -30,6 +30,7 @@ type APIHLSSession struct {
 	Path          string    `json:"path"`
 	Query         string    `json:"query"`
 	User          string    `json:"user"`
+	IsCDN         bool      `json:"isCDN"`
 	OutboundBytes uint64    `json:"outboundBytes"`
 }
 

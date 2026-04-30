@@ -60,6 +60,7 @@ type muxer struct {
 	instance                         *muxerInstance
 	cumulatedOutboundFramesDiscarded uint64
 	sessionsBySecret                 map[uuid.UUID]*session
+	cdnSession                       *session
 
 	chCloseInstance chan muxerCloseInstanceReq
 }
@@ -119,6 +120,11 @@ func (m *muxer) run() {
 
 	for _, sx := range m.sessionsBySecret {
 		sx.close2(fmt.Errorf("muxer destroyed"))
+	}
+
+	if m.cdnSession != nil {
+		m.cdnSession.close2(fmt.Errorf("muxer destroyed"))
+		m.cdnSession = nil
 	}
 
 	m.mutex.Unlock()
@@ -205,6 +211,10 @@ func (m *muxer) runInner() error {
 					sx.close2(fmt.Errorf("muxer instance crashed"))
 				}
 				m.sessionsBySecret = make(map[uuid.UUID]*session)
+				if m.cdnSession != nil {
+					m.cdnSession.close2(fmt.Errorf("muxer instance crashed"))
+					m.cdnSession = nil
+				}
 				m.mutex.Unlock()
 
 				m.Log(logger.Error, "muxer instance crashed: %v", req.err)
@@ -234,6 +244,13 @@ func (m *muxer) runInner() error {
 				if now.Sub(lastRequest) >= sessionCloseAfter {
 					delete(m.sessionsBySecret, secret)
 					sx.close2(fmt.Errorf("inactive"))
+				}
+			}
+			if m.cdnSession != nil {
+				lastRequest := time.Unix(0, m.cdnSession.lastRequestTime.Load())
+				if now.Sub(lastRequest) >= sessionCloseAfter {
+					m.cdnSession.close2(fmt.Errorf("inactive"))
+					m.cdnSession = nil
 				}
 			}
 			m.mutex.Unlock()
@@ -302,8 +319,21 @@ func (m *muxer) addSession(sx *session) ([]format.Format, error) {
 		return nil, fmt.Errorf("muxer instance not available")
 	}
 
-	m.sessionsBySecret[sx.secret] = sx
+	if sx.isCDN {
+		if m.cdnSession != nil {
+			m.cdnSession.close2(fmt.Errorf("replaced by new CDN session"))
+		}
+		m.cdnSession = sx
+	} else {
+		m.sessionsBySecret[sx.secret] = sx
+	}
 	return m.instance.reader.Formats(), nil
+}
+
+func (m *muxer) getCDNSession() *session {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.cdnSession
 }
 
 func (m *muxer) findSession(ctx *gin.Context) *session {
@@ -337,7 +367,7 @@ func (m *muxer) findSession(ctx *gin.Context) *session {
 	return sx
 }
 
-func (m *muxer) handleRequest(ctx *gin.Context) error {
+func (m *muxer) handleRequest(ctx *gin.Context, isCDN bool) error {
 	m.lastRequestTime.Store(time.Now().UnixNano())
 
 	m.mutex.RLock()
@@ -348,7 +378,7 @@ func (m *muxer) handleRequest(ctx *gin.Context) error {
 		return fmt.Errorf("muxer instance not available")
 	}
 
-	instance.handleRequest(ctx)
+	instance.handleRequest(ctx, isCDN)
 	return nil
 }
 
@@ -383,6 +413,10 @@ func (m *muxer) apiSessionsList() []defs.APIHLSSession {
 		sessions = append(sessions, *sx.apiItem())
 	}
 
+	if m.cdnSession != nil {
+		sessions = append(sessions, *m.cdnSession.apiItem())
+	}
+
 	return sessions
 }
 
@@ -397,12 +431,16 @@ func (m *muxer) findSessionByUUID(uuid uuid.UUID) *session {
 
 func (m *muxer) apiSessionsGet(uuid uuid.UUID) (*defs.APIHLSSession, bool) {
 	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if m.cdnSession != nil && m.cdnSession.uuid == uuid {
+		return m.cdnSession.apiItem(), true
+	}
+
 	sx := m.findSessionByUUID(uuid)
 	if sx == nil {
-		m.mutex.RUnlock()
 		return nil, false
 	}
-	m.mutex.RUnlock()
 
 	return sx.apiItem(), true
 }
@@ -410,6 +448,12 @@ func (m *muxer) apiSessionsGet(uuid uuid.UUID) (*defs.APIHLSSession, bool) {
 func (m *muxer) apiSessionsKick(uuid uuid.UUID) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
+	if m.cdnSession != nil && m.cdnSession.uuid == uuid {
+		m.cdnSession.close2(fmt.Errorf("kicked"))
+		m.cdnSession = nil
+		return true
+	}
 
 	sx := m.findSessionByUUID(uuid)
 	if sx == nil {

@@ -371,6 +371,10 @@ hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
+# Secret to identify requests coming from a CDN.
+# The CDN must insert this secret in every request in the
+# 'Authorization: Bearer' header.
+hlsCDNSecret: ''
 
 ###############################################
 # Global settings -> WebRTC server

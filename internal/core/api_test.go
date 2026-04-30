@@ -800,6 +800,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"path":          "mypath",
 							"query":         "",
 							"user":          "",
+							"isCDN":         false,
 							"outboundBytes": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
 						},
 					},

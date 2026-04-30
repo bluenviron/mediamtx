@@ -68,3 +68,4 @@ publish/overview: features/publish
 read/overview: features/read
 
 features/embed-streams-in-a-website: read/web-browsers
+features/scaling: features/scalability

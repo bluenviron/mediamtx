@@ -117,6 +117,7 @@ type Server struct {
 	PartDuration    conf.Duration
 	SegmentMaxSize  conf.StringSize
 	Directory       string
+	CDNSecret       string
 	ReadTimeout     conf.Duration
 	WriteTimeout    conf.Duration
 	MuxerCloseAfter conf.Duration
@@ -170,6 +171,7 @@ func (s *Server) Initialize() error {
 		trustedProxies: s.TrustedProxies,
 		readTimeout:    s.ReadTimeout,
 		writeTimeout:   s.WriteTimeout,
+		cdnSecret:      s.CDNSecret,
 		pathManager:    s.PathManager,
 		parent:         s,
 	}

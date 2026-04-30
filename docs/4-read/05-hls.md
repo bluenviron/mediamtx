@@ -28,4 +28,4 @@ HLS content can be generated in several variants:
 
 All HLS pameters are listed in the [configuration file](../5-references/1-configuration-file.md).
 
-HLS can also be used to [scale the server](../2-features/20-scaling.md) through a CDN.
+HLS can also be used to [scale the server](../2-features/20-scalability.md) through a CDN.

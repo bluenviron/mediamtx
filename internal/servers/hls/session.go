@@ -27,6 +27,7 @@ type sessionServer interface {
 type session struct {
 	remoteAddr      string
 	pathName        string
+	isCDN           bool
 	externalCmdPool *externalcmd.Pool
 	pathManager     serverPathManager
 	server          sessionServer
@@ -54,17 +55,23 @@ func (s *session) initialize(ctx *gin.Context) error {
 	s.query = ctx.Request.URL.RawQuery
 	s.lastRequestTime.Store(time.Now().UnixNano())
 
+	accessReq := defs.PathAccessRequest{
+		Name:    s.pathName,
+		Query:   s.query,
+		Publish: false,
+		Proto:   auth.ProtocolHLS,
+		ID:      &s.uuid,
+		IP:      net.ParseIP(ctx.ClientIP()),
+	}
+	if s.isCDN {
+		accessReq.SkipAuth = true
+	} else {
+		accessReq.Credentials = httpp.Credentials(ctx.Request)
+	}
+
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
-		Author: s,
-		AccessRequest: defs.PathAccessRequest{
-			Name:        s.pathName,
-			Query:       s.query,
-			Publish:     false,
-			Proto:       auth.ProtocolHLS,
-			ID:          &s.uuid,
-			Credentials: httpp.Credentials(ctx.Request),
-			IP:          net.ParseIP(ctx.ClientIP()),
-		},
+		Author:        s,
+		AccessRequest: accessReq,
 	})
 	if err != nil {
 		return err
@@ -111,7 +118,11 @@ func (s *session) initialize(ctx *gin.Context) error {
 
 	res.Stream.AddReader(s.reader)
 
-	s.Log(logger.Info, "created by %s, reading from muxer '%s'", s.remoteAddr, s.pathName)
+	if s.isCDN {
+		s.Log(logger.Info, "created by %s (CDN), reading from muxer '%s'", s.remoteAddr, s.pathName)
+	} else {
+		s.Log(logger.Info, "created by %s, reading from muxer '%s'", s.remoteAddr, s.pathName)
+	}
 
 	s.onUnreadHook = hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,
@@ -156,6 +167,7 @@ func (s *session) apiItem() *defs.APIHLSSession {
 		Path:          s.pathName,
 		Query:         s.query,
 		User:          s.user,
+		IsCDN:         s.isCDN,
 		OutboundBytes: outboundBytes,
 	}
 }

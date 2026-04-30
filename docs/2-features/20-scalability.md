@@ -1,4 +1,4 @@
-# Scaling
+# Scalability
 
 When handling large amounts of readers or publishers, streaming performance might get degraded due to bottlenecks in the underlying hardware infrastructure. In case of streaming without re-encoding (which is what MediaMTX does), these bottlenecks are almost always related to the limited bandwidth between server and readers. This issue can be strongly mitigated by implementing horizontal scalability, which means deploying multiple coordinated server instances, and evenly distributing load on them.
 
@@ -163,6 +163,8 @@ The load balancer has to behave differently depending on the protocol(s) readers
 
 You can now use the IP address or DNS of the load balancer machines to read streams with any protocol.
 
+It is also possible to entirely skip the load balancer setup by creating a domain name associated with all read replica IPs, and using that to read streams, although it is up to the DNS provider to randomize the IP order and it is up to clients to pick a random one.
+
 ### AWS implementation
 
 1. Create a _Security group_ called `mediamtx-load-balancer`, that will be used by the load balancers. In _Inbound rules_, add:
@@ -170,10 +172,12 @@ You can now use the IP address or DNS of the load balancer machines to read stre
    - a rule with type _All UDP_, source `0.0.0.0/0` (anywhere).
 
 2. Create a _Security group_ called `mediamtx-read-replicas`, that will be used by the read replicas. In _Inbound rules_, add:
+   - a rule of type _SSH_. In the _source_ field, insert the IP range of administrators.
    - a rule with type _All TCP_, source _Custom_, pick the `mediamtx-load-balancer` security group.
    - a rule with type _All UDP_, source _Custom_, pick the `mediamtx-load-balancer` security group.
 
 3. Create a _Security group_ called `mediamtx-origin`, that will be used by the origin. In _Inbound rules_, add:
+   - a rule of type _SSH_. In the _source_ field, insert the IP range of administrators.
    - a rule with type _Custom TCP_, port `8554`, source _Custom_, pick the `mediamtx-read-replicas` security group.
    - a rule with type _All UDP_, source _Custom_, pick the `mediamtx-read-replicas` security group.
    - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
@@ -256,89 +260,68 @@ This process involved all available protocols, but it can be greatly simplified 
 
 ## CDN
 
-The read replicas technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations regarding performance and costs:
+The read replicas technique provides the lowest latency, is compatible with all protocols and can be implemented on any on-premises or cloud environment, but it comes with some limitations regarding performance and cost:
 
 - Sudden load spikes can be handled by adjusting read replica count, but this adjustement is not immediate and depends on either an autoscaling policy or a manual action, leading to a potential temporary performance degradation.
 - Increasing the read replica count can lead to saturation of the bandwidth between read replicas and the origin, creating a new bottleneck.
 - Each read replica requires a dedicated and potentially expensive machine.
 
-An alternative way to serve streams consists in using the MediaMTX HLS muxer to generate directories containing HLS playlists and segments, and then serving these directories with a CDN. This method is less versatile than read replicas (only the HLS protocol is available), introduces significant latency (since the Low-Latency HLS variant cannot be used with CDNs) but overcomes scalability and costs limitations.
+An alternative way to serve streams consists in putting a CDN in front of the MediaMTX HLS server, in charge of storing cacheable files and serving requests, freeing the server from the load of most user requests. This method overcomes scalability and cost limitations, but has some drawbacks:
 
-### AWS implementation
+- Only the HLS protocol is available.
+- Low-Latency HLS playlists cannot be cached and are always requested from the server, therefore it is often necessary to disable the Low-Latency HLS variant, introducing significant latency.
+- Standard MediaMTX authentication mechanisms are not available. Streams are always accessible by anyone, unless the CDN enforces its own authentication system.
 
-1. In _Amazon S3_, create a new _General purpose bucket_.
+In order to allow MediaMTX to recognize CDN requests and serve cacheable files, the CDN must insert into every request an `Authorization: Bearer` header with a secret, that must match the one defined in the `hlsCDNSecret` configuration parameter in MediaMTX.
 
-2. Create a _CloudFront_ distribution that points to the S3 bucket.
+### Generic implementation
 
-   Enter into the distribution page, tab _Behaviors_, edit the default behavior, in the _Response headers policy_ field set `CORS-With-Preflight`. This allows to access streams from external websites.
-
-   Create another behavior, in _Path pattern_ insert `*.m3u8`, in _Cache policy_ insert `CachingDisabled`, in _Response header policy_ set `CORS-With-Preflight`.
-
-3. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
-   - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
-   - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
-
-4. Create an _EC2 instance_. Assign the `mediamtx-origin` _Security group_ to the instance. In the _Advanced Details_ section, click on _Create new IAM profile_. In the _Additional policy_ section, paste this policy, that allows the instance to access the S3 bucket;
-
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Sid": "VisualEditor0",
-         "Effect": "Allow",
-         "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-         "Resource": "arn:aws:s3:::MYBUCKETNAME"
-       },
-       {
-         "Sid": "VisualEditor1",
-         "Effect": "Allow",
-         "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-         "Resource": "arn:aws:s3:::MYBUCKETNAME/*"
-       }
-     ]
-   }
-   ```
-
-   Replace `MYBUCKETNAME` with the bucket name.
-
-5. Log into the EC2 instance. Create a script (`upload.sh`) that uploads new segments and playlists to the S3 bucket:
-
-   ```sh
-   #!/bin/bash
-   WATCH_DIR="/home/ec2-user/hls"
-   S3_BUCKET="s3://MYBUCKETNAME"
-   inotifywait -m -r -e close_write --format '%w%f' "$WATCH_DIR" | while read FILE
-   do
-      RELATIVE_PATH="${FILE#$WATCH_DIR/}"
-      aws s3 cp "$FILE" "$S3_BUCKET/$RELATIVE_PATH"
-      if [[ "$FILE" == *.m3u8 ]]; then
-          aws s3 sync "$WATCH_DIR" "$S3_BUCKET" --delete
-      fi
-   done
-   ```
-
-   Replace `MYBUCKETNAME` with the bucket name.
-
-   Launch the script in background:
-
-   ```sh
-   dnf update -y
-   sudo dnf install -y inotify-tools
-   mkdir -p /home/ec2-user/hls
-   chmod +x upload.sh
-   ./upload.sh &
-   ```
-
-6. Create a MediaMTX configuration (`mediamtx.yml`) with this content:
+1. On the machine meant to host MediaMTX, create this MediaMTX configuration (`mediamtx.yml`):
 
    ```yml
-   hlsAlwaysRemux: true
+   hlsCDNSecret: XXXXXXXXXX
    hlsVariant: fmp4
-   hlsDirectory: ./hls
    paths:
      all:
    ```
+
+   Replace `hlsCDNSecret` with some secret key. Using the `fmp4` HLS variant is strongly encouraged to prevent playlist requests from always reaching the server.
+
+   Then launch MediaMTX:
+
+   ```sh
+   docker run -d \
+   --name mediamtx \
+   --restart always \
+   --network host \
+   bluenviron/mediamtx:1
+   ```
+
+2. Configure the CDN to use the MediaMTX machine as origin, and to inject `hlsCDNSecret` in the `Authorization: Bearer` header.
+
+### AWS implementation
+
+1. Create a _Security group_ called `mediamtx-load-balancer`, that will be used by the load balancer in front of the origin. In _Inbound rules_, add:
+   - a rule with type _All TCP_, source `0.0.0.0/0` (anywhere).
+
+2. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
+   - a rule of type _SSH_. In the _source_ field, insert the IP range of administrators.
+   - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
+   - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
+   - a rule with type _All TCP_, source _Custom_, pick the `mediamtx-load-balancer` security group.
+
+3. Create an _EC2 instance_. Assign the `mediamtx-origin` _Security group_ to the instance.
+
+4. Log into the EC2 instance. create this MediaMTX configuration (`mediamtx.yml`):
+
+   ```yml
+   hlsCDNSecret: XXXXXXXXXX
+   hlsVariant: fmp4
+   paths:
+     all:
+   ```
+
+   Replace `hlsCDNSecret` with some secret key. Using the `fmp4` HLS variant is strongly encouraged to prevent playlist requests from always reaching the server.
 
    Then launch MediaMTX:
 
@@ -354,16 +337,25 @@ An alternative way to serve streams consists in using the MediaMTX HLS muxer to 
    --name mediamtx \
    --network host \
    -v $PWD/mediamtx.yml:/mediamtx.yml \
-   -v $PWD/hls:/hls \
    bluenviron/mediamtx:1
    ```
 
-You can now use the URL of the _CloudFront_ distribution to read HLS streams.
+5. Create a _Target group_. In _Target Type_ leave _Instance_, in _Protocol_ leave _HTTP_, in _Port_ insert `8888`. Open _Advanced health check settings_, in _Success codes_ insert `404`. Associate the _Target group_ with the EC2 instance.
 
-Be aware that the distribution does not come with a web player, so you have to upload one to the S3 bucket or use an external player like the one [in this page](https://hlsjs.video-dev.org/demo/). Use this URL to read streams:
+6. Create a _Load Balancer_, type _Application Load Balancer_. Assign the `mediamtx-load-balancer` _Security group_ to the load balancer. In _Listeners_, set the HTTP port to `8888` and in _Target group_ select the target group that was created previously.
+
+7. Create a _CloudFront_ distribution. Point it to the load balancer. In _HTTP port_, insert `8888`.
+
+   In the distribution page, edit the origin. Under _Add custom header_, click on _Add header_ and fill:
+   - Header name: `Authorization`
+   - Value: `Bearer XXXXX` (replace XXXX with the `hlsCDNSecret` value)
+
+   In the distribution page, edit the default behavior. In _Cache policy_, pick `UseOriginCacheControlHeaders`.
+
+You can now use the URL of the _CloudFront_ distribution to read HLS streams, for instance:
 
 ```
-https://xxxxxx.cloudfront.net/stream/index.m3u8
+https://xxxxxx.cloudfront.net/stream/
 ```
 
 Replace `xxxxxx.cloudfront.net` with the distribution domain, and `stream` with the stream path.
