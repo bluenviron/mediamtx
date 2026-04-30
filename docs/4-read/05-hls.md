@@ -19,3 +19,13 @@ http://localhost:8888/mystream/index.m3u8
 ```
 
 Some clients that can read with HLS are [FFmpeg](06-ffmpeg.md), [GStreamer](07-gstreamer.md), [VLC](08-vlc.md) and [web browsers](13-web-browsers.md).
+
+HLS content can be generated in several variants:
+
+- MPEG-TS: uses MPEG-TS segments, for maximum compatibility.
+- fMP4: uses fragmented MP4 segments, more efficient.
+- Low-Latency: based on blocking requests that are unlocked as soon as content is available.
+
+All HLS pameters are listed in the [configuration file](../5-references/1-configuration-file.md).
+
+HLS can also be used to [scale the server](../2-features/20-scaling.md) through a CDN.

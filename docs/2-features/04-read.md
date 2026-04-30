@@ -1,14 +1,12 @@
 # Read a stream
 
-Live streams can be read from the server with the following protocols and codecs:
+Live streams can be read from the server with the following protocols:
 
-| protocol                                 | variants                                          |
-| ---------------------------------------- | ------------------------------------------------- |
-| [SRT clients](../4-read/01-srt.md)       |                                                   |
-| [WebRTC clients](../4-read/02-webrtc.md) | WHEP                                              |
-| [RTSP clients](../4-read/03-rtsp.md)     | UDP, UDP-Multicast, TCP, RTSPS                    |
-| [RTMP clients](../4-read/04-rtmp.md)     | RTMP, RTMPS, Enhanced RTMP                        |
-| [HLS](../4-read/05-hls.md)               | Low-Latency HLS, MP4-based HLS, MPEG-TS-based HLS |
+- [SRT clients](../4-read/01-srt.md)
+- [WebRTC clients](../4-read/02-webrtc.md)
+- [RTSP clients](../4-read/03-rtsp.md)
+- [RTMP clients](../4-read/04-rtmp.md)
+- [HLS](../4-read/05-hls.md)
 
 We provide instructions for reading with the following software:
 
