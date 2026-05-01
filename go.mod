@@ -24,7 +24,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
-	github.com/gookit/color v1.6.0
+	github.com/gookit/color v1.6.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.2
