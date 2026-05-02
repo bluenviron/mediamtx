@@ -39,6 +39,9 @@ func ToStream(
 	var medias []*description.Media
 
 	for _, track := range r.Tracks() {
+		if track == nil {
+			continue
+		}
 		switch codec := track.Codec.(type) {
 		case *codecs.AV1:
 			forma := &format.AV1{
