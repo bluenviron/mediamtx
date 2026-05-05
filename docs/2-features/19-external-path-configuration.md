@@ -73,7 +73,7 @@ Suppose you have a database of cameras. Each camera is assigned a unique stream 
 `mediamtx.yml`:
 
 ```yml
-pathExternalConfEnabled: yes
+pathExternalConfEnabled: true
 pathExternalConfURL: http://localhost:8080/api/stream-configs
 
 paths:
