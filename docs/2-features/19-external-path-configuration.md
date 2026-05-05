@@ -21,8 +21,8 @@ This is useful when paths are created dynamically — for example in multi-tenan
 
 ```yml
 # Enable dynamic path configuration fetching.
-# Default: no
-pathExternalConfEnabled: yes
+# Default: false
+pathExternalConfEnabled: true
 
 # URL prefix of the external path configuration endpoint.
 # MediaMTX appends /{pathName} to this URL.
