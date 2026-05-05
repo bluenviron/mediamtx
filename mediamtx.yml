@@ -442,6 +442,22 @@ srt: true
 srtAddress: :8890
 
 ###############################################
+###############################################
+# External path configuration source
+
+# Enable dynamic path configuration fetching.
+# When a path is not found in memory, MediaMTX calls pathExternalConfURL/{pathName}.
+# 200 response: JSON body is decoded as path config (merged over pathDefaults).
+# 404 response: falls back to all/all_others if configured.
+# Default: false
+pathExternalConfEnabled: false
+
+# URL of the external path configuration endpoint.
+# Required when pathExternalConfEnabled is yes.
+# Example: http://myserver/api/streams
+pathExternalConfURL:
+
+###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,

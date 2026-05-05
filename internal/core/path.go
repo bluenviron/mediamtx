@@ -95,6 +95,7 @@ type path struct {
 	source                         defs.Source
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
+	createdAt                      string
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
@@ -128,6 +129,11 @@ func (pa *path) initialize() {
 	ctx, ctxCancel := context.WithCancel(pa.parentCtx)
 
 	pa.confName = pa.conf.Name
+	if pa.conf.CreatedAt != "" {
+		pa.createdAt = pa.conf.CreatedAt
+	} else {
+		pa.createdAt = time.Now().Format(time.RFC3339)
+	}
 	pa.ctx = ctx
 	pa.ctxCancel = ctxCancel
 	pa.readers = make(map[defs.Reader]struct{})
@@ -623,8 +629,9 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
-			Name:     pa.name,
-			ConfName: pa.conf.Name,
+			Name:      pa.name,
+			ConfName:  pa.conf.Name,
+			CreatedAt: pa.createdAt,
 			Ready:    pa.isAvailable(),
 			ReadyTime: func() *time.Time {
 				if !pa.isAvailable() {

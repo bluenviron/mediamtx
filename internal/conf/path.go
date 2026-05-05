@@ -178,8 +178,9 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 
 // Path is a path configuration.
 type Path struct {
-	Regexp *regexp.Regexp `json:"-"`    // filled by Validate()
-	Name   string         `json:"name"` // filled by Validate()
+	Regexp    *regexp.Regexp `json:"-"`              // filled by Validate()
+	Name      string         `json:"name"`           // filled by Validate()
+	CreatedAt string         `json:"createdAt,omitempty"`
 
 	// General
 	Source                     string   `json:"source"`
@@ -369,7 +370,8 @@ func (pconf *Path) setDefaults() {
 	pconf.RunOnDemandCloseAfter = 10 * Duration(time.Second)
 }
 
-func newPath(defaults *Path, partial *OptionalPath) *Path {
+// NewPath creates a Path by merging defaults with optional partial overrides.
+func NewPath(defaults *Path, partial *OptionalPath) *Path {
 	pconf := &Path{}
 	copyStructFields(pconf, defaults)
 	copyStructFields(pconf, partial.Values)
