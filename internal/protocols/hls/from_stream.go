@@ -107,12 +107,13 @@ func setupVideoTrack(
 
 	if videoFormatH265 != nil {
 		vps, sps, pps := videoFormatH265.SafeParams()
+		h265Codec := &codecs.H265{
+			VPS: vps,
+			SPS: sps,
+			PPS: pps,
+		}
 		track := &gohlslib.Track{
-			Codec: &codecs.H265{
-				VPS: vps,
-				SPS: sps,
-				PPS: pps,
-			},
+			Codec:     h265Codec,
 			ClockRate: videoFormatH265.ClockRate(),
 		}
 
@@ -123,6 +124,15 @@ func setupVideoTrack(
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
 					return nil
+				}
+
+				// Refresh codec parameters in case they were not yet
+				// available at track creation. With hlsAlwaysRemux=yes
+				// the muxer is built at PathReady time, before the
+				// publisher's read loop has run formatUpdaterH265 to
+				// populate VPS/SPS/PPS from incoming NAL units.
+				if h265Codec.SPS == nil {
+					h265Codec.VPS, h265Codec.SPS, h265Codec.PPS = videoFormatH265.SafeParams()
 				}
 
 				err := muxer.WriteH265(
@@ -145,11 +155,12 @@ func setupVideoTrack(
 
 	if videoFormatH264 != nil {
 		sps, pps := videoFormatH264.SafeParams()
+		h264Codec := &codecs.H264{
+			SPS: sps,
+			PPS: pps,
+		}
 		track := &gohlslib.Track{
-			Codec: &codecs.H264{
-				SPS: sps,
-				PPS: pps,
-			},
+			Codec:     h264Codec,
 			ClockRate: videoFormatH264.ClockRate(),
 		}
 
@@ -160,6 +171,15 @@ func setupVideoTrack(
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
 					return nil
+				}
+
+				// Refresh codec parameters in case they were not yet
+				// available at track creation. With hlsAlwaysRemux=yes
+				// the muxer is built at PathReady time, before the
+				// publisher's read loop has run formatUpdaterH264 to
+				// populate SPS/PPS from incoming NAL units.
+				if h264Codec.SPS == nil {
+					h264Codec.SPS, h264Codec.PPS = videoFormatH264.SafeParams()
 				}
 
 				err := muxer.WriteH264(
