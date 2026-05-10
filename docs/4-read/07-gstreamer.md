@@ -8,11 +8,24 @@ GStreamer can read a stream from the server in several ways. The recommended one
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
 ```
 
-For advanced options, read [RTSP-specific features](../2-features/27-rtsp-specific-features.md).
+## GStreamer and RTMP
+
+GStreamer supports reading streams with the RTMP protocol, but the path must be composed by at least two elements, for instance `mypath/mysubpath`:
+
+```sh
+gst-launch-1.0 rtmpsrc location=rtmp://localhost/mypath/mysubpath ! flvdemux name=d \
+d.video ! queue ! decodebin ! autovideosink
+```
+
+## GStreamer and SRT
+
+```sh
+gst-launch-1.0 srtsrc uri="srt://localhost:8890?streamid=read:mystream" ! tsdemux ! decodebin ! autovideosink
+```
 
 ## GStreamer and WebRTC
 
-GStreamer also supports reading streams with WebRTC/WHEP, although track codecs must be specified in advance through the `video-caps` and `audio-caps` parameters. Furthermore, if audio is not present, `audio-caps` must be set anyway and must point to a PCMU codec. For instance, the command for reading a video-only H264 stream is:
+GStreamer supports reading streams with WebRTC/WHEP, although track codecs must be specified in advance through the `video-caps` and `audio-caps` parameters. Furthermore, if audio is not present, `audio-caps` must be set anyway and must point to a PCMU codec. For instance, the command for reading a video-only H264 stream is:
 
 ```sh
 gst-launch-1.0 whepsrc whep-endpoint=http://127.0.0.1:8889/stream/whep use-link-headers=true \

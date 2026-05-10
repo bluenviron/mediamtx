@@ -178,9 +178,9 @@ It is also possible to entirely skip the load balancer setup by creating a domai
 
 3. Create a _Security group_ called `mediamtx-origin`, that will be used by the origin. In _Inbound rules_, add:
    - a rule of type _SSH_. In the _source_ field, insert the IP range of administrators.
-   - a rule with type _Custom TCP_, port `8554`, source _Custom_, pick the `mediamtx-read-replicas` security group.
+   - a rule with type _Custom TCP_, port `8554` (RTSP), source _Custom_, pick the `mediamtx-read-replicas` security group.
    - a rule with type _All UDP_, source _Custom_, pick the `mediamtx-read-replicas` security group.
-   - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
+   - a rule of type _Custom TCP_, port `8554` (RTSP). In the _source_ field, insert the IP range of publishers.
    - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
 
 4. Launch an EC2 instance that is meant to host the MediaMTX origin instance. Pick the _Amazon Linux_ AMI. Assign the `mediamtx-origin` _Security group_ to the instance. In _Advanced Details_, in the _User data_ textarea, copy and paste this:
@@ -306,7 +306,7 @@ In order to allow MediaMTX to recognize CDN requests and serve cacheable files, 
 
 2. Create a _Security group_ called `mediamtx-origin`, that will be used by the EC2 instance that will host MediaMTX. In _Inbound rules_, add:
    - a rule of type _SSH_. In the _source_ field, insert the IP range of administrators.
-   - a rule of type _Custom TCP_, port `8554`. In the _source_ field, insert the IP range of publishers.
+   - a rule of type _Custom TCP_, port `8554` (RTSP). In the _source_ field, insert the IP range of publishers.
    - a rule of type _All UDP_. In the _Source_ field, insert the IP range of publishers.
    - a rule with type _All TCP_, source _Custom_, pick the `mediamtx-load-balancer` security group.
 
@@ -340,11 +340,11 @@ In order to allow MediaMTX to recognize CDN requests and serve cacheable files, 
    bluenviron/mediamtx:1
    ```
 
-5. Create a _Target group_. In _Target Type_ leave _Instance_, in _Protocol_ leave _HTTP_, in _Port_ insert `8888`. Open _Advanced health check settings_, in _Success codes_ insert `404`. Associate the _Target group_ with the EC2 instance.
+5. Create a _Target group_. In _Target Type_ leave _Instance_, in _Protocol_ leave _HTTP_, in _Port_ insert `8888` (HLS). Open _Advanced health check settings_, in _Success codes_ insert `404`. Associate the _Target group_ with the EC2 instance.
 
-6. Create a _Load Balancer_, type _Application Load Balancer_. Assign the `mediamtx-load-balancer` _Security group_ to the load balancer. In _Listeners_, set the HTTP port to `8888` and in _Target group_ select the target group that was created previously.
+6. Create a _Load Balancer_, type _Application Load Balancer_. Assign the `mediamtx-load-balancer` _Security group_ to the load balancer. In _Listeners_, set the HTTP port to `8888` (HLS) and in _Target group_ select the target group that was created previously.
 
-7. Create a _CloudFront_ distribution. Point it to the load balancer. In _HTTP port_, insert `8888`.
+7. Create a _CloudFront_ distribution. Point it to the load balancer. In _HTTP port_, insert `8888` (HLS).
 
    In the distribution page, edit the origin. Under _Add custom header_, click on _Add header_ and fill:
    - Header name: `Authorization`
