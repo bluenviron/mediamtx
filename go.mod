@@ -39,6 +39,7 @@ require (
 	github.com/pion/webrtc/v4 v4.2.14
 	github.com/quic-go/quic-go v0.59.1
 	github.com/quic-go/webtransport-go v0.10.0
+	github.com/pires/go-proxyproto v0.12.0
 	github.com/stretchr/testify v1.11.1
 	github.com/wlynxg/anet v0.0.5
 	golang.org/x/crypto v0.52.0

@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/proxyprotocol"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -105,6 +107,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	Transports          conf.RTSPTransports
 	RunOnConnect        string
 	RunOnConnectRestart bool
@@ -185,6 +188,21 @@ func (s *Server) Initialize() error {
 		s.srv.TLSListen = (&packetdumper.TLSListen{
 			Listen: s.srv.Listen,
 		}).Do
+	}
+
+	if len(s.TrustedProxies) > 0 {
+		innerListen := s.srv.Listen
+		if innerListen == nil {
+			innerListen = net.Listen
+		}
+		s.srv.Listen = func(network, address string) (net.Listener, error) {
+			ln, err := innerListen(network, address)
+			if err != nil {
+				return nil, err
+			}
+			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+		}
+		s.srv.TLSListen = nil
 	}
 
 	err := s.srv.Start()

@@ -335,16 +335,18 @@ type Conf struct {
 	RTSPServerCert        string           `json:"rtspServerCert"`
 	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty" deprecated:"true"`
 	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
+	RTSPTrustedProxies    IPNetworks       `json:"rtspTrustedProxies"`
 	RTSPUDPReadBufferSize *uint            `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
 
 	// RTMP server
-	RTMP           bool       `json:"rtmp"`
-	RTMPDisable    *bool      `json:"rtmpDisable,omitempty" deprecated:"true"`
-	RTMPEncryption Encryption `json:"rtmpEncryption"`
-	RTMPAddress    string     `json:"rtmpAddress"`
-	RTMPSAddress   string     `json:"rtmpsAddress"`
-	RTMPServerKey  string     `json:"rtmpServerKey"`
-	RTMPServerCert string     `json:"rtmpServerCert"`
+	RTMP               bool       `json:"rtmp"`
+	RTMPDisable        *bool      `json:"rtmpDisable,omitempty" deprecated:"true"`
+	RTMPEncryption     Encryption `json:"rtmpEncryption"`
+	RTMPAddress        string     `json:"rtmpAddress"`
+	RTMPSAddress       string     `json:"rtmpsAddress"`
+	RTMPServerKey      string     `json:"rtmpServerKey"`
+	RTMPServerCert     string     `json:"rtmpServerCert"`
+	RTMPTrustedProxies IPNetworks `json:"rtmpTrustedProxies"`
 
 	// HLS server
 	HLS                bool       `json:"hls"`

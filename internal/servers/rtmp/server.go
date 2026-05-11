@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/proxyprotocol"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -81,6 +82,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -130,6 +132,17 @@ func (s *Server) Initialize() error {
 		tlsListen = tls.Listen
 	}
 
+	if len(s.TrustedProxies) > 0 {
+		innerListen := listen
+		listen = func(network, address string) (net.Listener, error) {
+			ln, err := innerListen(network, address)
+			if err != nil {
+				return nil, err
+			}
+			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+		}
+	}
+
 	if s.Encryption {
 		s.loader = &certloader.CertLoader{
 			CertPath: s.ServerCert,
@@ -142,9 +155,18 @@ func (s *Server) Initialize() error {
 		}
 
 		net, addr := restrictnetwork.Restrict("tcp", s.Address)
-		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate()})
-		if err != nil {
-			return err
+
+		if len(s.TrustedProxies) > 0 {
+			s.ln, err = listen(net, addr)
+			if err != nil {
+				return err
+			}
+			s.ln = tls.NewListener(s.ln, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+		} else {
+			s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		var err error

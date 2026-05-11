@@ -281,6 +281,10 @@ rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
+# IPs or CIDRs of proxies placed before the RTSP server.
+# If the server receives a request from one of these entries, IP in logs
+# and authentication will be taken from the PROXY protocol header.
+rtspTrustedProxies: []
 
 ###############################################
 # Global settings -> RTMP server
@@ -301,6 +305,10 @@ rtmpsAddress: :1936
 rtmpServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtmpServerCert: server.crt
+# IPs or CIDRs of proxies placed before the RTMP server.
+# If the server receives a request from one of these entries, IP in logs
+# and authentication will be taken from the PROXY protocol header.
+rtmpTrustedProxies: []
 
 ###############################################
 # Global settings -> HLS server
