@@ -341,6 +341,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 			Name:        s.pathName,
 			Query:       s.httpRequest.URL.RawQuery,
 			Publish:     true,
+			UserAgent:   s.req.httpRequest.Header.Get("User-Agent"),
 			Proto:       auth.ProtocolWebRTC,
 			ID:          &s.uuid,
 			Credentials: httpp.Credentials(s.httpRequest),
@@ -354,6 +355,10 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	s.mutex.Lock()
 	s.user = res1.User
 	s.mutex.Unlock()
+
+	if ua := s.req.httpRequest.Header.Get("User-Agent"); ua != "" {
+		s.Log(logger.Info, "user agent: %s", ua)
+	}
 
 	iceServers, err := s.parent.generateICEServers(false)
 	if err != nil {
@@ -449,10 +454,11 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 		ReplaceNTP:    !res1.Conf.UseAbsoluteTimestamp,
 		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:     s.pathName,
-			Query:    s.httpRequest.URL.RawQuery,
-			Publish:  true,
-			SkipAuth: true,
+			Name:      s.pathName,
+			Query:     s.httpRequest.URL.RawQuery,
+			Publish:   true,
+			SkipAuth:  true,
+			UserAgent: s.req.httpRequest.Header.Get("User-Agent"),
 		},
 	})
 	if err != nil {
@@ -482,6 +488,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		AccessRequest: defs.PathAccessRequest{
 			Name:        s.pathName,
 			Query:       s.httpRequest.URL.RawQuery,
+			UserAgent:   s.httpRequest.Header.Get("User-Agent"),
 			Proto:       auth.ProtocolWebRTC,
 			ID:          &s.uuid,
 			Credentials: httpp.Credentials(s.httpRequest),
@@ -754,6 +761,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		Path:                    s.pathName,
 		Query:                   s.httpRequest.URL.RawQuery,
 		User:                    s.user,
+		UserAgent:               s.req.httpRequest.Header.Get("User-Agent"),
 		InboundBytes:            bytesReceived,
 		InboundRTPPackets:       rtpPacketsReceived,
 		InboundRTPPacketsLost:   rtpPacketsLost,
