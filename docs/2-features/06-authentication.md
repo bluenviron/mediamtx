@@ -93,7 +93,8 @@ Each time a user needs to be authenticated, the specified URL will be requested 
   "path": "path",
   "protocol": "rtsp|rtmp|hls|webrtc|srt",
   "id": "id",
-  "query": "query"
+  "query": "query",
+  "userAgent": "userAgent"
 }
 ```
 

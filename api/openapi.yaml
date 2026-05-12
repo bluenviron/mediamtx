@@ -1281,6 +1281,8 @@ components:
           type: string
         user:
           type: string
+        userAgent:
+          type: string
         inboundBytes:
           type: integer
           format: uint64
@@ -1375,6 +1377,8 @@ components:
         query:
           type: string
         user:
+          type: string
+        userAgent:
           type: string
         transport:
           type: string
@@ -1773,6 +1777,8 @@ components:
         query:
           type: string
         user:
+          type: string
+        userAgent:
           type: string
         inboundBytes:
           type: integer
