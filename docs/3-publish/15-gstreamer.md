@@ -20,8 +20,6 @@ d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-For advanced options, read [RTSP-specific features](../2-features/27-rtsp-specific-features.md).
-
 ## GStreamer and RTMP
 
 ```sh
@@ -30,6 +28,16 @@ videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-pre
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
+## GStreamer and SRT
+
+```sh
+gst-launch-1.0 -v mpegtsmux name=mux ! srtsink uri="srt://localhost:8890?streamid=publish:mystream&pkt_size=1316" \
+videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
+audiotestsrc ! audioconvert ! avenc_aac ! mux.
+```
+
+The resulting stream will be available on path `/mystream`.
+
 ## GStreamer and MPEG-TS over UDP
 
 ```sh
@@ -37,8 +45,6 @@ gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1
 videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
-
-For advanced options, read [RTSP-specific features](../2-features/27-rtsp-specific-features.md).
 
 ## GStreamer and WebRTC
 

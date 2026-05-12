@@ -76,7 +76,7 @@ And then build it:
 docker build . -t my-mediamtx
 ```
 
-In particular, the custom image is using the official _MediaMTX_ image as a base stage, and then adds a Linux-based operating system on top of it. Since _MediaMTX_ binaries are not tied to a specific Linux distribution or version, you can use anything you like.
+This custom image is using the official _MediaMTX_ image as a base stage, and then adds a Linux-based operating system on top of it. You can use any Linux distribution or version you like, since _MediaMTX_ binaries are compatible with anything.
 
 ## Arch Linux package
 
