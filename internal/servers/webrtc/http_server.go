@@ -187,7 +187,8 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bo
 
 	ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
 	ctx.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
-	ctx.Header("Access-Control-Expose-Headers", "Link")
+	ctx.Header("Access-Control-Expose-Headers", "Accept-Post, Link")
+	ctx.Header("Accept-Post", "application/sdp")
 	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
@@ -243,7 +244,11 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	ctx.Header("Access-Control-Expose-Headers", "ETag, ID, Accept-Patch, Link, Location")
 	ctx.Header("ETag", "*")
 	ctx.Header("ID", res.sx.uuid.String())
+
+	// Accept-Patch has been removed from WHIP/WHEP specifications
+	// but is kept here for compatibility reasons.
 	ctx.Header("Accept-Patch", "application/trickle-ice-sdpfrag")
+
 	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Header("Location", sessionLocation(publish, pathName, ctx.Request.URL.RawQuery, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)

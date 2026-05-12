@@ -101,11 +101,12 @@ func TestClientRead(t *testing.T) {
 						require.NoError(t, err2)
 						offer := whipOffer(body)
 
+						require.NotContains(t, offer.SDP, "a=candidate:")
+
 						answer, err2 := pc.CreateFullAnswer(offer)
 						require.NoError(t, err2)
 
 						w.Header().Set("Content-Type", "application/sdp")
-						w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 						w.Header().Set("ETag", "test_etag")
 						w.Header().Set("Location", "/my/resource/sessionid")
 						w.WriteHeader(http.StatusCreated)
@@ -270,11 +271,12 @@ func TestClientPublish(t *testing.T) {
 						require.NoError(t, err2)
 						offer := whipOffer(body)
 
+						require.NotContains(t, offer.SDP, "a=candidate:")
+
 						answer, err2 := pc.CreateFullAnswer(offer)
 						require.NoError(t, err2)
 
 						w.Header().Set("Content-Type", "application/sdp")
-						w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 						w.Header().Set("ETag", "test_etag")
 						w.Header().Set("Location", "/my/resource/sessionid")
 						w.WriteHeader(http.StatusCreated)
@@ -498,4 +500,120 @@ func TestClientBearerToken(t *testing.T) {
 	err = cl.Initialize(context.Background())
 	require.NoError(t, err)
 	defer cl.Close() //nolint:errcheck
+}
+
+func TestClientNoTrickleICE(t *testing.T) {
+	pc := &webrtc.PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Log:               test.NilLogger,
+	}
+	err := pc.Start()
+	require.NoError(t, err)
+	defer pc.Close()
+
+	state := 0
+	recv := make(chan struct{})
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch state {
+			case 0:
+				require.Equal(t, http.MethodOptions, r.Method)
+				require.Equal(t, "/my/resource", r.URL.Path)
+
+				w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, DELETE")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				w.WriteHeader(http.StatusNoContent)
+
+			case 1:
+				require.Equal(t, http.MethodPost, r.Method)
+				require.Equal(t, "/my/resource", r.URL.Path)
+				require.Equal(t, "application/sdp", r.Header.Get("Content-Type"))
+
+				body, err2 := io.ReadAll(r.Body)
+				require.NoError(t, err2)
+				offer := whipOffer(body)
+
+				require.Contains(t, offer.SDP, "a=candidate:")
+
+				answer, err2 := pc.CreateFullAnswer(offer)
+				require.NoError(t, err2)
+
+				w.Header().Set("Content-Type", "application/sdp")
+				w.Header().Set("Location", "/my/resource/sessionid")
+				w.WriteHeader(http.StatusCreated)
+				w.Write([]byte(answer.SDP))
+
+				go func() {
+					err3 := pc.WaitUntilConnected(10 * time.Second)
+					require.NoError(t, err3)
+
+					err3 = pc.GatherIncomingTracks(2 * time.Second)
+					require.NoError(t, err3)
+
+					pc.IncomingTracks()[0].OnPacketRTP = func(_ *rtp.Packet) {
+						close(recv)
+					}
+
+					pc.StartReading()
+				}()
+
+			default:
+				require.Equal(t, "/my/resource/sessionid", r.URL.Path)
+
+				switch r.Method {
+				case http.MethodDelete:
+					w.WriteHeader(http.StatusOK)
+
+				default:
+					t.Errorf("unexpected method: %s", r.Method)
+				}
+			}
+			state++
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:9005")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	u, err := url.Parse("http://localhost:9005/my/resource")
+	require.NoError(t, err)
+
+	outgoingTracks := []*webrtc.OutgoingTrack{{
+		Caps: pwebrtc.RTPCodecCapability{
+			MimeType:  "audio/opus",
+			ClockRate: 48000,
+			Channels:  2,
+		},
+	}}
+
+	cl := &Client{
+		URL:            u,
+		Publish:        true,
+		OutgoingTracks: outgoingTracks,
+		HTTPClient:     &http.Client{},
+		Log:            test.NilLogger,
+	}
+	err = cl.Initialize(context.Background())
+	require.NoError(t, err)
+	defer cl.Close() //nolint:errcheck
+
+	err = outgoingTracks[0].WriteRTP(&rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1123,
+			Timestamp:      45343,
+			SSRC:           563424,
+		},
+		Payload: []byte{5, 2},
+	})
+	require.NoError(t, err)
+
+	<-recv
 }

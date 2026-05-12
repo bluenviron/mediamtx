@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pion/sdp/v3"
@@ -35,8 +36,8 @@ type Client struct {
 	TrackGatherTimeout time.Duration
 	Log                logger.Writer
 
-	pc               *webrtc.PeerConnection
-	patchIsSupported bool
+	pc            *webrtc.PeerConnection
+	useTrickleICE bool
 }
 
 // Initialize initializes the Client.
@@ -95,9 +96,19 @@ func (c *Client) Initialize(ctx context.Context) error {
 }
 
 func (c *Client) initializeInner(ctx context.Context) error {
-	offer, err := c.pc.CreatePartialOffer()
-	if err != nil {
-		return err
+	var offer *pwebrtc.SessionDescription
+	if c.useTrickleICE {
+		var err error
+		offer, err = c.pc.CreatePartialOffer()
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		offer, err = c.pc.CreateFullOffer()
+		if err != nil {
+			return err
+		}
 	}
 
 	res, err := c.postOffer(ctx, offer)
@@ -131,28 +142,10 @@ func (c *Client) initializeInner(ctx context.Context) error {
 		return err
 	}
 
-	t := time.NewTimer(c.HandshakeTimeout)
-	defer t.Stop()
-
-outer:
-	for {
-		select {
-		case ca := <-c.pc.NewLocalCandidate():
-			err = c.patchCandidate(ctx, offer, res.ETag, ca)
-			if err != nil {
-				c.deleteSession(context.Background()) //nolint:errcheck
-				return err
-			}
-
-		case <-c.pc.GatheringDone():
-
-		case <-c.pc.Connected():
-			break outer
-
-		case <-t.C:
-			c.deleteSession(context.Background()) //nolint:errcheck
-			return fmt.Errorf("deadline exceeded while waiting connection")
-		}
+	err = c.waitConnected(ctx, offer, res.ETag)
+	if err != nil {
+		c.deleteSession(context.Background()) //nolint:errcheck
+		return err
 	}
 
 	if !c.Publish {
@@ -164,6 +157,39 @@ outer:
 	}
 
 	return nil
+}
+
+func (c *Client) waitConnected(ctx context.Context, offer *pwebrtc.SessionDescription, eTag string) error {
+	t := time.NewTimer(c.HandshakeTimeout)
+	defer t.Stop()
+
+	if c.useTrickleICE {
+		for {
+			select {
+			case ca := <-c.pc.NewLocalCandidate():
+				err := c.patchCandidate(ctx, offer, eTag, ca)
+				if err != nil {
+					return err
+				}
+
+			case <-c.pc.Connected():
+				return nil
+
+			case <-t.C:
+				return fmt.Errorf("deadline exceeded while waiting connection")
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-c.pc.Connected():
+			return nil
+
+		case <-t.C:
+			return fmt.Errorf("deadline exceeded while waiting connection")
+		}
+	}
 }
 
 // PeerConnection returns the underlying peer connection.
@@ -216,6 +242,13 @@ func (c *Client) optionsICEServers(
 		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
+	for m := range strings.SplitSeq(res.Header.Get("Access-Control-Allow-Methods"), ",") {
+		if strings.TrimSpace(m) == "PATCH" {
+			c.useTrickleICE = true
+			break
+		}
+	}
+
 	return LinkHeaderUnmarshal(res.Header["Link"])
 }
 
@@ -255,13 +288,14 @@ func (c *Client) postOffer(
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
 
-	c.patchIsSupported = (res.Header.Get("Accept-Patch") == "application/trickle-ice-sdpfrag")
-
 	Location := res.Header.Get("Location")
 
-	etag := res.Header.Get("ETag")
-	if etag == "" {
-		return nil, fmt.Errorf("ETag is missing")
+	var etag string
+	if c.useTrickleICE {
+		etag = res.Header.Get("ETag")
+		if etag == "" {
+			return nil, fmt.Errorf("ETag is missing")
+		}
 	}
 
 	sdp, err := io.ReadAll(&customLimitReader{res.Body, maxInboundSDPSize})
@@ -287,10 +321,6 @@ func (c *Client) patchCandidate(
 	etag string,
 	candidate *pwebrtc.ICECandidateInit,
 ) error {
-	if !c.patchIsSupported {
-		return nil
-	}
-
 	frag, err := ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{candidate})
 	if err != nil {
 		return err
