@@ -124,6 +124,7 @@ func (s *httpServer) middlewarePreflightRequests(ctx *gin.Context) {
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET")
 		ctx.Header("Access-Control-Allow-Headers", "Authorization, Range")
+		ctx.Header("Access-Control-Max-Age", "86400")
 		ctx.AbortWithStatus(http.StatusNoContent)
 		return
 	}
