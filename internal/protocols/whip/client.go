@@ -250,7 +250,7 @@ func (c *Client) postOffer(
 		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	contentType := httpp.ParseContentType(req.Header.Get("Content-Type"))
+	contentType := httpp.ParseContentType(res.Header.Get("Content-Type"))
 	if contentType != "application/sdp" {
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
