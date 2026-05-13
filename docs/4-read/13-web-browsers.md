@@ -108,6 +108,57 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
+### WebRTC with React
+
+The community-maintained [mediamtx-webrtc-react](https://www.npmjs.com/package/mediamtx-webrtc-react) package provides React hooks and components for reading WebRTC streams from _MediaMTX_.
+
+Install the package:
+
+```bash
+npm install mediamtx-webrtc-react
+```
+
+Use the `WebRTCVideo` component to embed a stream:
+
+```tsx
+import { WebRTCVideo } from "mediamtx-webrtc-react";
+
+function App() {
+  return (
+    <WebRTCVideo
+      url="http://mediamtx-ip:8889/mystream/whep"
+      autoPlay
+      controls
+      style={{ width: "100%", maxWidth: "800px" }}
+    />
+  );
+}
+```
+
+Alternatively, the `useMediaMTXWebRTC` hook offers more control over connection state, error handling and the underlying media stream:
+
+```tsx
+import { useMediaMTXWebRTC } from "mediamtx-webrtc-react";
+
+function VideoPlayer() {
+  const { videoRef, connectionState, error } = useMediaMTXWebRTC({
+    url: "http://mediamtx-ip:8889/mystream/whep",
+    user: "", // fill if needed
+    pass: "", // fill if needed
+    token: "", // fill if needed
+    onError: (err) => console.error(err),
+  });
+
+  return (
+    <div>
+      <video ref={videoRef} autoPlay controls />
+      <p>Status: {connectionState}</p>
+      {error && <p>Error: {error}</p>}
+    </div>
+  );
+}
+```
+
 ### HLS in iframe
 
 Reading a stream with the HLS protocol introduces some latency, but is usually easier to setup since it doesn't involve managing additional ports that in WebRTC are used to transmit the stream.
