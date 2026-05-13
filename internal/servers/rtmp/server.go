@@ -109,7 +109,19 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	var listen func(network string, address string) (net.Listener, error)
+	listen := net.Listen
+
+	if len(s.TrustedProxies) > 0 {
+		innerListen := listen
+		listen = func(network, address string) (net.Listener, error) {
+			ln, err := innerListen(network, address)
+			if err != nil {
+				return nil, err
+			}
+			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+		}
+	}
+
 	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
 
 	if s.DumpPackets {
@@ -121,26 +133,14 @@ func (s *Server) Initialize() error {
 		}
 
 		listen = (&packetdumper.Listen{
-			Prefix: proto + "_server_conn",
+			Prefix:      proto + "_server_conn",
+			InnerListen: listen,
 		}).Do
 
 		tlsListen = (&packetdumper.TLSListen{
 			Listen: listen,
 		}).Do
 	} else {
-		listen = net.Listen
-		tlsListen = tls.Listen
-	}
-
-	if len(s.TrustedProxies) > 0 {
-		innerListen := listen
-		listen = func(network, address string) (net.Listener, error) {
-			ln, err := innerListen(network, address)
-			if err != nil {
-				return nil, err
-			}
-			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
-		}
 		tlsListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
 			ln, err := listen(network, laddr)
 			if err != nil {
