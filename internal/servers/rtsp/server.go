@@ -169,27 +169,6 @@ func (s *Server) Initialize() error {
 		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
 	}
 
-	if s.DumpPackets {
-		var proto string
-		if s.Encryption {
-			proto = "rtsps"
-		} else {
-			proto = "rtsp"
-		}
-
-		s.srv.Listen = (&packetdumper.Listen{
-			Prefix: proto + "_server_conn",
-		}).Do
-
-		s.srv.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix: proto + "_server_packet_conn",
-		}).Do
-
-		s.srv.TLSListen = (&packetdumper.TLSListen{
-			Listen: s.srv.Listen,
-		}).Do
-	}
-
 	if len(s.TrustedProxies) > 0 {
 		innerListen := s.srv.Listen
 		if innerListen == nil {
@@ -202,6 +181,29 @@ func (s *Server) Initialize() error {
 			}
 			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
 		}
+	}
+
+	if s.DumpPackets {
+		var proto string
+		if s.Encryption {
+			proto = "rtsps"
+		} else {
+			proto = "rtsp"
+		}
+
+		s.srv.Listen = (&packetdumper.Listen{
+			Prefix:      proto + "_server_conn",
+			InnerListen: s.srv.Listen,
+		}).Do
+
+		s.srv.ListenPacket = (&packetdumper.ListenPacket{
+			Prefix: proto + "_server_packet_conn",
+		}).Do
+
+		s.srv.TLSListen = (&packetdumper.TLSListen{
+			Listen: s.srv.Listen,
+		}).Do
+	} else if len(s.TrustedProxies) > 0 {
 		wrappedListen := s.srv.Listen
 		s.srv.TLSListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
 			ln, err := wrappedListen(network, laddr)
