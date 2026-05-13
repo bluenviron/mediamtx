@@ -445,6 +445,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RTSPAuthMethod'
+        rtspTrustedProxies:
+          type: array
+          items:
+            type: string
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
@@ -468,6 +472,10 @@ components:
           type: string
         rtmpServerCert:
           type: string
+        rtmpTrustedProxies:
+          type: array
+          items:
+            type: string
 
         # HLS server
         hls:

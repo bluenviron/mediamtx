@@ -1,3 +1,4 @@
+// Package proxyprotocol provides PROXY protocol support for net.Listener.
 package proxyprotocol
 
 import (
