@@ -1213,6 +1213,8 @@ components:
           type: string
         user:
           type: string
+        userAgent:
+          type: string
         isCDN:
           type: boolean
         outboundBytes:
