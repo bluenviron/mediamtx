@@ -1,6 +1,7 @@
 package proxyprotocol
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 )
 
 func trustedProxies(cidrs ...string) conf.IPNetworks {
-	var networks conf.IPNetworks
+	networks := make(conf.IPNetworks, 0, len(cidrs))
 	for _, cidr := range cidrs {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -22,76 +23,44 @@ func trustedProxies(cidrs ...string) conf.IPNetworks {
 	return networks
 }
 
-func TestWrapListenerTrustedWithV1Header(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer ln.Close()
+func TestWrapListenerTrustedWithHeader(t *testing.T) {
+	for _, version := range []byte{1, 2} {
+		t.Run(fmt.Sprintf("v%d", version), func(t *testing.T) {
+			ln, err := net.Listen("tcp", "127.0.0.1:0")
+			require.NoError(t, err)
+			defer ln.Close()
 
-	wrapped := WrapListener(ln, trustedProxies("127.0.0.1/32"))
+			wrapped := WrapListener(ln, trustedProxies("127.0.0.1/32"))
 
-	done := make(chan struct{})
+			done := make(chan struct{})
 
-	go func() {
-		defer close(done)
+			go func() {
+				defer close(done)
 
-		conn, err2 := wrapped.Accept()
-		require.NoError(t, err2)
-		defer conn.Close()
+				conn, err2 := wrapped.Accept()
+				require.NoError(t, err2)
+				defer conn.Close()
 
-		require.Equal(t, "192.168.1.100:1234", conn.RemoteAddr().String())
-	}()
+				require.Equal(t, "192.168.1.100:1234", conn.RemoteAddr().String())
+			}()
 
-	clientConn, err := net.Dial("tcp", ln.Addr().String())
-	require.NoError(t, err)
-	defer clientConn.Close()
+			clientConn, err := net.Dial("tcp", ln.Addr().String())
+			require.NoError(t, err)
+			defer clientConn.Close()
 
-	header := &proxyproto.Header{
-		Version:           1,
-		Command:           proxyproto.PROXY,
-		TransportProtocol: proxyproto.TCPv4,
-		SourceAddr:        &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 1234},
-		DestinationAddr:   &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 1935},
+			header := &proxyproto.Header{
+				Version:           version,
+				Command:           proxyproto.PROXY,
+				TransportProtocol: proxyproto.TCPv4,
+				SourceAddr:        &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 1234},
+				DestinationAddr:   &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 1935},
+			}
+			_, err = header.WriteTo(clientConn)
+			require.NoError(t, err)
+
+			<-done
+		})
 	}
-	_, err = header.WriteTo(clientConn)
-	require.NoError(t, err)
-
-	<-done
-}
-
-func TestWrapListenerTrustedWithV2Header(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer ln.Close()
-
-	wrapped := WrapListener(ln, trustedProxies("127.0.0.1/32"))
-
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-
-		conn, err2 := wrapped.Accept()
-		require.NoError(t, err2)
-		defer conn.Close()
-
-		require.Equal(t, "192.168.1.100:1234", conn.RemoteAddr().String())
-	}()
-
-	clientConn, err := net.Dial("tcp", ln.Addr().String())
-	require.NoError(t, err)
-	defer clientConn.Close()
-
-	header := &proxyproto.Header{
-		Version:           2,
-		Command:           proxyproto.PROXY,
-		TransportProtocol: proxyproto.TCPv4,
-		SourceAddr:        &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 1234},
-		DestinationAddr:   &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 1935},
-	}
-	_, err = header.WriteTo(clientConn)
-	require.NoError(t, err)
-
-	<-done
 }
 
 func TestWrapListenerTrustedWithoutHeader(t *testing.T) {

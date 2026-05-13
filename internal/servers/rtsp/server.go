@@ -25,7 +25,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
-	"github.com/bluenviron/mediamtx/internal/proxyprotocol"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxyprotocol"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -202,7 +202,14 @@ func (s *Server) Initialize() error {
 			}
 			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
 		}
-		s.srv.TLSListen = nil
+		wrappedListen := s.srv.Listen
+		s.srv.TLSListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
+			ln, err := wrappedListen(network, laddr)
+			if err != nil {
+				return nil, err
+			}
+			return tls.NewListener(ln, config), nil
+		}
 	}
 
 	err := s.srv.Start()
