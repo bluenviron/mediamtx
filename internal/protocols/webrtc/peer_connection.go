@@ -174,12 +174,16 @@ type PeerConnection struct {
 
 	newLocalCandidate chan *webrtc.ICECandidateInit
 	incomingTrack     chan trackRecvPair
-	connected         chan struct{}
-	failed            chan struct{}
-	closed            chan struct{}
-	gatheringDone     chan struct{}
-	done              chan struct{}
-	chStartReading    chan struct{}
+
+	stateMutex   sync.Mutex
+	state        webrtc.PeerConnectionState
+	stateChanged chan struct{}
+
+	gatheringMutex sync.Mutex
+	gatheringDone  chan struct{}
+
+	done           chan struct{}
+	chStartReading chan struct{}
 }
 
 // Start starts the peer connection.
@@ -322,9 +326,7 @@ func (co *PeerConnection) Start() error {
 	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
-	co.connected = make(chan struct{})
-	co.failed = make(chan struct{})
-	co.closed = make(chan struct{})
+	co.stateChanged = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
 	co.incomingTrack = make(chan trackRecvPair)
 	co.done = make(chan struct{})
@@ -371,64 +373,44 @@ func (co *PeerConnection) Start() error {
 		})
 	}
 
-	var stateChangeMutex sync.Mutex
-
 	co.wr.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		stateChangeMutex.Lock()
-		defer stateChangeMutex.Unlock()
+		co.stateMutex.Lock()
+		defer co.stateMutex.Unlock()
 
-		select {
-		case <-co.closed:
+		if co.state == webrtc.PeerConnectionStateFailed || co.state == webrtc.PeerConnectionStateClosed {
 			return
-		default:
 		}
+
+		co.state = state
+		close(co.stateChanged)
+		co.stateChanged = make(chan struct{})
 
 		co.Log.Log(logger.Debug, "peer connection state: "+state.String())
 
-		switch state {
-		case webrtc.PeerConnectionStateConnected:
-			// PeerConnectionStateConnected can arrive twice, since state can
-			// switch from "disconnected" to "connected".
-			// contrarily, we're interested into emitting "connected" once.
-			select {
-			case <-co.connected:
-				return
-			default:
-			}
-
+		if state == webrtc.PeerConnectionStateConnected {
 			co.Log.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
 				co.LocalCandidate(), co.RemoteCandidate())
-
-			close(co.connected)
-
-		case webrtc.PeerConnectionStateFailed:
-			close(co.failed)
-
-		case webrtc.PeerConnectionStateClosed:
-			// "closed" can arrive before "failed" and without
-			// the Close() method being called at all.
-			// It happens when the other peer sends a termination
-			// message like a DTLS CloseNotify.
-			select {
-			case <-co.failed:
-			default:
-				close(co.failed)
-			}
-
-			close(co.closed)
 		}
 	})
 
 	co.wr.OnICECandidate(func(i *webrtc.ICECandidate) {
+		co.gatheringMutex.Lock()
+		defer co.gatheringMutex.Unlock()
+
 		if i != nil {
 			v := i.ToJSON()
+
 			select {
 			case co.newLocalCandidate <- &v:
-			case <-co.connected:
+			case <-co.Connected():
 			case <-co.ctx.Done():
 			}
 		} else {
-			close(co.gatheringDone)
+			select {
+			case <-co.gatheringDone:
+			default:
+				close(co.gatheringDone)
+			}
 		}
 	})
 
@@ -460,7 +442,7 @@ func (co *PeerConnection) run() {
 		// we have to wait for OnConnectionStateChange to return anyway,
 		// since it is executed in an uncontrolled goroutine.
 		// https://github.com/pion/webrtc/blob/v4.2.8/peerconnection.go#L529
-		<-co.closed
+		<-co.failedNoContext()
 	}()
 
 	for {
@@ -609,8 +591,28 @@ func (co *PeerConnection) filterLocalDescription(desc *webrtc.SessionDescription
 }
 
 // CreatePartialOffer creates a partial offer.
-func (co *PeerConnection) CreatePartialOffer() (*webrtc.SessionDescription, error) {
-	tmp, err := co.wr.CreateOffer(nil)
+func (co *PeerConnection) CreatePartialOffer(restart bool) (*webrtc.SessionDescription, error) {
+	var options *webrtc.OfferOptions
+	if restart {
+		co.gatheringMutex.Lock()
+
+		select {
+		case <-co.gatheringDone:
+		default:
+			co.gatheringMutex.Unlock()
+			return nil, fmt.Errorf("tried an ICE restart before candidate gathering is complete")
+		}
+
+		co.gatheringDone = make(chan struct{})
+
+		co.gatheringMutex.Unlock()
+
+		options = &webrtc.OfferOptions{
+			ICERestart: true,
+		}
+	}
+
+	tmp, err := co.wr.CreateOffer(options)
 	if err != nil {
 		return nil, err
 	}
@@ -662,13 +664,36 @@ func (co *PeerConnection) SetAnswer(answer *webrtc.SessionDescription) error {
 	return co.wr.SetRemoteDescription(*answer)
 }
 
+// RemoteDescription returns the current remote description.
+func (co *PeerConnection) RemoteDescription() *webrtc.SessionDescription {
+	return co.wr.RemoteDescription()
+}
+
 // AddRemoteCandidate adds a remote candidate.
 func (co *PeerConnection) AddRemoteCandidate(candidate *webrtc.ICECandidateInit) error {
 	return co.wr.AddICECandidate(*candidate)
 }
 
-// CreateFullAnswer creates a full answer.
-func (co *PeerConnection) CreateFullAnswer(offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+// CreateFullAnswer accepts an offer and creates a full answer.
+func (co *PeerConnection) CreateFullAnswer(
+	offer *webrtc.SessionDescription,
+	restarted bool,
+) (*webrtc.SessionDescription, error) {
+	if restarted {
+		co.gatheringMutex.Lock()
+
+		select {
+		case <-co.gatheringDone:
+		default:
+			co.gatheringMutex.Unlock()
+			return nil, fmt.Errorf("tried an ICE restart before candidate gathering is complete")
+		}
+
+		co.gatheringDone = make(chan struct{})
+
+		co.gatheringMutex.Unlock()
+	}
+
 	err := co.wr.SetRemoteDescription(*offer)
 	if err != nil {
 		return nil, err
@@ -726,7 +751,7 @@ outer:
 		case <-t.C:
 			return fmt.Errorf("deadline exceeded while waiting connection")
 
-		case <-co.connected:
+		case <-co.Connected():
 			break outer
 
 		case <-co.ctx.Done():
@@ -781,12 +806,83 @@ func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 
 // Connected returns when connected.
 func (co *PeerConnection) Connected() <-chan struct{} {
-	return co.connected
+	ch := make(chan struct{})
+
+	go func() {
+		for {
+			co.stateMutex.Lock()
+			state := co.state
+			stateChanged := co.stateChanged
+			co.stateMutex.Unlock()
+
+			if state == webrtc.PeerConnectionStateConnected {
+				close(ch)
+				return
+			}
+
+			select {
+			case <-stateChanged:
+			case <-co.ctx.Done():
+				// exit without closing ch
+				return
+			}
+		}
+	}()
+
+	return ch
 }
 
-// Failed returns when failed.
+// Failed returns when failed or closed.
 func (co *PeerConnection) Failed() <-chan struct{} {
-	return co.failed
+	ch := make(chan struct{})
+
+	go func() {
+		defer close(ch)
+		for {
+			co.stateMutex.Lock()
+			state := co.state
+			stateChanged := co.stateChanged
+			co.stateMutex.Unlock()
+
+			// "closed" can arrive before "failed" and without
+			// the Close() method being called at all.
+			// It happens when the other peer sends a termination
+			// message like a DTLS CloseNotify.
+			if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
+				return
+			}
+
+			select {
+			case <-stateChanged:
+			case <-co.ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch
+}
+
+func (co *PeerConnection) failedNoContext() <-chan struct{} {
+	ch := make(chan struct{})
+
+	go func() {
+		for {
+			co.stateMutex.Lock()
+			state := co.state
+			stateChanged := co.stateChanged
+			co.stateMutex.Unlock()
+
+			if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
+				close(ch)
+				return
+			}
+
+			<-stateChanged
+		}
+	}()
+
+	return ch
 }
 
 // NewLocalCandidate returns when there's a new local candidate.

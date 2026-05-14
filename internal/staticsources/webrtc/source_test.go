@@ -68,7 +68,7 @@ func TestSource(t *testing.T) {
 				require.NoError(t, err2)
 				offer := whipOffer(body)
 
-				answer, err2 := pc.CreateFullAnswer(offer)
+				answer, err2 := pc.CreateFullAnswer(offer, false)
 				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,55 @@ import (
 const (
 	maxInboundSDPSize = 128 * 1024
 )
+
+func whipAnswer(body []byte) *pwebrtc.SessionDescription {
+	return &pwebrtc.SessionDescription{
+		Type: pwebrtc.SDPTypeAnswer,
+		SDP:  string(body),
+	}
+}
+
+func offerAndCandidateToSDPFragment(
+	offer *pwebrtc.SessionDescription,
+	candidate *pwebrtc.ICECandidateInit,
+) (*SDPFragment, error) {
+	f := &SDPFragment{}
+
+	var desc sdp.SessionDescription
+	err := desc.Unmarshal([]byte(offer.SDP))
+	if err != nil {
+		return nil, err
+	}
+
+	if candidate.SDPMLineIndex == nil {
+		return nil, fmt.Errorf("sdpMLineIndex is null")
+	}
+
+	if len(desc.MediaDescriptions) < int(*candidate.SDPMLineIndex)+1 {
+		return nil, fmt.Errorf("sdpMLineIndex is out of range")
+	}
+
+	media := desc.MediaDescriptions[*candidate.SDPMLineIndex]
+
+	iceUFrag, _ := media.Attribute("ice-ufrag")
+	icePwd, _ := media.Attribute("ice-pwd")
+
+	if iceUFrag == "" || icePwd == "" {
+		return nil, fmt.Errorf("ice-ufrag or ice-pwd are missing in the media of the candidate")
+	}
+
+	f.Medias = append(f.Medias, &sdp.MediaDescription{
+		MediaName: media.MediaName,
+		Attributes: []sdp.Attribute{
+			{Key: "mid", Value: strconv.FormatUint(uint64(*candidate.SDPMLineIndex), 10)},
+			{Key: "ice-ufrag", Value: iceUFrag},
+			{Key: "ice-pwd", Value: icePwd},
+			{Key: "candidate", Value: candidate.Candidate},
+		},
+	})
+
+	return f, nil
+}
 
 // Client is a WHIP client.
 type Client struct {
@@ -99,7 +149,7 @@ func (c *Client) initializeInner(ctx context.Context) error {
 	var offer *pwebrtc.SessionDescription
 	if c.useTrickleICE {
 		var err error
-		offer, err = c.pc.CreatePartialOffer()
+		offer, err = c.pc.CreatePartialOffer(false)
 		if err != nil {
 			return err
 		}
@@ -303,13 +353,8 @@ func (c *Client) postOffer(
 		return nil, err
 	}
 
-	answer := &pwebrtc.SessionDescription{
-		Type: pwebrtc.SDPTypeAnswer,
-		SDP:  string(sdp),
-	}
-
 	return &whipPostOfferResponse{
-		Answer:   answer,
+		Answer:   whipAnswer(sdp),
 		Location: Location,
 		ETag:     etag,
 	}, nil
@@ -321,12 +366,17 @@ func (c *Client) patchCandidate(
 	etag string,
 	candidate *pwebrtc.ICECandidateInit,
 ) error {
-	frag, err := ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{candidate})
+	frag, err := offerAndCandidateToSDPFragment(offer, candidate)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.URL.String(), bytes.NewReader(frag))
+	enc, err := frag.Marshal()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.URL.String(), bytes.NewReader(enc))
 	if err != nil {
 		return err
 	}
