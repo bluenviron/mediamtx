@@ -629,6 +629,34 @@ func (co *PeerConnection) CreatePartialOffer() (*webrtc.SessionDescription, erro
 	return offer, nil
 }
 
+// CreateFullOffer creates a full offer.
+func (co *PeerConnection) CreateFullOffer() (*webrtc.SessionDescription, error) {
+	tmp, err := co.wr.CreateOffer(nil)
+	if err != nil {
+		return nil, err
+	}
+	offer := &tmp
+
+	err = co.wr.SetLocalDescription(*offer)
+	if err != nil {
+		return nil, err
+	}
+
+	err = co.waitGatheringDone()
+	if err != nil {
+		return nil, err
+	}
+
+	offer = co.wr.LocalDescription()
+
+	offer, err = co.filterLocalDescription(offer)
+	if err != nil {
+		return nil, err
+	}
+
+	return offer, nil
+}
+
 // SetAnswer sets the answer.
 func (co *PeerConnection) SetAnswer(answer *webrtc.SessionDescription) error {
 	return co.wr.SetRemoteDescription(*answer)

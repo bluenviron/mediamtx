@@ -8,8 +8,8 @@ ADD binaries/mediamtx_*_linux_arm64.tar.gz /linux/arm64
 #################################################################
 FROM --platform=linux/arm/v7 debian:bullseye-slim AS base-arm-v7
 
-# even though the base image is arm v7,
-# Raspbian libraries and compilers provide arm v6 compatibility.
+# even though the base image is armv7,
+# Raspbian libraries and compilers provide armv6 compatibility.
 
 RUN apt update \
 	&& apt install -y wget gpg \

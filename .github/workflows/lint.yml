@@ -8,7 +8,7 @@ on:
 
 jobs:
   go:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -26,7 +26,7 @@ jobs:
         version: v2.12.2
 
   go_mod:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -38,7 +38,7 @@ jobs:
     - run: make lint-go-mod
 
   conf:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -50,7 +50,7 @@ jobs:
     - run: make lint-conf
 
   go2api:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -62,7 +62,7 @@ jobs:
     - run: make lint-go2api
 
   docslinks:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -74,7 +74,7 @@ jobs:
     - run: make lint-docslinks
 
   docsorder:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -86,7 +86,7 @@ jobs:
     - run: make lint-docsorder
 
   docs:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -94,7 +94,7 @@ jobs:
     - run: make lint-docs
 
   api_docs:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
