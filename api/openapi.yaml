@@ -1213,6 +1213,8 @@ components:
           type: string
         user:
           type: string
+        userAgent:
+          type: string
         isCDN:
           type: boolean
         outboundBytes:
@@ -1280,6 +1282,8 @@ components:
         query:
           type: string
         user:
+          type: string
+        userAgent:
           type: string
         inboundBytes:
           type: integer
@@ -1375,6 +1379,8 @@ components:
         query:
           type: string
         user:
+          type: string
+        userAgent:
           type: string
         transport:
           type: string
@@ -1773,6 +1779,8 @@ components:
         query:
           type: string
         user:
+          type: string
+        userAgent:
           type: string
         inboundBytes:
           type: integer

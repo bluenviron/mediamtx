@@ -79,6 +79,7 @@ type session struct {
 	outboundRTPPacketsDiscarded *counterdumper.Dumper
 	mutex                       sync.RWMutex
 	user                        string
+	userAgent                   string
 	mpegtsDemuxer               *mpegtsDemuxer
 }
 
@@ -194,11 +195,17 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}
 	}
 
+	var userAgent string
+	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) == 1 {
+		userAgent = ua[0]
+	}
+
 	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:             ctx.Path,
 			Query:            ctx.Query,
 			Publish:          true,
+			UserAgent:        userAgent,
 			Proto:            auth.ProtocolRTSP,
 			ID:               &c.uuid,
 			Credentials:      rtsp.Credentials(ctx.Request),
@@ -221,6 +228,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 
 	s.mutex.Lock()
 	s.user = res.User
+	s.userAgent = userAgent
 	s.mutex.Unlock()
 
 	return &base.Response{
@@ -385,16 +393,21 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		ReplaceNTP:    !s.pathConf.UseAbsoluteTimestamp,
 		ConfToCompare: s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:     s.rsession.Path()[1:],
-			Query:    s.rsession.Query(),
-			Publish:  true,
-			SkipAuth: true,
+			Name:      s.rsession.Path()[1:],
+			Query:     s.rsession.Query(),
+			Publish:   true,
+			SkipAuth:  true,
+			UserAgent: s.userAgent,
 		},
 	})
 	if err != nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
 		}, err
+	}
+
+	if s.userAgent != "" {
+		s.Log(logger.Info, "user agent: %s", s.userAgent)
 	}
 
 	rtsp.ToStream(
@@ -507,8 +520,9 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			}
 			return ""
 		}(),
-		Query: s.rsession.Query(),
-		User:  s.user,
+		Query:     s.rsession.Query(),
+		User:      s.user,
+		UserAgent: s.userAgent,
 		Transport: func() *string {
 			transport := s.rsession.Transport()
 			if transport == nil {

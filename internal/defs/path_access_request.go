@@ -10,10 +10,11 @@ import (
 
 // PathAccessRequest is a path access request.
 type PathAccessRequest struct {
-	Name     string
-	Query    string
-	Publish  bool
-	SkipAuth bool
+	Name      string
+	Query     string
+	Publish   bool
+	SkipAuth  bool
+	UserAgent string
 
 	// only if skipAuth = false
 	Proto            auth.Protocol
@@ -36,6 +37,7 @@ func (r *PathAccessRequest) ToAuthRequest() *auth.Request {
 		Query:            r.Query,
 		Protocol:         r.Proto,
 		ID:               r.ID,
+		UserAgent:        r.UserAgent,
 		Credentials:      r.Credentials,
 		IP:               r.IP,
 		CustomVerifyFunc: r.CustomVerifyFunc,
