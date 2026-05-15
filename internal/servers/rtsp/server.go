@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxyprotocol"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -105,6 +107,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	Transports          conf.RTSPTransports
 	RunOnConnect        string
 	RunOnConnectRestart bool
@@ -166,6 +169,20 @@ func (s *Server) Initialize() error {
 		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
 	}
 
+	if len(s.TrustedProxies) > 0 {
+		innerListen := s.srv.Listen
+		if innerListen == nil {
+			innerListen = net.Listen
+		}
+		s.srv.Listen = func(network, address string) (net.Listener, error) {
+			ln, err := innerListen(network, address)
+			if err != nil {
+				return nil, err
+			}
+			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+		}
+	}
+
 	if s.DumpPackets {
 		var proto string
 		if s.Encryption {
@@ -175,7 +192,8 @@ func (s *Server) Initialize() error {
 		}
 
 		s.srv.Listen = (&packetdumper.Listen{
-			Prefix: proto + "_server_conn",
+			Prefix:      proto + "_server_conn",
+			InnerListen: s.srv.Listen,
 		}).Do
 
 		s.srv.ListenPacket = (&packetdumper.ListenPacket{
@@ -185,6 +203,15 @@ func (s *Server) Initialize() error {
 		s.srv.TLSListen = (&packetdumper.TLSListen{
 			Listen: s.srv.Listen,
 		}).Do
+	} else if len(s.TrustedProxies) > 0 {
+		wrappedListen := s.srv.Listen
+		s.srv.TLSListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
+			ln, err := wrappedListen(network, laddr)
+			if err != nil {
+				return nil, err
+			}
+			return tls.NewListener(ln, config), nil
+		}
 	}
 
 	err := s.srv.Start()

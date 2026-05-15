@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxyprotocol"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -81,6 +82,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -107,7 +109,19 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	var listen func(network string, address string) (net.Listener, error)
+	listen := net.Listen
+
+	if len(s.TrustedProxies) > 0 {
+		innerListen := listen
+		listen = func(network, address string) (net.Listener, error) {
+			ln, err := innerListen(network, address)
+			if err != nil {
+				return nil, err
+			}
+			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+		}
+	}
+
 	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
 
 	if s.DumpPackets {
@@ -119,15 +133,21 @@ func (s *Server) Initialize() error {
 		}
 
 		listen = (&packetdumper.Listen{
-			Prefix: proto + "_server_conn",
+			Prefix:      proto + "_server_conn",
+			InnerListen: listen,
 		}).Do
 
 		tlsListen = (&packetdumper.TLSListen{
 			Listen: listen,
 		}).Do
 	} else {
-		listen = net.Listen
-		tlsListen = tls.Listen
+		tlsListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
+			ln, err := listen(network, laddr)
+			if err != nil {
+				return nil, err
+			}
+			return tls.NewListener(ln, config), nil
+		}
 	}
 
 	if s.Encryption {
