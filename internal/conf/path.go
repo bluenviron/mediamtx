@@ -441,9 +441,12 @@ func (pconf *Path) validate(
 		strings.HasPrefix(pconf.Source, "rtsps+http://") ||
 		strings.HasPrefix(pconf.Source, "rtsp+ws://") ||
 		strings.HasPrefix(pconf.Source, "rtsps+ws://"):
-		_, err := url.Parse(pconf.Source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+		// Allow placeholders like $1, $G1, $MTX_QUERY in the source URL
+		if !strings.Contains(pconf.Source, "$") {
+			_, err := url.Parse(pconf.Source)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			}
 		}
 
 		if pconf.SourceProtocol != nil {
