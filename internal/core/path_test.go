@@ -903,29 +903,100 @@ func TestPathResolveSource(t *testing.T) {
 	require.NoError(t, err)
 	defer strm.Close()
 
-	p, ok := newInstance(t,
-		"paths:\n"+
-			"  '~^test_(.+)$':\n"+
-			"    source: rtsp://127.0.0.1:8555/$G1?$MTX_QUERY\n"+
-			"    sourceOnDemand: yes\n"+
-			"  'all':\n")
-	require.Equal(t, true, ok)
-	defer p.Close()
+	for name, source := range map[string]string{
+		"G1": "rtsp://127.0.0.1:8555/$G1?$MTX_QUERY",
+		"1":  "rtsp://127.0.0.1:8555/$1?$MTX_QUERY",
+	} {
+		t.Run(name, func(t *testing.T) {
+			p, ok := newInstance(t,
+				"paths:\n"+
+					"  '~^test_(.+)$':\n"+
+					"    source: "+source+"\n"+
+					"    sourceOnDemand: yes\n"+
+					"  'all':\n")
+			require.Equal(t, true, ok)
+			defer p.Close()
 
-	u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
-	require.NoError(t, err)
+			u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
+			require.NoError(t, err)
 
-	reader := gortsplib.Client{
-		Scheme: u.Scheme,
-		Host:   u.Host,
+			reader := gortsplib.Client{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+			}
+
+			err = reader.Start()
+			require.NoError(t, err)
+			defer reader.Close()
+
+			_, _, err = reader.Describe(u)
+			require.NoError(t, err)
+		})
 	}
 
-	err = reader.Start()
-	require.NoError(t, err)
-	defer reader.Close()
+	// Test for issue #5766 example
+	t.Run("issue5766", func(t *testing.T) {
+		p, ok := newInstance(t,
+			"paths:\n"+
+				"  '~^mycam/([^/]+)/([^/]+)/(.+)$':\n"+
+				"    source: rtsp://$1:$2/$3\n"+
+				"    sourceOnDemand: yes\n"+
+				"  'all':\n")
+		require.Equal(t, true, ok)
+		defer p.Close()
 
-	_, _, err = reader.Describe(u)
-	require.NoError(t, err)
+		// Simulate the target server at 127.0.0.1:8556
+		s := gortsplib.Server{
+			Handler: &testServer{
+				onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					require.Equal(t, "", ctx.Query)
+					require.Equal(t, "/stream1", ctx.Path) // Should be resolved to /stream1
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, strm, nil
+				},
+				onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, strm, nil
+				},
+				onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, nil
+				},
+			},
+			RTSPAddress: "127.0.0.1:8556", // Target server port
+		}
+
+		err := s.Start()
+		require.NoError(t, err)
+		defer s.Close()
+
+		strm2 := &gortsplib.ServerStream{
+			Server: &s,
+			Desc:   &description.Session{Medias: []*description.Media{test.MediaH264}},
+		}
+		err = strm2.Initialize()
+		require.NoError(t, err)
+		defer strm2.Close()
+
+		// Request to proxy: mycam/127.0.0.1/8556/stream1 should resolve source to rtsp://127.0.0.1:8556/stream1
+		u, err := base.ParseURL("rtsp://127.0.0.1:8554/mycam/127.0.0.1/8556/stream1")
+		require.NoError(t, err)
+
+		reader := gortsplib.Client{
+			Scheme: u.Scheme,
+			Host:   u.Host,
+		}
+
+		err = reader.Start()
+		require.NoError(t, err)
+		defer reader.Close()
+
+		_, _, err = reader.Describe(u)
+		require.NoError(t, err)
+	})
 }
 
 func TestPathOverridePublisher(t *testing.T) {
