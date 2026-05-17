@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -32,6 +35,187 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 		Type: pwebrtc.SDPTypeOffer,
 		SDP:  string(body),
 	}
+}
+
+func parseOfferUfrag(offer []byte) string {
+	var desc sdp.SessionDescription
+	if err := desc.Unmarshal(offer); err != nil {
+		return ""
+	}
+
+	// per-media credentials (priority matches sdpFragmentToCredentials)
+	for _, media := range desc.MediaDescriptions {
+		if ufrag, ok := media.Attribute("ice-ufrag"); ok && ufrag != "" {
+			return ufrag
+		}
+	}
+
+	// session-level credentials
+	for _, attr := range desc.Attributes {
+		if attr.Key == "ice-ufrag" && attr.Value != "" {
+			return attr.Value
+		}
+	}
+	return ""
+}
+
+func replaceICECredentials(offerSDP []byte, ufrag, pwd string) []byte {
+	s := string(offerSDP)
+	sep := "\r\n"
+	if !strings.Contains(s, "\r\n") {
+		sep = "\n"
+	}
+	lines := strings.Split(s, sep)
+	for i, line := range lines {
+		if strings.HasPrefix(line, "a=ice-ufrag:") {
+			lines[i] = "a=ice-ufrag:" + ufrag
+		} else if strings.HasPrefix(line, "a=ice-pwd:") {
+			lines[i] = "a=ice-pwd:" + pwd
+		}
+	}
+	return []byte(strings.Join(lines, sep))
+}
+
+func sdpFragmentToCredentials(frag *whip.SDPFragment) (string, string, error) {
+	// media credentials
+	for _, media := range frag.Medias {
+		ufrag, _ := media.Attribute("ice-ufrag")
+		pwd, _ := media.Attribute("ice-pwd")
+		if ufrag != "" && pwd != "" {
+			return ufrag, pwd, nil
+		}
+	}
+
+	// session-wide credentials
+	var ufrag, pwd string
+	for _, attr := range frag.Attributes {
+		switch attr.Key {
+		case "ice-ufrag":
+			ufrag = attr.Value
+		case "ice-pwd":
+			pwd = attr.Value
+		}
+	}
+	if ufrag != "" && pwd != "" {
+		return ufrag, pwd, nil
+	}
+
+	return "", "", fmt.Errorf("ICE credentials not found")
+}
+
+func sdpFragmentToCandidates(frag *whip.SDPFragment) ([]*pwebrtc.ICECandidateInit, error) {
+	var candidates []*pwebrtc.ICECandidateInit
+
+	for _, media := range frag.Medias {
+		mid, ok := media.Attribute("mid")
+		if !ok {
+			return nil, fmt.Errorf("mid attribute is missing")
+		}
+
+		tmp, err := strconv.ParseUint(mid, 10, 16)
+		if err != nil {
+			return nil, fmt.Errorf("invalid mid attribute")
+		}
+		midNum := uint16(tmp)
+
+		for _, attr := range media.Attributes {
+			if attr.Key == "candidate" {
+				candidates = append(candidates, &pwebrtc.ICECandidateInit{
+					Candidate:     attr.Value,
+					SDPMid:        &mid,
+					SDPMLineIndex: &midNum,
+				})
+			}
+		}
+	}
+
+	return candidates, nil
+}
+
+func mediaHasCredentialsOrCandidates(media *sdp.MediaDescription) bool {
+	hasUfrag := false
+	hasPwd := false
+
+	for _, attr := range media.Attributes {
+		if attr.Value != "" {
+			switch attr.Key {
+			case "ice-ufrag":
+				hasUfrag = true
+
+			case "ice-pwd":
+				hasPwd = true
+
+			case "candidate":
+				return true
+			}
+		}
+	}
+
+	return (hasUfrag && hasPwd)
+}
+
+func fullAnswerToSDPFragment(answerSDP string) (*whip.SDPFragment, error) {
+	var psdp sdp.SessionDescription
+	err := psdp.Unmarshal([]byte(answerSDP))
+	if err != nil {
+		return nil, err
+	}
+
+	frag := &whip.SDPFragment{
+		Attributes: []sdp.Attribute{
+			{Key: "ice-options", Value: "trickle ice2"},
+		},
+	}
+
+	filled := false
+
+	for _, attr := range psdp.Attributes {
+		switch attr.Key {
+		case "ice-ufrag", "ice-pwd":
+			frag.Attributes = append(frag.Attributes, sdp.Attribute{Key: attr.Key, Value: attr.Value})
+			filled = true
+		}
+	}
+
+	for _, media := range psdp.MediaDescriptions {
+		if mediaHasCredentialsOrCandidates(media) {
+			filled = true
+
+			mid, ok := media.Attribute("mid")
+			if !ok {
+				return nil, fmt.Errorf("mid attribute is missing")
+			}
+
+			mediaFrag := &sdp.MediaDescription{
+				MediaName: media.MediaName,
+				Attributes: []sdp.Attribute{
+					{Key: "mid", Value: mid},
+				},
+			}
+
+			ufrag, _ := media.Attribute("ice-ufrag")
+			pwd, _ := media.Attribute("ice-pwd")
+			if ufrag != "" && pwd != "" {
+				mediaFrag.Attributes = append(mediaFrag.Attributes, sdp.Attribute{Key: "ice-ufrag", Value: ufrag})
+				mediaFrag.Attributes = append(mediaFrag.Attributes, sdp.Attribute{Key: "ice-pwd", Value: pwd})
+			}
+
+			for _, attr := range media.Attributes {
+				if attr.Key == "candidate" {
+					mediaFrag.Attributes = append(mediaFrag.Attributes, attr)
+				}
+			}
+			mediaFrag.Attributes = append(mediaFrag.Attributes, sdp.Attribute{Key: "end-of-candidates"})
+
+			frag.Medias = append(frag.Medias, mediaFrag)
+		}
+	}
+
+	if !filled {
+		return nil, fmt.Errorf("no credentials or candidates found in the answer")
+	}
+
+	return frag, nil
 }
 
 type sessionParent interface {
@@ -214,7 +398,7 @@ func (s *session) runPublish() (int, error) {
 		return http.StatusNotAcceptable, err
 	}
 
-	answer, err := pc.CreateFullAnswer(offer)
+	answer, err := pc.CreateFullAnswer(offer, false)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -352,7 +536,7 @@ func (s *session) runRead() (int, error) {
 
 	offer := whipOffer(s.req.offer)
 
-	answer, err := pc.CreateFullAnswer(offer)
+	answer, err := pc.CreateFullAnswer(offer, false)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -410,16 +594,57 @@ func (s *session) writeAnswer(answer *pwebrtc.SessionDescription) {
 }
 
 func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
+	remoteUfrag := parseOfferUfrag(s.req.offer)
+
 	for {
 		select {
 		case req := <-s.chAddCandidates:
-			for _, candidate := range req.candidates {
-				err := pc.AddRemoteCandidate(candidate)
+			// do not check for errors since credentials are optional
+			ufrag, pwd, _ := sdpFragmentToCredentials(req.fragment)
+
+			candidates, err := sdpFragmentToCandidates(req.fragment)
+			if err != nil {
+				req.res <- webRTCAddSessionCandidatesRes{err: err}
+				continue
+			}
+
+			// ICE restart: client sent new credentials
+			var answer *pwebrtc.SessionDescription
+			if ufrag != "" && ufrag != remoteUfrag {
+				sdp := replaceICECredentials(s.req.offer, ufrag, pwd)
+
+				answer, err = pc.CreateFullAnswer(whipOffer(sdp), true)
 				if err != nil {
 					req.res <- webRTCAddSessionCandidatesRes{err: err}
+					continue
 				}
 			}
-			req.res <- webRTCAddSessionCandidatesRes{}
+
+			var addErr error
+			for _, candidate := range candidates {
+				addErr = pc.AddRemoteCandidate(candidate)
+				if addErr != nil {
+					break
+				}
+			}
+			if addErr != nil {
+				req.res <- webRTCAddSessionCandidatesRes{err: addErr}
+				continue
+			}
+
+			if ufrag != "" && ufrag != remoteUfrag {
+				var frag *whip.SDPFragment
+				frag, err = fullAnswerToSDPFragment(answer.SDP)
+				if err != nil {
+					req.res <- webRTCAddSessionCandidatesRes{err: err}
+					continue
+				}
+
+				remoteUfrag = ufrag
+				req.res <- webRTCAddSessionCandidatesRes{answer: frag}
+			} else {
+				req.res <- webRTCAddSessionCandidatesRes{}
+			}
 
 		case <-s.ctx.Done():
 			return

@@ -357,10 +357,10 @@ func TestToStream(t *testing.T) {
 			require.NoError(t, err)
 			defer pc2.Close()
 
-			offer, err := pc1.CreatePartialOffer()
+			offer, err := pc1.CreatePartialOffer(false)
 			require.NoError(t, err)
 
-			answer, err := pc2.CreateFullAnswer(offer)
+			answer, err := pc2.CreateFullAnswer(offer, false)
 			require.NoError(t, err)
 
 			err = pc1.SetAnswer(answer)

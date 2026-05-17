@@ -103,7 +103,7 @@ func TestClientRead(t *testing.T) {
 
 						require.NotContains(t, offer.SDP, "a=candidate:")
 
-						answer, err2 := pc.CreateFullAnswer(offer)
+						answer, err2 := pc.CreateFullAnswer(offer, false)
 						require.NoError(t, err2)
 
 						w.Header().Set("Content-Type", "application/sdp")
@@ -273,7 +273,7 @@ func TestClientPublish(t *testing.T) {
 
 						require.NotContains(t, offer.SDP, "a=candidate:")
 
-						answer, err2 := pc.CreateFullAnswer(offer)
+						answer, err2 := pc.CreateFullAnswer(offer, false)
 						require.NoError(t, err2)
 
 						w.Header().Set("Content-Type", "application/sdp")
@@ -461,7 +461,7 @@ func TestClientBearerToken(t *testing.T) {
 				require.NoError(t, err2)
 				offer := whipOffer(body)
 
-				answer, err2 := pc.CreateFullAnswer(offer)
+				answer, err2 := pc.CreateFullAnswer(offer, false)
 				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")
@@ -537,7 +537,7 @@ func TestClientNoTrickleICE(t *testing.T) {
 
 				require.Contains(t, offer.SDP, "a=candidate:")
 
-				answer, err2 := pc.CreateFullAnswer(offer)
+				answer, err2 := pc.CreateFullAnswer(offer, false)
 				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")

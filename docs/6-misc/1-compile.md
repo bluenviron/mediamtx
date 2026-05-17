@@ -17,7 +17,7 @@
 
 ## Custom libcamera
 
-If you need to use a custom or external libcamera to interact with some Raspberry Pi Camera model that requires it, additional steps are required:
+If you need to use a custom or external libcamera to interact with some Raspberry Pi Camera models that require it, additional steps are required:
 
 1. Download [mediamtx-rpicamera source code](https://github.com/bluenviron/mediamtx-rpicamera) and compile it against the external libcamera. Instructions are in the repository.
 

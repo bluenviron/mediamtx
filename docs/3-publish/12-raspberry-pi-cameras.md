@@ -40,7 +40,11 @@ The setup procedure depends on whether you want to run the server outside or ins
 
 The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
 
-Be aware that cameras that require a custom `libcamera` (like some ArduCam products) are not compatible with precompiled binaries and Docker images of _MediaMTX_, since these come with a bundled `libcamera`. If you want to use a custom one, you need to [compile from source](../6-misc/1-compile.md#custom-libcamera).
+## Custom libcamera
+
+Some cameras, in particular ArduCam products, require a custom `libcamera`. These are not compatible with precompiled _MediaMTX_ binaries and Docker images, since they embed a standard `libcamera`.
+
+If you want to interact with these cameras, you need to [compile MediaMTX from source](../6-misc/1-compile.md#custom-libcamera).
 
 ## Adding audio
 

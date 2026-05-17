@@ -28,6 +28,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -149,15 +150,16 @@ type webRTCNewSessionReq struct {
 }
 
 type webRTCAddSessionCandidatesRes struct {
-	sx  *session
-	err error
+	sx     *session
+	answer *whip.SDPFragment
+	err    error
 }
 
 type webRTCAddSessionCandidatesReq struct {
-	pathName   string
-	secret     uuid.UUID
-	candidates []*pwebrtc.ICECandidateInit
-	res        chan webRTCAddSessionCandidatesRes
+	pathName string
+	secret   uuid.UUID
+	fragment *whip.SDPFragment
+	res      chan webRTCAddSessionCandidatesRes
 }
 
 type webRTCDeleteSessionRes struct {

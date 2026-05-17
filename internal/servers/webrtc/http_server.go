@@ -275,16 +275,17 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 		return
 	}
 
-	candidates, err := whip.ICEFragmentUnmarshal(byts)
+	var frag whip.SDPFragment
+	err = frag.Unmarshal(byts)
 	if err != nil {
 		s.writeErrorNoLog(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	res := s.parent.addSessionCandidates(webRTCAddSessionCandidatesReq{
-		pathName:   pathName,
-		secret:     secret,
-		candidates: candidates,
+		pathName: pathName,
+		secret:   secret,
+		fragment: &frag,
 	})
 	if res.err != nil {
 		if errors.Is(res.err, ErrSessionNotFound) {
@@ -292,6 +293,28 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 		} else {
 			s.writeErrorNoLog(ctx, http.StatusInternalServerError, res.err)
 		}
+		return
+	}
+
+	if res.answer != nil {
+		var enc []byte
+		enc, err = res.answer.Marshal()
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		var ufrag string
+		ufrag, _, err = sdpFragmentToCredentials(res.answer)
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		ctx.Header("Content-Type", "application/trickle-ice-sdpfrag")
+		ctx.Header("ETag", `"`+ufrag+`"`)
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(enc) //nolint:errcheck
 		return
 	}
 

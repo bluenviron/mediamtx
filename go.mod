@@ -10,9 +10,9 @@ require (
 	github.com/abema/go-mp4 v1.5.0
 	github.com/alecthomas/kong v1.15.0
 	github.com/asticode/go-astits v1.15.0
-	github.com/bluenviron/gohlslib/v2 v2.3.1
-	github.com/bluenviron/gortmplib v0.3.1
-	github.com/bluenviron/gortsplib/v5 v5.5.2
+	github.com/bluenviron/gohlslib/v2 v2.3.2
+	github.com/bluenviron/gortmplib v0.3.2
+	github.com/bluenviron/gortsplib/v5 v5.5.3
 	github.com/bluenviron/mediacommon/v2 v2.8.3
 	github.com/datarhei/gosrt v0.11.0
 	github.com/fsnotify/fsnotify v1.10.1
@@ -27,7 +27,7 @@ require (
 	github.com/gookit/color v1.6.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/matthewhartstonge/argon2 v1.5.2
+	github.com/matthewhartstonge/argon2 v1.5.3
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.2.5
 	github.com/pion/interceptor v0.1.45
