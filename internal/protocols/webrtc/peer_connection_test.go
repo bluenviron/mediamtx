@@ -18,6 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type fakeUDPMux struct{}
+
+func (f *fakeUDPMux) Close() error                                     { return nil }
+func (f *fakeUDPMux) GetConn(string, net.Addr) (net.PacketConn, error) { return nil, nil }
+func (f *fakeUDPMux) RemoveConnByUfrag(string)                         {}
+func (f *fakeUDPMux) GetListenAddresses() []net.Addr                   { return nil }
+
 type nilWriter struct{}
 
 func (nilWriter) Write(p []byte) (int, error) {
@@ -885,4 +892,27 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	pc2.OutgoingDataChannels[0].Write([]byte("test data"))
 
 	<-dataReceived
+}
+
+func TestRemoveUnwantedCandidatesStaleIP(t *testing.T) {
+	// Simulates a candidate whose IP is no longer present on any interface
+	// (e.g. after a WiFi network change). It should be dropped.
+	co := &PeerConnection{
+		ICEUDPMux: &fakeUDPMux{}, // non-nil triggers the liveIPs check
+		Log:       test.NilLogger,
+	}
+
+	staleIP := "10.99.99.99" // guaranteed not on any real interface
+	media := &sdp.MediaDescription{
+		Attributes: []sdp.Attribute{
+			{Key: "candidate", Value: "123 1 udp 2130706431 " + staleIP + " 8189 typ host generation 0"},
+			{Key: "candidate", Value: "456 1 udp 2130706431 127.0.0.1 8189 typ host generation 0"},
+		},
+	}
+
+	err := co.removeUnwantedCandidates(media)
+	require.NoError(t, err)
+
+	require.Len(t, media.Attributes, 1)
+	require.Contains(t, media.Attributes[0].Value, "127.0.0.1")
 }

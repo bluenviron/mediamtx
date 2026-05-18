@@ -469,8 +469,20 @@ func (co *PeerConnection) removeUnwantedCandidates(firstMedia *sdp.MediaDescript
 		}
 	}
 
-	var newAttributes []sdp.Attribute //nolint:prealloc
+	// When using the shared UDP mux with no explicit interface filter and no
+	// additional hosts, fetch current live IPs to detect stale candidates
+	// left over from a prior network configuration (e.g. after a WiFi change).
+	var liveIPs []string
+	if co.ICEUDPMux != nil && !co.IPsFromInterfaces && len(co.AdditionalHosts) == 0 {
+		var err error
+		liveIPs, err = interfaceIPs(nil)
+		if err != nil {
+			co.Log.Log(logger.Warn,
+				"failed to query live interface IPs, skipping stale candidate filter: %v", err)
+		}
+	}
 
+	var newAttributes []sdp.Attribute //nolint:prealloc
 	for _, attr := range firstMedia.Attributes {
 		if attr.Key == "candidate" {
 			parts := strings.Split(attr.Value, " ")
@@ -480,17 +492,27 @@ func (co *PeerConnection) removeUnwantedCandidates(firstMedia *sdp.MediaDescript
 				continue
 			}
 
-			// hide disallowed IPs
-			if parts[7] == "host" && !slices.Contains(allowedIPs, parts[4]) {
-				continue
+			if parts[7] == "host" {
+				if len(liveIPs) > 0 && parts[2] == "udp" {
+					// drop stale mux candidates whose IP no longer exists
+					// on any live interface (network-change fix)
+					if !slices.Contains(liveIPs, parts[4]) {
+						co.Log.Log(logger.Debug,
+							"dropping stale mux candidate %s: IP %s not found on current interfaces",
+							attr.Value, parts[4])
+						continue
+					}
+				} else {
+					// hide IPs not in the allowed interface list
+					if !slices.Contains(allowedIPs, parts[4]) {
+						continue
+					}
+				}
 			}
 		}
-
 		newAttributes = append(newAttributes, attr)
 	}
-
 	firstMedia.Attributes = newAttributes
-
 	return nil
 }
 
