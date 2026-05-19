@@ -1,14 +1,9 @@
-//go:build enable_upgrade
-
-package core
+// Package upgrade contains functions to upgrade the executable.
+package upgrade
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"runtime"
@@ -61,68 +56,10 @@ func latestRemoteVersion() (*semver.Version, error) {
 	return versions[0], nil
 }
 
-func extractExecutable(r io.Reader) ([]byte, error) {
-	gzReader, err := gzip.NewReader(r)
-	if err != nil {
-		return nil, err
-	}
-	defer gzReader.Close()
-
-	tarReader := tar.NewReader(gzReader)
-
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			return nil, fmt.Errorf("executable not found")
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		if header.Name == executable {
-			buf, err := io.ReadAll(tarReader)
-			if err != nil {
-				return nil, err
-			}
-			return buf, nil
-		}
-	}
-}
-
-func extractExecutableWin(r io.Reader) ([]byte, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range zipReader.File {
-		if file.Name == executable+".exe" {
-			rc, err := file.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-
-			buf, err := io.ReadAll(rc)
-			if err != nil {
-				return nil, err
-			}
-
-			return buf, nil
-		}
-	}
-
-	return nil, fmt.Errorf("executable not found")
-}
-
-func upgrade() error {
-	if !currentRegexp.MatchString(string(version)) {
-		return fmt.Errorf("current version (%v) is not official and cannot be upgraded", string(version))
+// Upgrade downloads the latest executable and replaces the current one with it.
+func Upgrade(version, arch string) error {
+	if !currentRegexp.MatchString(version) {
+		return fmt.Errorf("current version (%v) is not official and cannot be upgraded", version)
 	}
 
 	fmt.Println("getting latest version...")
@@ -132,7 +69,7 @@ func upgrade() error {
 		return err
 	}
 
-	current, _ := semver.NewVersion(string(version))
+	current, _ := semver.NewVersion(version)
 
 	if current.GreaterThanEqual(latest) {
 		fmt.Printf("current version (%v) is up to date\n", "v"+current.String())
@@ -141,14 +78,7 @@ func upgrade() error {
 
 	fmt.Printf("downloading version %v...\n", "v"+latest.String())
 
-	var extension string
-	if runtime.GOOS == "windows" {
-		extension = "zip"
-	} else {
-		extension = "tar.gz"
-	}
-
-	ur := fmt.Sprintf(downloadURL, "v"+latest.String(), "v"+latest.String(), runtime.GOOS, getArch(), extension)
+	ur := fmt.Sprintf(downloadURL, "v"+latest.String(), "v"+latest.String(), runtime.GOOS, arch, extension)
 
 	res, err := http.Get(ur)
 	if err != nil {
@@ -160,11 +90,9 @@ func upgrade() error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	var exe []byte
-	if runtime.GOOS == "windows" {
-		exe, err = extractExecutableWin(res.Body)
-	} else {
-		exe, err = extractExecutable(res.Body)
+	exe, err := extractExecutable(res.Body)
+	if err != nil {
+		return err
 	}
 
 	err = selfupdate.Apply(bytes.NewReader(exe), selfupdate.Options{})

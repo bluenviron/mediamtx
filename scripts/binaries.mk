@@ -14,33 +14,33 @@ RUN cp mediamtx.yml LICENSE tmp/
 RUN go generate ./...
 
 FROM build-base AS build-windows-amd64
-RUN GOOS=windows GOARCH=amd64 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME).exe"
+RUN GOOS=windows GOARCH=amd64 go build -o "tmp/$(BINARY_NAME).exe"
 RUN go install github.com/tc-hib/go-winres@v0.3.3
 RUN go-winres patch --in scripts/winres.json --product-version "$$(git describe --tags --abbrev=0 | sed 's/^v//')" --file-version "$$(git describe --tags --abbrev=0 | sed 's/^v//')" tmp/mediamtx.exe
 RUN cd tmp && zip -q "../binaries/$(BINARY_NAME)_$$(cat ../internal/core/VERSION)_windows_amd64.zip" "$(BINARY_NAME).exe" mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-amd64
-RUN GOOS=linux GOARCH=amd64 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=linux GOARCH=amd64 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_linux_amd64.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM build-base AS build-darwin-amd64
-RUN GOOS=darwin GOARCH=amd64 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=darwin GOARCH=amd64 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_darwin_amd64.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM build-base AS build-darwin-arm64
-RUN GOOS=darwin GOARCH=arm64 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=darwin GOARCH=arm64 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_darwin_arm64.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-armv6
-RUN GOOS=linux GOARCH=arm GOARM=6 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=linux GOARCH=arm GOARM=6 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_linux_armv6.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-armv7
-RUN GOOS=linux GOARCH=arm GOARM=7 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=linux GOARCH=arm GOARM=7 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_linux_armv7.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-arm64
-RUN GOOS=linux GOARCH=arm64 go build -tags enable_upgrade -o "tmp/$(BINARY_NAME)"
+RUN GOOS=linux GOARCH=arm64 go build -o "tmp/$(BINARY_NAME)"
 RUN tar -C tmp -czf "binaries/$(BINARY_NAME)_$$(cat internal/core/VERSION)_linux_arm64.tar.gz" --owner=0 --group=0 "$(BINARY_NAME)" mediamtx.yml LICENSE
 
 FROM $(BASE_IMAGE)

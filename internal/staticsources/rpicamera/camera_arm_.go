@@ -30,7 +30,6 @@ var (
 	dumpPath  = ""
 )
 
-
 func multiplyAndDivide(v, m, d int64) int64 {
 	secs := v / d
 	dec := v % d
