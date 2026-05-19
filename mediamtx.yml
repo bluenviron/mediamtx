@@ -146,11 +146,11 @@ authJWTAudience:
 ###############################################
 # Global settings -> Control API
 
-# Allow clients to control the server through the Control API.
+# Enable the control API server, which allows to control the server.
 api: false
-# Address of the Control API listener.
+# Address of the TCP/HTTP listener.
 apiAddress: :9997
-# Enable HTTPS on the Control API server.
+# Enable HTTPS.
 apiEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -168,13 +168,13 @@ apiAllowOrigins: ["*"]
 apiTrustedProxies: []
 
 ###############################################
-# Global settings -> Metrics
+# Global settings -> Metrics server
 
-# Allow clients to extract Prometheus-compatible metrics.
+# Enable the metrics server, which allows to extract Prometheus-compatible metrics.
 metrics: false
-# Address of the metrics HTTP listener.
+# Address of the TCP/HTTP listener.
 metricsAddress: :9998
-# Enable HTTPS on the Metrics server.
+# Enable HTTPS.
 metricsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -192,13 +192,13 @@ metricsAllowOrigins: ["*"]
 metricsTrustedProxies: []
 
 ###############################################
-# Global settings -> PPROF
+# Global settings -> PPROF server
 
-# Allow clients to extract pprof-compatible performance reports.
+# Enable the PPROF server, which allows to extract performance reports.
 pprof: false
-# Address of the pprof listener.
+# Address of the TCP/HTTP listener.
 pprofAddress: :9999
-# Enable HTTPS on the pprof server.
+# Enable HTTPS.
 pprofEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -218,11 +218,11 @@ pprofTrustedProxies: []
 ###############################################
 # Global settings -> Playback server
 
-# Allow clients to download recordings from the playback server.
+# Enable the playback server, which allows to download recordings from the server.
 playback: false
-# Address of the playback server listener.
+# Address of the TCP/HTTP listener.
 playbackAddress: :9996
-# Enable HTTPS on the playback server.
+# Enable HTTPS.
 playbackEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -242,7 +242,7 @@ playbackTrustedProxies: []
 ###############################################
 # Global settings -> RTSP server
 
-# Allow clients to publish and read streams with the RTSP protocol.
+# Enable the RTSP server, which allows to publish and read streams with the RTSP protocol.
 rtsp: true
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
@@ -285,14 +285,14 @@ rtspAuthMethods: [basic]
 ###############################################
 # Global settings -> RTMP server
 
-# Allow clients to publish and read streams with the RTMP protocol.
+# Enable the RTMP server, which allows to publish and read streams with the RTMP protocol.
 rtmp: true
 # Use the secure protocol variant (RTMPS).
 # Available values are "no", "strict", "optional".
 rtmpEncryption: "no"
-# Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
+# Address of the TCP/RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
-# Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
+# Address of the TCP/RTMPS listener. This is needed only when encryption is "strict" or "optional".
 rtmpsAddress: :1936
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
@@ -305,11 +305,11 @@ rtmpServerCert: server.crt
 ###############################################
 # Global settings -> HLS server
 
-# Allow clients to read streams with the HLS protocol.
+# Enable the HLS server, which allows to read streams with the HLS protocol.
 hls: true
-# Address of the HLS listener.
+# Address of the TCP/HTTP listener.
 hlsAddress: :8888
-# Enable HTTPS on the HLS server.
+# Enable HTTPS.
 # This is required for Low-Latency HLS to function correctly on Apple devices.
 hlsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
@@ -368,13 +368,13 @@ hlsCDNSecret: ""
 ###############################################
 # Global settings -> WebRTC server
 
-# Allow clients to publish and read streams with the WebRTC protocol.
+# Enable the WebRTC server, which allows to publish and read streams with the WebRTC protocol.
 webrtc: true
-# Address of the WebRTC HTTP listener.
+# Address of the WebRTC TCP/HTTP listener.
 webrtcAddress: :8889
-# Enable HTTPS on the WebRTC server.
-# This covers only the WebRTC handshake and does not influence the encryption of WebRTC streams
-# which are always encrypted, with a key that is exchanged during the WebRTC handshake.
+# Enable HTTPS.
+# This covers only the WebRTC handshake, while WebRTC streams
+# are always encrypted with a key that is exchanged during the WebRTC handshake.
 webrtcEncryption: false
 # Path to the server key.
 # This can be generated with:
@@ -390,10 +390,10 @@ webrtcAllowOrigins: ["*"]
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
-# Address of a local UDP listener that will receive connections.
+# Address of a UDP/ICE listener that will receive connections.
 # Use a blank string to disable.
 webrtcLocalUDPAddress: :8189
-# Address of a local TCP listener that will receive connections.
+# Address of a TCP/ICE listener that will receive connections.
 # This is disabled by default since TCP is less efficient than UDP and
 # introduces a progressive delay when network is congested.
 webrtcLocalTCPAddress: ""
@@ -425,10 +425,34 @@ webrtcTrackGatherTimeout: 2s
 ###############################################
 # Global settings -> SRT server
 
-# Allow clients to publish and read streams with the SRT protocol.
+# Enable the SRT server, which allows to publish and read streams with the SRT protocol.
 srt: true
-# Address of the SRT listener.
+# Address of the UDP/SRT listener.
 srtAddress: :8890
+
+###############################################
+# MoQ server
+
+# Enable the MoQ (Media over QUIC) server, which allows to publish and read streams with the MoQ protocol.
+moq: true
+# Address of the TCP/HTTPS2 listener.
+# This hosts the web client.
+moqHTTPS2Address: :8892
+# Address of the UDP/HTTPS3 listener.
+# This hosts the WebTransport endpoint.
+moqHTTPS3Address: :8892
+# Path to the server key.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+# If set to "auto.key", a key is generated automatically and saved in the current folder.
+moqServerKey: auto.key
+# Path to the server certificate.
+moqServerCert: auto.crt
+# Allowed origins for CORS.
+moqAllowOrigins: ["*"]
+# Proxies which are trusted to provide the client's real IP via the X-Forwarded-For header.
+moqTrustedProxies: []
 
 ###############################################
 # Default path settings

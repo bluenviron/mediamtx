@@ -12,9 +12,9 @@ import (
 type PathAccessRequest struct {
 	Name      string
 	Query     string
+	UserAgent string
 	Publish   bool
 	SkipAuth  bool
-	UserAgent string
 
 	// only if skipAuth = false
 	Proto            auth.Protocol

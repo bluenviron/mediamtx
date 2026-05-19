@@ -192,7 +192,7 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.Log(logger.Info, "listener opened on %s", printAddresses(s.srv))
+	s.Log(logger.Info, "started with listeners on %s", printAddresses(s.srv))
 
 	s.wg.Add(1)
 	go s.run()
@@ -221,7 +221,7 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 
 // Close closes the server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 
 	if !interfaceIsEmpty(s.Metrics) {
 		if s.Encryption {

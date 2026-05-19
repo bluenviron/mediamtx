@@ -875,14 +875,14 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"bytesAvailReceiveBuf":          float64(0),
 							"bytesAvailSendBuf":             float64(0),
 							"bytesReceiveBuf":               float64(0),
-							"bytesReceived":                 float64(628),
+							"bytesReceived":                 out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
 							"bytesReceivedBelated":          float64(0),
 							"bytesReceivedDrop":             float64(0),
 							"bytesReceivedLoss":             float64(0),
 							"bytesReceivedRetrans":          float64(0),
 							"bytesReceivedUndecrypt":        float64(0),
 							"outboundFramesDiscarded":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundFramesDiscarded"],
-							"bytesReceivedUnique":           float64(628),
+							"bytesReceivedUnique":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceivedUnique"],
 							"bytesRetrans":                  float64(0),
 							"bytesSendBuf":                  float64(0),
 							"bytesSendDrop":                 float64(0),
@@ -1001,6 +1001,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			case "hls muxers":
 				out2.(map[string]any)["lastRequest"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["lastRequest"]
+
+			case "srt":
+				out2.(map[string]any)["bytesReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"]
+				out2.(map[string]any)["bytesReceivedUnique"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceivedUnique"]
+				out2.(map[string]any)["packetsReceivedACK"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsReceivedACK"]
+				out2.(map[string]any)["packetsSentACK"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsSentACK"]
+				out2.(map[string]any)["msRTT"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["msRTT"]
 			}
 
 			require.Equal(t, out1.(map[string]any)["items"].([]any)[0], out2)

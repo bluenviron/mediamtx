@@ -164,7 +164,7 @@ func (s *Server) Initialize() error {
 	s.chAPIConnsGet = make(chan serverAPIConnsGetReq)
 	s.chAPIConnsKick = make(chan serverAPIConnsKickReq)
 
-	str := "listener opened on " + s.Address
+	str := "started with listener on " + s.Address
 	if s.Encryption {
 		str += " (TCP/RTMPS)"
 	} else {
@@ -206,7 +206,7 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 
 // Close closes the server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 
 	if !interfaceIsEmpty((s.Metrics)) {
 		if s.Encryption {
