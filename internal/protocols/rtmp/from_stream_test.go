@@ -2,6 +2,7 @@ package rtmp
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
@@ -461,9 +462,17 @@ func TestFromStream(t *testing.T) {
 						RTPMa:      "FLAC/90000",
 						ClockRat:   90000,
 						FMT: map[string]string{
-							"samplerate": "44100",
-							"channels":   "2",
-							"bitdepth":   "16",
+							"streaminfo": func() string {
+								si := &flac.StreamInfo{
+									SampleRate:   44100,
+									ChannelCount: 2,
+									BitDepth:     16,
+								}
+								enc, err := si.Marshal()
+								require.NoError(t, err)
+
+								return hex.EncodeToString(enc)
+							}(),
 						},
 					}},
 				},
