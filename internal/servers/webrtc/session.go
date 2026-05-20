@@ -227,9 +227,10 @@ type sessionParent interface {
 type session struct {
 	udpReadBufferSize     uint
 	parentCtx             context.Context
-	ipsFromInterfaces     bool
-	ipsFromInterfacesList []string
-	additionalHosts       []string
+	ipsFromInterfaces             bool
+	ipsFromInterfacesList         []string
+	ipsFromInterfacesExcludeList  []string
+	additionalHosts               []string
 	iceUDPMux             ice.UDPMux
 	iceTCPMux             *webrtc.TCPMuxWrapper
 	stunGatherTimeout     conf.Duration
@@ -349,16 +350,17 @@ func (s *session) runPublish() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		UDPReadBufferSize:     s.udpReadBufferSize,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
-		ICEServers:            iceServers,
-		IPsFromInterfaces:     s.ipsFromInterfaces,
-		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
-		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
-		Publish:               false,
-		Log:                   s,
+		UDPReadBufferSize:            s.udpReadBufferSize,
+		ICEUDPMux:                    s.iceUDPMux,
+		ICETCPMux:                    s.iceTCPMux,
+		ICEServers:                   iceServers,
+		IPsFromInterfaces:            s.ipsFromInterfaces,
+		IPsFromInterfacesList:        s.ipsFromInterfacesList,
+		IPsFromInterfacesExcludeList: s.ipsFromInterfacesExcludeList,
+		AdditionalHosts:              s.additionalHosts,
+		STUNGatherTimeout:            time.Duration(s.stunGatherTimeout),
+		Publish:                      false,
+		Log:                          s,
 	}
 	err = pc.Start()
 	if err != nil {
@@ -495,16 +497,17 @@ func (s *session) runRead() (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		UDPReadBufferSize:     s.udpReadBufferSize,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
-		ICEServers:            iceServers,
-		IPsFromInterfaces:     s.ipsFromInterfaces,
-		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
-		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
-		Publish:               true,
-		Log:                   s,
+		UDPReadBufferSize:            s.udpReadBufferSize,
+		ICEUDPMux:                    s.iceUDPMux,
+		ICETCPMux:                    s.iceTCPMux,
+		ICEServers:                   iceServers,
+		IPsFromInterfaces:            s.ipsFromInterfaces,
+		IPsFromInterfacesList:        s.ipsFromInterfacesList,
+		IPsFromInterfacesExcludeList: s.ipsFromInterfacesExcludeList,
+		AdditionalHosts:              s.additionalHosts,
+		STUNGatherTimeout:            time.Duration(s.stunGatherTimeout),
+		Publish:                      true,
+		Log:                          s,
 	}
 
 	r := &stream.Reader{Parent: s}

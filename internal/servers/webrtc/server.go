@@ -201,8 +201,9 @@ type Server struct {
 	LocalUDPAddress       string
 	LocalTCPAddress       string
 	IPsFromInterfaces     bool
-	IPsFromInterfacesList []string
-	AdditionalHosts       []string
+	IPsFromInterfacesList        []string
+	IPsFromInterfacesExcludeList []string
+	AdditionalHosts              []string
 	ICEServers            []conf.WebRTCICEServer
 	STUNGatherTimeout     conf.Duration
 	HandshakeTimeout      conf.Duration
@@ -362,8 +363,9 @@ outer:
 				udpReadBufferSize:     s.UDPReadBufferSize,
 				parentCtx:             s.ctx,
 				ipsFromInterfaces:     s.IPsFromInterfaces,
-				ipsFromInterfacesList: s.IPsFromInterfacesList,
-				additionalHosts:       s.AdditionalHosts,
+				ipsFromInterfacesList:        s.IPsFromInterfacesList,
+				ipsFromInterfacesExcludeList: s.IPsFromInterfacesExcludeList,
+				additionalHosts:              s.AdditionalHosts,
 				iceUDPMux:             s.iceUDPMux,
 				iceTCPMux:             s.iceTCPMux,
 				stunGatherTimeout:     s.STUNGatherTimeout,

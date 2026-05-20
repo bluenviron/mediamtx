@@ -414,6 +414,9 @@ webrtcIPsFromInterfaces: true
 # Interfaces whose IPs will be sent to clients.
 # An empty value means to use all available interfaces.
 webrtcIPsFromInterfacesList: []
+# Interfaces whose IPs will NOT be sent to clients.
+# This is useful to exclude specific interfaces (e.g. VPN tunnels) while using all others.
+webrtcIPsFromInterfacesExcludeList: []
 # Additional hosts or IPs to send to clients.
 webrtcAdditionalHosts: []
 # ICE servers. Needed only when local listeners can't be reached by clients.
