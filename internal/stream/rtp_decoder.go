@@ -359,8 +359,7 @@ func newRTPDecoder(forma format.Format) (rtpDecoder, error) {
 			return nil, err
 		}
 		return (*rtpDecoderKLV)(wrapped), nil
-
-	default:
-		return nil, nil
 	}
+
+	return nil, nil
 }

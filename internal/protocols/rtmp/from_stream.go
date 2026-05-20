@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -13,6 +15,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/ac3"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/flac"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg1audio"
@@ -26,7 +29,7 @@ import (
 
 var errNoSupportedCodecsFrom = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
-		"AV1, VP9, H265, H264, Opus, MPEG-4 Audio, MPEG-1/2 Audio, AC-3, G711, LPCM")
+		"AV1, VP9, H265, H264, Opus, FLAC, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711, LPCM")
 
 func multiplyAndDivide2(v, m, d time.Duration) time.Duration {
 	secs := v / d
@@ -212,7 +215,11 @@ func FromStream(
 				if slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCOpus))) {
 					track := &gortmplib.Track{
 						Codec: &codecs.Opus{
-							ChannelCount: forma.ChannelCount,
+							IDHeader: &opus.IDHeader{
+								Version:      0x1,
+								ChannelCount: uint8(forma.ChannelCount),
+								PreSkip:      3840,
+							},
 						},
 					}
 					tracks = append(tracks, track)
@@ -450,6 +457,41 @@ func FromStream(
 								track,
 								timestampToDuration(u.PTS, forma.ClockRate()),
 								u.Payload.(unit.PayloadLPCM),
+							)
+						})
+				}
+
+			case *format.Generic:
+				if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") &&
+					slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCFLAC))) {
+					sampleRate, _ := strconv.Atoi(forma.FMTP()["samplerate"])
+					channelCount, _ := strconv.Atoi(forma.FMTP()["channels"])
+					bitDepth, _ := strconv.Atoi(forma.FMTP()["bitdepth"])
+
+					track := &gortmplib.Track{
+						Codec: &codecs.FLAC{
+							StreamInfo: &flac.StreamInfo{
+								SampleRate:   uint32(sampleRate),
+								ChannelCount: uint8(channelCount),
+								BitDepth:     uint8(bitDepth),
+							},
+						},
+					}
+					tracks = append(tracks, track)
+
+					r.OnData(
+						media,
+						forma,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
+							}
+
+							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							return (*w).WriteFLAC(
+								track,
+								timestampToDuration(u.PTS, forma.ClockRate()),
+								u.Payload.(unit.PayloadFLAC),
 							)
 						})
 				}

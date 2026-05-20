@@ -1,6 +1,6 @@
 # GStreamer
 
-GStreamer can read a stream from the server in several ways. The recommended one consists in reading with RTSP.
+GStreamer can read a stream from the server by using the [RTSP](03-rtsp.md), [RTMP](04-rtmp.md), [HLS](05-hls.md), [SRT](01-srt.md) and [WebRTC](02-webrtc.md) protocols. The recommended one is RTSP.
 
 ## GStreamer and RTSP
 

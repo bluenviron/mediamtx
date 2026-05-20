@@ -18,4 +18,4 @@ If you need to use the standard stream ID syntax instead of the custom one in us
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
-Some clients that can publish with SRT are [FFmpeg](14-ffmpeg.md), [GStreamer](15-gstreamer.md), [OBS Studio](16-obs-studio.md).
+Some clients that can publish with SRT are [FFmpeg](15-ffmpeg.md), [GStreamer](16-gstreamer.md), [OBS Studio](17-obs-studio.md).
