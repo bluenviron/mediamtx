@@ -838,30 +838,31 @@ func (p *Core) createResources(initial bool) error {
 	if currentConf.WebRTC &&
 		p.webRTCServer == nil {
 		i := &webrtc.Server{
-			Address:               currentConf.WebRTCAddress,
-			DumpPackets:           currentConf.DumpPackets,
-			Encryption:            currentConf.WebRTCEncryption,
-			ServerKey:             currentConf.WebRTCServerKey,
-			ServerCert:            currentConf.WebRTCServerCert,
-			AllowOrigins:          currentConf.WebRTCAllowOrigins,
-			TrustedProxies:        currentConf.WebRTCTrustedProxies,
-			ReadTimeout:           currentConf.ReadTimeout,
-			WriteTimeout:          currentConf.WriteTimeout,
-			UDPReadBufferSize:     currentConf.UDPReadBufferSize,
-			LocalUDPAddress:       currentConf.WebRTCLocalUDPAddress,
-			LocalTCPAddress:       currentConf.WebRTCLocalTCPAddress,
-			SupportsIPv6:          p.supportsIPv6,
-			IPsFromInterfaces:     currentConf.WebRTCIPsFromInterfaces,
-			IPsFromInterfacesList: currentConf.WebRTCIPsFromInterfacesList,
-			AdditionalHosts:       currentConf.WebRTCAdditionalHosts,
-			ICEServers:            currentConf.WebRTCICEServers2,
-			STUNGatherTimeout:     currentConf.WebRTCSTUNGatherTimeout,
-			HandshakeTimeout:      currentConf.WebRTCHandshakeTimeout,
-			TrackGatherTimeout:    currentConf.WebRTCTrackGatherTimeout,
-			ExternalCmdPool:       p.externalCmdPool,
-			Metrics:               p.metrics,
-			PathManager:           p.pathManager,
-			Parent:                p,
+			Address:                      currentConf.WebRTCAddress,
+			DumpPackets:                  currentConf.DumpPackets,
+			Encryption:                   currentConf.WebRTCEncryption,
+			ServerKey:                    currentConf.WebRTCServerKey,
+			ServerCert:                   currentConf.WebRTCServerCert,
+			AllowOrigins:                 currentConf.WebRTCAllowOrigins,
+			TrustedProxies:               currentConf.WebRTCTrustedProxies,
+			ReadTimeout:                  currentConf.ReadTimeout,
+			WriteTimeout:                 currentConf.WriteTimeout,
+			UDPReadBufferSize:            currentConf.UDPReadBufferSize,
+			LocalUDPAddress:              currentConf.WebRTCLocalUDPAddress,
+			LocalTCPAddress:              currentConf.WebRTCLocalTCPAddress,
+			SupportsIPv6:                 p.supportsIPv6,
+			IPsFromInterfaces:            currentConf.WebRTCIPsFromInterfaces,
+			IPsFromInterfacesList:        currentConf.WebRTCIPsFromInterfacesList,
+			IPsFromInterfacesExcludeList: currentConf.WebRTCIPsFromInterfacesExcludeList,
+			AdditionalHosts:              currentConf.WebRTCAdditionalHosts,
+			ICEServers:                   currentConf.WebRTCICEServers2,
+			STUNGatherTimeout:            currentConf.WebRTCSTUNGatherTimeout,
+			HandshakeTimeout:             currentConf.WebRTCHandshakeTimeout,
+			TrackGatherTimeout:           currentConf.WebRTCTrackGatherTimeout,
+			ExternalCmdPool:              p.externalCmdPool,
+			Metrics:                      p.metrics,
+			PathManager:                  p.pathManager,
+			Parent:                       p,
 		}
 		err = i.Initialize()
 		if err != nil {
@@ -1179,6 +1180,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WebRTCLocalUDPAddress != currentConf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != currentConf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != currentConf.WebRTCIPsFromInterfaces ||
+		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesExcludeList, currentConf.WebRTCIPsFromInterfacesExcludeList) ||
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, currentConf.WebRTCIPsFromInterfacesList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, currentConf.WebRTCAdditionalHosts) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, currentConf.WebRTCICEServers2) ||
