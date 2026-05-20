@@ -679,6 +679,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsSent":                float64(0),
 							"rtcpPacketsInError":             float64(0),
 							"conns":                          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
+							"userAgent":                      "gortsplib",
 						},
 					},
 				}, out1)
@@ -740,6 +741,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsSent":                float64(0),
 							"rtcpPacketsInError":             float64(0),
 							"conns":                          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
+							"userAgent":                      "gortsplib",
 						},
 					},
 				}, out1)
@@ -762,6 +764,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":                    "",
 							"remoteAddr":              out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":                   "publish",
+							"userAgent":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["userAgent"],
 						},
 					},
 				}, out1)
@@ -784,6 +787,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":                    "",
 							"remoteAddr":              out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":                   "publish",
+							"userAgent":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["userAgent"],
 						},
 					},
 				}, out1)
@@ -802,6 +806,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":          "",
 							"isCDN":         false,
 							"outboundBytes": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
+							"userAgent":     out1.(map[string]any)["items"].([]any)[0].(map[string]any)["userAgent"],
 						},
 					},
 				}, out1)
@@ -855,6 +860,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtpPacketsLost":            float64(0),
 							"rtpPacketsReceived":        float64(0),
 							"rtpPacketsSent":            float64(1),
+							"userAgent":                 out1.(map[string]any)["items"].([]any)[0].(map[string]any)["userAgent"],
 						},
 					},
 				}, out1)
