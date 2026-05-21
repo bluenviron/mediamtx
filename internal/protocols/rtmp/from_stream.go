@@ -2,10 +2,10 @@
 package rtmp
 
 import (
+	"encoding/hex"
 	"errors"
 	"net"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -464,17 +464,20 @@ func FromStream(
 			case *format.Generic:
 				if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") &&
 					slices.Contains(conn.FourCcList, any(fourCCToString(message.FourCCFLAC))) {
-					sampleRate, _ := strconv.Atoi(forma.FMTP()["samplerate"])
-					channelCount, _ := strconv.Atoi(forma.FMTP()["channels"])
-					bitDepth, _ := strconv.Atoi(forma.FMTP()["bitdepth"])
+					enc, err := hex.DecodeString(forma.FMT["streaminfo"])
+					if err != nil {
+						return err
+					}
+
+					var streamInfo flac.StreamInfo
+					err = streamInfo.Unmarshal(enc)
+					if err != nil {
+						return err
+					}
 
 					track := &gortmplib.Track{
 						Codec: &codecs.FLAC{
-							StreamInfo: &flac.StreamInfo{
-								SampleRate:   uint32(sampleRate),
-								ChannelCount: uint8(channelCount),
-								BitDepth:     uint8(bitDepth),
-							},
+							StreamInfo: &streamInfo,
 						},
 					}
 					tracks = append(tracks, track)

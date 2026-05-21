@@ -1,6 +1,8 @@
 package hls
 
 import (
+	"encoding/hex"
+	"strconv"
 	"sync"
 	"time"
 
@@ -175,6 +177,33 @@ func ToStream(
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadOpus(packets),
+				})
+			})
+
+		case *codecs.FLAC:
+			enc, err := tcodec.StreamInfo.Marshal()
+			if err != nil {
+				return nil, err
+			}
+
+			sampleRate := int(tcodec.StreamInfo.SampleRate)
+			medi = &description.Media{
+				Type: description.MediaTypeApplication,
+				Formats: []format.Format{&format.Generic{
+					PayloadTyp: 96,
+					RTPMa:      "flac/" + strconv.Itoa(sampleRate),
+					ClockRat:   sampleRate,
+					FMT: map[string]string{
+						"streaminfo": hex.EncodeToString(enc),
+					},
+				}},
+			}
+
+			c.OnDataFLAC(ctrack, func(pts int64, frame []byte) {
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+					NTP:     handleNTP(pts),
+					PTS:     multiplyAndDivide(pts, int64(sampleRate), int64(ctrack.ClockRate)),
+					Payload: unit.PayloadFLAC(frame),
 				})
 			})
 

@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"encoding/hex"
 	"errors"
 	"strconv"
 	"time"
@@ -138,22 +139,18 @@ func ToStream(
 			})
 
 		case *codecs.FLAC:
-			sampleRate := 0
-			channelCount := 0
-			bitDepth := 0
-			if codec.StreamInfo != nil {
-				sampleRate = int(codec.StreamInfo.SampleRate)
-				channelCount = int(codec.StreamInfo.ChannelCount)
-				bitDepth = int(codec.StreamInfo.BitDepth)
+			enc, err := codec.StreamInfo.Marshal()
+			if err != nil {
+				return nil, err
 			}
+
+			sampleRate := int(codec.StreamInfo.SampleRate)
 			forma := &format.Generic{
 				PayloadTyp: 96,
-				RTPMa:      "flac/90000",
-				ClockRat:   90000,
+				RTPMa:      "flac/" + strconv.Itoa(sampleRate),
+				ClockRat:   sampleRate,
 				FMT: map[string]string{
-					"samplerate": strconv.Itoa(sampleRate),
-					"channels":   strconv.Itoa(channelCount),
-					"bitdepth":   strconv.Itoa(bitDepth),
+					"streaminfo": hex.EncodeToString(enc),
 				},
 			}
 			medi := &description.Media{
@@ -164,7 +161,7 @@ func ToStream(
 
 			r.OnDataFLAC(track, func(pts time.Duration, frame []byte) {
 				(*subStream).WriteUnit(medi, forma, &unit.Unit{
-					PTS:     durationToTimestamp(pts, forma.ClockRate()),
+					PTS:     durationToTimestamp(pts, sampleRate),
 					Payload: unit.PayloadFLAC(frame),
 				})
 			})
