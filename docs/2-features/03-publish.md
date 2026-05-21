@@ -21,10 +21,10 @@ We provide instructions for publishing with the following devices:
 
 We provide instructions for publishing with the following software:
 
-- [FFmpeg](../3-publish/14-ffmpeg.md)
-- [GStreamer](../3-publish/15-gstreamer.md)
-- [OBS Studio](../3-publish/16-obs-studio.md)
-- [Python and OpenCV](../3-publish/17-python-opencv.md)
-- [Golang](../3-publish/18-golang.md)
-- [Unity](../3-publish/19-unity.md)
-- [Web browsers](../3-publish/20-web-browsers.md)
+- [Web browsers](../3-publish/14-web-browsers.md)
+- [FFmpeg](../3-publish/15-ffmpeg.md)
+- [GStreamer](../3-publish/16-gstreamer.md)
+- [OBS Studio](../3-publish/17-obs-studio.md)
+- [Python and OpenCV](../3-publish/18-python-opencv.md)
+- [Golang](../3-publish/19-golang.md)
+- [Unity](../3-publish/20-unity.md)

@@ -2,6 +2,7 @@ package rtmp
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -15,7 +16,7 @@ import (
 
 var errNoSupportedCodecsTo = errors.New(
 	"the stream doesn't contain any supported codec, which are currently " +
-		"AV1, VP9, H265, H264, MPEG-4 Audio, MPEG-1/2 Audio, G711, LPCM")
+		"AV1, VP9, H265, H264, Opus, FLAC, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711, LPCM")
 
 func multiplyAndDivide(v, m, d int64) int64 {
 	secs := v / d
@@ -115,9 +116,13 @@ func ToStream(
 			})
 
 		case *codecs.Opus:
+			channelCount := 2
+			if codec.IDHeader != nil {
+				channelCount = int(codec.IDHeader.ChannelCount)
+			}
 			forma := &format.Opus{
 				PayloadTyp:   96,
-				ChannelCount: codec.ChannelCount,
+				ChannelCount: channelCount,
 			}
 			medi := &description.Media{
 				Type:    description.MediaTypeAudio,
@@ -129,6 +134,38 @@ func ToStream(
 				(*subStream).WriteUnit(medi, forma, &unit.Unit{
 					PTS:     durationToTimestamp(pts, forma.ClockRate()),
 					Payload: unit.PayloadOpus{packet},
+				})
+			})
+
+		case *codecs.FLAC:
+			sampleRate := 0
+			channelCount := 0
+			bitDepth := 0
+			if codec.StreamInfo != nil {
+				sampleRate = int(codec.StreamInfo.SampleRate)
+				channelCount = int(codec.StreamInfo.ChannelCount)
+				bitDepth = int(codec.StreamInfo.BitDepth)
+			}
+			forma := &format.Generic{
+				PayloadTyp: 96,
+				RTPMa:      "flac/90000",
+				ClockRat:   90000,
+				FMT: map[string]string{
+					"samplerate": strconv.Itoa(sampleRate),
+					"channels":   strconv.Itoa(channelCount),
+					"bitdepth":   strconv.Itoa(bitDepth),
+				},
+			}
+			medi := &description.Media{
+				Type:    description.MediaTypeApplication,
+				Formats: []format.Format{forma},
+			}
+			medias = append(medias, medi)
+
+			r.OnDataFLAC(track, func(pts time.Duration, frame []byte) {
+				(*subStream).WriteUnit(medi, forma, &unit.Unit{
+					PTS:     durationToTimestamp(pts, forma.ClockRate()),
+					Payload: unit.PayloadFLAC(frame),
 				})
 			})
 
@@ -235,9 +272,6 @@ func ToStream(
 					Payload: unit.PayloadLPCM(samples),
 				})
 			})
-
-		default:
-			panic("should not happen")
 		}
 	}
 

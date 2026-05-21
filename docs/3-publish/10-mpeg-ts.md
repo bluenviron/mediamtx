@@ -34,7 +34,7 @@ paths:
     source: udp+mpegts://0.0.0.0:1234?source=192.168.3.5
 ```
 
-Some clients that can publish with UDP and MPEG-TS are [FFmpeg](14-ffmpeg.md) and [GStreamer](15-gstreamer.md).
+Some clients that can publish with UDP and MPEG-TS are [FFmpeg](15-ffmpeg.md) and [GStreamer](16-gstreamer.md).
 
 Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+mpegts` scheme:
 

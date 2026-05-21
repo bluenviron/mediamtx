@@ -27,4 +27,4 @@ paths:
 
 `rtpSDP` must contain a valid SDP, that is a description of the RTP session.
 
-Some clients that can publish with UDP and MPEG-TS are [FFmpeg](14-ffmpeg.md) and [GStreamer](15-gstreamer.md).
+Some clients that can publish with UDP and MPEG-TS are [FFmpeg](15-ffmpeg.md) and [GStreamer](16-gstreamer.md).

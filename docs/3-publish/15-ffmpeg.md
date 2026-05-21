@@ -1,6 +1,6 @@
 # FFmpeg
 
-FFmpeg can publish a stream to the server in several ways. The recommended one consists in publishing with RTSP.
+FFmpeg can publish a stream to the server by using the [RTSP](05-rtsp-clients.md), [RTMP](07-rtmp-clients.md), [MPEG-TS](10-mpeg-ts.md), [RTP](11-rtp.md), [SRT](01-srt-clients.md) and [WebRTC](03-webrtc-clients.md) protocols. The recommended one is RTSP.
 
 ## FFmpeg and RTSP
 

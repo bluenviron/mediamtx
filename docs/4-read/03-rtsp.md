@@ -12,4 +12,4 @@ RTSP is a protocol that allows to publish and read streams. It supports several 
 rtsp://localhost:8554/mystream
 ```
 
-Some clients that can read with RTSP are [FFmpeg](06-ffmpeg.md), [GStreamer](07-gstreamer.md) and [VLC](08-vlc.md).
+Some clients that can read with RTSP are [FFmpeg](07-ffmpeg.md), [GStreamer](08-gstreamer.md) and [VLC](09-vlc.md).
