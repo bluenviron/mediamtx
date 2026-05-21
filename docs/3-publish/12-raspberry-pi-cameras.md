@@ -91,7 +91,7 @@ The resulting stream will be available on path `/cam_with_audio`.
 
 ## Secondary stream
 
-It is possible to enable a secondary stream from the same camera, with a different resolution, FPS and codec. Configuration is the same of a primary stream, with `rpiCameraSecondary` set to `true` and parameters adjusted accordingly:
+It is possible to enable a secondary stream from the same camera, with a different resolution, FPS and codec. Only the M-JPEG codec is currently available for a secondary stream. Configuration is the same of a primary stream, with `rpiCameraSecondary` set to `true` and parameters adjusted accordingly:
 
 ```yml
 paths:
