@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pion/sdp/v3"
@@ -22,6 +24,55 @@ const (
 	maxInboundSDPSize = 128 * 1024
 )
 
+func whipAnswer(body []byte) *pwebrtc.SessionDescription {
+	return &pwebrtc.SessionDescription{
+		Type: pwebrtc.SDPTypeAnswer,
+		SDP:  string(body),
+	}
+}
+
+func offerAndCandidateToSDPFragment(
+	offer *pwebrtc.SessionDescription,
+	candidate *pwebrtc.ICECandidateInit,
+) (*SDPFragment, error) {
+	f := &SDPFragment{}
+
+	var desc sdp.SessionDescription
+	err := desc.Unmarshal([]byte(offer.SDP))
+	if err != nil {
+		return nil, err
+	}
+
+	if candidate.SDPMLineIndex == nil {
+		return nil, fmt.Errorf("sdpMLineIndex is null")
+	}
+
+	if len(desc.MediaDescriptions) < int(*candidate.SDPMLineIndex)+1 {
+		return nil, fmt.Errorf("sdpMLineIndex is out of range")
+	}
+
+	media := desc.MediaDescriptions[*candidate.SDPMLineIndex]
+
+	iceUFrag, _ := media.Attribute("ice-ufrag")
+	icePwd, _ := media.Attribute("ice-pwd")
+
+	if iceUFrag == "" || icePwd == "" {
+		return nil, fmt.Errorf("ice-ufrag or ice-pwd are missing in the media of the candidate")
+	}
+
+	f.Medias = append(f.Medias, &sdp.MediaDescription{
+		MediaName: media.MediaName,
+		Attributes: []sdp.Attribute{
+			{Key: "mid", Value: strconv.FormatUint(uint64(*candidate.SDPMLineIndex), 10)},
+			{Key: "ice-ufrag", Value: iceUFrag},
+			{Key: "ice-pwd", Value: icePwd},
+			{Key: "candidate", Value: candidate.Candidate},
+		},
+	})
+
+	return f, nil
+}
+
 // Client is a WHIP client.
 type Client struct {
 	URL                *url.URL
@@ -35,8 +86,8 @@ type Client struct {
 	TrackGatherTimeout time.Duration
 	Log                logger.Writer
 
-	pc               *webrtc.PeerConnection
-	patchIsSupported bool
+	pc            *webrtc.PeerConnection
+	useTrickleICE bool
 }
 
 // Initialize initializes the Client.
@@ -95,9 +146,19 @@ func (c *Client) Initialize(ctx context.Context) error {
 }
 
 func (c *Client) initializeInner(ctx context.Context) error {
-	offer, err := c.pc.CreatePartialOffer()
-	if err != nil {
-		return err
+	var offer *pwebrtc.SessionDescription
+	if c.useTrickleICE {
+		var err error
+		offer, err = c.pc.CreatePartialOffer(false)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		offer, err = c.pc.CreateFullOffer()
+		if err != nil {
+			return err
+		}
 	}
 
 	res, err := c.postOffer(ctx, offer)
@@ -131,28 +192,10 @@ func (c *Client) initializeInner(ctx context.Context) error {
 		return err
 	}
 
-	t := time.NewTimer(c.HandshakeTimeout)
-	defer t.Stop()
-
-outer:
-	for {
-		select {
-		case ca := <-c.pc.NewLocalCandidate():
-			err = c.patchCandidate(ctx, offer, res.ETag, ca)
-			if err != nil {
-				c.deleteSession(context.Background()) //nolint:errcheck
-				return err
-			}
-
-		case <-c.pc.GatheringDone():
-
-		case <-c.pc.Connected():
-			break outer
-
-		case <-t.C:
-			c.deleteSession(context.Background()) //nolint:errcheck
-			return fmt.Errorf("deadline exceeded while waiting connection")
-		}
+	err = c.waitConnected(ctx, offer, res.ETag)
+	if err != nil {
+		c.deleteSession(context.Background()) //nolint:errcheck
+		return err
 	}
 
 	if !c.Publish {
@@ -164,6 +207,39 @@ outer:
 	}
 
 	return nil
+}
+
+func (c *Client) waitConnected(ctx context.Context, offer *pwebrtc.SessionDescription, eTag string) error {
+	t := time.NewTimer(c.HandshakeTimeout)
+	defer t.Stop()
+
+	if c.useTrickleICE {
+		for {
+			select {
+			case ca := <-c.pc.NewLocalCandidate():
+				err := c.patchCandidate(ctx, offer, eTag, ca)
+				if err != nil {
+					return err
+				}
+
+			case <-c.pc.Connected():
+				return nil
+
+			case <-t.C:
+				return fmt.Errorf("deadline exceeded while waiting connection")
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-c.pc.Connected():
+			return nil
+
+		case <-t.C:
+			return fmt.Errorf("deadline exceeded while waiting connection")
+		}
+	}
 }
 
 // PeerConnection returns the underlying peer connection.
@@ -216,6 +292,13 @@ func (c *Client) optionsICEServers(
 		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
+	for m := range strings.SplitSeq(res.Header.Get("Access-Control-Allow-Methods"), ",") {
+		if strings.TrimSpace(m) == "PATCH" {
+			c.useTrickleICE = true
+			break
+		}
+	}
+
 	return LinkHeaderUnmarshal(res.Header["Link"])
 }
 
@@ -250,18 +333,19 @@ func (c *Client) postOffer(
 		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	contentType := httpp.ParseContentType(req.Header.Get("Content-Type"))
+	contentType := httpp.ParseContentType(res.Header.Get("Content-Type"))
 	if contentType != "application/sdp" {
 		return nil, fmt.Errorf("bad Content-Type: expected 'application/sdp', got '%s'", contentType)
 	}
 
-	c.patchIsSupported = (res.Header.Get("Accept-Patch") == "application/trickle-ice-sdpfrag")
-
 	Location := res.Header.Get("Location")
 
-	etag := res.Header.Get("ETag")
-	if etag == "" {
-		return nil, fmt.Errorf("ETag is missing")
+	var etag string
+	if c.useTrickleICE {
+		etag = res.Header.Get("ETag")
+		if etag == "" {
+			return nil, fmt.Errorf("ETag is missing")
+		}
 	}
 
 	sdp, err := io.ReadAll(&customLimitReader{res.Body, maxInboundSDPSize})
@@ -269,13 +353,8 @@ func (c *Client) postOffer(
 		return nil, err
 	}
 
-	answer := &pwebrtc.SessionDescription{
-		Type: pwebrtc.SDPTypeAnswer,
-		SDP:  string(sdp),
-	}
-
 	return &whipPostOfferResponse{
-		Answer:   answer,
+		Answer:   whipAnswer(sdp),
 		Location: Location,
 		ETag:     etag,
 	}, nil
@@ -287,16 +366,17 @@ func (c *Client) patchCandidate(
 	etag string,
 	candidate *pwebrtc.ICECandidateInit,
 ) error {
-	if !c.patchIsSupported {
-		return nil
-	}
-
-	frag, err := ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{candidate})
+	frag, err := offerAndCandidateToSDPFragment(offer, candidate)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.URL.String(), bytes.NewReader(frag))
+	enc, err := frag.Marshal()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.URL.String(), bytes.NewReader(enc))
 	if err != nil {
 		return err
 	}

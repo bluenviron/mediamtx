@@ -8,7 +8,7 @@ on:
 
 jobs:
   test_64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -22,7 +22,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
 
   test_32:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6
@@ -32,7 +32,7 @@ jobs:
     - run: make test-32
 
   test_e2e:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v6

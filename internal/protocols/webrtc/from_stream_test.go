@@ -136,10 +136,10 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
-	offer, err := pc1.CreatePartialOffer()
+	offer, err := pc1.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(offer)
+	answer, err := pc2.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	err = pc1.SetAnswer(answer)
@@ -264,10 +264,10 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(pcPublisher.Close)
 
-	offer, err := pcReader.CreatePartialOffer()
+	offer, err := pcReader.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pcPublisher.CreateFullAnswer(offer)
+	answer, err := pcPublisher.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	err = pcReader.SetAnswer(answer)

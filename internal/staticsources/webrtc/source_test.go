@@ -68,11 +68,10 @@ func TestSource(t *testing.T) {
 				require.NoError(t, err2)
 				offer := whipOffer(body)
 
-				answer, err2 := pc.CreateFullAnswer(offer)
+				answer, err2 := pc.CreateFullAnswer(offer, false)
 				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")
-				w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 				w.Header().Set("ETag", "test_etag")
 				w.Header().Set("Location", "/my/resource/sessionid")
 				w.WriteHeader(http.StatusCreated)

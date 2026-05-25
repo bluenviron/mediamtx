@@ -1,12 +1,12 @@
 # Web browsers
 
-Web browsers can read a stream from the server with the WebRTC or the HLS protocol, by directly accessing web pages provided by the server. It is also possible to embed streams into an external website.
+Web browsers can read a stream from the server with the [WebRTC](02-webrtc.md) and [HLS](05-hls.md) protocols, by accessing web pages hosted by the server. It is also possible to embed streams into an external website.
 
 ## Direct read
 
 ### WebRTC
 
-Web browsers can read a stream with the [WebRTC protocol](02-webrtc.md) by visiting the web page:
+Visit the web page:
 
 ```
 http://localhost:8889/mystream
@@ -16,7 +16,7 @@ Replace `mystream` with the path name.
 
 ### HLS
 
-Web browsers can also read a stream with the [HLS protocol](05-hls.md). Latency is higher but there are fewer problems related to connectivity between server and clients. Visit the web page:
+The HLS protocol has a higher latency with respect to WebRTC, but there are fewer problems related to connectivity between server and clients. Visit the web page:
 
 ```
 http://localhost:8888/mystream

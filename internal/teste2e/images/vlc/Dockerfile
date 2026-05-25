@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.14
+FROM amd64/alpine:3.23
 
 RUN apk add --no-cache \
     vlc

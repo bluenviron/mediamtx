@@ -66,7 +66,7 @@ func TestPeerConnectionCloseImmediately2(t *testing.T) {
 	require.NoError(t, err)
 	defer pc.Close()
 
-	_, err = pc.CreatePartialOffer()
+	_, err = pc.CreatePartialOffer(false)
 	require.NoError(t, err)
 
 	// wait for ICE candidates to be generated
@@ -143,7 +143,7 @@ func TestPeerConnectionCandidates(t *testing.T) {
 			require.NoError(t, err)
 			defer pc.Close()
 
-			answer, err := pc.CreateFullAnswer(&offer)
+			answer, err := pc.CreateFullAnswer(&offer, false)
 			require.NoError(t, err)
 
 			n := len(regexp.MustCompile("(?m)^a=candidate:.+? udp .+? typ host").FindAllString(answer.SDP, -1))
@@ -255,10 +255,10 @@ func TestPeerConnectionConnectivity(t *testing.T) {
 				require.NoError(t, err)
 				defer serverPC.Close()
 
-				offer, err := clientPC.CreatePartialOffer()
+				offer, err := clientPC.CreatePartialOffer(false)
 				require.NoError(t, err)
 
-				answer, err := serverPC.CreateFullAnswer(offer)
+				answer, err := serverPC.CreateFullAnswer(offer, false)
 				require.NoError(t, err)
 
 				require.Equal(t, 2, strings.Count(answer.SDP, "a=candidate:"))
@@ -331,7 +331,7 @@ func TestPeerConnectionRead(t *testing.T) {
 	err = pub.SetLocalDescription(offer)
 	require.NoError(t, err)
 
-	answer, err := reader.CreateFullAnswer(&offer)
+	answer, err := reader.CreateFullAnswer(&offer, false)
 	require.NoError(t, err)
 
 	err = pub.SetRemoteDescription(*answer)
@@ -500,7 +500,7 @@ func TestPeerConnectionReadSimulcast(t *testing.T) {
 	err = pub.SetLocalDescription(offer)
 	require.NoError(t, err)
 
-	answer, err := reader.CreateFullAnswer(&offer)
+	answer, err := reader.CreateFullAnswer(&offer, false)
 	require.NoError(t, err)
 
 	err = pub.SetRemoteDescription(*answer)
@@ -614,7 +614,7 @@ func TestPeerConnectionStripIncomingTWCC(t *testing.T) {
 	err = pub.SetLocalDescription(offer)
 	require.NoError(t, err)
 
-	answer, err := reader.CreateFullAnswer(&offer)
+	answer, err := reader.CreateFullAnswer(&offer, false)
 	require.NoError(t, err)
 
 	err = pub.SetRemoteDescription(*answer)
@@ -706,10 +706,10 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
-	offer, err := pc1.CreatePartialOffer()
+	offer, err := pc1.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(offer)
+	answer, err := pc2.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	err = pc1.SetAnswer(answer)
@@ -796,10 +796,10 @@ func TestPeerConnectionFallbackCodecs(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
-	offer, err := pc1.CreatePartialOffer()
+	offer, err := pc1.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(offer)
+	answer, err := pc2.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	var s sdp.SessionDescription
@@ -871,7 +871,7 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
-	answer, err := pc2.CreateFullAnswer(&offer)
+	answer, err := pc2.CreateFullAnswer(&offer, false)
 	require.NoError(t, err)
 
 	err = pc1.SetRemoteDescription(*answer)

@@ -1,6 +1,6 @@
 # OBS Studio
 
-OBS Studio can publish streams to the server in several ways. The recommended one consists in publishing with RTMP.
+OBS Studio can publish streams to the server by using the [RTMP](07-rtmp-clients.md) and [WebRTC](03-webrtc-clients.md) protocols. The recommended one is RTMP.
 
 ## OBS Studio and RTMP
 

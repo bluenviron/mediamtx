@@ -2,6 +2,7 @@ package rtmp
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
@@ -12,7 +13,9 @@ import (
 	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/flac"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -224,7 +227,12 @@ func TestFromStream(t *testing.T) {
 			},
 			expectedTracks: []*gortmplib.Track{
 				{Codec: &codecs.Opus{
-					ChannelCount: 2,
+					IDHeader: &opus.IDHeader{
+						Version:             0x1,
+						ChannelCount:        2,
+						PreSkip:             3840,
+						ChannelMappingTable: []uint8{},
+					},
 				}},
 			},
 			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
@@ -446,6 +454,48 @@ func TestFromStream(t *testing.T) {
 			},
 		},
 		{
+			name: "flac",
+			medias: []*description.Media{
+				{
+					Formats: []format.Format{&format.Generic{
+						PayloadTyp: 96,
+						RTPMa:      "FLAC/90000",
+						ClockRat:   90000,
+						FMT: map[string]string{
+							"streaminfo": func() string {
+								si := &flac.StreamInfo{
+									SampleRate:   44100,
+									ChannelCount: 2,
+									BitDepth:     16,
+								}
+								enc, err := si.Marshal()
+								require.NoError(t, err)
+
+								return hex.EncodeToString(enc)
+							}(),
+						},
+					}},
+				},
+			},
+			expectedTracks: []*gortmplib.Track{
+				{Codec: &codecs.FLAC{
+					StreamInfo: &flac.StreamInfo{
+						SampleRate:   44100,
+						ChannelCount: 2,
+						BitDepth:     16,
+					},
+				}},
+			},
+			writeUnits: func(medias []*description.Media, subStream *stream.SubStream) {
+				for i := range 2 {
+					subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+						PTS:     90000 * 5 * int64(i),
+						Payload: unit.PayloadFLAC{3, 4},
+					})
+				}
+			},
+		},
+		{
 			name: "h265 + h264 + vp9 + av1 + opus + aac",
 			medias: []*description.Media{
 				{
@@ -489,7 +539,12 @@ func TestFromStream(t *testing.T) {
 				{Codec: &codecs.VP9{}},
 				{Codec: &codecs.AV1{}},
 				{Codec: &codecs.Opus{
-					ChannelCount: 2,
+					IDHeader: &opus.IDHeader{
+						Version:             0x1,
+						ChannelCount:        2,
+						PreSkip:             3840,
+						ChannelMappingTable: []uint8{},
+					},
 				}},
 				{Codec: &codecs.MPEG4Audio{
 					Config: test.FormatMPEG4Audio.Config,

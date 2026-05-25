@@ -2,14 +2,17 @@
 package hls
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/flac"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -182,7 +185,7 @@ func setupAudioTracks(
 	desc *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
-) {
+) error {
 	addTrack := func(
 		medi *description.Media,
 		forma format.Format,
@@ -220,6 +223,48 @@ func setupAudioTracks(
 
 						return nil
 					})
+
+			case *format.Generic:
+				if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") {
+					enc, err := hex.DecodeString(forma.FMT["streaminfo"])
+					if err != nil {
+						return err
+					}
+
+					var streamInfo flac.StreamInfo
+					err = streamInfo.Unmarshal(enc)
+					if err != nil {
+						return err
+					}
+
+					track := &gohlslib.Track{
+						Codec: &codecs.FLAC{
+							StreamInfo: &streamInfo,
+						},
+						ClockRate: forma.ClockRate(),
+					}
+
+					addTrack(
+						media,
+						forma,
+						track,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
+							}
+
+							err2 := muxer.WriteFLAC(
+								track,
+								u.NTP,
+								u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+								u.Payload.(unit.PayloadFLAC))
+							if err2 != nil {
+								return fmt.Errorf("muxer error: %w", err2)
+							}
+
+							return nil
+						})
+				}
 
 			case *format.MPEG4Audio:
 				track := &gohlslib.Track{
@@ -285,6 +330,8 @@ func setupAudioTracks(
 			}
 		}
 	}
+
+	return nil
 }
 
 func setupDataTracks(
@@ -347,11 +394,14 @@ func FromStream(
 		muxer,
 	)
 
-	setupAudioTracks(
+	err := setupAudioTracks(
 		desc,
 		r,
 		muxer,
 	)
+	if err != nil {
+		return err
+	}
 
 	setupDataTracks(
 		desc,

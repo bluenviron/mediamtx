@@ -27,14 +27,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
+func whipAnswer(body []byte) *pwebrtc.SessionDescription {
+	return &pwebrtc.SessionDescription{
+		Type: pwebrtc.SDPTypeAnswer,
+		SDP:  string(body),
+	}
 }
 
 func checkClose(t *testing.T, closeFunc func() error) {
@@ -328,10 +330,15 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 func TestServerPublish(t *testing.T) {
 	var strm *stream.Stream
+	defer func() {
+		strm.Close()
+	}()
+
 	var reader *stream.Reader
 	defer func() {
 		strm.RemoveReader(reader)
 	}()
+
 	dataReceived := make(chan struct{})
 
 	pathManager := &test.PathManager{
@@ -847,24 +854,39 @@ func TestServerPatchNotFound(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{})
-	require.NoError(t, err)
-	defer pc.GracefulClose() //nolint:errcheck
+	var frag whip.SDPFragment
+	frag.Medias = append(frag.Medias, &sdp.MediaDescription{
+		MediaName: sdp.MediaName{
+			Media:   "video",
+			Port:    sdp.RangedPort{Value: 9},
+			Protos:  []string{"UDP", "TLS", "RTP", "SAVPF"},
+			Formats: []string{"96"},
+		},
+		Attributes: []sdp.Attribute{
+			{
+				Key:   "mid",
+				Value: "0",
+			},
+			{
+				Key:   "ice-ufrag",
+				Value: "dummy",
+			},
+			{
+				Key:   "ice-pwd",
+				Value: "dummydummydummydummydummydummy12",
+			},
+			{
+				Key:   "candidate",
+				Value: "candidate:1 1 UDP 2130706431 192.168.0.1 12345 typ host",
+			},
+		},
+	})
 
-	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
-	require.NoError(t, err)
-
-	offer, err := pc.CreateOffer(nil)
-	require.NoError(t, err)
-
-	frag, err := whip.ICEFragmentMarshal(offer.SDP, []*pwebrtc.ICECandidateInit{{
-		Candidate:     "mycandidate",
-		SDPMLineIndex: ptrOf(uint16(0)),
-	}})
+	enc, err := frag.Marshal()
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPatch,
-		"http://localhost:8886/nonexisting/whep/"+uuid.UUID{}.String(), bytes.NewReader(frag))
+		"http://localhost:8886/nonexisting/whep/"+uuid.UUID{}.String(), bytes.NewReader(enc))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/trickle-ice-sdpfrag")
@@ -874,6 +896,203 @@ func TestServerPatchNotFound(t *testing.T) {
 	defer res.Body.Close()
 
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+func TestServerICERestart(t *testing.T) {
+	var strm *stream.Stream
+	defer func() {
+		strm.Close()
+	}()
+
+	var reader *stream.Reader
+	defer func() {
+		strm.RemoveReader(reader)
+	}()
+
+	dataReceived := make(chan struct{}, 10)
+
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: ""}, nil
+		},
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			strm = &stream.Stream{
+				Desc:              req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: true,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			reader = &stream.Reader{Parent: test.NilLogger}
+			n := 0
+
+			reader.OnData(
+				strm.Desc.Medias[0],
+				strm.Desc.Medias[0].Formats[0],
+				func(u *unit.Unit) error {
+					switch n {
+					case 0:
+						require.Equal(t, unit.PayloadH264{
+							{1},
+						}, u.Payload)
+
+					case 1:
+						require.Equal(t, unit.PayloadH264{
+							{2},
+						}, u.Payload)
+					}
+					n++
+					dataReceived <- struct{}{}
+					return nil
+				})
+
+			strm.AddReader(reader)
+
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
+		},
+	}
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		AllowOrigins:          []string{"*"},
+		TrustedProxies:        conf.IPNetworks{},
+		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
+		LocalUDPAddress:       "127.0.0.1:8887",
+		LocalTCPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		HandshakeTimeout:      conf.Duration(10 * time.Second),
+		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
+		PathManager:           pathManager,
+		Parent:                test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	su, err := url.Parse("http://localhost:8886/teststream/whip")
+	require.NoError(t, err)
+
+	track := &webrtc.OutgoingTrack{
+		Caps: pwebrtc.RTPCodecCapability{
+			MimeType:    pwebrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+	}
+
+	wc := &whip.Client{
+		HTTPClient:     hc,
+		URL:            su,
+		Publish:        true,
+		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		Log:            test.NilLogger,
+	}
+
+	err = wc.Initialize(context.Background())
+	require.NoError(t, err)
+	defer checkClose(t, wc.Close)
+
+	err = track.WriteRTP(&rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 1,
+			Timestamp:      1,
+			SSRC:           1,
+		},
+		Payload: []byte{1},
+	})
+	require.NoError(t, err)
+
+	<-dataReceived
+
+	pc := wc.PeerConnection()
+
+	offer, err := pc.CreatePartialOffer(true)
+	require.NoError(t, err)
+
+	f := &whip.SDPFragment{}
+
+	var desc sdp.SessionDescription
+	err = desc.Unmarshal([]byte(offer.SDP))
+	require.NoError(t, err)
+
+	media := desc.MediaDescriptions[0]
+	ufrag, _ := media.Attribute("ice-ufrag")
+	pwd, _ := media.Attribute("ice-pwd")
+
+	f.Medias = append(f.Medias, &sdp.MediaDescription{
+		MediaName: media.MediaName,
+		Attributes: []sdp.Attribute{
+			{Key: "mid", Value: "0"},
+			{Key: "ice-ufrag", Value: ufrag},
+			{Key: "ice-pwd", Value: pwd},
+		},
+	})
+
+	enc, err := f.Marshal()
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPatch, wc.URL.String(), bytes.NewReader(enc))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/trickle-ice-sdpfrag")
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	require.Equal(t, "application/trickle-ice-sdpfrag", res.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	var resFrag whip.SDPFragment
+	err = resFrag.Unmarshal(body)
+	require.NoError(t, err)
+
+	resUfrag, _ := resFrag.Medias[0].Attribute("ice-ufrag")
+	resPwd, _ := resFrag.Medias[0].Attribute("ice-pwd")
+
+	patchedSDP := replaceICECredentials([]byte(pc.RemoteDescription().SDP), resUfrag, resPwd)
+	err = pc.SetAnswer(whipAnswer(patchedSDP))
+	require.NoError(t, err)
+
+	err = pc.WaitUntilConnected(2 * time.Second)
+	require.NoError(t, err)
+
+	err = track.WriteRTP(&rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 2,
+			Timestamp:      uint32(2),
+			SSRC:           1,
+		},
+		Payload: []byte{2},
+	})
+	require.NoError(t, err)
+
+	<-dataReceived
 }
 
 func TestServerDeleteNotFound(t *testing.T) {
