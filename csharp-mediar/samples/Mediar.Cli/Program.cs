@@ -56,6 +56,25 @@ static async Task<int> RunInfoAsync(string[] args)
     Console.WriteLine($"input:     {info.Path}");
     Console.WriteLine($"format:    {info.Format}");
     Console.WriteLine($"duration:  {info.Duration}");
+    var m = info.Metadata;
+    if (m.Title is not null) Console.WriteLine($"title:     {m.Title}");
+    if (m.Artist is not null) Console.WriteLine($"artist:    {m.Artist}");
+    if (m.Album is not null) Console.WriteLine($"album:     {m.Album}");
+    if (m.AlbumArtist is not null) Console.WriteLine($"album-art: {m.AlbumArtist}");
+    if (m.Date is not null) Console.WriteLine($"date:      {m.Date}");
+    if (m.Genre is not null) Console.WriteLine($"genre:     {m.Genre}");
+    if (m.TrackNumber is not null) Console.WriteLine($"track:     {m.TrackNumber}");
+    if (m.DiscNumber is not null) Console.WriteLine($"disc:      {m.DiscNumber}");
+    if (m.Composer is not null) Console.WriteLine($"composer:  {m.Composer}");
+    if (m.Copyright is not null) Console.WriteLine($"copyright: {m.Copyright}");
+    if (m.Encoder is not null) Console.WriteLine($"encoder:   {m.Encoder}");
+    if (m.Comment is not null) Console.WriteLine($"comment:   {m.Comment}");
+    if (m.Location is { } g) Console.WriteLine($"geo:       {g.Latitude:F6},{g.Longitude:F6}" + (g.Altitude is { } a ? $" ({a:F1}m)" : ""));
+    if (m.Tags.Count > 0)
+    {
+        Console.WriteLine($"tags:      {m.Tags.Count}");
+        foreach (var kv in m.Tags) Console.WriteLine($"  {kv.Key} = {kv.Value}");
+    }
     Console.WriteLine($"tracks:    {info.Tracks.Count}");
     foreach (var t in info.Tracks)
     {

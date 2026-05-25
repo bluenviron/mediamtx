@@ -604,17 +604,40 @@ public sealed class AviDemuxer : IMediaDemuxer
     // Codec mappings
     // -----------------------------------------------------------------------
 
-    private static CodecId MapVideoCodec(uint fourcc) => fourcc switch
+    private static uint FCC(string s) =>
+        ((uint)s[3] << 24) | ((uint)s[2] << 16) | ((uint)s[1] << 8) | (uint)s[0];
+
+    private static CodecId MapVideoCodec(uint fourcc)
     {
-        // little-endian packed: e.g. "H264" stored as 'H','2','6','4'
-        0x34363248 or 0x31435641 or 0x63766461 => CodecId.H264,  // H264, AVC1, avc1 (lowercase)
-        0x35363248 or 0x31435648 => CodecId.H265,                 // H265, HEVC
-        0x31305641 => CodecId.Av1,                                // AV01
-        0x30385056 => CodecId.Vp8,                                // VP80
-        0x30395056 => CodecId.Vp9,                                // VP90
-        0x44495658 or 0x44495644 or 0x56344D58 or 0x5634504D => CodecId.Mpeg4, // XVID, DIVX, XM4V, MP4V
-        _ => CodecId.Unknown,
-    };
+        // H.264 / AVC
+        if (fourcc == FCC("H264") || fourcc == FCC("h264") ||
+            fourcc == FCC("AVC1") || fourcc == FCC("avc1") ||
+            fourcc == FCC("X264") || fourcc == FCC("x264")) return CodecId.H264;
+        // H.265 / HEVC
+        if (fourcc == FCC("H265") || fourcc == FCC("h265") ||
+            fourcc == FCC("HEVC") || fourcc == FCC("hevc") ||
+            fourcc == FCC("HVC1") || fourcc == FCC("hvc1")) return CodecId.H265;
+        // AV1
+        if (fourcc == FCC("AV01") || fourcc == FCC("av01")) return CodecId.Av1;
+        // VP8 / VP9
+        if (fourcc == FCC("VP80")) return CodecId.Vp8;
+        if (fourcc == FCC("VP90")) return CodecId.Vp9;
+        // MPEG-4 Part 2 (Visual)  +  Microsoft MPEG-4 v1/v2/v3 family
+        if (fourcc == FCC("XVID") || fourcc == FCC("xvid") ||
+            fourcc == FCC("DIVX") || fourcc == FCC("divx") ||
+            fourcc == FCC("DX50") || fourcc == FCC("DX40") ||
+            fourcc == FCC("MP4V") || fourcc == FCC("mp4v") ||
+            fourcc == FCC("XM4V") || fourcc == FCC("FMP4") ||
+            fourcc == FCC("M4S2") || fourcc == FCC("MP4S") ||
+            fourcc == FCC("3IV2") || fourcc == FCC("3IV1") ||
+            fourcc == FCC("FFDS") || fourcc == FCC("FVFW") ||
+            fourcc == FCC("MP41") || fourcc == FCC("MP42") ||
+            fourcc == FCC("MP43") || fourcc == FCC("MPG4") ||
+            fourcc == FCC("DIV3") || fourcc == FCC("DIV4") ||
+            fourcc == FCC("DIV5") || fourcc == FCC("DIV6") ||
+            fourcc == FCC("DVX1") || fourcc == FCC("BLZ0")) return CodecId.Mpeg4;
+        return CodecId.Unknown;
+    }
 
     private static CodecId MapAudioCodec(ushort formatTag, int bits) => (formatTag, bits) switch
     {

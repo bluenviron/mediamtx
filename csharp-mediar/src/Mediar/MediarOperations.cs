@@ -5,6 +5,8 @@ using Mediar.Containers.Flac;
 using Mediar.Containers.Adts;
 using Mediar.Containers.Ogg;
 using Mediar.Containers.Matroska;
+using Mediar.Containers.Avi;
+using Mediar.Containers.Aiff;
 using Mediar.Subtitles.Srt;
 
 namespace Mediar;
@@ -36,6 +38,8 @@ public static class MediarOperations
             ".aac" => AdtsDemuxer.Open(path),
             ".ogg" or ".opus" or ".oga" or ".ogv" => OggDemuxer.Open(path),
             ".mkv" or ".webm" or ".mka" => MatroskaDemuxer.Open(path),
+            ".avi" => AviDemuxer.Open(path),
+            ".aif" or ".aiff" or ".aifc" => AiffDemuxer.Open(path),
             _ => throw new NotSupportedException($"Unrecognized container extension '{ext}'."),
         };
     }
@@ -250,7 +254,7 @@ public static class MediarOperations
                     ? TimeSpan.FromSeconds((double)t.DurationTicks * t.TimeBase.Numerator / t.TimeBase.Denominator)
                     : (TimeSpan?)null));
         }
-        return new MediaInfo(path, demuxer.FormatName, demuxer.Duration, tracks);
+        return new MediaInfo(path, demuxer.FormatName, demuxer.Duration, tracks, demuxer.Metadata);
     }
 
     // ---------------------------------------------------------------------
@@ -398,7 +402,8 @@ public sealed record MediaInfo(
     string Path,
     string Format,
     TimeSpan Duration,
-    IReadOnlyList<TrackInfo> Tracks);
+    IReadOnlyList<TrackInfo> Tracks,
+    MediaMetadata Metadata);
 
 /// <summary>Track-level metadata returned by <see cref="MediarOperations.ProbeAsync"/>.</summary>
 public sealed record TrackInfo(
