@@ -84,8 +84,8 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         // Walk top-level segment children, stopping at the first Cluster (data section).
         while (r.Position < _segmentEnd)
         {
-            ulong elemId = r.ReadElementId(out _);
-            ulong elemSize = r.ReadVarInt(out _, out bool elemUnknown);
+            ulong elemId = r.ReadElementId(out int idBytes);
+            ulong elemSize = r.ReadVarInt(out int sizeBytes, out bool elemUnknown);
             long elemEnd = elemUnknown ? _segmentEnd : r.Position + (long)elemSize;
             switch (elemId)
             {
@@ -98,7 +98,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 case MatroskaIds.Cluster:
                     // Data section begins here. Rewind to the Cluster header so
                     // ReadSamplesAsync can find it.
-                    r.Position = r.Position - VarIntLength(elemSize, withLeadingBit: false) - VarIntLength(elemId, withLeadingBit: true);
+                    r.Position = r.Position - sizeBytes - idBytes;
                     _clustersStart = r.Position;
                     return;
                 default:
@@ -443,18 +443,17 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
 
     private static int VarIntLength(ulong value, bool withLeadingBit)
     {
-        // Convenience: when we already know how many bytes the encoder used,
-        // we can compute the byte length from the encoded value's MSB.
-        // For ReadElementId (keepLeadingBit=true) the value already includes the
-        // length marker. For ReadVarInt (keepLeadingBit=false) we need the
-        // original byte width which the caller must remember. As a best effort,
-        // we walk from 1..8 bytes to find a fit.
+        // For an N-byte EBML VINT, the first byte contains (N-1) leading zeros
+        // followed by a '1' length marker, then 8N-N=7N data bits.
+        // With leading bit: value is in [1<<(7N), (1<<(7N+1))-1].
+        // Without leading bit: value is in [0, (1<<(7N))-1] (with (1<<(7N))-1 being "unknown").
         if (withLeadingBit)
         {
             for (int len = 1; len <= 8; len++)
             {
-                ulong top = 1UL << (len * 8 - 1);
-                if (value >= top && value < (top << 1)) return len;
+                ulong lo = 1UL << (7 * len);
+                ulong hi = (len == 8) ? ulong.MaxValue : ((1UL << (7 * len + 1)) - 1);
+                if (value >= lo && value <= hi) return len;
             }
             return 8;
         }
@@ -462,7 +461,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         {
             for (int len = 1; len <= 8; len++)
             {
-                ulong max = (1UL << (len * 7)) - 1;
+                ulong max = (1UL << (7 * len)) - 1;
                 if (value <= max) return len;
             }
             return 8;

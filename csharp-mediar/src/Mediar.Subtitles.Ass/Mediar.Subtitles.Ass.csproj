@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Subtitles.Ass</RootNamespace>
+    <AssemblyName>Mediar.Subtitles.Ass</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Advanced SubStation Alpha (ASS / SSA v4+) subtitle reader and writer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

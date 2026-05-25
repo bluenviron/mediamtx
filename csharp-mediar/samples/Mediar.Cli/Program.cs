@@ -15,6 +15,7 @@ try
         "mux-av" => await RunMuxAvAsync(args).ConfigureAwait(false),
         "embed-srt" => await RunEmbedSrtAsync(args).ConfigureAwait(false),
         "extract-srt" => await RunExtractSrtAsync(args).ConfigureAwait(false),
+        "transmux" => await RunTransmuxAsync(args).ConfigureAwait(false),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0]),
     };
@@ -36,6 +37,7 @@ static int PrintUsage()
           mediar mux-av <video> <audio> <output.mp4>
           mediar embed-srt <input.mp4> <input.srt> <output.mp4> [language]
           mediar extract-srt <input.mp4> <output.srt>
+          mediar transmux <input> <output>
         """);
     return 0;
 }
@@ -107,6 +109,18 @@ static async Task<int> RunExtractSrtAsync(string[] args)
         return 1;
     }
     await MediarOperations.ExtractSrtAsync(args[1], args[2]).ConfigureAwait(false);
+    Console.WriteLine($"wrote {args[2]}");
+    return 0;
+}
+
+static async Task<int> RunTransmuxAsync(string[] args)
+{
+    if (args.Length < 3)
+    {
+        Console.Error.WriteLine("transmux: usage <input> <output>");
+        return 1;
+    }
+    await MediarOperations.TransmuxAsync(args[1], args[2]).ConfigureAwait(false);
     Console.WriteLine($"wrote {args[2]}");
     return 0;
 }

@@ -38,19 +38,29 @@ must come with their own licensing analysis.
 | Mux FLAC (native, frame passthrough)     | ✅                    |
 | Demux + mux raw AAC ADTS                 | ✅                    |
 | Demux Ogg (Opus / Vorbis / FLAC)         | ✅                    |
+| Mux Ogg (Opus / Vorbis / FLAC)           | ✅                    |
 | Demux Matroska / WebM (SimpleBlock)      | ✅                    |
+| Mux Matroska / WebM (SimpleBlock)        | ✅                    |
 | Read + write SRT                          | ✅                    |
 | Read + write WebVTT                       | ✅                    |
+| Read + write ASS / SSA v4+                | ✅                    |
+| H.264 / H.265 Annex-B ↔ AVCC / HVCC      | ✅                    |
+| Emulation-prevention add / strip          | ✅                    |
 | Extract audio (MP4 → M4A)                | ✅                    |
 | Mux a/v together                         | ✅ (passthrough)      |
 | Embed SRT as `tx3g` into MP4             | ✅                    |
 | Extract `tx3g` SRT from MP4              | ✅                    |
 | PCM sample-format conversion (s16/s24/s32/f32) | ✅              |
+| **PCM decoder (via `IAudioDecoder`)**     | ✅                    |
+| **G.711 µ-law / A-law decoder**           | ✅                    |
+| **FLAC decoder (RFC 9639)**               | ✅                    |
 | BenchmarkDotNet micro-benchmarks         | ✅                    |
-| AAC / Opus / Vorbis decoder              | ❌ (out of scope)     |
+| AAC / AC-3 / E-AC-3 decoder              | ❌ (patent encumbered) |
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
+| Vorbis / Opus decoder                    | 🟡 (deferred, royalty-free but large) |
+| MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
-| Mux Matroska / WebM / Ogg                | ❌ (planned)          |
+| Per-container seek API                   | 🟡 (deferred)         |
 
 ## Project layout
 
@@ -63,11 +73,16 @@ csharp-mediar/
 │   ├── Mediar.Containers.Mp3/          MP3 + ID3 demuxer + frame muxer
 │   ├── Mediar.Containers.Flac/         FLAC demuxer + native muxer
 │   ├── Mediar.Containers.Adts/         AAC ADTS demuxer + muxer
-│   ├── Mediar.Containers.Ogg/          Ogg page reader + logical-stream demuxer
-│   ├── Mediar.Containers.Matroska/     Matroska / WebM demuxer (EBML)
-│   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion helpers
+│   ├── Mediar.Containers.Ogg/          Ogg page reader + muxer
+│   ├── Mediar.Containers.Matroska/     Matroska / WebM demuxer + muxer (EBML)
+│   ├── Mediar.Codecs/                  IAudioDecoder / IVideoDecoder abstractions
+│   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion + decoder
+│   ├── Mediar.Codecs.G711/             G.711 µ-law / A-law encode + decode
+│   ├── Mediar.Codecs.Flac.Decoder/     Native FLAC decoder (RFC 9639)
+│   ├── Mediar.Bitstream/               H.264 / H.265 Annex-B ↔ AVCC/HVCC helpers
 │   ├── Mediar.Subtitles.Srt/           SRT read + write
 │   ├── Mediar.Subtitles.WebVtt/        WebVTT read + write
+│   ├── Mediar.Subtitles.Ass/           ASS / SSA v4+ read + write
 │   └── Mediar/                         high-level facade
 ├── tests/Mediar.Tests/                 xUnit round-trip + parser tests
 ├── bench/Mediar.Bench/                 BenchmarkDotNet micro-benchmarks
@@ -117,6 +132,60 @@ foreach (var t in demuxer.Tracks)
     Console.WriteLine(t);
 ```
 
+### Decoders
+
+Decoders implement `Mediar.Codecs.IAudioDecoder` / `IVideoDecoder` and produce
+interleaved float PCM frames out of compressed samples. Mediar ships
+implementations for codecs whose specifications are unencumbered.
+
+```csharp
+using Mediar.Codecs;
+using Mediar.Codecs.Flac.Decoder;
+
+var decoder = new FlacDecoderFactory().Create(track.Codec);
+foreach (var sample in samples)
+{
+    using var frame = decoder.Decode(sample.Data.Span);
+    // frame.Pcm is ReadOnlySpan<float>, interleaved L,R,L,R,...
+}
+```
+
+A `DecoderRegistry` lets you plug in your own (or a third-party
+permissively-licensed) decoder for codecs Mediar doesn't ship:
+
+```csharp
+DecoderRegistry.Default.RegisterAudio(CodecId.Aac, new MyOwnAacDecoderFactory());
+```
+
+### Muxing Ogg / Matroska / WebM
+
+`Mediar.Containers.Ogg.OggMuxer` and `Mediar.Containers.Matroska.MatroskaMuxer`
+implement the same `IMediaMuxer` contract as the MP4 muxer:
+
+```csharp
+await using var output = File.Create("audio.opus.ogg");
+await using var mux = new OggMuxer(output);
+mux.AddTrack(track);
+await mux.StartAsync();
+foreach (var s in samples) await mux.WriteSampleAsync(s);
+await mux.FinishAsync();
+```
+
+### H.264 / H.265 bitstream conversion
+
+`Mediar.Bitstream.AnnexBAvccConverter` converts NAL units between Annex-B
+(`00 00 01` start-code framing used by raw `.h264` / TS / RTP) and the
+length-prefixed AVCC / HVCC format expected inside MP4 / Matroska samples:
+
+```csharp
+using Mediar.Bitstream;
+
+byte[] avcc = AnnexBAvccConverter.AnnexBToLengthPrefixed(annexB, lengthSize: 4);
+byte[] back = AnnexBAvccConverter.LengthPrefixedToAnnexB(avcc, lengthSize: 4);
+```
+
+The scanner uses AVX2 when available for fast start-code detection.
+
 ## Performance characteristics
 
 Hot-path conventions used throughout the library:
@@ -154,9 +223,12 @@ Reference specs used:
 * ISO/IEC 13818-7 (MPEG-2 / ADTS AAC)
 * RFC 9639 (FLAC)
 * RFC 3533 (Ogg)
+* ITU-T G.711 (µ-law / A-law PCM companding)
+* ITU-T H.264 Annex B / ISO/IEC 14496-15 (AVCC)
 * Matroska / EBML specifications (matroska.org)
 * SubRip community spec (`.srt`)
 * W3C WebVTT
+* Advanced SubStation Alpha v4+ (community spec)
 
 No FFmpeg code was copied. Where format layouts were cross-checked against
 reference implementations, only the public specifications were used to write

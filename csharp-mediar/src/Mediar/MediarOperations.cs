@@ -257,6 +257,77 @@ public static class MediarOperations
     // Internals
     // ---------------------------------------------------------------------
 
+    /// <summary>
+    /// Create a container muxer from the output file extension. Currently
+    /// recognized: <c>.mp4</c>, <c>.m4a</c>, <c>.m4v</c>, <c>.mov</c>, <c>.wav</c>,
+    /// <c>.mp3</c>, <c>.flac</c>, <c>.aac</c>, <c>.ogg</c>, <c>.opus</c>, <c>.mka</c>,
+    /// <c>.mkv</c>, <c>.webm</c>.
+    /// </summary>
+    public static IMediaMuxer CreateMuxer(string destinationPath, Stream destination)
+    {
+        ArgumentNullException.ThrowIfNull(destinationPath);
+        ArgumentNullException.ThrowIfNull(destination);
+        var ext = Path.GetExtension(destinationPath).ToLowerInvariant();
+        return ext switch
+        {
+            ".mp4" or ".m4a" or ".m4v" or ".mov" or ".3gp" => new Mp4Muxer(destination),
+            ".wav" => new WavMuxer(destination),
+            ".mp3" => new Mp3Muxer(destination),
+            ".flac" => new FlacMuxer(destination),
+            ".aac" => new AdtsMuxer(destination),
+            ".ogg" or ".opus" or ".oga" or ".ogv" => new OggMuxer(destination),
+            ".mka" or ".mkv" => new MatroskaMuxer(destination, webm: false),
+            ".webm" => new MatroskaMuxer(destination, webm: true),
+            _ => throw new NotSupportedException($"No muxer available for extension '{ext}'."),
+        };
+    }
+
+    /// <summary>
+    /// Copy every track from <paramref name="sourcePath"/> into a new container at
+    /// <paramref name="destinationPath"/>. Samples are passthrough — no
+    /// re-encoding. The output container is chosen by extension and must be
+    /// compatible with the codecs used by the source.
+    /// </summary>
+    public static async Task TransmuxAsync(
+        string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sourcePath);
+        ArgumentNullException.ThrowIfNull(destinationPath);
+
+        await using var demuxer = Open(sourcePath);
+        await using var outStream = File.Create(destinationPath);
+        await using var muxer = CreateMuxer(destinationPath, outStream);
+
+        var trackMap = new Dictionary<int, int>(demuxer.Tracks.Count);
+        int nextIndex = 0;
+        uint nextId = 1;
+        foreach (var t in demuxer.Tracks)
+        {
+            var cloned = CloneTrackAtIndex(t, nextIndex, nextId);
+            muxer.AddTrack(cloned);
+            trackMap[t.Index] = nextIndex;
+            nextIndex++;
+            nextId++;
+        }
+
+        await muxer.StartAsync(cancellationToken).ConfigureAwait(false);
+
+        await foreach (var sample in demuxer.ReadSamplesAsync(cancellationToken).ConfigureAwait(false))
+        {
+            try
+            {
+                if (!trackMap.TryGetValue(sample.TrackIndex, out var dest)) continue;
+                await muxer.WriteSampleAsync(sample with { TrackIndex = dest }, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                sample.Owner?.Dispose();
+            }
+        }
+
+        await muxer.FinishAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private static MediaTrack? FindFirstAudioTrack(IMediaDemuxer demuxer)
     {
         foreach (var t in demuxer.Tracks) if (t.Kind == StreamKind.Audio) return t;

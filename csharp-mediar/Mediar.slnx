@@ -6,6 +6,10 @@
     <Project Path="samples/Mediar.Cli/Mediar.Cli.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Mediar.Bitstream/Mediar.Bitstream.csproj" />
+    <Project Path="src/Mediar.Codecs/Mediar.Codecs.csproj" />
+    <Project Path="src/Mediar.Codecs.Flac.Decoder/Mediar.Codecs.Flac.Decoder.csproj" />
+    <Project Path="src/Mediar.Codecs.G711/Mediar.Codecs.G711.csproj" />
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
     <Project Path="src/Mediar.Containers.Adts/Mediar.Containers.Adts.csproj" />
     <Project Path="src/Mediar.Containers.Flac/Mediar.Containers.Flac.csproj" />
@@ -16,6 +20,7 @@
     <Project Path="src/Mediar.Containers.Wav/Mediar.Containers.Wav.csproj" />
     <Project Path="src/Mediar.Core/Mediar.Core.csproj" />
     <Project Path="src/Mediar.Subtitles.Srt/Mediar.Subtitles.Srt.csproj" />
+    <Project Path="src/Mediar.Subtitles.Ass/Mediar.Subtitles.Ass.csproj" />
     <Project Path="src/Mediar.Subtitles.WebVtt/Mediar.Subtitles.WebVtt.csproj" />
     <Project Path="src/Mediar/Mediar.csproj" />
   </Folder>

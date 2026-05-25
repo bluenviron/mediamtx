@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>Mediar.Codecs.Pcm</RootNamespace>
-    <AssemblyName>Mediar.Codecs.Pcm</AssemblyName>
+    <RootNamespace>Mediar.Codecs.G711</RootNamespace>
+    <AssemblyName>Mediar.Codecs.G711</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>PCM sample-format conversion (s16/s24/s32/f32, LE/BE) for Mediar.</Description>
+    <Description>ITU-T G.711 mu-law / A-law decoder + encoder for Mediar.</Description>
   </PropertyGroup>
 
   <ItemGroup>

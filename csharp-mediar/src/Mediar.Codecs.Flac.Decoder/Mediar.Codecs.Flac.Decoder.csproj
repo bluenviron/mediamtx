@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Flac.Decoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Flac.Decoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native FLAC (RFC 9639) audio decoder for Mediar — patent-free.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>

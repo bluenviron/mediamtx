@@ -37,6 +37,10 @@ public enum CodecId
     Ac3,
     /// <summary>E-AC-3.</summary>
     EAc3,
+    /// <summary>ITU-T G.711 µ-law (8-bit companded).</summary>
+    G711MuLaw,
+    /// <summary>ITU-T G.711 A-law (8-bit companded).</summary>
+    G711ALaw,
 
     // --- Video
     /// <summary>H.264 / AVC.</summary>
