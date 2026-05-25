@@ -573,6 +573,12 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+  # RFC 2326 Scale header value to send with the PLAY request.
+  # Negative values play in reverse (e.g. "-1.0" = reverse at realtime,
+  # "-2.0" = reverse at 2x), values > 1 fast-forward, values 0 < x < 1
+  # play slow motion. Useful with VMS servers (Nx Witness, Pelco, etc.)
+  # that honor Scale for archive playback. Leave empty to omit the header.
+  rtspScale:
   # Range of ports used as source port in outgoing UDP packets.
   rtspUDPSourcePortRange: [10000, 65535]
 

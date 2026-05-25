@@ -126,6 +126,10 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
+	// Capture pathConf in OnRequest so we can inject the Scale header on PLAY
+	// requests when rtspScale is configured (negative values play in reverse,
+	// per RFC 2326). gortsplib's Play() doesn't accept Scale natively.
+	pathConf := params.Conf
 	c := &gortsplib.Client{
 		Protocol:          params.Conf.RTSPTransport.Protocol,
 		ReadTimeout:       time.Duration(s.ReadTimeout),
@@ -138,6 +142,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			uint16(params.Conf.RTSPUDPSourcePortRange[1]),
 		},
 		OnRequest: func(req *base.Request) {
+			if pathConf.RTSPScale != "" && req.Method == base.Play {
+				if req.Header == nil {
+					req.Header = base.Header{}
+				}
+				req.Header["Scale"] = base.HeaderValue{pathConf.RTSPScale}
+			}
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
 		OnResponse: func(res *base.Response) {
