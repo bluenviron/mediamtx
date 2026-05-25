@@ -1,434 +1,453 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<style>
-html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-	font-family: 'Arial', sans-serif;
-}
-#video {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgb(30, 30, 30);
-}
-#controls {
-	display: none;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	padding: 10px;
-	flex-direction: column;
-	min-height: 100%;
-	width: 100%;
-	box-sizing: border-box;
-	background: rgb(30, 30, 30);
-	color: white;
-}
-.item {
-	display: grid;
-	grid-auto-flow: column;
-	grid-template-columns: auto 220px;
-	align-items: center;
-	gap: 20px;
-	max-width: 500px;
-	margin: 10px 0;
-}
-select, input[type="text"] {
-	appearance: none;
-	background: inherit;
-	color: inherit;
-	border: 1px solid rgb(200, 200, 200);
-	border-radius: 3px;
-	height: 40px;
-	padding: 0 10px;
-}
-select option {
-	color: black;
-}
-#message {
-	position: absolute;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	text-align: center;
-	justify-content: center;
-	font-size: 16px;
-	font-weight: bold;
-	color: white;
-	pointer-events: none;
-	padding: 20px;
-	box-sizing: border-box;
-	text-shadow: 0 0 5px black;
-}
-#publish-button {
-	margin-top: 10px;
-	appearance: none;
-	background: rgb(200, 200, 200);
-	color: black;
-	border-radius: 3px;
-	height: 50px;
-	padding: 0 20px;
-	border: none;
-}
-</style>
-<script defer src="./publisher.js"></script>
-</head>
-<body>
-
-<video id="video" muted autoplay playsinline></video>
-
-<div id="controls">
-	<div id="items">
-		<div class="item">
-			<label for="video-device">video device</label>
-			<select id="video-device">
-				<option value="none">none</option>
-			</select>
-		</div>
-
-		<div class="item">
-			<label for="video-codec">video codec</label>
-			<select id="video-codec">
-			</select>
-		</div>
-
-		<div class="item">
-			<label for="video-bitrate">video bitrate (kbps)</label>
-			<input id="video-bitrate" type="text" value="10000" />
-		</div>
-
-		<div class="item">
-			<label for="video-framerate">video framerate (ideal)</label>
-			<input id="video-framerate" type="text" value="30" />
-		</div>
-
-		<div class="item">
-			<label for="video-width">video width (ideal)</label>
-			<input id="video-width" type="text" value="1920" />
-		</div>
-
-		<div class="item">
-			<label for="video-height">video height (ideal)</label>
-			<input id="video-height" type="text" value="1080" />
-		</div>
-
-		<div class="item">
-			<label for="audio-device">audio device</label>
-			<select id="audio-device">
-				<option value="none">none</option>
-			</select>
-		</div>
-
-		<div class="item">
-			<label for="audio-codec">audio codec</label>
-			<select id="audio-codec">
-			</select>
-		</div>
-
-		<div class="item">
-			<label for="audio-bitrate">audio bitrate (kbps)</label>
-			<input id="audio-bitrate" type="text" value="32" />
-		</div>
-
-		<div class="item">
-			<label for="audio-voice">optimize for voice</label>
-			<div>
-				<input id="audio-voice" type="checkbox" checked>
-			</div>
-		</div>
-	</div>
-
-	<div id="submit-line">
-		<button id="publish-button">publish</button>
-	</div>
-</div>
-
-<div id="message"></div>
-
-<script>
-
-const video = document.getElementById('video');
-const controls = document.getElementById('controls');
-const message = document.getElementById('message');
-const publishButton = document.getElementById('publish-button');
-let publisher = null;
-
-const videoForm = {
-  device: document.getElementById('video-device'),
-  codec: document.getElementById('video-codec'),
-  bitrate: document.getElementById('video-bitrate'),
-  framerate: document.getElementById('video-framerate'),
-  width: document.getElementById('video-width'),
-  height: document.getElementById('video-height')
-};
-
-const audioForm = {
-  device: document.getElementById('audio-device'),
-  codec: document.getElementById('audio-codec'),
-  bitrate: document.getElementById('audio-bitrate'),
-  voice: document.getElementById('audio-voice'),
-};
-
-const setMessage = (str) => {
-  message.innerText = str;
-};
-
-const onStream = (stream) => {
-  video.srcObject = stream;
-
-  publisher = new MediaMTXWebRTCPublisher({
-    url: new URL('whip', window.location.href) + window.location.search,
-    stream,
-    videoCodec: videoForm.codec.value,
-    videoBitrate: videoForm.bitrate.value,
-    audioCodec: audioForm.codec.value,
-    audioBitrate: audioForm.bitrate.value,
-    audioVoice: audioForm.voice.checked,
-    onError: (err) => {
-      setMessage(err);
-    },
-    onConnected: (evt) => {
-      setMessage('');
-    },
-  });
-};
-
-const onPublish = () => {
-  controls.style.display = 'none';
-  video.style.display = 'block';
-  setMessage('connecting');
-
-  const videoId = videoForm.device.value;
-  const audioId = audioForm.device.value;
-
-  if (videoId !== 'screen') {
-    let videoOpts = false;
-
-    if (videoId !== 'none') {
-      videoOpts = {
-        deviceId: videoId,
-        width: { ideal: videoForm.width.value },
-        height: { ideal: videoForm.height.value },
-        frameRate: { ideal: videoForm.framerate.value },
-      };
-    }
-
-    let audioOpts = false;
-
-    if (audioId !== 'none') {
-      audioOpts = {
-        deviceId: audioId,
-      };
-
-      const voice = audioForm.voice.checked;
-      if (!voice) {
-        audioOpts.autoGainControl = false;
-        audioOpts.echoCancellation = false;
-        audioOpts.noiseSuppression = false;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: "Arial", sans-serif;
       }
-    }
+      #video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(30, 30, 30);
+      }
+      #controls {
+        display: none;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        flex-direction: column;
+        min-height: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        background: rgb(30, 30, 30);
+        color: white;
+      }
+      .item {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-columns: auto 220px;
+        align-items: center;
+        gap: 20px;
+        max-width: 500px;
+        margin: 10px 0;
+      }
+      select,
+      input[type="text"] {
+        appearance: none;
+        background: inherit;
+        color: inherit;
+        border: 1px solid rgb(200, 200, 200);
+        border-radius: 3px;
+        height: 40px;
+        padding: 0 10px;
+      }
+      select option {
+        color: black;
+      }
+      #message {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        color: white;
+        pointer-events: none;
+        padding: 20px;
+        box-sizing: border-box;
+        text-shadow: 0 0 5px black;
+      }
+      #publish-button {
+        margin-top: 10px;
+        appearance: none;
+        background: rgb(200, 200, 200);
+        color: black;
+        border-radius: 3px;
+        height: 50px;
+        padding: 0 20px;
+        border: none;
+      }
+    </style>
+    <script defer src="./publisher.js"></script>
+  </head>
+  <body>
+    <video id="video" muted autoplay playsinline></video>
 
-    navigator.mediaDevices.getUserMedia({
-      video: videoOpts,
-      audio: audioOpts,
-    })
-      .then((stream) => onStream(stream))
-      .catch((err) => {
-        setMessage(err.toString());
-      });
-  } else {
-    navigator.mediaDevices.getDisplayMedia({
-      video: {
-        width: { ideal: videoForm.width.value },
-        height: { ideal: videoForm.height.value },
-        frameRate: { ideal: videoForm.framerate.value },
-        cursor: 'always',
-      },
-      audio: true,
-    })
-      .then((stream) => onStream(stream))
-      .catch((err) => {
-        setMessage(err.toString());
-      });
-  }
-};
+    <div id="controls">
+      <div id="items">
+        <div class="item">
+          <label for="video-device">video device</label>
+          <select id="video-device">
+            <option value="none">none</option>
+          </select>
+        </div>
 
-const selectHasOption = (select, option) => {
-  for (const opt of select.querySelectorAll('option')) {
-    if (opt.value === option) {
-      return true;
-    }
-  }
-  return false;
-};
+        <div class="item">
+          <label for="video-codec">video codec</label>
+          <select id="video-codec"></select>
+        </div>
 
-const populateDevices = () => {
-  return navigator.mediaDevices.enumerateDevices()
-    .then((devices) => {
-      for (const device of devices) {
-        if (device.kind === 'videoinput' || device.kind === 'audioinput') {
-          const select = (device.kind === 'videoinput') ? videoForm.device : audioForm.device;
+        <div class="item">
+          <label for="video-bitrate">video bitrate (kbps)</label>
+          <input id="video-bitrate" type="text" value="10000" />
+        </div>
 
-          if (!selectHasOption(select, device.deviceId)) {
-            const opt = document.createElement('option');
-            opt.value = device.deviceId;
-            opt.text = device.label;
-            select.appendChild(opt);
+        <div class="item">
+          <label for="video-framerate">video framerate (ideal)</label>
+          <input id="video-framerate" type="text" value="30" />
+        </div>
+
+        <div class="item">
+          <label for="video-width">video width (ideal)</label>
+          <input id="video-width" type="text" value="1920" />
+        </div>
+
+        <div class="item">
+          <label for="video-height">video height (ideal)</label>
+          <input id="video-height" type="text" value="1080" />
+        </div>
+
+        <div class="item">
+          <label for="audio-device">audio device</label>
+          <select id="audio-device">
+            <option value="none">none</option>
+          </select>
+        </div>
+
+        <div class="item">
+          <label for="audio-codec">audio codec</label>
+          <select id="audio-codec"></select>
+        </div>
+
+        <div class="item">
+          <label for="audio-bitrate">audio bitrate (kbps)</label>
+          <input id="audio-bitrate" type="text" value="32" />
+        </div>
+
+        <div class="item">
+          <label for="audio-voice">optimize for voice</label>
+          <div>
+            <input id="audio-voice" type="checkbox" checked />
+          </div>
+        </div>
+      </div>
+
+      <div id="submit-line">
+        <button id="publish-button">publish</button>
+      </div>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+      const video = document.getElementById("video");
+      const controls = document.getElementById("controls");
+      const message = document.getElementById("message");
+      const publishButton = document.getElementById("publish-button");
+      let publisher = null;
+
+      const videoForm = {
+        device: document.getElementById("video-device"),
+        codec: document.getElementById("video-codec"),
+        bitrate: document.getElementById("video-bitrate"),
+        framerate: document.getElementById("video-framerate"),
+        width: document.getElementById("video-width"),
+        height: document.getElementById("video-height"),
+      };
+
+      const audioForm = {
+        device: document.getElementById("audio-device"),
+        codec: document.getElementById("audio-codec"),
+        bitrate: document.getElementById("audio-bitrate"),
+        voice: document.getElementById("audio-voice"),
+      };
+
+      const setMessage = (str) => {
+        message.innerText = str;
+      };
+
+      const onStream = (stream) => {
+        video.srcObject = stream;
+
+        publisher = new MediaMTXWebRTCPublisher({
+          url: new URL("whip", window.location.href) + window.location.search,
+          stream,
+          videoCodec: videoForm.codec.value,
+          videoBitrate: videoForm.bitrate.value,
+          audioCodec: audioForm.codec.value,
+          audioBitrate: audioForm.bitrate.value,
+          audioVoice: audioForm.voice.checked,
+          onError: (err) => {
+            setMessage(err);
+          },
+          onConnected: (evt) => {
+            setMessage("");
+          },
+        });
+      };
+
+      const onPublish = () => {
+        controls.style.display = "none";
+        video.style.display = "block";
+        setMessage("connecting");
+
+        const videoId = videoForm.device.value;
+        const audioId = audioForm.device.value;
+
+        if (videoId !== "screen") {
+          let videoOpts = false;
+
+          if (videoId !== "none") {
+            videoOpts = {
+              deviceId: videoId,
+              width: { ideal: videoForm.width.value },
+              height: { ideal: videoForm.height.value },
+              frameRate: { ideal: videoForm.framerate.value },
+            };
+          }
+
+          let audioOpts = false;
+
+          if (audioId !== "none") {
+            audioOpts = {
+              deviceId: audioId,
+            };
+
+            const voice = audioForm.voice.checked;
+            if (!voice) {
+              audioOpts.autoGainControl = false;
+              audioOpts.echoCancellation = false;
+              audioOpts.noiseSuppression = false;
+            }
+          }
+
+          navigator.mediaDevices
+            .getUserMedia({
+              video: videoOpts,
+              audio: audioOpts,
+            })
+            .then((stream) => onStream(stream))
+            .catch((err) => {
+              setMessage(err.toString());
+            });
+        } else {
+          navigator.mediaDevices
+            .getDisplayMedia({
+              video: {
+                width: { ideal: videoForm.width.value },
+                height: { ideal: videoForm.height.value },
+                frameRate: { ideal: videoForm.framerate.value },
+                cursor: "always",
+              },
+              audio: true,
+            })
+            .then((stream) => onStream(stream))
+            .catch((err) => {
+              setMessage(err.toString());
+            });
+        }
+      };
+
+      const selectHasOption = (select, option) => {
+        for (const opt of select.querySelectorAll("option")) {
+          if (opt.value === option) {
+            return true;
           }
         }
-      }
+        return false;
+      };
 
-      if (navigator.mediaDevices.getDisplayMedia !== undefined) {
-        const opt = document.createElement('option');
-        opt.value = 'screen';
-        opt.text = 'screen';
-        videoForm.device.appendChild(opt);
-      }
+      const populateDevices = () => {
+        return navigator.mediaDevices.enumerateDevices().then((devices) => {
+          for (const device of devices) {
+            if (device.kind === "videoinput" || device.kind === "audioinput") {
+              const select =
+                device.kind === "videoinput"
+                  ? videoForm.device
+                  : audioForm.device;
 
-      // set first available device as default device
-      if (videoForm.device.children.length !== 0) {
-        videoForm.device.value = videoForm.device.children[1].value;
-      }
+              if (!selectHasOption(select, device.deviceId)) {
+                const opt = document.createElement("option");
+                opt.value = device.deviceId;
+                opt.text = device.label;
+                select.appendChild(opt);
+              }
+            }
+          }
 
-      // set first available device as default device
-      if (audioForm.device.children.length !== 0) {
-        audioForm.device.value = audioForm.device.children[1].value;
-      }
-    });
-};
+          if (navigator.mediaDevices.getDisplayMedia !== undefined) {
+            const opt = document.createElement("option");
+            opt.value = "screen";
+            opt.text = "screen";
+            videoForm.device.appendChild(opt);
+          }
 
-const populateCodecs = () => {
-  const tempPC = new RTCPeerConnection({});
-  tempPC.addTransceiver('video', { direction: 'sendonly' });
-  tempPC.addTransceiver('audio', { direction: 'sendonly' });
+          // set first available device as default device
+          if (videoForm.device.children.length !== 0) {
+            videoForm.device.value = videoForm.device.children[1].value;
+          }
 
-  return tempPC.createOffer()
-    .then((desc) => {
-      const sdp = desc.sdp.toLowerCase();
-
-      for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000', 'h265/90000']) {
-        if (sdp.includes(codec)) {
-          const opt = document.createElement('option');
-          opt.value = codec;
-          opt.text = codec.split('/')[0].toUpperCase();
-          videoForm.codec.appendChild(opt);
-        }
-      }
-
-      for (const codec of ['opus/48000', 'g722/8000', 'pcmu/8000', 'pcma/8000']) {
-        if (sdp.includes(codec)) {
-          const opt = document.createElement('option');
-          opt.value = codec;
-          opt.text = codec.split('/')[0].toUpperCase();
-          audioForm.codec.appendChild(opt);
-        }
-      }
-
-      tempPC.close();
-    });
-};
-
-const populateOptions = () => {
-  setMessage('loading devices');
-
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then((tempStream) => {
-      return Promise.all([
-        populateDevices(),
-        populateCodecs(),
-      ])
-        .then(() => {
-          // free the webcam to prevent 'NotReadableError' on Android
-          tempStream.getTracks()
-            .forEach((track) => track.stop());
-
-          setMessage('');
-
-          loadValuesFromQuery();
-          setupEventListeners();
-
-          video.style.display = 'none';
-          controls.style.display = 'flex';
+          // set first available device as default device
+          if (audioForm.device.children.length !== 0) {
+            audioForm.device.value = audioForm.device.children[1].value;
+          }
         });
-    })
-    .catch((err) => {
-      setMessage(err.toString());
-    });
-};
+      };
 
-const setupEventListeners = () => {
-  const url = new URL(window.location.href);
-  const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
+      const populateCodecs = () => {
+        const tempPC = new RTCPeerConnection({});
+        tempPC.addTransceiver("video", { direction: "sendonly" });
+        tempPC.addTransceiver("audio", { direction: "sendonly" });
 
-  for (const input of inputs) {
-    if (input instanceof HTMLInputElement && input.type === 'text') {
-      input.addEventListener('input', () => {
-        url.searchParams.set(input.id, input.value);
-        window.history.replaceState(null, null, url);
-      })
-    }
+        return tempPC.createOffer().then((desc) => {
+          const sdp = desc.sdp.toLowerCase();
 
-    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-      input.addEventListener('input', () => {
-        url.searchParams.set(input.id, input.checked);
-        window.history.replaceState(null, null, url);
-      })
-    }
+          for (const codec of [
+            "av1/90000",
+            "vp9/90000",
+            "vp8/90000",
+            "h264/90000",
+            "h265/90000",
+          ]) {
+            if (sdp.includes(codec)) {
+              const opt = document.createElement("option");
+              opt.value = codec;
+              opt.text = codec.split("/")[0].toUpperCase();
+              videoForm.codec.appendChild(opt);
+            }
+          }
 
-    if (input instanceof HTMLSelectElement) {
-      input.addEventListener('input', () => {
-        url.searchParams.set(input.id, input.value);
-        window.history.replaceState(null, null, url);
-      })
-    }
-  }
-};
+          for (const codec of [
+            "opus/48000",
+            "g722/8000",
+            "pcmu/8000",
+            "pcma/8000",
+          ]) {
+            if (sdp.includes(codec)) {
+              const opt = document.createElement("option");
+              opt.value = codec;
+              opt.text = codec.split("/")[0].toUpperCase();
+              audioForm.codec.appendChild(opt);
+            }
+          }
 
-const loadValuesFromQuery = () => {
-  const params = new URLSearchParams(window.location.search);
-  const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
+          tempPC.close();
+        });
+      };
 
-  for (const input of inputs) {
-    const value = params.get(input.id);
-    if (value) {
-      if (input instanceof HTMLInputElement && input.type === 'text') {
-        input.value = value;
-      } else if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-        input.checked = value === 'true';
-      } else if (input instanceof HTMLSelectElement) {
-        input.value = value;
-      }
-    }
-  }
-};
+      const populateOptions = () => {
+        setMessage("loading devices");
 
-window.addEventListener('load', () => {
-  if (navigator.mediaDevices === undefined) {
-    setMessage(`can't access webcams or microphones. Make sure that WebRTC encryption is enabled.`);
-    return;
-  }
+        navigator.mediaDevices
+          .getUserMedia({ video: true, audio: true })
+          .then((tempStream) => {
+            return Promise.all([populateDevices(), populateCodecs()]).then(
+              () => {
+                // free the webcam to prevent 'NotReadableError' on Android
+                tempStream.getTracks().forEach((track) => track.stop());
 
-  publishButton.addEventListener('click', onPublish);
-  populateOptions();
-});
+                setMessage("");
 
-window.addEventListener('beforeunload', () => {
-  if (publisher !== null) {
-    publisher.close();
-  }
-});
+                loadValuesFromQuery();
+                setupEventListeners();
 
-</script>
+                video.style.display = "none";
+                controls.style.display = "flex";
+              },
+            );
+          })
+          .catch((err) => {
+            setMessage(err.toString());
+          });
+      };
 
-</body>
+      const setupEventListeners = () => {
+        const url = new URL(window.location.href);
+        const inputs = [
+          ...Object.values(videoForm),
+          ...Object.values(audioForm),
+        ];
+
+        for (const input of inputs) {
+          if (input instanceof HTMLInputElement && input.type === "text") {
+            input.addEventListener("input", () => {
+              url.searchParams.set(input.id, input.value);
+              window.history.replaceState(null, null, url);
+            });
+          }
+
+          if (input instanceof HTMLInputElement && input.type === "checkbox") {
+            input.addEventListener("input", () => {
+              url.searchParams.set(input.id, input.checked);
+              window.history.replaceState(null, null, url);
+            });
+          }
+
+          if (input instanceof HTMLSelectElement) {
+            input.addEventListener("input", () => {
+              url.searchParams.set(input.id, input.value);
+              window.history.replaceState(null, null, url);
+            });
+          }
+        }
+      };
+
+      const loadValuesFromQuery = () => {
+        const params = new URLSearchParams(window.location.search);
+        const inputs = [
+          ...Object.values(videoForm),
+          ...Object.values(audioForm),
+        ];
+
+        for (const input of inputs) {
+          const value = params.get(input.id);
+          if (value) {
+            if (input instanceof HTMLInputElement && input.type === "text") {
+              input.value = value;
+            } else if (
+              input instanceof HTMLInputElement &&
+              input.type === "checkbox"
+            ) {
+              input.checked = value === "true";
+            } else if (input instanceof HTMLSelectElement) {
+              input.value = value;
+            }
+          }
+        }
+      };
+
+      window.addEventListener("load", () => {
+        if (navigator.mediaDevices === undefined) {
+          setMessage(
+            `can't access webcams or microphones. Make sure that WebRTC encryption is enabled.`,
+          );
+          return;
+        }
+
+        publishButton.addEventListener("click", onPublish);
+        populateOptions();
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (publisher !== null) {
+          publisher.close();
+        }
+      });
+    </script>
+  </body>
 </html>

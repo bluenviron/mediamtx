@@ -26,82 +26,82 @@ components:
     PathSourceType:
       type: string
       enum:
-      - hlsSource
-      - redirect
-      - rpiCameraSource
-      - rtmpConn
-      - rtmpsConn
-      - rtmpSource
-      - rtspSession
-      - rtspSource
-      - rtspsSession
-      - srtConn
-      - srtSource
-      - mpegtsSource
-      - rtpSource
-      - webRTCSession
-      - webRTCSource
+        - hlsSource
+        - redirect
+        - rpiCameraSource
+        - rtmpConn
+        - rtmpsConn
+        - rtmpSource
+        - rtspSession
+        - rtspSource
+        - rtspsSession
+        - srtConn
+        - srtSource
+        - mpegtsSource
+        - rtpSource
+        - webRTCSession
+        - webRTCSource
 
     PathReaderType:
       type: string
       enum:
-      - hlsSession
-      - rtmpConn
-      - rtmpsConn
-      - rtspConn
-      - rtspSession
-      - rtspsConn
-      - rtspsSession
-      - srtConn
-      - webRTCSession
+        - hlsSession
+        - rtmpConn
+        - rtmpsConn
+        - rtspConn
+        - rtspSession
+        - rtspsConn
+        - rtspsSession
+        - srtConn
+        - webRTCSession
 
     PathTrackCodec:
       type: string
       enum:
-      - AV1
-      - VP9
-      - VP8
-      - H265
-      - H264
-      - MPEG-4 Video
-      - MPEG-1/2 Video
-      - M-JPEG
-      - Opus
-      - Vorbis
-      - MPEG-4 Audio
-      - MPEG-4 Audio LATM
-      - MPEG-1/2 Audio
-      - AC3
-      - Speex
-      - G726
-      - G722
-      - G711
-      - LPCM
-      - MPEG-TS
-      - KLV
-      - Generic
+        - AV1
+        - VP9
+        - VP8
+        - H265
+        - H264
+        - MPEG-4 Video
+        - MPEG-1/2 Video
+        - M-JPEG
+        - Opus
+        - Vorbis
+        - MPEG-4 Audio
+        - MPEG-4 Audio LATM
+        - MPEG-1/2 Audio
+        - AC3
+        - Speex
+        - G726
+        - G722
+        - G711
+        - LPCM
+        - MPEG-TS
+        - KLV
+        - Generic
 
     AlwaysAvailableTrackCodec:
       type: string
       enum:
-      - AV1
-      - VP9
-      - H265
-      - H264
-      - MPEG4Audio
-      - Opus
-      - G711
-      - LPCM
+        - AV1
+        - VP9
+        - H265
+        - H264
+        - MPEG4Audio
+        - Opus
+        - G711
+        - LPCM
 
     AuthAction:
       type: string
       enum:
-      - publish
-      - read
-      - playback
-      - api
-      - metrics
-      - pprof
+        - publish
+        - read
+        - playback
+        - api
+        - metrics
+        - pprof
 
     AuthMethod:
       type: string
@@ -133,7 +133,7 @@ components:
 
     RTSPRangeType:
       type: string
-      enum: ['', clock, npt, smpte]
+      enum: ["", clock, npt, smpte]
 
     RTSPTransport:
       type: string
@@ -159,13 +159,13 @@ components:
       type: object
       properties:
         status:
-          $ref: '#/components/schemas/OKStatus'
+          $ref: "#/components/schemas/OKStatus"
 
     Error:
       type: object
       properties:
         status:
-          $ref: '#/components/schemas/ErrorStatus'
+          $ref: "#/components/schemas/ErrorStatus"
         error:
           type: string
 
@@ -191,13 +191,13 @@ components:
         permissions:
           type: array
           items:
-            $ref: '#/components/schemas/AuthInternalUserPermission'
+            $ref: "#/components/schemas/AuthInternalUserPermission"
 
     AuthInternalUserPermission:
       type: object
       properties:
         action:
-          $ref: '#/components/schemas/AuthAction'
+          $ref: "#/components/schemas/AuthAction"
         path:
           type: string
 
@@ -206,11 +206,11 @@ components:
       properties:
         # General
         logLevel:
-          $ref: '#/components/schemas/LogLevel'
+          $ref: "#/components/schemas/LogLevel"
         logDestinations:
           type: array
           items:
-            $ref: '#/components/schemas/LogDestination'
+            $ref: "#/components/schemas/LogDestination"
         logStructured:
           type: boolean
         logFile:
@@ -246,11 +246,11 @@ components:
 
         # Authentication
         authMethod:
-          $ref: '#/components/schemas/AuthMethod'
+          $ref: "#/components/schemas/AuthMethod"
         authInternalUsers:
           type: array
           items:
-            $ref: '#/components/schemas/AuthInternalUser'
+            $ref: "#/components/schemas/AuthInternalUser"
         authHTTPAddress:
           type: string
         externalAuthenticationURL:
@@ -262,7 +262,7 @@ components:
         authHTTPExclude:
           type: array
           items:
-            $ref: '#/components/schemas/AuthInternalUserPermission'
+            $ref: "#/components/schemas/AuthInternalUserPermission"
         authJWTJWKS:
           type: string
         authJWTJWKSFingerprint:
@@ -280,7 +280,7 @@ components:
         authJWTExclude:
           type: array
           items:
-            $ref: '#/components/schemas/AuthInternalUserPermission'
+            $ref: "#/components/schemas/AuthInternalUserPermission"
 
         # Control API
         api:
@@ -402,9 +402,9 @@ components:
           nullable: true
           deprecated: true
           allOf:
-            - $ref: '#/components/schemas/Encryption'
+            - $ref: "#/components/schemas/Encryption"
         rtspEncryption:
-          $ref: '#/components/schemas/Encryption'
+          $ref: "#/components/schemas/Encryption"
         rtspAddress:
           type: string
         rtspsAddress:
@@ -439,12 +439,12 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/RTSPAuthMethod'
+            $ref: "#/components/schemas/RTSPAuthMethod"
           deprecated: true
         rtspAuthMethods:
           type: array
           items:
-            $ref: '#/components/schemas/RTSPAuthMethod'
+            $ref: "#/components/schemas/RTSPAuthMethod"
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
@@ -459,7 +459,7 @@ components:
           nullable: true
           deprecated: true
         rtmpEncryption:
-          $ref: '#/components/schemas/Encryption'
+          $ref: "#/components/schemas/Encryption"
         rtmpAddress:
           type: string
         rtmpsAddress:
@@ -499,7 +499,7 @@ components:
         hlsAlwaysRemux:
           type: boolean
         hlsVariant:
-          $ref: '#/components/schemas/HLSVariant'
+          $ref: "#/components/schemas/HLSVariant"
         hlsSegmentCount:
           type: integer
           format: int64
@@ -560,7 +560,7 @@ components:
         webrtcICEServers2:
           type: array
           items:
-            $ref: '#/components/schemas/WebRTCICEServer'
+            $ref: "#/components/schemas/WebRTCICEServer"
         webrtcSTUNGatherTimeout:
           type: string
         webrtcHandshakeTimeout:
@@ -608,7 +608,7 @@ components:
           nullable: true
           deprecated: true
           allOf:
-            - $ref: '#/components/schemas/RecordFormat'
+            - $ref: "#/components/schemas/RecordFormat"
         recordPartDuration:
           type: string
           nullable: true
@@ -657,7 +657,7 @@ components:
         alwaysAvailableTracks:
           type: array
           items:
-            $ref: '#/components/schemas/AlwaysAvailableTrack'
+            $ref: "#/components/schemas/AlwaysAvailableTrack"
         alwaysAvailableFile:
           type: string
 
@@ -671,7 +671,7 @@ components:
         recordPath:
           type: string
         recordFormat:
-          $ref: '#/components/schemas/RecordFormat'
+          $ref: "#/components/schemas/RecordFormat"
         recordPartDuration:
           type: string
         recordMaxPartSize:
@@ -725,7 +725,7 @@ components:
 
         # RTSP source
         rtspTransport:
-          $ref: '#/components/schemas/RTSPTransport'
+          $ref: "#/components/schemas/RTSPTransport"
         rtspAnyPort:
           type: boolean
         sourceProtocol:
@@ -733,13 +733,13 @@ components:
           nullable: true
           deprecated: true
           allOf:
-            - $ref: '#/components/schemas/RTSPTransport'
+            - $ref: "#/components/schemas/RTSPTransport"
         sourceAnyPortEnable:
           type: boolean
           nullable: true
           deprecated: true
         rtspRangeType:
-          $ref: '#/components/schemas/RTSPRangeType'
+          $ref: "#/components/schemas/RTSPRangeType"
         rtspRangeStart:
           type: string
         rtspUDPReadBufferSize:
@@ -943,7 +943,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/PathConf'
+            $ref: "#/components/schemas/PathConf"
 
     Path:
       type: object
@@ -956,7 +956,7 @@ components:
           type: object
           nullable: true
           allOf:
-            - $ref: '#/components/schemas/PathSource'
+            - $ref: "#/components/schemas/PathSource"
         ready:
           type: boolean
           deprecated: true
@@ -978,11 +978,11 @@ components:
           type: array
           deprecated: true
           items:
-            $ref: '#/components/schemas/PathTrackCodec'
+            $ref: "#/components/schemas/PathTrackCodec"
         tracks2:
           type: array
           items:
-            $ref: '#/components/schemas/PathTrack'
+            $ref: "#/components/schemas/PathTrack"
         inboundBytes:
           type: integer
           format: uint64
@@ -1003,7 +1003,7 @@ components:
         readers:
           type: array
           items:
-            $ref: '#/components/schemas/PathReader'
+            $ref: "#/components/schemas/PathReader"
 
     PathList:
       type: object
@@ -1017,13 +1017,13 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Path'
+            $ref: "#/components/schemas/Path"
 
     PathSource:
       type: object
       properties:
         type:
-          $ref: '#/components/schemas/PathSourceType'
+          $ref: "#/components/schemas/PathSourceType"
         id:
           type: string
 
@@ -1031,7 +1031,7 @@ components:
       type: object
       properties:
         type:
-          $ref: '#/components/schemas/PathReaderType'
+          $ref: "#/components/schemas/PathReaderType"
         id:
           type: string
 
@@ -1039,24 +1039,24 @@ components:
       type: object
       properties:
         codec:
-          $ref: '#/components/schemas/PathTrackCodec'
+          $ref: "#/components/schemas/PathTrackCodec"
         codecProps:
           type: object
           nullable: true
           allOf:
-          - $ref: '#/components/schemas/PathTrackCodecProps'
+            - $ref: "#/components/schemas/PathTrackCodecProps"
 
     PathTrackCodecProps:
       oneOf:
-      - $ref: '#/components/schemas/PathTrackCodecPropsAV1'
-      - $ref: '#/components/schemas/PathTrackCodecPropsVP9'
-      - $ref: '#/components/schemas/PathTrackCodecPropsH265'
-      - $ref: '#/components/schemas/PathTrackCodecPropsH264'
-      - $ref: '#/components/schemas/PathTrackCodecPropsOpus'
-      - $ref: '#/components/schemas/PathTrackCodecPropsMPEG4Audio'
-      - $ref: '#/components/schemas/PathTrackCodecPropsAC3'
-      - $ref: '#/components/schemas/PathTrackCodecPropsG711'
-      - $ref: '#/components/schemas/PathTrackCodecPropsLPCM'
+        - $ref: "#/components/schemas/PathTrackCodecPropsAV1"
+        - $ref: "#/components/schemas/PathTrackCodecPropsVP9"
+        - $ref: "#/components/schemas/PathTrackCodecPropsH265"
+        - $ref: "#/components/schemas/PathTrackCodecPropsH264"
+        - $ref: "#/components/schemas/PathTrackCodecPropsOpus"
+        - $ref: "#/components/schemas/PathTrackCodecPropsMPEG4Audio"
+        - $ref: "#/components/schemas/PathTrackCodecPropsAC3"
+        - $ref: "#/components/schemas/PathTrackCodecPropsG711"
+        - $ref: "#/components/schemas/PathTrackCodecPropsLPCM"
 
     PathTrackCodecPropsAV1:
       type: object
@@ -1195,7 +1195,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/HLSMuxer'
+            $ref: "#/components/schemas/HLSMuxer"
 
     HLSSession:
       type: object
@@ -1231,7 +1231,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/HLSSession'
+            $ref: "#/components/schemas/HLSSession"
 
     Recording:
       type: object
@@ -1241,7 +1241,7 @@ components:
         segments:
           type: array
           items:
-            $ref: '#/components/schemas/RecordingSegment'
+            $ref: "#/components/schemas/RecordingSegment"
 
     RecordingList:
       type: object
@@ -1255,7 +1255,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Recording'
+            $ref: "#/components/schemas/Recording"
 
     RecordingSegment:
       type: object
@@ -1274,7 +1274,7 @@ components:
         remoteAddr:
           type: string
         state:
-          $ref: '#/components/schemas/RTMPConnState'
+          $ref: "#/components/schemas/RTMPConnState"
         path:
           type: string
         query:
@@ -1311,7 +1311,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/RTMPConn'
+            $ref: "#/components/schemas/RTMPConn"
 
     RTSPConn:
       type: object
@@ -1356,7 +1356,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/RTSPConn'
+            $ref: "#/components/schemas/RTSPConn"
 
     RTSPSession:
       type: object
@@ -1369,7 +1369,7 @@ components:
         remoteAddr:
           type: string
         state:
-          $ref: '#/components/schemas/RTSPSessionState'
+          $ref: "#/components/schemas/RTSPSessionState"
         path:
           type: string
         query:
@@ -1476,7 +1476,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/RTSPSession'
+            $ref: "#/components/schemas/RTSPSession"
 
     SRTConn:
       type: object
@@ -1489,7 +1489,7 @@ components:
         remoteAddr:
           type: string
         state:
-          $ref: '#/components/schemas/SRTConnState'
+          $ref: "#/components/schemas/SRTConnState"
         path:
           type: string
         query:
@@ -1722,13 +1722,13 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/SRTConn'
+            $ref: "#/components/schemas/SRTConn"
 
     AlwaysAvailableTrack:
       type: object
       properties:
         codec:
-          $ref: '#/components/schemas/AlwaysAvailableTrackCodec'
+          $ref: "#/components/schemas/AlwaysAvailableTrackCodec"
         sampleRate:
           type: integer
           format: int64
@@ -1767,7 +1767,7 @@ components:
         remoteCandidate:
           type: string
         state:
-          $ref: '#/components/schemas/WebRTCSessionState'
+          $ref: "#/components/schemas/WebRTCSessionState"
         path:
           type: string
         query:
@@ -1846,28 +1846,27 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/WebRTCSession'
+            $ref: "#/components/schemas/WebRTCSession"
 
 paths:
-
   /v3/info:
     get:
       operationId: info
       tags: [General]
       summary: returns informations about the instance.
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Info'
-        '500':
+                $ref: "#/components/schemas/Info"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/auth/jwks/refresh:
     post:
@@ -1875,44 +1874,44 @@ paths:
       tags: [Authentication]
       summary: Manually refreshes the JWT JWKS.
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '500':
+                $ref: "#/components/schemas/OK"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/global/get:
     get:
       operationId: configGlobalGet
       tags: [Configuration]
       summary: returns the global configuration.
-      description: ''
+      description: ""
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GlobalConf'
-        '400':
+                $ref: "#/components/schemas/GlobalConf"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/global/patch:
     patch:
@@ -1925,52 +1924,52 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GlobalConf'
+              $ref: "#/components/schemas/GlobalConf"
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/pathdefaults/get:
     get:
       operationId: configPathDefaultsGet
       tags: [Configuration]
       summary: returns the default path configuration.
-      description: ''
+      description: ""
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PathConf'
-        '400':
+                $ref: "#/components/schemas/PathConf"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/pathdefaults/patch:
     patch:
@@ -1983,104 +1982,104 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PathConf'
+              $ref: "#/components/schemas/PathConf"
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/list:
     get:
       operationId: configPathsList
       tags: [Configuration]
       summary: returns all path configurations.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PathConfList'
-        '400':
+                $ref: "#/components/schemas/PathConfList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/get/{name}:
     get:
       operationId: configPathsGet
       tags: [Configuration]
       summary: returns a path configuration.
-      description: ''
+      description: ""
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: the name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: the name of the path.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PathConf'
-        '400':
+                $ref: "#/components/schemas/PathConf"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/add/{name}:
     post:
@@ -2089,37 +2088,37 @@ paths:
       summary: adds a path configuration.
       description: all fields are optional.
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: the name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: the name of the path.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PathConf'
+              $ref: "#/components/schemas/PathConf"
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/patch/{name}:
     patch:
@@ -2128,43 +2127,43 @@ paths:
       summary: patches a path configuration.
       description: all fields are optional.
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: the name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: the name of the path.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PathConf'
+              $ref: "#/components/schemas/PathConf"
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/replace/{name}:
     post:
@@ -2173,1333 +2172,1333 @@ paths:
       summary: replaces all values of a path configuration.
       description: all fields are optional.
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: the name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: the name of the path.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PathConf'
+              $ref: "#/components/schemas/PathConf"
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/config/paths/delete/{name}:
     delete:
       operationId: configPathsDelete
       tags: [Configuration]
       summary: removes a path configuration.
-      description: ''
+      description: ""
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: the name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: the name of the path.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/hlsmuxers/list:
     get:
       operationId: hlsMuxersList
       tags: [HLS]
       summary: returns all HLS muxers.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSMuxerList'
-        '400':
+                $ref: "#/components/schemas/HLSMuxerList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/hlsmuxers/get/{name}:
     get:
       operationId: hlsMuxersGet
       tags: [HLS]
       summary: returns a HLS muxer.
-      description: ''
+      description: ""
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: name of the muxer.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: name of the muxer.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSMuxer'
-        '400':
+                $ref: "#/components/schemas/HLSMuxer"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: muxer not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/hlssessions/list:
     get:
       operationId: hlssessionsList
       tags: [HLS]
       summary: returns all HLS sessions.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSSessionList'
-        '400':
+                $ref: "#/components/schemas/HLSSessionList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/hlssessions/get/{id}:
     get:
       operationId: hlssessionsGet
       tags: [HLS]
       summary: returns a HLS session.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSSession'
-        '400':
+                $ref: "#/components/schemas/HLSSession"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/hlssessions/kick/{id}:
     post:
       operationId: hlssessionsKick
       tags: [HLS]
       summary: kicks out a HLS session from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/paths/list:
     get:
       operationId: pathsList
       tags: [Paths]
       summary: returns all paths.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PathList'
-        '400':
+                $ref: "#/components/schemas/PathList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/paths/get/{name}:
     get:
       operationId: pathsGet
       tags: [Paths]
       summary: returns a path.
-      description: ''
+      description: ""
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Path'
-        '400':
+                $ref: "#/components/schemas/Path"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspconns/list:
     get:
       operationId: rtspConnsList
       tags: [RTSP]
       summary: returns all RTSP connections.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConnList'
-        '400':
+                $ref: "#/components/schemas/RTSPConnList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspconns/get/{id}:
     get:
       operationId: rtspConnsGet
       tags: [RTSP]
       summary: returns a RTSP connection.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConn'
-        '400':
+                $ref: "#/components/schemas/RTSPConn"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspsessions/list:
     get:
       operationId: rtspSessionsList
       tags: [RTSP]
       summary: returns all RTSP sessions.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSessionList'
-        '400':
+                $ref: "#/components/schemas/RTSPSessionList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspsessions/get/{id}:
     get:
       operationId: rtspSessionsGet
       tags: [RTSP]
       summary: returns a RTSP session.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSession'
-        '400':
+                $ref: "#/components/schemas/RTSPSession"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
       tags: [RTSP]
       summary: kicks out a RTSP session from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspsconns/list:
     get:
       operationId: rtspsConnsList
       tags: [RTSP]
       summary: returns all RTSPS connections.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConnList'
-        '400':
+                $ref: "#/components/schemas/RTSPConnList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspsconns/get/{id}:
     get:
       operationId: rtspsConnsGet
       tags: [RTSP]
       summary: returns a RTSPS connection.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConn'
-        '400':
+                $ref: "#/components/schemas/RTSPConn"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspssessions/list:
     get:
       operationId: rtspsSessionsList
       tags: [RTSP]
       summary: returns all RTSPS sessions.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSessionList'
-        '400':
+                $ref: "#/components/schemas/RTSPSessionList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspssessions/get/{id}:
     get:
       operationId: rtspsSessionsGet
       tags: [RTSP]
       summary: returns a RTSPS session.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSession'
-        '400':
+                $ref: "#/components/schemas/RTSPSession"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtspssessions/kick/{id}:
     post:
       operationId: rtspsSessionsKick
       tags: [RTSP]
       summary: kicks out a RTSPS session from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpconns/list:
     get:
       operationId: rtmpConnsList
       tags: [RTMP]
       summary: returns all RTMP connections.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConnList'
-        '400':
+                $ref: "#/components/schemas/RTMPConnList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpconns/get/{id}:
     get:
       operationId: rtmpConnectionsGet
       tags: [RTMP]
       summary: returns a RTMP connection.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConn'
-        '400':
+                $ref: "#/components/schemas/RTMPConn"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpconns/kick/{id}:
     post:
       operationId: rtmpConnsKick
       tags: [RTMP]
       summary: kicks out a RTMP connection from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpsconns/list:
     get:
       operationId: rtmpsConnsList
       tags: [RTMP]
       summary: returns all RTMPS connections.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConnList'
-        '400':
+                $ref: "#/components/schemas/RTMPConnList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpsconns/get/{id}:
     get:
       operationId: rtmpsConnectionsGet
       tags: [RTMP]
       summary: returns a RTMPS connection.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConn'
-        '400':
+                $ref: "#/components/schemas/RTMPConn"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmpsconns/kick/{id}:
     post:
       operationId: rtmpsConnsKick
       tags: [RTMP]
       summary: kicks out a RTMPS connection from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/srtconns/list:
     get:
       operationId: srtConnsList
       tags: [SRT]
       summary: returns all SRT connections.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SRTConnList'
-        '400':
+                $ref: "#/components/schemas/SRTConnList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/srtconns/get/{id}:
     get:
       operationId: srtConnsGet
       tags: [SRT]
       summary: returns a SRT connection.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SRTConn'
-        '400':
+                $ref: "#/components/schemas/SRTConn"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/srtconns/kick/{id}:
     post:
       operationId: srtConnsKick
       tags: [SRT]
       summary: kicks out a SRT connection from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the connection.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/webrtcsessions/list:
     get:
       operationId: webrtcSessionsList
       tags: [WebRTC]
       summary: returns all WebRTC sessions.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebRTCSessionList'
-        '400':
+                $ref: "#/components/schemas/WebRTCSessionList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/webrtcsessions/get/{id}:
     get:
       operationId: webrtcSessionsGet
       tags: [WebRTC]
       summary: returns a WebRTC session.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebRTCSession'
-        '400':
+                $ref: "#/components/schemas/WebRTCSession"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/webrtcsessions/kick/{id}:
     post:
       operationId: webrtcSessionsKick
       tags: [WebRTC]
       summary: kicks out a WebRTC session from the server.
-      description: ''
+      description: ""
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: ID of the session.
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: session not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/recordings/list:
     get:
       operationId: recordingsList
       tags: [Recordings]
       summary: returns all recordings, splitted by path.
-      description: ''
+      description: ""
       parameters:
-      - name: page
-        in: query
-        description: page number.
-        schema:
-          type: integer
-          default: 0
-      - name: itemsPerPage
-        in: query
-        description: items per page.
-        schema:
-          type: integer
-          default: 100
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecordingList'
-        '400':
+                $ref: "#/components/schemas/RecordingList"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/recordings/get/{name}:
     get:
       operationId: recordingsGet
       tags: [Recordings]
       summary: returns recordings of a path.
-      description: ''
+      description: ""
       parameters:
-      - name: name
-        in: path
-        required: true
-        description: name of the path.
-        schema:
-          type: string
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Recording'
-        '400':
+                $ref: "#/components/schemas/Recording"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: path not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /v3/recordings/deletesegment:
     delete:
       operationId: recordingsDeleteSegment
       tags: [Recordings]
       summary: deletes a recording segment.
-      description: ''
+      description: ""
       parameters:
-      - name: path
-        in: query
-        required: true
-        description: path.
-        schema:
-          type: string
-      - name: start
-        in: query
-        required: true
-        description: starting date of the segment.
-        schema:
-          type: string
+        - name: path
+          in: query
+          required: true
+          description: path.
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          description: starting date of the segment.
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OK'
-        '400':
+                $ref: "#/components/schemas/OK"
+        "400":
           description: invalid request.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: connection not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: server error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
