@@ -54,11 +54,13 @@ must come with their own licensing analysis.
 | **PCM decoder (via `IAudioDecoder`)**     | ✅                    |
 | **G.711 µ-law / A-law decoder**           | ✅                    |
 | **FLAC decoder (RFC 9639)**               | ✅                    |
+| **Vorbis I decoder — headers + bitstream + IMDCT + TDAC primitives** | 🟡 (foundation; audio synthesis roadmap) |
 | **Seek API (`SeekAsync`)**                | ✅                    |
 | BenchmarkDotNet micro-benchmarks         | ✅                    |
 | AAC / AC-3 / E-AC-3 decoder              | ❌ (patent encumbered) |
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
-| Vorbis / Opus decoder                    | 🟡 (deferred, royalty-free but large) |
+| Vorbis audio synthesis (floor 1 + residue + overlap-add) | 🟡 (roadmap, foundation shipped) |
+| Opus decoder                              | 🟡 (deferred, royalty-free but large) |
 | MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
 
@@ -79,6 +81,7 @@ csharp-mediar/
 │   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion + decoder
 │   ├── Mediar.Codecs.G711/             G.711 µ-law / A-law encode + decode
 │   ├── Mediar.Codecs.Flac.Decoder/     Native FLAC decoder (RFC 9639)
+│   ├── Mediar.Codecs.Vorbis.Decoder/   Vorbis I foundation (headers + bitstream + IMDCT/TDAC)
 │   ├── Mediar.Bitstream/               H.264 / H.265 Annex-B ↔ AVCC/HVCC helpers
 │   ├── Mediar.Subtitles.Srt/           SRT read + write
 │   ├── Mediar.Subtitles.WebVtt/        WebVTT read + write

@@ -225,9 +225,11 @@ public sealed class OggDemuxer : IMediaDemuxer
     private void ParseHeaderPages()
     {
         var reader = new OggPageReader(_source);
-        var firstPacketBuilders = new Dictionary<uint, List<byte[]>>();
-        var firstPacketLens = new Dictionary<uint, int>();
-        var streamHasFirstPacket = new HashSet<uint>();
+        var packetBuilders = new Dictionary<uint, List<byte[]>>();
+        var packetLens = new Dictionary<uint, int>();
+        var collectedPackets = new Dictionary<uint, List<byte[]>>();
+        var requiredPackets = new Dictionary<uint, int>();
+        var registered = new HashSet<uint>();
 
         Span<byte> lacingScratch = new byte[255];
 
@@ -243,16 +245,18 @@ public sealed class OggDemuxer : IMediaDemuxer
             int segIdx = 0;
             bool isFirstPage = hdr.IsBeginningOfStream;
 
-            if (isFirstPage && !firstPacketBuilders.ContainsKey(hdr.SerialNumber))
+            if (isFirstPage && !collectedPackets.ContainsKey(hdr.SerialNumber))
             {
-                firstPacketBuilders[hdr.SerialNumber] = new List<byte[]>();
-                firstPacketLens[hdr.SerialNumber] = 0;
+                packetBuilders[hdr.SerialNumber] = new List<byte[]>();
+                packetLens[hdr.SerialNumber] = 0;
+                collectedPackets[hdr.SerialNumber] = new List<byte[]>();
+                requiredPackets[hdr.SerialNumber] = 1;
             }
 
-            if (!firstPacketBuilders.ContainsKey(hdr.SerialNumber)) continue;
-            if (streamHasFirstPacket.Contains(hdr.SerialNumber)) continue;
+            if (!collectedPackets.ContainsKey(hdr.SerialNumber)) continue;
+            if (registered.Contains(hdr.SerialNumber)) continue;
 
-            while (segIdx < segmentCount && !streamHasFirstPacket.Contains(hdr.SerialNumber))
+            while (segIdx < segmentCount && !registered.Contains(hdr.SerialNumber))
             {
                 int packetLen = 0;
                 bool packetComplete = false;
@@ -269,44 +273,66 @@ public sealed class OggDemuxer : IMediaDemuxer
                 byte[] part = new byte[packetLen];
                 payload.Slice(offset, packetLen).Span.CopyTo(part);
                 offset += packetLen;
-                firstPacketBuilders[hdr.SerialNumber].Add(part);
-                firstPacketLens[hdr.SerialNumber] += packetLen;
+                packetBuilders[hdr.SerialNumber].Add(part);
+                packetLens[hdr.SerialNumber] += packetLen;
 
                 if (packetComplete)
                 {
-                    var assembled = new byte[firstPacketLens[hdr.SerialNumber]];
+                    var assembled = new byte[packetLens[hdr.SerialNumber]];
                     int pos = 0;
-                    foreach (var p in firstPacketBuilders[hdr.SerialNumber])
+                    foreach (var p in packetBuilders[hdr.SerialNumber])
                     {
                         p.CopyTo(assembled, pos);
                         pos += p.Length;
                     }
-                    streamHasFirstPacket.Add(hdr.SerialNumber);
-                    RegisterStream(hdr.SerialNumber, assembled);
+                    collectedPackets[hdr.SerialNumber].Add(assembled);
+                    packetBuilders[hdr.SerialNumber].Clear();
+                    packetLens[hdr.SerialNumber] = 0;
+
+                    if (collectedPackets[hdr.SerialNumber].Count == 1)
+                    {
+                        var (codec, _, _, _) = IdentifyStream(assembled);
+                        requiredPackets[hdr.SerialNumber] = ExtraDataPacketCount(codec);
+                    }
+
+                    if (collectedPackets[hdr.SerialNumber].Count >= requiredPackets[hdr.SerialNumber])
+                    {
+                        registered.Add(hdr.SerialNumber);
+                        RegisterStream(hdr.SerialNumber, collectedPackets[hdr.SerialNumber]);
+                    }
                 }
             }
 
-            // Only the first run of pages with bos=1 introduce new streams.
-            // After we see a page without bos=1 we still need to keep walking
-            // for streams already registered above (their first packet may span
-            // multiple pages), but to keep the prologue bounded we stop after
-            // all known streams have produced their first packet.
-            if (_streams.Count > 0 && streamHasFirstPacket.Count == _streams.Count)
+            if (_streams.Count > 0 && registered.Count == collectedPackets.Count)
             {
                 break;
             }
         }
     }
 
-    private void RegisterStream(uint serial, ReadOnlySpan<byte> firstPacket)
+    private void RegisterStream(uint serial, List<byte[]> headerPackets)
     {
+        var firstPacket = headerPackets[0];
         var (codec, sampleRate, channels, samplesPerPacket) = IdentifyStream(firstPacket);
+
+        byte[] extraData;
+        if (headerPackets.Count > 1)
+        {
+            // Multi-packet codecs (Vorbis, Opus) — pack the priming packets
+            // using Xiph lacing, matching Matroska/WebM CodecPrivate.
+            extraData = PackXiphLaced(headerPackets);
+        }
+        else
+        {
+            extraData = (byte[])firstPacket.Clone();
+        }
+
         var codecParams = new AudioCodecParameters
         {
             Codec = codec,
             SampleRate = sampleRate,
             Channels = channels,
-            ExtraData = firstPacket.ToArray(),
+            ExtraData = extraData,
         };
         var track = new MediaTrack
         {
@@ -324,6 +350,31 @@ public sealed class OggDemuxer : IMediaDemuxer
             SamplesPerPacket = samplesPerPacket,
             SampleRate = sampleRate,
         });
+    }
+
+    private static byte[] PackXiphLaced(List<byte[]> packets)
+    {
+        if (packets.Count == 0) return Array.Empty<byte>();
+        int headerSize = 1;
+        for (int i = 0; i < packets.Count - 1; i++) headerSize += packets[i].Length / 255 + 1;
+        int total = headerSize;
+        for (int i = 0; i < packets.Count; i++) total += packets[i].Length;
+
+        var buf = new byte[total];
+        int o = 0;
+        buf[o++] = (byte)(packets.Count - 1);
+        for (int i = 0; i < packets.Count - 1; i++)
+        {
+            int len = packets[i].Length;
+            while (len >= 255) { buf[o++] = 0xFF; len -= 255; }
+            buf[o++] = (byte)len;
+        }
+        for (int i = 0; i < packets.Count; i++)
+        {
+            packets[i].CopyTo(buf, o);
+            o += packets[i].Length;
+        }
+        return buf;
     }
 
     private static (CodecId Codec, int SampleRate, int Channels, int SamplesPerPacket) IdentifyStream(ReadOnlySpan<byte> head)
@@ -355,6 +406,19 @@ public sealed class OggDemuxer : IMediaDemuxer
         CodecId.Opus => 2,
         CodecId.Vorbis => 3,
         CodecId.Flac => 1,
+        _ => 1,
+    };
+
+    /// <summary>
+    /// Number of header packets that contribute to <c>ExtraData</c>. Vorbis
+    /// requires all three priming packets to be carried as Xiph-laced
+    /// <c>ExtraData</c> so the decoder can parse the setup header. Opus's
+    /// second header (OpusTags) is informational only, so we keep
+    /// <c>ExtraData = OpusHead</c> for compatibility with existing tooling.
+    /// </summary>
+    private static int ExtraDataPacketCount(CodecId codec) => codec switch
+    {
+        CodecId.Vorbis => 3,
         _ => 1,
     };
 

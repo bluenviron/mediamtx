@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Vorbis.Decoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Vorbis.Decoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native Vorbis I audio decoder for Mediar — patent-free per Xiph.org.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>
