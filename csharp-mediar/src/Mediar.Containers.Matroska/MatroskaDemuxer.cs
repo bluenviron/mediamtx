@@ -155,7 +155,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         int trackNumber = 0;
         int trackType = 0;
         string codecId = string.Empty;
-        byte[] codecPrivate = Array.Empty<byte>();
+        byte[] codecPrivate = [];
         int sampleRate = 0, channels = 0, bitDepth = 0;
         int width = 0, height = 0;
 

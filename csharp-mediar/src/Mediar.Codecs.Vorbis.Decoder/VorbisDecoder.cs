@@ -47,7 +47,7 @@ public sealed class VorbisDecoder : IAudioDecoder
     public string Vendor => _comment?.Vendor ?? string.Empty;
 
     /// <summary>User comments from the comment header.</summary>
-    public IReadOnlyList<string> UserComments => _comment?.UserComments ?? Array.Empty<string>();
+    public IReadOnlyList<string> UserComments => _comment?.UserComments ?? [];
 
     /// <summary>Short-block length (samples), 0 until headers parsed.</summary>
     public int ShortBlocksize => _id?.Blocksize0 ?? 0;
@@ -262,7 +262,7 @@ public sealed class VorbisDecoder : IAudioDecoder
             int total = emit * channels;
             if (total <= 0)
             {
-                lap.Commit(Array.Empty<Memory<float>>(), n);
+                lap.Commit([], n);
                 return default;
             }
             var owner = MemoryPool<float>.Shared.Rent(total);

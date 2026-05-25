@@ -1,3 +1,7 @@
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
 namespace Mediar.Codecs.Vorbis.Decoder;
 
 /// <summary>
@@ -62,16 +66,36 @@ internal sealed class VorbisMdct
         if (freq.Length < n2) throw new ArgumentException("freq buffer too small.", nameof(freq));
         if (time.Length < n) throw new ArgumentException("time buffer too small.", nameof(time));
 
+        // Hot inner kernel: for each time-domain sample we dot-product freq
+        // against the precomputed cos table row. Vectorize via SIMD when
+        // available, falling back to a scalar tail accumulator. .NET 9/10
+        // `Vector<float>` auto-tunes to AVX-512 / AVX2 / NEON at JIT time.
         float scale = 4.0f / n;
+        ref float freqRef = ref MemoryMarshal.GetReference(freq);
+        ref float timeRef = ref MemoryMarshal.GetReference(time);
+        ref float cosRef = ref MemoryMarshal.GetArrayDataReference(_cosTable);
+        int simdWidth = Vector<float>.Count;
+        int simdEnd = n2 - (n2 % simdWidth);
+
         for (int t = 0; t < n; t++)
         {
-            double sum = 0;
             long row = (long)t * n2;
-            for (int k = 0; k < n2; k++)
+            ref float rowRef = ref Unsafe.Add(ref cosRef, (nint)row);
+
+            var vsum = Vector<float>.Zero;
+            int k = 0;
+            for (; k < simdEnd; k += simdWidth)
             {
-                sum += freq[k] * _cosTable[row + k];
+                var vfreq = Vector.LoadUnsafe(ref Unsafe.Add(ref freqRef, k));
+                var vcos = Vector.LoadUnsafe(ref Unsafe.Add(ref rowRef, k));
+                vsum += vfreq * vcos;
             }
-            time[t] = (float)(sum * scale);
+            float sum = Vector.Sum(vsum);
+            for (; k < n2; k++)
+            {
+                sum += Unsafe.Add(ref freqRef, k) * Unsafe.Add(ref rowRef, k);
+            }
+            Unsafe.Add(ref timeRef, t) = sum * scale;
         }
     }
 

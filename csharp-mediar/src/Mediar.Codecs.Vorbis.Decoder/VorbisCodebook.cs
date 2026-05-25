@@ -25,9 +25,9 @@ internal sealed class VorbisCodebook
     public float[]? ValueVectors { get; private init; }
 
     // Decoding tables. We build a flat Huffman tree for fast O(codeLength) decoding.
-    private int[] _huffNodeLeft = Array.Empty<int>();   // child index for bit '0'
-    private int[] _huffNodeRight = Array.Empty<int>();  // child index for bit '1'
-    private int[] _huffNodeEntry = Array.Empty<int>();  // leaf entry, or -1 for non-leaf
+    private int[] _huffNodeLeft = [];   // child index for bit '0'
+    private int[] _huffNodeRight = [];  // child index for bit '1'
+    private int[] _huffNodeEntry = [];  // leaf entry, or -1 for non-leaf
 
     /// <summary>
     /// Parse one codebook from the Vorbis setup header at the current

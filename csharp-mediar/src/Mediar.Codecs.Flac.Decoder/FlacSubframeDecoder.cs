@@ -17,7 +17,7 @@ internal static class FlacSubframeDecoder
     // Order 4: x[i] = 4*x[i-1] - 6*x[i-2] + 4*x[i-3] -   x[i-4]
     private static readonly int[][] FixedCoefficients =
     {
-        Array.Empty<int>(),
+        [],
         new[] {  1 },
         new[] {  2, -1 },
         new[] {  3, -3,  1 },

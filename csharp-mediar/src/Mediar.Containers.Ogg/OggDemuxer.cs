@@ -354,7 +354,7 @@ public sealed class OggDemuxer : IMediaDemuxer
 
     private static byte[] PackXiphLaced(List<byte[]> packets)
     {
-        if (packets.Count == 0) return Array.Empty<byte>();
+        if (packets.Count == 0) return [];
         int headerSize = 1;
         for (int i = 0; i < packets.Count - 1; i++) headerSize += packets[i].Length / 255 + 1;
         int total = headerSize;

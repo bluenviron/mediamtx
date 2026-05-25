@@ -15,7 +15,7 @@ public sealed class FlacDecoder : IAudioDecoder
     private readonly int _defaultBitsPerSample;
     private readonly int _maxBlockSize;
 
-    private int[][] _channelBuffers = Array.Empty<int[]>();
+    private int[][] _channelBuffers = [];
 
     /// <inheritdoc/>
     public CodecId Codec => CodecId.Flac;

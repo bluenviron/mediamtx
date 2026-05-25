@@ -11,28 +11,28 @@ namespace Mediar.Codecs.Vorbis.Decoder;
 /// </summary>
 internal sealed class VorbisSetup
 {
-    public VorbisCodebook[] Codebooks { get; init; } = Array.Empty<VorbisCodebook>();
-    public Floor[] Floors { get; init; } = Array.Empty<Floor>();
-    public Residue[] Residues { get; init; } = Array.Empty<Residue>();
-    public Mapping[] Mappings { get; init; } = Array.Empty<Mapping>();
-    public Mode[] Modes { get; init; } = Array.Empty<Mode>();
+    public VorbisCodebook[] Codebooks { get; init; } = [];
+    public Floor[] Floors { get; init; } = [];
+    public Residue[] Residues { get; init; } = [];
+    public Mapping[] Mappings { get; init; } = [];
+    public Mode[] Modes { get; init; } = [];
 
     internal sealed class Floor
     {
         public int Type { get; init; }
         // Floor 1 fields
-        public int[] PartitionClassList { get; init; } = Array.Empty<int>();
+        public int[] PartitionClassList { get; init; } = [];
         public int Multiplier { get; init; }
         public int RangeBits { get; init; }
-        public int[] XList { get; init; } = Array.Empty<int>();
-        public ClassConfig[] Classes { get; init; } = Array.Empty<ClassConfig>();
+        public int[] XList { get; init; } = [];
+        public ClassConfig[] Classes { get; init; } = [];
 
         internal sealed class ClassConfig
         {
             public int Dimensions { get; init; }
             public int SubclassBits { get; init; }
             public int MasterBook { get; init; }
-            public int[] SubclassBooks { get; init; } = Array.Empty<int>();
+            public int[] SubclassBooks { get; init; } = [];
         }
     }
 
@@ -44,16 +44,16 @@ internal sealed class VorbisSetup
         public int PartitionSize { get; init; }
         public int Classifications { get; init; }
         public int ClassBook { get; init; }
-        public int[] Cascade { get; init; } = Array.Empty<int>();
+        public int[] Cascade { get; init; } = [];
         public int[,] Books { get; init; } = new int[0, 0];
     }
 
     internal sealed class Mapping
     {
-        public int[] SubmapFloor { get; init; } = Array.Empty<int>();
-        public int[] SubmapResidue { get; init; } = Array.Empty<int>();
-        public int[] ChannelMux { get; init; } = Array.Empty<int>();
-        public CouplingStep[] CouplingSteps { get; init; } = Array.Empty<CouplingStep>();
+        public int[] SubmapFloor { get; init; } = [];
+        public int[] SubmapResidue { get; init; } = [];
+        public int[] ChannelMux { get; init; } = [];
+        public CouplingStep[] CouplingSteps { get; init; } = [];
 
         internal sealed record CouplingStep(int MagnitudeChannel, int AngleChannel);
     }
@@ -218,7 +218,7 @@ internal sealed class VorbisSetup
                     couplings[c] = new Mapping.CouplingStep(mag, ang);
                 }
             }
-            else couplings = Array.Empty<Mapping.CouplingStep>();
+            else couplings = [];
 
             uint reserved = r.ReadBits(2);
             if (reserved != 0) throw new InvalidDataException("Reserved mapping field non-zero.");

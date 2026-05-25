@@ -12,7 +12,7 @@ internal static class Internal
     public static float Float32Unpack(uint x) => VorbisBitReader.Float32Unpack(x);
     public static int Lookup1Values(int entries, int dims) => VorbisBitReader.Lookup1Values(entries, dims);
 
-    public static byte[] PackXiphLaced(params byte[][] packets) => VorbisHeaders.PackXiphLaced(packets);
+    public static byte[] PackXiphLaced(params ReadOnlySpan<byte[]> packets) => VorbisHeaders.PackXiphLaced(packets);
     public static byte[][] UnpackXiphLaced(ReadOnlySpan<byte> blob) => VorbisHeaders.UnpackXiphLaced(blob);
 
     public static IdentificationResult ParseIdentification(byte[] packet)
@@ -75,8 +75,8 @@ internal static class Internal
             LastEmitCount = emit;
             if (emit == 0)
             {
-                _lap.Commit(Array.Empty<Memory<float>>(), currN);
-                return Array.Empty<float[]>();
+                _lap.Commit([], currN);
+                return [];
             }
             var bufs = new float[_channels][];
             var mems = new Memory<float>[_channels];

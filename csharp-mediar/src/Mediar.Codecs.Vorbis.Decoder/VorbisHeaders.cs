@@ -16,7 +16,7 @@ internal sealed record VorbisIdentificationHeader
 internal sealed record VorbisCommentHeader
 {
     public string Vendor { get; init; } = string.Empty;
-    public IReadOnlyList<string> UserComments { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> UserComments { get; init; } = [];
 }
 
 internal static class VorbisHeaders
@@ -94,9 +94,9 @@ internal static class VorbisHeaders
     /// <c>[count-1][lengths…][packets…]</c> where each length is encoded as
     /// a sequence of 0xFF bytes followed by the remainder.
     /// </summary>
-    public static byte[] PackXiphLaced(params byte[][] packets)
+    public static byte[] PackXiphLaced(params ReadOnlySpan<byte[]> packets)
     {
-        if (packets.Length == 0) return Array.Empty<byte>();
+        if (packets.Length == 0) return [];
         if (packets.Length > 256) throw new ArgumentException("Xiph lacing supports at most 256 packets.");
 
         int header = 1;
