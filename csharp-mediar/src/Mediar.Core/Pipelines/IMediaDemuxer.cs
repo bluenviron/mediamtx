@@ -14,6 +14,13 @@ public interface IMediaDemuxer : IAsyncDisposable, IDisposable
     IReadOnlyList<MediaTrack> Tracks { get; }
 
     /// <summary>
+    /// File-level metadata (title, artist, geolocation, etc.) extracted from
+    /// the container. Demuxers that do not parse metadata return
+    /// <see cref="MediaMetadata.Empty"/>.
+    /// </summary>
+    MediaMetadata Metadata => MediaMetadata.Empty;
+
+    /// <summary>
     /// Total container duration. <see cref="TimeSpan.Zero"/> if unknown.
     /// </summary>
     TimeSpan Duration { get; }

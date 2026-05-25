@@ -13,6 +13,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
     private readonly IRandomAccessSource _source;
     private readonly bool _ownsSource;
     private readonly MediaTrack _track;
+    private readonly MediaMetadata _metadata;
     private readonly long _dataOffset;
     private readonly long _dataEnd;
     private readonly int _sampleRate;
@@ -25,6 +26,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
         IRandomAccessSource source,
         bool ownsSource,
         MediaTrack track,
+        MediaMetadata metadata,
         long dataOffset,
         long dataEnd,
         int sampleRate,
@@ -34,6 +36,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
         _source = source;
         _ownsSource = ownsSource;
         _track = track;
+        _metadata = metadata;
         _dataOffset = dataOffset;
         _dataEnd = dataEnd;
         _sampleRate = sampleRate;
@@ -64,14 +67,17 @@ public sealed class Mp3Demuxer : IMediaDemuxer
         long length = source.Length;
         long start = 0;
         long end = length;
+        var meta = new MediaMetadataBuilder();
 
         // ID3v2 header at start?
         Span<byte> hdr10 = stackalloc byte[10];
         if (source.Read(0, hdr10) == 10 && hdr10[0] == 'I' && hdr10[1] == 'D' && hdr10[2] == '3')
         {
             int size = (hdr10[6] << 21) | (hdr10[7] << 14) | (hdr10[8] << 7) | hdr10[9];
-            start = 10 + size;
-            if ((hdr10[5] & 0x10) != 0) start += 10; // footer present
+            int tagEnd = 10 + size;
+            if ((hdr10[5] & 0x10) != 0) tagEnd += 10; // footer present
+            Id3v2.Parse(source, hdr10[3], hdr10[5], size, meta);
+            start = tagEnd;
         }
 
         // ID3v1 at end?
@@ -81,6 +87,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
             if (source.Read(length - 128, tag) == 3 && tag[0] == 'T' && tag[1] == 'A' && tag[2] == 'G')
             {
                 end = length - 128;
+                Id3v1.Parse(source, length - 128, meta);
             }
         }
 
@@ -113,7 +120,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
             durationFrames = (end - start) / firstHeader.FrameSize;
         }
 
-        return new Mp3Demuxer(source, ownsSource, track, start, end, firstHeader.SampleRate, firstHeader.SamplesPerFrame, durationFrames);
+        return new Mp3Demuxer(source, ownsSource, track, meta.Build(), start, end, firstHeader.SampleRate, firstHeader.SamplesPerFrame, durationFrames);
     }
 
     /// <inheritdoc/>
@@ -121,6 +128,9 @@ public sealed class Mp3Demuxer : IMediaDemuxer
 
     /// <inheritdoc/>
     public IReadOnlyList<MediaTrack> Tracks => new[] { _track };
+
+    /// <inheritdoc/>
+    public MediaMetadata Metadata => _metadata;
 
     /// <inheritdoc/>
     public TimeSpan Duration => _totalFrames > 0

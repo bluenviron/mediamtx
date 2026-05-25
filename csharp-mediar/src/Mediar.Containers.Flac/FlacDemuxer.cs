@@ -15,6 +15,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
     private readonly IRandomAccessSource _source;
     private readonly bool _ownsSource;
     private readonly MediaTrack _track;
+    private readonly MediaMetadata _metadata;
     private readonly long _firstFrameOffset;
     private readonly long _streamEnd;
     private readonly long _totalSamples;
@@ -27,6 +28,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
         IRandomAccessSource source,
         bool ownsSource,
         MediaTrack track,
+        MediaMetadata metadata,
         long firstFrameOffset,
         long streamEnd,
         long totalSamples,
@@ -36,6 +38,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
         _source = source;
         _ownsSource = ownsSource;
         _track = track;
+        _metadata = metadata;
         _firstFrameOffset = firstFrameOffset;
         _streamEnd = streamEnd;
         _totalSamples = totalSamples;
@@ -73,6 +76,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
         long pos = 4;
         StreamInfo info = default;
         bool gotStreamInfo = false;
+        var meta = new MediaMetadataBuilder();
         Span<byte> hdr = stackalloc byte[4];
         while (true)
         {
@@ -91,6 +95,22 @@ public sealed class FlacDemuxer : IMediaDemuxer
                         throw new EndOfStreamException("Truncated STREAMINFO.");
                     info = ParseStreamInfo(buf.AsSpan(0, blockLen));
                     gotStreamInfo = true;
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buf);
+                }
+            }
+            else if (blockType == 4)
+            {
+                // VORBIS_COMMENT block.
+                byte[] buf = ArrayPool<byte>.Shared.Rent(blockLen);
+                try
+                {
+                    if (source.Read(pos, buf.AsSpan(0, blockLen)) == blockLen)
+                    {
+                        VorbisComment.ReadInto(buf.AsSpan(0, blockLen), meta);
+                    }
                 }
                 finally
                 {
@@ -125,7 +145,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
             DurationTicks = (long)info.TotalSamples,
         };
 
-        return new FlacDemuxer(source, ownsSource, track, pos, source.Length,
+        return new FlacDemuxer(source, ownsSource, track, meta.Build(), pos, source.Length,
             (long)info.TotalSamples, info.SampleRate, info.MaxBlockSize);
     }
 
@@ -134,6 +154,9 @@ public sealed class FlacDemuxer : IMediaDemuxer
 
     /// <inheritdoc/>
     public IReadOnlyList<MediaTrack> Tracks => new[] { _track };
+
+    /// <inheritdoc/>
+    public MediaMetadata Metadata => _metadata;
 
     /// <inheritdoc/>
     public TimeSpan Duration => _totalSamples > 0

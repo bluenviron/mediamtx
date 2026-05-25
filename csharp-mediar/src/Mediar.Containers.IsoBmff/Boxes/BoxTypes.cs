@@ -78,4 +78,26 @@ internal static class BoxTypes
     public static readonly FourCc Text = new("text");
     public static readonly FourCc Sbtl = new("sbtl");
     public static readonly FourCc Meta = new("meta");
+
+    // Metadata: udta / meta / ilst tree + 3GPP location.
+    public static readonly FourCc Udta = new("udta");
+    public static readonly FourCc Ilst = new("ilst");
+    public static readonly FourCc Data = new("data");
+    public static readonly FourCc Loci = new("loci");
+
+    // iTunes-style ilst atoms — names prefixed with the copyright sign (0xA9).
+    public static readonly FourCc IlNam = new(((uint)0xA9 << 24) | ((uint)'n' << 16) | ((uint)'a' << 8) | (uint)'m');
+    public static readonly FourCc IlArt = new(((uint)0xA9 << 24) | ((uint)'A' << 16) | ((uint)'R' << 8) | (uint)'T');
+    public static readonly FourCc IlAlb = new(((uint)0xA9 << 24) | ((uint)'a' << 16) | ((uint)'l' << 8) | (uint)'b');
+    public static readonly FourCc IlDay = new(((uint)0xA9 << 24) | ((uint)'d' << 16) | ((uint)'a' << 8) | (uint)'y');
+    public static readonly FourCc IlGen = new(((uint)0xA9 << 24) | ((uint)'g' << 16) | ((uint)'e' << 8) | (uint)'n');
+    public static readonly FourCc IlCmt = new(((uint)0xA9 << 24) | ((uint)'c' << 16) | ((uint)'m' << 8) | (uint)'t');
+    public static readonly FourCc IlWrt = new(((uint)0xA9 << 24) | ((uint)'w' << 16) | ((uint)'r' << 8) | (uint)'t');
+    public static readonly FourCc IlToo = new(((uint)0xA9 << 24) | ((uint)'t' << 16) | ((uint)'o' << 8) | (uint)'o');
+    public static readonly FourCc IlLyr = new(((uint)0xA9 << 24) | ((uint)'l' << 16) | ((uint)'y' << 8) | (uint)'r');
+    public static readonly FourCc IlXyz = new(((uint)0xA9 << 24) | ((uint)'x' << 16) | ((uint)'y' << 8) | (uint)'z');
+    public static readonly FourCc IlGrp = new("aART");
+    public static readonly FourCc IlTrk = new("trkn");
+    public static readonly FourCc IlDsk = new("disk");
+    public static readonly FourCc IlCpy = new("cprt");
 }

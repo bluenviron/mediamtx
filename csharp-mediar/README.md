@@ -41,6 +41,9 @@ must come with their own licensing analysis.
 | Mux Ogg (Opus / Vorbis / FLAC)           | ✅                    |
 | Demux Matroska / WebM (SimpleBlock)      | ✅                    |
 | Mux Matroska / WebM (SimpleBlock)        | ✅                    |
+| **Demux AVI (RIFF, idx1 seeking, LIST/INFO)** | ✅               |
+| **Demux AIFF / AIFC (PCM + µ-law / A-law / fl32)** | ✅          |
+| **Per-file metadata extraction (title, artist, album, date, genre, track #, geo-location, …)** | ✅ (WAV / MP3 / FLAC / Ogg / MP4 / Matroska / AVI / AIFF) |
 | Read + write SRT                          | ✅                    |
 | Read + write WebVTT                       | ✅                    |
 | Read + write ASS / SSA v4+                | ✅                    |
@@ -91,6 +94,8 @@ csharp-mediar/
 │   ├── Mediar.Containers.Adts/         AAC ADTS demuxer + muxer
 │   ├── Mediar.Containers.Ogg/          Ogg page reader + muxer
 │   ├── Mediar.Containers.Matroska/     Matroska / WebM demuxer + muxer (EBML)
+│   ├── Mediar.Containers.Avi/          RIFF / AVI demuxer (idx1 seeking, LIST/INFO)
+│   ├── Mediar.Containers.Aiff/         AIFF / AIFC demuxer (PCM, fl32, µ-law / A-law)
 │   ├── Mediar.Codecs/                  IAudioDecoder / IVideoDecoder abstractions
 │   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion + decoder
 │   ├── Mediar.Codecs.G711/             G.711 µ-law / A-law encode + decode
@@ -149,9 +154,37 @@ foreach (var t in demuxer.Tracks)
     Console.WriteLine(t);
 ```
 
-### Decoders
+### File metadata
 
-Decoders implement `Mediar.Codecs.IAudioDecoder` / `IVideoDecoder` and produce
+Every demuxer exposes a `MediaMetadata` (or equivalent property) populated
+from the container's native tag block — no extra pass over the file is needed.
+Strongly-typed fields cover the common cases (`Title`, `Artist`, `Album`,
+`AlbumArtist`, `Date`, `Genre`, `TrackNumber`, `DiscNumber`, `Composer`,
+`Comment`, `Lyrics`, `Copyright`, `Publisher`, `Encoder`,
+`GeoLocation` ISO-6709) and anything else lands in a string→string `Tags`
+dictionary.
+
+| Container        | Tag format read                          |
+|------------------|------------------------------------------|
+| WAV              | `LIST INFO` (INAM / IART / ICRD / IGNR / ICMT / ICOP …) |
+| MP3              | ID3v1 + ID3v2.2 / v2.3 / v2.4 (text + `WXXX` / `COMM`) |
+| FLAC             | `VORBIS_COMMENT` block                   |
+| Ogg Vorbis       | `comment` packet (vorbis_comment)        |
+| Ogg Opus         | `OpusTags` packet                        |
+| MP4 / MOV / M4A  | QuickTime `moov.udta` (©nam / ©ART / ©day / ©xyz …) + iTunes `meta/ilst` + 3GPP `loci` (lat/lon/alt) |
+| Matroska / WebM  | `Segment.Tags.Tag.SimpleTag` (recursive) |
+| AVI              | `LIST INFO`                              |
+| AIFF / AIFC      | `NAME` / `AUTH` / `ANNO` / `COPY` chunks |
+
+```csharp
+await using var demuxer = MediarOperations.Open("trip.mp4");
+Console.WriteLine(demuxer.Metadata.Title);
+Console.WriteLine(demuxer.Metadata.Artist);
+if (demuxer.Metadata.GeoLocation is { } g)
+    Console.WriteLine($"{g.Latitude},{g.Longitude} @ {g.Altitude}m");
+```
+
+### Decoders
 interleaved float PCM frames out of compressed samples. Mediar ships
 implementations for codecs whose specifications are unencumbered.
 

@@ -23,4 +23,5 @@ internal sealed class Mp4MovieData
     public required uint MovieTimeScale { get; init; }
     public required ulong DurationInMovieTimeScale { get; init; }
     public required List<Mp4TrackData> Tracks { get; init; }
+    public MediaMetadata Metadata { get; init; } = MediaMetadata.Empty;
 }

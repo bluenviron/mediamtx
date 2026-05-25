@@ -17,6 +17,8 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
     private readonly bool _ownsSource;
     private readonly List<MediaTrack> _tracks = new();
     private readonly Dictionary<int, int> _trackNumberToIndex = new();
+    private readonly MediaMetadataBuilder _metaBuilder = new();
+    private MediaMetadata? _metadata;
     private long _segmentStart;
     private long _segmentEnd;
     private ulong _timecodeScaleNs = 1_000_000; // 1 ms default
@@ -61,6 +63,9 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
     public IReadOnlyList<MediaTrack> Tracks => _tracks;
 
     /// <inheritdoc/>
+    public MediaMetadata Metadata => _metadata ??= _metaBuilder.Build();
+
+    /// <inheritdoc/>
     public TimeSpan Duration => _segmentDurationTicks > 0
         ? TimeSpan.FromTicks((long)(_segmentDurationTicks * _timecodeScaleNs / 100.0))
         : TimeSpan.Zero;
@@ -95,6 +100,9 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                     break;
                 case MatroskaIds.Tracks:
                     ParseTracks(r, elemEnd);
+                    break;
+                case MatroskaIds.Tags:
+                    ParseTags(r, elemEnd);
                     break;
                 case MatroskaIds.Cluster:
                     // Data section begins here. Rewind to the Cluster header so
@@ -260,6 +268,74 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 case MatroskaIds.PixelHeight: height = (int)r.ReadUInt((int)size); break;
                 default: r.Skip((long)size); break;
             }
+        }
+    }
+
+    private void ParseTags(EbmlReader r, long end)
+    {
+        while (r.Position < end)
+        {
+            ulong id = r.ReadElementId(out _);
+            ulong size = r.ReadVarInt(out _, out _);
+            long elemEnd = r.Position + (long)size;
+            if (id == MatroskaIds.Tag)
+            {
+                ParseTag(r, elemEnd);
+            }
+            else
+            {
+                r.Skip((long)size);
+            }
+        }
+    }
+
+    private void ParseTag(EbmlReader r, long end)
+    {
+        while (r.Position < end)
+        {
+            ulong id = r.ReadElementId(out _);
+            ulong size = r.ReadVarInt(out _, out _);
+            long elemEnd = r.Position + (long)size;
+            if (id == MatroskaIds.SimpleTag)
+            {
+                ParseSimpleTag(r, elemEnd);
+            }
+            else
+            {
+                r.Skip((long)size);
+            }
+        }
+    }
+
+    private void ParseSimpleTag(EbmlReader r, long end)
+    {
+        string name = string.Empty;
+        string value = string.Empty;
+        while (r.Position < end)
+        {
+            ulong id = r.ReadElementId(out _);
+            ulong size = r.ReadVarInt(out _, out _);
+            long elemEnd = r.Position + (long)size;
+            switch (id)
+            {
+                case MatroskaIds.TagName:
+                    name = r.ReadString((long)size);
+                    break;
+                case MatroskaIds.TagString:
+                    value = r.ReadString((long)size);
+                    break;
+                case MatroskaIds.SimpleTag:
+                    // Nested SimpleTag — recurse so parent tags don't get lost.
+                    ParseSimpleTag(r, elemEnd);
+                    break;
+                default:
+                    r.Skip((long)size);
+                    break;
+            }
+        }
+        if (name.Length > 0 && value.Length > 0)
+        {
+            _metaBuilder.Set(name, value);
         }
     }
 

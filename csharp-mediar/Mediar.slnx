@@ -13,6 +13,8 @@
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
     <Project Path="src/Mediar.Codecs.Vorbis.Decoder/Mediar.Codecs.Vorbis.Decoder.csproj" />
     <Project Path="src/Mediar.Containers.Adts/Mediar.Containers.Adts.csproj" />
+    <Project Path="src/Mediar.Containers.Aiff/Mediar.Containers.Aiff.csproj" />
+    <Project Path="src/Mediar.Containers.Avi/Mediar.Containers.Avi.csproj" />
     <Project Path="src/Mediar.Containers.Flac/Mediar.Containers.Flac.csproj" />
     <Project Path="src/Mediar.Containers.IsoBmff/Mediar.Containers.IsoBmff.csproj" />
     <Project Path="src/Mediar.Containers.Matroska/Mediar.Containers.Matroska.csproj" />

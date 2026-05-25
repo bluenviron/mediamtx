@@ -84,6 +84,9 @@ public sealed class Mp4Demuxer : IMediaDemuxer
     public IReadOnlyList<MediaTrack> Tracks => _tracks;
 
     /// <inheritdoc/>
+    public MediaMetadata Metadata => _movie.Metadata;
+
+    /// <inheritdoc/>
     public TimeSpan Duration
     {
         get

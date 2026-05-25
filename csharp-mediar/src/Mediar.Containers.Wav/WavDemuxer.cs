@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Mediar.IO;
 
 namespace Mediar.Containers.Wav;
@@ -26,6 +27,7 @@ public sealed class WavDemuxer : IMediaDemuxer
     private readonly IRandomAccessSource _source;
     private readonly bool _ownsSource;
     private readonly MediaTrack _track;
+    private readonly MediaMetadata _metadata;
     private readonly long _dataOffset;
     private readonly long _dataLength;
     private readonly int _bytesPerFrame;
@@ -37,6 +39,7 @@ public sealed class WavDemuxer : IMediaDemuxer
         IRandomAccessSource source,
         bool ownsSource,
         MediaTrack track,
+        MediaMetadata metadata,
         long dataOffset,
         long dataLength,
         int bytesPerFrame,
@@ -45,6 +48,7 @@ public sealed class WavDemuxer : IMediaDemuxer
         _source = source;
         _ownsSource = ownsSource;
         _track = track;
+        _metadata = metadata;
         _dataOffset = dataOffset;
         _dataLength = dataLength;
         _bytesPerFrame = bytesPerFrame;
@@ -85,12 +89,13 @@ public sealed class WavDemuxer : IMediaDemuxer
             throw new InvalidDataException("Missing WAVE marker.");
         }
 
-        // Scan chunks for fmt + data.
+        // Scan chunks for fmt + data, collecting metadata along the way.
         long pos = 12;
         long len = source.Length;
         WavFormat? fmt = null;
         long dataOffset = -1;
         long dataLength = 0;
+        var meta = new MediaMetadataBuilder();
 
         Span<byte> chunkHdr = stackalloc byte[8];
         while (pos + 8 <= len)
@@ -126,7 +131,23 @@ public sealed class WavDemuxer : IMediaDemuxer
             {
                 dataOffset = pos;
                 dataLength = size;
-                break;
+                // Continue scanning so LIST chunks placed after data still register
+                // — many WAV writers do this. We only break once we have both fmt
+                // and data and there's no more content to scan.
+                pos += size + (size & 1);
+                continue;
+            }
+            else if (id == 0x5453494C) // "LIST"
+            {
+                ParseListChunk(source, pos, size, meta);
+            }
+            else if (id == 0x74786562) // "bext"
+            {
+                ParseBextChunk(source, pos, size, meta);
+            }
+            else if (id == 0x4C4D5869) // "iXML"
+            {
+                ParseIxmlChunk(source, pos, size, meta);
             }
 
             pos += size + (size & 1); // chunks are word-aligned
@@ -159,7 +180,7 @@ public sealed class WavDemuxer : IMediaDemuxer
             DurationTicks = dataLength / bytesPerFrame,
         };
 
-        return new WavDemuxer(source, ownsSource, track, dataOffset, dataLength, bytesPerFrame, fmt.Value.SampleRate);
+        return new WavDemuxer(source, ownsSource, track, meta.Build(), dataOffset, dataLength, bytesPerFrame, fmt.Value.SampleRate);
     }
 
     /// <inheritdoc/>
@@ -167,6 +188,9 @@ public sealed class WavDemuxer : IMediaDemuxer
 
     /// <inheritdoc/>
     public IReadOnlyList<MediaTrack> Tracks => new[] { _track };
+
+    /// <inheritdoc/>
+    public MediaMetadata Metadata => _metadata;
 
     /// <inheritdoc/>
     public TimeSpan Duration => TimeSpan.FromSeconds((double)(_dataLength / _bytesPerFrame) / _sampleRate);
@@ -296,6 +320,156 @@ public sealed class WavDemuxer : IMediaDemuxer
             };
         }
         return CodecId.Unknown;
+    }
+
+    // -----------------------------------------------------------------------
+    // Metadata extraction. WAV stores tags in three commonly-seen places:
+    //   * LIST INFO subchunks (INAM=title, IART=artist, ICRD=date, …)
+    //   * bext  — Broadcast WAV extension (originator, description, time)
+    //   * iXML  — embedded XML metadata for production workflows
+    // We parse all three to give callers the richest view possible.
+    // -----------------------------------------------------------------------
+
+    private static void ParseListChunk(IRandomAccessSource source, long offset, uint size, MediaMetadataBuilder meta)
+    {
+        if (size < 4) return;
+        Span<byte> kind = stackalloc byte[4];
+        if (source.Read(offset, kind) != 4) return;
+        // Only the "INFO" list contains text tags. The "adtl" list carries
+        // labels/notes for sample cues which are not file-level metadata.
+        if (kind[0] != (byte)'I' || kind[1] != (byte)'N' || kind[2] != (byte)'F' || kind[3] != (byte)'O') return;
+
+        long end = offset + size;
+        long pos = offset + 4;
+        Span<byte> hdr = stackalloc byte[8];
+        while (pos + 8 <= end)
+        {
+            if (source.Read(pos, hdr) != 8) return;
+            uint id =
+                (uint)hdr[0] |
+                ((uint)hdr[1] << 8) |
+                ((uint)hdr[2] << 16) |
+                ((uint)hdr[3] << 24);
+            uint subSize =
+                (uint)hdr[4] |
+                ((uint)hdr[5] << 8) |
+                ((uint)hdr[6] << 16) |
+                ((uint)hdr[7] << 24);
+            pos += 8;
+            if (pos + subSize > end) return;
+
+            byte[] buf = ArrayPool<byte>.Shared.Rent((int)subSize);
+            try
+            {
+                int n = source.Read(pos, buf.AsSpan(0, (int)subSize));
+                if (n == (int)subSize)
+                {
+                    string canonical = MapInfoId(id);
+                    if (canonical.Length > 0)
+                    {
+                        string value = DecodeNullTerminatedLatin1(buf.AsSpan(0, (int)subSize));
+                        meta.Set(canonical, value);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buf);
+            }
+
+            pos += subSize + (subSize & 1);
+        }
+    }
+
+    private static void ParseBextChunk(IRandomAccessSource source, long offset, uint size, MediaMetadataBuilder meta)
+    {
+        // BWF v0 layout: char Description[256]; char Originator[32];
+        // char OriginatorReference[32]; char OriginationDate[10];
+        // char OriginationTime[8]; ...
+        if (size < 256 + 32 + 32 + 10 + 8) return;
+        byte[] buf = ArrayPool<byte>.Shared.Rent(256 + 32 + 32 + 10 + 8);
+        try
+        {
+            if (source.Read(offset, buf.AsSpan(0, buf.Length)) != buf.Length) return;
+            string desc = DecodeNullTerminatedLatin1(buf.AsSpan(0, 256));
+            string originator = DecodeNullTerminatedLatin1(buf.AsSpan(256, 32));
+            string originatorRef = DecodeNullTerminatedLatin1(buf.AsSpan(288, 32));
+            string date = DecodeNullTerminatedLatin1(buf.AsSpan(320, 10));
+            meta.Set("DESCRIPTION", desc);
+            meta.Set("ENCODED_BY", originator);
+            meta.Set("ISRC", originatorRef);
+            meta.Set("DATE", date);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buf);
+        }
+    }
+
+    private static void ParseIxmlChunk(IRandomAccessSource source, long offset, uint size, MediaMetadataBuilder meta)
+    {
+        // Best-effort extraction of obvious top-level elements. iXML is an
+        // open XML schema used by production audio devices; we look for the
+        // most common scalar fields and store the whole payload under iXML
+        // so consumers can do richer parsing if they want to.
+        if (size == 0 || size > 1_000_000) return;
+        byte[] buf = ArrayPool<byte>.Shared.Rent((int)size);
+        try
+        {
+            int n = source.Read(offset, buf.AsSpan(0, (int)size));
+            if (n != (int)size) return;
+            string xml = Encoding.UTF8.GetString(buf.AsSpan(0, n));
+            meta.Set("IXML", xml);
+            TryExtractXmlElement(xml, "PROJECT", out var project);
+            TryExtractXmlElement(xml, "NOTE", out var note);
+            if (project is not null) meta.Set("ALBUM", project);
+            if (note is not null) meta.Set("COMMENT", note);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buf);
+        }
+    }
+
+    private static string MapInfoId(uint id) => id switch
+    {
+        0x4D414E49 => "TITLE",           // INAM
+        0x54524149 => "ARTIST",          // IART
+        0x44524349 => "DATE",            // ICRD
+        0x544D4349 => "COMMENT",         // ICMT
+        0x524E4749 => "GENRE",           // IGNR
+        0x44525049 => "ALBUM",           // IPRD
+        0x4B525449 => "TRACKNUMBER",     // ITRK
+        0x504F4349 => "COPYRIGHT",       // ICOP
+        0x54465349 => "ENCODER",         // ISFT
+        0x474E4549 => "ENCODED_BY",      // IENG
+        0x474E4C49 => "LANGUAGE",        // ILNG
+        0x534D4349 => "COMMENT",         // ICMS = commissioned by → mapped to comment
+        _ => "",
+    };
+
+    private static string DecodeNullTerminatedLatin1(ReadOnlySpan<byte> bytes)
+    {
+        int end = bytes.IndexOf((byte)0);
+        if (end < 0) end = bytes.Length;
+        // Trim trailing whitespace as some writers null-pad with spaces.
+        while (end > 0 && (bytes[end - 1] == (byte)' ' || bytes[end - 1] == (byte)'\0')) end--;
+        if (end == 0) return string.Empty;
+        return Encoding.Latin1.GetString(bytes[..end]);
+    }
+
+    private static bool TryExtractXmlElement(string xml, string name, out string? value)
+    {
+        value = null;
+        string openTag = "<" + name + ">";
+        string closeTag = "</" + name + ">";
+        int s = xml.IndexOf(openTag, StringComparison.OrdinalIgnoreCase);
+        if (s < 0) return false;
+        s += openTag.Length;
+        int e = xml.IndexOf(closeTag, s, StringComparison.OrdinalIgnoreCase);
+        if (e < 0) return false;
+        value = xml[s..e].Trim();
+        return value.Length > 0;
     }
 }
 

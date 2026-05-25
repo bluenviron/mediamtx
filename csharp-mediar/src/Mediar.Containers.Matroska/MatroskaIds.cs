@@ -30,4 +30,16 @@ internal static class MatroskaIds
     public const ulong BlockDuration = 0x9B;
     public const ulong Void = 0xEC;
     public const ulong Crc32 = 0xBF;
+
+    // Tags
+    public const ulong Tags = 0x1254C367;
+    public const ulong Tag = 0x7373;
+    public const ulong Targets = 0x63C0;
+    public const ulong TargetTypeValue = 0x68CA;
+    public const ulong TargetType = 0x63CA;
+    public const ulong SimpleTag = 0x67C8;
+    public const ulong TagName = 0x45A3;
+    public const ulong TagLanguage = 0x447A;
+    public const ulong TagString = 0x4487;
+    public const ulong TagBinary = 0x4485;
 }

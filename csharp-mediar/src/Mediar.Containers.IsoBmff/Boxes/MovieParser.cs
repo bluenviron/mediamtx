@@ -59,6 +59,7 @@ internal static class MovieParser
         uint movieTimeScale = 0;
         ulong movieDuration = 0;
         var tracks = new List<Mp4TrackData>();
+        var meta = new MediaMetadataBuilder();
 
         foreach (var (childType, childPayload) in IterateChildren(moov))
         {
@@ -71,6 +72,15 @@ internal static class MovieParser
                 var track = ParseTrak(childPayload);
                 if (track is not null) tracks.Add(track);
             }
+            else if (childType.Value == BoxTypes.Udta.Value)
+            {
+                Mp4MetadataParser.ParseUdta(childPayload, meta);
+            }
+            else if (childType.Value == BoxTypes.Meta.Value)
+            {
+                // Top-level meta (rare; movie-level meta usually lives under udta).
+                Mp4MetadataParser.ParseMeta(SkipVersionFlags(childPayload), meta);
+            }
         }
 
         return new Mp4MovieData
@@ -78,7 +88,13 @@ internal static class MovieParser
             MovieTimeScale = movieTimeScale == 0 ? 1000u : movieTimeScale,
             DurationInMovieTimeScale = movieDuration,
             Tracks = tracks,
+            Metadata = meta.Build(),
         };
+    }
+
+    private static ReadOnlyMemory<byte> SkipVersionFlags(ReadOnlyMemory<byte> payload)
+    {
+        return payload.Length >= 4 ? payload[4..] : payload;
     }
 
     private static void ParseMvhd(ReadOnlySpan<byte> payload, out uint timeScale, out ulong duration)
@@ -615,7 +631,7 @@ internal static class MovieParser
     // Helpers
     // ---------------------------------------------------------------------
 
-    private static IEnumerable<BoxChild> IterateChildren(ReadOnlyMemory<byte> container)
+    internal static IEnumerable<BoxChild> IterateChildren(ReadOnlyMemory<byte> container)
     {
         int pos = 0;
         while (pos + 8 <= container.Length)
@@ -650,5 +666,5 @@ internal static class MovieParser
         }
     }
 
-    private readonly record struct BoxChild(FourCc Type, ReadOnlyMemory<byte> Payload);
+    internal readonly record struct BoxChild(FourCc Type, ReadOnlyMemory<byte> Payload);
 }

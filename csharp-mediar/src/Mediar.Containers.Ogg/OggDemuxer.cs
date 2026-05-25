@@ -16,6 +16,8 @@ public sealed class OggDemuxer : IMediaDemuxer
     private readonly IRandomAccessSource _source;
     private readonly bool _ownsSource;
     private readonly List<LogicalStream> _streams = new();
+    private readonly MediaMetadataBuilder _metaBuilder = new();
+    private MediaMetadata? _metadata;
     private double _seekSeconds;
     private bool _disposed;
 
@@ -66,6 +68,9 @@ public sealed class OggDemuxer : IMediaDemuxer
 
     /// <inheritdoc/>
     public IReadOnlyList<MediaTrack> Tracks => _streams.Select(s => s.Track).ToArray();
+
+    /// <inheritdoc/>
+    public MediaMetadata Metadata => _metadata ??= _metaBuilder.Build();
 
     /// <inheritdoc/>
     public TimeSpan Duration => TimeSpan.Zero;
@@ -314,6 +319,26 @@ public sealed class OggDemuxer : IMediaDemuxer
     {
         var firstPacket = headerPackets[0];
         var (codec, sampleRate, channels, samplesPerPacket) = IdentifyStream(firstPacket);
+
+        // The second header packet for Vorbis and Opus carries a Vorbis-comment
+        // payload that holds the file's metadata. Pull it into the file-level
+        // MediaMetadata builder.
+        if (headerPackets.Count >= 2)
+        {
+            var commentPacket = headerPackets[1];
+            if (codec == CodecId.Vorbis && commentPacket.Length > 7 && commentPacket[0] == 0x03)
+            {
+                // [0x03][magic "vorbis"][vorbis_comment payload][framing bit]
+                int payloadEnd = commentPacket.Length;
+                // Strip framing byte (last byte) if its low bit is set; safe to drop unconditionally.
+                if (payloadEnd > 7) payloadEnd--;
+                VorbisComment.ReadInto(commentPacket.AsSpan(7, payloadEnd - 7), _metaBuilder);
+            }
+            else if (codec == CodecId.Opus && commentPacket.Length > 8 && commentPacket.AsSpan(0, 8).SequenceEqual("OpusTags"u8))
+            {
+                VorbisComment.ReadInto(commentPacket.AsSpan(8), _metaBuilder);
+            }
+        }
 
         byte[] extraData;
         if (headerPackets.Count > 1)
