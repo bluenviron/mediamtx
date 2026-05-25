@@ -54,12 +54,12 @@ must come with their own licensing analysis.
 | **PCM decoder (via `IAudioDecoder`)**     | ✅                    |
 | **G.711 µ-law / A-law decoder**           | ✅                    |
 | **FLAC decoder (RFC 9639)**               | ✅                    |
-| **Vorbis I decoder — headers + bitstream + IMDCT + TDAC primitives** | 🟡 (foundation; audio synthesis roadmap) |
+| **Vorbis I decoder — full audio synthesis** | ✅ (floor 1 + residue 0/1/2 + IMDCT + sin² window + lap) |
 | **Seek API (`SeekAsync`)**                | ✅                    |
 | BenchmarkDotNet micro-benchmarks         | ✅                    |
 | AAC / AC-3 / E-AC-3 decoder              | ❌ (patent encumbered) |
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
-| Vorbis audio synthesis (floor 1 + residue + overlap-add) | 🟡 (roadmap, foundation shipped) |
+| Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
 | Opus decoder                              | 🟡 (deferred, royalty-free but large) |
 | MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |

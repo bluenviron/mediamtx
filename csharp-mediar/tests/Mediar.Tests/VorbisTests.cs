@@ -439,4 +439,167 @@ public sealed class VorbisTests
             return _bytes.ToArray();
         }
     }
+
+    // ---- Floor 1 dB table ----
+
+    [Fact]
+    public void FloorInverseDbTable_HasExpectedShape()
+    {
+        // Vorbis I §9.2.2: 256-entry lookup with the smallest value at index 0
+        // and 1.0 at index 255. Strictly monotone increasing.
+        float[] tab = Mediar.Codecs.Vorbis.Decoder.Internal.FloorInverseDbTable();
+        Assert.Equal(256, tab.Length);
+        Assert.True(tab[0] > 0f);
+        Assert.True(tab[255] > 0.9f && tab[255] <= 1.0f);
+        for (int i = 1; i < 256; i++)
+        {
+            Assert.True(tab[i] > tab[i - 1], $"db table not monotone at {i}");
+        }
+        // Roughly +0.5 dB per step at the top: tab[254]/tab[255] ≈ 2^(-1/11).
+        double ratio = tab[254] / (double)tab[255];
+        Assert.InRange(ratio, 0.93, 0.945);
+    }
+
+    // ---- Windowing ----
+
+    [Fact]
+    public void Window_ZerosOutsideRampRegion()
+    {
+        // Long block n=128, with a short-side neighbour ramp of length 32
+        // (e.g. blocksize0/2 = 256/2/4 stylised). Geometry:
+        //   leftStart  = n/4 - L/2 = 32 - 16 = 16
+        //   leftEnd    = 48
+        //   rightStart = 3n/4 - R/2 = 96 - 16 = 80
+        //   rightEnd   = 112
+        // Outside [16,48) ∪ [48,80) (plateau) ∪ [80,112) is zero.
+        int n = 128;
+        int L = 32;
+        int R = 32;
+        var block = new float[n];
+        for (int i = 0; i < n; i++) block[i] = 1f;
+        Mediar.Codecs.Vorbis.Decoder.Internal.ApplyWindow(block, leftWindowLength: L, rightWindowLength: R);
+
+        for (int i = 0; i < 16; i++) Assert.Equal(0f, block[i]);
+        for (int i = 112; i < n; i++) Assert.Equal(0f, block[i]);
+        // Plateau is the unchanged 1.0 region.
+        for (int i = 48; i < 80; i++) Assert.Equal(1f, block[i]);
+        // Ramp midpoint ≈ 0.707.
+        Assert.InRange(block[16 + L / 2 - 1], 0.6f, 0.8f);
+        Assert.InRange(block[80 + R / 2], 0.6f, 0.8f);
+    }
+
+    [Fact]
+    public void Window_PartitionOfUnity()
+    {
+        // sin^2 window has the TDAC partition-of-unity property:
+        // for two adjacent same-size blocks, leftWin^2 + rightWin^2 = 1 in
+        // the overlap region. Validate numerically.
+        int n = 64;
+        int half = n / 2;
+        var b0 = new float[n];
+        var b1 = new float[n];
+        for (int i = 0; i < n; i++) { b0[i] = 1f; b1[i] = 1f; }
+        Mediar.Codecs.Vorbis.Decoder.Internal.ApplyWindow(b0, half, half);
+        Mediar.Codecs.Vorbis.Decoder.Internal.ApplyWindow(b1, half, half);
+
+        // Sum-of-squares across the overlap should be 1.
+        for (int i = 0; i < half; i++)
+        {
+            float left = b0[half + i];       // right ramp of block 0
+            float right = b1[i];             // left ramp of block 1
+            float sum = left * left + right * right;
+            Assert.InRange(sum, 0.999, 1.001);
+        }
+    }
+
+    // ---- Overlap-add harness ----
+
+    [Fact]
+    public void Lap_FirstPacketEmitsZeroSamples()
+    {
+        int n = 256;
+        var lap = Mediar.Codecs.Vorbis.Decoder.Internal.CreateLapHarness(channels: 1, blocksize1: n);
+        var block = new float[n];
+        for (int i = 0; i < n; i++) block[i] = 1f;
+        var emitted = lap.Push(new[] { block }, n);
+        Assert.Equal(0, lap.LastEmitCount);
+        Assert.Empty(emitted);
+    }
+
+    [Fact]
+    public void Lap_LongLongStreamEmitsHalfBlockPerPacket()
+    {
+        // A steady LL stream should produce exactly (N+N)/4 = N/2 samples
+        // per packet after the first.
+        int n = 128;
+        var lap = Mediar.Codecs.Vorbis.Decoder.Internal.CreateLapHarness(channels: 1, blocksize1: n);
+        var block = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            double inner = Math.PI / 2.0 * (i + 0.5) / (double)n;
+            double w = Math.Sin(Math.PI / 2.0 * Math.Sin(inner) * Math.Sin(inner));
+            // Constant signal × full window (left ramp + right ramp).
+            block[i] = (float)w;
+        }
+        // Properly window: leftHalf is rising ramp, rightHalf is mirror.
+        var win = new float[n];
+        for (int i = 0; i < n; i++) win[i] = block[i];
+
+        // First packet: emit 0.
+        lap.Push(new[] { (float[])win.Clone() }, n);
+        // Second packet: emit n/2.
+        var emitted = lap.Push(new[] { (float[])win.Clone() }, n);
+        Assert.Equal(n / 2, lap.LastEmitCount);
+        Assert.Single(emitted);
+        Assert.Equal(n / 2, emitted[0].Length);
+        // Third packet still emits n/2.
+        emitted = lap.Push(new[] { (float[])win.Clone() }, n);
+        Assert.Equal(n / 2, lap.LastEmitCount);
+        Assert.Equal(n / 2, emitted[0].Length);
+        // All emitted samples finite.
+        foreach (var s in emitted[0])
+        {
+            Assert.False(float.IsNaN(s));
+            Assert.False(float.IsInfinity(s));
+        }
+    }
+
+    [Fact]
+    public void Lap_ShortLongTransitionEmitsBlendedStride()
+    {
+        // Short→Long: emit (N0 + N1)/4 samples. Both packets need to be valid
+        // windowed blocks but for the stride test we just need the buffers.
+        int blocksize0 = 256;
+        int blocksize1 = 2048;
+        var lap = Mediar.Codecs.Vorbis.Decoder.Internal.CreateLapHarness(channels: 1, blocksize1: blocksize1);
+
+        var shortBlock = new float[blocksize0];
+        for (int i = 0; i < blocksize0; i++) shortBlock[i] = 0.01f;
+        var longBlock = new float[blocksize1];
+        for (int i = 0; i < blocksize1; i++) longBlock[i] = 0.01f;
+
+        // First packet (short): emit 0.
+        lap.Push(new[] { shortBlock }, blocksize0);
+        Assert.Equal(0, lap.LastEmitCount);
+        // Second packet (long): emit (256 + 2048)/4 = 576.
+        lap.Push(new[] { longBlock }, blocksize1);
+        Assert.Equal((blocksize0 + blocksize1) / 4, lap.LastEmitCount);
+        // Third packet (short again): emit (2048 + 256)/4 = 576 again.
+        lap.Push(new[] { shortBlock }, blocksize0);
+        Assert.Equal((blocksize0 + blocksize1) / 4, lap.LastEmitCount);
+    }
+
+    [Fact]
+    public void Lap_ResetClearsState()
+    {
+        int n = 64;
+        var lap = Mediar.Codecs.Vorbis.Decoder.Internal.CreateLapHarness(channels: 2, blocksize1: n);
+        var block = new float[n];
+        lap.Push(new[] { block, block }, n);
+        lap.Push(new[] { block, block }, n);
+        lap.Reset();
+        // After reset, first push emits 0 again.
+        lap.Push(new[] { block, block }, n);
+        Assert.Equal(0, lap.LastEmitCount);
+    }
 }

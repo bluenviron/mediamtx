@@ -280,7 +280,7 @@ internal sealed class VorbisCodebook
     /// <paramref name="destination"/> (length must be at least <see cref="Dimensions"/>).
     /// Returns the entry index, or -1 on EOP.
     /// </summary>
-    public int DecodeVector(ref VorbisBitReader r, Span<float> destination)
+    public int DecodeVector(ref VorbisBitReader r, scoped Span<float> destination)
     {
         if (LookupType == 0 || ValueVectors is null)
             throw new InvalidOperationException("Codebook has no value vectors.");
