@@ -20,6 +20,7 @@ public sealed class FlacDemuxer : IMediaDemuxer
     private readonly long _totalSamples;
     private readonly int _sampleRate;
     private readonly int _blockSize;
+    private long _seekTargetSamples;
     private bool _disposed;
 
     private FlacDemuxer(
@@ -188,6 +189,15 @@ public sealed class FlacDemuxer : IMediaDemuxer
                 }
                 if (frameLen <= 0) yield break;
 
+                // Skip past frames whose entire duration is before the seek target.
+                // (Sync scanning has already been done; we just don't allocate the payload.)
+                if (pts + _blockSize <= _seekTargetSamples)
+                {
+                    pts += _blockSize;
+                    offset = frameStart + frameLen;
+                    continue;
+                }
+
                 var owner = MemoryPool<byte>.Shared.Rent(frameLen);
                 var mem = owner.Memory[..frameLen];
                 int got = await _source.ReadAsync(frameStart, mem, cancellationToken).ConfigureAwait(false);
@@ -216,6 +226,14 @@ public sealed class FlacDemuxer : IMediaDemuxer
         {
             ArrayPool<byte>.Shared.Return(scratch);
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        _seekTargetSamples = (long)Math.Round(time.TotalSeconds * _sampleRate);
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc/>

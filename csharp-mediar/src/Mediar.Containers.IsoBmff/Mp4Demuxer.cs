@@ -27,6 +27,7 @@ public sealed class Mp4Demuxer : IMediaDemuxer
     private readonly bool _ownsSource;
     private readonly Mp4MovieData _movie;
     private readonly MediaTrack[] _tracks;
+    private int[]? _initialCursors;
     private bool _disposed;
 
     /// <summary>Open an MP4/MOV file for demuxing.</summary>
@@ -102,6 +103,10 @@ public sealed class Mp4Demuxer : IMediaDemuxer
         // Per-track cursors.
         int trackCount = _movie.Tracks.Count;
         var cursors = new int[trackCount];
+        if (_initialCursors is { } init && init.Length == trackCount)
+        {
+            Array.Copy(init, cursors, trackCount);
+        }
 
         while (true)
         {
@@ -153,6 +158,61 @@ public sealed class Mp4Demuxer : IMediaDemuxer
                 Owner = owner,
             };
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        double targetSeconds = time.TotalSeconds;
+
+        int trackCount = _movie.Tracks.Count;
+        var cursors = new int[trackCount];
+        for (int t = 0; t < trackCount; t++)
+        {
+            var td = _movie.Tracks[t];
+            cursors[t] = FindSeekCursor(td, targetSeconds);
+        }
+        _initialCursors = cursors;
+        return ValueTask.CompletedTask;
+    }
+
+    private static int FindSeekCursor(Mp4TrackData track, double targetSeconds)
+    {
+        if (track.Samples.Length == 0) return 0;
+        double timeScale = track.TimeScale;
+
+        // Walk samples to find the latest sample whose Dts <= target.
+        // Most assets have a few thousand samples per track; linear scan is fine.
+        int lastAtOrBefore = 0;
+        for (int i = 0; i < track.Samples.Length; i++)
+        {
+            double s = (double)track.Samples[i].Dts / timeScale;
+            if (s > targetSeconds) break;
+            lastAtOrBefore = i;
+        }
+
+        // Video tracks must start at a keyframe — snap backwards to one.
+        bool needsKeyframe = HasKeyframeMarkers(track);
+        if (!needsKeyframe) return lastAtOrBefore;
+
+        for (int i = lastAtOrBefore; i >= 0; i--)
+        {
+            if (track.Samples[i].IsKey) return i;
+        }
+        return 0;
+    }
+
+    private static bool HasKeyframeMarkers(Mp4TrackData track)
+    {
+        // If every sample is marked IsKey (audio / subtitle tracks), no snap is needed.
+        // Otherwise the track is randomly-accessible only at keyframes.
+        for (int i = 0; i < track.Samples.Length; i++)
+        {
+            if (!track.Samples[i].IsKey) return true;
+        }
+        return false;
     }
 
     /// <inheritdoc/>

@@ -16,6 +16,7 @@ public sealed class OggDemuxer : IMediaDemuxer
     private readonly IRandomAccessSource _source;
     private readonly bool _ownsSource;
     private readonly List<LogicalStream> _streams = new();
+    private double _seekSeconds;
     private bool _disposed;
 
     private sealed class LogicalStream
@@ -144,6 +145,13 @@ public sealed class OggDemuxer : IMediaDemuxer
                         continue;
                     }
 
+                    if (ShouldSkipForSeek(s))
+                    {
+                        // Advance per-packet PTS counter without yielding.
+                        s.SamplesEmitted += s.SamplesPerPacket > 0 ? s.SamplesPerPacket : 0;
+                        continue;
+                    }
+
                     yield return MakeSample(s, full);
                 }
                 else
@@ -151,6 +159,11 @@ public sealed class OggDemuxer : IMediaDemuxer
                     if (headerPacketsRemaining[s.Serial] > 0)
                     {
                         headerPacketsRemaining[s.Serial]--;
+                        continue;
+                    }
+                    if (ShouldSkipForSeek(s))
+                    {
+                        s.SamplesEmitted += s.SamplesPerPacket > 0 ? s.SamplesPerPacket : 0;
                         continue;
                     }
                     byte[] full = new byte[packetLen];
@@ -174,6 +187,21 @@ public sealed class OggDemuxer : IMediaDemuxer
             IsKeyFrame = true,
             Data = data,
         };
+    }
+
+    private bool ShouldSkipForSeek(LogicalStream s)
+    {
+        if (_seekSeconds <= 0) return false;
+        if (s.SampleRate <= 0 || s.SamplesPerPacket <= 0) return false;
+        double endSeconds = (double)(s.SamplesEmitted + s.SamplesPerPacket) / s.SampleRate;
+        return endSeconds <= _seekSeconds;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        _seekSeconds = time < TimeSpan.Zero ? 0 : time.TotalSeconds;
+        return ValueTask.CompletedTask;
     }
 
     private LogicalStream? FindStream(uint serial)

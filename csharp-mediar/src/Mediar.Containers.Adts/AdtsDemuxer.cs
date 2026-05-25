@@ -17,6 +17,7 @@ public sealed class AdtsDemuxer : IMediaDemuxer
     private readonly long _firstFrameOffset;
     private readonly int _samplesPerFrame;
     private readonly int _sampleRate;
+    private long _seekTargetSamples;
     private bool _disposed;
 
     private AdtsDemuxer(IRandomAccessSource source, bool ownsSource, MediaTrack track,
@@ -105,6 +106,14 @@ public sealed class AdtsDemuxer : IMediaDemuxer
             int payloadLen = h.FrameSize - payloadOffset;
             if (payloadLen <= 0 || offset + h.FrameSize > end) yield break;
 
+            // Skip past frames whose entire duration is before the seek target.
+            if (pts + _samplesPerFrame <= _seekTargetSamples)
+            {
+                offset += h.FrameSize;
+                pts += _samplesPerFrame;
+                continue;
+            }
+
             var owner = MemoryPool<byte>.Shared.Rent(payloadLen);
             var mem = owner.Memory[..payloadLen];
             int got = await _source.ReadAsync(offset + payloadOffset, mem, cancellationToken).ConfigureAwait(false);
@@ -128,6 +137,14 @@ public sealed class AdtsDemuxer : IMediaDemuxer
             pts += _samplesPerFrame;
             offset += h.FrameSize;
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        _seekTargetSamples = (long)Math.Round(time.TotalSeconds * _sampleRate);
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc/>

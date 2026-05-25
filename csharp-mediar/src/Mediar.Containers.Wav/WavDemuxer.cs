@@ -30,6 +30,7 @@ public sealed class WavDemuxer : IMediaDemuxer
     private readonly long _dataLength;
     private readonly int _bytesPerFrame;
     private readonly int _sampleRate;
+    private long _startFrame;
     private bool _disposed;
 
     private WavDemuxer(
@@ -177,9 +178,9 @@ public sealed class WavDemuxer : IMediaDemuxer
         // Emit ~10 ms of audio per packet.
         int framesPerPacket = Math.Max(1, _sampleRate / 100);
         int bytesPerPacket = framesPerPacket * _bytesPerFrame;
-        long offset = _dataOffset;
+        long offset = _dataOffset + _startFrame * _bytesPerFrame;
         long end = _dataOffset + _dataLength;
-        long ptsFrames = 0;
+        long ptsFrames = _startFrame;
 
         while (offset < end)
         {
@@ -212,6 +213,17 @@ public sealed class WavDemuxer : IMediaDemuxer
             offset += frames * _bytesPerFrame;
             ptsFrames += frames;
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        long target = (long)Math.Round(time.TotalSeconds * _sampleRate);
+        long maxFrames = _dataLength / _bytesPerFrame;
+        if (target > maxFrames) target = maxFrames;
+        _startFrame = target;
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc/>

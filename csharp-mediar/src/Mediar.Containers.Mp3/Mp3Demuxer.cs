@@ -18,6 +18,7 @@ public sealed class Mp3Demuxer : IMediaDemuxer
     private readonly int _sampleRate;
     private readonly int _samplesPerFrame;
     private readonly long _totalFrames;
+    private long _seekTargetSamples;
     private bool _disposed;
 
     private Mp3Demuxer(
@@ -146,6 +147,15 @@ public sealed class Mp3Demuxer : IMediaDemuxer
             }
             if (header.FrameSize <= 0 || offset + header.FrameSize > _dataEnd) yield break;
 
+            // Skip past frames whose entire duration falls before the seek target;
+            // we read the 4-byte header only to know how big the frame is.
+            if (pts + header.SamplesPerFrame <= _seekTargetSamples)
+            {
+                offset += header.FrameSize;
+                pts += header.SamplesPerFrame;
+                continue;
+            }
+
             var owner = MemoryPool<byte>.Shared.Rent(header.FrameSize);
             var mem = owner.Memory[..header.FrameSize];
             int n = await _source.ReadAsync(offset, mem, cancellationToken).ConfigureAwait(false);
@@ -169,6 +179,14 @@ public sealed class Mp3Demuxer : IMediaDemuxer
             offset += header.FrameSize;
             pts += header.SamplesPerFrame;
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        _seekTargetSamples = (long)Math.Round(time.TotalSeconds * _sampleRate);
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc/>

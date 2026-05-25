@@ -21,6 +21,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
     private long _segmentEnd;
     private ulong _timecodeScaleNs = 1_000_000; // 1 ms default
     private double _segmentDurationTicks;
+    private double _seekSeconds;
     private bool _disposed;
 
     private MatroskaDemuxer(IRandomAccessSource source, bool ownsSource)
@@ -292,6 +293,12 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.Yield();
+        // Convert seek time to cluster-tick units (1 tick = _timecodeScaleNs nanoseconds).
+        double scaleSeconds = _timecodeScaleNs / 1_000_000_000.0;
+        long targetClusterTicks = _seekSeconds <= 0
+            ? long.MinValue
+            : (long)Math.Round(_seekSeconds / scaleSeconds);
+
         var r = new EbmlReader(_source, _clustersStart);
         while (r.Position < _segmentEnd)
         {
@@ -316,11 +323,20 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 if (elemId == MatroskaIds.Timecode)
                 {
                     clusterTimecode = (long)r.ReadUInt((int)elemSize);
+                    // If the entire cluster ends before the seek target (clusters are
+                    // bounded to 30s by our muxer), skip the rest of this Cluster.
+                    if (targetClusterTicks > long.MinValue
+                        && clusterTimecode + 30_000 < targetClusterTicks)
+                    {
+                        r.Position = end;
+                        break;
+                    }
                 }
                 else if (elemId == MatroskaIds.SimpleBlock)
                 {
                     foreach (var sample in DecodeBlock(r, (int)elemSize, clusterTimecode, isSimple: true, blockDuration: 0))
                     {
+                        if (sample.Pts < targetClusterTicks) continue;
                         yield return sample;
                     }
                 }
@@ -328,6 +344,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 {
                     foreach (var sample in DecodeBlockGroup(r, elemEnd, clusterTimecode))
                     {
+                        if (sample.Pts < targetClusterTicks) continue;
                         yield return sample;
                     }
                 }
@@ -337,6 +354,13 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 }
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+    {
+        _seekSeconds = time < TimeSpan.Zero ? 0 : time.TotalSeconds;
+        return ValueTask.CompletedTask;
     }
 
     private List<MediaSample> DecodeBlockGroup(EbmlReader r, long end, long clusterTimecode)

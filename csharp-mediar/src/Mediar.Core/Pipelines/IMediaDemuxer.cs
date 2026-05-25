@@ -22,4 +22,18 @@ public interface IMediaDemuxer : IAsyncDisposable, IDisposable
     /// Enumerate samples in interleaved playback order. Samples are produced lazily.
     /// </summary>
     IAsyncEnumerable<MediaSample> ReadSamplesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Seek the demuxer so that subsequent <see cref="ReadSamplesAsync"/> calls
+    /// begin at-or-before <paramref name="time"/>. For video tracks the position
+    /// is snapped to the nearest preceding keyframe so playback can resume
+    /// without a reference frame from earlier in the stream.
+    /// </summary>
+    /// <remarks>
+    /// The default implementation throws <see cref="NotSupportedException"/>.
+    /// Demuxers that can locate samples by timestamp override it.
+    /// </remarks>
+    ValueTask SeekAsync(TimeSpan time, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(
+            $"Demuxer '{FormatName}' does not support seeking.");
 }

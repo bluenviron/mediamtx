@@ -54,13 +54,13 @@ must come with their own licensing analysis.
 | **PCM decoder (via `IAudioDecoder`)**     | ✅                    |
 | **G.711 µ-law / A-law decoder**           | ✅                    |
 | **FLAC decoder (RFC 9639)**               | ✅                    |
+| **Seek API (`SeekAsync`)**                | ✅                    |
 | BenchmarkDotNet micro-benchmarks         | ✅                    |
 | AAC / AC-3 / E-AC-3 decoder              | ❌ (patent encumbered) |
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
 | Vorbis / Opus decoder                    | 🟡 (deferred, royalty-free but large) |
 | MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
-| Per-container seek API                   | 🟡 (deferred)         |
 
 ## Project layout
 
@@ -185,6 +185,25 @@ byte[] back = AnnexBAvccConverter.LengthPrefixedToAnnexB(avcc, lengthSize: 4);
 ```
 
 The scanner uses AVX2 when available for fast start-code detection.
+
+### Seeking
+
+Every demuxer exposes `SeekAsync(TimeSpan)`; the next call to
+`ReadSamplesAsync` resumes at-or-before the requested time:
+
+```csharp
+await using var demuxer = MediarOperations.Open("movie.mp4");
+await demuxer.SeekAsync(TimeSpan.FromSeconds(30));
+await foreach (var s in demuxer.ReadSamplesAsync()) { /* ... */ }
+```
+
+* MP4 / WAV use random-access tables for true O(1) byte-level seek; for
+  video tracks the cursor snaps back to the nearest preceding keyframe.
+* MP3 / FLAC / ADTS walk frame headers without reading payload bytes.
+* Matroska skips whole clusters whose timecodes fall before the target,
+  then drops early blocks within the chosen cluster.
+* Ogg skips packets whose PTS falls before the target (no-op for Opus
+  streams where per-packet sample count is not pre-computed).
 
 ## Performance characteristics
 
