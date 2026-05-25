@@ -33,17 +33,24 @@ must come with their own licensing analysis.
 | Demux WAV (PCM 16/24/32 + IEEE float)    | ✅                    |
 | Mux WAV (PCM + IEEE float)               | ✅                    |
 | Demux MP3 (with ID3v1/v2 skipping)       | ✅                    |
+| Mux MP3 (frame concatenation)            | ✅                    |
 | Demux FLAC (native, frame-level)         | ✅                    |
+| Mux FLAC (native, frame passthrough)     | ✅                    |
+| Demux + mux raw AAC ADTS                 | ✅                    |
+| Demux Ogg (Opus / Vorbis / FLAC)         | ✅                    |
+| Demux Matroska / WebM (SimpleBlock)      | ✅                    |
 | Read + write SRT                          | ✅                    |
 | Read + write WebVTT                       | ✅                    |
 | Extract audio (MP4 → M4A)                | ✅                    |
 | Mux a/v together                         | ✅ (passthrough)      |
 | Embed SRT as `tx3g` into MP4             | ✅                    |
 | Extract `tx3g` SRT from MP4              | ✅                    |
+| PCM sample-format conversion (s16/s24/s32/f32) | ✅              |
+| BenchmarkDotNet micro-benchmarks         | ✅                    |
 | AAC / Opus / Vorbis decoder              | ❌ (out of scope)     |
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
-| Matroska / WebM container                | ❌ (planned)          |
-| Ogg container                            | ❌ (planned)          |
+| Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
+| Mux Matroska / WebM / Ogg                | ❌ (planned)          |
 
 ## Project layout
 
@@ -53,12 +60,17 @@ csharp-mediar/
 │   ├── Mediar.Core/                    abstractions + IO primitives
 │   ├── Mediar.Containers.IsoBmff/      MP4 / MOV / M4A demux + mux
 │   ├── Mediar.Containers.Wav/          WAV read + write
-│   ├── Mediar.Containers.Mp3/          MP3 + ID3 demuxer
-│   ├── Mediar.Containers.Flac/         FLAC demuxer
+│   ├── Mediar.Containers.Mp3/          MP3 + ID3 demuxer + frame muxer
+│   ├── Mediar.Containers.Flac/         FLAC demuxer + native muxer
+│   ├── Mediar.Containers.Adts/         AAC ADTS demuxer + muxer
+│   ├── Mediar.Containers.Ogg/          Ogg page reader + logical-stream demuxer
+│   ├── Mediar.Containers.Matroska/     Matroska / WebM demuxer (EBML)
+│   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion helpers
 │   ├── Mediar.Subtitles.Srt/           SRT read + write
 │   ├── Mediar.Subtitles.WebVtt/        WebVTT read + write
 │   └── Mediar/                         high-level facade
 ├── tests/Mediar.Tests/                 xUnit round-trip + parser tests
+├── bench/Mediar.Bench/                 BenchmarkDotNet micro-benchmarks
 └── samples/Mediar.Cli/                 mediar CLI (info / extract / mux / embed)
 ```
 
@@ -68,6 +80,9 @@ csharp-mediar/
 cd csharp-mediar
 dotnet build Mediar.slnx
 dotnet test  Mediar.slnx
+
+# Run micro-benchmarks
+dotnet run -c Release --project bench/Mediar.Bench -- --filter '*'
 ```
 
 ### CLI
@@ -136,7 +151,10 @@ Reference specs used:
 * ISO/IEC 14496-14 (MP4 file format)
 * Microsoft RIFF/WAVE
 * ISO/IEC 11172-3 (MPEG-1 audio)
+* ISO/IEC 13818-7 (MPEG-2 / ADTS AAC)
 * RFC 9639 (FLAC)
+* RFC 3533 (Ogg)
+* Matroska / EBML specifications (matroska.org)
 * SubRip community spec (`.srt`)
 * W3C WebVTT
 

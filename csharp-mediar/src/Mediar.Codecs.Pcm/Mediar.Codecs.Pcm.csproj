@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Pcm</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Pcm</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>PCM sample-format conversion (s16/s24/s32/f32, LE/BE) for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

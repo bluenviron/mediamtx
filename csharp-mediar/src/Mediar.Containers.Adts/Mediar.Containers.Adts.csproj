@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Adts</RootNamespace>
+    <AssemblyName>Mediar.Containers.Adts</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>AAC ADTS (raw .aac) demuxer and muxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

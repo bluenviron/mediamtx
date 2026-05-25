@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Mediar.Bench</RootNamespace>
+    <AssemblyName>Mediar.Bench</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.IsoBmff\Mediar.Containers.IsoBmff.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Mp3\Mediar.Containers.Mp3.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Wav\Mediar.Containers.Wav.csproj" />
+    <ProjectReference Include="..\..\src\Mediar\Mediar.csproj" />
+  </ItemGroup>
+
+</Project>

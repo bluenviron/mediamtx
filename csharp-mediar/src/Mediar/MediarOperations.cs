@@ -2,6 +2,9 @@ using Mediar.Containers.IsoBmff;
 using Mediar.Containers.Wav;
 using Mediar.Containers.Mp3;
 using Mediar.Containers.Flac;
+using Mediar.Containers.Adts;
+using Mediar.Containers.Ogg;
+using Mediar.Containers.Matroska;
 using Mediar.Subtitles.Srt;
 
 namespace Mediar;
@@ -17,7 +20,8 @@ public static class MediarOperations
     /// <summary>
     /// Detect the container by file extension and return a demuxer.
     /// Currently recognized: <c>.mp4</c>, <c>.m4a</c>, <c>.m4v</c>, <c>.mov</c>,
-    /// <c>.3gp</c>, <c>.wav</c>, <c>.mp3</c>, <c>.flac</c>.
+    /// <c>.3gp</c>, <c>.wav</c>, <c>.mp3</c>, <c>.flac</c>, <c>.aac</c>, <c>.ogg</c>,
+    /// <c>.opus</c>, <c>.mkv</c>, <c>.webm</c>.
     /// </summary>
     public static IMediaDemuxer Open(string path)
     {
@@ -29,6 +33,9 @@ public static class MediarOperations
             ".wav" => WavDemuxer.Open(path),
             ".mp3" => Mp3Demuxer.Open(path),
             ".flac" => FlacDemuxer.Open(path),
+            ".aac" => AdtsDemuxer.Open(path),
+            ".ogg" or ".opus" or ".oga" or ".ogv" => OggDemuxer.Open(path),
+            ".mkv" or ".webm" or ".mka" => MatroskaDemuxer.Open(path),
             _ => throw new NotSupportedException($"Unrecognized container extension '{ext}'."),
         };
     }

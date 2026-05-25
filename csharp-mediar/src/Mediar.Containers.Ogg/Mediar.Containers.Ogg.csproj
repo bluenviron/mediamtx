@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Ogg</RootNamespace>
+    <AssemblyName>Mediar.Containers.Ogg</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Ogg page parser and logical-stream demuxer (Opus/Vorbis/FLAC) for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
