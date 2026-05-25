@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar</RootNamespace>
+    <AssemblyName>Mediar.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Core abstractions and IO primitives for the Mediar high-performance media toolkit.</Description>
+  </PropertyGroup>
+
+</Project>

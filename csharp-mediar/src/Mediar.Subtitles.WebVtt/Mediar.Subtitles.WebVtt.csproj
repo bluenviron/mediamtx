@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Subtitles.WebVtt</RootNamespace>
+    <AssemblyName>Mediar.Subtitles.WebVtt</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>WebVTT subtitle reader and writer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

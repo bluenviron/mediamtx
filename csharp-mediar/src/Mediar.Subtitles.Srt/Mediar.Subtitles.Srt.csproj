@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Subtitles.Srt</RootNamespace>
+    <AssemblyName>Mediar.Subtitles.Srt</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>SubRip (SRT) subtitle reader and writer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

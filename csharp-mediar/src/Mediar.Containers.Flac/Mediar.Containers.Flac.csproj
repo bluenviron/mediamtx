@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Flac</RootNamespace>
+    <AssemblyName>Mediar.Containers.Flac</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>FLAC metadata and frame reader for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

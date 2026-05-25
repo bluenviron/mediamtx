@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Tests</RootNamespace>
+    <AssemblyName>Mediar.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mediar\Mediar.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.IsoBmff\Mediar.Containers.IsoBmff.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Wav\Mediar.Containers.Wav.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Mp3\Mediar.Containers.Mp3.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Flac\Mediar.Containers.Flac.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />
+  </ItemGroup>
+
+</Project>

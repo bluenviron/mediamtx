@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.IsoBmff</RootNamespace>
+    <AssemblyName>Mediar.Containers.IsoBmff</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>ISO Base Media File Format (MP4, MOV, M4A) demuxer and muxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

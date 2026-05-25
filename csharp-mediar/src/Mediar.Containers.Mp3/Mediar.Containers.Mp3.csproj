@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Mp3</RootNamespace>
+    <AssemblyName>Mediar.Containers.Mp3</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>MPEG audio (MP3) parser and ID3 tag reader for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

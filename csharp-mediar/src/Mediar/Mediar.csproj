@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar</RootNamespace>
+    <AssemblyName>Mediar</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>High-level facade for the Mediar media toolkit (file-level operations like extract-audio, embed-subtitles).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.IsoBmff\Mediar.Containers.IsoBmff.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Wav\Mediar.Containers.Wav.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Mp3\Mediar.Containers.Mp3.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Flac\Mediar.Containers.Flac.csproj" />
+    <ProjectReference Include="..\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
+    <ProjectReference Include="..\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />
+  </ItemGroup>
+
+</Project>

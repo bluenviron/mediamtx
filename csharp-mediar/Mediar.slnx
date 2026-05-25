@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Mediar.Cli/Mediar.Cli.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Mediar.Containers.Flac/Mediar.Containers.Flac.csproj" />
+    <Project Path="src/Mediar.Containers.IsoBmff/Mediar.Containers.IsoBmff.csproj" />
+    <Project Path="src/Mediar.Containers.Mp3/Mediar.Containers.Mp3.csproj" />
+    <Project Path="src/Mediar.Containers.Wav/Mediar.Containers.Wav.csproj" />
+    <Project Path="src/Mediar.Core/Mediar.Core.csproj" />
+    <Project Path="src/Mediar.Subtitles.Srt/Mediar.Subtitles.Srt.csproj" />
+    <Project Path="src/Mediar.Subtitles.WebVtt/Mediar.Subtitles.WebVtt.csproj" />
+    <Project Path="src/Mediar/Mediar.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mediar.Tests/Mediar.Tests.csproj" />
+  </Folder>
+</Solution>

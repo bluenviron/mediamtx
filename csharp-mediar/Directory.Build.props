@@ -1,0 +1,43 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);CA1707;CA1051;CA1815;CA1062;CA1305;CA2225;CS1591</NoWarn>
+
+    <!-- Generate XML docs (required by IDE0005 in build) but suppress
+         per-member missing-doc warning (CS1591). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Performance / runtime -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredPGO>true</TieredPGO>
+
+    <!-- Pack metadata defaults -->
+    <Authors>Mediar Contributors</Authors>
+    <Product>Mediar</Product>
+    <Copyright>Copyright (c) Mediar Contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/mediar-net/mediar</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/mediar-net/mediar</PackageProjectUrl>
+    <Version>0.1.0</Version>
+
+    <!-- AOT friendly -->
+    <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">true</IsAotCompatible>
+    <IsTrimmable Condition="'$(IsTrimmable)' == ''">true</IsTrimmable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPackable)' == ''">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
