@@ -277,6 +277,7 @@ internal static class MovieParser
         if (t.Value == BoxTypes.Avc1.Value || t.Value == BoxTypes.Avc3.Value) return CodecId.H264;
         if (t.Value == BoxTypes.Hvc1.Value || t.Value == BoxTypes.Hev1.Value) return CodecId.H265;
         if (t.Value == BoxTypes.Av01.Value) return CodecId.Av1;
+        if (t.Value == BoxTypes.Av02.Value) return CodecId.Av2;
         if (t.Value == BoxTypes.Vp09.Value) return CodecId.Vp9;
         if (t.Value == BoxTypes.Mp4v.Value) return CodecId.Mpeg4;
         if (t.Value == BoxTypes.Mp4a.Value) return CodecId.Aac;

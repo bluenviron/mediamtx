@@ -237,6 +237,7 @@ public sealed class MatroskaMuxer : IMediaMuxer
         CodecId.H264 => "V_MPEG4/ISO/AVC",
         CodecId.H265 => "V_MPEGH/ISO/HEVC",
         CodecId.Av1 => "V_AV1",
+        CodecId.Av2 => "V_AV2",
         CodecId.Vp8 => "V_VP8",
         CodecId.Vp9 => "V_VP9",
         CodecId.Mpeg4 => "V_MPEG4/ISO/ASP",

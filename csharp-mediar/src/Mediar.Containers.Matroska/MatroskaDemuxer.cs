@@ -282,6 +282,10 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         "V_MPEG4/ISO/AVC" => CodecId.H264,
         "V_MPEGH/ISO/HEVC" => CodecId.H265,
         "V_AV1" => CodecId.Av1,
+        // Pending standardisation in the Matroska codec registry; AOM has
+        // proposed V_AV2 as the placeholder while the codec spec is being
+        // finalised. Mediar treats it as opaque samples for passthrough.
+        "V_AV2" => CodecId.Av2,
         "V_VP8" => CodecId.Vp8,
         "V_VP9" => CodecId.Vp9,
         "V_MPEG4/ISO/ASP" => CodecId.Mpeg4,

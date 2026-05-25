@@ -49,6 +49,15 @@ public enum CodecId
     H265,
     /// <summary>AV1.</summary>
     Av1,
+    /// <summary>
+    /// AV2 — Alliance for Open Media's successor codec to AV1. The AV2
+    /// bitstream specification is still under active development (as of
+    /// 2026) and no Mediar decoder is provided. This identifier exists so
+    /// that container-level operations (demux, remux, sample passthrough
+    /// from MKV/MP4 into another container) can transparently carry AV2
+    /// samples once they begin to appear in the wild.
+    /// </summary>
+    Av2,
     /// <summary>VP8.</summary>
     Vp8,
     /// <summary>VP9.</summary>

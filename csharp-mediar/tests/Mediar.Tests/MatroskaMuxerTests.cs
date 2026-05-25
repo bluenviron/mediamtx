@@ -90,4 +90,70 @@ public sealed class MatroskaMuxerTests
         };
         Assert.Throws<ArgumentException>(() => mux.AddTrack(track));
     }
+
+    [Fact]
+    public async Task RoundTrip_Av2_Passthrough_Through_Mkv()
+    {
+        // AV2 has no published bitstream spec yet (AOM still finalising as of
+        // 2026), but Mediar must already be able to *carry* AV2 samples as
+        // opaque payloads through Matroska so that downstream tools can
+        // remux them once files start to appear. This test exercises the
+        // V_AV2 codec-id round-trip end-to-end.
+        var track = new MediaTrack
+        {
+            Index = 0,
+            Id = 1,
+            Codec = new VideoCodecParameters
+            {
+                Codec = CodecId.Av2,
+                Width = 1920,
+                Height = 1080,
+            },
+            TimeBase = new Rational(1, 1000),
+        };
+
+        byte[][] payloads = new byte[3][];
+        for (int i = 0; i < payloads.Length; i++)
+        {
+            payloads[i] = new byte[256 + i * 17];
+            for (int b = 0; b < payloads[i].Length; b++) payloads[i][b] = (byte)((b + i * 31) & 0xFF);
+        }
+
+        using var ms = new MemoryStream();
+        await using (var mux = new MatroskaMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(track);
+            await mux.StartAsync();
+            for (int i = 0; i < payloads.Length; i++)
+            {
+                await mux.WriteSampleAsync(new MediaSample
+                {
+                    TrackIndex = 0,
+                    Pts = i * 40L,
+                    Dts = i * 40L,
+                    Duration = 40,
+                    IsKeyFrame = i == 0,
+                    Data = payloads[i],
+                });
+            }
+            await mux.FinishAsync();
+        }
+
+        byte[] bytes = ms.ToArray();
+        using var src = new MemoryRandomAccessSource(bytes);
+        using var demuxer = MatroskaDemuxer.Open(src);
+        Assert.Single(demuxer.Tracks);
+        var video = Assert.IsType<VideoCodecParameters>(demuxer.Tracks[0].Codec);
+        Assert.Equal(CodecId.Av2, video.Codec);
+        Assert.Equal(1920, video.Width);
+
+        int recovered = 0;
+        await foreach (var s in demuxer.ReadSamplesAsync())
+        {
+            Assert.Equal(payloads[recovered], s.Data.ToArray());
+            s.Owner?.Dispose();
+            recovered++;
+        }
+        Assert.Equal(payloads.Length, recovered);
+    }
 }

@@ -602,4 +602,58 @@ public sealed class VorbisTests
         lap.Push(new[] { block, block }, n);
         Assert.Equal(0, lap.LastEmitCount);
     }
+
+    // ---- End-to-end audio packet through Decode() ----
+
+    [Fact]
+    public void Decoder_DecodesSilentAudioPackets_EndToEnd()
+    {
+        // Verify the full DecodeAudio pipeline runs cleanly: priming via
+        // Xiph-laced ExtraData, mode parse, "nonzero=0" floor decode that
+        // marks the channel silent, residue-skip, IMDCT, window, lap. With
+        // the minimal setup header (no floor partitions, zero-length residue,
+        // one short-block mode) every audio packet is a single 0x00 byte —
+        // the type bit (0) and the floor1 "nonzero" bit (0). The pipeline
+        // must produce silence (all zeros) on the second packet onwards.
+        var idHdr = BuildIdentificationHeader(1, 48000, 8, 8); // mono, n0=n1=256
+        var commentHdr = BuildCommentHeader("E2E", Array.Empty<string>());
+        var setupHdr = BuildMinimalSetupHeader();
+        byte[] extra = Mediar.Codecs.Vorbis.Decoder.Internal.PackXiphLaced(idHdr, commentHdr, setupHdr);
+        var dec = new VorbisDecoder(new AudioCodecParameters
+        {
+            Codec = CodecId.Vorbis,
+            SampleRate = 48000,
+            Channels = 1,
+            ExtraData = extra,
+        });
+        Assert.True(dec.IsPrimed);
+
+        // First audio packet primes the lap: produces no output.
+        byte[] silentPacket = { 0x00 };
+        var first = dec.Decode(silentPacket, pts: 0);
+        Assert.True(first.Samples.IsEmpty);
+        first.Owner?.Dispose();
+
+        // Second audio packet: emit (256 + 256)/4 = 128 samples, all zero.
+        var second = dec.Decode(silentPacket, pts: 0);
+        Assert.Equal(1, second.Channels);
+        Assert.Equal(48000, second.SampleRate);
+        Assert.Equal(128, second.SamplesPerChannel);
+        foreach (var s in second.Samples.Span)
+        {
+            Assert.Equal(0f, s);
+        }
+        second.Owner?.Dispose();
+
+        // Third packet: same emit count, still silent, no NaN/Inf drift.
+        var third = dec.Decode(silentPacket, pts: 0);
+        Assert.Equal(128, third.SamplesPerChannel);
+        foreach (var s in third.Samples.Span)
+        {
+            Assert.False(float.IsNaN(s));
+            Assert.False(float.IsInfinity(s));
+            Assert.Equal(0f, s);
+        }
+        third.Owner?.Dispose();
+    }
 }

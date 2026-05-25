@@ -50,6 +50,13 @@ internal static class BoxTypes
     public static readonly FourCc Hvc1 = new("hvc1");
     public static readonly FourCc Hev1 = new("hev1");
     public static readonly FourCc Av01 = new("av01");
+    /// <summary>
+    /// AOM's proposed sample-entry FourCC for AV2. The exact code is still
+    /// under registration as the AV2 spec finalises; "av02" is the
+    /// commonly-cited placeholder used by AOM tooling. Tracks tagged with
+    /// it parse cleanly so that container-level passthrough works.
+    /// </summary>
+    public static readonly FourCc Av02 = new("av02");
     public static readonly FourCc Vp09 = new("vp09");
     public static readonly FourCc Mp4a = new("mp4a");
     public static readonly FourCc Mp4v = new("mp4v");

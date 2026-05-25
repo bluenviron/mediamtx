@@ -58,11 +58,25 @@ must come with their own licensing analysis.
 | **Seek API (`SeekAsync`)**                | ✅                    |
 | BenchmarkDotNet micro-benchmarks         | ✅                    |
 | AAC / AC-3 / E-AC-3 decoder              | ❌ (patent encumbered) |
-| H.264 / H.265 / AV1 decoder              | ❌ (out of scope)     |
+| H.264 / H.265 / AV1 decoder              | ❌ (out of scope — multi-month implementation) |
+| **AV2 transmux (carry-through MP4 / MKV)** | ✅ (`av02` / `V_AV2` codec id; passthrough only — no decoder, spec not yet published) |
 | Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
 | Opus decoder                              | 🟡 (deferred, royalty-free but large) |
 | MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
+
+### A note on "all codecs"
+
+Mediar is explicitly a **container-level toolkit + select decoders**, not a
+ground-up FFmpeg replacement. The decoders that ship (PCM, G.711, FLAC, Vorbis
+I) cover the patent-clean audio codecs that fit a single-person engineering
+budget. Patent-encumbered codecs (AAC, AC-3, H.264/H.265/H.266) are
+**permanently** out of scope. Royalty-free-but-massive codecs (Opus, AV1, VP9,
+AV2) are deferred — each is an independent multi-month project. AV2 in
+particular has **no published bitstream specification** as of 2026; AOM is
+still finalising the format and there are no AV2 files in the wild to test
+against. Mediar carries AV2 samples opaquely through MP4 and Matroska so the
+plumbing is in place when files do start to appear.
 
 ## Project layout
 

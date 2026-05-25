@@ -332,6 +332,7 @@ public sealed class Mp4Muxer : IMediaMuxer
         CodecId.H264 => BoxTypes.Avc1,
         CodecId.H265 => BoxTypes.Hvc1,
         CodecId.Av1 => BoxTypes.Av01,
+        CodecId.Av2 => BoxTypes.Av02,
         CodecId.Vp9 => BoxTypes.Vp09,
         CodecId.Mpeg4 => BoxTypes.Mp4v,
         CodecId.Aac => BoxTypes.Mp4a,
