@@ -353,6 +353,7 @@ class MediaMTXWebRTCReader {
     return frag;
   }
 
+  /** @param {string} err */
   #handleError(err) {
     if (this.#state === 'running') {
       if (this.#pc !== null) {
@@ -408,7 +409,7 @@ class MediaMTXWebRTCReader {
         this.#start();
       })
       .catch((err) => {
-        this.#handleError(err);
+        this.#handleError(err.toString());
       });
   }
 
