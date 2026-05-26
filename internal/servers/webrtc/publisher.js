@@ -257,6 +257,7 @@ class MediaMTXWebRTCPublisher {
       });
   }
 
+  /** @param {string} err */
   #handleError(err) {
     if (this.#state === 'running') {
       if (this.#pc !== null) {
