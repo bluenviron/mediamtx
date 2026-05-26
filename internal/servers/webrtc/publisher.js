@@ -28,19 +28,28 @@
 
 /** WebRTC/WHIP publisher. */
 class MediaMTXWebRTCPublisher {
+  #retryPause;
+  #conf;
+  #state;
+  #restartTimeout;
+  #pc;
+  #offerData;
+  #sessionUrl;
+  #queuedCandidates;
+
   /**
    * Create a MediaMTXWebRTCPublisher.
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
-    this.retryPause = 2000;
-    this.conf = conf;
-    this.state = 'running';
-    this.restartTimeout = null;
-    this.pc = null;
-    this.offerData = null;
-    this.sessionUrl = null;
-    this.queuedCandidates = [];
+    this.#retryPause = 2000;
+    this.#conf = conf;
+    this.#state = 'running';
+    this.#restartTimeout = null;
+    this.#pc = null;
+    this.#offerData = null;
+    this.#sessionUrl = null;
+    this.#queuedCandidates = [];
     this.#start();
   }
 
@@ -48,14 +57,14 @@ class MediaMTXWebRTCPublisher {
    * Close the publisher and all its resources.
    */
   close = () => {
-    this.state = 'closed';
+    this.#state = 'closed';
 
-    if (this.pc !== null) {
-      this.pc.close();
+    if (this.#pc !== null) {
+      this.#pc.close();
     }
 
-    if (this.restartTimeout !== null) {
-      clearTimeout(this.restartTimeout);
+    if (this.#restartTimeout !== null) {
+      clearTimeout(this.#restartTimeout);
     }
   };
 
@@ -249,49 +258,49 @@ class MediaMTXWebRTCPublisher {
   }
 
   #handleError(err) {
-    if (this.state === 'running') {
-      if (this.pc !== null) {
-        this.pc.close();
-        this.pc = null;
+    if (this.#state === 'running') {
+      if (this.#pc !== null) {
+        this.#pc.close();
+        this.#pc = null;
       }
 
-      this.offerData = null;
+      this.#offerData = null;
 
-      if (this.sessionUrl !== null) {
-        fetch(this.sessionUrl, {
+      if (this.#sessionUrl !== null) {
+        fetch(this.#sessionUrl, {
           method: 'DELETE',
         });
-        this.sessionUrl = null;
+        this.#sessionUrl = null;
       }
 
-      this.queuedCandidates = [];
-      this.state = 'restarting';
+      this.#queuedCandidates = [];
+      this.#state = 'restarting';
 
-      this.restartTimeout = window.setTimeout(() => {
-        this.restartTimeout = null;
-        this.state = 'running';
+      this.#restartTimeout = window.setTimeout(() => {
+        this.#restartTimeout = null;
+        this.#state = 'running';
         this.#start();
-      }, this.retryPause);
+      }, this.#retryPause);
 
-      if (this.conf.onError !== undefined) {
-        this.conf.onError(`${err}, retrying in some seconds`);
+      if (this.#conf.onError !== undefined) {
+        this.#conf.onError(`${err}, retrying in some seconds`);
       }
     }
   }
 
   #authHeader() {
-    if (this.conf.user !== undefined && this.conf.user !== '') {
-      const credentials = btoa(`${this.conf.user}:${this.conf.pass}`);
+    if (this.#conf.user !== undefined && this.#conf.user !== '') {
+      const credentials = btoa(`${this.#conf.user}:${this.#conf.pass}`);
       return {'Authorization': `Basic ${credentials}`};
     }
-    if (this.conf.token !== undefined && this.conf.token !== '') {
-      return {'Authorization': `Bearer ${this.conf.token}`};
+    if (this.#conf.token !== undefined && this.#conf.token !== '') {
+      return {'Authorization': `Bearer ${this.#conf.token}`};
     }
     return {};
   }
 
   #requestICEServers() {
-    return fetch(this.conf.url, {
+    return fetch(this.#conf.url, {
       method: 'OPTIONS',
       headers: {
         ...this.#authHeader(),
@@ -301,45 +310,45 @@ class MediaMTXWebRTCPublisher {
   }
 
   #setupPeerConnection(iceServers) {
-    if (this.state !== 'running') {
+    if (this.#state !== 'running') {
       throw new Error('closed');
     }
 
-    this.pc = new RTCPeerConnection({
+    this.#pc = new RTCPeerConnection({
       iceServers,
       // https://webrtc.org/getting-started/unified-plan-transition-guide
       sdpSemantics: 'unified-plan',
     });
 
-    this.pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
-    this.pc.onconnectionstatechange = () => this.#onConnectionState();
+    this.#pc.onicecandidate = (evt) => this.#onLocalCandidate(evt);
+    this.#pc.onconnectionstatechange = () => this.#onConnectionState();
 
-    this.conf.stream.getTracks().forEach((track) => {
-      this.pc.addTrack(track, this.conf.stream);
+    this.#conf.stream.getTracks().forEach((track) => {
+      this.#pc.addTrack(track, this.#conf.stream);
     });
 
-    return this.pc.createOffer()
+    return this.#pc.createOffer()
       .then((offer) => {
-        this.offerData = MediaMTXWebRTCPublisher.#parseOffer(offer.sdp);
+        this.#offerData = MediaMTXWebRTCPublisher.#parseOffer(offer.sdp);
 
-        return this.pc.setLocalDescription(offer)
+        return this.#pc.setLocalDescription(offer)
           .then(() => offer.sdp);
       });
   }
 
   #sendOffer(offer) {
-    if (this.state !== 'running') {
+    if (this.#state !== 'running') {
       throw new Error('closed');
     }
 
     offer = MediaMTXWebRTCPublisher.#editOffer(
       offer,
-      this.conf.videoCodec,
-      this.conf.audioCodec,
-      this.conf.audioBitrate,
-      this.conf.audioVoice);
+      this.#conf.videoCodec,
+      this.#conf.audioCodec,
+      this.#conf.audioBitrate,
+      this.#conf.audioVoice);
 
-    return fetch(this.conf.url, {
+    return fetch(this.#conf.url, {
       method: 'POST',
       headers: {
         ...this.#authHeader(),
@@ -357,43 +366,43 @@ class MediaMTXWebRTCPublisher {
             throw new Error(`bad status code ${res.status}`);
         }
 
-        this.sessionUrl = new URL(res.headers.get('location'), this.conf.url).toString();
+        this.#sessionUrl = new URL(res.headers.get('location'), this.#conf.url).toString();
 
         return res.text();
       });
   }
 
   #setAnswer(answer) {
-    if (this.state !== 'running') {
+    if (this.#state !== 'running') {
       throw new Error('closed');
     }
 
-    answer = MediaMTXWebRTCPublisher.#editAnswer(answer, this.conf.videoBitrate);
+    answer = MediaMTXWebRTCPublisher.#editAnswer(answer, this.#conf.videoBitrate);
 
-    return this.pc.setRemoteDescription(new RTCSessionDescription({
+    return this.#pc.setRemoteDescription(new RTCSessionDescription({
       type: 'answer',
       sdp: answer,
     }))
       .then(() => {
-        if (this.state !== 'running') {
+        if (this.#state !== 'running') {
           return;
         }
 
-        if (this.queuedCandidates.length !== 0) {
-          this.#sendLocalCandidates(this.queuedCandidates);
-          this.queuedCandidates = [];
+        if (this.#queuedCandidates.length !== 0) {
+          this.#sendLocalCandidates(this.#queuedCandidates);
+          this.#queuedCandidates = [];
         }
       });
   }
 
   #onLocalCandidate(evt) {
-    if (this.state !== 'running') {
+    if (this.#state !== 'running') {
       return;
     }
 
     if (evt.candidate !== null) {
-      if (this.sessionUrl === null) {
-        this.queuedCandidates.push(evt.candidate);
+      if (this.#sessionUrl === null) {
+        this.#queuedCandidates.push(evt.candidate);
       } else {
         this.#sendLocalCandidates([evt.candidate]);
       }
@@ -401,13 +410,13 @@ class MediaMTXWebRTCPublisher {
   }
 
   #sendLocalCandidates(candidates) {
-    fetch(this.sessionUrl, {
+    fetch(this.#sessionUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/trickle-ice-sdpfrag',
         'If-Match': '*',
       },
-      body: MediaMTXWebRTCPublisher.#generateSdpFragment(this.offerData, candidates),
+      body: MediaMTXWebRTCPublisher.#generateSdpFragment(this.#offerData, candidates),
     })
       .then((res) => {
         switch (res.status) {
@@ -425,7 +434,7 @@ class MediaMTXWebRTCPublisher {
   }
 
   #onConnectionState() {
-    if (this.state !== 'running') {
+    if (this.#state !== 'running') {
       return;
     }
 
@@ -433,13 +442,13 @@ class MediaMTXWebRTCPublisher {
     // the close() method being called at all.
     // It happens when the other peer sends a termination
     // message like a DTLS CloseNotify.
-    if (this.pc.connectionState === 'failed'
-      || this.pc.connectionState === 'closed'
+    if (this.#pc.connectionState === 'failed'
+      || this.#pc.connectionState === 'closed'
     ) {
       this.#handleError('peer connection closed');
-    } else if (this.pc.connectionState === 'connected') {
-      if (this.conf.onConnected !== undefined) {
-        this.conf.onConnected();
+    } else if (this.#pc.connectionState === 'connected') {
+      if (this.#conf.onConnected !== undefined) {
+        this.#conf.onConnected();
       }
     }
   }
