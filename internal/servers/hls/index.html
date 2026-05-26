@@ -125,7 +125,7 @@ const loadStream = () => {
 					setMessage(data.error + ', retrying in some seconds');
 				}
 
-				setTimeout(() => loadStream(video), retryPause);
+				setTimeout(() => loadStream(), retryPause);
 			}
 		});
 
