@@ -1,204 +1,203 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<style>
-html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-	font-family: 'Arial', sans-serif;
-}
-#video {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgb(30, 30, 30);
-}
-#message {
-	position: absolute;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	text-align: center;
-	justify-content: center;
-	font-size: 16px;
-	font-weight: bold;
-	color: white;
-	pointer-events: none;
-	padding: 20px;
-	box-sizing: border-box;
-	text-shadow: 0 0 5px black;
-}
-#lang-icon {
-	display: none;
-	position: absolute;
-	top: 20px;
-	right: 20px;
-	width: 30px;
-	height: 30px;
-	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0iI2ZmZiIgeG1sbnM6dj0iaHR0cHM6Ly92ZWN0YS5pby9uYW5vIj48cGF0aCBkPSJNMzguNSAzMy45bC0xLjktMS42YzIuNS0yLjkgMy44LTYuMyAzLjgtOS45IDAtMy4xLTEtNi4xLTIuOS04LjhsMi4xLTEuNWMyLjIgMy4xIDMuNCA2LjYgMy40IDEwLjItLjEgNC4zLTEuNiA4LjMtNC41IDExLjZ6TTUuNiAyMy4yaC0zYy0uNSAwLTEgLjUtMSAxLjF2MTAuNWMwIC42LjQgMS4xIDEgMS4xaDNjLjIgMCAuMyAwIC40LjFsMTMuOCA3LjhjLjYuNCAxLjQtLjIgMS40LTFWMTYuM2MwLS44LS44LTEuMy0xLjQtMUw2LjEgMjMuMWMtLjIuMS0uMy4xLS41LjF6bTIxLTE2LjlMMTIuOCAxNGMtLjEuMS0uMy4xLS40LjFoLTNjLS41IDAtMSAuNS0xIDEuMVYyMGwxMi4yLTYuOGExLjM2IDEuMzYgMCAwIDEgMS41IDBjLjUuMy44LjguOCAxLjV2MTcuOWwzLjcgMi4xYy42LjQgMS40LS4yIDEuNC0xVjcuMmMuMS0uOC0uNy0xLjMtMS40LS45em0xNi41IDMwLjJsLTEuOS0xLjZjMy4xLTMuNyA0LjctOCA0LjctMTIuNSAwLTQtMS4zLTcuOC0zLjctMTEuMmwyLjEtMS41YzIuNyAzLjggNC4yIDguMiA0LjIgMTIuNy0uMiA1LjEtMiA5LjktNS40IDE0LjF6TTM1IDMxLjFsLTItMS42YzEuNy0yLjEgMi42LTQuNiAyLjYtNy4yIDAtMi40LS44LTQuNy0yLjItNi43bDItMS41YzEuOCAyLjUgMi43IDUuMyAyLjcgOC4yIDAgMy4yLTEuMSA2LjItMy4xIDguOHoiLz48L3N2Zz4=");
-	background-size: 80%;
-	background-position: center;
-	background-repeat: no-repeat;
-	cursor: pointer;
-}
-#lang-list {
-	display: none;
-	position: absolute;
-	top: 100%;
-	right: 0;
-	background: rgb(190, 190, 190);
-	color: black;
-}
-#lang-icon:hover #lang-list {
-	display: block;
-}
-#lang-list div {
-	border-bottom: 1px solid black;
-	padding: 5px 15px;
-}
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: "Arial", sans-serif;
+      }
+      #video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(30, 30, 30);
+      }
+      #message {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        color: white;
+        pointer-events: none;
+        padding: 20px;
+        box-sizing: border-box;
+        text-shadow: 0 0 5px black;
+      }
+      #lang-icon {
+        display: none;
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 30px;
+        height: 30px;
+        background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0iI2ZmZiIgeG1sbnM6dj0iaHR0cHM6Ly92ZWN0YS5pby9uYW5vIj48cGF0aCBkPSJNMzguNSAzMy45bC0xLjktMS42YzIuNS0yLjkgMy44LTYuMyAzLjgtOS45IDAtMy4xLTEtNi4xLTIuOS04LjhsMi4xLTEuNWMyLjIgMy4xIDMuNCA2LjYgMy40IDEwLjItLjEgNC4zLTEuNiA4LjMtNC41IDExLjZ6TTUuNiAyMy4yaC0zYy0uNSAwLTEgLjUtMSAxLjF2MTAuNWMwIC42LjQgMS4xIDEgMS4xaDNjLjIgMCAuMyAwIC40LjFsMTMuOCA3LjhjLjYuNCAxLjQtLjIgMS40LTFWMTYuM2MwLS44LS44LTEuMy0xLjQtMUw2LjEgMjMuMWMtLjIuMS0uMy4xLS41LjF6bTIxLTE2LjlMMTIuOCAxNGMtLjEuMS0uMy4xLS40LjFoLTNjLS41IDAtMSAuNS0xIDEuMVYyMGwxMi4yLTYuOGExLjM2IDEuMzYgMCAwIDEgMS41IDBjLjUuMy44LjguOCAxLjV2MTcuOWwzLjcgMi4xYy42LjQgMS40LS4yIDEuNC0xVjcuMmMuMS0uOC0uNy0xLjMtMS40LS45em0xNi41IDMwLjJsLTEuOS0xLjZjMy4xLTMuNyA0LjctOCA0LjctMTIuNSAwLTQtMS4zLTcuOC0zLjctMTEuMmwyLjEtMS41YzIuNyAzLjggNC4yIDguMiA0LjIgMTIuNy0uMiA1LjEtMiA5LjktNS40IDE0LjF6TTM1IDMxLjFsLTItMS42YzEuNy0yLjEgMi42LTQuNiAyLjYtNy4yIDAtMi40LS44LTQuNy0yLjItNi43bDItMS41YzEuOCAyLjUgMi43IDUuMyAyLjcgOC4yIDAgMy4yLTEuMSA2LjItMy4xIDguOHoiLz48L3N2Zz4=");
+        background-size: 80%;
+        background-position: center;
+        background-repeat: no-repeat;
+        cursor: pointer;
+      }
+      #lang-list {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: rgb(190, 190, 190);
+        color: black;
+      }
+      #lang-icon:hover #lang-list {
+        display: block;
+      }
+      #lang-list div {
+        border-bottom: 1px solid black;
+        padding: 5px 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="video"></video>
+    <div id="message"></div>
+    <div id="lang-icon"><div id="lang-list"></div></div>
 
-<video id="video"></video>
-<div id="message"></div>
-<div id="lang-icon"><div id="lang-list"></div></div>
+    <script defer src="hls.min.js"></script>
 
-<script defer src="hls.min.js"></script>
+    <script>
+      const retryPause = 2000;
 
-<script>
+      const video = document.getElementById("video");
+      const message = document.getElementById("message");
+      const langIcon = document.getElementById("lang-icon");
+      const langList = document.getElementById("lang-list");
 
-const retryPause = 2000;
+      let defaultControls = false;
 
-const video = document.getElementById('video');
-const message = document.getElementById('message');
-const langIcon = document.getElementById('lang-icon');
-const langList = document.getElementById('lang-list');
+      const setMessage = (str) => {
+        if (str !== "") {
+          video.controls = false;
+        } else {
+          video.controls = defaultControls;
+        }
+        message.innerText = str;
+      };
 
-let defaultControls = false;
+      const isIOS = () =>
+        /iPad|iPhone|iPod/.test(navigator.platform) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-const setMessage = (str) => {
-	if (str !== '') {
-		video.controls = false;
-	} else {
-		video.controls = defaultControls;
-	}
-	message.innerText = str;
-};
+      const loadStream = () => {
+        // Prefer hls.js over native HLS.
+        // This is because some Android versions support native HLS
+        // but don't support fMP4s.
+        // Skip iPad iOS >= 13 and iPhone iOS >= 17,
+        // which support hls.js but don't support well maxLiveSyncPlaybackRate.
+        if (Hls.isSupported() && !isIOS()) {
+          const hls = new Hls({
+            maxLiveSyncPlaybackRate: 1.5,
+          });
 
-const isIOS = () => (
-	/iPad|iPhone|iPod/.test(navigator.platform)
-	|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-);
+          hls.on(Hls.Events.ERROR, (evt, data) => {
+            if (data.fatal) {
+              hls.destroy();
 
-const loadStream = () => {
-	// Prefer hls.js over native HLS.
-	// This is because some Android versions support native HLS
-	// but don't support fMP4s.
-	// Skip iPad iOS >= 13 and iPhone iOS >= 17,
-	// which support hls.js but don't support well maxLiveSyncPlaybackRate.
-	if (Hls.isSupported() && !isIOS()) {
-		const hls = new Hls({
-			maxLiveSyncPlaybackRate: 1.5,
-		});
+              langIcon.style.display = "none";
+              langList.innerHTML = "";
 
-		hls.on(Hls.Events.ERROR, (evt, data) => {
-			if (data.fatal) {
-				hls.destroy();
+              if (data.details === "manifestIncompatibleCodecsError") {
+                setMessage(
+                  "stream makes use of codecs which are not compatible with this browser or operative system",
+                );
+              } else if (data.response && data.response.code === 404) {
+                setMessage("stream not found, retrying in some seconds");
+              } else {
+                setMessage(data.error + ", retrying in some seconds");
+              }
 
-				langIcon.style.display = 'none';
-				langList.innerHTML = '';
+              setTimeout(() => loadStream(), retryPause);
+            }
+          });
 
-				if (data.details === 'manifestIncompatibleCodecsError') {
-					setMessage('stream makes use of codecs which are not compatible with this browser or operative system');
-				} else if (data.response && data.response.code === 404) {
-					setMessage('stream not found, retrying in some seconds');
-				} else {
-					setMessage(data.error + ', retrying in some seconds');
-				}
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+            hls.loadSource("index.m3u8" + window.location.search);
+          });
 
-				setTimeout(() => loadStream(), retryPause);
-			}
-		});
+          hls.on(Hls.Events.MANIFEST_LOADED, () => {
+            if (hls.audioTracks.length > 1) {
+              for (const track of hls.audioTracks) {
+                const div = document.createElement("DIV");
+                div.innerText = track.name;
+                div.addEventListener("click", () => {
+                  hls.audioTrack = track.id;
+                });
+                langList.appendChild(div);
+              }
+              langIcon.style.display = "block";
+            }
 
-		hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-			hls.loadSource('index.m3u8' + window.location.search);
-		});
+            setMessage("");
+            video.play();
+          });
 
-		hls.on(Hls.Events.MANIFEST_LOADED, () => {
-			if (hls.audioTracks.length > 1) {
-				for (const track of hls.audioTracks) {
-					const div = document.createElement('DIV');
-					div.innerText = track.name;
-					div.addEventListener('click', () => {
-						hls.audioTrack = track.id;
-					});
-					langList.appendChild(div);
-				}
-				langIcon.style.display = 'block';
-			}
+          // when the video is resumed after a manual or forced pause
+          // (i.e. when the window is minimized), restore live streaming.
+          video.onplay = () => {
+            video.currentTime = hls.liveSyncPosition;
+          };
 
-			setMessage('');
-			video.play();
-		});
+          hls.attachMedia(video);
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          // since it's not possible to detect timeout errors in iOS,
+          // wait for the playlist to be available before starting the stream
+          fetch("index.m3u8" + window.location.search).then(() => {
+            video.src = "index.m3u8" + window.location.search;
+            video.play();
+          });
+        }
+      };
 
-		// when the video is resumed after a manual or forced pause
-		// (i.e. when the window is minimized), restore live streaming.
-		video.onplay = () => {
-			video.currentTime = hls.liveSyncPosition;
-		};
+      const parseBoolString = (str, defaultVal) => {
+        str = str || "";
 
-		hls.attachMedia(video);
+        if (["1", "yes", "true"].includes(str.toLowerCase())) {
+          return true;
+        }
+        if (["0", "no", "false"].includes(str.toLowerCase())) {
+          return false;
+        }
+        return defaultVal;
+      };
 
-	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		// since it's not possible to detect timeout errors in iOS,
-		// wait for the playlist to be available before starting the stream
-		fetch('index.m3u8' + window.location.search)
-			.then(() => {
-				video.src = 'index.m3u8' + window.location.search;
-				video.play();
-			});
-	}
-};
+      const loadAttributesFromQuery = () => {
+        const params = new URLSearchParams(window.location.search);
+        video.controls = parseBoolString(params.get("controls"), true);
+        video.muted = parseBoolString(params.get("muted"), true);
+        video.autoplay = parseBoolString(params.get("autoplay"), true);
+        video.playsInline = parseBoolString(params.get("playsinline"), true);
+        video.disablepictureinpicture = parseBoolString(
+          params.get("disablepictureinpicture"),
+          false,
+        );
+        defaultControls = video.controls;
+      };
 
-const parseBoolString = (str, defaultVal) => {
-	str = (str || '');
-
-	if (['1', 'yes', 'true'].includes(str.toLowerCase())) {
-		return true;
-	}
-	if (['0', 'no', 'false'].includes(str.toLowerCase())) {
-		return false;
-	}
-	return defaultVal;
-};
-
-const loadAttributesFromQuery = () => {
-	const params = new URLSearchParams(window.location.search);
-	video.controls = parseBoolString(params.get('controls'), true);
-	video.muted = parseBoolString(params.get('muted'), true);
-	video.autoplay = parseBoolString(params.get('autoplay'), true);
-	video.playsInline = parseBoolString(params.get('playsinline'), true);
-	video.disablepictureinpicture = parseBoolString(params.get('disablepictureinpicture'), false);
-	defaultControls = video.controls;
-};
-
-// use load instead of DOMContentLoaded, otherwise, in Firefox,
-// the page gets stuck in the "loading" state.
-window.addEventListener('load', () => {
-	loadAttributesFromQuery();
-	loadStream();
-});
-
-</script>
-
-</body>
+      // use load instead of DOMContentLoaded, otherwise, in Firefox,
+      // the page gets stuck in the "loading" state.
+      window.addEventListener("load", () => {
+        loadAttributesFromQuery();
+        loadStream();
+      });
+    </script>
+  </body>
 </html>

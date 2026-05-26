@@ -1,6 +1,5 @@
 version: 2
 updates:
-
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:

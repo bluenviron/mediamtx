@@ -62,34 +62,34 @@ authMethod: internal
 authInternalUsers:
   # Default unprivileged user.
   # Username. 'any' means any user, including anonymous ones.
-- user: any
-  # Password. Not used in case of 'any' user.
-  pass:
-  # IPs or networks allowed to use this user. An empty list means any IP.
-  ips: []
-  # Permissions.
-  permissions:
-    # Available actions are: publish, read, playback, api, metrics, pprof.
-  - action: publish
-    # Paths can be set to further restrict access to a specific path.
-    # An empty path means any path.
-    # Regular expressions can be used by using a tilde as prefix.
-    path:
-  - action: read
-    path:
-  - action: playback
-    path:
+  - user: any
+    # Password. Not used in case of 'any' user.
+    pass:
+    # IPs or networks allowed to use this user. An empty list means any IP.
+    ips: []
+    # Permissions.
+    permissions:
+      # Available actions are: publish, read, playback, api, metrics, pprof.
+      - action: publish
+        # Paths can be set to further restrict access to a specific path.
+        # An empty path means any path.
+        # Regular expressions can be used by using a tilde as prefix.
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
 
-  # Default administrator.
-  # This allows to use API, metrics and PPROF without authentication,
-  # if the IP is localhost.
-- user: any
-  pass:
-  ips: ['127.0.0.1', '::1']
-  permissions:
-  - action: api
-  - action: metrics
-  - action: pprof
+    # Default administrator.
+    # This allows to use API, metrics and PPROF without authentication,
+    # if the IP is localhost.
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
@@ -118,9 +118,9 @@ authHTTPFingerprint:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
-- action: api
-- action: metrics
-- action: pprof
+  - action: api
+  - action: metrics
+  - action: pprof
 
 # JWT-based authentication.
 # Users have to log in through an external identity server and obtain a JWT.
@@ -172,7 +172,7 @@ apiServerKey: server.key
 apiServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-apiAllowOrigins: ['*']
+apiAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -196,7 +196,7 @@ metricsServerKey: server.key
 metricsServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-metricsAllowOrigins: ['*']
+metricsAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -220,7 +220,7 @@ pprofServerKey: server.key
 pprofServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-pprofAllowOrigins: ['*']
+pprofAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -244,7 +244,7 @@ playbackServerKey: server.key
 playbackServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-playbackAllowOrigins: ['*']
+playbackAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -332,7 +332,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-hlsAllowOrigins: ['*']
+hlsAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -367,14 +367,14 @@ hlsSegmentMaxSize: 50M
 # Directory in which to save segments and non-low-latency playlists.
 # This has two purposes: offloading RAM and creating a self-consistent directory
 # that can be served by a CDN.
-hlsDirectory: ''
+hlsDirectory: ""
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
 # Secret to identify requests coming from a CDN.
 # The CDN must insert this secret in every request in the
 # 'Authorization: Bearer' header.
-hlsCDNSecret: ''
+hlsCDNSecret: ""
 
 ###############################################
 # Global settings -> WebRTC server
@@ -396,7 +396,7 @@ webrtcServerKey: server.key
 webrtcServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-webrtcAllowOrigins: ['*']
+webrtcAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -407,7 +407,7 @@ webrtcLocalUDPAddress: :8189
 # Address of a local TCP listener that will receive connections.
 # This is disabled by default since TCP is less efficient than UDP and
 # introduces a progressive delay when network is congested.
-webrtcLocalTCPAddress: ''
+webrtcLocalTCPAddress: ""
 # WebRTC clients need to know the IP of the server.
 # Gather IPs from interfaces and send them to clients.
 webrtcIPsFromInterfaces: true
@@ -447,7 +447,6 @@ srtAddress: :8890
 # Settings in "pathDefaults" are applied anywhere,
 # unless they are overridden in "paths".
 pathDefaults:
-
   ###############################################
   # Default path settings -> General
 
@@ -513,7 +512,7 @@ pathDefaults:
     #   # in case of G711, muLaw must be provided too.
     #   muLaw: false
   # An MP4 file can be used instead of the default offline segment.
-  alwaysAvailableFile: ''
+  alwaysAvailableFile: ""
 
   ###############################################
   # Default path settings -> Record
@@ -586,7 +585,7 @@ pathDefaults:
   # Default path settings -> WebRTC / WHEP source (when source is WHEP)
 
   # Token to insert in the Authorization: Bearer header.
-  whepBearerToken: ''
+  whepBearerToken: ""
   # Maximum time to gather STUN candidates.
   whepSTUNGatherTimeout: 5s
   # Time to wait for the WebRTC handshake to complete.
@@ -675,7 +674,7 @@ pathDefaults:
   rpiCameraTextOverlayEnable: false
   # Text that is printed on each frame.
   # format is the one of the strftime() function.
-  rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
+  rpiCameraTextOverlay: "%Y-%m-%d %H:%M:%S - MediaMTX"
   # Codec (auto, hardwareH264, softwareH264 or mjpeg).
   # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
   # When is "auto" and stream is secondary, it defaults to mjpeg.
@@ -687,11 +686,11 @@ pathDefaults:
   # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
   rpiCameraHardwareH264Profile: main
   # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
-  rpiCameraHardwareH264Level: '4.1'
+  rpiCameraHardwareH264Level: "4.1"
   # Software H264 profile (baseline, main or high) (when codec is softwareH264).
   rpiCameraSoftwareH264Profile: baseline
   # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
-  rpiCameraSoftwareH264Level: '4.1'
+  rpiCameraSoftwareH264Level: "4.1"
   # M-JPEG JPEG quality (when codec is mjpeg).
   rpiCameraMJPEGQuality: 60
 
