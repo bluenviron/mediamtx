@@ -1,7 +1,7 @@
 aead.dev/minisign v0.2.0 h1:kAWrq/hBRu4AARY6AlciO83xhNnW9UaC8YipS2uhLPk=
 aead.dev/minisign v0.2.0/go.mod h1:zdq6LdSd9TbuSxchxwhpA9zEb9YXcVGoE8JakuiGaIQ=
-code.cloudfoundry.org/bytefmt v0.73.0 h1:mItKFhAJL5j+wncAU+4AKXPugLwFOd2WLP552ZojDvs=
-code.cloudfoundry.org/bytefmt v0.73.0/go.mod h1:/uRPm6b3K8Ae16U+9AlaUU/l9xBl9s1eSuR53SKb7SY=
+code.cloudfoundry.org/bytefmt v0.74.0 h1:8bi1BQ5yJC0ccJeCoatcZ7LBti9I02dpCs34w1iw+UU=
+code.cloudfoundry.org/bytefmt v0.74.0/go.mod h1:XXsjlgeG46nCv0bDGG3atkR+JeLfjQLaYJtiVUIPi10=
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=
