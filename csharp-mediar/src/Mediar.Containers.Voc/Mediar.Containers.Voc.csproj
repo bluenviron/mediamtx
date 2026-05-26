@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Voc</RootNamespace>
+    <AssemblyName>Mediar.Containers.Voc</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Creative Voice File (.voc) demuxer + muxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

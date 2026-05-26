@@ -80,14 +80,22 @@ public sealed class WavDemuxer : IMediaDemuxer
         {
             throw new InvalidDataException("File too small to be a RIFF/WAVE container.");
         }
-        if (!(hdr[0] == 'R' && hdr[1] == 'I' && hdr[2] == 'F' && hdr[3] == 'F'))
+        bool isRf64 = hdr[0] == 'R' && hdr[1] == 'F' && hdr[2] == '6' && hdr[3] == '4';
+        bool isBw64 = hdr[0] == 'B' && hdr[1] == 'W' && hdr[2] == '6' && hdr[3] == '4';
+        bool isRiff = hdr[0] == 'R' && hdr[1] == 'I' && hdr[2] == 'F' && hdr[3] == 'F';
+        if (!isRiff && !isRf64 && !isBw64)
         {
-            throw new InvalidDataException("Missing RIFF marker.");
+            throw new InvalidDataException("Missing RIFF / RF64 / BW64 marker.");
         }
         if (!(hdr[8] == 'W' && hdr[9] == 'A' && hdr[10] == 'V' && hdr[11] == 'E'))
         {
             throw new InvalidDataException("Missing WAVE marker.");
         }
+
+        // RF64 / BW64 large-size override table. Populated from the ds64 chunk.
+        ulong rf64DataSize = 0;
+        bool hasRf64 = false;
+        Span<byte> ds64Buf = stackalloc byte[28];
 
         // Scan chunks for fmt + data, collecting metadata along the way.
         long pos = 12;
@@ -113,6 +121,29 @@ public sealed class WavDemuxer : IMediaDemuxer
                 ((uint)chunkHdr[7] << 24);
             pos += 8;
 
+            // RF64 "ds64" chunk — must precede fmt/data and carries 64-bit sizes.
+            if (id == 0x34367364) // "ds64"
+            {
+                if (size >= 28 && source.Read(pos, ds64Buf) == 28)
+                {
+                    // bytes  0..8  riffSize  (we tolerate but don't store)
+                    // bytes  8..16 dataSize
+                    // bytes 16..24 sampleCount
+                    rf64DataSize =
+                        (ulong)ds64Buf[8]        |
+                        ((ulong)ds64Buf[9]  << 8)  |
+                        ((ulong)ds64Buf[10] << 16) |
+                        ((ulong)ds64Buf[11] << 24) |
+                        ((ulong)ds64Buf[12] << 32) |
+                        ((ulong)ds64Buf[13] << 40) |
+                        ((ulong)ds64Buf[14] << 48) |
+                        ((ulong)ds64Buf[15] << 56);
+                    hasRf64 = true;
+                }
+                pos += size + (size & 1);
+                continue;
+            }
+
             if (id == 0x20746D66) // "fmt "
             {
                 byte[] buf = ArrayPool<byte>.Shared.Rent((int)size);
@@ -130,11 +161,19 @@ public sealed class WavDemuxer : IMediaDemuxer
             else if (id == 0x61746164) // "data"
             {
                 dataOffset = pos;
-                dataLength = size;
+                // RF64 sentinel: 0xFFFFFFFF means "look in ds64".
+                if (size == 0xFFFFFFFFu && hasRf64)
+                {
+                    dataLength = (long)rf64DataSize;
+                    pos += dataLength + (dataLength & 1);
+                }
+                else
+                {
+                    dataLength = size;
+                    pos += size + (size & 1);
+                }
                 // Continue scanning so LIST chunks placed after data still register
-                // — many WAV writers do this. We only break once we have both fmt
-                // and data and there's no more content to scan.
-                pos += size + (size & 1);
+                // — many WAV writers do this.
                 continue;
             }
             else if (id == 0x5453494C) // "LIST"

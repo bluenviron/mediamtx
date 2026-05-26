@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Iff8Svx</RootNamespace>
+    <AssemblyName>Mediar.Containers.Iff8Svx</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Amiga IFF 8SVX (8-bit sampled voice) demuxer + muxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

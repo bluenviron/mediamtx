@@ -18,6 +18,12 @@
     <ProjectReference Include="..\Mediar.Containers.Matroska\Mediar.Containers.Matroska.csproj" />
     <ProjectReference Include="..\Mediar.Containers.Avi\Mediar.Containers.Avi.csproj" />
     <ProjectReference Include="..\Mediar.Containers.Aiff\Mediar.Containers.Aiff.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Caf\Mediar.Containers.Caf.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Iff8Svx\Mediar.Containers.Iff8Svx.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Voc\Mediar.Containers.Voc.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Mp2\Mediar.Containers.Mp2.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Gsm\Mediar.Containers.Gsm.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Amr\Mediar.Containers.Amr.csproj" />
     <ProjectReference Include="..\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
     <ProjectReference Include="..\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />
   </ItemGroup>

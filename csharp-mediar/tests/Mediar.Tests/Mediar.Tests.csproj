@@ -27,6 +27,14 @@
     <ProjectReference Include="..\..\src\Mediar.Containers.Matroska\Mediar.Containers.Matroska.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Avi\Mediar.Containers.Avi.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Aiff\Mediar.Containers.Aiff.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Caf\Mediar.Containers.Caf.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Iff8Svx\Mediar.Containers.Iff8Svx.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Voc\Mediar.Containers.Voc.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Mp2\Mediar.Containers.Mp2.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Gsm\Mediar.Containers.Gsm.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.Amr\Mediar.Containers.Amr.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Midi\Mediar.Midi.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Playlists\Mediar.Playlists.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Pcm\Mediar.Codecs.Pcm.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs\Mediar.Codecs.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.G711\Mediar.Codecs.G711.csproj" />

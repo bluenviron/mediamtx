@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Caf</RootNamespace>
+    <AssemblyName>Mediar.Containers.Caf</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Apple Core Audio Format (CAF) demuxer + muxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -7,6 +7,12 @@ using Mediar.Containers.Ogg;
 using Mediar.Containers.Matroska;
 using Mediar.Containers.Avi;
 using Mediar.Containers.Aiff;
+using Mediar.Containers.Caf;
+using Mediar.Containers.Iff8Svx;
+using Mediar.Containers.Voc;
+using Mediar.Containers.Mp2;
+using Mediar.Containers.Gsm;
+using Mediar.Containers.Amr;
 using Mediar.Subtitles.Srt;
 
 namespace Mediar;
@@ -40,6 +46,12 @@ public static class MediarOperations
             ".mkv" or ".webm" or ".mka" => MatroskaDemuxer.Open(path),
             ".avi" => AviDemuxer.Open(path),
             ".aif" or ".aiff" or ".aifc" => AiffDemuxer.Open(path),
+            ".caf" => CafDemuxer.Open(path),
+            ".svx" or ".8svx" or ".iff" => Iff8SvxDemuxer.Open(path),
+            ".voc" => VocDemuxer.Open(path),
+            ".mp2" or ".mpa" or ".mp1" => Mp2Demuxer.Open(path),
+            ".gsm" => GsmDemuxer.Open(path),
+            ".amr" or ".awb" => AmrDemuxer.Open(path),
             _ => throw new NotSupportedException($"Unrecognized container extension '{ext}'."),
         };
     }
@@ -282,6 +294,11 @@ public static class MediarOperations
             ".ogg" or ".opus" or ".oga" or ".ogv" => new OggMuxer(destination),
             ".mka" or ".mkv" => new MatroskaMuxer(destination, webm: false),
             ".webm" => new MatroskaMuxer(destination, webm: true),
+            ".caf" => new CafMuxer(destination),
+            ".svx" or ".8svx" or ".iff" => new Iff8SvxMuxer(destination),
+            ".voc" => new VocMuxer(destination),
+            ".gsm" => new GsmMuxer(destination),
+            ".amr" or ".awb" => new AmrMuxer(destination),
             _ => throw new NotSupportedException($"No muxer available for extension '{ext}'."),
         };
     }

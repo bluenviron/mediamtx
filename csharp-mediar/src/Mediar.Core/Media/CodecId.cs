@@ -41,6 +41,32 @@ public enum CodecId
     G711MuLaw,
     /// <summary>ITU-T G.711 A-law (8-bit companded).</summary>
     G711ALaw,
+    /// <summary>Uncompressed PCM 8-bit unsigned.</summary>
+    PcmU8,
+    /// <summary>Uncompressed PCM 8-bit signed.</summary>
+    PcmS8,
+    /// <summary>MPEG-1/2 Layer II audio (MP2).</summary>
+    Mp2,
+    /// <summary>MPEG-1/2 Layer I audio (MP1).</summary>
+    Mp1,
+    /// <summary>ETSI GSM 06.10 full-rate (13 kbit/s).</summary>
+    Gsm610,
+    /// <summary>Adaptive Multi-Rate Narrowband (AMR-NB, 3GPP TS 26.071).</summary>
+    AmrNb,
+    /// <summary>Adaptive Multi-Rate Wideband (AMR-WB, 3GPP TS 26.171).</summary>
+    AmrWb,
+    /// <summary>Qualcomm PureVoice (QCELP-13K).</summary>
+    Qcelp,
+    /// <summary>WavPack lossless / hybrid.</summary>
+    WavPack,
+    /// <summary>4-bit IMA / Dialogic / OKI ADPCM (VOC, WAV).</summary>
+    ImaAdpcm,
+    /// <summary>Microsoft 4-bit ADPCM (formatTag 0x0002 in WAV).</summary>
+    MsAdpcm,
+    /// <summary>Creative ADPCM (used in VOC files).</summary>
+    CreativeAdpcm,
+    /// <summary>Fibonacci-delta-encoded 8-bit audio used by 8SVX.</summary>
+    Fibonacci8Svx,
 
     // --- Video
     /// <summary>H.264 / AVC.</summary>

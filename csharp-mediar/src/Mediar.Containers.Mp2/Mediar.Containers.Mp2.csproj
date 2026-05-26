@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.Mp2</RootNamespace>
+    <AssemblyName>Mediar.Containers.Mp2</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>MPEG-1/2 Audio Layer I/II demuxer for Mediar (".mp2"/".mp1" raw streams).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Mp3\Mediar.Containers.Mp3.csproj" />
+  </ItemGroup>
+
+</Project>

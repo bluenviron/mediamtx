@@ -43,7 +43,19 @@ must come with their own licensing analysis.
 | Mux Matroska / WebM (SimpleBlock)        | ✅                    |
 | **Demux AVI (RIFF, idx1 seeking, LIST/INFO)** | ✅               |
 | **Demux AIFF / AIFC (PCM + µ-law / A-law / fl32)** | ✅          |
-| **Per-file metadata extraction (title, artist, album, date, genre, track #, geo-location, …)** | ✅ (WAV / MP3 / FLAC / Ogg / MP4 / Matroska / AVI / AIFF) |
+| **Demux CAF (lpcm / ALAC passthrough / AAC / G.711 / Opus)** | ✅ |
+| **Mux CAF (PCM)**                         | ✅                    |
+| **Demux 8SVX (Amiga IFF)**                | ✅                    |
+| **Mux 8SVX (PCM-S8)**                     | ✅                    |
+| **Demux VOC (Creative Voice; v1.x + v1.20+ blocks)** | ✅         |
+| **Mux VOC (PCM-U8 / PCM-S16 / G.711)**    | ✅                    |
+| **Demux MP2 / MP1 raw streams**           | ✅                    |
+| **Demux + mux raw GSM 06.10**             | ✅                    |
+| **Demux + mux AMR-NB / AMR-WB**           | ✅                    |
+| **RF64 / BW64 (large-WAV ds64 chunk)**    | ✅                    |
+| **MIDI File API (SMF format 0/1/2 reader + writer)** | ✅         |
+| **Playlist File API (M3U / M3U8 / PLS / XSPF / WPL)** | ✅        |
+| **Per-file metadata extraction (title, artist, album, date, genre, track #, geo-location, …)** | ✅ (WAV / MP3 / FLAC / Ogg / MP4 / Matroska / AVI / AIFF / 8SVX / CAF) |
 | Read + write SRT                          | ✅                    |
 | Read + write WebVTT                       | ✅                    |
 | Read + write ASS / SSA v4+                | ✅                    |
@@ -175,6 +187,8 @@ dictionary.
 | Matroska / WebM  | `Segment.Tags.Tag.SimpleTag` (recursive) |
 | AVI              | `LIST INFO`                              |
 | AIFF / AIFC      | `NAME` / `AUTH` / `ANNO` / `COPY` chunks |
+| 8SVX             | `NAME` / `AUTH` / `ANNO` / `(c) ` chunks |
+| CAF              | `info` chunk (key/value pairs)           |
 
 ```csharp
 await using var demuxer = MediarOperations.Open("trip.mp4");
@@ -254,6 +268,50 @@ await foreach (var s in demuxer.ReadSamplesAsync()) { /* ... */ }
   then drops early blocks within the chosen cluster.
 * Ogg skips packets whose PTS falls before the target (no-op for Opus
   streams where per-packet sample count is not pre-computed).
+
+### MIDI File API
+
+`Mediar.Midi` reads + writes Standard MIDI Files (SMF formats 0 / 1 / 2)
+as strongly-typed events. It is independent of the streaming media-demuxer
+abstraction because MIDI is an event score, not a continuous sample stream:
+
+```csharp
+using Mediar.Midi;
+
+var file = MidiReader.ReadFile("song.mid");
+foreach (var track in file.Tracks)
+foreach (var ev in track.Events)
+{
+    if (ev.Type == MidiMessageType.NoteOn)
+        Console.WriteLine($"t={ev.Tick} ch={ev.Channel} note={ev.Data1} vel={ev.Data2}");
+}
+
+MidiWriter.WriteFile("out.mid", file);
+```
+
+Running-status compression is applied automatically on write; SysEx and
+all meta-event subtypes (track name, set-tempo, time-signature, SMPTE
+offset, …) are round-tripped losslessly.
+
+### Playlist File API
+
+`Mediar.Playlists` reads and writes the common audio-playlist formats
+through a single immutable `Playlist` record:
+
+```csharp
+using Mediar.Playlists;
+
+Playlist mix = M3uPlaylist.ReadFile("favorites.m3u8");
+foreach (var e in mix.Entries)
+    Console.WriteLine($"{e.Artist} - {e.Title} ({e.Uri})");
+
+PlsPlaylist.WriteFile("favorites.pls", mix);
+XmlPlaylist.WriteXspfFile("favorites.xspf", mix);
+XmlPlaylist.WriteWplFile("favorites.wpl", mix);
+```
+
+Supported formats: M3U / M3U8 (extended `#EXTINF` / `#PLAYLIST`),
+PLS (INI-style), XSPF (`http://xspf.org/ns/0/`), WPL (SMIL).
 
 ## Performance characteristics
 
