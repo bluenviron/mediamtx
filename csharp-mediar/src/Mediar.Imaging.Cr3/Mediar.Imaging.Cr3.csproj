@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Cr3</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Cr3</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Canon Raw v3 (CR3) reader for the Mediar toolkit. CR3 is Canon's ISO-BMFF based successor to CR2; the on-disk layout is a standard MP4 brand "crx " with Canon-specific `uuid` boxes (UUID 85c0b687-820f-11e0-8111-f4ce462b6a48) carrying CCTP/CTBO/CMT1/CMT2/CMT3/CMT4/THMB sub-boxes. Mediar.Imaging.Cr3 parses the full ISO-BMFF box tree, locates the Canon UUID payload, surfaces typed Cr3Metadata (camera make/model/software/datetime/artist/copyright extracted from the CMT1 TIFF IFD), exposes the THMB / PRVW JPEG sub-images, and composes Mediar.Imaging.Jpeg to decode them. The CRAW (Canon raw) compressed mosaic payload is recognised but not yet decoded - Canon's per-tile predictor + Huffman pipeline is proprietary.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+  </ItemGroup>
+
+</Project>
