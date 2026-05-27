@@ -21,6 +21,7 @@ public sealed class JpegReader : IImageReader
     private readonly JpegFrame _frame;
     private readonly JpegDecoderState _state;
     private readonly byte[] _scanData;
+    private readonly List<JpegScan> _scans;
     private readonly ImageMetadata _metadata;
     private readonly ImageFormat _format;
     private bool _disposed;
@@ -35,7 +36,8 @@ public sealed class JpegReader : IImageReader
     public ImageMetadata Metadata => _metadata;
 
     /// <inheritdoc/>
-    public bool CanDecodePixels => _frame.IsBaseline && _frame.NumberOfComponents is 1 or 3;
+    public bool CanDecodePixels =>
+        (_frame.IsBaseline || _frame.IsProgressive) && _frame.NumberOfComponents is 1 or 3;
 
     /// <summary>
     /// Returns the EXIF / TIFF tag dictionary verbatim (key prefixes:
@@ -45,13 +47,15 @@ public sealed class JpegReader : IImageReader
 
     private JpegReader(
         Stream stream, bool ownsStream, JpegFrame frame, JpegDecoderState state,
-        byte[] scanData, ImageMetadata metadata, ImageFormat format, ImageInfo info)
+        byte[] scanData, List<JpegScan> scans,
+        ImageMetadata metadata, ImageFormat format, ImageInfo info)
     {
         _stream = stream;
         _ownsStream = ownsStream;
         _frame = frame;
         _state = state;
         _scanData = scanData;
+        _scans = scans;
         _metadata = metadata;
         _format = format;
         Info = info;
@@ -93,26 +97,40 @@ public sealed class JpegReader : IImageReader
         ImageMetadata metadata = ImageMetadata.Empty;
         var frame = new JpegFrame();
         var state = new JpegDecoderState();
+        var scans = new List<JpegScan>();
         byte[] scanBytes = [];
         Span<byte> lengthBuf = stackalloc byte[2];
 
+        // Track a "pending" marker that was read by ReadEntropyData but not
+        // yet processed by the main marker loop.
+        byte pendingMarker = 0;
+        bool hasPending = false;
+
         while (true)
         {
-            byte ff;
-            do
-            {
-                int r = stream.ReadByte();
-                if (r < 0) throw new ImageFormatException("Truncated JPEG (looking for marker).");
-                ff = (byte)r;
-            } while (ff != 0xFF);
-
             byte marker;
-            do
+            if (hasPending)
             {
-                int r = stream.ReadByte();
-                if (r < 0) throw new ImageFormatException("Truncated JPEG (looking for marker).");
-                marker = (byte)r;
-            } while (marker == 0xFF);
+                marker = pendingMarker;
+                hasPending = false;
+            }
+            else
+            {
+                byte ff;
+                do
+                {
+                    int r = stream.ReadByte();
+                    if (r < 0) throw new ImageFormatException("Truncated JPEG (looking for marker).");
+                    ff = (byte)r;
+                } while (ff != 0xFF);
+
+                do
+                {
+                    int r = stream.ReadByte();
+                    if (r < 0) throw new ImageFormatException("Truncated JPEG (looking for marker).");
+                    marker = (byte)r;
+                } while (marker == 0xFF);
+            }
 
             if (marker == 0xD9) break; // EOI
             if (marker == 0xD8) continue; // duplicate SOI
@@ -133,6 +151,7 @@ public sealed class JpegReader : IImageReader
                 case 0xC3: // SOF3 lossless
                     ParseSof(segment, frame);
                     frame.IsBaseline = marker == 0xC0;
+                    frame.IsProgressive = marker == 0xC2;
                     break;
 
                 case 0xDB: // DQT
@@ -173,9 +192,37 @@ public sealed class JpegReader : IImageReader
                     break;
 
                 case 0xDA: // SOS — scan header followed by entropy-coded segment.
-                    ParseSos(segment, state, frame);
-                    scanBytes = ReadRestOfStreamUntilEoi(stream);
-                    goto done;
+                    {
+                        ParseSos(segment, state, frame);
+                        // For baseline scans, capture entropy bytes simply (existing behaviour).
+                        // For progressive, capture per-scan info AND entropy bytes that stop
+                        // at the next non-restart marker so we can process more segments.
+                        if (frame.IsProgressive)
+                        {
+                            var scanInfo = new JpegScan
+                            {
+                                ComponentIds = (byte[])state.ScanComponentIds.Clone(),
+                                DcTables = (byte[])state.ScanDcTables.Clone(),
+                                AcTables = (byte[])state.ScanAcTables.Clone(),
+                                Ss = state.ScanSs,
+                                Se = state.ScanSe,
+                                Ah = state.ScanAh,
+                                Al = state.ScanAl,
+                                RestartInterval = state.RestartInterval,
+                            };
+                            Array.Copy(state.DcHuffman, scanInfo.DcHuffmanSnapshot, 4);
+                            Array.Copy(state.AcHuffman, scanInfo.AcHuffmanSnapshot, 4);
+                            scanInfo.EntropyData = ReadEntropyUntilNonRestartMarker(stream, out pendingMarker);
+                            hasPending = pendingMarker != 0;
+                            scans.Add(scanInfo);
+                        }
+                        else
+                        {
+                            scanBytes = ReadRestOfStreamUntilEoi(stream);
+                            goto done;
+                        }
+                    }
+                    break;
 
                 default:
                     break;
@@ -198,7 +245,7 @@ public sealed class JpegReader : IImageReader
             FrameCount = 1,
         };
 
-        return new JpegReader(stream, ownsStream, frame, state, scanBytes, metadata, format, info);
+        return new JpegReader(stream, ownsStream, frame, state, scanBytes, scans, metadata, format, info);
     }
 
     /// <inheritdoc/>
@@ -206,12 +253,20 @@ public sealed class JpegReader : IImageReader
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_frame.IsBaseline)
+        ImageFrame frame;
+        if (_frame.IsBaseline)
+        {
+            frame = JpegBaselineDecoder.Decode(_frame, _state, _scanData);
+        }
+        else if (_frame.IsProgressive)
+        {
+            frame = JpegProgressiveDecoder.Decode(_frame, _state, _scans);
+        }
+        else
         {
             throw new NotSupportedException(
-                "JPEG progressive / lossless / arithmetic coded decoding is not implemented in this version of Mediar.");
+                "JPEG lossless / arithmetic coded decoding is not implemented in this version of Mediar.");
         }
-        var frame = JpegBaselineDecoder.Decode(_frame, _state, _scanData);
         await Task.CompletedTask.ConfigureAwait(false);
         yield return frame;
     }
@@ -310,9 +365,59 @@ public sealed class JpegReader : IImageReader
             state.ScanAcTables[i] = (byte)(tables & 0x0F);
             p += 2;
         }
-        // For baseline scans, the next 3 bytes (Ss, Se, Ah/Al) are 0, 63, 0.
-        // We don't need them — but verify we have a sensible scan order matching SOFn order.
+        // Progressive scans use Ss / Se / Ah / Al. For baseline they are 0 / 63 / 0 / 0.
+        state.ScanSs = seg[p];
+        state.ScanSe = seg[p + 1];
+        byte ahAl = seg[p + 2];
+        state.ScanAh = ahAl >> 4;
+        state.ScanAl = ahAl & 0x0F;
         _ = frame;
+    }
+
+    /// <summary>
+    /// Reads bytes from <paramref name="s"/> into an entropy-coded segment
+    /// until a non-restart, non-stuffed <c>FF xx</c> marker is encountered.
+    /// The terminating marker byte is returned in <paramref name="nextMarker"/>;
+    /// it is consumed from the stream but not appended to the returned bytes.
+    /// FF 00 byte stuffing and RST0..RST7 restart markers are passed through
+    /// verbatim (the bit reader strips them as needed).
+    /// </summary>
+    private static byte[] ReadEntropyUntilNonRestartMarker(Stream s, out byte nextMarker)
+    {
+        using var ms = new MemoryStream();
+        nextMarker = 0;
+        int b;
+        while ((b = s.ReadByte()) >= 0)
+        {
+            if (b != 0xFF)
+            {
+                ms.WriteByte((byte)b);
+                continue;
+            }
+            int n = s.ReadByte();
+            if (n < 0)
+            {
+                ms.WriteByte(0xFF);
+                break;
+            }
+            if (n == 0x00)
+            {
+                ms.WriteByte(0xFF);
+                ms.WriteByte(0x00);
+                continue;
+            }
+            if (n is >= 0xD0 and <= 0xD7)
+            {
+                // Restart marker — keep it in the stream so the bit reader can resync.
+                ms.WriteByte(0xFF);
+                ms.WriteByte((byte)n);
+                continue;
+            }
+            // Real marker — stop entropy capture, return it to the caller.
+            nextMarker = (byte)n;
+            return ms.ToArray();
+        }
+        return ms.ToArray();
     }
 
     private static byte[] ReadRestOfStreamUntilEoi(Stream s)
@@ -370,6 +475,7 @@ public sealed class JpegReader : IImageReader
 internal sealed class JpegFrame
 {
     public bool IsBaseline { get; set; }
+    public bool IsProgressive { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
     public int BitsPerSample { get; set; } = 8;
@@ -396,5 +502,30 @@ internal sealed class JpegDecoderState
     public byte[] ScanComponentIds { get; set; } = [];
     public byte[] ScanDcTables { get; set; } = [];
     public byte[] ScanAcTables { get; set; } = [];
+    public int ScanSs { get; set; }
+    public int ScanSe { get; set; } = 63;
+    public int ScanAh { get; set; }
+    public int ScanAl { get; set; }
+}
+
+/// <summary>
+/// Per-scan parameters captured by the multi-scan JPEG reader so that the
+/// progressive decoder can replay each scan in order. Snapshots which
+/// Huffman tables were in effect at <c>SOS</c> time, since DHT segments
+/// may redefine tables between scans.
+/// </summary>
+internal sealed class JpegScan
+{
+    public byte[] ComponentIds { get; init; } = [];
+    public byte[] DcTables { get; init; } = [];
+    public byte[] AcTables { get; init; } = [];
+    public int Ss { get; init; }
+    public int Se { get; init; }
+    public int Ah { get; init; }
+    public int Al { get; init; }
+    public int RestartInterval { get; init; }
+    public HuffmanTable?[] DcHuffmanSnapshot { get; init; } = new HuffmanTable[4];
+    public HuffmanTable?[] AcHuffmanSnapshot { get; init; } = new HuffmanTable[4];
+    public byte[] EntropyData { get; set; } = [];
 }
 

@@ -94,8 +94,8 @@ and an `ImageFormat` enum spans every requested format.
 | Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG) |
 
 Pixel decoding is intentionally **never** wired to a third-party codec
-binary. JPEG progressive (SOF2), lossless (SOF3) and arithmetic-coded
-variants remain deferred; HEIF / AVIF / JXL require codec implementations
+binary. JPEG lossless (SOF3) and arithmetic-coded variants remain deferred;
+HEIF / AVIF / JXL require codec implementations
 that are themselves multi-month projects and are out of scope. DDS BC6H
 (HDR half-float UF16 / SF16) ships **1-subset modes 11 and 14**, which
 account for the majority of real-world encoder output. The 12 partitioned
@@ -149,7 +149,7 @@ csharp-mediar/
 │   ├── Mediar.Imaging.Core/            IImageReader / IImageWriter + magic-byte detector
 │   ├── Mediar.Imaging.Bmp/             BMP / DIB reader + writer + ICO
 │   ├── Mediar.Imaging.Png/             PNG / APNG reader + writer (CRC32 inline)
-│   ├── Mediar.Imaging.Jpeg/            JPEG baseline DCT decoder + EXIF / MPO
+│   ├── Mediar.Imaging.Jpeg/            JPEG baseline + progressive DCT decoder + EXIF / MPO
 │   ├── Mediar.Imaging.Gif/             GIF87a / GIF89a + animation (full LZW)
 │   ├── Mediar.Imaging.Tiff/            TIFF (uncompressed / PackBits / Deflate / LZW)
 │   ├── Mediar.Imaging.Tga/             Truevision TGA (types 1/2/3/9/10/11)
