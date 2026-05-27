@@ -109,6 +109,42 @@ public sealed class MediaMetadata
     public string? Isrc { get; init; }
     /// <summary>Lyrics, when embedded.</summary>
     public string? Lyrics { get; init; }
+    /// <summary>Lyricist credit (person who wrote the song lyrics).</summary>
+    public string? Lyricist { get; init; }
+    /// <summary>Conductor of the recording (orchestral / choral works).</summary>
+    public string? Conductor { get; init; }
+    /// <summary>Remixer credit on this recording.</summary>
+    public string? Remixer { get; init; }
+    /// <summary>Arranger credit on this recording.</summary>
+    public string? Arranger { get; init; }
+    /// <summary>Engineer credit on this recording.</summary>
+    public string? Engineer { get; init; }
+    /// <summary>Producer credit on this recording.</summary>
+    public string? Producer { get; init; }
+    /// <summary>Beats per minute. Free-text in source (typically an integer).</summary>
+    public int? Bpm { get; init; }
+    /// <summary>Musical key (e.g. "Am", "C#m", "F"). Free-text in source.</summary>
+    public string? MusicalKey { get; init; }
+    /// <summary>Mood descriptor (free-text).</summary>
+    public string? Mood { get; init; }
+    /// <summary>True when the track is part of a compilation.</summary>
+    public bool? Compilation { get; init; }
+    /// <summary>Licence terms (URL or free-text).</summary>
+    public string? License { get; init; }
+    /// <summary>Artist or release web URL (CONTACT in Vorbis Comments).</summary>
+    public string? Website { get; init; }
+    /// <summary>Label-issued catalogue number.</summary>
+    public string? CatalogNumber { get; init; }
+    /// <summary>Universal barcode / UPC / EAN identifier.</summary>
+    public string? Barcode { get; init; }
+    /// <summary>Subtitle / second title.</summary>
+    public string? Subtitle { get; init; }
+    /// <summary>Disc subtitle (for multi-disc sets with named discs).</summary>
+    public string? DiscSubtitle { get; init; }
+    /// <summary>Long-form composition / work title (classical music).</summary>
+    public string? Work { get; init; }
+    /// <summary>Version / mix identifier (e.g. "Radio Edit", "Extended Mix").</summary>
+    public string? Version { get; init; }
     /// <summary>Vendor string emitted by the encoder (e.g. Xiph vendor identifier).</summary>
     public string? Vendor { get; init; }
     /// <summary>Geographic location stored in the container.</summary>
@@ -132,7 +168,12 @@ public sealed class MediaMetadata
         TrackNumber is null && TrackCount is null && DiscNumber is null && DiscCount is null &&
         Comment is null && Description is null && Encoder is null && EncodedBy is null &&
         Copyright is null && Publisher is null && Language is null && Isrc is null &&
-        Lyrics is null && Vendor is null && Location is null;
+        Lyrics is null && Lyricist is null && Conductor is null && Remixer is null &&
+        Arranger is null && Engineer is null && Producer is null && Bpm is null &&
+        MusicalKey is null && Mood is null && Compilation is null && License is null &&
+        Website is null && CatalogNumber is null && Barcode is null && Subtitle is null &&
+        DiscSubtitle is null && Work is null && Version is null && Vendor is null &&
+        Location is null;
 }
 
 /// <summary>
@@ -187,12 +228,55 @@ public sealed class MediaMetadataBuilder
     /// <summary>Strong-property fields populated from canonical keys.</summary>
     public string? Lyrics { get; set; }
     /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Lyricist { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Conductor { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Remixer { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Arranger { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Engineer { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Producer { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public int? Bpm { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? MusicalKey { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Mood { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public bool? Compilation { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? License { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Website { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? CatalogNumber { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Barcode { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Subtitle { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? DiscSubtitle { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Work { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
+    public string? Version { get; set; }
+    /// <summary>Strong-property fields populated from canonical keys.</summary>
     public string? Vendor { get; set; }
     /// <summary>Strong-property fields populated from canonical keys.</summary>
     public GeoLocation? Location { get; set; }
 
     /// <summary>True when no tags have been accumulated.</summary>
-    public bool IsEmpty => _tags.Count == 0 && Location is null && Vendor is null;
+    public bool IsEmpty =>
+        _tags.Count == 0 && Location is null && Vendor is null &&
+        Lyricist is null && Conductor is null && Remixer is null &&
+        Arranger is null && Engineer is null && Producer is null &&
+        Bpm is null && MusicalKey is null && Mood is null &&
+        Compilation is null && License is null && Website is null &&
+        CatalogNumber is null && Barcode is null && Subtitle is null &&
+        DiscSubtitle is null && Work is null && Version is null;
 
     /// <summary>
     /// Record a single tag. <paramref name="key"/> is canonicalised to
@@ -271,7 +355,91 @@ public sealed class MediaMetadataBuilder
                 Isrc ??= value; break;
             case "LYRICS":
             case "LYRIC":
+            case "UNSYNCEDLYRICS":
                 Lyrics ??= value; break;
+            case "LYRICIST":
+                Lyricist ??= value; break;
+            case "CONDUCTOR":
+                Conductor ??= value; break;
+            case "REMIXER":
+            case "MIXARTIST":
+            case "MODIFIEDBY":
+                Remixer ??= value; break;
+            case "ARRANGER":
+                Arranger ??= value; break;
+            case "ENGINEER":
+                Engineer ??= value; break;
+            case "PRODUCER":
+                Producer ??= value; break;
+            case "BPM":
+            case "TEMPO":
+                if (Bpm is null)
+                {
+                    if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bpmVal))
+                    {
+                        Bpm = bpmVal;
+                    }
+                    else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var bpmDouble) &&
+                             bpmDouble is > 0 and < 1000)
+                    {
+                        Bpm = (int)Math.Round(bpmDouble);
+                    }
+                }
+                break;
+            case "KEY":
+            case "INITIALKEY":
+            case "MUSICALKEY":
+                MusicalKey ??= value; break;
+            case "MOOD":
+                Mood ??= value; break;
+            case "COMPILATION":
+            case "ITUNESCOMPILATION":
+            case "TCMP":
+                if (Compilation is null)
+                {
+                    if (string.Equals(value, "1", StringComparison.Ordinal) ||
+                        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Compilation = true;
+                    }
+                    else if (string.Equals(value, "0", StringComparison.Ordinal) ||
+                             string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(value, "no", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Compilation = false;
+                    }
+                }
+                break;
+            case "LICENSE":
+            case "LICENCE":
+                License ??= value; break;
+            case "WEBSITE":
+            case "URL":
+            case "CONTACT":
+            case "WWW":
+                Website ??= value; break;
+            case "CATALOGNUMBER":
+            case "CATALOGUE":
+            case "CATALOG":
+                CatalogNumber ??= value; break;
+            case "BARCODE":
+            case "UPC":
+            case "EAN":
+                Barcode ??= value; break;
+            case "SUBTITLE":
+            case "TITLE_SORT":
+                if (canonical == "SUBTITLE") Subtitle ??= value;
+                break;
+            case "DISCSUBTITLE":
+            case "SET_SUBTITLE":
+                DiscSubtitle ??= value; break;
+            case "WORK":
+            case "GROUPING":
+                Work ??= value; break;
+            case "VERSION":
+            case "MIX":
+                Version ??= value; break;
             case "VENDOR":
                 Vendor ??= value; break;
             case "LOCATION":
@@ -324,6 +492,24 @@ public sealed class MediaMetadataBuilder
             Language = Language,
             Isrc = Isrc,
             Lyrics = Lyrics,
+            Lyricist = Lyricist,
+            Conductor = Conductor,
+            Remixer = Remixer,
+            Arranger = Arranger,
+            Engineer = Engineer,
+            Producer = Producer,
+            Bpm = Bpm,
+            MusicalKey = MusicalKey,
+            Mood = Mood,
+            Compilation = Compilation,
+            License = License,
+            Website = Website,
+            CatalogNumber = CatalogNumber,
+            Barcode = Barcode,
+            Subtitle = Subtitle,
+            DiscSubtitle = DiscSubtitle,
+            Work = Work,
+            Version = Version,
             Vendor = Vendor,
             Location = Location,
             Tags = _tags.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
