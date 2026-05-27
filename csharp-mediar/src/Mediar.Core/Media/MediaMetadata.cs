@@ -151,6 +151,14 @@ public sealed class MediaMetadata
     public GeoLocation? Location { get; init; }
 
     /// <summary>
+    /// Loudness-normalisation metadata aggregated from ReplayGain 2.0
+    /// (<c>REPLAYGAIN_*</c>) and Opus R128 (<c>R128_*</c>) tag keys.
+    /// <see langword="null"/> when the container carried no loudness
+    /// fields.
+    /// </summary>
+    public LoudnessInfo? Loudness { get; init; }
+
+    /// <summary>
     /// Embedded pictures (cover art, label scans, artist photos, ...)
     /// extracted from the container. Empty when no pictures are present.
     /// </summary>
@@ -179,7 +187,7 @@ public sealed class MediaMetadata
         MusicalKey is null && Mood is null && Compilation is null && License is null &&
         Website is null && CatalogNumber is null && Barcode is null && Subtitle is null &&
         DiscSubtitle is null && Work is null && Version is null && Vendor is null &&
-        Location is null && Pictures.Count == 0;
+        Location is null && Pictures.Count == 0 && Loudness is null;
 }
 
 /// <summary>
@@ -279,6 +287,49 @@ public sealed class MediaMetadataBuilder
     /// <summary>Embedded pictures collected via <see cref="AddPicture"/>.</summary>
     public IReadOnlyList<MediaPicture> Pictures => _pictures;
 
+    private double? _rgTrackGain;
+    private double? _rgAlbumGain;
+    private double? _rgTrackPeak;
+    private double? _rgAlbumPeak;
+    private double? _rgTrackRange;
+    private double? _rgAlbumRange;
+    private double? _rgRefLoudness;
+    private double? _r128TrackGain;
+    private double? _r128AlbumGain;
+
+    /// <summary>
+    /// Loudness-normalisation snapshot built from any
+    /// <c>REPLAYGAIN_*</c> or <c>R128_*</c> tags accumulated so far.
+    /// Returns <see langword="null"/> when no loudness fields have been
+    /// recorded.
+    /// </summary>
+    public LoudnessInfo? Loudness
+    {
+        get
+        {
+            if (_rgTrackGain is null && _rgAlbumGain is null &&
+                _rgTrackPeak is null && _rgAlbumPeak is null &&
+                _rgTrackRange is null && _rgAlbumRange is null &&
+                _rgRefLoudness is null &&
+                _r128TrackGain is null && _r128AlbumGain is null)
+            {
+                return null;
+            }
+            return new LoudnessInfo
+            {
+                TrackGainDb = _rgTrackGain,
+                AlbumGainDb = _rgAlbumGain,
+                TrackPeak = _rgTrackPeak,
+                AlbumPeak = _rgAlbumPeak,
+                TrackRangeDb = _rgTrackRange,
+                AlbumRangeDb = _rgAlbumRange,
+                ReferenceLoudnessDb = _rgRefLoudness,
+                R128TrackGainDb = _r128TrackGain,
+                R128AlbumGainDb = _r128AlbumGain,
+            };
+        }
+    }
+
     /// <summary>True when no tags have been accumulated.</summary>
     public bool IsEmpty =>
         _tags.Count == 0 && Location is null && Vendor is null &&
@@ -288,7 +339,12 @@ public sealed class MediaMetadataBuilder
         Compilation is null && License is null && Website is null &&
         CatalogNumber is null && Barcode is null && Subtitle is null &&
         DiscSubtitle is null && Work is null && Version is null &&
-        _pictures.Count == 0;
+        _pictures.Count == 0 &&
+        _rgTrackGain is null && _rgAlbumGain is null &&
+        _rgTrackPeak is null && _rgAlbumPeak is null &&
+        _rgTrackRange is null && _rgAlbumRange is null &&
+        _rgRefLoudness is null &&
+        _r128TrackGain is null && _r128AlbumGain is null;
 
     /// <summary>
     /// Record a single tag. <paramref name="key"/> is canonicalised to
@@ -454,6 +510,42 @@ public sealed class MediaMetadataBuilder
                 Version ??= value; break;
             case "VENDOR":
                 Vendor ??= value; break;
+            case "REPLAYGAIN_TRACK_GAIN":
+                if (_rgTrackGain is null && LoudnessInfo.TryParseReplayGainDb(value, out var rgtg))
+                    _rgTrackGain = rgtg;
+                break;
+            case "REPLAYGAIN_ALBUM_GAIN":
+                if (_rgAlbumGain is null && LoudnessInfo.TryParseReplayGainDb(value, out var rgag))
+                    _rgAlbumGain = rgag;
+                break;
+            case "REPLAYGAIN_TRACK_PEAK":
+                if (_rgTrackPeak is null && LoudnessInfo.TryParseReplayGainPeak(value, out var rgtp))
+                    _rgTrackPeak = rgtp;
+                break;
+            case "REPLAYGAIN_ALBUM_PEAK":
+                if (_rgAlbumPeak is null && LoudnessInfo.TryParseReplayGainPeak(value, out var rgap))
+                    _rgAlbumPeak = rgap;
+                break;
+            case "REPLAYGAIN_TRACK_RANGE":
+                if (_rgTrackRange is null && LoudnessInfo.TryParseReplayGainDb(value, out var rgtr))
+                    _rgTrackRange = rgtr;
+                break;
+            case "REPLAYGAIN_ALBUM_RANGE":
+                if (_rgAlbumRange is null && LoudnessInfo.TryParseReplayGainDb(value, out var rgar))
+                    _rgAlbumRange = rgar;
+                break;
+            case "REPLAYGAIN_REFERENCE_LOUDNESS":
+                if (_rgRefLoudness is null && LoudnessInfo.TryParseReplayGainDb(value, out var rgrl))
+                    _rgRefLoudness = rgrl;
+                break;
+            case "R128_TRACK_GAIN":
+                if (_r128TrackGain is null && LoudnessInfo.TryParseR128Q78(value, out var r128t))
+                    _r128TrackGain = r128t;
+                break;
+            case "R128_ALBUM_GAIN":
+                if (_r128AlbumGain is null && LoudnessInfo.TryParseR128Q78(value, out var r128a))
+                    _r128AlbumGain = r128a;
+                break;
             case "LOCATION":
             case "GEO_LOCATION":
             case "GEOLOCATION":
@@ -537,6 +629,7 @@ public sealed class MediaMetadataBuilder
             Vendor = Vendor,
             Location = Location,
             Pictures = _pictures.Count == 0 ? [] : _pictures.ToArray(),
+            Loudness = Loudness,
             Tags = _tags.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
         };
     }
