@@ -339,4 +339,50 @@ public sealed class Ktx2ReaderTests
         Assert.NotNull(frame);
         Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
     }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R16G16_UNORM_To_Rg32()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 77, // VK_FORMAT_R16G16_UNORM
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[] { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rg32, reader.Info.PixelFormat);
+        Assert.Equal(32, reader.Info.BitsPerPixel);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Decodes_EAC_RG11_UNORM_Through_EtcDecoder_To_Rg32()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 155, // VK_FORMAT_EAC_R11G11_UNORM_BLOCK
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[16]); // one 4x4 EAC RG11 block (16 bytes)
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal(EtcFormat.EacRg11Unorm, reader.Ktx2.Etc);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(4, frame.Width);
+            Assert.Equal(4, frame.Height);
+            Assert.Equal(PixelFormat.Rg32, frame.PixelFormat);
+            Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
+        }
+    }
 }

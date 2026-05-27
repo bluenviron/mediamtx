@@ -153,6 +153,7 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Gray16 => 2,
             PixelFormat.Rgb24 => 3,
             PixelFormat.Bgr24 => 3,
+            PixelFormat.Rg32 => 4,
             PixelFormat.Rgba32 => 4,
             PixelFormat.Bgra32 => 4,
             _ => 0,
@@ -254,7 +255,7 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Gray8 => 8,
             PixelFormat.Gray16 => 16,
             PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
-            PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
+            PixelFormat.Rg32 or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
             PixelFormat.Rgb96Float => 96,
             _ => 0,
         };
@@ -267,6 +268,7 @@ public sealed class KtxReader : IImageReader
             ChannelCount = infoPf switch
             {
                 PixelFormat.Gray8 or PixelFormat.Gray16 => 1,
+                PixelFormat.Rg32 => 2,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb96Float => 3,
                 PixelFormat.Rgba32 or PixelFormat.Bgra32 => 4,
                 _ => 0,

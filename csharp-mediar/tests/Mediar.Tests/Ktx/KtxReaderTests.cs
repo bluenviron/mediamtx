@@ -280,4 +280,28 @@ public sealed class KtxReaderTests
             }
         }
     }
+
+    [Fact]
+    public async Task ReadFrames_EacRg11Unorm_Yields_Decoded_Rg32()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x9272, // GL_COMPRESSED_RG11_EAC
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[16]); // one 4x4 EAC RG11 block (16 bytes)
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal(EtcFormat.EacRg11Unorm, reader.Ktx.Etc);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(4, frame.Width);
+            Assert.Equal(4, frame.Height);
+            Assert.Equal(PixelFormat.Rg32, frame.PixelFormat);
+            Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
+        }
+    }
 }

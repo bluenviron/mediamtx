@@ -151,6 +151,8 @@ public static class KtxFormat
         44 or 50 => PixelFormat.Bgra32,
         // VK_FORMAT_R16_UNORM / SNORM
         70 or 71 => PixelFormat.Gray16,
+        // VK_FORMAT_R16G16_UNORM / SNORM
+        77 or 78 => PixelFormat.Rg32,
         _ => PixelFormat.Unknown,
     };
 
@@ -182,6 +184,7 @@ public static class KtxFormat
         EtcFormat.Etc1Rgb or EtcFormat.Etc2Rgb or EtcFormat.Etc2RgbA1
             or EtcFormat.Etc2Rgba8 => PixelFormat.Rgba32,
         EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm => PixelFormat.Gray16,
+        EtcFormat.EacRg11Unorm or EtcFormat.EacRg11Snorm => PixelFormat.Rg32,
         _ => PixelFormat.Unknown,
     };
 
@@ -224,6 +227,8 @@ public static class KtxFormat
             EtcFormat.Etc2Rgba8 => (EtcDecoder.DecodeEtc2Rgba8(payload, width, height), width * 4, PixelFormat.Rgba32),
             EtcFormat.EacR11Unorm => (EtcDecoder.DecodeEacR11Unorm(payload, width, height), width * 2, PixelFormat.Gray16),
             EtcFormat.EacR11Snorm => (EtcDecoder.DecodeEacR11Snorm(payload, width, height), width * 2, PixelFormat.Gray16),
+            EtcFormat.EacRg11Unorm => (EtcDecoder.DecodeEacRg11Unorm(payload, width, height), width * 4, PixelFormat.Rg32),
+            EtcFormat.EacRg11Snorm => (EtcDecoder.DecodeEacRg11Snorm(payload, width, height), width * 4, PixelFormat.Rg32),
             _ => throw new NotSupportedException($"KTX/KTX2 ETC format {f} cannot be decoded."),
         };
     }
@@ -231,5 +236,6 @@ public static class KtxFormat
     /// <summary>True when <see cref="DecodeEtc"/> can decode the format.</summary>
     public static bool CanDecodeEtc(EtcFormat f) => f is
         EtcFormat.Etc1Rgb or EtcFormat.Etc2Rgb or EtcFormat.Etc2RgbA1
-        or EtcFormat.Etc2Rgba8 or EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm;
+        or EtcFormat.Etc2Rgba8 or EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm
+        or EtcFormat.EacRg11Unorm or EtcFormat.EacRg11Snorm;
 }
