@@ -311,17 +311,34 @@ public sealed class DdsBcnDecoderTests
     }
 
     [Fact]
-    public async Task Bcn_Bc6h_IsRecognisedButNotDecoded()
+    public async Task Bcn_Bc6h_PartitionedModeThrowsNotSupported()
     {
-        // BC6H exists as a known format but pixel decoding is not implemented yet.
-        // The reader should expose CanDecodePixels = false and the format string.
-        var file = BuildDdsHeader(4, 4, "BC6H", compressed: true);
-        // Provide 16 bytes of dummy data so the file is well-formed.
-        file = Concat(file, new byte[16]);
+        // Mode 1 (2-bit prefix = 00, value 0) is a partitioned mode and
+        // not implemented. Verify a clear NotSupportedException is raised.
+        var file = BuildDdsHeader(4, 4, "DX10", compressed: true);
+        file = Concat(file, BuildDx10TailLocal(95)); // BC6H_UF16
+        // 16 bytes where the first 2 bits are 00 → mode 1.
+        var block = new byte[16];
+        // bits 0,1 = 0,0 selects mode 1 (partitioned)
+        file = Concat(file, block);
 
         await using var ms = new MemoryStream(file);
         using var reader = DdsReader.Open(ms, ownsStream: false);
-        Assert.False(reader.CanDecodePixels);
-        Assert.Equal("Bc6h", reader.Info.ColorSpace);
+        Assert.True(reader.CanDecodePixels);
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await foreach (var _ in reader.ReadFramesAsync()) { }
+        });
+    }
+
+    private static byte[] BuildDx10TailLocal(uint dxgiFormat)
+    {
+        var tail = new byte[20];
+        BinaryPrimitives.WriteUInt32LittleEndian(tail.AsSpan(0, 4), dxgiFormat);
+        BinaryPrimitives.WriteUInt32LittleEndian(tail.AsSpan(4, 4), 3); // resourceDimension = TEXTURE2D
+        BinaryPrimitives.WriteUInt32LittleEndian(tail.AsSpan(8, 4), 0); // miscFlag
+        BinaryPrimitives.WriteUInt32LittleEndian(tail.AsSpan(12, 4), 1); // arraySize
+        BinaryPrimitives.WriteUInt32LittleEndian(tail.AsSpan(16, 4), 0); // miscFlags2
+        return tail;
     }
 }

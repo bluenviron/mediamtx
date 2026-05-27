@@ -23,7 +23,7 @@ namespace Mediar.Imaging.Dds;
 /// </remarks>
 internal static class BcnDecoder
 {
-    /// <summary>Returns BC1/2/3/4/5/6H/7 if <paramref name="fourCC"/> (or <paramref name="dxgiFormat"/> for DX10) identifies one; otherwise <see cref="BcnFormat.None"/>.</summary>
+    /// <summary>Returns BC1/2/3/4/5/6H-UF16/6H-SF16/7 if <paramref name="fourCC"/> (or <paramref name="dxgiFormat"/> for DX10) identifies one; otherwise <see cref="BcnFormat.None"/>.</summary>
     public static BcnFormat Identify(string fourCC, uint dxgiFormat)
     {
         return fourCC switch
@@ -33,7 +33,7 @@ internal static class BcnDecoder
             "DXT4" or "DXT5" => BcnFormat.Bc3,
             "ATI1" or "BC4U" or "BC4S" => BcnFormat.Bc4,
             "ATI2" or "BC5U" or "BC5S" or "A2XY" => BcnFormat.Bc5,
-            "BC6H" => BcnFormat.Bc6h,
+            "BC6H" => BcnFormat.Bc6hUf16,
             "BC7" or "BC7L" or "ZOLA" => BcnFormat.Bc7,
             "DX10" => dxgiFormat switch
             {
@@ -42,7 +42,8 @@ internal static class BcnDecoder
                 76 or 77 or 78 => BcnFormat.Bc3,
                 79 or 80 or 81 => BcnFormat.Bc4,
                 82 or 83 or 84 => BcnFormat.Bc5,
-                94 or 95 or 96 => BcnFormat.Bc6h,
+                94 or 95 => BcnFormat.Bc6hUf16, // typeless or UF16
+                96 => BcnFormat.Bc6hSf16,
                 97 or 98 or 99 => BcnFormat.Bc7,
                 _ => BcnFormat.None,
             },
@@ -346,8 +347,10 @@ internal enum BcnFormat
     Bc4,
     /// <summary>BC5 / RGTC2 — 16 byte/block, red + green.</summary>
     Bc5,
-    /// <summary>BC6H — 16 byte/block, HDR (not implemented here).</summary>
-    Bc6h,
-    /// <summary>BC7 — 16 byte/block, advanced adaptive (not implemented here).</summary>
+    /// <summary>BC6H UF16 — 16 byte/block, HDR unsigned half-float.</summary>
+    Bc6hUf16,
+    /// <summary>BC6H SF16 — 16 byte/block, HDR signed half-float.</summary>
+    Bc6hSf16,
+    /// <summary>BC7 — 16 byte/block, advanced adaptive (BPTC unorm).</summary>
     Bc7,
 }

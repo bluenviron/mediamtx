@@ -35,7 +35,9 @@ public sealed class DdsReader : IImageReader
     public bool CanDecodePixels =>
         (!_isCompressed && Info.PixelFormat != PixelFormat.Unknown) ||
         _bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3
-             or BcnFormat.Bc4 or BcnFormat.Bc5 or BcnFormat.Bc7;
+             or BcnFormat.Bc4 or BcnFormat.Bc5
+             or BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16
+             or BcnFormat.Bc7;
 
     private DdsReader(Stream s, bool owns, byte[] b, int pixelsOffset,
                       uint r, uint g, uint bMask, uint a, int pitch, bool compressed,
@@ -135,7 +137,8 @@ public sealed class DdsReader : IImageReader
             int bytesPerBlock = _bcn switch
             {
                 BcnFormat.Bc1 or BcnFormat.Bc4 => 8,
-                BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5 or BcnFormat.Bc6h or BcnFormat.Bc7 => 16,
+                BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5
+                  or BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16 or BcnFormat.Bc7 => 16,
                 _ => 0,
             };
             if (bytesPerBlock == 0)
@@ -185,6 +188,16 @@ public sealed class DdsReader : IImageReader
                     stride = width * 4;
                     pf = PixelFormat.Bgra32;
                     break;
+                case BcnFormat.Bc6hUf16:
+                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, signed: false);
+                    stride = width * 12;
+                    pf = PixelFormat.Rgb96Float;
+                    break;
+                case BcnFormat.Bc6hSf16:
+                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, signed: true);
+                    stride = width * 12;
+                    pf = PixelFormat.Rgb96Float;
+                    break;
                 default:
                     throw new NotSupportedException(
                         $"DDS uses {_bcn} block compression; pixel decode is not implemented in this Mediar release.");
@@ -215,13 +228,15 @@ public sealed class DdsReader : IImageReader
         BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc7 => PixelFormat.Bgra32,
         BcnFormat.Bc4 => PixelFormat.Gray8,
         BcnFormat.Bc5 => PixelFormat.Rgb24,
+        BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16 => PixelFormat.Rgb96Float,
         _ => PixelFormat.Unknown,
     };
 
     private static int BcnBitsPerPixel(BcnFormat f) => f switch
     {
         BcnFormat.Bc1 or BcnFormat.Bc4 => 4,
-        BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5 or BcnFormat.Bc6h or BcnFormat.Bc7 => 8,
+        BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5
+          or BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16 or BcnFormat.Bc7 => 8,
         _ => 0,
     };
 
