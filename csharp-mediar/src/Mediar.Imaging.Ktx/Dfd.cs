@@ -216,8 +216,20 @@ public sealed record KhrDfdBlock
     /// <summary>Per-sample descriptors (one entry per channel-of-plane).</summary>
     public IReadOnlyList<KhrDfdSample> Samples { get; init; } = Array.Empty<KhrDfdSample>();
 
+    /// <summary>
+    /// Raw bytes of the descriptor block's payload (the post-header portion
+    /// after the 4-byte block header). Always populated for vendor blocks so
+    /// callers can interpret unknown payloads; also populated for Khronos
+    /// basic blocks for round-trip preservation. Empty when the block has
+    /// no payload.
+    /// </summary>
+    public ReadOnlyMemory<byte> RawBytes { get; init; } = ReadOnlyMemory<byte>.Empty;
+
     /// <summary>True when this block is the Khronos Basic Data Format block (vendor 0, type 0).</summary>
     public bool IsKhronosBasic => VendorId == 0 && DescriptorType == 0;
+
+    /// <summary>True when this block is from a non-Khronos vendor (vendor ID != 0).</summary>
+    public bool IsVendorExtension => VendorId != 0;
 }
 
 /// <summary>
@@ -301,22 +313,30 @@ public static class DfdParser
             if (cursor + blockSize > endExclusive) return null;
 
             var blockSpan = section.Slice(cursor, blockSize);
+            // Block header is 8 bytes (vendorId+descriptorType packed in word0,
+            // versionNumber + blockSize in word1). The remainder is the payload.
+            ReadOnlyMemory<byte> payload = blockSize > 8
+                ? section.Slice(cursor + 8, blockSize - 8).ToArray()
+                : ReadOnlyMemory<byte>.Empty;
+
             KhrDfdBlock parsed;
             if (vendorId == 0 && descriptorType == 0)
             {
                 var maybeBasic = ParseBasicBlock(blockSpan, vendorId, descriptorType, versionNumber, blockSize);
                 if (maybeBasic is null) return null;
-                parsed = maybeBasic;
+                parsed = maybeBasic with { RawBytes = payload };
             }
             else
             {
-                // Unknown vendor/type: record the header without claiming to decode payload.
+                // Unknown vendor/type: record the header + raw payload bytes so
+                // callers can decode the vendor extension themselves.
                 parsed = new KhrDfdBlock
                 {
                     VendorId = vendorId,
                     DescriptorType = descriptorType,
                     VersionNumber = versionNumber,
                     DescriptorBlockSize = blockSize,
+                    RawBytes = payload,
                 };
             }
 

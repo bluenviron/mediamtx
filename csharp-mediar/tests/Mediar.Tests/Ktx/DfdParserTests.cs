@@ -263,4 +263,97 @@ public class DfdParserTests
         Assert.True(basic.Samples[0].IsFloat);
         Assert.Equal(0, basic.Samples[0].ChannelId);
     }
+
+    [Fact]
+    public void Parse_Captures_Vendor_Block_RawBytes_For_Inspection()
+    {
+        var basicBuilder = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt709,
+            TransferFunction = KhrTransferFunction.Linear,
+            BytesPlanes = new byte[] { 4, 0, 0, 0, 0, 0, 0, 0 },
+        };
+        byte[] basic = basicBuilder.Build();
+
+        // Vendor block: vendorId=42, descriptorType=3, size=16. Payload (8 bytes)
+        // carries a distinctive sentinel sequence we can verify round-trips.
+        byte[] payload = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE };
+        const int extraSize = 16;
+        byte[] basicBody = basic.AsSpan(4).ToArray();
+        int totalSize = 4 + basicBody.Length + extraSize;
+        byte[] combined = new byte[totalSize];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(combined, (uint)totalSize);
+        Buffer.BlockCopy(basicBody, 0, combined, 4, basicBody.Length);
+
+        int extraOffset = 4 + basicBody.Length;
+        uint word0 = 42u | (3u << 17);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(combined.AsSpan(extraOffset), word0);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+            combined.AsSpan(extraOffset + 4), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+            combined.AsSpan(extraOffset + 6), (ushort)extraSize);
+        Buffer.BlockCopy(payload, 0, combined, extraOffset + 8, payload.Length);
+
+        var parsed = DfdParser.Parse(combined, 0, combined.Length);
+
+        Assert.NotNull(parsed);
+        Assert.Equal(2, parsed!.Blocks.Count);
+        var vendor = parsed.Blocks[1];
+        Assert.False(vendor.IsKhronosBasic);
+        Assert.True(vendor.IsVendorExtension);
+        Assert.Equal((ushort)42, vendor.VendorId);
+        Assert.Equal((ushort)3, vendor.DescriptorType);
+        Assert.Equal(payload.Length, vendor.RawBytes.Length);
+        Assert.Equal(payload, vendor.RawBytes.ToArray());
+    }
+
+    [Fact]
+    public void Parse_Captures_Basic_Block_RawBytes_For_Roundtrip()
+    {
+        var builder = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt709,
+            TransferFunction = KhrTransferFunction.SRgb,
+            BytesPlanes = new byte[] { 4, 0, 0, 0, 0, 0, 0, 0 },
+        };
+        builder.AddSample(0, 8, 0, 0, 255);
+        builder.AddSample(8, 8, 1, 0, 255);
+        builder.AddSample(16, 8, 2, 0, 255);
+        builder.AddSample(24, 8, 15, 0, 255);
+
+        var bytes = builder.Build();
+        var parsed = DfdParser.Parse(bytes, 0, bytes.Length);
+
+        Assert.NotNull(parsed);
+        var basic = parsed!.Basic!;
+        Assert.True(basic.IsKhronosBasic);
+        Assert.False(basic.IsVendorExtension);
+        // Basic block payload = blockSize - 8 (the 4+4 byte header words).
+        Assert.Equal(basic.DescriptorBlockSize - 8, basic.RawBytes.Length);
+        Assert.True(basic.RawBytes.Length > 0);
+    }
+
+    [Fact]
+    public void Parse_Vendor_Block_Without_Payload_Has_Empty_RawBytes()
+    {
+        // Minimum-size vendor block: header only (8 bytes).
+        const int blockSize = 8;
+        const int totalSize = 4 + blockSize;
+        byte[] bytes = new byte[totalSize];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, totalSize);
+        uint word0 = 7u | (5u << 17);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), word0);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(10), blockSize);
+
+        var parsed = DfdParser.Parse(bytes, 0, bytes.Length);
+
+        Assert.NotNull(parsed);
+        Assert.Single(parsed!.Blocks);
+        var vendor = parsed.Blocks[0];
+        Assert.True(vendor.IsVendorExtension);
+        Assert.Equal(0, vendor.RawBytes.Length);
+    }
 }
