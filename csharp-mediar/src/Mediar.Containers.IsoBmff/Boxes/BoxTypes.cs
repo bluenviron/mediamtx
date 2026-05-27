@@ -100,4 +100,17 @@ internal static class BoxTypes
     public static readonly FourCc IlTrk = new("trkn");
     public static readonly FourCc IlDsk = new("disk");
     public static readonly FourCc IlCpy = new("cprt");
+    // Extended iTunes / Apple atoms.
+    public static readonly FourCc IlWrk = new(((uint)0xA9 << 24) | ((uint)'w' << 16) | ((uint)'r' << 8) | (uint)'k');
+    public static readonly FourCc IlGroup = new(((uint)0xA9 << 24) | ((uint)'g' << 16) | ((uint)'r' << 8) | (uint)'p');
+    public static readonly FourCc IlSt3 = new(((uint)0xA9 << 24) | ((uint)'s' << 16) | ((uint)'t' << 8) | (uint)'3');
+    public static readonly FourCc IlCon = new(((uint)0xA9 << 24) | ((uint)'c' << 16) | ((uint)'o' << 8) | (uint)'n');
+    public static readonly FourCc IlDir = new(((uint)0xA9 << 24) | ((uint)'d' << 16) | ((uint)'i' << 8) | (uint)'r');
+    public static readonly FourCc IlMvN = new(((uint)0xA9 << 24) | ((uint)'m' << 16) | ((uint)'v' << 8) | (uint)'n');
+    public static readonly FourCc IlTmpo = new("tmpo");
+    public static readonly FourCc IlCpil = new("cpil");
+    public static readonly FourCc IlDesc = new("desc");
+    public static readonly FourCc IlLdes = new("ldes");
+    public static readonly FourCc IlKey = new("\u00A9key");
+    public static readonly FourCc IlPub = new("\u00A9pub");
 }

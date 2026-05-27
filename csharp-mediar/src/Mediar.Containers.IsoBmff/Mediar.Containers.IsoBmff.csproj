@@ -11,4 +11,8 @@
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
 </Project>

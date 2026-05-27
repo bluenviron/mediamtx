@@ -93,6 +93,18 @@ internal static class Mp4MetadataParser
                     int t = BinaryPrimitives.ReadUInt16BigEndian(value[4..6]);
                     if (n > 0) meta.Set("DISCNUMBER", t > 0 ? $"{n}/{t}" : n.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
+                else if (dataType == 21 && value.Length > 0)
+                {
+                    // BE signed integer (1, 2, 4, or 8 bytes).
+                    long n = ReadBeSignedInt(value);
+                    meta.Set(key, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
+                else if (dataType == 22 && value.Length > 0)
+                {
+                    // BE unsigned integer.
+                    ulong n = ReadBeUnsignedInt(value);
+                    meta.Set(key, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
                 else if (dataType == 1)
                 {
                     string text = Encoding.UTF8.GetString(value);
@@ -107,6 +119,24 @@ internal static class Mp4MetadataParser
             }
         }
     }
+
+    private static long ReadBeSignedInt(ReadOnlySpan<byte> v) => v.Length switch
+    {
+        1 => (sbyte)v[0],
+        2 => BinaryPrimitives.ReadInt16BigEndian(v),
+        4 => BinaryPrimitives.ReadInt32BigEndian(v),
+        8 => BinaryPrimitives.ReadInt64BigEndian(v),
+        _ => (sbyte)v[0],
+    };
+
+    private static ulong ReadBeUnsignedInt(ReadOnlySpan<byte> v) => v.Length switch
+    {
+        1 => v[0],
+        2 => BinaryPrimitives.ReadUInt16BigEndian(v),
+        4 => BinaryPrimitives.ReadUInt32BigEndian(v),
+        8 => BinaryPrimitives.ReadUInt64BigEndian(v),
+        _ => v[0],
+    };
 
     private static void ParseLoci(ReadOnlySpan<byte> payload, MediaMetadataBuilder meta)
     {
@@ -171,6 +201,14 @@ internal static class Mp4MetadataParser
             ('w', 'r', 't') => "COMPOSER",
             ('t', 'o', 'o') => "ENCODER",
             ('l', 'y', 'r') => "LYRICS",
+            ('w', 'r', 'k') => "WORK",
+            ('g', 'r', 'p') => "WORK",
+            ('s', 't', '3') => "SUBTITLE",
+            ('c', 'o', 'n') => "CONDUCTOR",
+            ('d', 'i', 'r') => "DIRECTOR",
+            ('m', 'v', 'n') => "MOVEMENTNAME",
+            ('k', 'e', 'y') => "MUSICALKEY",
+            ('p', 'u', 'b') => "PUBLISHER",
             _ => "",
         };
     }
@@ -191,6 +229,19 @@ internal static class Mp4MetadataParser
         if (t.Value == BoxTypes.IlDsk.Value) return "DISCNUMBER";
         if (t.Value == BoxTypes.IlCpy.Value) return "COPYRIGHT";
         if (t.Value == BoxTypes.IlXyz.Value) return "LOCATION";
+        // Extended iTunes atoms.
+        if (t.Value == BoxTypes.IlWrk.Value) return "WORK";
+        if (t.Value == BoxTypes.IlGroup.Value) return "WORK";
+        if (t.Value == BoxTypes.IlSt3.Value) return "SUBTITLE";
+        if (t.Value == BoxTypes.IlCon.Value) return "CONDUCTOR";
+        if (t.Value == BoxTypes.IlDir.Value) return "DIRECTOR";
+        if (t.Value == BoxTypes.IlMvN.Value) return "MOVEMENTNAME";
+        if (t.Value == BoxTypes.IlKey.Value) return "MUSICALKEY";
+        if (t.Value == BoxTypes.IlPub.Value) return "PUBLISHER";
+        if (t.Value == BoxTypes.IlTmpo.Value) return "BPM";
+        if (t.Value == BoxTypes.IlCpil.Value) return "COMPILATION";
+        if (t.Value == BoxTypes.IlDesc.Value) return "DESCRIPTION";
+        if (t.Value == BoxTypes.IlLdes.Value) return "DESCRIPTION";
         return null;
     }
 }
