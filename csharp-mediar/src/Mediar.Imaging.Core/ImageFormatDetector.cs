@@ -179,6 +179,16 @@ public static class ImageFormatDetector
                 return ImageFormat.Pvr;
             }
 
+            // PVR v2 (legacy PowerVR Texture): magic "PVR!" (0x21525650
+            // little-endian on disk as bytes 'P','V','R','!') at offset
+            // 0x2C of a 52-byte header.
+            if (header.Length >= 0x30 &&
+                header[0x2C] == (byte)'P' && header[0x2D] == (byte)'V' &&
+                header[0x2E] == (byte)'R' && header[0x2F] == (byte)'!')
+            {
+                return ImageFormat.Pvr;
+            }
+
             // PSD: "8BPS" (V1 = PSD, V2 = PSB)
             if (header[0] == (byte)'8' && header[1] == (byte)'B' &&
                 header[2] == (byte)'P' && header[3] == (byte)'S')
