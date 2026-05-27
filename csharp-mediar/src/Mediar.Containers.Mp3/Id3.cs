@@ -151,7 +151,51 @@ internal static class Id3v2
             string? value = DecodeString(data[valueStart..], enc);
             if (desc is null || value is null) return;
             meta.Set(desc, value);
+            return;
         }
+
+        // URL link frames: plain ISO-8859-1 URL with no encoding prefix.
+        // WXXX (user-defined URL) is parsed separately like TXXX.
+        if (id.Length > 0 && id[0] == 'W' && id is not ("WXXX" or "WXX"))
+        {
+            string? url = DecodeUrl(data);
+            if (url is null || url.Length == 0) return;
+            string mapped = MapUrlFrame(id);
+            if (mapped.Length == 0) return;
+            meta.Set(mapped, url);
+            return;
+        }
+
+        if (id is "WXXX" or "WXX")
+        {
+            if (data.Length < 2) return;
+            byte enc = data[0];
+            int p = 1;
+            int descEnd = FindStringTerminator(data, p, enc);
+            if (descEnd < 0) return;
+            int valueStart = descEnd + GetTerminatorLength(enc);
+            if (valueStart > data.Length) return;
+            string? url = DecodeUrl(data[valueStart..]);
+            if (url is null || url.Length == 0) return;
+            meta.Set("WEBSITE", url);
+        }
+    }
+
+    private static string MapUrlFrame(string id) => id switch
+    {
+        "WCOP" or "WCP" => "LICENSE",
+        "WOAR" or "WAR" => "WEBSITE",
+        "WPUB" or "WPB" => "WEBSITE",
+        "WORS" => "WEBSITE",
+        "WCOM" or "WCM" => "WEBSITE",
+        _ => "",
+    };
+
+    private static string? DecodeUrl(ReadOnlySpan<byte> data)
+    {
+        // URL frames are always ISO-8859-1 with possible trailing nul.
+        while (data.Length > 0 && data[^1] == 0) data = data[..^1];
+        return data.IsEmpty ? null : Encoding.Latin1.GetString(data);
     }
 
     private static string MapTextFrame(string id) => id switch
@@ -172,6 +216,17 @@ internal static class Id3v2
         "TENC" or "TEN" => "ENCODED_BY",
         "TLAN" or "TLA" => "LANGUAGE",
         "TSRC" or "TRC" => "ISRC",
+        // ID3v2.3 / v2.4 text frames mapping to extended Vorbis canonical keys.
+        "TEXT" or "TXT" => "LYRICIST",
+        "TPE3" or "TP3" => "CONDUCTOR",
+        "TPE4" or "TP4" => "REMIXER",
+        "TBPM" or "TBP" => "BPM",
+        "TKEY" or "TKE" => "MUSICALKEY",
+        "TMOO" => "MOOD",
+        "TCMP" => "COMPILATION",
+        "TIT3" or "TT3" => "SUBTITLE",
+        "TIT1" or "TT1" => "WORK",
+        "TSST" => "DISCSUBTITLE",
         _ => "",
     };
 
