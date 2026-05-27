@@ -304,11 +304,13 @@ public sealed class Ktx2Reader : IImageReader
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32
                                 or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16,
             FrameCount = canDecode ? levelInfos.Count : 0,
-            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}"
-                       : etc != EtcFormat.None ? $"ETC:{etc}"
-                       : supercompressionScheme != 0 && supercompressionScheme != 3
-                            ? $"Supercompressed:{SchemeName(supercompressionScheme)}"
-                            : "Vk",
+            ColorSpace = DfdColorSpace.Describe(parsedDfd)
+                       ?? (KtxFormat.IsSrgbVkFormat(vkFormat) ? "sRGB" : null)
+                       ?? (bcn != BcnFormat.None ? $"BCn:{bcn}"
+                            : etc != EtcFormat.None ? $"ETC:{etc}"
+                            : supercompressionScheme != 0 && supercompressionScheme != 3
+                                ? $"Supercompressed:{SchemeName(supercompressionScheme)}"
+                                : "Vk"),
         };
 
         var meta = BuildImageMetadata(ktx2Meta);

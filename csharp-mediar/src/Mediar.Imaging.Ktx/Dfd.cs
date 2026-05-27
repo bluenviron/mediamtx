@@ -403,3 +403,93 @@ public static class DfdParser
         };
     }
 }
+
+/// <summary>
+/// Translates a parsed Khronos Data Format descriptor's colour primaries +
+/// transfer function into a short human-readable colour-space label suitable
+/// for <see cref="Mediar.Imaging.ImageInfo.ColorSpace"/>.
+/// </summary>
+/// <remarks>
+/// Common combinations collapse to compact aliases:
+/// BT.709 + sRGB → "sRGB"; BT.709 + Linear → "Linear sRGB";
+/// BT.2020 + PQ → "BT.2020 PQ"; Display P3 + sRGB → "Display P3".
+/// Returns <c>null</c> when the DFD lacks a Khronos Basic block or both
+/// primaries and transfer function are <see cref="KhrColorPrimaries.Unspecified"/>.
+/// </remarks>
+public static class DfdColorSpace
+{
+    /// <summary>
+    /// Best-effort short colour-space descriptor derived from a parsed DFD.
+    /// </summary>
+    public static string? Describe(KtxDfd? dfd)
+    {
+        var basic = dfd?.Basic;
+        return basic is null ? null : DescribeBlock(basic);
+    }
+
+    /// <summary>
+    /// Best-effort short colour-space descriptor derived from a Khronos
+    /// Basic Data Format block. Returns <c>null</c> when neither the
+    /// primaries nor the transfer function are recognised.
+    /// </summary>
+    public static string? DescribeBlock(KhrDfdBlock block)
+    {
+        string? primaries = PrimariesName(block.ColorPrimaries);
+        string? transfer = TransferName(block.TransferFunction);
+
+        if (primaries is null && transfer is null) return null;
+
+        if (block.ColorPrimaries == KhrColorPrimaries.Bt709)
+        {
+            if (block.TransferFunction == KhrTransferFunction.SRgb) return "sRGB";
+            if (block.TransferFunction == KhrTransferFunction.Linear) return "Linear sRGB";
+        }
+
+        if (block.ColorPrimaries == KhrColorPrimaries.DisplayP3
+            && block.TransferFunction == KhrTransferFunction.SRgb)
+        {
+            return "Display P3";
+        }
+
+        if (primaries is null) return transfer;
+        if (transfer is null) return primaries;
+        return $"{primaries} {transfer}";
+    }
+
+    private static string? PrimariesName(KhrColorPrimaries p) => p switch
+    {
+        KhrColorPrimaries.Bt709 => "BT.709",
+        KhrColorPrimaries.Bt601Ebu => "BT.601 PAL",
+        KhrColorPrimaries.Bt601Smpte => "BT.601 NTSC",
+        KhrColorPrimaries.Bt2020 => "BT.2020",
+        KhrColorPrimaries.CieXyz => "CIE XYZ",
+        KhrColorPrimaries.Aces => "ACES",
+        KhrColorPrimaries.Acescc => "ACEScc",
+        KhrColorPrimaries.Ntsc1953 => "NTSC 1953",
+        KhrColorPrimaries.Pal525 => "PAL 525",
+        KhrColorPrimaries.DisplayP3 => "Display P3",
+        KhrColorPrimaries.AdobeRgb => "Adobe RGB",
+        _ => null,
+    };
+
+    private static string? TransferName(KhrTransferFunction t) => t switch
+    {
+        KhrTransferFunction.Linear => "Linear",
+        KhrTransferFunction.SRgb => "sRGB",
+        KhrTransferFunction.Itu => "ITU",
+        KhrTransferFunction.Ntsc => "NTSC",
+        KhrTransferFunction.Slog => "S-Log",
+        KhrTransferFunction.Slog2 => "S-Log2",
+        KhrTransferFunction.Bt1886 => "BT.1886",
+        KhrTransferFunction.HlgOetf or KhrTransferFunction.HlgEotf => "HLG",
+        KhrTransferFunction.PqEotf or KhrTransferFunction.PqOetf => "PQ",
+        KhrTransferFunction.DciP3 => "DCI-P3",
+        KhrTransferFunction.PalOetf => "PAL OETF",
+        KhrTransferFunction.Pal625Eotf => "PAL EOTF",
+        KhrTransferFunction.St240 => "ST.240",
+        KhrTransferFunction.AcesCc => "ACEScc",
+        KhrTransferFunction.AcesCct => "ACEScct",
+        KhrTransferFunction.AdobeRgb => "Adobe RGB",
+        _ => null,
+    };
+}

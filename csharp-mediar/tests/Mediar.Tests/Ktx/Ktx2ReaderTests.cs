@@ -573,4 +573,77 @@ public sealed class Ktx2ReaderTests
         Assert.Null(reader.Ktx2.Dfd);
         Assert.True(reader.CanDecodePixels);
     }
+
+    [Fact]
+    public void ColorSpace_Is_sRGB_When_Dfd_Marks_Bt709_SRgb()
+    {
+        var dfd = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt709,
+            TransferFunction = KhrTransferFunction.SRgb,
+        };
+        dfd.AddSample(0, 8, 0); dfd.AddSample(8, 8, 1);
+        dfd.AddSample(16, 8, 2); dfd.AddSample(24, 8, 15 | 0x10);
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 43, // R8G8B8A8_SRGB
+            PixelWidth = 1,
+            PixelHeight = 1,
+            DfdBytes = dfd.Build(),
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.Equal("sRGB", reader.Info.ColorSpace);
+    }
+
+    [Fact]
+    public void ColorSpace_Falls_Back_To_SRgb_From_VkFormat_When_Dfd_Absent()
+    {
+        // VK_FORMAT_R8G8B8A8_SRGB without an accompanying DFD; the reader
+        // must still report sRGB because the VkFormat token itself encodes it.
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 43,
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.Null(reader.Ktx2.Dfd);
+        Assert.Equal("sRGB", reader.Info.ColorSpace);
+    }
+
+    [Fact]
+    public void ColorSpace_Is_BT2020_PQ_For_HDR_Dfd()
+    {
+        var dfd = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt2020,
+            TransferFunction = KhrTransferFunction.PqEotf,
+        };
+        dfd.AddSample(0, 10, 0);
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 91, // VK_FORMAT_R16G16B16A16_UNORM (linear binary, DFD overrides)
+            PixelWidth = 1,
+            PixelHeight = 1,
+            DfdBytes = dfd.Build(),
+        };
+        b.MipPayloads.Add(new byte[8]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.Equal("BT.2020 PQ", reader.Info.ColorSpace);
+    }
 }

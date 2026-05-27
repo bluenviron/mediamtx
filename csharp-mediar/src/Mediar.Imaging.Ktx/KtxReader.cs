@@ -284,7 +284,8 @@ public sealed class KtxReader : IImageReader
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32
                                 or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16,
             FrameCount = canDecode ? levelInfos.Count : 0,
-            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}"
+            ColorSpace = KtxFormat.IsSrgbGlInternalFormat(glInternalFormat) ? "sRGB"
+                       : bcn != BcnFormat.None ? $"BCn:{bcn}"
                        : etc != EtcFormat.None ? $"ETC:{etc}"
                        : "GL",
         };

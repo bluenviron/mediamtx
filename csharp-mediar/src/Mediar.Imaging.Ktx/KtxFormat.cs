@@ -256,4 +256,47 @@ public static class KtxFormat
         EtcFormat.Etc1Rgb or EtcFormat.Etc2Rgb or EtcFormat.Etc2RgbA1
         or EtcFormat.Etc2Rgba8 or EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm
         or EtcFormat.EacRg11Unorm or EtcFormat.EacRg11Snorm;
+
+    /// <summary>
+    /// True when an OpenGL <c>glInternalFormat</c> value is one of the
+    /// well-known sRGB-encoded tokens (covers the uncompressed sRGB targets
+    /// plus the sRGB variants of every BCn / ETC2 compressed enum).
+    /// </summary>
+    public static bool IsSrgbGlInternalFormat(uint glInternalFormat) => glInternalFormat switch
+    {
+        // GL_SRGB8 / GL_SRGB8_ALPHA8
+        0x8C41 or 0x8C43 => true,
+        // GL_COMPRESSED_SRGB_S3TC_DXT1_EXT / GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT
+        0x8C4C or 0x8C4D => true,
+        // GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT
+        0x8C4E => true,
+        // GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT
+        0x8C4F => true,
+        // GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
+        0x8E8D => true,
+        // GL_COMPRESSED_SRGB8_ETC2 / SRGB8_PUNCHTHROUGH_ALPHA1_ETC2 /
+        // SRGB8_ALPHA8_ETC2_EAC
+        0x9275 or 0x9277 or 0x9279 => true,
+        _ => false,
+    };
+
+    /// <summary>
+    /// True when a Vulkan <c>VkFormat</c> enum value is one of the well-known
+    /// <c>_SRGB</c>-suffixed variants (uncompressed sRGB targets plus the
+    /// sRGB variants of every BCn / ETC2 compressed VkFormat).
+    /// </summary>
+    public static bool IsSrgbVkFormat(uint vkFormat) => vkFormat switch
+    {
+        // Uncompressed sRGB UNORM siblings
+        // VK_FORMAT_R8_SRGB / R8G8_SRGB / R8G8B8_SRGB / B8G8R8_SRGB /
+        // R8G8B8A8_SRGB / B8G8R8A8_SRGB / A8B8G8R8_SRGB_PACK32
+        15 or 22 or 29 or 36 or 43 or 50 or 57 => true,
+        // VK_FORMAT_BC1_RGB_SRGB_BLOCK / BC1_RGBA_SRGB / BC2_SRGB / BC3_SRGB
+        132 or 134 or 136 or 138 => true,
+        // VK_FORMAT_BC7_SRGB_BLOCK
+        146 => true,
+        // VK_FORMAT_ETC2_R8G8B8_SRGB / R8G8B8A1_SRGB / R8G8B8A8_SRGB
+        148 or 150 or 152 => true,
+        _ => false,
+    };
 }

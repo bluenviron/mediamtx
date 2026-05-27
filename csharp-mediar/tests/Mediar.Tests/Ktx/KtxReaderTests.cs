@@ -397,4 +397,52 @@ public sealed class KtxReaderTests
             Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
         }
     }
+
+    [Fact]
+    public void ColorSpace_Is_sRGB_For_GL_SRGB8_ALPHA8_Token()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8C43, // GL_SRGB8_ALPHA8
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        b.MipPayloads.Add(new byte[] { 0xFF, 0x80, 0x40, 0xFF });
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal("sRGB", reader.Info.ColorSpace);
+    }
+
+    [Fact]
+    public void ColorSpace_Is_BCn_For_Linear_BCn_Token()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x83F1, // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT (linear BC1)
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[8]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal("BCn:Bc1", reader.Info.ColorSpace);
+    }
+
+    [Fact]
+    public void ColorSpace_Is_sRGB_For_Compressed_SRgb_BPTC_Token()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8E8D, // GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM (BC7 sRGB)
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[16]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal("sRGB", reader.Info.ColorSpace);
+    }
 }
