@@ -5,19 +5,21 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Mediar.Codecs.Lzw;
 using Mediar.Codecs.PackBits;
+using Mediar.Imaging.Jpeg;
 
 namespace Mediar.Imaging.Tiff;
 
 /// <summary>
 /// Reader for TIFF 6.0 (and the common subset of BigTIFF) files. Supports
-/// uncompressed, PackBits, Deflate (Adobe), and LZW strips. Images are
-/// emitted as 8 bpc <see cref="PixelFormat.Rgb24"/> /
-/// <see cref="PixelFormat.Rgba32"/> / <see cref="PixelFormat.Gray8"/>
-/// frames; CMYK is left as <see cref="PixelFormat.Cmyk32"/>.
+/// uncompressed, PackBits, Deflate (Adobe), LZW, and baseline JPEG
+/// (compression 7) strips and tiles. Images are emitted as 8 bpc
+/// <see cref="PixelFormat.Rgb24"/> / <see cref="PixelFormat.Rgba32"/> /
+/// <see cref="PixelFormat.Gray8"/> frames; CMYK is left as
+/// <see cref="PixelFormat.Cmyk32"/>.
 /// </summary>
 /// <remarks>
-/// This reader is optimized for inspection + simple round-tripping; full
-/// JPEG-in-TIFF, CCITT G3/G4, and tile-based TIFFs throw
+/// This reader is optimised for inspection + simple round-tripping; CCITT
+/// G3 / G4 and the deprecated "old-style" JPEG (compression 6) throw
 /// <see cref="NotSupportedException"/>.
 /// </remarks>
 public sealed class TiffReader : IImageReader
@@ -82,7 +84,7 @@ public sealed class TiffReader : IImageReader
         int compression = (int)GetScalar(entries, 0x0103, bytes, le, def: 1);
         int photometric = (int)GetScalar(entries, 0x0106, bytes, le, def: 0);
 
-        bool supported = compression is 1 or 5 or 8 or 32773 && bitsPerSample is 1 or 8 or 16;
+        bool supported = compression is 1 or 5 or 7 or 8 or 32773 or 32946 && bitsPerSample is 1 or 8 or 16;
         var pf = samplesPerPixel switch
         {
             1 when bitsPerSample == 8 => PixelFormat.Gray8,
@@ -126,30 +128,54 @@ public sealed class TiffReader : IImageReader
         int spp = Info.ChannelCount;
         int bps = (int)GetScalar(_ifd, 0x0102, _bytes, _littleEndian, def: 8);
         int compression = (int)GetScalar(_ifd, 0x0103, _bytes, _littleEndian, def: 1);
-        int rowsPerStrip = (int)GetScalar(_ifd, 0x0116, _bytes, _littleEndian, def: (uint)height);
-        uint[] stripOffsets = GetLongArray(_ifd, 0x0111, _bytes, _littleEndian);
-        uint[] stripByteCounts = GetLongArray(_ifd, 0x0117, _bytes, _littleEndian);
         int photometric = (int)GetScalar(_ifd, 0x0106, _bytes, _littleEndian, def: 0);
 
         var pf = Info.PixelFormat;
-        int stride = width * (bps == 16 ? 2 : 1) * spp;
-        if (pf == PixelFormat.Indexed1) stride = (width + 7) / 8;
-        var (frame, buf) = ImageFrame.Rent(width, height, pf, stride);
+        int dstStride = width * (bps == 16 ? 2 : 1) * spp;
+        if (pf == PixelFormat.Indexed1) dstStride = (width + 7) / 8;
+
+        // Detect tiled layout (TileWidth / TileLength / TileOffsets / TileByteCounts).
+        bool tiled = HasTag(_ifd, 0x0142) && HasTag(_ifd, 0x0143);
+        if (tiled)
+        {
+            yield return await DecodeTiled(width, height, spp, bps, compression, photometric, pf, dstStride);
+        }
+        else
+        {
+            yield return DecodeStripped(width, height, spp, bps, compression, photometric, pf, dstStride);
+        }
+    }
+
+    private ImageFrame DecodeStripped(int width, int height, int spp, int bps,
+                                       int compression, int photometric, PixelFormat pf, int dstStride)
+    {
+        int rowsPerStrip = (int)GetScalar(_ifd, 0x0116, _bytes, _littleEndian, def: (uint)height);
+        uint[] stripOffsets = GetLongArray(_ifd, 0x0111, _bytes, _littleEndian);
+        uint[] stripByteCounts = GetLongArray(_ifd, 0x0117, _bytes, _littleEndian);
+
+        var (frame, buf) = ImageFrame.Rent(width, height, pf, dstStride);
         int dstRow = 0;
         for (int s = 0; s < stripOffsets.Length; s++)
         {
             byte[] strip = ReadStrip(_bytes, (int)stripOffsets[s], (int)stripByteCounts[s], compression);
+            if (compression == 7)
+            {
+                // JPEG strip — decode the whole strip into RGB / Gray pixels at once.
+                CopyJpegStrip(strip, buf, dstRow, width, dstStride, pf);
+                int decodedRows = Math.Min(rowsPerStrip, height - dstRow);
+                dstRow += decodedRows;
+                continue;
+            }
             int expectedRows = Math.Min(rowsPerStrip, height - dstRow);
             int srcStride = width * spp * (bps == 16 ? 2 : 1);
             if (pf == PixelFormat.Indexed1) srcStride = (width + 7) / 8;
             for (int r = 0; r < expectedRows; r++)
             {
                 int srcOff = r * srcStride;
-                int dstOff = (dstRow + r) * stride;
+                int dstOff = (dstRow + r) * dstStride;
                 if (srcOff + srcStride > strip.Length) break;
                 if (photometric == 0 && pf == PixelFormat.Gray8)
                 {
-                    // PhotometricInterpretation 0 = WhiteIsZero, invert.
                     for (int i = 0; i < srcStride; i++)
                     {
                         buf[dstOff + i] = (byte)(255 - strip[srcOff + i]);
@@ -162,7 +188,138 @@ public sealed class TiffReader : IImageReader
             }
             dstRow += expectedRows;
         }
-        yield return frame;
+        return frame;
+    }
+
+    private async Task<ImageFrame> DecodeTiled(int width, int height, int spp, int bps,
+                                                int compression, int photometric, PixelFormat pf, int dstStride)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+        int tileW = (int)GetScalar(_ifd, 0x0142, _bytes, _littleEndian);
+        int tileH = (int)GetScalar(_ifd, 0x0143, _bytes, _littleEndian);
+        uint[] tileOffsets = GetLongArray(_ifd, 0x0144, _bytes, _littleEndian);
+        uint[] tileByteCounts = GetLongArray(_ifd, 0x0145, _bytes, _littleEndian);
+        if (tileW <= 0 || tileH <= 0)
+            throw new ImageFormatException("Invalid TIFF tile dimensions.");
+
+        int tilesAcross = (width + tileW - 1) / tileW;
+        int tilesDown = (height + tileH - 1) / tileH;
+        if (tileOffsets.Length < tilesAcross * tilesDown)
+            throw new ImageFormatException("Tile offset table shorter than tile grid.");
+
+        var (frame, buf) = ImageFrame.Rent(width, height, pf, dstStride);
+        int bytesPerPixel = (bps == 16 ? 2 : 1) * spp;
+        int tileSrcStride = tileW * bytesPerPixel;
+
+        for (int ty = 0; ty < tilesDown; ty++)
+        {
+            for (int tx = 0; tx < tilesAcross; tx++)
+            {
+                int t = ty * tilesAcross + tx;
+                byte[] tileBytes = ReadStrip(
+                    _bytes, (int)tileOffsets[t], (int)tileByteCounts[t], compression);
+
+                int copyW = Math.Min(tileW, width - tx * tileW);
+                int copyH = Math.Min(tileH, height - ty * tileH);
+
+                if (compression == 7)
+                {
+                    // The tile is a complete JPEG; decode and BLT into the framebuffer.
+                    CopyJpegTile(tileBytes, buf, tx * tileW, ty * tileH, copyW, copyH, width, dstStride, pf);
+                    continue;
+                }
+                int copyBytes = copyW * bytesPerPixel;
+                for (int r = 0; r < copyH; r++)
+                {
+                    int srcOff = r * tileSrcStride;
+                    int dstOff = (ty * tileH + r) * dstStride + tx * tileW * bytesPerPixel;
+                    if (srcOff + copyBytes > tileBytes.Length) break;
+                    if (photometric == 0 && pf == PixelFormat.Gray8)
+                    {
+                        for (int i = 0; i < copyBytes; i++)
+                            buf[dstOff + i] = (byte)(255 - tileBytes[srcOff + i]);
+                    }
+                    else
+                    {
+                        Buffer.BlockCopy(tileBytes, srcOff, buf, dstOff, copyBytes);
+                    }
+                }
+            }
+        }
+        return frame;
+    }
+
+    private static void CopyJpegStrip(byte[] jpegBytes, byte[] dst, int dstRow,
+                                       int imgWidth, int dstStride, PixelFormat pf)
+    {
+        using var ms = new MemoryStream(jpegBytes);
+        using var reader = JpegReader.Open(ms, ownsStream: false);
+        // Synchronously pull the (sole) frame; JpegReader is sync-friendly.
+        var enumerator = reader.ReadFramesAsync().GetAsyncEnumerator();
+        try
+        {
+            if (!enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult()) return;
+            var frame = enumerator.Current;
+            int rowsAvailable = Math.Min(frame.Height, (dst.Length / dstStride) - dstRow);
+            int copyBytes = Math.Min(frame.Stride, imgWidth * BytesPerPixel(pf));
+            for (int r = 0; r < rowsAvailable; r++)
+            {
+                int srcOff = r * frame.Stride;
+                int dstOff = (dstRow + r) * dstStride;
+                frame.Pixels.Span.Slice(srcOff, copyBytes).CopyTo(dst.AsSpan(dstOff));
+            }
+            frame.Dispose();
+        }
+        finally
+        {
+            enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    private static void CopyJpegTile(byte[] jpegBytes, byte[] dst, int dstX, int dstY,
+                                      int copyW, int copyH, int imgWidth, int dstStride, PixelFormat pf)
+    {
+        using var ms = new MemoryStream(jpegBytes);
+        using var reader = JpegReader.Open(ms, ownsStream: false);
+        var enumerator = reader.ReadFramesAsync().GetAsyncEnumerator();
+        try
+        {
+            if (!enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult()) return;
+            var frame = enumerator.Current;
+            int bpp = BytesPerPixel(pf);
+            int actualW = Math.Min(copyW, frame.Width);
+            int actualH = Math.Min(copyH, frame.Height);
+            var srcSpan = frame.Pixels.Span;
+            for (int r = 0; r < actualH; r++)
+            {
+                int srcOff = r * frame.Stride;
+                int dstOff = (dstY + r) * dstStride + dstX * bpp;
+                if (dstOff + actualW * bpp > dst.Length) break;
+                srcSpan.Slice(srcOff, actualW * bpp).CopyTo(dst.AsSpan(dstOff));
+            }
+            frame.Dispose();
+        }
+        finally
+        {
+            enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    private static int BytesPerPixel(PixelFormat pf) => pf switch
+    {
+        PixelFormat.Gray8 => 1,
+        PixelFormat.Gray16 => 2,
+        PixelFormat.Rgb24 => 3,
+        PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32 or PixelFormat.Cmyk32 => 4,
+        PixelFormat.Indexed1 => 1,
+        _ => 1,
+    };
+
+    private static bool HasTag(IfdEntry[] ifd, int tag)
+    {
+        for (int i = 0; i < ifd.Length; i++)
+            if (ifd[i].Tag == tag) return true;
+        return false;
     }
 
     private static byte[] ReadStrip(byte[] src, int offset, int length, int compression)
@@ -175,6 +332,7 @@ public sealed class TiffReader : IImageReader
         return compression switch
         {
             1 => stripBytes.ToArray(),
+            7 => stripBytes.ToArray(),  // raw JPEG payload, decoded by CopyJpegStrip / CopyJpegTile.
             8 or 32946 => DeflateDecode(stripBytes),
             32773 => PackBitsCodec.Decode(stripBytes),
             5 => LzwDecoder.DecodeTiff(stripBytes),

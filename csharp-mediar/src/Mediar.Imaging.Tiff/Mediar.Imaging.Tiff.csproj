@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Tiff</RootNamespace>
     <AssemblyName>Mediar.Imaging.Tiff</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>TIFF / BigTIFF reader (uncompressed, PackBits, Deflate, LZW) for the Mediar toolkit. LZW and PackBits decompression are delegated to Mediar.Codecs.Lzw and Mediar.Codecs.PackBits so the same codecs serve PSD, GIF, and any future PostScript / PDF reader.</Description>
+    <Description>TIFF / BigTIFF reader (uncompressed, PackBits, Deflate, LZW, JPEG, strip + tile) for the Mediar toolkit. LZW and PackBits decompression are delegated to Mediar.Codecs.Lzw and Mediar.Codecs.PackBits so the same codecs serve PSD, GIF, and any future PostScript / PDF reader; JPEG-in-TIFF (compression 7) is delegated to Mediar.Imaging.Jpeg.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
     <ProjectReference Include="..\Mediar.Codecs.Lzw\Mediar.Codecs.Lzw.csproj" />
     <ProjectReference Include="..\Mediar.Codecs.PackBits\Mediar.Codecs.PackBits.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
   </ItemGroup>
 
 </Project>
