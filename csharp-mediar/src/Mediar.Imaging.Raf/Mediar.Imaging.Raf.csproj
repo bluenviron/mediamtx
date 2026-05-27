@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Raf</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Raf</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Fujifilm RAW (RAF) reader for the Mediar toolkit. RAF is a proprietary big-endian container that begins with the 15-byte ASCII signature "FUJIFILMCCD-RAW" followed by an offset directory pointing at (1) an embedded EXIF/JFIF JPEG preview and (2) a TIFF-wrapped CFA payload containing the raw sensor data. Mediar.Imaging.Raf parses the full container header, exposes typed RafMetadata (camera model, format version, directory version, offsets/lengths), and composes Mediar.Imaging.Jpeg to decode the embedded preview frame. The CFA block is recognised but not yet decoded: Fujifilm uses proprietary lossless and lossy compression on modern X-series bodies that requires a dedicated decoder.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>

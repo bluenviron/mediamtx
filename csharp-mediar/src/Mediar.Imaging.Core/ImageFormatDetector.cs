@@ -277,6 +277,17 @@ public static class ImageFormatDetector
             return ImageFormat.Wmf;
         }
 
+        // RAF (Fujifilm RAW): 15-byte ASCII signature "FUJIFILMCCD-RAW".
+        if (header.Length >= 15 &&
+            header[0] == (byte)'F' && header[1] == (byte)'U' && header[2] == (byte)'J' &&
+            header[3] == (byte)'I' && header[4] == (byte)'F' && header[5] == (byte)'I' &&
+            header[6] == (byte)'L' && header[7] == (byte)'M' && header[8] == (byte)'C' &&
+            header[9] == (byte)'C' && header[10] == (byte)'D' && header[11] == (byte)'-' &&
+            header[12] == (byte)'R' && header[13] == (byte)'A' && header[14] == (byte)'W')
+        {
+            return ImageFormat.Raf;
+        }
+
         // DjVu: "AT&TFORM"
         if (StartsWithAscii(header, "AT&TFORM"))
         {
