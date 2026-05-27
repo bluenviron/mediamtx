@@ -107,4 +107,13 @@ public sealed record Ktx2Metadata
 
     /// <summary>Key-value metadata pool from the kvd section.</summary>
     public required FrozenDictionary<string, string> KeyValues { get; init; }
+
+    /// <summary>
+    /// Parsed Data Format Descriptor (KDF 1.4 § 19), or <c>null</c> when the
+    /// container's <c>dfdByteLength</c> is zero or the DFD section is
+    /// malformed. Exposes the colour model / primaries / transfer function /
+    /// alpha-premultiplied flag and per-channel sample descriptors that
+    /// the bare <c>VkFormat</c> alone does not convey.
+    /// </summary>
+    public KtxDfd? Dfd { get; init; }
 }

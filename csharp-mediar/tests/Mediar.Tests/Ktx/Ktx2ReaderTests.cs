@@ -454,4 +454,123 @@ public sealed class Ktx2ReaderTests
         Assert.NotNull(frame);
         Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
     }
+
+    [Fact]
+    public void Dfd_Is_Null_When_Container_Omits_The_Section()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 37, // VK_FORMAT_R8G8B8A8_UNORM
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Null(reader.Ktx2.Dfd);
+    }
+
+    [Fact]
+    public void Dfd_Parsed_From_Container_Exposes_Colour_Model_And_Transfer_Function()
+    {
+        var dfd = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt709,
+            TransferFunction = KhrTransferFunction.SRgb,
+            Flags = KhrDfdFlags.None,
+            BytesPlanes = new byte[] { 4, 0, 0, 0, 0, 0, 0, 0 },
+        };
+        dfd.AddSample(0, 8, 0, sampleUpper: 255);
+        dfd.AddSample(8, 8, 1, sampleUpper: 255);
+        dfd.AddSample(16, 8, 2, sampleUpper: 255);
+        // Alpha sample is forced linear (high bit 0x10).
+        dfd.AddSample(24, 8, 15 | 0x10, sampleUpper: 255);
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 43, // VK_FORMAT_R8G8B8A8_SRGB
+            PixelWidth = 1,
+            PixelHeight = 1,
+            DfdBytes = dfd.Build(),
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.NotNull(reader.Ktx2.Dfd);
+        var basic = reader.Ktx2.Dfd!.Basic;
+        Assert.NotNull(basic);
+        Assert.Equal(KhrColorModel.Rgbsda, basic!.ColorModel);
+        Assert.Equal(KhrColorPrimaries.Bt709, basic.ColorPrimaries);
+        Assert.Equal(KhrTransferFunction.SRgb, basic.TransferFunction);
+        Assert.Equal(4, basic.Samples.Count);
+        Assert.Equal(4, basic.BytesPlanes[0]);
+
+        // Surface DFD info to ImageMetadata.Tags so consumers using only
+        // the IImageReader interface can see colour-management info.
+        Assert.Equal("Rgbsda", reader.Metadata.Tags["KTX2:DFD:ColorModel"]);
+        Assert.Equal("SRgb", reader.Metadata.Tags["KTX2:DFD:TransferFunction"]);
+        Assert.Equal("Bt709", reader.Metadata.Tags["KTX2:DFD:ColorPrimaries"]);
+        Assert.Equal("None", reader.Metadata.Tags["KTX2:DFD:Flags"]);
+        Assert.Equal("4", reader.Metadata.Tags["KTX2:DFD:SampleCount"]);
+        Assert.Equal("4", reader.Metadata.Tags["KTX2:DFD:BytesPerTexelBlock"]);
+    }
+
+    [Fact]
+    public void Dfd_With_AlphaPremultiplied_Flag_Surfaces_In_Metadata()
+    {
+        var dfd = new TestKtxDfdBuilder
+        {
+            ColorModel = KhrColorModel.Rgbsda,
+            ColorPrimaries = KhrColorPrimaries.Bt709,
+            TransferFunction = KhrTransferFunction.Linear,
+            Flags = KhrDfdFlags.AlphaPremultiplied,
+            BytesPlanes = new byte[] { 4, 0, 0, 0, 0, 0, 0, 0 },
+        };
+        dfd.AddSample(0, 8, 0); dfd.AddSample(8, 8, 1);
+        dfd.AddSample(16, 8, 2); dfd.AddSample(24, 8, 15);
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 37, // VK_FORMAT_R8G8B8A8_UNORM
+            PixelWidth = 1,
+            PixelHeight = 1,
+            DfdBytes = dfd.Build(),
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.Equal(KhrDfdFlags.AlphaPremultiplied, reader.Ktx2.Dfd!.Basic!.Flags);
+        Assert.Equal("AlphaPremultiplied", reader.Metadata.Tags["KTX2:DFD:Flags"]);
+    }
+
+    [Fact]
+    public void Malformed_Dfd_Does_Not_Prevent_Open()
+    {
+        // Section length > actual section bytes -> DfdParser returns null,
+        // but the surrounding container parse must still succeed.
+        var bogus = new byte[8];
+        // dfdTotalSize claims 99 (way more than 8 actual bytes).
+        bogus[0] = 99;
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 37,
+            PixelWidth = 1,
+            PixelHeight = 1,
+            DfdBytes = bogus,
+        };
+        b.MipPayloads.Add(new byte[4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+
+        Assert.Null(reader.Ktx2.Dfd);
+        Assert.True(reader.CanDecodePixels);
+    }
 }

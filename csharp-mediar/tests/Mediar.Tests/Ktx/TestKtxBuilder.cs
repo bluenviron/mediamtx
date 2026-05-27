@@ -104,6 +104,7 @@ internal sealed class TestKtx2Builder
     public List<byte[]> MipPayloads { get; } = new();
     public List<ulong>? UncompressedSizes { get; set; }
     public uint? LevelCountOverride { get; set; }
+    public byte[]? DfdBytes { get; set; }
 
     public byte[] Build()
     {
@@ -132,6 +133,19 @@ internal sealed class TestKtx2Builder
             WriteU64(ms, 0); WriteU64(ms, 0); WriteU64(ms, 0);
         }
 
+        // DFD section (optional). Written between the level index and the
+        // key-value pool per KDF 1.4; in practice the spec allows any order
+        // but real-world encoders place it here.
+        long dfdOffset = ms.Position;
+        long dfdLength = 0;
+        if (DfdBytes is { Length: > 0 })
+        {
+            ms.Write(DfdBytes, 0, DfdBytes.Length);
+            dfdLength = DfdBytes.Length;
+        }
+        int dfdPad = (-(int)ms.Position) & 3;
+        for (int p = 0; p < dfdPad; p++) ms.WriteByte(0);
+
         // Key-value pool.
         var kvPool = BuildKeyValuePool(KeyValues);
         long kvOffset = ms.Position;
@@ -154,8 +168,9 @@ internal sealed class TestKtx2Builder
         byte[] bytes = ms.ToArray();
 
         // Patch index fields.
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 0, 4), 0); // dfdByteOffset (unused)
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 4, 4), 0); // dfdByteLength
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 0, 4),
+            dfdLength > 0 ? (uint)dfdOffset : 0);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 4, 4), (uint)dfdLength);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 8, 4), (uint)kvOffset);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)indexFieldsStart + 12, 4), (uint)(kvEnd - kvOffset));
 

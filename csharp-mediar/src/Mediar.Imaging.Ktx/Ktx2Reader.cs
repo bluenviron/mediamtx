@@ -122,7 +122,7 @@ public sealed class Ktx2Reader : IImageReader
         uint kvdByteOffset = ReadU32(bytes, 56);
         uint kvdByteLength = ReadU32(bytes, 60);
         // sgdByteOffset + sgdByteLength at 64..79 are u64 (ignored for now).
-        _ = dfdByteOffset; _ = dfdByteLength;
+        KtxDfd? parsedDfd = DfdParser.Parse(bytes, (int)dfdByteOffset, (int)dfdByteLength);
 
         if (pixelWidth == 0) throw new ImageFormatException("KTX2 pixelWidth is 0 (invalid).");
         uint h = pixelHeight == 0 ? 1u : pixelHeight;
@@ -265,6 +265,7 @@ public sealed class Ktx2Reader : IImageReader
             Bcn = bcn,
             Etc = etc,
             KeyValues = keyValues,
+            Dfd = parsedDfd,
         };
 
         PixelFormat infoPf = canDecode
@@ -430,6 +431,21 @@ public sealed class Ktx2Reader : IImageReader
         foreach (var kv in k.KeyValues)
         {
             tags[$"KTX2:KV:{kv.Key}"] = kv.Value;
+        }
+
+        if (k.Dfd?.Basic is { } basic)
+        {
+            tags["KTX2:DFD:ColorModel"] = basic.ColorModel.ToString();
+            tags["KTX2:DFD:ColorPrimaries"] = basic.ColorPrimaries.ToString();
+            tags["KTX2:DFD:TransferFunction"] = basic.TransferFunction.ToString();
+            tags["KTX2:DFD:Flags"] = basic.Flags.ToString();
+            tags["KTX2:DFD:SampleCount"] = basic.Samples.Count.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+            if (basic.BytesPlanes.Count > 0)
+            {
+                tags["KTX2:DFD:BytesPerTexelBlock"] = basic.BytesPlanes[0].ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            }
         }
 
         return new ImageMetadata { Tags = tags.ToFrozenDictionary(StringComparer.Ordinal) };
