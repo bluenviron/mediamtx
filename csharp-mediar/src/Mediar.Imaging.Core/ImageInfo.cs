@@ -69,7 +69,7 @@ public enum ImageFormat
     Tiff, Pnm, Pbm, Pgm, Ppm,
     Tga,
     Pcx, Dcx,
-    Dds,
+    Dds, Ktx, Ktx2,
     Hdr,
     WebP, WebA,
     Psd, Psb,
@@ -125,6 +125,7 @@ public static class ImageFormatExtensions
             [".tga"] = ImageFormat.Tga,
             [".pcx"] = ImageFormat.Pcx, [".dcx"] = ImageFormat.Dcx,
             [".dds"] = ImageFormat.Dds, [".hdr"] = ImageFormat.Hdr,
+            [".ktx"] = ImageFormat.Ktx, [".ktx2"] = ImageFormat.Ktx2,
             [".webp"] = ImageFormat.WebP, [".weba"] = ImageFormat.WebA,
             [".psd"] = ImageFormat.Psd, [".psb"] = ImageFormat.Psb,
             // modern

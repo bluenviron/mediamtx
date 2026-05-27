@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Ktx</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Ktx</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Khronos Texture (.ktx / .ktx2) container reader for the Mediar toolkit. KTX 1.x is the legacy GPU texture container (12-byte identifier "«KTX 11»\r\n\x1A\n" + 13 u32 header fields, OpenGL format tokens, mip levels stored largest-first). KTX 2.x is the modern format used by glTF, OpenXR, and Khronos Basis Universal pipelines (12-byte identifier "«KTX 20»\r\n\x1A\n" + Vulkan VkFormat enum + level index with smallest-first on-disk ordering + optional Zstd / ZLIB / BasisLZ supercompression). Mediar.Imaging.Ktx composes Mediar.Codecs.Bcn to decode BC1-BC7 blocks for both container generations, surfaces every mip level / array layer / cube face as a typed KtxLevelInfo, and reads the metadata key/value pool. Decode of Basis Universal supercompression and non-BCn formats (ETC/ASTC/PVRTC) is out of scope.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Bcn\Mediar.Codecs.Bcn.csproj" />
+  </ItemGroup>
+
+</Project>

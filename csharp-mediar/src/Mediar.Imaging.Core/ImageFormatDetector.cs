@@ -155,6 +155,19 @@ public static class ImageFormatDetector
                 return ImageFormat.Dds;
             }
 
+            // KTX / KTX2: 12-byte Khronos texture identifier
+            //   KTX 1.x  -> "«KTX 11»\r\n\x1A\n"  (bytes 4..6 = "KTX")
+            //   KTX 2.x  -> "«KTX 20»\r\n\x1A\n"  (bytes 4..6 = "KTX")
+            if (header.Length >= 12 &&
+                header[0] == 0xAB && header[1] == 0x4B && header[2] == 0x54 && header[3] == 0x58 &&
+                header[4] == 0x20 &&
+                header[7] == 0xBB && header[8] == 0x0D && header[9] == 0x0A &&
+                header[10] == 0x1A && header[11] == 0x0A)
+            {
+                if (header[5] == 0x31 && header[6] == 0x31) return ImageFormat.Ktx;
+                if (header[5] == 0x32 && header[6] == 0x30) return ImageFormat.Ktx2;
+            }
+
             // PSD: "8BPS" (V1 = PSD, V2 = PSB)
             if (header[0] == (byte)'8' && header[1] == (byte)'B' &&
                 header[2] == (byte)'P' && header[3] == (byte)'S')
