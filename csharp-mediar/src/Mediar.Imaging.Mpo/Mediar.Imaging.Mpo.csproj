@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Mpo</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Mpo</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Multi-Picture Object (MPO) reader for the Mediar toolkit. MPO files are produced by stereoscopic-3D digital cameras (Fujifilm FinePix Real 3D W3, Nintendo 3DS) and by recent smartphone "Live Photo" / depth-capture pipelines. The file consists of two or more concatenated JPEG sub-images preceded by an APP2 MPF (Multi-Picture Format) segment whose MP Index IFD describes each sub-image with a 16-byte MPEntry record (image attribute, size, data offset relative to the MP Endian header, and dependent-image references). Mediar.Imaging.Mpo parses the full MPF index, exposes each sub-image as a typed MpoSubImageInfo (kind: BaselineMpPrimary / LargeThumbnail / MultiAngle / MultiFrameDisparity / MultiFramePanorama / etc.), and composes Mediar.Imaging.Jpeg to decode each sub-image's pixels. CIPA DC-007 (2009) reference layout.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+  </ItemGroup>
+
+</Project>
