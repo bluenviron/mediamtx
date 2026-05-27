@@ -98,23 +98,51 @@ public sealed class DdsReader : IImageReader
             pixelsOffset = 128 + 20;
         }
 
-        bool compressed = (pfFlags & 0x4) != 0 && !((pfFlags & 0x40) != 0);
+        bool fourCcFlag = (pfFlags & 0x4) != 0;
+        bool rgbFlag = (pfFlags & 0x40) != 0;
+        bool compressed = fourCcFlag && !rgbFlag;
         var bcn = compressed ? BcnDecoder.Identify(fourCC, dxgiFormat) : BcnFormat.None;
-        var pf = compressed ? BcnToPixelFormat(bcn) : ClassifyUncompressed(rgbBitCount, rMask, gMask, bMask, aMask);
+
+        // DX10 uncompressed surfaces also set the FOURCC flag but carry a
+        // non-BCn DXGI code in the extended header. Re-classify those as
+        // uncompressed so the byte-copy path runs and the pixel format is
+        // populated from the DXGI table rather than the BCn table.
+        PixelFormat dxgiUncompressed = PixelFormat.Unknown;
+        bool dxgiAlpha = false;
+        string? dxgiColorSpace = null;
+        if (dx10 && bcn == BcnFormat.None)
+        {
+            dxgiUncompressed = DxgiToPixelFormat(dxgiFormat, out dxgiAlpha, out dxgiColorSpace);
+            if (dxgiUncompressed != PixelFormat.Unknown)
+            {
+                compressed = false;
+            }
+        }
+
+        var pf = compressed
+            ? BcnToPixelFormat(bcn)
+            : (dxgiUncompressed != PixelFormat.Unknown
+                ? dxgiUncompressed
+                : ClassifyUncompressed(rgbBitCount, rMask, gMask, bMask, aMask));
         bool hasAlpha = compressed
             ? bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc7
-            : aMask != 0;
+            : (dxgiUncompressed != PixelFormat.Unknown ? dxgiAlpha : aMask != 0);
+        int bppFinal = compressed
+            ? BcnBitsPerPixel(bcn)
+            : (dxgiUncompressed != PixelFormat.Unknown ? pf.BitsPerPixel() : (int)rgbBitCount);
         var info = new ImageInfo
         {
             Width = width,
             Height = height,
-            BitsPerPixel = compressed ? BcnBitsPerPixel(bcn) : (int)rgbBitCount,
+            BitsPerPixel = bppFinal,
             ChannelCount = pf.ChannelCount(),
             PixelFormat = pf,
             Format = ImageFormat.Dds,
             HasAlpha = hasAlpha,
             FrameCount = 1,
-            ColorSpace = compressed ? (bcn != BcnFormat.None ? bcn.ToString() : fourCC) : null,
+            ColorSpace = compressed
+                ? (bcn != BcnFormat.None ? bcn.ToString() : fourCC)
+                : dxgiColorSpace,
         };
 
         return new DdsReader(stream, ownsStream, bytes, pixelsOffset,
@@ -253,6 +281,61 @@ public sealed class DdsReader : IImageReader
             (16, 0xF800u, 0x07E0u, 0x001Fu, 0) => PixelFormat.Rgb565,
             _ => PixelFormat.Unknown,
         };
+    }
+
+    /// <summary>
+    /// Maps a DXGI_FORMAT value (from the DDS DX10 extended header) onto a
+    /// Mediar <see cref="PixelFormat"/> for uncompressed surfaces. Returns
+    /// <see cref="PixelFormat.Unknown"/> for compressed / unsupported codes,
+    /// in which case the caller should fall back to the BCn dispatcher.
+    /// </summary>
+    /// <remarks>
+    /// Values are sourced from <c>dxgiformat.h</c> in the Windows 10 SDK.
+    /// The <c>hasAlpha</c> output captures whether the format has an alpha
+    /// channel; the <c>colorSpace</c> output captures sRGB and float labels
+    /// so the SRGB-suffixed DXGI variants surface meaningfully in
+    /// <see cref="ImageInfo.ColorSpace"/>.
+    /// </remarks>
+    internal static PixelFormat DxgiToPixelFormat(uint dxgiFormat, out bool hasAlpha, out string? colorSpace)
+    {
+        hasAlpha = false;
+        colorSpace = null;
+        switch (dxgiFormat)
+        {
+            // 32-bit per channel float (HDR)
+            case 2:  hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba128Float;  // R32G32B32A32_FLOAT
+            case 6:  colorSpace = "Linear"; return PixelFormat.Rgb96Float;                     // R32G32B32_FLOAT
+            // 16-bit per channel (RGBA64 is byte-identical to FP16 RGBA)
+            case 10: hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba64;        // R16G16B16A16_FLOAT
+            case 11: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_UNORM
+            case 13: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_SNORM
+            // 16-bit two-channel
+            case 34: colorSpace = "Linear"; return PixelFormat.Rg32;                           // R16G16_FLOAT
+            case 35: return PixelFormat.Rg32;                                                  // R16G16_UNORM
+            case 37: return PixelFormat.Rg32;                                                  // R16G16_SNORM
+            // 8-bit RGBA
+            case 28: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_UNORM
+            case 29: hasAlpha = true; colorSpace = "sRGB"; return PixelFormat.Rgba32;          // R8G8B8A8_UNORM_SRGB
+            case 31: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_SNORM
+            case 87: hasAlpha = true; return PixelFormat.Bgra32;                               // B8G8R8A8_UNORM
+            case 88: return PixelFormat.Bgra32;                                                // B8G8R8X8_UNORM (X = ignore)
+            case 91: hasAlpha = true; colorSpace = "sRGB"; return PixelFormat.Bgra32;          // B8G8R8A8_UNORM_SRGB
+            case 93: colorSpace = "sRGB"; return PixelFormat.Bgra32;                           // B8G8R8X8_UNORM_SRGB
+            // 8-bit two-channel (byte-identical to GrayAlpha16)
+            case 49: return PixelFormat.GrayAlpha16;                                           // R8G8_UNORM
+            case 51: return PixelFormat.GrayAlpha16;                                           // R8G8_SNORM
+            // 16-bit single-channel
+            case 56: return PixelFormat.Gray16;                                                // R16_UNORM
+            case 58: return PixelFormat.Gray16;                                                // R16_SNORM
+            // 8-bit single-channel
+            case 61: return PixelFormat.Gray8;                                                 // R8_UNORM
+            case 63: return PixelFormat.Gray8;                                                 // R8_SNORM
+            case 65: return PixelFormat.Gray8;                                                 // A8_UNORM
+            // 16-bit packed
+            case 85: return PixelFormat.Rgb565;                                                // B5G6R5_UNORM
+            case 86: hasAlpha = true; return PixelFormat.Rgba5551;                             // B5G5R5A1_UNORM
+        }
+        return PixelFormat.Unknown;
     }
 
     /// <inheritdoc/>
