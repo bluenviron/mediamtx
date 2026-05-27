@@ -29,6 +29,7 @@ public sealed class TiffReader : IImageReader
     private readonly byte[] _bytes;
     private readonly bool _littleEndian;
     private readonly IfdEntry[] _ifd;
+    private readonly TiffPageInfo[] _pages;
     private bool _disposed;
 
     /// <inheritdoc/>
@@ -43,12 +44,23 @@ public sealed class TiffReader : IImageReader
     /// <inheritdoc/>
     public bool CanDecodePixels { get; }
 
+    /// <summary>
+    /// All pages contained in this TIFF, in IFD-chain order. Index 0 is the
+    /// baseline (the page referenced by the file header offset). Useful for
+    /// multi-page faxes, scanned documents and Aperio SVS pyramids.
+    /// </summary>
+    public IReadOnlyList<TiffPage> Pages { get; }
+
     private TiffReader(Stream s, bool ownsStream, byte[] bytes, bool le,
-                       IfdEntry[] ifd, ImageInfo info, ImageMetadata meta, bool canDecode)
+                       TiffPageInfo[] pages, ImageInfo info, ImageMetadata meta, bool canDecode)
     {
         _stream = s; _ownsStream = ownsStream;
-        _bytes = bytes; _littleEndian = le; _ifd = ifd;
+        _bytes = bytes; _littleEndian = le; _pages = pages;
+        _ifd = pages[0].Ifd;
         Info = info; Metadata = meta; CanDecodePixels = canDecode;
+        var pub = new TiffPage[pages.Length];
+        for (int i = 0; i < pages.Length; i++) pub[i] = pages[i].ToPublic();
+        Pages = pub;
     }
 
     /// <summary>Open a TIFF file by path.</summary>
@@ -73,9 +85,53 @@ public sealed class TiffReader : IImageReader
         if (!le && !be) throw new ImageFormatException("Bad TIFF byte-order mark.");
         int magic = ReadU16(bytes, 2, le);
         if (magic != 42) throw new ImageFormatException("Unsupported TIFF magic " + magic + " (BigTIFF=43 not implemented).");
-        uint ifdOffset = ReadU32(bytes, 4, le);
-        var entries = ParseIfd(bytes, le, (int)ifdOffset);
 
+        // Walk the entire IFD chain. The header points at IFD0; each IFD's
+        // trailing uint32 either points at the next IFD or is zero (end).
+        var pages = new List<TiffPageInfo>();
+        uint ifdOffset = ReadU32(bytes, 4, le);
+        var visited = new HashSet<uint>();
+        while (ifdOffset != 0)
+        {
+            if (!visited.Add(ifdOffset))
+            {
+                // Defensive: refuse cyclic IFD chains.
+                throw new ImageFormatException("Cyclic TIFF IFD chain detected.");
+            }
+            if (ifdOffset + 2 > bytes.Length)
+                throw new ImageFormatException("IFD offset beyond end of file.");
+            var entries = ParseIfd(bytes, le, (int)ifdOffset);
+            pages.Add(BuildPageInfo(entries, bytes, le));
+
+            // Locate the next-IFD pointer (immediately after the entries array).
+            int n = entries.Length;
+            int nextSlot = (int)ifdOffset + 2 + n * 12;
+            if (nextSlot + 4 > bytes.Length) break;
+            ifdOffset = ReadU32(bytes, nextSlot, le);
+        }
+        if (pages.Count == 0) throw new ImageFormatException("TIFF file has no IFDs.");
+
+        var baseline = pages[0];
+        var info = new ImageInfo
+        {
+            Width = baseline.Width,
+            Height = baseline.Height,
+            BitsPerPixel = baseline.BitsPerSample * baseline.SamplesPerPixel,
+            ChannelCount = baseline.SamplesPerPixel,
+            PixelFormat = baseline.PixelFormat,
+            Format = ImageFormat.Tiff,
+            HasAlpha = baseline.SamplesPerPixel == 4 && baseline.Photometric != 5,
+            FrameCount = pages.Count,
+        };
+
+        var meta = BuildMetadata(baseline.Ifd, bytes, le);
+        bool canDecode = false;
+        foreach (var p in pages) if (p.Supported) { canDecode = true; break; }
+        return new TiffReader(stream, ownsStream, bytes, le, pages.ToArray(), info, meta, canDecode);
+    }
+
+    private static TiffPageInfo BuildPageInfo(IfdEntry[] entries, byte[] bytes, bool le)
+    {
         int width = (int)GetScalar(entries, 0x0100, bytes, le);
         int height = (int)GetScalar(entries, 0x0101, bytes, le);
         ushort[] bps = GetShortArray(entries, 0x0102, bytes, le);
@@ -95,20 +151,19 @@ public sealed class TiffReader : IImageReader
             _ => PixelFormat.Unknown,
         };
 
-        var info = new ImageInfo
+        return new TiffPageInfo
         {
+            Ifd = entries,
             Width = width,
             Height = height,
-            BitsPerPixel = bitsPerSample * samplesPerPixel,
-            ChannelCount = samplesPerPixel,
+            BitsPerSample = bitsPerSample,
+            SamplesPerPixel = samplesPerPixel,
+            Compression = compression,
+            Photometric = photometric,
             PixelFormat = pf,
-            Format = ImageFormat.Tiff,
-            HasAlpha = samplesPerPixel == 4 && photometric != 5,
-            FrameCount = 1,
+            Supported = supported,
+            IsTiled = HasTag(entries, 0x0142) && HasTag(entries, 0x0143),
         };
-
-        var meta = BuildMetadata(entries, bytes, le);
-        return new TiffReader(stream, ownsStream, bytes, le, entries, info, meta, supported);
     }
 
     /// <inheritdoc/>
@@ -121,37 +176,37 @@ public sealed class TiffReader : IImageReader
             throw new NotSupportedException(
                 "This TIFF uses an unsupported compression scheme or pixel layout.");
         }
-        cancellationToken.ThrowIfCancellationRequested();
 
-        int width = Info.Width;
-        int height = Info.Height;
-        int spp = Info.ChannelCount;
-        int bps = (int)GetScalar(_ifd, 0x0102, _bytes, _littleEndian, def: 8);
-        int compression = (int)GetScalar(_ifd, 0x0103, _bytes, _littleEndian, def: 1);
-        int photometric = (int)GetScalar(_ifd, 0x0106, _bytes, _littleEndian, def: 0);
-
-        var pf = Info.PixelFormat;
-        int dstStride = width * (bps == 16 ? 2 : 1) * spp;
-        if (pf == PixelFormat.Indexed1) dstStride = (width + 7) / 8;
-
-        // Detect tiled layout (TileWidth / TileLength / TileOffsets / TileByteCounts).
-        bool tiled = HasTag(_ifd, 0x0142) && HasTag(_ifd, 0x0143);
-        if (tiled)
+        for (int i = 0; i < _pages.Length; i++)
         {
-            yield return await DecodeTiled(width, height, spp, bps, compression, photometric, pf, dstStride);
-        }
-        else
-        {
-            yield return DecodeStripped(width, height, spp, bps, compression, photometric, pf, dstStride);
+            cancellationToken.ThrowIfCancellationRequested();
+            var page = _pages[i];
+            if (!page.Supported) continue;
+
+            int dstStride = page.Width * (page.BitsPerSample == 16 ? 2 : 1) * page.SamplesPerPixel;
+            if (page.PixelFormat == PixelFormat.Indexed1) dstStride = (page.Width + 7) / 8;
+
+            if (page.IsTiled)
+            {
+                yield return await DecodeTiled(page.Ifd, page.Width, page.Height,
+                    page.SamplesPerPixel, page.BitsPerSample, page.Compression,
+                    page.Photometric, page.PixelFormat, dstStride);
+            }
+            else
+            {
+                yield return DecodeStripped(page.Ifd, page.Width, page.Height,
+                    page.SamplesPerPixel, page.BitsPerSample, page.Compression,
+                    page.Photometric, page.PixelFormat, dstStride);
+            }
         }
     }
 
-    private ImageFrame DecodeStripped(int width, int height, int spp, int bps,
+    private ImageFrame DecodeStripped(IfdEntry[] ifd, int width, int height, int spp, int bps,
                                        int compression, int photometric, PixelFormat pf, int dstStride)
     {
-        int rowsPerStrip = (int)GetScalar(_ifd, 0x0116, _bytes, _littleEndian, def: (uint)height);
-        uint[] stripOffsets = GetLongArray(_ifd, 0x0111, _bytes, _littleEndian);
-        uint[] stripByteCounts = GetLongArray(_ifd, 0x0117, _bytes, _littleEndian);
+        int rowsPerStrip = (int)GetScalar(ifd, 0x0116, _bytes, _littleEndian, def: (uint)height);
+        uint[] stripOffsets = GetLongArray(ifd, 0x0111, _bytes, _littleEndian);
+        uint[] stripByteCounts = GetLongArray(ifd, 0x0117, _bytes, _littleEndian);
 
         var (frame, buf) = ImageFrame.Rent(width, height, pf, dstStride);
         int dstRow = 0;
@@ -191,14 +246,14 @@ public sealed class TiffReader : IImageReader
         return frame;
     }
 
-    private async Task<ImageFrame> DecodeTiled(int width, int height, int spp, int bps,
+    private async Task<ImageFrame> DecodeTiled(IfdEntry[] ifd, int width, int height, int spp, int bps,
                                                 int compression, int photometric, PixelFormat pf, int dstStride)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        int tileW = (int)GetScalar(_ifd, 0x0142, _bytes, _littleEndian);
-        int tileH = (int)GetScalar(_ifd, 0x0143, _bytes, _littleEndian);
-        uint[] tileOffsets = GetLongArray(_ifd, 0x0144, _bytes, _littleEndian);
-        uint[] tileByteCounts = GetLongArray(_ifd, 0x0145, _bytes, _littleEndian);
+        int tileW = (int)GetScalar(ifd, 0x0142, _bytes, _littleEndian);
+        int tileH = (int)GetScalar(ifd, 0x0143, _bytes, _littleEndian);
+        uint[] tileOffsets = GetLongArray(ifd, 0x0144, _bytes, _littleEndian);
+        uint[] tileByteCounts = GetLongArray(ifd, 0x0145, _bytes, _littleEndian);
         if (tileW <= 0 || tileH <= 0)
             throw new ImageFormatException("Invalid TIFF tile dimensions.");
 
@@ -542,4 +597,64 @@ public sealed class TiffReader : IImageReader
     }
 
     private readonly record struct IfdEntry(int Tag, int Type, uint Count, uint ValueOffset);
+
+    private sealed class TiffPageInfo
+    {
+        public required IfdEntry[] Ifd { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public required int BitsPerSample { get; init; }
+        public required int SamplesPerPixel { get; init; }
+        public required int Compression { get; init; }
+        public required int Photometric { get; init; }
+        public required PixelFormat PixelFormat { get; init; }
+        public required bool Supported { get; init; }
+        public required bool IsTiled { get; init; }
+
+        public TiffPage ToPublic() => new()
+        {
+            Width = Width,
+            Height = Height,
+            BitsPerSample = BitsPerSample,
+            SamplesPerPixel = SamplesPerPixel,
+            CompressionTag = Compression,
+            Photometric = Photometric,
+            PixelFormat = PixelFormat,
+            IsTiled = IsTiled,
+            CanDecodePixels = Supported,
+        };
+    }
+}
+
+/// <summary>
+/// Public view of a single page (IFD) inside a multi-page TIFF.
+/// </summary>
+public sealed record TiffPage
+{
+    /// <summary>Width of this page, pixels.</summary>
+    public required int Width { get; init; }
+
+    /// <summary>Height of this page, pixels.</summary>
+    public required int Height { get; init; }
+
+    /// <summary>Bits per sample (typically 1, 8 or 16).</summary>
+    public required int BitsPerSample { get; init; }
+
+    /// <summary>Samples per pixel (1 = gray/indexed, 3 = RGB, 4 = RGBA/CMYK).</summary>
+    public required int SamplesPerPixel { get; init; }
+
+    /// <summary>TIFF compression tag value (1 = uncompressed, 5 = LZW, 7 = JPEG, 8/32946 = Deflate, 32773 = PackBits).</summary>
+    public required int CompressionTag { get; init; }
+
+    /// <summary>TIFF photometric-interpretation tag value (0 = WhiteIsZero, 1 = BlackIsZero, 2 = RGB, 5 = CMYK, …).</summary>
+    public required int Photometric { get; init; }
+
+    /// <summary>Decoded pixel format Mediar will emit for this page.</summary>
+    public required PixelFormat PixelFormat { get; init; }
+
+    /// <summary>True if the page uses tiled layout (TileWidth/TileLength tags present).</summary>
+    public required bool IsTiled { get; init; }
+
+    /// <summary>True if Mediar can decode this page's pixel data.</summary>
+    public required bool CanDecodePixels { get; init; }
 }

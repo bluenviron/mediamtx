@@ -254,6 +254,93 @@ public sealed class TiffReaderTests
             TiffReader.Open(new MemoryStream(new byte[4]), ownsStream: true));
     }
 
+    [Fact]
+    public async Task MultiPageTiff_TwoPages_YieldsBothFramesAndPagesList()
+    {
+        // Page 0: 2x2 RGB red. Page 1: 4x4 RGB green. Both uncompressed.
+        var page0 = new TestTiffBuilder.TiffSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 2,
+            StripPayloads = [BuildSolidRgbTile(2, 2, 255, 0, 0)],
+        };
+        var page1 = new TestTiffBuilder.TiffSpec
+        {
+            Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 4,
+            StripPayloads = [BuildSolidRgbTile(4, 4, 0, 255, 0)],
+        };
+        var bytes = TestTiffBuilder.Build([page0, page1]);
+
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(2, r.Pages.Count);
+        Assert.Equal(2, r.Info.FrameCount);
+        Assert.Equal(2, r.Pages[0].Width); Assert.Equal(2, r.Pages[0].Height);
+        Assert.Equal(4, r.Pages[1].Width); Assert.Equal(4, r.Pages[1].Height);
+        Assert.True(r.Pages[0].CanDecodePixels);
+        Assert.True(r.Pages[1].CanDecodePixels);
+
+        var frames = new List<ImageFrame>();
+        await foreach (var f in r.ReadFramesAsync()) frames.Add(f);
+        Assert.Equal(2, frames.Count);
+        try
+        {
+            Assert.Equal(2, frames[0].Width); Assert.Equal(2, frames[0].Height);
+            AssertRgb(frames[0].Pixels.Span, 0, 0, 2 * 3, 255, 0, 0);
+            Assert.Equal(4, frames[1].Width); Assert.Equal(4, frames[1].Height);
+            AssertRgb(frames[1].Pixels.Span, 0, 0, 4 * 3, 0, 255, 0);
+            AssertRgb(frames[1].Pixels.Span, 3, 3, 4 * 3, 0, 255, 0);
+        }
+        finally
+        {
+            foreach (var f in frames) f.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task MultiPageTiff_MixesStripAndTilePages()
+    {
+        // Page 0: stripped 4x4 red. Page 1: tiled 4x4 (2x2 tiles) blue.
+        var stripped = new TestTiffBuilder.TiffSpec
+        {
+            Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 4,
+            StripPayloads = [BuildSolidRgbTile(4, 4, 255, 0, 0)],
+        };
+        var tiled = new TestTiffBuilder.TiffSpec
+        {
+            Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2,
+            TileWidth = 2, TileHeight = 2,
+            TilePayloads = [
+                BuildSolidRgbTile(2, 2, 0, 0, 255),
+                BuildSolidRgbTile(2, 2, 0, 0, 255),
+                BuildSolidRgbTile(2, 2, 0, 0, 255),
+                BuildSolidRgbTile(2, 2, 0, 0, 255),
+            ],
+        };
+        var bytes = TestTiffBuilder.Build([stripped, tiled]);
+
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(2, r.Pages.Count);
+        Assert.False(r.Pages[0].IsTiled);
+        Assert.True(r.Pages[1].IsTiled);
+
+        var frames = new List<ImageFrame>();
+        await foreach (var f in r.ReadFramesAsync()) frames.Add(f);
+        try
+        {
+            Assert.Equal(2, frames.Count);
+            AssertRgb(frames[0].Pixels.Span, 0, 0, 12, 255, 0, 0);
+            AssertRgb(frames[1].Pixels.Span, 0, 0, 12, 0, 0, 255);
+            AssertRgb(frames[1].Pixels.Span, 3, 3, 12, 0, 0, 255);
+        }
+        finally
+        {
+            foreach (var f in frames) f.Dispose();
+        }
+    }
+
     private static byte[] BuildSolidRgbTile(int w, int h, byte r, byte g, byte b)
     {
         var buf = new byte[w * h * 3];
