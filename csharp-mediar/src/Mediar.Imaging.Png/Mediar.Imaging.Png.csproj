@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Apng\Mediar.Codecs.Apng.csproj" />
   </ItemGroup>
 
 </Project>

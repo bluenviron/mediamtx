@@ -14,6 +14,7 @@
     <Project Path="src/Mediar.Codecs.Bcn/Mediar.Codecs.Bcn.csproj" />
     <Project Path="src/Mediar.Codecs.Etc/Mediar.Codecs.Etc.csproj" />
     <Project Path="src/Mediar.Codecs.Astc/Mediar.Codecs.Astc.csproj" />
+    <Project Path="src/Mediar.Codecs.Apng/Mediar.Codecs.Apng.csproj" />
     <Project Path="src/Mediar.Codecs.Gdi/Mediar.Codecs.Gdi.csproj" />
     <Project Path="src/Mediar.Codecs.Lzw/Mediar.Codecs.Lzw.csproj" />
     <Project Path="src/Mediar.Codecs.PackBits/Mediar.Codecs.PackBits.csproj" />

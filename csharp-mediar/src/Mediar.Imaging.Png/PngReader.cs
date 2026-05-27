@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Apng;
 
 namespace Mediar.Imaging.Png;
 
@@ -260,6 +261,156 @@ public sealed class PngReader : IImageReader
             yield return DecodeFrame(rec);
         }
         await Task.CompletedTask.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Decodes each APNG frame and composites it onto a running canvas per the
+    /// APNG spec's <c>dispose_op</c> / <c>blend_op</c> rules. Each yielded
+    /// <see cref="ImageFrame"/> is the full canvas in <see cref="PixelFormat.Rgba32"/>
+    /// at the IHDR dimensions, with <see cref="ImageFrame.Duration"/> set from
+    /// the frame's fcTL. For non-APNG (still) PNGs this yields exactly one frame
+    /// equal to the decoded image.
+    /// </summary>
+    /// <remarks>
+    /// If the PNG has a default image (an <c>IDAT</c> that appears before the
+    /// first <c>fcTL</c>), the default image is skipped and only the
+    /// animation-sequence frames are composited and yielded.
+    /// </remarks>
+    public async IAsyncEnumerable<ImageFrame> ReadComposedFramesAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (!_isApng)
+        {
+            foreach (var rec in _frames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return DecodeFrame(rec);
+            }
+            await Task.CompletedTask.ConfigureAwait(false);
+            yield break;
+        }
+
+        var compositor = new ApngCompositor(_ihdr.Width, _ihdr.Height);
+        int startIndex = _hasFirstFrameOutsideAnim ? 1 : 0;
+        for (int i = startIndex; i < _frames.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rec = _frames[i];
+            using var subFrame = DecodeFrame(rec);
+            byte[] rgba = ConvertFrameToRgba32(subFrame);
+            int srcStride = rec.Width * 4;
+            compositor.Render(
+                rgba, srcStride,
+                rec.Width, rec.Height,
+                rec.XOffset, rec.YOffset,
+                (ApngBlendOp)rec.BlendOp,
+                (ApngDisposeOp)rec.DisposeOp);
+
+            byte[] canvasCopy = compositor.Snapshot();
+            int outStride = compositor.Stride;
+            var composed = new ImageFrame(
+                _ihdr.Width, _ihdr.Height, PixelFormat.Rgba32, outStride,
+                canvasCopy)
+            {
+                Duration = (rec.DelayDen > 0)
+                    ? TimeSpan.FromSeconds(rec.DelayNum / (double)rec.DelayDen)
+                    : TimeSpan.Zero,
+                OffsetX = 0,
+                OffsetY = 0,
+            };
+            yield return composed;
+        }
+        await Task.CompletedTask.ConfigureAwait(false);
+    }
+
+    private byte[] ConvertFrameToRgba32(ImageFrame frame)
+    {
+        int w = frame.Width;
+        int h = frame.Height;
+        var dst = new byte[w * h * 4];
+        var src = frame.Pixels.Span;
+        int srcStride = frame.Stride;
+        switch (frame.PixelFormat)
+        {
+            case PixelFormat.Rgba32:
+                for (int y = 0; y < h; y++)
+                {
+                    src.Slice(y * srcStride, w * 4).CopyTo(dst.AsSpan(y * w * 4, w * 4));
+                }
+                break;
+            case PixelFormat.Rgb24:
+                for (int y = 0; y < h; y++)
+                {
+                    int srow = y * srcStride;
+                    int drow = y * w * 4;
+                    for (int x = 0; x < w; x++)
+                    {
+                        dst[drow + x * 4 + 0] = src[srow + x * 3 + 0];
+                        dst[drow + x * 4 + 1] = src[srow + x * 3 + 1];
+                        dst[drow + x * 4 + 2] = src[srow + x * 3 + 2];
+                        dst[drow + x * 4 + 3] = 0xFF;
+                    }
+                }
+                break;
+            case PixelFormat.Gray8:
+                for (int y = 0; y < h; y++)
+                {
+                    int srow = y * srcStride;
+                    int drow = y * w * 4;
+                    for (int x = 0; x < w; x++)
+                    {
+                        byte v = src[srow + x];
+                        dst[drow + x * 4 + 0] = v;
+                        dst[drow + x * 4 + 1] = v;
+                        dst[drow + x * 4 + 2] = v;
+                        dst[drow + x * 4 + 3] = 0xFF;
+                    }
+                }
+                break;
+            case PixelFormat.GrayAlpha16:
+                for (int y = 0; y < h; y++)
+                {
+                    int srow = y * srcStride;
+                    int drow = y * w * 4;
+                    for (int x = 0; x < w; x++)
+                    {
+                        byte v = src[srow + x * 2 + 0];
+                        byte a = src[srow + x * 2 + 1];
+                        dst[drow + x * 4 + 0] = v;
+                        dst[drow + x * 4 + 1] = v;
+                        dst[drow + x * 4 + 2] = v;
+                        dst[drow + x * 4 + 3] = a;
+                    }
+                }
+                break;
+            case PixelFormat.Indexed8:
+                {
+                    var palette = frame.Palette.Span;
+                    for (int y = 0; y < h; y++)
+                    {
+                        int srow = y * srcStride;
+                        int drow = y * w * 4;
+                        for (int x = 0; x < w; x++)
+                        {
+                            int idx = src[srow + x];
+                            uint argb = (idx < palette.Length) ? palette[idx] : 0u;
+                            byte a = (byte)((argb >> 24) & 0xFF);
+                            byte r = (byte)((argb >> 16) & 0xFF);
+                            byte g = (byte)((argb >> 8) & 0xFF);
+                            byte b = (byte)(argb & 0xFF);
+                            dst[drow + x * 4 + 0] = r;
+                            dst[drow + x * 4 + 1] = g;
+                            dst[drow + x * 4 + 2] = b;
+                            dst[drow + x * 4 + 3] = a;
+                        }
+                    }
+                    break;
+                }
+            default:
+                throw new NotSupportedException(
+                    $"APNG composition for PixelFormat {frame.PixelFormat} not implemented.");
+        }
+        return dst;
     }
 
     private ImageFrame DecodeFrame(PngFrameRecord rec)

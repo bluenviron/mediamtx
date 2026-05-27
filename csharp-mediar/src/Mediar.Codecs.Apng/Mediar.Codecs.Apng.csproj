@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Apng</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Apng</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Standalone APNG (Animated PNG) canvas compositor for the Mediar toolkit. Implements the dispose_op (NONE / BACKGROUND / PREVIOUS) and blend_op (SOURCE / OVER) rules from the APNG specification so callers can drive frame-by-frame composition of sub-rectangle frames onto a running RGBA32 canvas. The compositor is reusable across any animation container that follows the same canvas-blend-restore model (APNG, future shared GIF / WebP composer).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
