@@ -119,6 +119,22 @@ public static class KtxFormat
         // GL_RGBA32UI / GL_RGBA32I - 32-bit integer four-channel
         0x8D70 => PixelFormat.Rgba128UInt,
         0x8D82 => PixelFormat.Rgba128SInt,
+        // GL_R8UI / GL_R8I - 8-bit integer single-channel (byte-identical to Gray8)
+        0x8232 or 0x8231 => PixelFormat.Gray8,
+        // GL_R16UI / GL_R16I - 16-bit integer single-channel
+        0x8234 or 0x8233 => PixelFormat.Gray16,
+        // GL_RG8UI / GL_RG8I - 8-bit integer two-channel
+        0x8238 or 0x8237 => PixelFormat.GrayAlpha16,
+        // GL_RG16UI / GL_RG16I - 16-bit integer two-channel
+        0x823A or 0x8239 => PixelFormat.Rg32,
+        // GL_RGB8UI / GL_RGB8I - 8-bit integer three-channel
+        0x8D7D or 0x8D8F => PixelFormat.Rgb24,
+        // GL_RGB16UI / GL_RGB16I - 16-bit integer three-channel
+        0x8D77 or 0x8D89 => PixelFormat.Rgb48,
+        // GL_RGBA8UI / GL_RGBA8I - 8-bit integer four-channel
+        0x8D7C or 0x8D8E => PixelFormat.Rgba32,
+        // GL_RGBA16UI / GL_RGBA16I - 16-bit integer four-channel
+        0x8D76 or 0x8D88 => PixelFormat.Rgba64,
         _ => PixelFormat.Unknown,
     };
 
@@ -227,6 +243,22 @@ public static class KtxFormat
         // VK_FORMAT_R32G32B32A32_UINT / R32G32B32A32_SINT - 32-bit integer four-channel
         107 => PixelFormat.Rgba128UInt,
         108 => PixelFormat.Rgba128SInt,
+        // VK_FORMAT_R8_UINT / R8_SINT - 8-bit integer single-channel
+        13 or 14 => PixelFormat.Gray8,
+        // VK_FORMAT_R16_UINT / R16_SINT - 16-bit integer single-channel
+        74 or 75 => PixelFormat.Gray16,
+        // VK_FORMAT_R8G8_UINT / R8G8_SINT - 8-bit integer two-channel
+        20 or 21 => PixelFormat.GrayAlpha16,
+        // VK_FORMAT_R16G16_UINT / R16G16_SINT - 16-bit integer two-channel
+        81 or 82 => PixelFormat.Rg32,
+        // VK_FORMAT_R8G8B8_UINT / R8G8B8_SINT - 8-bit integer three-channel
+        27 or 28 => PixelFormat.Rgb24,
+        // VK_FORMAT_R16G16B16_UINT / R16G16B16_SINT - 16-bit integer three-channel
+        88 or 89 => PixelFormat.Rgb48,
+        // VK_FORMAT_R8G8B8A8_UINT / R8G8B8A8_SINT - 8-bit integer four-channel
+        41 or 42 => PixelFormat.Rgba32,
+        // VK_FORMAT_R16G16B16A16_UINT / R16G16B16A16_SINT - 16-bit integer four-channel
+        95 or 96 => PixelFormat.Rgba64,
         _ => PixelFormat.Unknown,
     };
 

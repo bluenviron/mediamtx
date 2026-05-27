@@ -337,28 +337,40 @@ public sealed class DdsReader : IImageReader
             // 16-bit per channel (RGBA64 is byte-identical to FP16 RGBA)
             case 10: hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba64Float;     // R16G16B16A16_FLOAT
             case 11: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_UNORM
+            case 12: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_UINT
             case 13: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_SNORM
+            case 14: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_SINT
             // 16-bit two-channel
             case 34: colorSpace = "Linear"; return PixelFormat.Rg32Float;                      // R16G16_FLOAT
             case 35: return PixelFormat.Rg32;                                                  // R16G16_UNORM
+            case 36: return PixelFormat.Rg32;                                                  // R16G16_UINT
             case 37: return PixelFormat.Rg32;                                                  // R16G16_SNORM
+            case 38: return PixelFormat.Rg32;                                                  // R16G16_SINT
             // 8-bit RGBA
             case 28: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_UNORM
             case 29: hasAlpha = true; colorSpace = "sRGB"; return PixelFormat.Rgba32;          // R8G8B8A8_UNORM_SRGB
+            case 30: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_UINT
             case 31: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_SNORM
+            case 32: hasAlpha = true; return PixelFormat.Rgba32;                               // R8G8B8A8_SINT
             case 87: hasAlpha = true; return PixelFormat.Bgra32;                               // B8G8R8A8_UNORM
             case 88: return PixelFormat.Bgra32;                                                // B8G8R8X8_UNORM (X = ignore)
             case 91: hasAlpha = true; colorSpace = "sRGB"; return PixelFormat.Bgra32;          // B8G8R8A8_UNORM_SRGB
             case 93: colorSpace = "sRGB"; return PixelFormat.Bgra32;                           // B8G8R8X8_UNORM_SRGB
             // 8-bit two-channel (byte-identical to GrayAlpha16)
             case 49: return PixelFormat.GrayAlpha16;                                           // R8G8_UNORM
+            case 50: return PixelFormat.GrayAlpha16;                                           // R8G8_UINT
             case 51: return PixelFormat.GrayAlpha16;                                           // R8G8_SNORM
+            case 52: return PixelFormat.GrayAlpha16;                                           // R8G8_SINT
             // 16-bit single-channel
             case 56: return PixelFormat.Gray16;                                                // R16_UNORM
+            case 57: return PixelFormat.Gray16;                                                // R16_UINT
             case 58: return PixelFormat.Gray16;                                                // R16_SNORM
+            case 59: return PixelFormat.Gray16;                                                // R16_SINT
             // 8-bit single-channel
             case 61: return PixelFormat.Gray8;                                                 // R8_UNORM
+            case 62: return PixelFormat.Gray8;                                                 // R8_UINT
             case 63: return PixelFormat.Gray8;                                                 // R8_SNORM
+            case 64: return PixelFormat.Gray8;                                                 // R8_SINT
             case 65: return PixelFormat.Gray8;                                                 // A8_UNORM
             // 32-bit single-channel float (depth / luminance / scientific)
             case 41: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // R32_FLOAT
