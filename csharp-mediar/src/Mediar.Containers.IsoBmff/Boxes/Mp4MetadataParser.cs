@@ -65,6 +65,12 @@ internal static class Mp4MetadataParser
     {
         foreach (var (atomType, atomPayload) in MovieParser.IterateChildren(ilst))
         {
+            if (atomType.Value == BoxTypes.IlFreeForm.Value)
+            {
+                ParseFreeFormAtom(atomPayload, meta);
+                continue;
+            }
+
             string? key = MapItunesAtom(atomType);
             if (key is null) continue;
 
@@ -118,6 +124,112 @@ internal static class Mp4MetadataParser
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Parse an iTunes "----" freeform atom. Layout:
+    /// <code>
+    /// '----' container
+    ///   'mean' FullBox: 4 bytes ver/flags, UTF-8 mean string (e.g. "com.apple.iTunes")
+    ///   'name' FullBox: 4 bytes ver/flags, UTF-8 key name (e.g. "MUSICALKEY", "BARCODE")
+    ///   'data'         : 4 bytes typeFlags, 4 bytes locale, value
+    /// </code>
+    /// Used by MusicBrainz Picard, Mp3tag, Roon and similar to write
+    /// extended audio tags (BARCODE, CATALOGNUMBER, LICENSE, MOOD,
+    /// REPLAYGAIN_*, MUSICBRAINZ_*, sort variants, etc.) that have no
+    /// dedicated iTunes 4CC. The key name is normalised to upper-case
+    /// before being routed through <see cref="MediaMetadataBuilder.Set"/>
+    /// so it lands on the same canonical-key vocabulary as Vorbis and
+    /// ID3v2-derived tags.
+    /// </summary>
+    private static void ParseFreeFormAtom(ReadOnlyMemory<byte> payload, MediaMetadataBuilder meta)
+    {
+        string? mean = null;
+        string? name = null;
+        ReadOnlyMemory<byte>? dataChild = null;
+        foreach (var (childType, childPayload) in MovieParser.IterateChildren(payload))
+        {
+            if (childType.Value == BoxTypes.Mean.Value)
+            {
+                if (childPayload.Length > 4)
+                    mean = Encoding.UTF8.GetString(childPayload.Span[4..]);
+            }
+            else if (childType.Value == BoxTypes.Name.Value)
+            {
+                if (childPayload.Length > 4)
+                    name = Encoding.UTF8.GetString(childPayload.Span[4..]);
+            }
+            else if (childType.Value == BoxTypes.Data.Value)
+            {
+                dataChild = childPayload;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(name) || dataChild is null) return;
+        // Only accept Apple/iTunes/QuickTime namespaces. Other vendors may
+        // legitimately use the same wire format but ship conflicting keys
+        // (e.g. Sony's "----:com.sony.xxx" arrays), so we limit the scope.
+        if (mean is not null && mean.Length > 0
+            && !string.Equals(mean, "com.apple.iTunes", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(mean, "com.apple.QuickTime", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var dataSpan = dataChild.Value.Span;
+        if (dataSpan.Length < 8) return;
+        uint typeFlags = BinaryPrimitives.ReadUInt32BigEndian(dataSpan);
+        uint dataType = typeFlags & 0x00FFFFFF;
+        var value = dataSpan[8..];
+
+        string canonicalKey = NormaliseFreeFormKey(name);
+        if (canonicalKey.Length == 0) return;
+
+        if (dataType == 21 && value.Length > 0)
+        {
+            long n = ReadBeSignedInt(value);
+            meta.Set(canonicalKey, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else if (dataType == 22 && value.Length > 0)
+        {
+            ulong n = ReadBeUnsignedInt(value);
+            meta.Set(canonicalKey, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else if (dataType == 1 || dataType == 0)
+        {
+            if (value.Length == 0) return;
+            string text = Encoding.UTF8.GetString(value);
+            meta.Set(canonicalKey, text);
+        }
+    }
+
+    /// <summary>
+    /// Map a freeform iTunes name to the canonical Mediar key
+    /// vocabulary. Aliases that Picard / Mp3tag / Beets / Roon use
+    /// interchangeably are folded onto the primary key. Unknown names
+    /// pass through upper-cased so callers can still read them via
+    /// <see cref="MediaMetadata.Tags"/>.
+    /// </summary>
+    private static string NormaliseFreeFormKey(string name)
+    {
+        string upper = name.ToUpperInvariant();
+        return upper switch
+        {
+            "INITIALKEY" => "MUSICALKEY",
+            "REPLAYGAIN_TRACK_GAIN" => "REPLAYGAIN_TRACK_GAIN",
+            "REPLAYGAIN_TRACK_PEAK" => "REPLAYGAIN_TRACK_PEAK",
+            "REPLAYGAIN_ALBUM_GAIN" => "REPLAYGAIN_ALBUM_GAIN",
+            "REPLAYGAIN_ALBUM_PEAK" => "REPLAYGAIN_ALBUM_PEAK",
+            "MUSICBRAINZ TRACK ID" => "MUSICBRAINZ_TRACKID",
+            "MUSICBRAINZ ALBUM ID" => "MUSICBRAINZ_ALBUMID",
+            "MUSICBRAINZ ARTIST ID" => "MUSICBRAINZ_ARTISTID",
+            "MUSICBRAINZ ALBUM ARTIST ID" => "MUSICBRAINZ_ALBUMARTISTID",
+            "MUSICBRAINZ RELEASE TRACK ID" => "MUSICBRAINZ_RELEASETRACKID",
+            "MUSICBRAINZ RELEASE GROUP ID" => "MUSICBRAINZ_RELEASEGROUPID",
+            "ACOUSTID ID" => "ACOUSTID_ID",
+            "ACOUSTID FINGERPRINT" => "ACOUSTID_FINGERPRINT",
+            _ => upper,
+        };
     }
 
     private static long ReadBeSignedInt(ReadOnlySpan<byte> v) => v.Length switch

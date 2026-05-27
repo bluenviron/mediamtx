@@ -113,4 +113,8 @@ internal static class BoxTypes
     public static readonly FourCc IlLdes = new("ldes");
     public static readonly FourCc IlKey = new("\u00A9key");
     public static readonly FourCc IlPub = new("\u00A9pub");
+    // Freeform iTunes atom container ("----") plus its three named children.
+    public static readonly FourCc IlFreeForm = new("----");
+    public static readonly FourCc Mean = new("mean");
+    public static readonly FourCc Name = new("name");
 }
