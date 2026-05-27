@@ -130,6 +130,24 @@ public static class ImageFormatDetector
                 return ImageFormat.Rw2;
             }
 
+            // ORF (Olympus RAW): non-standard magic word. The byte-order mark
+            // "II" is followed by either 0x4F52 ('RO', little-endian sense) or
+            // 0x5253 ('RS', older Olympus E-1 lineup). The big-endian variant
+            // "MM" + 0x524F ('OR') is rare but spec'd. All other Olympus files
+            // simply use the standard TIFF magic 0x002A and are identified at
+            // open time by the EXIF Make tag.
+            if (header[0] == (byte)'I' && header[1] == (byte)'I' &&
+                ((header[2] == 0x52 && header[3] == 0x4F) ||
+                 (header[2] == 0x52 && header[3] == 0x53)))
+            {
+                return ImageFormat.Orf;
+            }
+            if (header[0] == (byte)'M' && header[1] == (byte)'M' &&
+                header[2] == 0x4F && header[3] == 0x52)
+            {
+                return ImageFormat.Orf;
+            }
+
             // DDS: "DDS "
             if (header[0] == (byte)'D' && header[1] == (byte)'D' &&
                 header[2] == (byte)'S' && header[3] == (byte)' ')

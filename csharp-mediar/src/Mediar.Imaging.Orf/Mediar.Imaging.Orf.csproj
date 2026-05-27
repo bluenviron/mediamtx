@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Orf</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Orf</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Olympus RAW (ORF) reader for the Mediar toolkit. ORF is the camera-RAW format used by Olympus PEN, OM-D and OM-1 lineups (now branded OM Digital Solutions). It is TIFF-based and may use either the standard TIFF magic 0x002A or one of two Olympus-specific magic values: 0x4F52 ('RO', current) or 0x5253 ('RS', E-1 era). Identified at parse time by the EXIF Make tag containing "OLYMPUS" or "OM Digital Solutions". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode. Olympus proprietary RAW compression (TIFF tag 32773 with custom predictor + Olympus MakerNote 0x100 LUT) is recognised but not yet decoded.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
