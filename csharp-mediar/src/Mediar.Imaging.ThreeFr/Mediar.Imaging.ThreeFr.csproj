@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.ThreeFr</RootNamespace>
+    <AssemblyName>Mediar.Imaging.ThreeFr</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Hasselblad RAW (3FR) reader for the Mediar toolkit. 3FR is a TIFF-based RAW container produced by Hasselblad medium-format cameras and digital backs (H-System, X-System, V-System with digital backs). Identified by the EXIF Make tag matching "Hasselblad" or "HASSELBLAD". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Hasselblad-proprietary compression (TIFF tag 8 with predictor) and bayer packing are recognised but not yet decoded.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

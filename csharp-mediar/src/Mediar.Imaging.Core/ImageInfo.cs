@@ -80,7 +80,7 @@ public enum ImageFormat
     Jp2, J2k, J2c, Jpc, Jpf, Jpm, Jpx,
 
     // ---------- camera RAW ----------
-    Arw, Bay, Cr2, Cr3, Dcr, Dng, Nef, Orf, Pef, Raf, Raw, Rpf, Rw2, Spp, Srw, Art, Mix,
+    Arw, Bay, Cr2, Cr3, Dcr, Dng, Nef, Orf, Pef, Raf, Raw, Rpf, Rw2, Spp, Srw, ThreeFr, Art, Mix,
 
     // ---------- medical / scientific ----------
     Dicom, Djvu, Ecw, Svs, Bif,
@@ -142,7 +142,7 @@ public static class ImageFormatExtensions
             [".nef"] = ImageFormat.Nef, [".orf"] = ImageFormat.Orf, [".pef"] = ImageFormat.Pef,
             [".raf"] = ImageFormat.Raf, [".raw"] = ImageFormat.Raw,
             [".rpf"] = ImageFormat.Rpf, [".rw2"] = ImageFormat.Rw2, [".spp"] = ImageFormat.Spp,
-            [".srw"] = ImageFormat.Srw,
+            [".srw"] = ImageFormat.Srw, [".3fr"] = ImageFormat.ThreeFr,
             [".art"] = ImageFormat.Art, [".mix"] = ImageFormat.Mix,
             // medical / scientific
             [".dcm"] = ImageFormat.Dicom, [".dicom"] = ImageFormat.Dicom,
