@@ -151,11 +151,14 @@ public sealed class KtxReader : IImageReader
         {
             PixelFormat.Gray8 => 1,
             PixelFormat.Gray16 => 2,
+            PixelFormat.GrayAlpha16 => 2,
             PixelFormat.Rgb24 => 3,
             PixelFormat.Bgr24 => 3,
             PixelFormat.Rg32 => 4,
             PixelFormat.Rgba32 => 4,
             PixelFormat.Bgra32 => 4,
+            PixelFormat.Rgb48 => 6,
+            PixelFormat.Rgba64 => 8,
             _ => 0,
         };
 
@@ -253,9 +256,11 @@ public sealed class KtxReader : IImageReader
         int infoBpp = infoPf switch
         {
             PixelFormat.Gray8 => 8,
-            PixelFormat.Gray16 => 16,
+            PixelFormat.Gray16 or PixelFormat.GrayAlpha16 => 16,
             PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
             PixelFormat.Rg32 or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
+            PixelFormat.Rgb48 => 48,
+            PixelFormat.Rgba64 => 64,
             PixelFormat.Rgb96Float => 96,
             _ => 0,
         };
@@ -268,14 +273,16 @@ public sealed class KtxReader : IImageReader
             ChannelCount = infoPf switch
             {
                 PixelFormat.Gray8 or PixelFormat.Gray16 => 1,
-                PixelFormat.Rg32 => 2,
-                PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb96Float => 3,
-                PixelFormat.Rgba32 or PixelFormat.Bgra32 => 4,
+                PixelFormat.Rg32 or PixelFormat.GrayAlpha16 => 2,
+                PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
+                    or PixelFormat.Rgb96Float => 3,
+                PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Rgba64 => 4,
                 _ => 0,
             },
             PixelFormat = infoPf,
             Format = ImageFormat.Ktx,
-            HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32,
+            HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32
+                                or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16,
             FrameCount = canDecode ? levelInfos.Count : 0,
             ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}"
                        : etc != EtcFormat.None ? $"ETC:{etc}"

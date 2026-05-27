@@ -304,4 +304,97 @@ public sealed class KtxReaderTests
             Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
         }
     }
+
+    [Fact]
+    public async Task Decodes_GL_LUMINANCE16_To_Gray16()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8042, // GL_LUMINANCE16
+            PixelWidth = 2,
+            PixelHeight = 2,
+        };
+        var pixels = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Gray16, reader.Info.PixelFormat);
+        Assert.Equal(16, reader.Info.BitsPerPixel);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public async Task Decodes_GL_LUMINANCE8_ALPHA8_To_GrayAlpha16()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8045, // GL_LUMINANCE8_ALPHA8
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[] { 0x10, 0x20, 0x30, 0x40 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.GrayAlpha16, reader.Info.PixelFormat);
+        Assert.Equal(16, reader.Info.BitsPerPixel);
+        Assert.True(reader.Info.HasAlpha);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public async Task Decodes_GL_RGB16_To_Rgb48()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8054, // GL_RGB16
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        // 2 pixels * 6 bytes each
+        var pixels = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb48, reader.Info.PixelFormat);
+        Assert.Equal(48, reader.Info.BitsPerPixel);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public async Task Decodes_GL_RGBA16_To_Rgba64()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x805B, // GL_RGBA16
+            PixelWidth = 1,
+            PixelHeight = 2,
+        };
+        // 2 pixels * 8 bytes each
+        var pixels = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba64, reader.Info.PixelFormat);
+        Assert.Equal(64, reader.Info.BitsPerPixel);
+        Assert.True(reader.Info.HasAlpha);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
 }

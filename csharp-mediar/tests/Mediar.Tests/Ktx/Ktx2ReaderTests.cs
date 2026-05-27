@@ -385,4 +385,73 @@ public sealed class Ktx2ReaderTests
             Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
         }
     }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R16G16B16_UNORM_To_Rgb48()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 84, // VK_FORMAT_R16G16B16_UNORM
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb48, reader.Info.PixelFormat);
+        Assert.Equal(48, reader.Info.BitsPerPixel);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R16G16B16A16_UNORM_To_Rgba64()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 91, // VK_FORMAT_R16G16B16A16_UNORM
+            PixelWidth = 1,
+            PixelHeight = 2,
+        };
+        var pixels = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba64, reader.Info.PixelFormat);
+        Assert.Equal(64, reader.Info.BitsPerPixel);
+        Assert.True(reader.Info.HasAlpha);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R8G8_UNORM_To_GrayAlpha16()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 16, // VK_FORMAT_R8G8_UNORM
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[] { 0x10, 0x20, 0x30, 0x40 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.GrayAlpha16, reader.Info.PixelFormat);
+        Assert.Equal(16, reader.Info.BitsPerPixel);
+        Assert.True(reader.Info.HasAlpha);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
 }

@@ -73,12 +73,24 @@ public static class KtxFormat
     {
         // GL_R8 / GL_R8_SNORM
         0x8229 or 0x8F94 => PixelFormat.Gray8,
+        // GL_LUMINANCE8
+        0x8040 => PixelFormat.Gray8,
+        // GL_LUMINANCE8_ALPHA8
+        0x8045 => PixelFormat.GrayAlpha16,
         // GL_RGB8 / GL_SRGB8
         0x8051 or 0x8C41 => PixelFormat.Rgb24,
         // GL_RGBA8 / GL_SRGB8_ALPHA8
         0x8058 or 0x8C43 => PixelFormat.Rgba32,
         // GL_R16 / GL_R16_SNORM
         0x822A or 0x8F98 => PixelFormat.Gray16,
+        // GL_LUMINANCE16
+        0x8042 => PixelFormat.Gray16,
+        // GL_RG16 / GL_RG16_SNORM
+        0x822C or 0x8F99 => PixelFormat.Rg32,
+        // GL_RGB16 / GL_RGB16_SNORM
+        0x8054 or 0x8F9A => PixelFormat.Rgb48,
+        // GL_RGBA16 / GL_RGBA16_SNORM
+        0x805B or 0x8F9B => PixelFormat.Rgba64,
         _ => PixelFormat.Unknown,
     };
 
@@ -141,6 +153,8 @@ public static class KtxFormat
     {
         // VK_FORMAT_R8_UNORM / SNORM / SRGB
         9 or 10 or 15 => PixelFormat.Gray8,
+        // VK_FORMAT_R8G8_UNORM / SNORM / SRGB -> two-channel 8-bit pair as Gray+Alpha (no R8G8 PixelFormat).
+        16 or 17 or 22 => PixelFormat.GrayAlpha16,
         // VK_FORMAT_R8G8B8_UNORM / SRGB
         23 or 29 => PixelFormat.Rgb24,
         // VK_FORMAT_B8G8R8_UNORM / SRGB
@@ -153,6 +167,10 @@ public static class KtxFormat
         70 or 71 => PixelFormat.Gray16,
         // VK_FORMAT_R16G16_UNORM / SNORM
         77 or 78 => PixelFormat.Rg32,
+        // VK_FORMAT_R16G16B16_UNORM / SNORM
+        84 or 85 => PixelFormat.Rgb48,
+        // VK_FORMAT_R16G16B16A16_UNORM / SNORM
+        91 or 92 => PixelFormat.Rgba64,
         _ => PixelFormat.Unknown,
     };
 
