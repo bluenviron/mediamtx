@@ -69,6 +69,81 @@ public sealed class JpegProgressiveDecoderTests
                 Assert.InRange(decoded[y, x], 198, 202);
     }
 
+    [Fact]
+    public async Task ColorYCbCr444_2x2Mcus_DcInterleavedThenAc_Roundtrips()
+    {
+        // 16×16 4:4:4 image so each plane has 4 blocks → exercises the
+        // interleaved DC scan path (3 components, MCU-ordered) and the
+        // three separate single-component AC scans (one per channel).
+        int w = 16, h = 16;
+        var yPlane = new byte[h, w];
+        var cbPlane = new byte[h, w];
+        var crPlane = new byte[h, w];
+
+        // Pure grey patch → Y ≈ original, Cb/Cr ≈ 128 (no chroma).
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                yPlane[y, x] = (byte)(40 + (x + y) * 4);
+                cbPlane[y, x] = 128;
+                crPlane[y, x] = 128;
+            }
+
+        byte[] jpeg = TestProgressiveEncoder.EncodeYCbCr444(yPlane, cbPlane, crPlane);
+
+        var decoded = await DecodeRgbAsync(jpeg);
+        Assert.Equal(h, decoded.GetLength(0));
+        Assert.Equal(w, decoded.GetLength(1));
+
+        // Reconstructed pixel should be near (Y, Y, Y) since Cb=Cr=128.
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int expected = yPlane[y, x];
+                int r = decoded[y, x].r;
+                int g = decoded[y, x].g;
+                int b = decoded[y, x].b;
+                Assert.InRange(Math.Abs(r - expected), 0, 3);
+                Assert.InRange(Math.Abs(g - expected), 0, 3);
+                Assert.InRange(Math.Abs(b - expected), 0, 3);
+            }
+        }
+    }
+
+    private static async Task<(byte r, byte g, byte b)[,]> DecodeRgbAsync(byte[] jpegBytes)
+    {
+        await using var ms = new MemoryStream(jpegBytes);
+        using var reader = JpegReader.Open(ms, ownsStream: false);
+        Assert.True(reader.CanDecodePixels);
+
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync())
+        {
+            frame = f;
+            break;
+        }
+        Assert.NotNull(frame);
+
+        int w = reader.Info.Width;
+        int h = reader.Info.Height;
+        Assert.Equal(PixelFormat.Rgb24, frame!.PixelFormat);
+        var pixels = new (byte, byte, byte)[h, w];
+        var data = frame.Pixels.Span;
+        int stride = frame.Stride;
+        for (int y = 0; y < h; y++)
+        {
+            int row = y * stride;
+            for (int x = 0; x < w; x++)
+            {
+                int o = row + x * 3;
+                pixels[y, x] = (data[o], data[o + 1], data[o + 2]);
+            }
+        }
+        frame.Dispose();
+        return pixels;
+    }
+
     private static async Task<byte[,]> DecodeGrayAsync(byte[] jpegBytes)
     {
         await using var ms = new MemoryStream(jpegBytes);
@@ -173,15 +248,111 @@ internal static class TestProgressiveEncoder
         return ms.ToArray();
     }
 
+    /// <summary>Encode a 3-component YCbCr 4:4:4 progressive JPEG (no chroma subsampling).</summary>
+    public static byte[] EncodeYCbCr444(byte[,] yPlane, byte[,] cbPlane, byte[,] crPlane)
+    {
+        int h = yPlane.GetLength(0);
+        int w = yPlane.GetLength(1);
+        Assert.True(w % 8 == 0 && h % 8 == 0, "Test only supports multiples of 8.");
+        Assert.Equal(h, cbPlane.GetLength(0));
+        Assert.Equal(w, cbPlane.GetLength(1));
+        Assert.Equal(h, crPlane.GetLength(0));
+        Assert.Equal(w, crPlane.GetLength(1));
+
+        int blocksW = w / 8;
+        int blocksH = h / 8;
+
+        var coefY = ForwardDctPlane(yPlane, blocksW, blocksH);
+        var coefCb = ForwardDctPlane(cbPlane, blocksW, blocksH);
+        var coefCr = ForwardDctPlane(crPlane, blocksW, blocksH);
+
+        using var ms = new MemoryStream();
+        ms.WriteByte(0xFF); ms.WriteByte(0xD8); // SOI
+
+        // DQT (identity, table 0)
+        ms.WriteByte(0xFF); ms.WriteByte(0xDB);
+        WriteUInt16BE(ms, 67);
+        ms.WriteByte(0x00);
+        for (int k = 0; k < 64; k++) ms.WriteByte(1);
+
+        // SOF2 — 3-component 4:4:4
+        ms.WriteByte(0xFF); ms.WriteByte(0xC2);
+        WriteUInt16BE(ms, 17); // 2 (len) + 1 (P) + 2 (Y) + 2 (X) + 1 (Nf) + 3*3 (comps) = 17
+        ms.WriteByte(8);
+        WriteUInt16BE(ms, (ushort)h);
+        WriteUInt16BE(ms, (ushort)w);
+        ms.WriteByte(3); // Nf
+        ms.WriteByte(1); ms.WriteByte(0x11); ms.WriteByte(0); // Y, 1×1, qtab 0
+        ms.WriteByte(2); ms.WriteByte(0x11); ms.WriteByte(0); // Cb, 1×1, qtab 0
+        ms.WriteByte(3); ms.WriteByte(0x11); ms.WriteByte(0); // Cr, 1×1, qtab 0
+
+        // Two Huffman tables: DC table 0 + AC table 0 (Annex K luminance, used for all components).
+        WriteDht(ms, tc: 0, th: 0, AnnexK.DcLuminanceBits, AnnexK.DcLuminanceValues);
+        WriteDht(ms, tc: 1, th: 0, AnnexK.AcLuminanceBits, AnnexK.AcLuminanceValues);
+
+        // Scan 1: DC initial, interleaved (3 components).
+        WriteInterleavedDcScan(ms, coefY, coefCb, coefCr, blocksW, blocksH);
+        // Scans 2-4: AC initial per component (AC scans must be single-component).
+        WriteScan(ms, coefY, blocksW, blocksH, ss: 1, se: 63, ah: 0, al: 0, compId: 1);
+        WriteScan(ms, coefCb, blocksW, blocksH, ss: 1, se: 63, ah: 0, al: 0, compId: 2);
+        WriteScan(ms, coefCr, blocksW, blocksH, ss: 1, se: 63, ah: 0, al: 0, compId: 3);
+
+        ms.WriteByte(0xFF); ms.WriteByte(0xD9); // EOI
+        return ms.ToArray();
+    }
+
+    private static short[] ForwardDctPlane(byte[,] plane, int blocksW, int blocksH)
+    {
+        var coefs = new short[blocksH * blocksW * 64];
+        for (int by = 0; by < blocksH; by++)
+            for (int bx = 0; bx < blocksW; bx++)
+                ForwardDct(plane, bx * 8, by * 8, coefs.AsSpan((by * blocksW + bx) * 64, 64));
+        return coefs;
+    }
+
+    /// <summary>Write a 3-component interleaved DC-initial scan (Ss=0, Se=0, Ah=0, Al=0).</summary>
+    private static void WriteInterleavedDcScan(
+        MemoryStream ms, short[] coefY, short[] coefCb, short[] coefCr,
+        int blocksW, int blocksH)
+    {
+        // SOS header for 3-component DC-only scan.
+        ms.WriteByte(0xFF); ms.WriteByte(0xDA);
+        WriteUInt16BE(ms, 12); // 2 (len) + 1 (Ns) + 3*2 (comps) + 3 (Ss/Se/AhAl) = 12
+        ms.WriteByte(3);                       // Ns
+        ms.WriteByte(1); ms.WriteByte(0x00);   // Y:  DC=0 AC=0
+        ms.WriteByte(2); ms.WriteByte(0x00);   // Cb: DC=0 AC=0
+        ms.WriteByte(3); ms.WriteByte(0x00);   // Cr: DC=0 AC=0
+        ms.WriteByte(0);                       // Ss = 0
+        ms.WriteByte(0);                       // Se = 0
+        ms.WriteByte(0x00);                    // Ah=0, Al=0
+
+        var bw = new BitWriter(ms);
+        int prevY = 0, prevCb = 0, prevCr = 0;
+        for (int by = 0; by < blocksH; by++)
+        {
+            for (int bx = 0; bx < blocksW; bx++)
+            {
+                int blockOff = (by * blocksW + bx) * 64;
+                int dcY = coefY[blockOff];
+                int dcCb = coefCb[blockOff];
+                int dcCr = coefCr[blockOff];
+                EncodeHuffmanCoef(bw, dcY - prevY, AnnexK.DcLuminanceCodes);  prevY = dcY;
+                EncodeHuffmanCoef(bw, dcCb - prevCb, AnnexK.DcLuminanceCodes); prevCb = dcCb;
+                EncodeHuffmanCoef(bw, dcCr - prevCr, AnnexK.DcLuminanceCodes); prevCr = dcCr;
+            }
+        }
+        bw.Flush();
+    }
+
     private static void WriteScan(
         MemoryStream ms, short[] coefs, int blocksW, int blocksH,
-        int ss, int se, int ah, int al)
+        int ss, int se, int ah, int al, byte compId = 1)
     {
         // SOS header
         ms.WriteByte(0xFF); ms.WriteByte(0xDA);
         WriteUInt16BE(ms, 8);
         ms.WriteByte(1);                       // Ns
-        ms.WriteByte(1);                       // component id
+        ms.WriteByte(compId);                  // component id
         ms.WriteByte(0x00);                    // DC=0, AC=0
         ms.WriteByte((byte)ss);
         ms.WriteByte((byte)se);

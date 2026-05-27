@@ -37,7 +37,7 @@ public sealed class JpegReader : IImageReader
 
     /// <inheritdoc/>
     public bool CanDecodePixels =>
-        (_frame.IsBaseline || _frame.IsProgressive) && _frame.NumberOfComponents is 1 or 3;
+        (_frame.IsBaseline || _frame.IsProgressive || _frame.IsLossless) && _frame.NumberOfComponents is 1 or 3;
 
     /// <summary>
     /// Returns the EXIF / TIFF tag dictionary verbatim (key prefixes:
@@ -152,6 +152,7 @@ public sealed class JpegReader : IImageReader
                     ParseSof(segment, frame);
                     frame.IsBaseline = marker == 0xC0;
                     frame.IsProgressive = marker == 0xC2;
+                    frame.IsLossless = marker == 0xC3;
                     break;
 
                 case 0xDB: // DQT
@@ -194,7 +195,7 @@ public sealed class JpegReader : IImageReader
                 case 0xDA: // SOS — scan header followed by entropy-coded segment.
                     {
                         ParseSos(segment, state, frame);
-                        // For baseline scans, capture entropy bytes simply (existing behaviour).
+                        // For baseline / lossless scans, capture entropy bytes simply.
                         // For progressive, capture per-scan info AND entropy bytes that stop
                         // at the next non-restart marker so we can process more segments.
                         if (frame.IsProgressive)
@@ -230,7 +231,15 @@ public sealed class JpegReader : IImageReader
         }
     done:
 
-        var pf = frame.NumberOfComponents == 1 ? PixelFormat.Gray8 : PixelFormat.Rgb24;
+        PixelFormat pf;
+        if (frame.NumberOfComponents == 1)
+        {
+            pf = frame.BitsPerSample > 8 ? PixelFormat.Gray16 : PixelFormat.Gray8;
+        }
+        else
+        {
+            pf = frame.BitsPerSample > 8 ? PixelFormat.Rgb48 : PixelFormat.Rgb24;
+        }
         var info = new ImageInfo
         {
             Width = frame.Width,
@@ -262,10 +271,14 @@ public sealed class JpegReader : IImageReader
         {
             frame = JpegProgressiveDecoder.Decode(_frame, _state, _scans);
         }
+        else if (_frame.IsLossless)
+        {
+            frame = JpegLosslessDecoder.Decode(_frame, _state, _scanData);
+        }
         else
         {
             throw new NotSupportedException(
-                "JPEG lossless / arithmetic coded decoding is not implemented in this version of Mediar.");
+                "JPEG arithmetic-coded decoding is not implemented in this version of Mediar.");
         }
         await Task.CompletedTask.ConfigureAwait(false);
         yield return frame;
@@ -476,6 +489,7 @@ internal sealed class JpegFrame
 {
     public bool IsBaseline { get; set; }
     public bool IsProgressive { get; set; }
+    public bool IsLossless { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
     public int BitsPerSample { get; set; } = 8;

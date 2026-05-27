@@ -89,12 +89,12 @@ and an `ImageFormat` enum spans every requested format.
 
 | Tier | Capability | Formats |
 | --- | --- | --- |
-| Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed + BC1/BC2/BC3/BC4/BC5/BC6H modes 11+14/BC7), JPEG (baseline SOF0, grayscale + 4:4:4 / 4:2:2 / 4:2:0 YCbCr) |
+| Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed + BC1/BC2/BC3/BC4/BC5/BC6H modes 11+14/BC7), JPEG (baseline SOF0 + progressive SOF2 + lossless SOF3, grayscale + 4:4:4 / 4:2:2 / 4:2:0 YCbCr) |
 | Header + metadata only | dimensions / channels / EXIF without pixel decode | HEIF / HEIC / AVIF / CR3 (ISO-BMFF box walker), JP2 / J2K (codestream + container), JXR, BPG, FLIF, MNG, EMF, WMF / APM, DICOM, DJVU, SVS (Aperio TIFF), gzipped vector wrappers, DDS BC6H partitioned modes (1-10, 12-13) |
 | Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG) |
 
 Pixel decoding is intentionally **never** wired to a third-party codec
-binary. JPEG lossless (SOF3) and arithmetic-coded variants remain deferred;
+binary. JPEG arithmetic-coded variants remain deferred;
 HEIF / AVIF / JXL require codec implementations
 that are themselves multi-month projects and are out of scope. DDS BC6H
 (HDR half-float UF16 / SF16) ships **1-subset modes 11 and 14**, which
@@ -149,7 +149,7 @@ csharp-mediar/
 │   ├── Mediar.Imaging.Core/            IImageReader / IImageWriter + magic-byte detector
 │   ├── Mediar.Imaging.Bmp/             BMP / DIB reader + writer + ICO
 │   ├── Mediar.Imaging.Png/             PNG / APNG reader + writer (CRC32 inline)
-│   ├── Mediar.Imaging.Jpeg/            JPEG baseline + progressive DCT decoder + EXIF / MPO
+│   ├── Mediar.Imaging.Jpeg/            JPEG baseline + progressive + lossless decoder + EXIF / MPO
 │   ├── Mediar.Imaging.Gif/             GIF87a / GIF89a + animation (full LZW)
 │   ├── Mediar.Imaging.Tiff/            TIFF (uncompressed / PackBits / Deflate / LZW)
 │   ├── Mediar.Imaging.Tga/             Truevision TGA (types 1/2/3/9/10/11)
