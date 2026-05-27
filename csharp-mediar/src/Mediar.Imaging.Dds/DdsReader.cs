@@ -21,6 +21,7 @@ public sealed class DdsReader : IImageReader
     private readonly int _pitchOrLinearSize;
     private readonly bool _isCompressed;
     private readonly BcnFormat _bcn;
+    private readonly uint _packedDxgi;
     private bool _disposed;
 
     /// <inheritdoc/>
@@ -42,11 +43,12 @@ public sealed class DdsReader : IImageReader
 
     private DdsReader(Stream s, bool owns, byte[] b, int pixelsOffset,
                       uint r, uint g, uint bMask, uint a, int pitch, bool compressed,
-                      BcnFormat bcn, ImageInfo info)
+                      BcnFormat bcn, uint packedDxgi, ImageInfo info)
     {
         _stream = s; _ownsStream = owns; _bytes = b;
         _pixelsOffset = pixelsOffset; _rBit = r; _gBit = g; _bBit = bMask; _aBit = a;
         _pitchOrLinearSize = pitch; _isCompressed = compressed; _bcn = bcn;
+        _packedDxgi = packedDxgi;
         Info = info;
     }
 
@@ -130,6 +132,11 @@ public sealed class DdsReader : IImageReader
         int bppFinal = compressed
             ? BcnBitsPerPixel(bcn)
             : (dxgiUncompressed != PixelFormat.Unknown ? pf.BitsPerPixel() : (int)rgbBitCount);
+        uint packedDxgiCode = 0;
+        if (!compressed && dxgiUncompressed != PixelFormat.Unknown && IsPackedDxgi(dxgiFormat))
+        {
+            packedDxgiCode = dxgiFormat;
+        }
         var info = new ImageInfo
         {
             Width = width,
@@ -146,7 +153,7 @@ public sealed class DdsReader : IImageReader
         };
 
         return new DdsReader(stream, ownsStream, bytes, pixelsOffset,
-                             rMask, gMask, bMask, aMask, pitch, compressed, bcn, info);
+                             rMask, gMask, bMask, aMask, pitch, compressed, bcn, packedDxgiCode, info);
     }
 
     /// <inheritdoc/>
@@ -238,6 +245,27 @@ public sealed class DdsReader : IImageReader
         if (Info.PixelFormat == PixelFormat.Unknown)
         {
             throw new NotSupportedException("Unrecognised DDS uncompressed pixel layout.");
+        }
+
+        if (_packedDxgi != 0)
+        {
+            int srcBytes = width * height * 4;
+            if (_pixelsOffset + srcBytes > _bytes.Length)
+            {
+                throw new ImageFormatException("Truncated DDS pixel data.");
+            }
+            var packedSrc = _bytes.AsSpan(_pixelsOffset, srcBytes);
+            byte[] unpacked = _packedDxgi switch
+            {
+                24 => DdsPackedUnpacker.UnpackR10G10B10A2Unorm(packedSrc, width, height),
+                26 => DdsPackedUnpacker.UnpackR11G11B10Float(packedSrc, width, height),
+                67 => DdsPackedUnpacker.UnpackR9G9B9E5SharedExp(packedSrc, width, height),
+                _ => throw new NotSupportedException(
+                    $"DDS packed DXGI format {_packedDxgi} is not implemented."),
+            };
+            int packedStride = Info.PixelFormat == PixelFormat.Rgba32 ? width * 4 : width * 12;
+            yield return new ImageFrame(width, height, Info.PixelFormat, packedStride, unpacked);
+            yield break;
         }
 
         int bpp = Info.BitsPerPixel / 8;
@@ -334,9 +362,20 @@ public sealed class DdsReader : IImageReader
             // 16-bit packed
             case 85: return PixelFormat.Rgb565;                                                // B5G6R5_UNORM
             case 86: hasAlpha = true; return PixelFormat.Rgba5551;                             // B5G5R5A1_UNORM
+            // 32-bit packed bit-fields (require unpacking at decode time)
+            case 24: hasAlpha = true; return PixelFormat.Rgba32;                               // R10G10B10A2_UNORM
+            case 26: colorSpace = "Linear"; return PixelFormat.Rgb96Float;                     // R11G11B10_FLOAT
+            case 67: colorSpace = "Linear"; return PixelFormat.Rgb96Float;                     // R9G9B9E5_SHAREDEXP
         }
         return PixelFormat.Unknown;
     }
+
+    /// <summary>
+    /// Returns true for DXGI format codes whose bytes do not match the
+    /// chosen <see cref="PixelFormat"/> 1:1 and therefore require runtime
+    /// unpacking via <see cref="DdsPackedUnpacker"/>.
+    /// </summary>
+    internal static bool IsPackedDxgi(uint dxgiFormat) => dxgiFormat is 24u or 26u or 67u;
 
     /// <inheritdoc/>
     public void Dispose()
