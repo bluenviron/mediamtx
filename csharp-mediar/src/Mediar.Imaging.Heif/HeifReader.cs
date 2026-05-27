@@ -62,6 +62,28 @@ public sealed class HeifReader : IImageReader
     /// <summary>Item references (<c>iref</c>): grouped by reference type.</summary>
     public ImmutableArray<HeifReference> References { get; }
 
+    /// <summary>
+    /// Typed lookup over <see cref="References"/> that resolves the
+    /// thumbnail / derivation / auxiliary / metadata graph without
+    /// the caller needing to iterate the flat reference table.
+    /// </summary>
+    public HeifReferenceGraph ReferenceGraph { get; }
+
+    /// <summary>
+    /// Thumbnails of the <see cref="PrimaryItemId"/>, in declaration
+    /// order. Empty when the file declares no thumbnails or no
+    /// primary item.
+    /// </summary>
+    public ImmutableArray<uint> PrimaryThumbnailIds =>
+        PrimaryItemId == 0 ? [] : ReferenceGraph.GetThumbnailsFor(PrimaryItemId);
+
+    /// <summary>
+    /// Auxiliary items (alpha, depth, HDR layer, etc.) of the
+    /// <see cref="PrimaryItemId"/>, in declaration order.
+    /// </summary>
+    public ImmutableArray<uint> PrimaryAuxiliaryIds =>
+        PrimaryItemId == 0 ? [] : ReferenceGraph.GetAuxiliariesFor(PrimaryItemId);
+
     private HeifReader(Stream s, bool owns, ImageFormat fmt, ImageInfo info, ImageMetadata meta,
                        string majorBrand, ImmutableArray<string> compat, uint primary,
                        ImmutableArray<HeifItem> items, ImmutableArray<HeifProperty> props,
@@ -72,6 +94,7 @@ public sealed class HeifReader : IImageReader
         MajorBrand = majorBrand; CompatibleBrands = compat;
         PrimaryItemId = primary; Items = items; Properties = props;
         Associations = assoc; References = refs;
+        ReferenceGraph = new HeifReferenceGraph(refs);
     }
 
     /// <summary>Open a HEIF/HEIC/AVIF/CR3 file from a path.</summary>
