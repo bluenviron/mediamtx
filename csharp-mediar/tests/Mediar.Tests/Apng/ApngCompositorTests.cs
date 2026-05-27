@@ -245,6 +245,48 @@ public sealed class ApngCompositorTests
         }
     }
 
+    [Fact]
+    public void Compositor_BackgroundRgba_Fills_Canvas_On_Clear()
+    {
+        var compositor = new ApngCompositor(3, 2)
+        {
+            BackgroundRgba = 0x11_22_33_44u,
+        };
+        compositor.Clear();
+        var canvas = compositor.Canvas;
+        Assert.Equal(3 * 2 * 4, canvas.Length);
+        for (int i = 0; i < 3 * 2; i++)
+        {
+            Assert.Equal(0x44, canvas[i * 4 + 0]);
+            Assert.Equal(0x33, canvas[i * 4 + 1]);
+            Assert.Equal(0x22, canvas[i * 4 + 2]);
+            Assert.Equal(0x11, canvas[i * 4 + 3]);
+        }
+    }
+
+    [Fact]
+    public void Compositor_BackgroundRgba_Is_Used_By_DisposeBackground_Path()
+    {
+        var compositor = new ApngCompositor(4, 4)
+        {
+            BackgroundRgba = 0xFF_00_00_AAu,
+        };
+        compositor.Clear();
+        var opaqueWhite = TestApngBuilder.FillRgba32(4, 4, 0xFF, 0xFF, 0xFF, 0xFF);
+        compositor.Render(opaqueWhite, 4 * 4, 4, 4, 0, 0,
+            ApngBlendOp.Source, ApngDisposeOp.Background);
+        var blueSubRect = TestApngBuilder.FillRgba32(2, 2, 0x00, 0x00, 0xFF, 0xFF);
+        compositor.Render(blueSubRect, 2 * 4, 2, 2, 0, 0,
+            ApngBlendOp.Source, ApngDisposeOp.None);
+        var canvas = compositor.Canvas;
+        AssertPixel(canvas, 0, 0, 4, 0x00, 0x00, 0xFF, 0xFF);
+        AssertPixel(canvas, 1, 0, 4, 0x00, 0x00, 0xFF, 0xFF);
+        AssertPixel(canvas, 2, 0, 4, 0xAA, 0x00, 0x00, 0xFF);
+        AssertPixel(canvas, 3, 0, 4, 0xAA, 0x00, 0x00, 0xFF);
+        AssertPixel(canvas, 2, 2, 4, 0xAA, 0x00, 0x00, 0xFF);
+        AssertPixel(canvas, 3, 3, 4, 0xAA, 0x00, 0x00, 0xFF);
+    }
+
     private static void AssertPixel(ReadOnlySpan<byte> rgba, int x, int y, int width, byte r, byte g, byte b, byte a)
     {
         int o = (y * width + x) * 4;

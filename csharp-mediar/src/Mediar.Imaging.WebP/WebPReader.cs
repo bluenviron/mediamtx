@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Apng;
 
 namespace Mediar.Imaging.WebP;
 
@@ -297,6 +298,75 @@ public sealed class WebPReader : IImageReader
                     $"WebP lossy (VP8) decoding is not yet implemented in Mediar. " +
                     $"Use Info / Chunks / Metadata for now.");
             }
+        }
+    }
+
+    /// <summary>
+    /// Iterates the animation composing each ANMF sub-rectangle onto a running
+    /// full-canvas buffer per the WebP animation specification (RFC 9649 §5.2).
+    /// Yields BGRA32 frames sized to the VP8X canvas with the ANIM background
+    /// colour applied as both the initial canvas fill and the
+    /// "dispose-to-background" fill. For non-animated WebPs the method falls
+    /// through to <see cref="ReadFramesAsync"/>.
+    /// </summary>
+    public async IAsyncEnumerable<ImageFrame> ReadComposedFramesAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_isAnimated)
+        {
+            await foreach (var f in ReadFramesAsync(cancellationToken).ConfigureAwait(false))
+            {
+                yield return f;
+            }
+            yield break;
+        }
+
+        await Task.CompletedTask.ConfigureAwait(false);
+        int canvasW = Info.Width;
+        int canvasH = Info.Height;
+        var compositor = new ApngCompositor(canvasW, canvasH)
+        {
+            BackgroundRgba = BackgroundColor,
+        };
+        compositor.Clear();
+
+        foreach (var f in _frames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (f.Kind != WebPFrameKind.Vp8L)
+            {
+                throw new NotSupportedException(
+                    $"WebP lossy (VP8) decoding is not yet implemented in Mediar.");
+            }
+
+            var src = new ReadOnlySpan<byte>(_bytes, f.Offset, f.Length);
+            var decoded = Vp8LDecoder.Decode(src);
+            int frameW = decoded.Width;
+            int frameH = decoded.Height;
+            if (frameW != f.Width || frameH != f.Height)
+            {
+                throw new InvalidDataException(
+                    $"VP8L frame dimensions ({frameW}x{frameH}) do not match ANMF declared ({f.Width}x{f.Height}).");
+            }
+            if (f.X + frameW > canvasW || f.Y + frameH > canvasH)
+            {
+                throw new InvalidDataException("ANMF frame extends past canvas bounds.");
+            }
+
+            var srcBytes = new byte[frameW * frameH * 4];
+            CopyArgbToBgra(decoded.PixelsArgb, srcBytes);
+
+            var dispose = f.DisposeToBackground ? ApngDisposeOp.Background : ApngDisposeOp.None;
+            var blend = f.BlendOverPrev ? ApngBlendOp.Over : ApngBlendOp.Source;
+            compositor.Render(srcBytes, frameW * 4, frameW, frameH, f.X, f.Y, blend, dispose);
+
+            var snapshot = compositor.Snapshot();
+            yield return new ImageFrame(canvasW, canvasH, PixelFormat.Bgra32,
+                canvasW * 4, snapshot, snapshot)
+            {
+                Duration = TimeSpan.FromMilliseconds(f.DurationMs),
+            };
         }
     }
 

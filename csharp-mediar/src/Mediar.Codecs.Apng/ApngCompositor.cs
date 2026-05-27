@@ -1,15 +1,24 @@
 namespace Mediar.Codecs.Apng;
 
 /// <summary>
-/// Maintains a running RGBA32 canvas onto which APNG (Animated PNG) sub-frames
+/// Maintains a running 4-byte-per-pixel canvas onto which animation sub-frames
 /// are composited per the APNG specification's <c>dispose_op</c> and
 /// <c>blend_op</c> rules.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The compositor is reusable across any animation container that follows the
-/// same canvas-blend-restore model (APNG today; future shared GIF / WebP
-/// composers can layer on top).
+/// same canvas-blend-restore model. APNG callers store RGBA32; WebP callers
+/// store BGRA32. The SRC-OVER blend math only references the alpha channel
+/// at byte offset 3, so any consistent 4-byte pixel order with alpha last
+/// composites correctly.
+/// </para>
+/// <para>
+/// Use <see cref="BackgroundRgba"/> to configure the fill colour for both the
+/// initial <see cref="Clear"/> state and the <see cref="ApngDisposeOp.Background"/>
+/// dispose path. For APNG the default zero (transparent black) matches the
+/// specification; WebP callers should set this to the ANIM chunk background
+/// before calling <see cref="Clear"/>.
 /// </para>
 /// <para>
 /// Render order:
@@ -45,11 +54,23 @@ public sealed class ApngCompositor
     /// <summary>Canvas height in pixels.</summary>
     public int Height { get; }
 
-    /// <summary>Bytes per row of the canvas (always <c>Width * 4</c> for RGBA32).</summary>
+    /// <summary>Bytes per row of the canvas (always <c>Width * 4</c>).</summary>
     public int Stride => Width * 4;
 
     /// <summary>Live view of the canvas pixel buffer. Length = <c>Width * Height * 4</c>.</summary>
     public ReadOnlySpan<byte> Canvas => _canvas;
+
+    /// <summary>
+    /// 4-byte fill pattern used by <see cref="Clear"/> and by the
+    /// <see cref="ApngDisposeOp.Background"/> path. Defaults to all zeros
+    /// (transparent black) which matches the APNG specification. WebP callers
+    /// should assign the ANIM background colour bytes before calling
+    /// <see cref="Clear"/>. Pixel byte order is whatever the caller's canvas
+    /// uses (RGBA32 for APNG, BGRA32 for WebP); the compositor stores the
+    /// four bytes verbatim and does not interpret channel meaning beyond
+    /// alpha being the last byte for blending purposes.
+    /// </summary>
+    public uint BackgroundRgba { get; set; }
 
     /// <summary>Constructs a new transparent-black canvas of the given size.</summary>
     public ApngCompositor(int width, int height)
@@ -62,10 +83,10 @@ public sealed class ApngCompositor
         _firstFrame = true;
     }
 
-    /// <summary>Clears the canvas to fully transparent black and resets all queued state.</summary>
+    /// <summary>Clears the canvas to <see cref="BackgroundRgba"/> and resets all queued state.</summary>
     public void Clear()
     {
-        Array.Clear(_canvas);
+        FillRect(0, 0, Width, Height);
         _previous = null;
         _hasPreviousSave = false;
         _hasQueued = false;
@@ -181,12 +202,35 @@ public sealed class ApngCompositor
         }
     }
 
-    private void ClearRect(int x, int y, int w, int h)
+    private void ClearRect(int x, int y, int w, int h) => FillRect(x, y, w, h);
+
+    private void FillRect(int x, int y, int w, int h)
     {
+        if (BackgroundRgba == 0)
+        {
+            for (int row = 0; row < h; row++)
+            {
+                int dstOffset = ((y + row) * Width + x) * 4;
+                Array.Clear(_canvas, dstOffset, w * 4);
+            }
+            return;
+        }
+
+        byte b0 = (byte)(BackgroundRgba & 0xFF);
+        byte b1 = (byte)((BackgroundRgba >> 8) & 0xFF);
+        byte b2 = (byte)((BackgroundRgba >> 16) & 0xFF);
+        byte b3 = (byte)((BackgroundRgba >> 24) & 0xFF);
         for (int row = 0; row < h; row++)
         {
             int dstOffset = ((y + row) * Width + x) * 4;
-            Array.Clear(_canvas, dstOffset, w * 4);
+            for (int col = 0; col < w; col++)
+            {
+                int o = dstOffset + col * 4;
+                _canvas[o + 0] = b0;
+                _canvas[o + 1] = b1;
+                _canvas[o + 2] = b2;
+                _canvas[o + 3] = b3;
+            }
         }
     }
 

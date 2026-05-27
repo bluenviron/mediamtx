@@ -50,6 +50,80 @@ public class WebPReaderTests
         });
     }
 
+    [Fact]
+    public async Task ReadComposedFramesAsync_Falls_Through_For_Non_Animated_WebP()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 4, height: 3);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+
+        int count = 0;
+        await foreach (var f in r.ReadComposedFramesAsync())
+        {
+            using (f)
+            {
+                Assert.Equal(4, f.Width);
+                Assert.Equal(3, f.Height);
+                count++;
+            }
+        }
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task ReadComposedFramesAsync_Throws_For_Animated_Vp8_Lossy_Frames()
+    {
+        // Built ANMF entries reference VP8 ("VP8 ") sub-chunks, which the
+        // composed iterator must reject for now (no VP8 codec yet).
+        var bytes = BuildAnimatedVp8XLossyContainer(width: 4, height: 4, frames: 2);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await foreach (var f in r.ReadComposedFramesAsync()) { f.Dispose(); }
+        });
+    }
+
+    private static byte[] BuildAnimatedVp8XLossyContainer(int width, int height, int frames)
+    {
+        var vp8x = new byte[10];
+        vp8x[0] = 0x02;  // animation flag
+        vp8x[4] = (byte)((width - 1) & 0xFF);
+        vp8x[5] = (byte)(((width - 1) >> 8) & 0xFF);
+        vp8x[6] = (byte)(((width - 1) >> 16) & 0xFF);
+        vp8x[7] = (byte)((height - 1) & 0xFF);
+        vp8x[8] = (byte)(((height - 1) >> 8) & 0xFF);
+        vp8x[9] = (byte)(((height - 1) >> 16) & 0xFF);
+
+        var anim = new byte[6];
+
+        var chunks = new List<(string, byte[])>
+        {
+            ("VP8X", vp8x),
+            ("ANIM", anim),
+        };
+        for (int i = 0; i < frames; i++)
+        {
+            chunks.Add(("ANMF", BuildAnmfWithVp8(width, height)));
+        }
+        return BuildRiffWebp(chunks);
+    }
+
+    private static byte[] BuildAnmfWithVp8(int width, int height)
+    {
+        var data = new byte[16 + 5];
+        data[6] = (byte)((width - 1) & 0xFF);
+        data[7] = (byte)(((width - 1) >> 8) & 0xFF);
+        data[9] = (byte)((height - 1) & 0xFF);
+        data[10] = (byte)(((height - 1) >> 8) & 0xFF);
+        data[12] = 100;
+        // sub-chunk VP8 (lossy) - 5 bytes payload
+        data[16] = (byte)'V';
+        data[17] = (byte)'P';
+        data[18] = (byte)'8';
+        data[19] = (byte)' ';
+        return data;
+    }
+
     private static byte[] BuildSimpleVp8LContainer(int width, int height)
     {
         // Minimal VP8L payload: signature + header. Pixel data is single-symbol Huffman
