@@ -168,6 +168,17 @@ public static class ImageFormatDetector
                 if (header[5] == 0x32 && header[6] == 0x30) return ImageFormat.Ktx2;
             }
 
+            // PVR v3 (Imagination PowerVR Texture): version word at offset 0 is
+            // 0x03525650 ("PVR\x03" little-endian) or 0x50565203 (big-endian
+            // swapped). Always at least 52 header bytes follow.
+            if ((header[0] == (byte)'P' && header[1] == (byte)'V' &&
+                 header[2] == (byte)'R' && header[3] == 0x03) ||
+                (header[0] == 0x03 && header[1] == (byte)'R' &&
+                 header[2] == (byte)'V' && header[3] == (byte)'P'))
+            {
+                return ImageFormat.Pvr;
+            }
+
             // PSD: "8BPS" (V1 = PSD, V2 = PSB)
             if (header[0] == (byte)'8' && header[1] == (byte)'B' &&
                 header[2] == (byte)'P' && header[3] == (byte)'S')

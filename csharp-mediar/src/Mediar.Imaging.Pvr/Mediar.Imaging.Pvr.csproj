@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Pvr</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Pvr</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Imagination PowerVR Texture (.pvr) container reader for the Mediar toolkit. PVR v3 (Khronos-blessed, 52-byte header with 4-byte "PVR\x03" version word) is the modern PowerVR Texture container used by mobile GPUs, glTF asset pipelines, and the PVRTexTool authoring chain. The reader recognises both little-endian (0x03525650) and big-endian (0x50565203) byte-order variants, walks the metadata block of FourCC-keyed sub-entries, and surfaces every mip level / array surface / cube face as a typed PvrLevelInfo. Composes Mediar.Codecs.Bcn for BC1-BC7 (DXT1/3/5 aliases) and Mediar.Codecs.Etc for ETC1 / ETC2 / EAC R11. PVRTC, PVRTC II, ASTC, and other proprietary block codecs are detected from the format-id table but surfaced as undecodable.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Bcn\Mediar.Codecs.Bcn.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Etc\Mediar.Codecs.Etc.csproj" />
+  </ItemGroup>
+
+</Project>
