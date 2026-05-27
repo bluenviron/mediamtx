@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Astc</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Astc</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Standalone ASTC (Adaptive Scalable Texture Compression) decoder for the Mediar toolkit. Currently implements the void-extent (constant-colour) block fast path, the most common block type for skybox / atlas padding regions, with LDR and HDR colour variants per the Khronos KDF 1.4 specification (section 19). Full single-plane and multi-plane ASTC decoding is a follow-up scope; non-void-extent blocks are surfaced via the IsVoidExtent flag so callers can decide whether to skip them.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
