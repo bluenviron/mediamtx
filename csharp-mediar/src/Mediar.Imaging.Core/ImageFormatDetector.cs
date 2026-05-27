@@ -324,6 +324,12 @@ public static class ImageFormatDetector
             return ImageFormat.Mrw;
         }
 
+        // X3F (Sigma Foveon RAW): 4-byte ASCII signature "FOVb".
+        if (StartsWithAscii(header, "FOVb"))
+        {
+            return ImageFormat.X3f;
+        }
+
         // CRW (Canon CIFF v1): 14-byte signature - 2-byte byte-order ("II" or
         // "MM"), 4-byte header length, then ASCII "HEAPCCDR". Used by Canon
         // EOS-D30/D60/10D/300D/1D/1Ds bodies before CR2 superseded CIFF.

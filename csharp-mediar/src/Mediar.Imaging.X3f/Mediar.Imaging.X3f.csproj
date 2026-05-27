@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.X3f</RootNamespace>
+    <AssemblyName>Mediar.Imaging.X3f</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Sigma Foveon RAW (X3F) reader for the Mediar toolkit. X3F is the proprietary container format used by Sigma DP/DP2/DP3 Merrill and Quattro fixed-lens compacts and by Sigma SD/SD1/SD9/SD10/SD14/SD15/sd Quattro DSLRs. The file begins with a 28-byte "FOVb" header and ends with a trailing u32 pointer to a "SECd" directory; each directory entry references a typed section ("SECi" image, "SECp" properties, "SECc" CAMF camera metadata). Mediar.Imaging.X3f walks the full directory, exposes typed X3fMetadata, surfaces every discovered section as an X3fSubImageInfo, and composes Mediar.Imaging.Jpeg to decode the embedded JPEG preview when present.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+  </ItemGroup>
+
+</Project>

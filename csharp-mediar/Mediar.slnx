@@ -85,6 +85,7 @@
     <Project Path="src/Mediar.Imaging.Erf/Mediar.Imaging.Erf.csproj" />
     <Project Path="src/Mediar.Imaging.Iiq/Mediar.Imaging.Iiq.csproj" />
     <Project Path="src/Mediar.Imaging.Fff/Mediar.Imaging.Fff.csproj" />
+    <Project Path="src/Mediar.Imaging.X3f/Mediar.Imaging.X3f.csproj" />
     <Project Path="src/Mediar.Imaging.Vector/Mediar.Imaging.Vector.csproj" />
     <Project Path="src/Mediar.Imaging.WebP/Mediar.Imaging.WebP.csproj" />
     <Project Path="src/Mediar.Imaging.Xpm/Mediar.Imaging.Xpm.csproj" />
