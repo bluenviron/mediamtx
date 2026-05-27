@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Hdr</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Hdr</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Radiance HDR / RGBE reader for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

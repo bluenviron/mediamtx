@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Tiff</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Tiff</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>TIFF / BigTIFF reader (uncompressed, PackBits, Deflate, LZW) for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

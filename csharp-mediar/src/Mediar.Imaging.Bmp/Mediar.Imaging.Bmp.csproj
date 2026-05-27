@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Bmp</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Bmp</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>BMP / DIB / ICO / CUR reader + writer for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

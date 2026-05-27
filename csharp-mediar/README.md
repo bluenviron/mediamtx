@@ -80,6 +80,32 @@ must come with their own licensing analysis.
 | MP3 / ALAC decoder                       | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
 
+### Imaging — File APIs for ~120 still-image formats
+
+A separate `Mediar.Imaging.*` family of projects exposes a unified
+`IImageReader` / `IImageWriter` contract behind a single `MediarImage.Open(path)`
+entry point. Magic-byte detection lives in `ImageFormatDetector.Detect(...)`
+and an `ImageFormat` enum spans every requested format.
+
+| Tier | Capability | Formats |
+| --- | --- | --- |
+| Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed) |
+| Header + metadata only | dimensions / channels / EXIF without pixel decode | JPEG (markers, EXIF, MPO), HEIF / HEIC / AVIF / CR3 (ISO-BMFF box walker), JP2 / J2K (codestream + container), JXR, BPG, FLIF, MNG, EMF, WMF / APM, DICOM, DJVU, SVS (Aperio TIFF), gzipped vector wrappers |
+| Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG) |
+
+Pixel decoding is intentionally **never** wired to a third-party codec
+binary. JPEG full-baseline decode (Huffman + IDCT pipeline) is stubbed and
+deferred; HEIF / AVIF / JXL require codec implementations that are
+themselves multi-month projects and are out of scope. The header tier
+returns full dimensions + tags so callers can route, sort, or build
+indexes without touching pixels.
+
+Performance principles applied throughout: `ArrayPool<byte>.Shared`-backed
+`ImageFrame.Rent`, `Span<byte>` on every hot path, `BinaryPrimitives` for
+endian moves, `FrozenDictionary` for tag tables, `AggressiveInlining` on
+tight helpers, `IAsyncEnumerable<ImageFrame>` for streaming multi-frame
+sources.
+
 ### A note on "all codecs"
 
 Mediar is explicitly a **container-level toolkit + select decoders**, not a
@@ -117,6 +143,21 @@ csharp-mediar/
 │   ├── Mediar.Subtitles.Srt/           SRT read + write
 │   ├── Mediar.Subtitles.WebVtt/        WebVTT read + write
 │   ├── Mediar.Subtitles.Ass/           ASS / SSA v4+ read + write
+│   ├── Mediar.Imaging.Core/            IImageReader / IImageWriter + magic-byte detector
+│   ├── Mediar.Imaging.Bmp/             BMP / DIB reader + writer + ICO
+│   ├── Mediar.Imaging.Png/             PNG / APNG reader + writer (CRC32 inline)
+│   ├── Mediar.Imaging.Jpeg/            JPEG header / EXIF / MPO walker (pixel decode stubbed)
+│   ├── Mediar.Imaging.Gif/             GIF87a / GIF89a + animation (full LZW)
+│   ├── Mediar.Imaging.Tiff/            TIFF (uncompressed / PackBits / Deflate / LZW)
+│   ├── Mediar.Imaging.Tga/             Truevision TGA (types 1/2/3/9/10/11)
+│   ├── Mediar.Imaging.Pcx/             ZSoft PCX (1 / 8 / 24 bpp)
+│   ├── Mediar.Imaging.Hdr/             Radiance .hdr (RGBE with RLE)
+│   ├── Mediar.Imaging.Pnm/             Portable AnyMap P1..P6
+│   ├── Mediar.Imaging.Xpm/             X PixMap (XPM3 text format)
+│   ├── Mediar.Imaging.Icns/            Apple .icns sub-image enumerator
+│   ├── Mediar.Imaging.Dds/             DirectDraw Surface (uncompressed)
+│   ├── Mediar.Imaging.Probe/           HEIF / AVIF / JXR / BPG / FLIF / MNG / EMF / WMF / DICOM / DJVU / SVS header probes
+│   ├── Mediar.Imaging/                 MediarImage.Open(path) facade
 │   └── Mediar/                         high-level facade
 ├── tests/Mediar.Tests/                 xUnit round-trip + parser tests
 ├── bench/Mediar.Bench/                 BenchmarkDotNet micro-benchmarks

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Tga</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Tga</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Truevision TGA / TARGA reader + writer for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

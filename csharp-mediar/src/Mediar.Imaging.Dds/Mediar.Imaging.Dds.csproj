@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Dds</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Dds</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>DirectDraw Surface (DDS / DDS10) reader for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

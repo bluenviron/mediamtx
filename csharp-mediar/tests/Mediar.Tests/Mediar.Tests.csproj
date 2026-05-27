@@ -44,6 +44,7 @@
     <ProjectReference Include="..\..\src\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Subtitles.Ass\Mediar.Subtitles.Ass.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging\Mediar.Imaging.csproj" />
   </ItemGroup>
 
 </Project>

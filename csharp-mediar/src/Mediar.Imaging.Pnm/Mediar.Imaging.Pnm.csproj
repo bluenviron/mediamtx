@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Pnm</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Pnm</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Netpbm PBM / PGM / PPM / PNM reader + writer for the Mediar toolkit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

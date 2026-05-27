@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Core abstractions for the Mediar image-format readers and writers (pixel formats, image info, metadata, format detection).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

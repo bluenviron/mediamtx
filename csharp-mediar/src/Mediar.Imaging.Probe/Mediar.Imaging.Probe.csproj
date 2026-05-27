@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Probe</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Probe</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Header / metadata-only readers for HEIF / AVIF / JXL / JXR / JP2 family / RAW / DICOM / DJVU / metafile / proprietary editor formats.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

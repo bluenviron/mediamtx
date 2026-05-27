@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging</RootNamespace>
+    <AssemblyName>Mediar.Imaging</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>High-level Mediar imaging facade: open a file by path and get the right IImageReader automatically.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Bmp\Mediar.Imaging.Bmp.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Png\Mediar.Imaging.Png.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Gif\Mediar.Imaging.Gif.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tga\Mediar.Imaging.Tga.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Pcx\Mediar.Imaging.Pcx.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Hdr\Mediar.Imaging.Hdr.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Pnm\Mediar.Imaging.Pnm.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Xpm\Mediar.Imaging.Xpm.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Icns\Mediar.Imaging.Icns.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Dds\Mediar.Imaging.Dds.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Probe\Mediar.Imaging.Probe.csproj" />
+  </ItemGroup>
+
+</Project>
