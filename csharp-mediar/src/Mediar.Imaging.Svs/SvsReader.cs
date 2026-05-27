@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Imaging.Tiff;
 
 namespace Mediar.Imaging.Svs;
 
@@ -13,17 +14,18 @@ namespace Mediar.Imaging.Svs;
 /// macro + label image.
 /// </summary>
 /// <remarks>
-/// Because real SVS scans use compression code 7 (JPEG-in-TIFF) on tiled
-/// layouts, full pixel decoding is gated on Mediar.Imaging.Tiff growing
-/// tile + JPEG-in-TIFF support. Until then this reader parses every IFD,
-/// extracts the Aperio vendor metadata string (AppMag, MPP, ScanScope ID,
-/// time, user, region notes) and exposes the pyramid via
-/// <see cref="Levels"/> so downstream code can pick a level.
+/// Pixel decode of the baseline page composes <see cref="TiffReader"/>,
+/// which now handles both uncompressed and JPEG-in-TIFF (compression 7)
+/// tile layouts — the two cases real SVS scans use in practice. Pyramid
+/// metadata is exposed via <see cref="Levels"/> so downstream code can
+/// pick a level; pixel-level access to non-baseline levels still requires
+/// opening the file again with a per-level offset (future API).
 /// </remarks>
 public sealed class SvsReader : IImageReader
 {
     private readonly Stream _stream;
     private readonly bool _ownsStream;
+    private readonly byte[] _bytes;
     private bool _disposed;
 
     /// <inheritdoc/>
@@ -36,7 +38,7 @@ public sealed class SvsReader : IImageReader
     public ImageMetadata Metadata { get; }
 
     /// <inheritdoc/>
-    public bool CanDecodePixels => false;
+    public bool CanDecodePixels { get; }
 
     /// <summary>
     /// Information for every pyramid / accessory page in the SVS, in file
@@ -48,13 +50,14 @@ public sealed class SvsReader : IImageReader
     /// <summary>Aperio &quot;Image Library&quot; / vendor descriptor string for the baseline image.</summary>
     public string? VendorDescription { get; }
 
-    private SvsReader(Stream s, bool owns, ImageInfo info, ImageMetadata meta,
-                      IReadOnlyList<SvsLevel> levels, string? vendor)
+    private SvsReader(Stream s, bool owns, byte[] bytes, ImageInfo info, ImageMetadata meta,
+                      IReadOnlyList<SvsLevel> levels, string? vendor, bool canDecode)
     {
-        _stream = s; _ownsStream = owns;
+        _stream = s; _ownsStream = owns; _bytes = bytes;
         Info = info; Metadata = meta;
         Levels = levels;
         VendorDescription = vendor;
+        CanDecodePixels = canDecode;
     }
 
     /// <summary>Open an SVS file by path.</summary>
@@ -83,6 +86,9 @@ public sealed class SvsReader : IImageReader
 
         var levels = new List<SvsLevel>();
         string? firstDescription = null;
+        bool baselineHasPayload = false;
+        int baselineCompression = 0;
+        int baselineBitsPerSample = 0;
 
         uint ifdOffset = ReadU32(bytes, 4, le);
         while (ifdOffset != 0 && ifdOffset + 2 <= bytes.Length)
@@ -96,7 +102,15 @@ public sealed class SvsReader : IImageReader
             int compression = (int)GetScalar(entries, 0x0103, def: 1);
             string? description = GetAsciiTag(entries, 0x010E, bytes);
             bool isTiled = entries.Any(e => e.Tag == 0x0142);
+            bool hasStrip = entries.Any(e => e.Tag == 0x0111);
+            bool hasTile = entries.Any(e => e.Tag == 0x0144);
             firstDescription ??= description;
+            if (levels.Count == 0)
+            {
+                baselineHasPayload = hasStrip || hasTile;
+                baselineCompression = compression;
+                baselineBitsPerSample = bitsPerSample;
+            }
 
             levels.Add(new SvsLevel
             {
@@ -126,14 +140,36 @@ public sealed class SvsReader : IImageReader
             ColorSpace = "sRGB",
         };
 
-        return new SvsReader(stream, ownsStream, info, meta, levels, firstDescription);
+        // TiffReader supports compression 1, 5, 7, 8, 32773 and 32946 at 1/8/16 bits/sample.
+        bool canDecode = baselineHasPayload
+            && baselineCompression is 1 or 5 or 7 or 8 or 32773 or 32946
+            && baselineBitsPerSample is 1 or 8 or 16;
+
+        return new SvsReader(stream, ownsStream, bytes, info, meta, levels, firstDescription, canDecode);
     }
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<ImageFrame> ReadFramesAsync(CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException(
-            "SVS pixel decoding requires tiled / JPEG-in-TIFF support, " +
-            "which is not yet implemented. Use Info / Levels / Metadata for now.");
+    public async IAsyncEnumerable<ImageFrame> ReadFramesAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (!CanDecodePixels)
+        {
+            throw new NotSupportedException(
+                "This SVS page uses a compression or pixel layout that " +
+                "Mediar.Imaging.Tiff does not yet support.");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // The baseline page is the first IFD; TiffReader.Open follows the
+        // header offset and parses that single IFD, which is exactly what
+        // SVS pixel-access semantics want.
+        using var ms = new MemoryStream(_bytes, writable: false);
+        using var tiff = TiffReader.Open(ms, ownsStream: false);
+        await foreach (var frame in tiff.ReadFramesAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yield return frame;
+        }
+    }
 
     /// <inheritdoc/>
     public void Dispose()
@@ -218,17 +254,24 @@ public sealed class SvsReader : IImageReader
         foreach (var e in entries)
         {
             if (e.Tag != tag) continue;
-            if (e.Count <= 2 && e.Type == 3)
+            int n = e.Count;
+            var arr = new ushort[n];
+            if (n == 0) return arr;
+            if (n <= 2 && e.Type == 3)
             {
-                var inline = new ushort[e.Count];
-                for (int i = 0; i < e.Count; i++)
+                // Inline SHORT(s) packed into the 4-byte value field.
+                Span<byte> tmp = stackalloc byte[4];
+                if (le) BinaryPrimitives.WriteInt32LittleEndian(tmp, e.ValueOrOffset);
+                else BinaryPrimitives.WriteInt32BigEndian(tmp, e.ValueOrOffset);
+                for (int i = 0; i < n; i++)
                 {
-                    inline[i] = (ushort)ReadU16(bytes, (int)(((uint)e.ValueOrOffset) >> (16 - i * 16)) & 0xFFFF, le);
+                    arr[i] = le
+                        ? BinaryPrimitives.ReadUInt16LittleEndian(tmp[(i * 2)..])
+                        : BinaryPrimitives.ReadUInt16BigEndian(tmp[(i * 2)..]);
                 }
-                return inline;
+                return arr;
             }
-            var arr = new ushort[e.Count];
-            for (int i = 0; i < e.Count; i++)
+            for (int i = 0; i < n; i++)
                 arr[i] = (ushort)ReadU16(bytes, e.ValueOrOffset + i * 2, le);
             return arr;
         }

@@ -1,6 +1,7 @@
 using System.Text;
 using Mediar.Imaging;
 using Mediar.Imaging.Svs;
+using Mediar.Tests.Tiff;
 using Xunit;
 
 namespace Mediar.Tests;
@@ -43,13 +44,71 @@ public class SvsReaderTests
     }
 
     [Fact]
-    public void ReadFramesAsync_Throws_Until_Tiled_Jpeg_Support()
+    public async Task ReadFramesAsync_Throws_When_Baseline_Has_No_StripOrTile_Data()
     {
+        // Synthesised SVS pages here omit StripOffsets / TileOffsets entirely,
+        // so SvsReader correctly reports CanDecodePixels=false and the async
+        // iterator throws on first MoveNextAsync.
         var bytes = BuildSvsTiff(new[] { (Width: 16, Height: 16, Description: "Aperio") });
         using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
         Assert.False(r.CanDecodePixels);
-        Assert.Throws<NotSupportedException>(() => r.ReadFramesAsync());
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await foreach (var _ in r.ReadFramesAsync()) { /* drain */ }
+        });
     }
+
+    [Fact]
+    public async Task ReadFramesAsync_Decodes_JpegTiled_Baseline_Via_TiffReader()
+    {
+        // Build a real SVS-shaped TIFF whose baseline is a single 16x16 JPEG tile.
+        // SvsReader.CanDecodePixels should be true and the decoded frame should
+        // be red-dominant (the embedded JPEG payload is the solid-red 16x16
+        // tile from JpegBaselineDecoderTests).
+        byte[] jpeg = Convert.FromBase64String(JpegBaselineDecoderTests_RedJpegBase64);
+        var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = 16, Height = 16, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 7, Photometric = 2,
+            TileWidth = 16, TileHeight = 16,
+            TilePayloads = [jpeg],
+        });
+
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.CanDecodePixels);
+
+        ImageFrame? captured = null;
+        await foreach (var frame in r.ReadFramesAsync())
+        {
+            captured = frame;
+            break;
+        }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            long rSum = 0, gSum = 0, bSum = 0;
+            var px = captured!.Pixels.Span;
+            for (int i = 0; i + 2 < px.Length; i += 3)
+            {
+                rSum += px[i]; gSum += px[i + 1]; bSum += px[i + 2];
+            }
+            int n = px.Length / 3;
+            Assert.True(rSum / n > 180);
+            Assert.True(gSum / n < 40);
+            Assert.True(bSum / n < 40);
+        }
+    }
+
+    // Re-exposed for the SVS pixel-decode test; mirrors JpegBaselineDecoderTests.RedJpegBase64.
+    private const string JpegBaselineDecoderTests_RedJpegBase64 =
+        "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAQCAwMDAgQDAwMEBAQEBQkGBQUFBQsICAYJDQsNDQ0LDAwOEBQRDg8TDwwMEhgSExUWFxcXDhEZGxkWGhQWFxb/" +
+        "2wBDAQQEBAUFBQoGBgoWDwwPFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhb/wAARCAAQABADASIAAhEBAxEB/8QA" +
+        "HwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2Jyggk" +
+        "KFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMX" +
+        "Gx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAEC" +
+        "AxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOE" +
+        "hYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxeiiivyk/" +
+        "v4//2Q==";
 
     [Fact]
     public void Rejects_Non_Tiff()
