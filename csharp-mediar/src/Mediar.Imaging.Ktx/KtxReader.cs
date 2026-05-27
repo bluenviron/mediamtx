@@ -162,9 +162,13 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Gray16Float => 2,
             PixelFormat.Rg32Float => 4,
             PixelFormat.Gray32Float => 4,
+            PixelFormat.Gray32UInt or PixelFormat.Gray32SInt => 4,
             PixelFormat.Rg64Float => 8,
+            PixelFormat.Rg64UInt or PixelFormat.Rg64SInt => 8,
             PixelFormat.Rgb96Float => 12,
+            PixelFormat.Rgb96UInt or PixelFormat.Rgb96SInt => 12,
             PixelFormat.Rgba128Float => 16,
+            PixelFormat.Rgba128UInt or PixelFormat.Rgba128SInt => 16,
             _ => 0,
         };
 
@@ -267,10 +271,11 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Rg32 or PixelFormat.Rg32Float
                 or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
             PixelFormat.Rgb48 or PixelFormat.Rgb48Float => 48,
-            PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float => 64,
-            PixelFormat.Gray32Float => 32,
-            PixelFormat.Rgb96Float => 96,
-            PixelFormat.Rgba128Float => 128,
+            PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float
+                or PixelFormat.Rg64UInt or PixelFormat.Rg64SInt => 64,
+            PixelFormat.Gray32Float or PixelFormat.Gray32UInt or PixelFormat.Gray32SInt => 32,
+            PixelFormat.Rgb96Float or PixelFormat.Rgb96UInt or PixelFormat.Rgb96SInt => 96,
+            PixelFormat.Rgba128Float or PixelFormat.Rgba128UInt or PixelFormat.Rgba128SInt => 128,
             _ => 0,
         };
 
@@ -282,13 +287,17 @@ public sealed class KtxReader : IImageReader
             ChannelCount = infoPf switch
             {
                 PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray16Float
-                    or PixelFormat.Gray32Float => 1,
+                    or PixelFormat.Gray32Float or PixelFormat.Gray32UInt
+                    or PixelFormat.Gray32SInt => 1,
                 PixelFormat.Rg32 or PixelFormat.GrayAlpha16 or PixelFormat.Rg32Float
-                    or PixelFormat.Rg64Float => 2,
+                    or PixelFormat.Rg64Float or PixelFormat.Rg64UInt
+                    or PixelFormat.Rg64SInt => 2,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
-                    or PixelFormat.Rgb48Float or PixelFormat.Rgb96Float => 3,
+                    or PixelFormat.Rgb48Float or PixelFormat.Rgb96Float
+                    or PixelFormat.Rgb96UInt or PixelFormat.Rgb96SInt => 3,
                 PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Rgba64
-                    or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float => 4,
+                    or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float
+                    or PixelFormat.Rgba128UInt or PixelFormat.Rgba128SInt => 4,
                 _ => 0,
             },
             PixelFormat = infoPf,

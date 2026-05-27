@@ -50,10 +50,26 @@ public enum PixelFormat
 
     /// <summary>32-bit IEEE float single-channel (HDR depth / luminance / scientific).</summary>
     Gray32Float,
+    /// <summary>R32 unsigned integer single-channel.</summary>
+    Gray32UInt,
+    /// <summary>R32 signed integer single-channel.</summary>
+    Gray32SInt,
+    /// <summary>R32 G32 unsigned integer, 64 bits per pixel.</summary>
+    Rg64UInt,
+    /// <summary>R32 G32 signed integer, 64 bits per pixel.</summary>
+    Rg64SInt,
     /// <summary>32-bit IEEE float per channel, RGB (HDR).</summary>
     Rgb96Float,
+    /// <summary>R32 G32 B32 unsigned integer, 96 bits per pixel.</summary>
+    Rgb96UInt,
+    /// <summary>R32 G32 B32 signed integer, 96 bits per pixel.</summary>
+    Rgb96SInt,
     /// <summary>32-bit IEEE float per channel, RGBA (HDR).</summary>
     Rgba128Float,
+    /// <summary>R32 G32 B32 A32 unsigned integer, 128 bits per pixel.</summary>
+    Rgba128UInt,
+    /// <summary>R32 G32 B32 A32 signed integer, 128 bits per pixel.</summary>
+    Rgba128SInt,
 
     /// <summary>C M Y K, 8 bits per channel.</summary>
     Cmyk32,
@@ -93,10 +109,11 @@ public static class PixelFormatExtensions
             or PixelFormat.Cmyk32 or PixelFormat.Rgbe32 or PixelFormat.Rg32
             or PixelFormat.Rg32Float => 32,
         PixelFormat.Rgb48 or PixelFormat.Rgb48Float => 48,
-        PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float => 64,
-        PixelFormat.Gray32Float => 32,
-        PixelFormat.Rgb96Float => 96,
-        PixelFormat.Rgba128Float => 128,
+        PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float
+            or PixelFormat.Rg64UInt or PixelFormat.Rg64SInt => 64,
+        PixelFormat.Gray32Float or PixelFormat.Gray32UInt or PixelFormat.Gray32SInt => 32,
+        PixelFormat.Rgb96Float or PixelFormat.Rgb96UInt or PixelFormat.Rgb96SInt => 96,
+        PixelFormat.Rgba128Float or PixelFormat.Rgba128UInt or PixelFormat.Rgba128SInt => 128,
         _ => 0,
     };
 
@@ -104,15 +121,16 @@ public static class PixelFormatExtensions
     public static int ChannelCount(this PixelFormat f) => f switch
     {
         PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray16Float
-            or PixelFormat.Gray32Float
+            or PixelFormat.Gray32Float or PixelFormat.Gray32UInt or PixelFormat.Gray32SInt
             or PixelFormat.Indexed1 or PixelFormat.Indexed4 or PixelFormat.Indexed8 => 1,
         PixelFormat.GrayAlpha16 or PixelFormat.Rg32 or PixelFormat.Rg32Float
-            or PixelFormat.Rg64Float => 2,
+            or PixelFormat.Rg64Float or PixelFormat.Rg64UInt or PixelFormat.Rg64SInt => 2,
         PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48 or PixelFormat.Rgb48Float
-            or PixelFormat.Rgb96Float or PixelFormat.Rgb565
-            or PixelFormat.Rgbe32 => 3,
+            or PixelFormat.Rgb96Float or PixelFormat.Rgb96UInt or PixelFormat.Rgb96SInt
+            or PixelFormat.Rgb565 or PixelFormat.Rgbe32 => 3,
         PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32
             or PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float
+            or PixelFormat.Rgba128UInt or PixelFormat.Rgba128SInt
             or PixelFormat.Cmyk32 or PixelFormat.Rgba5551 => 4,
         _ => 0,
     };

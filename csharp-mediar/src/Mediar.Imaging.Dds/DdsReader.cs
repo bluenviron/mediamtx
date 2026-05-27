@@ -363,6 +363,18 @@ public sealed class DdsReader : IImageReader
             // 32-bit single-channel float (depth / luminance / scientific)
             case 41: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // R32_FLOAT
             case 40: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // D32_FLOAT (depth - same bit layout as R32_FLOAT)
+            // 32-bit single-channel integer
+            case 42: return PixelFormat.Gray32UInt;                                            // R32_UINT
+            case 43: return PixelFormat.Gray32SInt;                                            // R32_SINT
+            // 32-bit two-channel integer
+            case 17: return PixelFormat.Rg64UInt;                                              // R32G32_UINT
+            case 18: return PixelFormat.Rg64SInt;                                              // R32G32_SINT
+            // 32-bit three-channel integer
+            case 7:  return PixelFormat.Rgb96UInt;                                             // R32G32B32_UINT
+            case 8:  return PixelFormat.Rgb96SInt;                                             // R32G32B32_SINT
+            // 32-bit four-channel integer
+            case 1:  hasAlpha = true; return PixelFormat.Rgba128UInt;                          // R32G32B32A32_UINT
+            case 3:  hasAlpha = true; return PixelFormat.Rgba128SInt;                          // R32G32B32A32_SINT
             // 16-bit single-channel half-float
             case 54: colorSpace = "Linear"; return PixelFormat.Gray16Float;                    // R16_FLOAT
             // 16-bit packed

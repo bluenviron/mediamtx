@@ -107,6 +107,18 @@ public static class KtxFormat
         0x881B => PixelFormat.Rgb48Float,
         // GL_RGBA16F - 16-bit four-channel half-float
         0x881A => PixelFormat.Rgba64Float,
+        // GL_R32UI / GL_R32I - 32-bit integer single-channel
+        0x8236 => PixelFormat.Gray32UInt,
+        0x8235 => PixelFormat.Gray32SInt,
+        // GL_RG32UI / GL_RG32I - 32-bit integer two-channel
+        0x823C => PixelFormat.Rg64UInt,
+        0x823B => PixelFormat.Rg64SInt,
+        // GL_RGB32UI / GL_RGB32I - 32-bit integer three-channel
+        0x8D71 => PixelFormat.Rgb96UInt,
+        0x8D83 => PixelFormat.Rgb96SInt,
+        // GL_RGBA32UI / GL_RGBA32I - 32-bit integer four-channel
+        0x8D70 => PixelFormat.Rgba128UInt,
+        0x8D82 => PixelFormat.Rgba128SInt,
         _ => PixelFormat.Unknown,
     };
 
@@ -203,6 +215,18 @@ public static class KtxFormat
         90 => PixelFormat.Rgb48Float,
         // VK_FORMAT_R16G16B16A16_SFLOAT - 16-bit four-channel half-float
         97 => PixelFormat.Rgba64Float,
+        // VK_FORMAT_R32_UINT / R32_SINT - 32-bit integer single-channel
+        98 => PixelFormat.Gray32UInt,
+        99 => PixelFormat.Gray32SInt,
+        // VK_FORMAT_R32G32_UINT / R32G32_SINT - 32-bit integer two-channel
+        101 => PixelFormat.Rg64UInt,
+        102 => PixelFormat.Rg64SInt,
+        // VK_FORMAT_R32G32B32_UINT / R32G32B32_SINT - 32-bit integer three-channel
+        104 => PixelFormat.Rgb96UInt,
+        105 => PixelFormat.Rgb96SInt,
+        // VK_FORMAT_R32G32B32A32_UINT / R32G32B32A32_SINT - 32-bit integer four-channel
+        107 => PixelFormat.Rgba128UInt,
+        108 => PixelFormat.Rgba128SInt,
         _ => PixelFormat.Unknown,
     };
 
