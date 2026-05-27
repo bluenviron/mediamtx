@@ -1,13 +1,13 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-namespace Mediar.Imaging.Dds;
+namespace Mediar.Codecs.Bcn;
 
 /// <summary>
 /// Full BC6H (BPTC half-float) decompressor producing top-down
-/// <see cref="PixelFormat.Rgb96Float"/> pixel buffers. Implements all
-/// 14 BC6H modes (single- and two-subset, transformed and untransformed)
-/// from the Khronos Data Format Specification 1.4 Section 20.2.
+/// 3 Ã— float32-per-pixel buffers (caller-visible as <c>PixelFormat.Rgb96Float</c>).
+/// Implements all 14 BC6H modes (single- and two-subset, transformed and
+/// untransformed) from the Khronos Data Format Specification 1.4 Â§ 20.2.
 /// </summary>
 /// <remarks>
 /// Mode numbers used internally follow the Khronos spec (Table 134):
@@ -17,14 +17,18 @@ namespace Mediar.Imaging.Dds;
 /// spec-mandated transparent black (0, 0, 0, 1).
 ///
 /// Both signed (DXGI BC6H_SF16) and unsigned (DXGI BC6H_UF16) variants
-/// are supported via a single <c>signed</c> flag. All interpolation is
+/// are supported via a single <c>isSigned</c> flag (mapped to spec's signed-format toggle). All interpolation is
 /// performed in 16-bit integer space and reinterpreted as
 /// <see cref="Half"/> on output, matching the spec's bit-exact decode.
+///
+/// The codec is container-agnostic â€” it can be wired to DDS, KTX2, PVR,
+/// or other envelopes by passing the raw 16-byte-per-block payload to
+/// <see cref="DecodeBc6h"/>.
 /// </remarks>
-internal static class Bc6hDecoder
+public static class Bc6hDecoder
 {
-    /// <summary>Decompresses a BC6H surface (UF16 / SF16 selected by <paramref name="signed"/>) into top-down Rgb96Float.</summary>
-    public static byte[] DecodeBc6h(ReadOnlySpan<byte> src, int width, int height, bool signed)
+    /// <summary>Decompresses a BC6H surface (UF16 / SF16 selected by <paramref name="isSigned"/>) into top-down Rgb96Float.</summary>
+    public static byte[] DecodeBc6h(ReadOnlySpan<byte> src, int width, int height, bool isSigned)
     {
         int blocksX = (width + 3) / 4;
         int blocksY = (height + 3) / 4;
@@ -36,7 +40,7 @@ internal static class Bc6hDecoder
         {
             for (int bx = 0; bx < blocksX; bx++)
             {
-                DecodeBlock(src.Slice(srcOff, 16), block, signed);
+                DecodeBlock(src.Slice(srcOff, 16), block, isSigned);
                 for (int py = 0; py < 4; py++)
                 {
                     int gy = by * 4 + py;
@@ -58,7 +62,7 @@ internal static class Bc6hDecoder
         return output;
     }
 
-    private static void DecodeBlock(ReadOnlySpan<byte> src, Span<float> outRgb, bool signed)
+    private static void DecodeBlock(ReadOnlySpan<byte> src, Span<float> outRgb, bool isSigned)
     {
         ulong lo = BinaryPrimitives.ReadUInt64LittleEndian(src[..8]);
         ulong hi = BinaryPrimitives.ReadUInt64LittleEndian(src.Slice(8, 8));
@@ -67,7 +71,7 @@ internal static class Bc6hDecoder
         int low2 = bits.Bits(0, 2);
         int mode = low2 < 2 ? low2 : (low2 | (bits.Bits(2, 3) << 2));
 
-        // Reserved modes per spec § 20.2: 19, 23, 27, 31 decode to (0, 0, 0, 1).
+        // Reserved modes per spec Â§ 20.2: 19, 23, 27, 31 decode to (0, 0, 0, 1).
         if (mode is 19 or 23 or 27 or 31)
         {
             outRgb.Clear();
@@ -97,18 +101,18 @@ internal static class Bc6hDecoder
         }
 
         // Convert raw endpoint bit-patterns into unquantized 16-bit interpolation values.
-        TransformAndUnquantize(ref ep, info, signed);
+        TransformAndUnquantize(ref ep, info, isSigned);
 
         // Decode 16 index values and emit final per-pixel RGB.
-        DecodePixels(bits, ep, info, partition, signed, outRgb);
+        DecodePixels(bits, ep, info, partition, isSigned, outRgb);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Per-mode endpoint extractors. Each follows the bit-layout in
     // Khronos KDF spec 1.4 Tables 135 / 136 / 137 ("Block descriptions
     // for BC6H block modes" and the lower/upper bit interpretation tables).
     // Bit positions are absolute (0..127) within the 128-bit block.
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static void ExtractMode0(BlockBits b, ref Bc6hEndpoints ep, out int partition)
     {
@@ -221,7 +225,7 @@ internal static class Bc6hDecoder
     private static void ExtractMode11(BlockBits b, ref Bc6hEndpoints ep)
     {
         // R0[10..11] / G0[10..11] / B0[10..11] are stored in reversed bit
-        // order — first bit read goes to the higher (MSB) target bit.
+        // order â€” first bit read goes to the higher (MSB) target bit.
         ep.R0 = b.Bits(5, 10)  | (b.Bit(44) << 10) | (b.Bit(43) << 11);
         ep.G0 = b.Bits(15, 10) | (b.Bit(54) << 10) | (b.Bit(53) << 11);
         ep.B0 = b.Bits(25, 10) | (b.Bit(64) << 10) | (b.Bit(63) << 11);
@@ -250,8 +254,8 @@ internal static class Bc6hDecoder
 
     private static void ExtractMode15(BlockBits b, ref Bc6hEndpoints ep)
     {
-        // R0[10..15] / G0[10..15] / B0[10..15] are reversed — first bit
-        // read goes to the higher target bit (bit 15 first, then 14, …).
+        // R0[10..15] / G0[10..15] / B0[10..15] are reversed â€” first bit
+        // read goes to the higher target bit (bit 15 first, then 14, â€¦).
         ep.R0 = b.Bits(5, 10)
               | (b.Bit(44) << 10) | (b.Bit(43) << 11) | (b.Bit(42) << 12)
               | (b.Bit(41) << 13) | (b.Bit(40) << 14) | (b.Bit(39) << 15);
@@ -338,58 +342,58 @@ internal static class Bc6hDecoder
         partition = b.Bits(77, 5);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Endpoint transformation, sign-extension and unquantization.
-    // Per spec § 20.2: E0 is sign-extended only if format is signed.
-    // E1/E2/E3 are sign-extended if format is signed OR mode is transformed.
+    // Per spec § 20.2: E0 is sign-extended only if the format is signed.
+    // E1/E2/E3 are sign-extended if the format is signed OR mode is transformed.
     // For transformed modes, E1/E2/E3 are stored as signed deltas relative
     // to E0; the wrapped sum modulo (1<<EPB) becomes the actual endpoint.
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    private static void TransformAndUnquantize(ref Bc6hEndpoints ep, Bc6hModeInfo info, bool signed)
+    private static void TransformAndUnquantize(ref Bc6hEndpoints ep, Bc6hModeInfo info, bool isSigned)
     {
         // Save raw E0 (unsigned EPB-bit value) for the transform addition.
         int r0raw = ep.R0, g0raw = ep.G0, b0raw = ep.B0;
 
         // E0: only sign-extended for signed format.
-        ep.R0 = signed ? SignExtend(ep.R0, info.EpbR) : ep.R0;
-        ep.G0 = signed ? SignExtend(ep.G0, info.EpbG) : ep.G0;
-        ep.B0 = signed ? SignExtend(ep.B0, info.EpbB) : ep.B0;
+        ep.R0 = isSigned ? SignExtend(ep.R0, info.EpbR) : ep.R0;
+        ep.G0 = isSigned ? SignExtend(ep.G0, info.EpbG) : ep.G0;
+        ep.B0 = isSigned ? SignExtend(ep.B0, info.EpbB) : ep.B0;
 
-        ep.R1 = ResolveSecondaryEndpoint(ep.R1, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
-        ep.G1 = ResolveSecondaryEndpoint(ep.G1, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
-        ep.B1 = ResolveSecondaryEndpoint(ep.B1, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
+        ep.R1 = ResolveSecondaryEndpoint(ep.R1, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, isSigned);
+        ep.G1 = ResolveSecondaryEndpoint(ep.G1, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, isSigned);
+        ep.B1 = ResolveSecondaryEndpoint(ep.B1, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, isSigned);
 
         if (info.TwoSubsets)
         {
-            ep.R2 = ResolveSecondaryEndpoint(ep.R2, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
-            ep.G2 = ResolveSecondaryEndpoint(ep.G2, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
-            ep.B2 = ResolveSecondaryEndpoint(ep.B2, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
-            ep.R3 = ResolveSecondaryEndpoint(ep.R3, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
-            ep.G3 = ResolveSecondaryEndpoint(ep.G3, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
-            ep.B3 = ResolveSecondaryEndpoint(ep.B3, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
+            ep.R2 = ResolveSecondaryEndpoint(ep.R2, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, isSigned);
+            ep.G2 = ResolveSecondaryEndpoint(ep.G2, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, isSigned);
+            ep.B2 = ResolveSecondaryEndpoint(ep.B2, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, isSigned);
+            ep.R3 = ResolveSecondaryEndpoint(ep.R3, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, isSigned);
+            ep.G3 = ResolveSecondaryEndpoint(ep.G3, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, isSigned);
+            ep.B3 = ResolveSecondaryEndpoint(ep.B3, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, isSigned);
         }
 
         // Now unquantize all endpoints to 16-bit integer interpolation space.
-        ep.R0 = Unquantize(ep.R0, info.EpbR, signed);
-        ep.G0 = Unquantize(ep.G0, info.EpbG, signed);
-        ep.B0 = Unquantize(ep.B0, info.EpbB, signed);
-        ep.R1 = Unquantize(ep.R1, info.EpbR, signed);
-        ep.G1 = Unquantize(ep.G1, info.EpbG, signed);
-        ep.B1 = Unquantize(ep.B1, info.EpbB, signed);
+        ep.R0 = Unquantize(ep.R0, info.EpbR, isSigned);
+        ep.G0 = Unquantize(ep.G0, info.EpbG, isSigned);
+        ep.B0 = Unquantize(ep.B0, info.EpbB, isSigned);
+        ep.R1 = Unquantize(ep.R1, info.EpbR, isSigned);
+        ep.G1 = Unquantize(ep.G1, info.EpbG, isSigned);
+        ep.B1 = Unquantize(ep.B1, info.EpbB, isSigned);
         if (info.TwoSubsets)
         {
-            ep.R2 = Unquantize(ep.R2, info.EpbR, signed);
-            ep.G2 = Unquantize(ep.G2, info.EpbG, signed);
-            ep.B2 = Unquantize(ep.B2, info.EpbB, signed);
-            ep.R3 = Unquantize(ep.R3, info.EpbR, signed);
-            ep.G3 = Unquantize(ep.G3, info.EpbG, signed);
-            ep.B3 = Unquantize(ep.B3, info.EpbB, signed);
+            ep.R2 = Unquantize(ep.R2, info.EpbR, isSigned);
+            ep.G2 = Unquantize(ep.G2, info.EpbG, isSigned);
+            ep.B2 = Unquantize(ep.B2, info.EpbB, isSigned);
+            ep.R3 = Unquantize(ep.R3, info.EpbR, isSigned);
+            ep.G3 = Unquantize(ep.G3, info.EpbG, isSigned);
+            ep.B3 = Unquantize(ep.B3, info.EpbB, isSigned);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int ResolveSecondaryEndpoint(int rawValue, int e0raw, int epb, int deltaBits, bool transformed, bool signed)
+    private static int ResolveSecondaryEndpoint(int rawValue, int e0raw, int epb, int deltaBits, bool transformed, bool isSigned)
     {
         if (transformed)
         {
@@ -397,18 +401,18 @@ internal static class Bc6hDecoder
             int delta = SignExtend(rawValue, deltaBits);
             int mask = (1 << epb) - 1;
             int combined = (e0raw + delta) & mask;
-            return signed ? SignExtend(combined, epb) : combined;
+            return isSigned ? SignExtend(combined, epb) : combined;
         }
         // Untransformed: rawValue is already EPB-wide. Sign-extend only if signed format.
-        return signed ? SignExtend(rawValue, epb) : rawValue;
+        return isSigned ? SignExtend(rawValue, epb) : rawValue;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Pixel decode: read indices in y-major order, look up subset for
     // each pixel, interpolate endpoints, finalize to half-float bits.
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    private static void DecodePixels(BlockBits b, in Bc6hEndpoints ep, Bc6hModeInfo info, int partition, bool signed, Span<float> outRgb)
+    private static void DecodePixels(BlockBits b, in Bc6hEndpoints ep, Bc6hModeInfo info, int partition, bool isSigned, Span<float> outRgb)
     {
         ushort partitionMask = info.TwoSubsets ? s_partition2[partition] : (ushort)0;
         int anchor = info.TwoSubsets ? s_anchor2[partition] : -1;
@@ -442,25 +446,25 @@ internal static class Bc6hDecoder
             int g = Interpolate(e0g, e1g, w);
             int bl = Interpolate(e0b, e1b, w);
 
-            outRgb[i * 3 + 0] = Finalize(r, signed);
-            outRgb[i * 3 + 1] = Finalize(g, signed);
-            outRgb[i * 3 + 2] = Finalize(bl, signed);
+            outRgb[i * 3 + 0] = Finalize(r, isSigned);
+            outRgb[i * 3 + 1] = Finalize(g, isSigned);
+            outRgb[i * 3 + 2] = Finalize(bl, isSigned);
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Math primitives.
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Interpolate(int e0, int e1, int weight) =>
         ((64 - weight) * e0 + weight * e1 + 32) >> 6;
 
-    /// <summary>BC6H endpoint unquantization per spec § 20.2 pseudocode.</summary>
+    /// <summary>BC6H endpoint unquantization per spec Â§ 20.2 pseudocode.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Unquantize(int val, int epb, bool signed)
+    private static int Unquantize(int val, int epb, bool isSigned)
     {
-        if (signed)
+        if (isSigned)
         {
             if (epb >= 16) return val;
             int sign = 0;
@@ -483,10 +487,10 @@ internal static class Bc6hDecoder
 
     /// <summary>Convert the interpolated 16-bit integer to a half-float reinterpreted as float.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static float Finalize(int value, bool signed)
+    private static float Finalize(int value, bool isSigned)
     {
         int bits;
-        if (signed)
+        if (isSigned)
         {
             if (value < 0)
             {
@@ -500,7 +504,7 @@ internal static class Bc6hDecoder
         }
         else
         {
-            // Clamp to non-negative — interpolation can briefly produce a
+            // Clamp to non-negative â€” interpolation can briefly produce a
             // small negative value on rounding boundaries that the spec
             // formula handles via integer truncation. (i*31)>>6 still
             // produces a meaningful half bit-pattern for slightly negative
@@ -520,9 +524,9 @@ internal static class Bc6hDecoder
         return val;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Tables and types.
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private struct Bc6hEndpoints
     {
@@ -568,7 +572,7 @@ internal static class Bc6hDecoder
     /// <summary>
     /// 2-subset BPTC partition table (Table 127 of the Khronos DF spec 1.4).
     /// For each of 64 partition patterns, bit <i>i</i> (LSB-first) indicates
-    /// which subset (0 or 1) pixel <i>i</i> belongs to in the 4×4 block.
+    /// which subset (0 or 1) pixel <i>i</i> belongs to in the 4Ã—4 block.
     /// </summary>
     private static readonly ushort[] s_partition2 =
     [

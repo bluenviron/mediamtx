@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Metadata</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Metadata</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Shared metadata parsers (EXIF / TIFF tag streams, GPS, MakerNote) for the Mediar imaging stack. Re-used by JPEG, TIFF, HEIC, AVIF, DNG, CR3, WebP, and any other container that embeds an EXIF / TIFF IFD block.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -7,7 +7,11 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Mediar.Bitstream/Mediar.Bitstream.csproj" />
+    <Project Path="src/Mediar.Acceleration/Mediar.Acceleration.csproj" />
+    <Project Path="src/Mediar.Acceleration.Arm/Mediar.Acceleration.Arm.csproj" />
+    <Project Path="src/Mediar.Acceleration.X86/Mediar.Acceleration.X86.csproj" />
     <Project Path="src/Mediar.Codecs/Mediar.Codecs.csproj" />
+    <Project Path="src/Mediar.Codecs.Bcn/Mediar.Codecs.Bcn.csproj" />
     <Project Path="src/Mediar.Codecs.Flac.Decoder/Mediar.Codecs.Flac.Decoder.csproj" />
     <Project Path="src/Mediar.Codecs.G711/Mediar.Codecs.G711.csproj" />
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
@@ -35,6 +39,7 @@
     <Project Path="src/Mediar.Imaging.Hdr/Mediar.Imaging.Hdr.csproj" />
     <Project Path="src/Mediar.Imaging.Icns/Mediar.Imaging.Icns.csproj" />
     <Project Path="src/Mediar.Imaging.Jpeg/Mediar.Imaging.Jpeg.csproj" />
+    <Project Path="src/Mediar.Imaging.Metadata/Mediar.Imaging.Metadata.csproj" />
     <Project Path="src/Mediar.Imaging.Pcx/Mediar.Imaging.Pcx.csproj" />
     <Project Path="src/Mediar.Imaging.Png/Mediar.Imaging.Png.csproj" />
     <Project Path="src/Mediar.Imaging.Pnm/Mediar.Imaging.Pnm.csproj" />

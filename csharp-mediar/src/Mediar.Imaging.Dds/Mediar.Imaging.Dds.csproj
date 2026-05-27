@@ -4,12 +4,13 @@
     <RootNamespace>Mediar.Imaging.Dds</RootNamespace>
     <AssemblyName>Mediar.Imaging.Dds</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>DirectDraw Surface (DDS / DDS10) reader for the Mediar toolkit.</Description>
+    <Description>DirectDraw Surface (DDS / DDS10) reader for the Mediar toolkit. Header parsing, pixel-format classification, and DX10 typeless handling live here; BCn block decompression is delegated to Mediar.Codecs.Bcn so the codec is reusable across KTX / KTX2 / PVR / custom envelopes.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Bcn\Mediar.Codecs.Bcn.csproj" />
   </ItemGroup>
 
 </Project>

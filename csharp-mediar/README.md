@@ -152,6 +152,7 @@ csharp-mediar/
 │   ├── Mediar.Imaging.Bmp/             BMP / DIB reader + writer + ICO
 │   ├── Mediar.Imaging.Png/             PNG / APNG reader + writer (CRC32 inline)
 │   ├── Mediar.Imaging.Jpeg/            JPEG baseline + progressive + lossless decoder + EXIF / MPO
+│   ├── Mediar.Imaging.Metadata/        Shared EXIF / TIFF tag-stream parser (re-used by JPEG, TIFF, HEIC, AVIF, DNG, CR3, WebP)
 │   ├── Mediar.Imaging.Gif/             GIF87a / GIF89a + animation (full LZW)
 │   ├── Mediar.Imaging.Tiff/            TIFF (uncompressed / PackBits / Deflate / LZW)
 │   ├── Mediar.Imaging.Tga/             Truevision TGA (types 1/2/3/9/10/11)
@@ -160,7 +161,11 @@ csharp-mediar/
 │   ├── Mediar.Imaging.Pnm/             Portable AnyMap P1..P6
 │   ├── Mediar.Imaging.Xpm/             X PixMap (XPM3 text format)
 │   ├── Mediar.Imaging.Icns/            Apple .icns sub-image enumerator
-│   ├── Mediar.Imaging.Dds/             DirectDraw Surface (uncompressed + BC1-BC5 + BC6H all 14 modes + BC7)
+│   ├── Mediar.Imaging.Dds/             DirectDraw Surface container (uncompressed surfaces; BCn block decode delegated to Mediar.Codecs.Bcn)
+│   ├── Mediar.Codecs.Bcn/              Shared BC1 / BC2 / BC3 / BC4 / BC5 / BC6H (all 14 modes) / BC7 block decoders, container-agnostic (DDS / KTX / KTX2 / PVR)
+│   ├── Mediar.Acceleration/            Portable kernel-dispatch layer (IAcceleratedKernel, AccelerationDispatcher, scalar fallbacks)
+│   ├── Mediar.Acceleration.X86/        SSE2 / AVX2 SIMD kernels; auto-registers via [ModuleInitializer]
+│   ├── Mediar.Acceleration.Arm/        AdvSimd / NEON SIMD kernels; auto-registers via [ModuleInitializer]
 │   ├── Mediar.Imaging.Probe/           HEIF / AVIF / JXR / BPG / FLIF / MNG / EMF / WMF / DICOM / DJVU / SVS header probes
 │   ├── Mediar.Imaging/                 MediarImage.Open(path) facade
 │   └── Mediar/                         high-level facade

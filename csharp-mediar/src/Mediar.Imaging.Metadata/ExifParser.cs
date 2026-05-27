@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Mediar.Imaging.Jpeg;
+namespace Mediar.Imaging.Metadata;
 
 /// <summary>
 /// EXIF tag parser. Operates over a TIFF-style IFD payload (the bytes

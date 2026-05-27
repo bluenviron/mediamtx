@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Bcn</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Bcn</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Standalone block-compressed texture (BCn / DXTn / BPTC) decoder for the Mediar toolkit. Provides BC1, BC2, BC3, BC4, BC5, BC6H (HDR half-float, all 14 modes per Khronos KDF 1.4), and BC7 (BPTC unorm) decoders that are reusable across container formats (DDS, KTX, KTX2, PVR, etc.).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

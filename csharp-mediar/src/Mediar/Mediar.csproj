@@ -26,6 +26,9 @@
     <ProjectReference Include="..\Mediar.Containers.Amr\Mediar.Containers.Amr.csproj" />
     <ProjectReference Include="..\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
     <ProjectReference Include="..\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />
+    <ProjectReference Include="..\Mediar.Acceleration\Mediar.Acceleration.csproj" />
+    <ProjectReference Include="..\Mediar.Acceleration.X86\Mediar.Acceleration.X86.csproj" />
+    <ProjectReference Include="..\Mediar.Acceleration.Arm\Mediar.Acceleration.Arm.csproj" />
   </ItemGroup>
 
 </Project>

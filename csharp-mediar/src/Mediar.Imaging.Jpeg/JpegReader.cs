@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
+using Mediar.Imaging.Metadata;
 
 namespace Mediar.Imaging.Jpeg;
 

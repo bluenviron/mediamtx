@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Bcn;
 
 namespace Mediar.Imaging.Dds;
 
@@ -189,12 +190,12 @@ public sealed class DdsReader : IImageReader
                     pf = PixelFormat.Bgra32;
                     break;
                 case BcnFormat.Bc6hUf16:
-                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, signed: false);
+                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, isSigned: false);
                     stride = width * 12;
                     pf = PixelFormat.Rgb96Float;
                     break;
                 case BcnFormat.Bc6hSf16:
-                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, signed: true);
+                    decoded = Bc6hDecoder.DecodeBc6h(payload, width, height, isSigned: true);
                     stride = width * 12;
                     pf = PixelFormat.Rgb96Float;
                     break;

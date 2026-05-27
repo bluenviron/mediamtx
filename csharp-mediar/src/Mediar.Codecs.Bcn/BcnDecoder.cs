@@ -1,13 +1,14 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-namespace Mediar.Imaging.Dds;
+namespace Mediar.Codecs.Bcn;
 
 /// <summary>
 /// Decompresses BC1 (DXT1) through BC5 (RGTC2) block-compressed surfaces
 /// into top-down pixel buffers. BC6H (HDR) and BC7 (adaptive partitioning)
-/// are deliberately out of scope and surfaced via <see cref="BcnFormat"/>
-/// so callers can refuse them cleanly.
+/// are deliberately out of scope of this class and live in
+/// <see cref="Bc6hDecoder"/> / <see cref="Bc7Decoder"/>; <see cref="BcnFormat"/>
+/// is the common dispatch enum.
 /// </summary>
 /// <remarks>
 /// Block layouts follow the published DirectX / Khronos specifications:
@@ -19,9 +20,11 @@ namespace Mediar.Imaging.Dds;
 ///   <item>BC5 / RGTC2: 16 bytes per 4×4 block; two BC4-style channels (red + green).</item>
 /// </list>
 /// All decoders produce top-down output and are allocation-free apart from
-/// the returned buffer.
+/// the returned buffer. The codec is container-agnostic — it can be wired
+/// to DDS, KTX, KTX2, PVR, or any custom envelope by passing the raw
+/// block payload to <see cref="DecodeBc1"/> … <see cref="DecodeBc5"/>.
 /// </remarks>
-internal static class BcnDecoder
+public static class BcnDecoder
 {
     /// <summary>Returns BC1/2/3/4/5/6H-UF16/6H-SF16/7 if <paramref name="fourCC"/> (or <paramref name="dxgiFormat"/> for DX10) identifies one; otherwise <see cref="BcnFormat.None"/>.</summary>
     public static BcnFormat Identify(string fourCC, uint dxgiFormat)
@@ -330,27 +333,3 @@ internal static class BcnDecoder
     }
 }
 
-/// <summary>
-/// Identifies a BCn-class block-compressed surface.
-/// </summary>
-internal enum BcnFormat
-{
-    /// <summary>Not a recognised BCn format.</summary>
-    None,
-    /// <summary>BC1 / DXT1 — 8 byte/block, 5:6:5 + optional 1-bit alpha.</summary>
-    Bc1,
-    /// <summary>BC2 / DXT3 — 16 byte/block, 4-bit explicit alpha + BC1 colour.</summary>
-    Bc2,
-    /// <summary>BC3 / DXT5 — 16 byte/block, interpolated 3-bit alpha + BC1 colour.</summary>
-    Bc3,
-    /// <summary>BC4 / RGTC1 — 8 byte/block, single-channel red.</summary>
-    Bc4,
-    /// <summary>BC5 / RGTC2 — 16 byte/block, red + green.</summary>
-    Bc5,
-    /// <summary>BC6H UF16 — 16 byte/block, HDR unsigned half-float.</summary>
-    Bc6hUf16,
-    /// <summary>BC6H SF16 — 16 byte/block, HDR signed half-float.</summary>
-    Bc6hSf16,
-    /// <summary>BC7 — 16 byte/block, advanced adaptive (BPTC unorm).</summary>
-    Bc7,
-}

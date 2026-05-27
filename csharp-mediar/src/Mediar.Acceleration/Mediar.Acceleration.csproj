@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Acceleration</RootNamespace>
+    <AssemblyName>Mediar.Acceleration</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Runtime-dispatched hardware acceleration core for Mediar. Defines abstract intrinsics surfaces (color conversion, byte saturation, pixel blends, IDCT helpers) with a portable scalar fallback. Hardware-specific implementations ship in Mediar.Acceleration.X86 / .Arm.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

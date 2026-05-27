@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Acceleration.X86</RootNamespace>
+    <AssemblyName>Mediar.Acceleration.X86</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>x86/x64 SSE2 / SSSE3 / AVX2 / AVX-512 implementations of Mediar.Acceleration kernels (color conversion, byte saturation, pixel blends, IDCT helpers). Auto-registered with the runtime dispatcher when the assembly is loaded.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Acceleration\Mediar.Acceleration.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

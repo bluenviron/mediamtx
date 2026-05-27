@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Mediar.Imaging.Dds;
+namespace Mediar.Codecs.Bcn;
 
 /// <summary>
 /// Decompresses BC7 (BPTC unorm) block-compressed surfaces into top-down BGRA32
@@ -12,9 +12,11 @@ namespace Mediar.Imaging.Dds;
 /// <remarks>
 /// Implementation follows the Khronos / Microsoft DXGI specification for
 /// BC7 / BPTC_UNORM. All modes (0-7) are supported. Mode 8 (reserved /
-/// padding) decodes to a fully-transparent black block.
+/// padding) decodes to a fully-transparent black block. The codec is
+/// container-agnostic and can be wired to DDS, KTX2, PVR, or other
+/// envelopes.
 /// </remarks>
-internal static class Bc7Decoder
+public static class Bc7Decoder
 {
     /// <summary>Decodes an entire BC7-compressed surface into a top-down BGRA32 buffer.</summary>
     public static byte[] DecodeBc7(ReadOnlySpan<byte> src, int width, int height)

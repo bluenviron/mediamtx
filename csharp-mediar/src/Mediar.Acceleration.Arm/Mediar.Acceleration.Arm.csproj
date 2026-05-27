@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Acceleration.Arm</RootNamespace>
+    <AssemblyName>Mediar.Acceleration.Arm</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>ARM64 NEON / SVE / SVE2 implementations of Mediar.Acceleration kernels. Auto-registered with the runtime dispatcher when the assembly is loaded.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Acceleration\Mediar.Acceleration.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
