@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Nef</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Nef</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Nikon Electronic Format (NEF) reader for the Mediar toolkit. NEF is a TIFF-based RAW container identified by the EXIF Make tag ("NIKON CORPORATION"). Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode, walks SubIFDs to discover the full-resolution raw sensor mosaic, and exposes the parsed Nikon-specific tag set (camera Make/Model, Software, DateTime, lens info from MakerNote-adjacent EXIF tags) into a structured NefMetadata record.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
