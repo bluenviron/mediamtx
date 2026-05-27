@@ -296,4 +296,47 @@ public sealed class Ktx2ReaderTests
         Assert.Equal(PixelFormat.Rgba32, frame.PixelFormat);
         Assert.True(frame.Pixels.Span.SequenceEqual(original));
     }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_B8G8R8_UNORM()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 30, // VK_FORMAT_B8G8R8_UNORM
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Bgr24, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R16_UNORM_To_Gray16()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 70, // VK_FORMAT_R16_UNORM
+            PixelWidth = 2,
+            PixelHeight = 2,
+        };
+        var pixels = new byte[] { 0x00, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE };
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Gray16, reader.Info.PixelFormat);
+        Assert.Equal(16, reader.Info.BitsPerPixel);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
 }

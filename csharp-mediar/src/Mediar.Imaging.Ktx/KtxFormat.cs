@@ -77,6 +77,8 @@ public static class KtxFormat
         0x8051 or 0x8C41 => PixelFormat.Rgb24,
         // GL_RGBA8 / GL_SRGB8_ALPHA8
         0x8058 or 0x8C43 => PixelFormat.Rgba32,
+        // GL_R16 / GL_R16_SNORM
+        0x822A or 0x8F98 => PixelFormat.Gray16,
         _ => PixelFormat.Unknown,
     };
 
@@ -141,10 +143,14 @@ public static class KtxFormat
         9 or 10 or 15 => PixelFormat.Gray8,
         // VK_FORMAT_R8G8B8_UNORM / SRGB
         23 or 29 => PixelFormat.Rgb24,
+        // VK_FORMAT_B8G8R8_UNORM / SRGB
+        30 or 36 => PixelFormat.Bgr24,
         // VK_FORMAT_R8G8B8A8_UNORM / SRGB
         37 or 43 => PixelFormat.Rgba32,
         // VK_FORMAT_B8G8R8A8_UNORM / SRGB
         44 or 50 => PixelFormat.Bgra32,
+        // VK_FORMAT_R16_UNORM / SNORM
+        70 or 71 => PixelFormat.Gray16,
         _ => PixelFormat.Unknown,
     };
 

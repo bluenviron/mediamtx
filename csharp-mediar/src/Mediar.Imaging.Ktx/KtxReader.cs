@@ -150,6 +150,7 @@ public sealed class KtxReader : IImageReader
         int uncompressedBpp = uncompressedPf switch
         {
             PixelFormat.Gray8 => 1,
+            PixelFormat.Gray16 => 2,
             PixelFormat.Rgb24 => 3,
             PixelFormat.Bgr24 => 3,
             PixelFormat.Rgba32 => 4,
