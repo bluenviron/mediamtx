@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Crw</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Crw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Canon CIFF v1 RAW (CRW) reader for the Mediar toolkit. CRW is the heap-based Camera Image File Format that Canon used for the EOS-D30, D60, 10D, 300D (Digital Rebel), 1D, 1Ds and various PowerShot Pro1/G1-G6 bodies before the TIFF-based CR2 superseded it. The file begins with a 26-byte CIFF header (byte-order mark, header length, "HEAPCCDR" type, version) and ends with a u32 offset pointing at a heap directory; each directory entry is a (tag, size, offset) triple categorised by the tag's high nibble into BYTE / ASCII / WORD / DWORD / STRUCT / SUB-HEAP types. Mediar.Imaging.Crw walks the full heap recursively, exposes typed CrwMetadata, surfaces every discovered entry (camera info, exif IFD, raw image data, embedded JPEG thumbnail) as a CrwSubImageInfo, and composes Mediar.Imaging.Jpeg to decode the embedded JPEG preview when present.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
+  </ItemGroup>
+
+</Project>

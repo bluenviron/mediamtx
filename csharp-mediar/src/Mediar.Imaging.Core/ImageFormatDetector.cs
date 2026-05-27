@@ -324,6 +324,20 @@ public static class ImageFormatDetector
             return ImageFormat.Mrw;
         }
 
+        // CRW (Canon CIFF v1): 14-byte signature - 2-byte byte-order ("II" or
+        // "MM"), 4-byte header length, then ASCII "HEAPCCDR". Used by Canon
+        // EOS-D30/D60/10D/300D/1D/1Ds bodies before CR2 superseded CIFF.
+        if (header.Length >= 14 &&
+            ((header[0] == (byte)'I' && header[1] == (byte)'I') ||
+             (header[0] == (byte)'M' && header[1] == (byte)'M')) &&
+            header[6] == (byte)'H' && header[7] == (byte)'E' &&
+            header[8] == (byte)'A' && header[9] == (byte)'P' &&
+            header[10] == (byte)'C' && header[11] == (byte)'C' &&
+            header[12] == (byte)'D' && header[13] == (byte)'R')
+        {
+            return ImageFormat.Crw;
+        }
+
         // DjVu: "AT&TFORM"
         if (StartsWithAscii(header, "AT&TFORM"))
         {
