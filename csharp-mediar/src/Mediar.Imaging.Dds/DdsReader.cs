@@ -19,6 +19,7 @@ public sealed class DdsReader : IImageReader
     private readonly uint _rBit, _gBit, _bBit, _aBit;
     private readonly int _pitchOrLinearSize;
     private readonly bool _isCompressed;
+    private readonly BcnFormat _bcn;
     private bool _disposed;
 
     /// <inheritdoc/>
@@ -31,15 +32,17 @@ public sealed class DdsReader : IImageReader
     public ImageMetadata Metadata => ImageMetadata.Empty;
 
     /// <inheritdoc/>
-    public bool CanDecodePixels => !_isCompressed && Info.PixelFormat != PixelFormat.Unknown;
+    public bool CanDecodePixels =>
+        (!_isCompressed && Info.PixelFormat != PixelFormat.Unknown) ||
+        _bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc4 or BcnFormat.Bc5;
 
     private DdsReader(Stream s, bool owns, byte[] b, int pixelsOffset,
                       uint r, uint g, uint bMask, uint a, int pitch, bool compressed,
-                      ImageInfo info)
+                      BcnFormat bcn, ImageInfo info)
     {
         _stream = s; _ownsStream = owns; _bytes = b;
         _pixelsOffset = pixelsOffset; _rBit = r; _gBit = g; _bBit = bMask; _aBit = a;
-        _pitchOrLinearSize = pitch; _isCompressed = compressed;
+        _pitchOrLinearSize = pitch; _isCompressed = compressed; _bcn = bcn;
         Info = info;
     }
 
@@ -83,25 +86,35 @@ public sealed class DdsReader : IImageReader
 
         int pixelsOffset = 128;
         bool dx10 = (pfFlags & 0x4) != 0 && fourCC == "DX10";
-        if (dx10) pixelsOffset = 128 + 20;
+        uint dxgiFormat = 0;
+        if (dx10)
+        {
+            if (bytes.Length < 128 + 20) throw new ImageFormatException("Truncated DX10 DDS.");
+            dxgiFormat = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(128));
+            pixelsOffset = 128 + 20;
+        }
 
         bool compressed = (pfFlags & 0x4) != 0 && !((pfFlags & 0x40) != 0);
-        var pf = compressed ? PixelFormat.Unknown : ClassifyUncompressed(rgbBitCount, rMask, gMask, bMask, aMask);
+        var bcn = compressed ? BcnDecoder.Identify(fourCC, dxgiFormat) : BcnFormat.None;
+        var pf = compressed ? BcnToPixelFormat(bcn) : ClassifyUncompressed(rgbBitCount, rMask, gMask, bMask, aMask);
+        bool hasAlpha = compressed
+            ? bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3
+            : aMask != 0;
         var info = new ImageInfo
         {
             Width = width,
             Height = height,
-            BitsPerPixel = (int)rgbBitCount,
+            BitsPerPixel = compressed ? BcnBitsPerPixel(bcn) : (int)rgbBitCount,
             ChannelCount = pf.ChannelCount(),
             PixelFormat = pf,
             Format = ImageFormat.Dds,
-            HasAlpha = aMask != 0,
+            HasAlpha = hasAlpha,
             FrameCount = 1,
-            ColorSpace = compressed ? fourCC : null,
+            ColorSpace = compressed ? (bcn != BcnFormat.None ? bcn.ToString() : fourCC) : null,
         };
 
         return new DdsReader(stream, ownsStream, bytes, pixelsOffset,
-                             rMask, gMask, bMask, aMask, pitch, compressed, info);
+                             rMask, gMask, bMask, aMask, pitch, compressed, bcn, info);
     }
 
     /// <inheritdoc/>
@@ -110,21 +123,79 @@ public sealed class DdsReader : IImageReader
     {
         await Task.CompletedTask.ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+
+        int width = Info.Width;
+        int height = Info.Height;
+
         if (_isCompressed)
         {
-            throw new NotSupportedException(
-                $"DDS uses {Info.ColorSpace ?? "compressed"} block compression; pixel decode not implemented.");
+            int blocksX = (width + 3) / 4;
+            int blocksY = (height + 3) / 4;
+            int bytesPerBlock = _bcn switch
+            {
+                BcnFormat.Bc1 or BcnFormat.Bc4 => 8,
+                BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5 or BcnFormat.Bc6h or BcnFormat.Bc7 => 16,
+                _ => 0,
+            };
+            if (bytesPerBlock == 0)
+            {
+                throw new NotSupportedException(
+                    $"DDS uses {Info.ColorSpace ?? "unknown"} block compression; pixel decode not implemented.");
+            }
+            int payloadLen = blocksX * blocksY * bytesPerBlock;
+            if (_pixelsOffset + payloadLen > _bytes.Length)
+            {
+                throw new ImageFormatException("Truncated DDS pixel data.");
+            }
+            var payload = _bytes.AsSpan(_pixelsOffset, payloadLen);
+
+            byte[] decoded;
+            int stride;
+            PixelFormat pf;
+            switch (_bcn)
+            {
+                case BcnFormat.Bc1:
+                    decoded = BcnDecoder.DecodeBc1(payload, width, height);
+                    stride = width * 4;
+                    pf = PixelFormat.Bgra32;
+                    break;
+                case BcnFormat.Bc2:
+                    decoded = BcnDecoder.DecodeBc2(payload, width, height);
+                    stride = width * 4;
+                    pf = PixelFormat.Bgra32;
+                    break;
+                case BcnFormat.Bc3:
+                    decoded = BcnDecoder.DecodeBc3(payload, width, height);
+                    stride = width * 4;
+                    pf = PixelFormat.Bgra32;
+                    break;
+                case BcnFormat.Bc4:
+                    decoded = BcnDecoder.DecodeBc4(payload, width, height);
+                    stride = width;
+                    pf = PixelFormat.Gray8;
+                    break;
+                case BcnFormat.Bc5:
+                    decoded = BcnDecoder.DecodeBc5(payload, width, height);
+                    stride = width * 3;
+                    pf = PixelFormat.Rgb24;
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"DDS uses {_bcn} block compression; pixel decode is not implemented in this Mediar release.");
+            }
+            yield return new ImageFrame(width, height, pf, stride, decoded);
+            yield break;
         }
+
         if (Info.PixelFormat == PixelFormat.Unknown)
         {
             throw new NotSupportedException("Unrecognised DDS uncompressed pixel layout.");
         }
 
-        int width = Info.Width, height = Info.Height;
         int bpp = Info.BitsPerPixel / 8;
-        int stride = width * bpp;
-        var (frame, buf) = ImageFrame.Rent(width, height, Info.PixelFormat, stride);
-        int total = stride * height;
+        int strideUn = width * bpp;
+        var (frame, buf) = ImageFrame.Rent(width, height, Info.PixelFormat, strideUn);
+        int total = strideUn * height;
         if (_pixelsOffset + total > _bytes.Length)
         {
             throw new ImageFormatException("Truncated DDS pixel data.");
@@ -132,6 +203,21 @@ public sealed class DdsReader : IImageReader
         Buffer.BlockCopy(_bytes, _pixelsOffset, buf, 0, total);
         yield return frame;
     }
+
+    private static PixelFormat BcnToPixelFormat(BcnFormat f) => f switch
+    {
+        BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 => PixelFormat.Bgra32,
+        BcnFormat.Bc4 => PixelFormat.Gray8,
+        BcnFormat.Bc5 => PixelFormat.Rgb24,
+        _ => PixelFormat.Unknown,
+    };
+
+    private static int BcnBitsPerPixel(BcnFormat f) => f switch
+    {
+        BcnFormat.Bc1 or BcnFormat.Bc4 => 4,
+        BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc5 or BcnFormat.Bc6h or BcnFormat.Bc7 => 8,
+        _ => 0,
+    };
 
     private static PixelFormat ClassifyUncompressed(uint bpp, uint r, uint g, uint b, uint a)
     {

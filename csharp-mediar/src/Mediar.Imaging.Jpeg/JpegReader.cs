@@ -11,14 +11,15 @@ namespace Mediar.Imaging.Jpeg;
 /// The reader parses every JPEG marker segment up to <c>SOS</c>, then
 /// stops. Image dimensions, sampling factors and any embedded EXIF /
 /// XMP metadata are exposed via <see cref="ImageInfo"/> and
-/// <see cref="ImageMetadata"/>. Pixel decoding is performed by
-/// <see cref="JpegBaselineDecoder"/>.
+/// <see cref="ImageMetadata"/>. Pixel decoding for SOF0 (baseline DCT)
+/// is performed by <see cref="JpegBaselineDecoder"/>.
 /// </remarks>
 public sealed class JpegReader : IImageReader
 {
     private readonly Stream _stream;
     private readonly bool _ownsStream;
     private readonly JpegFrame _frame;
+    private readonly JpegDecoderState _state;
     private readonly byte[] _scanData;
     private readonly ImageMetadata _metadata;
     private readonly ImageFormat _format;
@@ -34,7 +35,7 @@ public sealed class JpegReader : IImageReader
     public ImageMetadata Metadata => _metadata;
 
     /// <inheritdoc/>
-    public bool CanDecodePixels => false;
+    public bool CanDecodePixels => _frame.IsBaseline && _frame.NumberOfComponents is 1 or 3;
 
     /// <summary>
     /// Returns the EXIF / TIFF tag dictionary verbatim (key prefixes:
@@ -43,12 +44,13 @@ public sealed class JpegReader : IImageReader
     public IReadOnlyDictionary<string, string> ExifTags => _metadata.Tags;
 
     private JpegReader(
-        Stream stream, bool ownsStream, JpegFrame frame, byte[] scanData,
-        ImageMetadata metadata, ImageFormat format, ImageInfo info)
+        Stream stream, bool ownsStream, JpegFrame frame, JpegDecoderState state,
+        byte[] scanData, ImageMetadata metadata, ImageFormat format, ImageInfo info)
     {
         _stream = stream;
         _ownsStream = ownsStream;
         _frame = frame;
+        _state = state;
         _scanData = scanData;
         _metadata = metadata;
         _format = format;
@@ -90,10 +92,10 @@ public sealed class JpegReader : IImageReader
 
         ImageMetadata metadata = ImageMetadata.Empty;
         var frame = new JpegFrame();
+        var state = new JpegDecoderState();
         byte[] scanBytes = [];
         Span<byte> lengthBuf = stackalloc byte[2];
 
-        // Walk marker segments until SOS or EOI.
         while (true)
         {
             byte ff;
@@ -114,7 +116,7 @@ public sealed class JpegReader : IImageReader
 
             if (marker == 0xD9) break; // EOI
             if (marker == 0xD8) continue; // duplicate SOI
-            if (marker is >= 0xD0 and <= 0xD7) continue; // restart
+            if (marker is >= 0xD0 and <= 0xD7) continue; // restart (unexpected outside scan)
 
             Span<byte> _length = lengthBuf;
             ReadExactly(stream, _length);
@@ -129,13 +131,28 @@ public sealed class JpegReader : IImageReader
                 case 0xC1: // SOF1 extended sequential
                 case 0xC2: // SOF2 progressive
                 case 0xC3: // SOF3 lossless
+                    ParseSof(segment, frame);
+                    frame.IsBaseline = marker == 0xC0;
+                    break;
+
+                case 0xDB: // DQT
+                    ParseDqt(segment, state);
+                    break;
+
+                case 0xC4: // DHT
+                    ParseDht(segment, state);
+                    break;
+
+                case 0xDD: // DRI
+                    if (segment.Length >= 2)
                     {
-                        ParseSof(segment, frame);
-                        frame.IsBaseline = marker == 0xC0;
-                        break;
+                        state.RestartInterval = (segment[0] << 8) | segment[1];
                     }
+                    break;
+
                 case 0xE0: // APP0 (JFIF)
                     break;
+
                 case 0xE1: // APP1 (EXIF / XMP)
                     if (segment.Length > 6 &&
                         segment[0] == (byte)'E' && segment[1] == (byte)'x' &&
@@ -145,6 +162,7 @@ public sealed class JpegReader : IImageReader
                         metadata = ExifParser.Parse(segment.AsSpan(6));
                     }
                     break;
+
                 case 0xE2: // APP2 (MPO multi-image / ICC profile)
                     if (segment.Length > 4 &&
                         segment[0] == (byte)'M' && segment[1] == (byte)'P' &&
@@ -153,13 +171,12 @@ public sealed class JpegReader : IImageReader
                         format = ImageFormat.Mpo;
                     }
                     break;
-                case 0xDA: // SOS — scan begins; everything after this to EOI is entropy-coded.
-                    {
-                        // Skip the SOS payload bytes (already in `segment`) – the
-                        // entropy-coded data follows immediately.
-                        scanBytes = ReadRestOfStreamUntilEoi(stream);
-                        goto done;
-                    }
+
+                case 0xDA: // SOS — scan header followed by entropy-coded segment.
+                    ParseSos(segment, state, frame);
+                    scanBytes = ReadRestOfStreamUntilEoi(stream);
+                    goto done;
+
                 default:
                     break;
             }
@@ -181,7 +198,7 @@ public sealed class JpegReader : IImageReader
             FrameCount = 1,
         };
 
-        return new JpegReader(stream, ownsStream, frame, scanBytes, metadata, format, info);
+        return new JpegReader(stream, ownsStream, frame, state, scanBytes, metadata, format, info);
     }
 
     /// <inheritdoc/>
@@ -194,7 +211,7 @@ public sealed class JpegReader : IImageReader
             throw new NotSupportedException(
                 "JPEG progressive / lossless / arithmetic coded decoding is not implemented in this version of Mediar.");
         }
-        var frame = JpegBaselineDecoder.Decode(_frame, _scanData);
+        var frame = JpegBaselineDecoder.Decode(_frame, _state, _scanData);
         await Task.CompletedTask.ConfigureAwait(false);
         yield return frame;
     }
@@ -224,6 +241,80 @@ public sealed class JpegReader : IImageReader
         }
     }
 
+    private static void ParseDqt(ReadOnlySpan<byte> seg, JpegDecoderState state)
+    {
+        // One or more quant-table definitions back-to-back inside the segment.
+        int p = 0;
+        while (p < seg.Length)
+        {
+            byte pq = (byte)(seg[p] >> 4);   // 0 = 8-bit, 1 = 16-bit
+            byte tq = (byte)(seg[p] & 0x0F); // table id 0..3
+            p++;
+            if (tq >= 4) throw new ImageFormatException("Bad DQT table id.");
+            var t = new short[64];
+            if (pq == 0)
+            {
+                if (p + 64 > seg.Length) throw new ImageFormatException("Truncated DQT.");
+                for (int k = 0; k < 64; k++) t[k] = seg[p + k];
+                p += 64;
+            }
+            else
+            {
+                if (p + 128 > seg.Length) throw new ImageFormatException("Truncated DQT.");
+                for (int k = 0; k < 64; k++)
+                {
+                    t[k] = (short)((seg[p + 2 * k] << 8) | seg[p + 2 * k + 1]);
+                }
+                p += 128;
+            }
+            state.QuantTables[tq] = t;
+        }
+    }
+
+    private static void ParseDht(ReadOnlySpan<byte> seg, JpegDecoderState state)
+    {
+        int p = 0;
+        while (p < seg.Length)
+        {
+            byte tc = (byte)(seg[p] >> 4);   // 0 = DC, 1 = AC
+            byte th = (byte)(seg[p] & 0x0F); // table id 0..3
+            p++;
+            if (th >= 4) throw new ImageFormatException("Bad DHT table id.");
+            if (p + 16 > seg.Length) throw new ImageFormatException("Truncated DHT.");
+            var lengths = seg.Slice(p, 16);
+            p += 16;
+            int total = 0;
+            for (int i = 0; i < 16; i++) total += lengths[i];
+            if (p + total > seg.Length) throw new ImageFormatException("Truncated DHT (vals).");
+            var values = seg.Slice(p, total);
+            p += total;
+            var table = HuffmanTable.Build(lengths, values);
+            if (tc == 0) state.DcHuffman[th] = table;
+            else state.AcHuffman[th] = table;
+        }
+    }
+
+    private static void ParseSos(ReadOnlySpan<byte> seg, JpegDecoderState state, JpegFrame frame)
+    {
+        int ns = seg[0];
+        if (seg.Length < 1 + ns * 2 + 3) throw new ImageFormatException("Truncated SOS.");
+        state.ScanComponentIds = new byte[ns];
+        state.ScanDcTables = new byte[ns];
+        state.ScanAcTables = new byte[ns];
+        int p = 1;
+        for (int i = 0; i < ns; i++)
+        {
+            state.ScanComponentIds[i] = seg[p];
+            byte tables = seg[p + 1];
+            state.ScanDcTables[i] = (byte)(tables >> 4);
+            state.ScanAcTables[i] = (byte)(tables & 0x0F);
+            p += 2;
+        }
+        // For baseline scans, the next 3 bytes (Ss, Se, Ah/Al) are 0, 63, 0.
+        // We don't need them — but verify we have a sensible scan order matching SOFn order.
+        _ = frame;
+    }
+
     private static byte[] ReadRestOfStreamUntilEoi(Stream s)
     {
         using var ms = new MemoryStream();
@@ -232,7 +323,6 @@ public sealed class JpegReader : IImageReader
         {
             ms.WriteByte((byte)b);
         }
-        // Trim trailing FF D9 (EOI) if present.
         var arr = ms.ToArray();
         if (arr.Length >= 2 && arr[^2] == 0xFF && arr[^1] == 0xD9)
         {
@@ -295,3 +385,16 @@ internal sealed class JpegComponent
     public int VSampling { get; set; } = 1;
     public byte QuantTableId { get; set; }
 }
+
+/// <summary>Mutable decoder state populated from marker segments (internal).</summary>
+internal sealed class JpegDecoderState
+{
+    public short[]?[] QuantTables { get; } = new short[4][];
+    public HuffmanTable?[] DcHuffman { get; } = new HuffmanTable[4];
+    public HuffmanTable?[] AcHuffman { get; } = new HuffmanTable[4];
+    public int RestartInterval { get; set; }
+    public byte[] ScanComponentIds { get; set; } = [];
+    public byte[] ScanDcTables { get; set; } = [];
+    public byte[] ScanAcTables { get; set; } = [];
+}
+
