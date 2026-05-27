@@ -57,6 +57,7 @@
     <ProjectReference Include="..\..\src\Mediar.Imaging.Svs\Mediar.Imaging.Svs.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Dng\Mediar.Imaging.Dng.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Cr2\Mediar.Imaging.Cr2.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Dcr\Mediar.Imaging.Dcr.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Nef\Mediar.Imaging.Nef.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Arw\Mediar.Imaging.Arw.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Pef\Mediar.Imaging.Pef.csproj" />

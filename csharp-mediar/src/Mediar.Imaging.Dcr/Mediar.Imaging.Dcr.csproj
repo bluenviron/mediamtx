@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Dcr</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Dcr</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Kodak Digital Camera Raw (DCR) reader for the Mediar toolkit. DCR is a TIFF-based RAW container produced by Kodak digital backs and DSLRs (DCS Pro / DCS 14n / EasyShare Pro). Identified by the EXIF Make tag matching one of "EASTMAN KODAK COMPANY" / "KODAK" / "Kodak". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Kodak proprietary compression (TIFF tag 65000) is recognised but not yet decoded.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
