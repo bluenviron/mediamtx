@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Mrw</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Mrw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Konica Minolta RAW (MRW) reader for the Mediar toolkit. MRW is a proprietary big-endian envelope built from "\0MRM"-prefixed sub-blocks (PRD picture-raw-dimensions, TTW TIFF-tag-wrapper, WBG white-balance-gains, RIF raw-information-file, optional CSA colour-sensitivity-array), followed by a raw 12-bit packed Bayer mosaic. The reader walks the sub-block stream, parses PRD geometry, and runs the embedded TTW TIFF through Mediar.Imaging.Tiff to surface EXIF metadata (Make / Model / DateTime). Used by Minolta DiMage A-series and 7-series, Maxxum / Dynax 5D and 7D, and Konica Minolta alpha-Sweet Digital before the Sony absorption that produced the ARW format.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

@@ -314,6 +314,16 @@ public static class ImageFormatDetector
             return ImageFormat.Raf;
         }
 
+        // MRW (Konica Minolta RAW): 4-byte magic "\0MRM" = 0x00 0x4D 0x52 0x4D.
+        // Used by Minolta DiMage A-series and 7-series, Dynax/Maxxum 5D/7D,
+        // and Konica Minolta α-Sweet Digital before Sony absorbed the line.
+        if (header.Length >= 4 &&
+            header[0] == 0x00 && header[1] == (byte)'M' &&
+            header[2] == (byte)'R' && header[3] == (byte)'M')
+        {
+            return ImageFormat.Mrw;
+        }
+
         // DjVu: "AT&TFORM"
         if (StartsWithAscii(header, "AT&TFORM"))
         {
