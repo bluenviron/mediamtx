@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Dng</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Dng</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Adobe Digital Negative (DNG) reader for the Mediar toolkit. Composes Mediar.Imaging.Tiff for the underlying container walk (full IFD chain + SubIFD recursion) and parses the DNG-specific tag set (DNGVersion, UniqueCameraModel, CFA pattern, BlackLevel / WhiteLevel, default crop, color matrices, AsShotNeutral, ActiveArea) into a structured DngMetadata record. Pixel decode is delegated to Mediar.Imaging.Tiff where the underlying compression is supported (uncompressed, LZW, Deflate, JPEG-in-TIFF including lossless SOF3 used by raw mosaic data).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
