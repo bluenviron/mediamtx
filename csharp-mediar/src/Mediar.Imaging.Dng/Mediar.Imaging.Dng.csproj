@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.TiffRaw\Mediar.Imaging.TiffRaw.csproj" />
   </ItemGroup>
 
 </Project>

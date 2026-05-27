@@ -1,8 +1,9 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Mediar.Imaging.Tiff;
+using Mediar.Imaging.TiffRaw;
+using static Mediar.Imaging.TiffRaw.TiffRawHelpers;
 
 namespace Mediar.Imaging.Dng;
 
@@ -261,7 +262,13 @@ public sealed class DngReader : IImageReader
         int compression = (int)GetScalar(entries, 0x0103, def: 1);
         int photometric = (int)GetScalar(entries, 0x0106, def: 0);
         int newSubFileType = (int)GetScalar(entries, 0x00FE, def: 0);
-        bool isTiled = HasTag(entries, 0x0142) && HasTag(entries, 0x0143);
+        bool hasTw = false, hasTl = false;
+        foreach (var e in entries)
+        {
+            if (e.Tag == 0x0142) hasTw = true;
+            else if (e.Tag == 0x0143) hasTl = true;
+        }
+        bool isTiled = hasTw && hasTl;
 
         // Mediar.Imaging.Tiff supports compression 1/5/7/8/2/3/4/32773/32946
         // at bps 1/8/16. DNG raw typically uses 1 (uncompressed) or 7
@@ -295,20 +302,20 @@ public sealed class DngReader : IImageReader
 
     private static DngMetadata ParseDngMetadata(IfdEntry[] entries, byte[] bytes, bool le)
     {
-        var version = ReadByteTag(entries, 0xC612, bytes);
-        var backVersion = ReadByteTag(entries, 0xC613, bytes);
-        var uniqueModel = ReadAsciiTag(entries, 0xC614, bytes);
-        var localizedModel = ReadAsciiTag(entries, 0xC615, bytes);
-        var make = ReadAsciiTag(entries, 0x010F, bytes);
-        var model = ReadAsciiTag(entries, 0x0110, bytes);
-        var software = ReadAsciiTag(entries, 0x0131, bytes);
-        var dateTime = ReadAsciiTag(entries, 0x0132, bytes);
-        var artist = ReadAsciiTag(entries, 0x013B, bytes);
-        var copyright = ReadAsciiTag(entries, 0x8298, bytes);
+        var version = ReadByteTag(entries, 0xC612, bytes, le);
+        var backVersion = ReadByteTag(entries, 0xC613, bytes, le);
+        var uniqueModel = ReadAsciiTag(entries, 0xC614, bytes, le);
+        var localizedModel = ReadAsciiTag(entries, 0xC615, bytes, le);
+        var make = ReadAsciiTag(entries, 0x010F, bytes, le);
+        var model = ReadAsciiTag(entries, 0x0110, bytes, le);
+        var software = ReadAsciiTag(entries, 0x0131, bytes, le);
+        var dateTime = ReadAsciiTag(entries, 0x0132, bytes, le);
+        var artist = ReadAsciiTag(entries, 0x013B, bytes, le);
+        var copyright = ReadAsciiTag(entries, 0x8298, bytes, le);
 
-        var cfaPattern = ReadByteTag(entries, 0x828E, bytes);
+        var cfaPattern = ReadByteTag(entries, 0x828E, bytes, le);
         ushort[] cfaRepeatPatternDim = GetShortArray(entries, 0x828D, bytes, le);
-        var cfaPlaneColor = ReadByteTag(entries, 0xC616, bytes);
+        var cfaPlaneColor = ReadByteTag(entries, 0xC616, bytes, le);
         var cfaLayout = (int)GetScalar(entries, 0xC617, def: 0);
 
         uint[] blackLevel = ReadAnyNumericArray(entries, 0xC61A, bytes, le);
@@ -377,95 +384,25 @@ public sealed class DngReader : IImageReader
         };
     }
 
-    private static IfdEntry[] ParseIfd(byte[] b, bool le, int offset)
-    {
-        if (offset < 0 || offset + 2 > b.Length) throw new ImageFormatException("Bad IFD offset.");
-        int n = ReadU16(b, offset, le);
-        if (offset + 2 + n * 12 > b.Length) throw new ImageFormatException("IFD truncated.");
-        var arr = new IfdEntry[n];
-        for (int i = 0; i < n; i++)
-        {
-            int o = offset + 2 + i * 12;
-            arr[i] = new IfdEntry(
-                ReadU16(b, o, le),
-                ReadU16(b, o + 2, le),
-                ReadU32(b, o + 4, le),
-                ReadU32(b, o + 8, le));
-        }
-        return arr;
-    }
-
-    private static bool HasTag(IfdEntry[] ifd, int tag)
-    {
-        foreach (var e in ifd) if (e.Tag == tag) return true;
-        return false;
-    }
-
-    private static uint GetScalar(IfdEntry[] ifd, int tag, uint def = 0)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            if (e.Type == 3)
-            {
-                return e.ValueOffset & 0xFFFF;
-            }
-            return e.ValueOffset;
-        }
-        return def;
-    }
-
-    private static ushort[] GetShortArray(IfdEntry[] ifd, int tag, byte[] b, bool le)
+    private static ReadOnlyMemory<byte> ReadByteTag(IfdEntry[] ifd, int tag, byte[] b, bool le)
     {
         foreach (var e in ifd)
         {
             if (e.Tag != tag) continue;
             int n = (int)e.Count;
-            var arr = new ushort[n];
-            if (n == 0) return arr;
-            if (n * 2 <= 4)
+            if (n <= 4)
             {
+                var inline = new byte[n];
                 Span<byte> tmp = stackalloc byte[4];
                 if (le) BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
                 else BinaryPrimitives.WriteUInt32BigEndian(tmp, e.ValueOffset);
-                for (int k = 0; k < n; k++)
-                {
-                    arr[k] = le
-                        ? BinaryPrimitives.ReadUInt16LittleEndian(tmp[(k * 2)..])
-                        : BinaryPrimitives.ReadUInt16BigEndian(tmp[(k * 2)..]);
-                }
+                tmp[..n].CopyTo(inline);
+                return inline;
             }
-            else
-            {
-                for (int k = 0; k < n; k++)
-                {
-                    arr[k] = ReadU16(b, (int)e.ValueOffset + k * 2, le);
-                }
-            }
-            return arr;
+            if (e.ValueOffset + n > b.Length) return ReadOnlyMemory<byte>.Empty;
+            return new ReadOnlyMemory<byte>(b, (int)e.ValueOffset, n);
         }
-        return [];
-    }
-
-    private static uint[] ReadLongArray(IfdEntry e, byte[] b, bool le)
-    {
-        int n = (int)e.Count;
-        if (n == 0) return [];
-        if (e.Type == 3)
-        {
-            // Some encoders use SHORT for sub-IFD pointers in older files.
-            ushort[] shorts = GetShortArrayInline(e, b, le, n);
-            var s = new uint[n];
-            for (int k = 0; k < n; k++) s[k] = shorts[k];
-            return s;
-        }
-        if (n == 1) return [e.ValueOffset];
-        var arr = new uint[n];
-        for (int k = 0; k < n; k++)
-        {
-            arr[k] = ReadU32(b, (int)e.ValueOffset + k * 4, le);
-        }
-        return arr;
+        return ReadOnlyMemory<byte>.Empty;
     }
 
     private static ushort[] GetShortArrayInline(IfdEntry e, byte[] b, bool le, int n)
@@ -493,52 +430,6 @@ public sealed class DngReader : IImageReader
         return arr;
     }
 
-    private static ReadOnlyMemory<byte> ReadByteTag(IfdEntry[] ifd, int tag, byte[] b)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            int n = (int)e.Count;
-            if (n <= 4)
-            {
-                var inline = new byte[n];
-                Span<byte> tmp = stackalloc byte[4];
-                BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
-                tmp[..n].CopyTo(inline);
-                return inline;
-            }
-            if (e.ValueOffset + n > b.Length) return ReadOnlyMemory<byte>.Empty;
-            return new ReadOnlyMemory<byte>(b, (int)e.ValueOffset, n);
-        }
-        return ReadOnlyMemory<byte>.Empty;
-    }
-
-    private static string? ReadAsciiTag(IfdEntry[] ifd, int tag, byte[] b)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            int n = (int)e.Count;
-            if (n == 0) return string.Empty;
-            string raw;
-            if (n <= 4)
-            {
-                Span<byte> tmp = stackalloc byte[4];
-                BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
-                while (n > 0 && tmp[n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(tmp[..n]);
-            }
-            else
-            {
-                if (e.ValueOffset + n > b.Length) return null;
-                while (n > 0 && b[e.ValueOffset + n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(b, (int)e.ValueOffset, n);
-            }
-            return raw;
-        }
-        return null;
-    }
-
     private static uint[] ReadAnyNumericArray(IfdEntry[] ifd, int tag, byte[] b, bool le)
     {
         foreach (var e in ifd)
@@ -548,12 +439,19 @@ public sealed class DngReader : IImageReader
             if (n == 0) return [];
             return e.Type switch
             {
-                3 => GetShortArrayInline(e, b, le, n).Select(s => (uint)s).ToArray(),
+                3 => ToUIntArray(GetShortArrayInline(e, b, le, n)),
                 4 => ReadLongArray(e, b, le),
                 _ => [],
             };
         }
         return [];
+    }
+
+    private static uint[] ToUIntArray(ushort[] src)
+    {
+        var dst = new uint[src.Length];
+        for (int i = 0; i < src.Length; i++) dst[i] = src[i];
+        return dst;
     }
 
     private static double[] ReadAnyNumericArrayAsDouble(IfdEntry[] ifd, int tag, byte[] b, bool le)
@@ -603,16 +501,4 @@ public sealed class DngReader : IImageReader
         }
         return [];
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ushort ReadU16(byte[] b, int o, bool le) =>
-        le ? BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o))
-           : BinaryPrimitives.ReadUInt16BigEndian(b.AsSpan(o));
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint ReadU32(byte[] b, int o, bool le) =>
-        le ? BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o))
-           : BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(o));
-
-    internal readonly record struct IfdEntry(int Tag, int Type, uint Count, uint ValueOffset);
 }

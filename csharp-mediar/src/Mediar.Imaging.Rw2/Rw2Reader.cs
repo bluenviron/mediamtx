@@ -1,8 +1,9 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Mediar.Imaging.Tiff;
+using Mediar.Imaging.TiffRaw;
+using static Mediar.Imaging.TiffRaw.TiffRawHelpers;
 
 namespace Mediar.Imaging.Rw2;
 
@@ -97,7 +98,7 @@ public sealed class Rw2Reader : IImageReader
         uint ifd0Offset = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(4));
         if (ifd0Offset == 0) throw new ImageFormatException("RW2 file has no IFDs.");
 
-        var ifd0 = ParseIfd(bytes, (int)ifd0Offset);
+        var ifd0 = ParseIfd(bytes, le: true, (int)ifd0Offset);
         var rw2 = ParseRw2Metadata(ifd0, bytes);
 
         var subs = new List<Rw2SubImageInfo>();
@@ -200,13 +201,13 @@ public sealed class Rw2Reader : IImageReader
         {
             if (!visited.Add(ifdOffset)) return;
             if (ifdOffset + 2 > bytes.Length) return;
-            var entries = ParseIfd(bytes, (int)ifdOffset);
+            var entries = ParseIfd(bytes, le: true, (int)ifdOffset);
             sink.Add(BuildSubImageInfo(entries, parentSubIfdLevel, bytes));
 
             foreach (var e in entries)
             {
                 if (e.Tag != 0x014A) continue;
-                var subOffsets = ReadLongArray(e, bytes);
+                var subOffsets = ReadLongArray(e, bytes, le: true);
                 foreach (uint sub in subOffsets)
                 {
                     WalkIfdsRecursive(bytes, sub, parentSubIfdLevel + 1, sink, visited);
@@ -231,7 +232,7 @@ public sealed class Rw2Reader : IImageReader
         int height = (int)GetScalar(entries, 0x0101, def: 0);
         if (width == 0) width = (int)GetScalar(entries, 0x0002, def: 0);
         if (height == 0) height = (int)GetScalar(entries, 0x0003, def: 0);
-        ushort[] bps = GetShortArray(entries, 0x0102, bytes);
+        ushort[] bps = GetShortArray(entries, 0x0102, bytes, le: true);
         int bitsPerSample = bps.Length == 0 ? 12 : bps[0];
         int samplesPerPixel = (int)GetScalar(entries, 0x0115, def: 1);
         int compression = (int)GetScalar(entries, 0x0103, def: 1);
@@ -267,13 +268,13 @@ public sealed class Rw2Reader : IImageReader
 
     private static Rw2Metadata ParseRw2Metadata(IfdEntry[] entries, byte[] bytes)
     {
-        var make = ReadAsciiTag(entries, 0x010F, bytes);
-        var model = ReadAsciiTag(entries, 0x0110, bytes);
-        var software = ReadAsciiTag(entries, 0x0131, bytes);
-        var dateTime = ReadAsciiTag(entries, 0x0132, bytes);
-        var artist = ReadAsciiTag(entries, 0x013B, bytes);
-        var copyright = ReadAsciiTag(entries, 0x8298, bytes);
-        var rawVersion = ReadAsciiTag(entries, 0x0001, bytes);
+        var make = ReadAsciiTag(entries, 0x010F, bytes, le: true);
+        var model = ReadAsciiTag(entries, 0x0110, bytes, le: true);
+        var software = ReadAsciiTag(entries, 0x0131, bytes, le: true);
+        var dateTime = ReadAsciiTag(entries, 0x0132, bytes, le: true);
+        var artist = ReadAsciiTag(entries, 0x013B, bytes, le: true);
+        var copyright = ReadAsciiTag(entries, 0x8298, bytes, le: true);
+        var rawVersion = ReadAsciiTag(entries, 0x0001, bytes, le: true);
 
         int sensorWidth = (int)GetScalar(entries, 0x0002, def: 0);
         int sensorHeight = (int)GetScalar(entries, 0x0003, def: 0);
@@ -345,102 +346,4 @@ public sealed class Rw2Reader : IImageReader
         };
     }
 
-    private static IfdEntry[] ParseIfd(byte[] b, int offset)
-    {
-        if (offset < 0 || offset + 2 > b.Length) throw new ImageFormatException("Bad IFD offset.");
-        int n = BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(offset));
-        if (offset + 2 + n * 12 > b.Length) throw new ImageFormatException("IFD truncated.");
-        var arr = new IfdEntry[n];
-        for (int i = 0; i < n; i++)
-        {
-            int o = offset + 2 + i * 12;
-            arr[i] = new IfdEntry(
-                BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o)),
-                BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o + 2)),
-                BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o + 4)),
-                BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o + 8)));
-        }
-        return arr;
-    }
-
-    private static uint GetScalar(IfdEntry[] ifd, int tag, uint def = 0)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            if (e.Type == 3) return e.ValueOffset & 0xFFFF;
-            return e.ValueOffset;
-        }
-        return def;
-    }
-
-    private static uint[] ReadLongArray(IfdEntry e, byte[] b)
-    {
-        int n = (int)e.Count;
-        if (n == 0) return [];
-        if (n == 1) return [e.ValueOffset];
-        var arr = new uint[n];
-        for (int k = 0; k < n; k++)
-        {
-            arr[k] = BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan((int)e.ValueOffset + k * 4));
-        }
-        return arr;
-    }
-
-    private static ushort[] GetShortArray(IfdEntry[] ifd, int tag, byte[] b)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            int n = (int)e.Count;
-            var arr = new ushort[n];
-            if (n == 0) return arr;
-            if (n * 2 <= 4)
-            {
-                Span<byte> tmp = stackalloc byte[4];
-                BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
-                for (int k = 0; k < n; k++)
-                {
-                    arr[k] = BinaryPrimitives.ReadUInt16LittleEndian(tmp[(k * 2)..]);
-                }
-            }
-            else
-            {
-                for (int k = 0; k < n; k++)
-                {
-                    arr[k] = BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan((int)e.ValueOffset + k * 2));
-                }
-            }
-            return arr;
-        }
-        return [];
-    }
-
-    private static string? ReadAsciiTag(IfdEntry[] ifd, int tag, byte[] b)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            int n = (int)e.Count;
-            if (n == 0) return string.Empty;
-            string raw;
-            if (n <= 4)
-            {
-                Span<byte> tmp = stackalloc byte[4];
-                BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
-                while (n > 0 && tmp[n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(tmp[..n]);
-            }
-            else
-            {
-                if (e.ValueOffset + n > b.Length) return null;
-                while (n > 0 && b[e.ValueOffset + n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(b, (int)e.ValueOffset, n);
-            }
-            return raw;
-        }
-        return null;
-    }
-
-    internal readonly record struct IfdEntry(int Tag, int Type, uint Count, uint ValueOffset);
 }

@@ -1,8 +1,9 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Mediar.Imaging.Tiff;
+using Mediar.Imaging.TiffRaw;
+using static Mediar.Imaging.TiffRaw.TiffRawHelpers;
 
 namespace Mediar.Imaging.Cr2;
 
@@ -114,7 +115,7 @@ public sealed class Cr2Reader : IImageReader
         {
             if (!visited.Add(cursor)) break;
             if (cursor + 2 > bytes.Length) break;
-            var entries = ParseIfd(bytes, (int)cursor);
+            var entries = ParseIfd(bytes, le: true, (int)cursor);
             ifd0Entries ??= entries;
             subs.Add(BuildSubImageInfo(entries, AssignRole(role)));
             role++;
@@ -129,7 +130,7 @@ public sealed class Cr2Reader : IImageReader
         if (header.RawIfdOffset != 0 && visited.Add(header.RawIfdOffset)
             && header.RawIfdOffset + 2 <= bytes.Length)
         {
-            var rawEntries = ParseIfd(bytes, (int)header.RawIfdOffset);
+            var rawEntries = ParseIfd(bytes, le: true, (int)header.RawIfdOffset);
             subs.Add(BuildSubImageInfo(rawEntries, Cr2IfdRole.RawSensor));
         }
 
@@ -262,12 +263,12 @@ public sealed class Cr2Reader : IImageReader
 
     private static ImageMetadata BuildImageMetadata(IfdEntry[] ifd, byte[] bytes, Cr2Header header)
     {
-        var make = ReadAsciiTag(ifd, 0x010F, bytes);
-        var model = ReadAsciiTag(ifd, 0x0110, bytes);
-        var software = ReadAsciiTag(ifd, 0x0131, bytes);
-        var dateTime = ReadAsciiTag(ifd, 0x0132, bytes);
-        var artist = ReadAsciiTag(ifd, 0x013B, bytes);
-        var copyright = ReadAsciiTag(ifd, 0x8298, bytes);
+        var make = ReadAsciiTag(ifd, 0x010F, bytes, le: true);
+        var model = ReadAsciiTag(ifd, 0x0110, bytes, le: true);
+        var software = ReadAsciiTag(ifd, 0x0131, bytes, le: true);
+        var dateTime = ReadAsciiTag(ifd, 0x0132, bytes, le: true);
+        var artist = ReadAsciiTag(ifd, 0x013B, bytes, le: true);
+        var copyright = ReadAsciiTag(ifd, 0x8298, bytes, le: true);
 
         var tags = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -287,61 +288,4 @@ public sealed class Cr2Reader : IImageReader
         };
     }
 
-    private static IfdEntry[] ParseIfd(byte[] b, int offset)
-    {
-        if (offset < 0 || offset + 2 > b.Length) throw new ImageFormatException("Bad IFD offset.");
-        int n = BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(offset));
-        if (offset + 2 + n * 12 > b.Length) throw new ImageFormatException("IFD truncated.");
-        var arr = new IfdEntry[n];
-        for (int i = 0; i < n; i++)
-        {
-            int o = offset + 2 + i * 12;
-            arr[i] = new IfdEntry(
-                BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o)),
-                BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(o + 2)),
-                BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o + 4)),
-                BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o + 8)));
-        }
-        return arr;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint GetScalar(IfdEntry[] ifd, int tag, uint def = 0)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            if (e.Type == 3) return e.ValueOffset & 0xFFFF;
-            return e.ValueOffset;
-        }
-        return def;
-    }
-
-    private static string? ReadAsciiTag(IfdEntry[] ifd, int tag, byte[] b)
-    {
-        foreach (var e in ifd)
-        {
-            if (e.Tag != tag) continue;
-            int n = (int)e.Count;
-            if (n == 0) return string.Empty;
-            string raw;
-            if (n <= 4)
-            {
-                Span<byte> tmp = stackalloc byte[4];
-                BinaryPrimitives.WriteUInt32LittleEndian(tmp, e.ValueOffset);
-                while (n > 0 && tmp[n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(tmp[..n]);
-            }
-            else
-            {
-                if (e.ValueOffset + n > b.Length) return null;
-                while (n > 0 && b[e.ValueOffset + n - 1] == 0) n--;
-                raw = Encoding.ASCII.GetString(b, (int)e.ValueOffset, n);
-            }
-            return raw;
-        }
-        return null;
-    }
-
-    internal readonly record struct IfdEntry(int Tag, int Type, uint Count, uint ValueOffset);
 }
