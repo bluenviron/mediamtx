@@ -359,6 +359,8 @@ public sealed class DdsReader : IImageReader
             case 61: return PixelFormat.Gray8;                                                 // R8_UNORM
             case 63: return PixelFormat.Gray8;                                                 // R8_SNORM
             case 65: return PixelFormat.Gray8;                                                 // A8_UNORM
+            // 32-bit single-channel float (depth / luminance / scientific)
+            case 41: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // R32_FLOAT
             // 16-bit packed
             case 85: return PixelFormat.Rgb565;                                                // B5G6R5_UNORM
             case 86: hasAlpha = true; return PixelFormat.Rgba5551;                             // B5G5R5A1_UNORM

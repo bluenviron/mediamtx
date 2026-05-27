@@ -37,6 +37,8 @@ public enum PixelFormat
     /// <summary>R16 G16, 32 bits per pixel (EAC RG11, normal maps).</summary>
     Rg32,
 
+    /// <summary>32-bit IEEE float single-channel (HDR depth / luminance / scientific).</summary>
+    Gray32Float,
     /// <summary>32-bit IEEE float per channel, RGB (HDR).</summary>
     Rgb96Float,
     /// <summary>32-bit IEEE float per channel, RGBA (HDR).</summary>
@@ -80,6 +82,7 @@ public static class PixelFormatExtensions
             or PixelFormat.Cmyk32 or PixelFormat.Rgbe32 or PixelFormat.Rg32 => 32,
         PixelFormat.Rgb48 => 48,
         PixelFormat.Rgba64 => 64,
+        PixelFormat.Gray32Float => 32,
         PixelFormat.Rgb96Float => 96,
         PixelFormat.Rgba128Float => 128,
         _ => 0,
@@ -88,8 +91,8 @@ public static class PixelFormatExtensions
     /// <summary>Returns the number of color channels (excluding palette indirection).</summary>
     public static int ChannelCount(this PixelFormat f) => f switch
     {
-        PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Indexed1
-            or PixelFormat.Indexed4 or PixelFormat.Indexed8 => 1,
+        PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray32Float
+            or PixelFormat.Indexed1 or PixelFormat.Indexed4 or PixelFormat.Indexed8 => 1,
         PixelFormat.GrayAlpha16 or PixelFormat.Rg32 => 2,
         PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
             or PixelFormat.Rgb96Float or PixelFormat.Rgb565

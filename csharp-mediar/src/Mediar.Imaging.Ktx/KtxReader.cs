@@ -159,6 +159,7 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Bgra32 => 4,
             PixelFormat.Rgb48 => 6,
             PixelFormat.Rgba64 => 8,
+            PixelFormat.Gray32Float => 4,
             _ => 0,
         };
 
@@ -261,6 +262,7 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Rg32 or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
             PixelFormat.Rgb48 => 48,
             PixelFormat.Rgba64 => 64,
+            PixelFormat.Gray32Float => 32,
             PixelFormat.Rgb96Float => 96,
             _ => 0,
         };
@@ -272,7 +274,7 @@ public sealed class KtxReader : IImageReader
             BitsPerPixel = infoBpp,
             ChannelCount = infoPf switch
             {
-                PixelFormat.Gray8 or PixelFormat.Gray16 => 1,
+                PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray32Float => 1,
                 PixelFormat.Rg32 or PixelFormat.GrayAlpha16 => 2,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
                     or PixelFormat.Rgb96Float => 3,
