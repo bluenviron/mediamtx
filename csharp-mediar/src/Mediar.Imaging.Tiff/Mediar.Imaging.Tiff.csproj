@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
     <ProjectReference Include="..\Mediar.Codecs.Lzw\Mediar.Codecs.Lzw.csproj" />
     <ProjectReference Include="..\Mediar.Codecs.PackBits\Mediar.Codecs.PackBits.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Ccitt\Mediar.Codecs.Ccitt.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Jpeg\Mediar.Imaging.Jpeg.csproj" />
   </ItemGroup>
 

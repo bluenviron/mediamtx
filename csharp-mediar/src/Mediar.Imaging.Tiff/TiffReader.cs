@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Ccitt;
 using Mediar.Codecs.Lzw;
 using Mediar.Codecs.PackBits;
 using Mediar.Imaging.Jpeg;
@@ -11,16 +12,18 @@ namespace Mediar.Imaging.Tiff;
 
 /// <summary>
 /// Reader for TIFF 6.0 (and the common subset of BigTIFF) files. Supports
-/// uncompressed, PackBits, Deflate (Adobe), LZW, and baseline JPEG
-/// (compression 7) strips and tiles. Images are emitted as 8 bpc
+/// uncompressed, PackBits, Deflate (Adobe), LZW, baseline JPEG
+/// (compression 7), and CCITT T.4 Modified Huffman / T.4 G3-1D / T.6 G4
+/// (compression 2 / 3 / 4) strips and tiles. Images are emitted as 8 bpc
 /// <see cref="PixelFormat.Rgb24"/> / <see cref="PixelFormat.Rgba32"/> /
 /// <see cref="PixelFormat.Gray8"/> frames; CMYK is left as
-/// <see cref="PixelFormat.Cmyk32"/>.
+/// <see cref="PixelFormat.Cmyk32"/>; 1-bit fax / scan content is left as
+/// <see cref="PixelFormat.Indexed1"/>.
 /// </summary>
 /// <remarks>
-/// This reader is optimised for inspection + simple round-tripping; CCITT
-/// G3 / G4 and the deprecated "old-style" JPEG (compression 6) throw
-/// <see cref="NotSupportedException"/>.
+/// The deprecated "old-style" JPEG (compression 6) throws
+/// <see cref="NotSupportedException"/>; the T.4 two-dimensional (MR) variant
+/// is also not yet implemented and throws on first use.
 /// </remarks>
 public sealed class TiffReader : IImageReader
 {
@@ -139,8 +142,20 @@ public sealed class TiffReader : IImageReader
         int samplesPerPixel = (int)GetScalar(entries, 0x0115, bytes, le, def: 1);
         int compression = (int)GetScalar(entries, 0x0103, bytes, le, def: 1);
         int photometric = (int)GetScalar(entries, 0x0106, bytes, le, def: 0);
+        int fillOrder = (int)GetScalar(entries, 0x010A, bytes, le, def: 1);
+        uint t4Options = GetScalar(entries, 0x0124, bytes, le, def: 0);
+        uint t6Options = GetScalar(entries, 0x0125, bytes, le, def: 0);
 
-        bool supported = compression is 1 or 5 or 7 or 8 or 32773 or 32946 && bitsPerSample is 1 or 8 or 16;
+        bool ccittSupported = compression switch
+        {
+            2 => true,
+            3 => (t4Options & 1) == 0,
+            4 => true,
+            _ => false,
+        };
+        bool supported =
+            (compression is 1 or 5 or 7 or 8 or 32773 or 32946 && bitsPerSample is 1 or 8 or 16)
+            || (ccittSupported && bitsPerSample == 1 && samplesPerPixel == 1);
         var pf = samplesPerPixel switch
         {
             1 when bitsPerSample == 8 => PixelFormat.Gray8,
@@ -163,6 +178,9 @@ public sealed class TiffReader : IImageReader
             PixelFormat = pf,
             Supported = supported,
             IsTiled = HasTag(entries, 0x0142) && HasTag(entries, 0x0143),
+            FillOrder = fillOrder,
+            T4Options = t4Options,
+            T6Options = t6Options,
         };
     }
 
@@ -188,22 +206,25 @@ public sealed class TiffReader : IImageReader
 
             if (page.IsTiled)
             {
-                yield return await DecodeTiled(page.Ifd, page.Width, page.Height,
-                    page.SamplesPerPixel, page.BitsPerSample, page.Compression,
-                    page.Photometric, page.PixelFormat, dstStride);
+                yield return await DecodeTiled(page, dstStride);
             }
             else
             {
-                yield return DecodeStripped(page.Ifd, page.Width, page.Height,
-                    page.SamplesPerPixel, page.BitsPerSample, page.Compression,
-                    page.Photometric, page.PixelFormat, dstStride);
+                yield return DecodeStripped(page, dstStride);
             }
         }
     }
 
-    private ImageFrame DecodeStripped(IfdEntry[] ifd, int width, int height, int spp, int bps,
-                                       int compression, int photometric, PixelFormat pf, int dstStride)
+    private ImageFrame DecodeStripped(TiffPageInfo page, int dstStride)
     {
+        var ifd = page.Ifd;
+        int width = page.Width;
+        int height = page.Height;
+        int spp = page.SamplesPerPixel;
+        int bps = page.BitsPerSample;
+        int compression = page.Compression;
+        int photometric = page.Photometric;
+        PixelFormat pf = page.PixelFormat;
         int rowsPerStrip = (int)GetScalar(ifd, 0x0116, _bytes, _littleEndian, def: (uint)height);
         uint[] stripOffsets = GetLongArray(ifd, 0x0111, _bytes, _littleEndian);
         uint[] stripByteCounts = GetLongArray(ifd, 0x0117, _bytes, _littleEndian);
@@ -212,10 +233,21 @@ public sealed class TiffReader : IImageReader
         int dstRow = 0;
         for (int s = 0; s < stripOffsets.Length; s++)
         {
+            if (compression is 2 or 3 or 4)
+            {
+                int rowsInStrip = Math.Min(rowsPerStrip, height - dstRow);
+                var raw = new ReadOnlySpan<byte>(
+                    _bytes, (int)stripOffsets[s], (int)stripByteCounts[s]);
+                byte[] decoded = DecodeCcitt(raw, width, rowsInStrip,
+                    compression, page.T4Options, page.FillOrder);
+                CopyCcittRows(decoded, buf, dstRow, rowsInStrip, dstStride, photometric);
+                dstRow += rowsInStrip;
+                continue;
+            }
+
             byte[] strip = ReadStrip(_bytes, (int)stripOffsets[s], (int)stripByteCounts[s], compression);
             if (compression == 7)
             {
-                // JPEG strip — decode the whole strip into RGB / Gray pixels at once.
                 CopyJpegStrip(strip, buf, dstRow, width, dstStride, pf);
                 int decodedRows = Math.Min(rowsPerStrip, height - dstRow);
                 dstRow += decodedRows;
@@ -246,10 +278,17 @@ public sealed class TiffReader : IImageReader
         return frame;
     }
 
-    private async Task<ImageFrame> DecodeTiled(IfdEntry[] ifd, int width, int height, int spp, int bps,
-                                                int compression, int photometric, PixelFormat pf, int dstStride)
+    private async Task<ImageFrame> DecodeTiled(TiffPageInfo page, int dstStride)
     {
         await Task.CompletedTask.ConfigureAwait(false);
+        var ifd = page.Ifd;
+        int width = page.Width;
+        int height = page.Height;
+        int spp = page.SamplesPerPixel;
+        int bps = page.BitsPerSample;
+        int compression = page.Compression;
+        int photometric = page.Photometric;
+        PixelFormat pf = page.PixelFormat;
         int tileW = (int)GetScalar(ifd, 0x0142, _bytes, _littleEndian);
         int tileH = (int)GetScalar(ifd, 0x0143, _bytes, _littleEndian);
         uint[] tileOffsets = GetLongArray(ifd, 0x0144, _bytes, _littleEndian);
@@ -271,15 +310,40 @@ public sealed class TiffReader : IImageReader
             for (int tx = 0; tx < tilesAcross; tx++)
             {
                 int t = ty * tilesAcross + tx;
-                byte[] tileBytes = ReadStrip(
-                    _bytes, (int)tileOffsets[t], (int)tileByteCounts[t], compression);
-
                 int copyW = Math.Min(tileW, width - tx * tileW);
                 int copyH = Math.Min(tileH, height - ty * tileH);
 
+                if (compression is 2 or 3 or 4)
+                {
+                    var raw = new ReadOnlySpan<byte>(
+                        _bytes, (int)tileOffsets[t], (int)tileByteCounts[t]);
+                    byte[] decoded = DecodeCcitt(raw, tileW, tileH,
+                        compression, page.T4Options, page.FillOrder);
+                    int tileStride = (tileW + 7) / 8;
+                    int copyStride = (copyW + 7) / 8;
+                    for (int r = 0; r < copyH; r++)
+                    {
+                        int srcOff = r * tileStride;
+                        int dstOff = (ty * tileH + r) * dstStride + (tx * tileW) / 8;
+                        if (dstOff + copyStride > buf.Length) break;
+                        if (photometric == 1)
+                        {
+                            for (int i = 0; i < copyStride; i++)
+                                buf[dstOff + i] = (byte)~decoded[srcOff + i];
+                        }
+                        else
+                        {
+                            Buffer.BlockCopy(decoded, srcOff, buf, dstOff, copyStride);
+                        }
+                    }
+                    continue;
+                }
+
+                byte[] tileBytes = ReadStrip(
+                    _bytes, (int)tileOffsets[t], (int)tileByteCounts[t], compression);
+
                 if (compression == 7)
                 {
-                    // The tile is a complete JPEG; decode and BLT into the framebuffer.
                     CopyJpegTile(tileBytes, buf, tx * tileW, ty * tileH, copyW, copyH, width, dstStride, pf);
                     continue;
                 }
@@ -302,6 +366,53 @@ public sealed class TiffReader : IImageReader
             }
         }
         return frame;
+    }
+
+    private static byte[] DecodeCcitt(ReadOnlySpan<byte> src, int width, int rows,
+                                      int compression, uint t4Options, int fillOrder)
+    {
+        // FillOrder=2 means the bits inside each byte are stored LSB-first;
+        // bit-reverse each byte to restore the canonical MSB-first order
+        // that the CCITT decoder expects.
+        byte[] payload = src.ToArray();
+        if (fillOrder == 2)
+        {
+            for (int i = 0; i < payload.Length; i++)
+                payload[i] = ReverseBits(payload[i]);
+        }
+        return CcittDecoder.Decode(payload, width, rows, compression, t4Options);
+    }
+
+    private static void CopyCcittRows(byte[] decoded, byte[] dst, int dstRow,
+                                      int rows, int dstStride, int photometric)
+    {
+        int srcStride = decoded.Length / Math.Max(rows, 1);
+        int copyStride = Math.Min(srcStride, dstStride);
+        for (int r = 0; r < rows; r++)
+        {
+            int srcOff = r * srcStride;
+            int dstOff = (dstRow + r) * dstStride;
+            if (dstOff + copyStride > dst.Length) break;
+            if (photometric == 1)
+            {
+                // BlackIsZero — invert so that 0 = black, 1 = white.
+                for (int i = 0; i < copyStride; i++)
+                    dst[dstOff + i] = (byte)~decoded[srcOff + i];
+            }
+            else
+            {
+                Buffer.BlockCopy(decoded, srcOff, dst, dstOff, copyStride);
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte ReverseBits(byte b)
+    {
+        b = (byte)(((b & 0xF0) >> 4) | ((b & 0x0F) << 4));
+        b = (byte)(((b & 0xCC) >> 2) | ((b & 0x33) << 2));
+        b = (byte)(((b & 0xAA) >> 1) | ((b & 0x55) << 1));
+        return b;
     }
 
     private static void CopyJpegStrip(byte[] jpegBytes, byte[] dst, int dstRow,
@@ -610,6 +721,9 @@ public sealed class TiffReader : IImageReader
         public required PixelFormat PixelFormat { get; init; }
         public required bool Supported { get; init; }
         public required bool IsTiled { get; init; }
+        public required int FillOrder { get; init; }
+        public required uint T4Options { get; init; }
+        public required uint T6Options { get; init; }
 
         public TiffPage ToPublic() => new()
         {

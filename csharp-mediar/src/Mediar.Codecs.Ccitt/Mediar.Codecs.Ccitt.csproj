@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>CCITT T.4 (Group 3, 1D Modified Huffman) and T.6 (Group 4, MMR) fax codecs for use with multi-page TIFF and document images.</Description>
+  </PropertyGroup>
+
+</Project>
