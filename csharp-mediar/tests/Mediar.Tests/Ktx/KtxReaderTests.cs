@@ -459,6 +459,53 @@ public sealed class KtxReaderTests
     }
 
     [Fact]
+    public async Task Decodes_GL_RGBA16F_To_Rgba64Float()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x881A, // GL_RGBA16F
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[8];
+        BinaryPrimitives.WriteHalfLittleEndian(pixels.AsSpan(0, 2), (Half)1.0f);
+        BinaryPrimitives.WriteHalfLittleEndian(pixels.AsSpan(2, 2), (Half)0.5f);
+        BinaryPrimitives.WriteHalfLittleEndian(pixels.AsSpan(4, 2), (Half)0.25f);
+        BinaryPrimitives.WriteHalfLittleEndian(pixels.AsSpan(6, 2), (Half)1.0f);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba64Float, reader.Info.PixelFormat);
+        Assert.Equal(64, reader.Info.BitsPerPixel);
+        Assert.Equal(4, reader.Info.ChannelCount);
+        Assert.True(reader.Info.HasAlpha);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public void Decodes_GL_R16F_To_Gray16Float()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x822D, // GL_R16F
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[4];
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Gray16Float, reader.Info.PixelFormat);
+        Assert.Equal(16, reader.Info.BitsPerPixel);
+        Assert.Equal(1, reader.Info.ChannelCount);
+    }
+
+    [Fact]
     public void ColorSpace_Is_sRGB_For_GL_SRGB8_ALPHA8_Token()
     {
         var b = new TestKtxBuilder

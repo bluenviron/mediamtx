@@ -39,6 +39,15 @@ public enum PixelFormat
     /// <summary>R32 G32, 32-bit IEEE float per channel, 64 bits per pixel.</summary>
     Rg64Float,
 
+    /// <summary>16-bit IEEE half-float single-channel.</summary>
+    Gray16Float,
+    /// <summary>R16 G16, 16-bit IEEE half-float per channel, 32 bits per pixel.</summary>
+    Rg32Float,
+    /// <summary>R16 G16 B16, 16-bit IEEE half-float per channel, 48 bits per pixel.</summary>
+    Rgb48Float,
+    /// <summary>R16 G16 B16 A16, 16-bit IEEE half-float per channel, 64 bits per pixel.</summary>
+    Rgba64Float,
+
     /// <summary>32-bit IEEE float single-channel (HDR depth / luminance / scientific).</summary>
     Gray32Float,
     /// <summary>32-bit IEEE float per channel, RGB (HDR).</summary>
@@ -77,13 +86,14 @@ public static class PixelFormatExtensions
         PixelFormat.Indexed1 => 1,
         PixelFormat.Indexed4 => 4,
         PixelFormat.Gray8 or PixelFormat.Indexed8 => 8,
-        PixelFormat.GrayAlpha16 or PixelFormat.Gray16
+        PixelFormat.GrayAlpha16 or PixelFormat.Gray16 or PixelFormat.Gray16Float
             or PixelFormat.Rgb565 or PixelFormat.Rgba5551 => 16,
         PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
         PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32
-            or PixelFormat.Cmyk32 or PixelFormat.Rgbe32 or PixelFormat.Rg32 => 32,
-        PixelFormat.Rgb48 => 48,
-        PixelFormat.Rgba64 or PixelFormat.Rg64Float => 64,
+            or PixelFormat.Cmyk32 or PixelFormat.Rgbe32 or PixelFormat.Rg32
+            or PixelFormat.Rg32Float => 32,
+        PixelFormat.Rgb48 or PixelFormat.Rgb48Float => 48,
+        PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float => 64,
         PixelFormat.Gray32Float => 32,
         PixelFormat.Rgb96Float => 96,
         PixelFormat.Rgba128Float => 128,
@@ -93,14 +103,16 @@ public static class PixelFormatExtensions
     /// <summary>Returns the number of color channels (excluding palette indirection).</summary>
     public static int ChannelCount(this PixelFormat f) => f switch
     {
-        PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray32Float
+        PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray16Float
+            or PixelFormat.Gray32Float
             or PixelFormat.Indexed1 or PixelFormat.Indexed4 or PixelFormat.Indexed8 => 1,
-        PixelFormat.GrayAlpha16 or PixelFormat.Rg32 or PixelFormat.Rg64Float => 2,
-        PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
+        PixelFormat.GrayAlpha16 or PixelFormat.Rg32 or PixelFormat.Rg32Float
+            or PixelFormat.Rg64Float => 2,
+        PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48 or PixelFormat.Rgb48Float
             or PixelFormat.Rgb96Float or PixelFormat.Rgb565
             or PixelFormat.Rgbe32 => 3,
         PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32
-            or PixelFormat.Rgba64 or PixelFormat.Rgba128Float
+            or PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float
             or PixelFormat.Cmyk32 or PixelFormat.Rgba5551 => 4,
         _ => 0,
     };
@@ -109,6 +121,6 @@ public static class PixelFormatExtensions
     public static bool HasAlpha(this PixelFormat f) => f is
         PixelFormat.GrayAlpha16 or
         PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32 or
-        PixelFormat.Rgba64 or PixelFormat.Rgba128Float or
+        PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float or
         PixelFormat.Rgba5551;
 }

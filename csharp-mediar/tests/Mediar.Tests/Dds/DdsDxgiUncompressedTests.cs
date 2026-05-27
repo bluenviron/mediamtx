@@ -110,11 +110,12 @@ public sealed class DdsDxgiUncompressedTests
     }
 
     [Fact]
-    public void Dxgi_R16G16B16A16_FLOAT_Sets_Linear_ColorSpace()
+    public void Dxgi_R16G16B16A16_FLOAT_Maps_To_Rgba64Float_With_Linear_ColorSpace()
     {
         var file = Concat(BuildDx10Dds(2, 2, 10), new byte[2 * 2 * 8]);
         using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
-        Assert.Equal(PixelFormat.Rgba64, reader.Info.PixelFormat);
+        Assert.Equal(PixelFormat.Rgba64Float, reader.Info.PixelFormat);
+        Assert.True(reader.Info.HasAlpha);
         Assert.Equal("Linear", reader.Info.ColorSpace);
     }
 

@@ -157,8 +157,10 @@ public sealed class KtxReader : IImageReader
             PixelFormat.Rg32 => 4,
             PixelFormat.Rgba32 => 4,
             PixelFormat.Bgra32 => 4,
-            PixelFormat.Rgb48 => 6,
-            PixelFormat.Rgba64 => 8,
+            PixelFormat.Rgb48 or PixelFormat.Rgb48Float => 6,
+            PixelFormat.Rgba64 or PixelFormat.Rgba64Float => 8,
+            PixelFormat.Gray16Float => 2,
+            PixelFormat.Rg32Float => 4,
             PixelFormat.Gray32Float => 4,
             PixelFormat.Rg64Float => 8,
             PixelFormat.Rgb96Float => 12,
@@ -260,11 +262,12 @@ public sealed class KtxReader : IImageReader
         int infoBpp = infoPf switch
         {
             PixelFormat.Gray8 => 8,
-            PixelFormat.Gray16 or PixelFormat.GrayAlpha16 => 16,
+            PixelFormat.Gray16 or PixelFormat.GrayAlpha16 or PixelFormat.Gray16Float => 16,
             PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
-            PixelFormat.Rg32 or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
-            PixelFormat.Rgb48 => 48,
-            PixelFormat.Rgba64 or PixelFormat.Rg64Float => 64,
+            PixelFormat.Rg32 or PixelFormat.Rg32Float
+                or PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
+            PixelFormat.Rgb48 or PixelFormat.Rgb48Float => 48,
+            PixelFormat.Rgba64 or PixelFormat.Rgba64Float or PixelFormat.Rg64Float => 64,
             PixelFormat.Gray32Float => 32,
             PixelFormat.Rgb96Float => 96,
             PixelFormat.Rgba128Float => 128,
@@ -278,18 +281,21 @@ public sealed class KtxReader : IImageReader
             BitsPerPixel = infoBpp,
             ChannelCount = infoPf switch
             {
-                PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray32Float => 1,
-                PixelFormat.Rg32 or PixelFormat.GrayAlpha16 or PixelFormat.Rg64Float => 2,
+                PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray16Float
+                    or PixelFormat.Gray32Float => 1,
+                PixelFormat.Rg32 or PixelFormat.GrayAlpha16 or PixelFormat.Rg32Float
+                    or PixelFormat.Rg64Float => 2,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
-                    or PixelFormat.Rgb96Float => 3,
+                    or PixelFormat.Rgb48Float or PixelFormat.Rgb96Float => 3,
                 PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Rgba64
-                    or PixelFormat.Rgba128Float => 4,
+                    or PixelFormat.Rgba64Float or PixelFormat.Rgba128Float => 4,
                 _ => 0,
             },
             PixelFormat = infoPf,
             Format = ImageFormat.Ktx,
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32
-                                or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16
+                                or PixelFormat.Rgba64 or PixelFormat.Rgba64Float
+                                or PixelFormat.GrayAlpha16
                                 or PixelFormat.Rgba128Float,
             FrameCount = canDecode ? levelInfos.Count : 0,
             ColorSpace = KtxFormat.IsSrgbGlInternalFormat(glInternalFormat) ? "sRGB"

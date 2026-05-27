@@ -335,11 +335,11 @@ public sealed class DdsReader : IImageReader
             case 6:  colorSpace = "Linear"; return PixelFormat.Rgb96Float;                     // R32G32B32_FLOAT
             case 16: colorSpace = "Linear"; return PixelFormat.Rg64Float;                      // R32G32_FLOAT
             // 16-bit per channel (RGBA64 is byte-identical to FP16 RGBA)
-            case 10: hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba64;        // R16G16B16A16_FLOAT
+            case 10: hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba64Float;     // R16G16B16A16_FLOAT
             case 11: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_UNORM
             case 13: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_SNORM
             // 16-bit two-channel
-            case 34: colorSpace = "Linear"; return PixelFormat.Rg32;                           // R16G16_FLOAT
+            case 34: colorSpace = "Linear"; return PixelFormat.Rg32Float;                      // R16G16_FLOAT
             case 35: return PixelFormat.Rg32;                                                  // R16G16_UNORM
             case 37: return PixelFormat.Rg32;                                                  // R16G16_SNORM
             // 8-bit RGBA
@@ -363,6 +363,8 @@ public sealed class DdsReader : IImageReader
             // 32-bit single-channel float (depth / luminance / scientific)
             case 41: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // R32_FLOAT
             case 40: colorSpace = "Linear"; return PixelFormat.Gray32Float;                    // D32_FLOAT (depth - same bit layout as R32_FLOAT)
+            // 16-bit single-channel half-float
+            case 54: colorSpace = "Linear"; return PixelFormat.Gray16Float;                    // R16_FLOAT
             // 16-bit packed
             case 85: return PixelFormat.Rgb565;                                                // B5G6R5_UNORM
             case 86: hasAlpha = true; return PixelFormat.Rgba5551;                             // B5G5R5A1_UNORM

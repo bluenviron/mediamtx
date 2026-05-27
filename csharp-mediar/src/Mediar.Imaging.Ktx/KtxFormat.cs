@@ -99,6 +99,14 @@ public static class KtxFormat
         0x8815 => PixelFormat.Rgb96Float,
         // GL_RGBA32F - 128-bit RGBA float
         0x8814 => PixelFormat.Rgba128Float,
+        // GL_R16F - 16-bit single-channel half-float
+        0x822D => PixelFormat.Gray16Float,
+        // GL_RG16F - 16-bit two-channel half-float
+        0x822F => PixelFormat.Rg32Float,
+        // GL_RGB16F - 16-bit three-channel half-float
+        0x881B => PixelFormat.Rgb48Float,
+        // GL_RGBA16F - 16-bit four-channel half-float
+        0x881A => PixelFormat.Rgba64Float,
         _ => PixelFormat.Unknown,
     };
 
@@ -187,6 +195,14 @@ public static class KtxFormat
         106 => PixelFormat.Rgb96Float,
         // VK_FORMAT_R32G32B32A32_SFLOAT - 128-bit RGBA float
         109 => PixelFormat.Rgba128Float,
+        // VK_FORMAT_R16_SFLOAT - 16-bit single-channel half-float
+        76 => PixelFormat.Gray16Float,
+        // VK_FORMAT_R16G16_SFLOAT - 16-bit two-channel half-float
+        83 => PixelFormat.Rg32Float,
+        // VK_FORMAT_R16G16B16_SFLOAT - 16-bit three-channel half-float
+        90 => PixelFormat.Rgb48Float,
+        // VK_FORMAT_R16G16B16A16_SFLOAT - 16-bit four-channel half-float
+        97 => PixelFormat.Rgba64Float,
         _ => PixelFormat.Unknown,
     };
 
