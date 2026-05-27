@@ -31,6 +31,9 @@ public sealed class HeifReader : IImageReader
     private readonly Stream _stream;
     private readonly bool _ownsStream;
     private bool _disposed;
+    private readonly byte[] _fileBytes;
+    private readonly ReadOnlyMemory<byte> _idatBytes;
+    private readonly FrozenDictionary<uint, byte> _constructionMethods;
 
     /// <inheritdoc/>
     public ImageFormat Format { get; }
@@ -87,7 +90,9 @@ public sealed class HeifReader : IImageReader
     private HeifReader(Stream s, bool owns, ImageFormat fmt, ImageInfo info, ImageMetadata meta,
                        string majorBrand, ImmutableArray<string> compat, uint primary,
                        ImmutableArray<HeifItem> items, ImmutableArray<HeifProperty> props,
-                       FrozenDictionary<uint, ImmutableArray<int>> assoc, ImmutableArray<HeifReference> refs)
+                       FrozenDictionary<uint, ImmutableArray<int>> assoc, ImmutableArray<HeifReference> refs,
+                       byte[] fileBytes, ReadOnlyMemory<byte> idatBytes,
+                       FrozenDictionary<uint, byte> constructionMethods)
     {
         _stream = s; _ownsStream = owns;
         Format = fmt; Info = info; Metadata = meta;
@@ -95,6 +100,9 @@ public sealed class HeifReader : IImageReader
         PrimaryItemId = primary; Items = items; Properties = props;
         Associations = assoc; References = refs;
         ReferenceGraph = new HeifReferenceGraph(refs);
+        _fileBytes = fileBytes;
+        _idatBytes = idatBytes;
+        _constructionMethods = constructionMethods;
     }
 
     /// <summary>Open a HEIF/HEIC/AVIF/CR3 file from a path.</summary>
@@ -116,7 +124,8 @@ public sealed class HeifReader : IImageReader
         var parsed = Parse(bytes, expected);
         return new HeifReader(stream, ownsStream, parsed.Format, parsed.Info, parsed.Metadata,
                               parsed.MajorBrand, parsed.CompatibleBrands, parsed.PrimaryItemId,
-                              parsed.Items, parsed.Properties, parsed.Associations, parsed.References);
+                              parsed.Items, parsed.Properties, parsed.Associations, parsed.References,
+                              bytes, parsed.IdatBytes, parsed.ConstructionMethods);
     }
 
     /// <inheritdoc/>
@@ -125,6 +134,118 @@ public sealed class HeifReader : IImageReader
             $"Pixel decoding for {Format} requires an HEVC / AV1 / VVC decoder which is not " +
             "included in this Mediar release. The full HEIF container, item-list, property table, " +
             "color profile, and transform metadata are exposed for inspection.");
+
+    /// <summary>
+    /// Construction method (per ISO/IEC 14496-12 § 8.11.3) for the given item:
+    /// 0 = file_offset (resolve via iloc extents against the raw file),
+    /// 1 = idat_offset (resolve via iloc extents against the <c>idat</c> box),
+    /// 2 = item_offset (chained item, not supported). Returns 0 when the
+    /// item is unknown or the iloc box used version 0 (which has no
+    /// construction_method field and is always interpreted as file_offset).
+    /// </summary>
+    public byte GetConstructionMethod(uint itemId) =>
+        _constructionMethods.TryGetValue(itemId, out byte m) ? m : (byte)0;
+
+    /// <summary>
+    /// Resolves the raw bytes of <paramref name="itemId"/> by joining the
+    /// extents declared in the iloc box. Supports construction methods 0
+    /// (file offset) and 1 (idat offset). Returns <c>false</c> for unknown
+    /// items, item_offset chained items (method 2), or extents that exceed
+    /// the underlying buffer.
+    /// </summary>
+    public bool TryGetItemData(uint itemId, out ReadOnlyMemory<byte> data)
+    {
+        data = default;
+        int idx = -1;
+        for (int i = 0; i < Items.Length; i++)
+        {
+            if (Items[i].Id == itemId) { idx = i; break; }
+        }
+        if (idx < 0) return false;
+
+        var item = Items[idx];
+        byte method = GetConstructionMethod(itemId);
+        if (method == 2) return false;
+
+        var source = method == 1 ? _idatBytes : _fileBytes.AsMemory();
+        if (source.IsEmpty && item.Extents.Length > 0) return false;
+
+        int totalLen = 0;
+        foreach (var ext in item.Extents)
+        {
+            totalLen = checked(totalLen + (int)ext.Length);
+        }
+
+        if (totalLen == 0) return true;
+        var buffer = new byte[totalLen];
+        int written = 0;
+        foreach (var ext in item.Extents)
+        {
+            ulong absOffset = method == 1 ? ext.Offset : item.Location.BaseOffset + ext.Offset;
+            if (absOffset > (ulong)source.Length) return false;
+            ulong endOffset = absOffset + ext.Length;
+            if (endOffset > (ulong)source.Length) return false;
+            source.Slice((int)absOffset, (int)ext.Length).CopyTo(buffer.AsMemory(written));
+            written += (int)ext.Length;
+        }
+        data = buffer;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a <c>grid</c> item (HEIF tile composition) into a typed
+    /// <see cref="HeifGridDerivation"/>. Returns <c>false</c> when the item
+    /// is not a grid, its data cannot be resolved, or the payload is
+    /// malformed.
+    /// </summary>
+    public bool TryGetGridDerivation(uint itemId, out HeifGridDerivation derivation)
+    {
+        derivation = null!;
+        if (!TryGetItemTypedData(itemId, "grid", out var data)) return false;
+        return HeifGridDerivation.TryParse(data.Span, out derivation);
+    }
+
+    /// <summary>
+    /// Resolves an <c>iovl</c> item (HEIF overlay composition) into a typed
+    /// <see cref="HeifOverlayDerivation"/>. Returns <c>false</c> when the
+    /// item is not an overlay, its data cannot be resolved, or the payload
+    /// is malformed.
+    /// </summary>
+    public bool TryGetOverlayDerivation(uint itemId, out HeifOverlayDerivation derivation)
+    {
+        derivation = null!;
+        if (!TryGetItemTypedData(itemId, "iovl", out var data)) return false;
+        // Overlay payload size depends on the number of dimg sources.
+        int refCount = ReferenceGraph.GetDerivedSourcesOf(itemId).Length;
+        return HeifOverlayDerivation.TryParse(data.Span, refCount, out derivation);
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="itemId"/> is an <c>iden</c>
+    /// identity derivation. An identity item simply re-presents its single
+    /// <c>dimg</c> source with the property transforms (irot/imir/clap)
+    /// associated to the iden item itself.
+    /// </summary>
+    public bool IsIdentityDerivation(uint itemId)
+    {
+        foreach (var it in Items)
+        {
+            if (it.Id == itemId) return it.Type == "iden";
+        }
+        return false;
+    }
+
+    private bool TryGetItemTypedData(uint itemId, string expectedType, out ReadOnlyMemory<byte> data)
+    {
+        data = default;
+        HeifItem? match = null;
+        foreach (var it in Items)
+        {
+            if (it.Id == itemId) { match = it; break; }
+        }
+        if (match is null || match.Type != expectedType) return false;
+        return TryGetItemData(itemId, out data);
+    }
 
     /// <inheritdoc/>
     public void Dispose()
@@ -148,6 +269,8 @@ public sealed class HeifReader : IImageReader
         public ImmutableArray<HeifProperty> Properties = ImmutableArray<HeifProperty>.Empty;
         public FrozenDictionary<uint, ImmutableArray<int>> Associations = FrozenDictionary<uint, ImmutableArray<int>>.Empty;
         public ImmutableArray<HeifReference> References = ImmutableArray<HeifReference>.Empty;
+        public ReadOnlyMemory<byte> IdatBytes;
+        public FrozenDictionary<uint, byte> ConstructionMethods = FrozenDictionary<uint, byte>.Empty;
     }
 
     private static ParseResult Parse(byte[] b, ImageFormat expected)
@@ -157,6 +280,7 @@ public sealed class HeifReader : IImageReader
         var props = new List<HeifProperty>();
         var assoc = new Dictionary<uint, ImmutableArray<int>>();
         var refs = new List<HeifReference>();
+        var ctorMethods = new Dictionary<uint, byte>();
 
         WalkTop(b, 0, b.Length);
 
@@ -215,6 +339,7 @@ public sealed class HeifReader : IImageReader
                     case "iloc": ParseIloc(buf, cs, cl); break;
                     case "iref": ParseIref(buf, cs, cl); break;
                     case "iprp": ParseIprp(buf, cs, cs + cl); break;
+                    case "idat": r.IdatBytes = new ReadOnlyMemory<byte>(buf, cs, cl); break;
                 }
                 p += tot;
             }
@@ -294,7 +419,13 @@ public sealed class HeifReader : IImageReader
                     ? BinaryPrimitives.ReadUInt16BigEndian(buf.AsSpan(p))
                     : BinaryPrimitives.ReadUInt32BigEndian(buf.AsSpan(p));
                 p += version < 2 ? 2 : 4;
-                if (version > 0) p += 2;  // construction method + reserved
+                if (version > 0)
+                {
+                    // 12 bits reserved + 4 bits construction_method.
+                    ushort word = BinaryPrimitives.ReadUInt16BigEndian(buf.AsSpan(p));
+                    p += 2;
+                    ctorMethods[itemId] = (byte)(word & 0x0F);
+                }
                 ushort dataRefIndex = BinaryPrimitives.ReadUInt16BigEndian(buf.AsSpan(p)); p += 2;
                 ulong baseOffset = ReadUInt(buf, ref p, baseOffsetSize);
                 int extentCount = BinaryPrimitives.ReadUInt16BigEndian(buf.AsSpan(p)); p += 2;
@@ -457,6 +588,7 @@ public sealed class HeifReader : IImageReader
         r.Properties = props.ToImmutableArray();
         r.Associations = assoc.ToFrozenDictionary();
         r.References = refs.ToImmutableArray();
+        r.ConstructionMethods = ctorMethods.ToFrozenDictionary();
 
         // Derive ImageInfo from the primary item's ispe property.
         int width = 0, height = 0, channels = 0, bpp = 0;
