@@ -14,6 +14,7 @@
     <Project Path="src/Mediar.Codecs.Bcn/Mediar.Codecs.Bcn.csproj" />
     <Project Path="src/Mediar.Codecs.Lzw/Mediar.Codecs.Lzw.csproj" />
     <Project Path="src/Mediar.Codecs.PackBits/Mediar.Codecs.PackBits.csproj" />
+    <Project Path="src/Mediar.Codecs.SvgRaster/Mediar.Codecs.SvgRaster.csproj" />
     <Project Path="src/Mediar.Codecs.Flac.Decoder/Mediar.Codecs.Flac.Decoder.csproj" />
     <Project Path="src/Mediar.Codecs.G711/Mediar.Codecs.G711.csproj" />
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
@@ -68,6 +69,7 @@
     <Project Path="src/Mediar.Subtitles.Srt/Mediar.Subtitles.Srt.csproj" />
     <Project Path="src/Mediar.Subtitles.Ass/Mediar.Subtitles.Ass.csproj" />
     <Project Path="src/Mediar.Subtitles.WebVtt/Mediar.Subtitles.WebVtt.csproj" />
+    <Project Path="src/Mediar.Vector/Mediar.Vector.csproj" />
     <Project Path="src/Mediar/Mediar.csproj" />
   </Folder>
   <Folder Name="/tests/">

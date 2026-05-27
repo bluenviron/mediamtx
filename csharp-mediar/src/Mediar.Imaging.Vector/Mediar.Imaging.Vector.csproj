@@ -6,6 +6,7 @@
     <Description>SVG / SVGZ (W3C Scalable Vector Graphics) reader for the Mediar toolkit. Handles both the plain XML SVG source and gzip-compressed SVGZ, exposes the raw SVG text via the SvgXml property and extracts width/height from the root &lt;svg&gt; element (px / pt / mm / cm / in units are resolved using the SVG 96 DPI convention). Vector rasterization is not in scope; ReadFramesAsync throws NotSupportedException.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Mediar.Codecs.SvgRaster\Mediar.Codecs.SvgRaster.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
   </ItemGroup>

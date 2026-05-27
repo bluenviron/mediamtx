@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Vector</RootNamespace>
+    <AssemblyName>Mediar.Vector</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Container-agnostic 2D vector graphics primitives and a coverage-based anti-aliased scanline rasterizer for the Mediar toolkit. Provides paths (with quadratic / cubic / elliptical arc segments), affine transforms, paints (solid, linear gradient, radial gradient), stroke styles, and an AGG-style rasterizer that emits per-pixel alpha coverage into a Bgra32 surface with source-over compositing. Re-used by the SVG, PDF, PostScript and Windows Metafile renderers.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+  </ItemGroup>
+
+</Project>

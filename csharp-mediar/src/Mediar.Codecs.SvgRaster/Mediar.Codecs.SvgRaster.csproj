@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.SvgRaster</RootNamespace>
+    <AssemblyName>Mediar.Codecs.SvgRaster</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>SVG (Scalable Vector Graphics) static rasterizer codec engine for the Mediar toolkit. Walks an SVG 1.1 / Tiny 1.2 document, resolves the presentation-attribute and style="" cascade (with currentColor and inherit), parses the full SVG path mini-language (M/L/H/V/C/S/Q/T/A/Z), resolves linear and radial gradients across &lt;defs&gt; href chains, and hands off filled and stroked geometry to Mediar.Vector for high-quality coverage-based anti-aliased rasterization. Text, filters, masks, patterns, animations, and foreignObject are deliberately not implemented in this release.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Vector\Mediar.Vector.csproj" />
+  </ItemGroup>
+
+</Project>

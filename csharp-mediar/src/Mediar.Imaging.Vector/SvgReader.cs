@@ -1,16 +1,20 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using Mediar.Codecs.SvgRaster;
+using Mediar.Vector;
 
 namespace Mediar.Imaging.Vector;
 
 /// <summary>
-/// Reader for plain SVG and gzip-compressed SVGZ files. The SVG XML source
-/// is exposed verbatim via <see cref="SvgXml"/>; canvas dimensions are
-/// parsed from the root <c>&lt;svg&gt;</c> element's <c>width</c> /
-/// <c>height</c> / <c>viewBox</c> attributes using the SVG 96-DPI unit
-/// convention. Rasterization is out of scope; <see cref="ReadFramesAsync"/>
-/// throws.
+/// Reader for plain SVG and gzip-compressed SVGZ files. The SVG XML
+/// source is exposed verbatim via <see cref="SvgXml"/>; canvas
+/// dimensions are parsed from the root <c>&lt;svg&gt;</c> element's
+/// <c>width</c> / <c>height</c> / <c>viewBox</c> attributes using the
+/// SVG 96-DPI unit convention. Calls to
+/// <see cref="ReadFramesAsync"/> rasterize the document via the
+/// <see cref="Mediar.Codecs.SvgRaster.SvgRenderer"/> codec engine into
+/// a Bgra32 frame.
 /// </summary>
 public sealed partial class SvgReader : IImageReader
 {
@@ -25,7 +29,7 @@ public sealed partial class SvgReader : IImageReader
     /// <inheritdoc/>
     public ImageMetadata Metadata => ImageMetadata.Empty;
     /// <inheritdoc/>
-    public bool CanDecodePixels => false;
+    public bool CanDecodePixels => true;
 
     /// <summary>The raw SVG XML source.</summary>
     public string SvgXml { get; }
@@ -82,10 +86,24 @@ public sealed partial class SvgReader : IImageReader
     }
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<ImageFrame> ReadFramesAsync(CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException(
-            "SVG rasterization is not implemented in this Mediar release. " +
-            "Use the SvgXml property to feed the source to a vector renderer.");
+    public async IAsyncEnumerable<ImageFrame> ReadFramesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var frame = await Task.Run(() => Info.Width > 0 && Info.Height > 0
+            ? SvgRenderer.Render(SvgXml, Info.Width, Info.Height, RgbaColor.Transparent)
+            : SvgRenderer.Render(SvgXml, RgbaColor.Transparent), cancellationToken).ConfigureAwait(false);
+        yield return frame;
+    }
+
+    /// <summary>
+    /// Render the SVG at a custom output resolution. Convenience wrapper
+    /// around <see cref="SvgRenderer.Render(string, int, int, RgbaColor)"/>
+    /// that doesn't require the caller to take a dependency on
+    /// Mediar.Vector.
+    /// </summary>
+    public ImageFrame RenderAt(int width, int height) =>
+        SvgRenderer.Render(SvgXml, width, height, RgbaColor.Transparent);
 
     /// <inheritdoc/>
     public void Dispose()
@@ -138,3 +156,4 @@ public sealed partial class SvgReader : IImageReader
                                System.Globalization.CultureInfo.InvariantCulture, out double v) ? v * factor : 0;
     }
 }
+
