@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
+using Mediar.Codecs.Gdi;
+using Mediar.Vector;
 
 namespace Mediar.Imaging.Metafiles;
 
@@ -9,13 +12,16 @@ namespace Mediar.Imaging.Metafiles;
 /// WMF (legacy 16-bit Windows Metafile, MS-WMF), APM (Aldus Placeable
 /// Metafile = 22-byte preamble + WMF), and the gzip-compressed wrappers
 /// EMZ / WMZ. Exposes the record list, header metadata, and bounding box.
-/// GDI playback (rasterization) is not implemented; <see cref="ReadFramesAsync"/>
-/// throws.
+/// GDI playback (rasterization) is supported for the major shape, path,
+/// transform, and object-table records via <see cref="EmfPlayer"/> /
+/// <see cref="WmfPlayer"/>; <see cref="ReadFramesAsync"/> renders the
+/// metafile into a 32-bit BGRA <see cref="ImageFrame"/>.
 /// </summary>
 public sealed class MetafileReader : IImageReader
 {
     private readonly Stream _stream;
     private readonly bool _ownsStream;
+    private readonly byte[] _decompressedBytes;
     private bool _disposed;
 
     /// <inheritdoc/>
@@ -25,7 +31,7 @@ public sealed class MetafileReader : IImageReader
     /// <inheritdoc/>
     public ImageMetadata Metadata => ImageMetadata.Empty;
     /// <inheritdoc/>
-    public bool CanDecodePixels => false;
+    public bool CanDecodePixels => true;
 
     /// <summary>Decoded record list (record-type code + raw payload).</summary>
     public ImmutableArray<MetafileRecord> Records { get; }
@@ -41,11 +47,13 @@ public sealed class MetafileReader : IImageReader
 
     private MetafileReader(Stream s, bool owns, ImageFormat fmt, ImageInfo info,
                             ImmutableArray<MetafileRecord> records, bool compressed,
-                            bool placeable, (int, int, int, int) bounds)
+                            bool placeable, (int, int, int, int) bounds,
+                            byte[] decompressed)
     {
         _stream = s; _ownsStream = owns;
         Format = fmt; Info = info;
         Records = records; WasCompressed = compressed; IsPlaceable = placeable; Bounds = bounds;
+        _decompressedBytes = decompressed;
     }
 
     /// <summary>Open a metafile from a path.</summary>
@@ -112,7 +120,7 @@ public sealed class MetafileReader : IImageReader
             if (type == 14 /* EMR_EOF */) break;
         }
         var info = new ImageInfo { Width = right - left, Height = bottom - top, Format = fmt, FrameCount = 1 };
-        return new MetafileReader(s, owns, fmt, info, recs.ToImmutable(), compressed, false, (left, top, right, bottom));
+        return new MetafileReader(s, owns, fmt, info, recs.ToImmutable(), compressed, false, (left, top, right, bottom), b);
     }
 
     private static MetafileReader ParseWmf(Stream s, bool owns, byte[] b, bool compressed, ImageFormat fmt)
@@ -125,7 +133,7 @@ public sealed class MetafileReader : IImageReader
         int headerSize = BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(2)) * 2;
         var recs = ParseWmfRecords(b, headerSize);
         var info = new ImageInfo { Width = 0, Height = 0, Format = fmt, FrameCount = 1 };
-        return new MetafileReader(s, owns, fmt, info, recs, compressed, false, (0, 0, 0, 0));
+        return new MetafileReader(s, owns, fmt, info, recs, compressed, false, (0, 0, 0, 0), b);
     }
 
     private static MetafileReader ParseApm(Stream s, bool owns, byte[] b, bool compressed)
@@ -157,7 +165,7 @@ public sealed class MetafileReader : IImageReader
             Format = ImageFormat.Apm,
             FrameCount = 1,
         };
-        return new MetafileReader(s, owns, ImageFormat.Apm, info, recs, compressed, true, (left, top, right, bottom));
+        return new MetafileReader(s, owns, ImageFormat.Apm, info, recs, compressed, true, (left, top, right, bottom), b);
     }
 
     private static ImmutableArray<MetafileRecord> ParseWmfRecords(byte[] b, int startOffset)
@@ -179,10 +187,30 @@ public sealed class MetafileReader : IImageReader
     }
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<ImageFrame> ReadFramesAsync(CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException(
-            "Metafile rasterization (GDI playback) is not implemented in this Mediar release. " +
-            "Use the Records property to interpret or re-emit the metafile programmatically.");
+    public async IAsyncEnumerable<ImageFrame> ReadFramesAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+        yield return RenderAt(Math.Max(1, Info.Width), Math.Max(1, Info.Height));
+    }
+
+    /// <summary>
+    /// Render the metafile to an image of the requested pixel dimensions.
+    /// Reuses <see cref="EmfPlayer"/> for EMF / EMZ and <see cref="WmfPlayer"/>
+    /// for WMF / WMZ / APM. The metafile's logical bounds are fitted into
+    /// the requested canvas preserving aspect ratio.
+    /// </summary>
+    public ImageFrame RenderAt(int width, int height, RgbaColor background = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        if (Format == ImageFormat.Emf || Format == ImageFormat.Emz)
+        {
+            return EmfPlayer.Render(_decompressedBytes, width, height, background).Frame;
+        }
+        return WmfPlayer.Render(_decompressedBytes, width, height, background).Frame;
+    }
 
     /// <inheritdoc/>
     public void Dispose()

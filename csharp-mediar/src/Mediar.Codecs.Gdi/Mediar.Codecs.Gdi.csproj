@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Gdi</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Gdi</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Windows GDI playback engine for the Mediar toolkit. Replays the MS-EMF and MS-WMF record streams - object table (pens / brushes), world transform stack with SaveDC / RestoreDC, window / viewport mapping with all standard map modes, path bracketing (BeginPath / EndPath / CloseFigure / FillPath / StrokePath / StrokeAndFillPath), and the most common shape primitives (rectangles, ellipses, round rects, polygons, polylines, polybeziers and their 16-bit variants) - into Mediar.Vector geometry that is then rasterized through the shared coverage-based ScanlineRasterizer. Used by the Mediar.Imaging.Metafiles reader to turn EMF / EMZ / WMF / WMZ / APM files into pixels.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Vector\Mediar.Vector.csproj" />
+  </ItemGroup>
+
+</Project>

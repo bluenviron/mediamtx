@@ -8,5 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Gdi\Mediar.Codecs.Gdi.csproj" />
   </ItemGroup>
 </Project>

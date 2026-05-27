@@ -66,6 +66,7 @@
     <ProjectReference Include="..\..\src\Mediar.Imaging.Metafiles\Mediar.Imaging.Metafiles.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Vector\Mediar.Vector.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.SvgRaster\Mediar.Codecs.SvgRaster.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Codecs.Gdi\Mediar.Codecs.Gdi.csproj" />
   </ItemGroup>
 
 </Project>

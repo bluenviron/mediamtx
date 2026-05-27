@@ -12,6 +12,7 @@
     <Project Path="src/Mediar.Acceleration.X86/Mediar.Acceleration.X86.csproj" />
     <Project Path="src/Mediar.Codecs/Mediar.Codecs.csproj" />
     <Project Path="src/Mediar.Codecs.Bcn/Mediar.Codecs.Bcn.csproj" />
+    <Project Path="src/Mediar.Codecs.Gdi/Mediar.Codecs.Gdi.csproj" />
     <Project Path="src/Mediar.Codecs.Lzw/Mediar.Codecs.Lzw.csproj" />
     <Project Path="src/Mediar.Codecs.PackBits/Mediar.Codecs.PackBits.csproj" />
     <Project Path="src/Mediar.Codecs.SvgRaster/Mediar.Codecs.SvgRaster.csproj" />

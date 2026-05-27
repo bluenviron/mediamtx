@@ -59,14 +59,19 @@ public class MetafileReaderTests
     }
 
     [Fact]
-    public async Task ReadFramesAsync_Throws()
+    public async Task ReadFramesAsync_RendersEmptyEmf()
     {
-        byte[] file = BuildEmf(0, 0, 10, 10);
+        byte[] file = BuildEmf(0, 0, 100, 50);
         using var r = MetafileReader.Open(new MemoryStream(file), ImageFormat.Emf, ownsStream: true);
-        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        int frameCount = 0;
+        await foreach (var f in r.ReadFramesAsync())
         {
-            await foreach (var f in r.ReadFramesAsync()) { f.Dispose(); }
-        });
+            Assert.True(f.Width > 0);
+            Assert.True(f.Height > 0);
+            f.Dispose();
+            frameCount++;
+        }
+        Assert.Equal(1, frameCount);
     }
 
     private static byte[] BuildEmf(int left, int top, int right, int bottom)
