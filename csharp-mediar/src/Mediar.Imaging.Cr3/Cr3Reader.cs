@@ -173,6 +173,36 @@ public sealed class Cr3Reader : IImageReader
             Copyright = cmt.Copyright,
             HasCanonUuid = hasCanonUuid,
             HasCmt1 = cmt.HasCmt1,
+            HasCmt2 = cmt.HasCmt2,
+            HasCmt3 = cmt.HasCmt3,
+            HasCmt4 = cmt.HasCmt4,
+            Cmt3ByteLength = cmt.Cmt3ByteLength,
+            Exif = cmt.HasCmt2 ? new Cr3ExifMetadata
+            {
+                ExposureTimeSeconds = cmt.ExposureTimeSeconds,
+                FNumber = cmt.FNumber,
+                IsoSpeedRatings = cmt.IsoSpeedRatings,
+                DateTimeOriginal = cmt.DateTimeOriginal,
+                DateTimeDigitized = cmt.DateTimeDigitized,
+                ExposureBiasValue = cmt.ExposureBiasValue,
+                FocalLengthMm = cmt.FocalLengthMm,
+                LensModel = cmt.LensModel,
+                LensMake = cmt.LensMake,
+                Flash = cmt.Flash,
+                MeteringMode = cmt.MeteringMode,
+                ExposureProgram = cmt.ExposureProgram,
+                WhiteBalance = cmt.WhiteBalance,
+            } : null,
+            Gps = cmt.HasCmt4 ? new Cr3GpsMetadata
+            {
+                LatitudeDegrees = cmt.GpsLatitudeDegrees,
+                LongitudeDegrees = cmt.GpsLongitudeDegrees,
+                AltitudeMeters = cmt.GpsAltitudeMeters,
+                LatitudeRef = cmt.GpsLatitudeRef,
+                LongitudeRef = cmt.GpsLongitudeRef,
+                TimeStampUtc = cmt.GpsTimeStampUtc,
+                DateStamp = cmt.GpsDateStamp,
+            } : null,
         };
 
         // Choose the largest JPEG sub-image as primary (preview > thumbnail).
@@ -247,6 +277,7 @@ public sealed class Cr3Reader : IImageReader
 
     private struct Cr3CmtFields
     {
+        // CMT1 (main IFD) - already populated.
         public string? Make;
         public string? Model;
         public string? Software;
@@ -254,6 +285,36 @@ public sealed class Cr3Reader : IImageReader
         public string? Artist;
         public string? Copyright;
         public bool HasCmt1;
+
+        // CMT2 (EXIF sub-IFD).
+        public bool HasCmt2;
+        public double? ExposureTimeSeconds;
+        public double? FNumber;
+        public ushort? IsoSpeedRatings;
+        public string? DateTimeOriginal;
+        public string? DateTimeDigitized;
+        public double? ExposureBiasValue;
+        public double? FocalLengthMm;
+        public string? LensModel;
+        public string? LensMake;
+        public ushort? Flash;
+        public ushort? MeteringMode;
+        public ushort? ExposureProgram;
+        public ushort? WhiteBalance;
+
+        // CMT3 (Canon MakerNote) - capture raw byte length only.
+        public bool HasCmt3;
+        public int Cmt3ByteLength;
+
+        // CMT4 (GPS IFD).
+        public bool HasCmt4;
+        public double? GpsLatitudeDegrees;
+        public double? GpsLongitudeDegrees;
+        public double? GpsAltitudeMeters;
+        public string? GpsLatitudeRef;
+        public string? GpsLongitudeRef;
+        public string? GpsTimeStampUtc;
+        public string? GpsDateStamp;
     }
 
     private static void WalkMoov(
@@ -286,6 +347,18 @@ public sealed class Cr3Reader : IImageReader
                 case "CMT1":
                     ParseCmt1(bytes, cs, ce, ref cmt);
                     cmt.HasCmt1 = true;
+                    break;
+                case "CMT2":
+                    ParseCmt2(bytes, cs, ce, ref cmt);
+                    cmt.HasCmt2 = true;
+                    break;
+                case "CMT3":
+                    cmt.HasCmt3 = true;
+                    cmt.Cmt3ByteLength = ce - cs;
+                    break;
+                case "CMT4":
+                    ParseCmt4(bytes, cs, ce, ref cmt);
+                    cmt.HasCmt4 = true;
                     break;
                 case "THMB":
                     CollectThmb(bytes, cs, ce, subs);
@@ -345,6 +418,268 @@ public sealed class Cr3Reader : IImageReader
                 case 0x8298: cmt.Copyright = value; break;
             }
         }
+    }
+
+    /// <summary>
+    /// Parse the CMT2 sub-box payload (EXIF sub-IFD). Decodes the
+    /// commonly-requested EXIF tags (exposure, aperture, ISO, capture
+    /// timestamps, focal length, lens make / model, flash / metering).
+    /// Malformed entries are silently ignored.
+    /// </summary>
+    private static void ParseCmt2(byte[] b, int s, int e, ref Cr3CmtFields cmt)
+    {
+        if (!TryReadTiffHeader(b, s, e, out bool le, out int ifdPos)) return;
+        if (!TryReadTagCount(b, e, ifdPos, le, out int tagCount, out int tagsStart)) return;
+
+        for (int i = 0; i < tagCount; i++)
+        {
+            int entry = tagsStart + i * 12;
+            ushort tag = ReadU16(b, entry, le);
+            ushort type = ReadU16(b, entry + 2, le);
+            uint count = ReadU32(b, entry + 4, le);
+            int valueAt = entry + 8;
+            switch (tag)
+            {
+                case 0x829A: // ExposureTime, RATIONAL
+                    if (TryReadRational(b, s, e, valueAt, type, count, le, out double et))
+                        cmt.ExposureTimeSeconds = et;
+                    break;
+                case 0x829D: // FNumber, RATIONAL
+                    if (TryReadRational(b, s, e, valueAt, type, count, le, out double fn))
+                        cmt.FNumber = fn;
+                    break;
+                case 0x8827: // ISOSpeedRatings, SHORT (count >= 1)
+                    if (TryReadShort(b, valueAt, type, le, out ushort iso))
+                        cmt.IsoSpeedRatings = iso;
+                    break;
+                case 0x9003: // DateTimeOriginal, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string dto))
+                        cmt.DateTimeOriginal = dto;
+                    break;
+                case 0x9004: // DateTimeDigitized, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string dtd))
+                        cmt.DateTimeDigitized = dtd;
+                    break;
+                case 0x9204: // ExposureBiasValue, SRATIONAL
+                    if (TryReadSRational(b, s, e, valueAt, type, count, le, out double ev))
+                        cmt.ExposureBiasValue = ev;
+                    break;
+                case 0x9207: // MeteringMode, SHORT
+                    if (TryReadShort(b, valueAt, type, le, out ushort mm))
+                        cmt.MeteringMode = mm;
+                    break;
+                case 0x9209: // Flash, SHORT
+                    if (TryReadShort(b, valueAt, type, le, out ushort fl))
+                        cmt.Flash = fl;
+                    break;
+                case 0x920A: // FocalLength, RATIONAL (in mm)
+                    if (TryReadRational(b, s, e, valueAt, type, count, le, out double focal))
+                        cmt.FocalLengthMm = focal;
+                    break;
+                case 0x8822: // ExposureProgram, SHORT
+                    if (TryReadShort(b, valueAt, type, le, out ushort ep))
+                        cmt.ExposureProgram = ep;
+                    break;
+                case 0xA403: // WhiteBalance, SHORT
+                    if (TryReadShort(b, valueAt, type, le, out ushort wb))
+                        cmt.WhiteBalance = wb;
+                    break;
+                case 0xA433: // LensMake, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string lmake))
+                        cmt.LensMake = lmake;
+                    break;
+                case 0xA434: // LensModel, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string lmodel))
+                        cmt.LensModel = lmodel;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parse the CMT4 sub-box payload (GPS IFD). Decodes the standard
+    /// GPS reference / coordinate / altitude / timestamp tags, converting
+    /// the three-RATIONAL (deg, min, sec) DMS tuples into signed decimal
+    /// degrees per the EXIF 2.32 spec.
+    /// </summary>
+    private static void ParseCmt4(byte[] b, int s, int e, ref Cr3CmtFields cmt)
+    {
+        if (!TryReadTiffHeader(b, s, e, out bool le, out int ifdPos)) return;
+        if (!TryReadTagCount(b, e, ifdPos, le, out int tagCount, out int tagsStart)) return;
+
+        double? lat = null, lon = null;
+        string? latRef = null, lonRef = null;
+        double? altMag = null;
+        byte altRef = 0;
+        var timestamps = new double[3];
+        bool hasTimestamps = false;
+
+        for (int i = 0; i < tagCount; i++)
+        {
+            int entry = tagsStart + i * 12;
+            ushort tag = ReadU16(b, entry, le);
+            ushort type = ReadU16(b, entry + 2, le);
+            uint count = ReadU32(b, entry + 4, le);
+            int valueAt = entry + 8;
+            switch (tag)
+            {
+                case 0x0001: // GPSLatitudeRef, ASCII ('N' or 'S')
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string lref))
+                        latRef = lref;
+                    break;
+                case 0x0002: // GPSLatitude, RATIONAL[3]
+                    if (TryReadDmsRationals(b, s, e, valueAt, type, count, le, out double latDeg))
+                        lat = latDeg;
+                    break;
+                case 0x0003: // GPSLongitudeRef, ASCII ('E' or 'W')
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string lonRefStr))
+                        lonRef = lonRefStr;
+                    break;
+                case 0x0004: // GPSLongitude, RATIONAL[3]
+                    if (TryReadDmsRationals(b, s, e, valueAt, type, count, le, out double lonDeg))
+                        lon = lonDeg;
+                    break;
+                case 0x0005: // GPSAltitudeRef, BYTE (0=above sea level, 1=below)
+                    if (type == 1 && count >= 1) altRef = b[valueAt];
+                    break;
+                case 0x0006: // GPSAltitude, RATIONAL (metres above sea level)
+                    if (TryReadRational(b, s, e, valueAt, type, count, le, out double alt))
+                        altMag = alt;
+                    break;
+                case 0x0007: // GPSTimeStamp, RATIONAL[3] (h, m, s UTC)
+                    if (TryReadThreeRationals(b, s, e, valueAt, type, count, le, timestamps))
+                        hasTimestamps = true;
+                    break;
+                case 0x001D: // GPSDateStamp, ASCII "YYYY:MM:DD"
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string ds))
+                        cmt.GpsDateStamp = ds;
+                    break;
+            }
+        }
+
+        if (lat is double latVal && latRef is { Length: >= 1 })
+        {
+            cmt.GpsLatitudeDegrees = (latRef[0] is 'S' or 's') ? -latVal : latVal;
+            cmt.GpsLatitudeRef = latRef;
+        }
+        if (lon is double lonVal && lonRef is { Length: >= 1 })
+        {
+            cmt.GpsLongitudeDegrees = (lonRef[0] is 'W' or 'w') ? -lonVal : lonVal;
+            cmt.GpsLongitudeRef = lonRef;
+        }
+        if (altMag is double altVal)
+        {
+            cmt.GpsAltitudeMeters = altRef == 1 ? -altVal : altVal;
+        }
+        if (hasTimestamps)
+        {
+            int h = (int)timestamps[0];
+            int m = (int)timestamps[1];
+            double sec = timestamps[2];
+            cmt.GpsTimeStampUtc = $"{h:D2}:{m:D2}:{sec:00.###}";
+        }
+    }
+
+    // ---- TIFF tag helpers (CMT2 / CMT4) ----
+
+    private static bool TryReadTiffHeader(byte[] b, int s, int e, out bool le, out int ifdPos)
+    {
+        le = false; ifdPos = 0;
+        if (e - s < 8) return false;
+        if (b[s] == 0x49 && b[s + 1] == 0x49) le = true;
+        else if (b[s] == 0x4D && b[s + 1] == 0x4D) le = false;
+        else return false;
+        ushort magic = ReadU16(b, s + 2, le);
+        if (magic != 42) return false;
+        uint ifdOffset = ReadU32(b, s + 4, le);
+        if (ifdOffset == 0 || s + ifdOffset + 2 > e) return false;
+        ifdPos = s + (int)ifdOffset;
+        return true;
+    }
+
+    private static bool TryReadTagCount(byte[] b, int e, int ifdPos, bool le, out int tagCount, out int tagsStart)
+    {
+        tagCount = ReadU16(b, ifdPos, le);
+        tagsStart = ifdPos + 2;
+        return tagsStart + tagCount * 12 <= e;
+    }
+
+    private static bool TryReadShort(byte[] b, int valueAt, ushort type, bool le, out ushort value)
+    {
+        value = 0;
+        if (type == 3) // SHORT
+        {
+            value = ReadU16(b, valueAt, le);
+            return true;
+        }
+        if (type == 4) // LONG (some encoders use this for ISO)
+        {
+            uint v = ReadU32(b, valueAt, le);
+            value = (ushort)Math.Min(v, ushort.MaxValue);
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryReadAscii(byte[] b, int s, int e, int valueAt, ushort type, uint count, bool le, out string value)
+    {
+        value = string.Empty;
+        if (type != 2 || count == 0) return false;
+        int dataLen = (int)count;
+        int dataAt = dataLen <= 4 ? valueAt : s + (int)ReadU32(b, valueAt, le);
+        if (dataAt < s || dataAt + dataLen > e) return false;
+        value = ReadAsciiString(b, dataAt, dataLen);
+        return value.Length > 0;
+    }
+
+    private static bool TryReadRational(byte[] b, int s, int e, int valueAt, ushort type, uint count, bool le, out double value)
+    {
+        value = 0;
+        if (type != 5 || count == 0) return false;
+        int dataAt = s + (int)ReadU32(b, valueAt, le);
+        if (dataAt < s || dataAt + 8 > e) return false;
+        uint num = ReadU32(b, dataAt, le);
+        uint den = ReadU32(b, dataAt + 4, le);
+        if (den == 0) return false;
+        value = (double)num / den;
+        return true;
+    }
+
+    private static bool TryReadSRational(byte[] b, int s, int e, int valueAt, ushort type, uint count, bool le, out double value)
+    {
+        value = 0;
+        if (type != 10 || count == 0) return false;
+        int dataAt = s + (int)ReadU32(b, valueAt, le);
+        if (dataAt < s || dataAt + 8 > e) return false;
+        int num = (int)ReadU32(b, dataAt, le);
+        int den = (int)ReadU32(b, dataAt + 4, le);
+        if (den == 0) return false;
+        value = (double)num / den;
+        return true;
+    }
+
+    private static bool TryReadDmsRationals(byte[] b, int s, int e, int valueAt, ushort type, uint count, bool le, out double degrees)
+    {
+        degrees = 0;
+        var trio = new double[3];
+        if (!TryReadThreeRationals(b, s, e, valueAt, type, count, le, trio)) return false;
+        degrees = trio[0] + (trio[1] / 60.0) + (trio[2] / 3600.0);
+        return true;
+    }
+
+    private static bool TryReadThreeRationals(byte[] b, int s, int e, int valueAt, ushort type, uint count, bool le, double[] outValues)
+    {
+        if (type != 5 || count < 3) return false;
+        int dataAt = s + (int)ReadU32(b, valueAt, le);
+        if (dataAt < s || dataAt + 24 > e) return false;
+        for (int i = 0; i < 3; i++)
+        {
+            uint num = ReadU32(b, dataAt + i * 8, le);
+            uint den = ReadU32(b, dataAt + i * 8 + 4, le);
+            if (den == 0) return false;
+            outValues[i] = (double)num / den;
+        }
+        return true;
     }
 
     /// <summary>
@@ -447,15 +782,60 @@ public sealed class Cr3Reader : IImageReader
         };
         if (cr3.HasCanonUuid) tags["CR3:HasCanonUuid"] = "1";
         if (cr3.HasCmt1) tags["CR3:HasCmt1"] = "1";
+        if (cr3.HasCmt2) tags["CR3:HasCmt2"] = "1";
+        if (cr3.HasCmt3)
+        {
+            tags["CR3:HasCmt3"] = "1";
+            tags["CR3:MakerNoteLength"] = cr3.Cmt3ByteLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (cr3.HasCmt4) tags["CR3:HasCmt4"] = "1";
+
+        if (cr3.Exif is { } exif)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (exif.ExposureTimeSeconds is double et) tags["Exif:ExposureTime"] = et.ToString("0.######", inv);
+            if (exif.FNumber is double fn) tags["Exif:FNumber"] = fn.ToString("0.##", inv);
+            if (exif.IsoSpeedRatings is ushort iso) tags["Exif:ISOSpeedRatings"] = iso.ToString(inv);
+            if (exif.DateTimeOriginal is string dto) tags["Exif:DateTimeOriginal"] = dto;
+            if (exif.DateTimeDigitized is string dtd) tags["Exif:DateTimeDigitized"] = dtd;
+            if (exif.ExposureBiasValue is double ev) tags["Exif:ExposureBiasValue"] = ev.ToString("0.##", inv);
+            if (exif.FocalLengthMm is double focal) tags["Exif:FocalLength"] = focal.ToString("0.##", inv);
+            if (exif.LensModel is string lm) tags["Exif:LensModel"] = lm;
+            if (exif.LensMake is string lk) tags["Exif:LensMake"] = lk;
+            if (exif.Flash is ushort fl) tags["Exif:Flash"] = fl.ToString(inv);
+            if (exif.MeteringMode is ushort mm) tags["Exif:MeteringMode"] = mm.ToString(inv);
+            if (exif.ExposureProgram is ushort ep) tags["Exif:ExposureProgram"] = ep.ToString(inv);
+            if (exif.WhiteBalance is ushort wb) tags["Exif:WhiteBalance"] = wb.ToString(inv);
+        }
+
+        if (cr3.Gps is { } gps)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (gps.LatitudeDegrees is double lat) tags["Gps:Latitude"] = lat.ToString("0.######", inv);
+            if (gps.LongitudeDegrees is double lon) tags["Gps:Longitude"] = lon.ToString("0.######", inv);
+            if (gps.AltitudeMeters is double alt) tags["Gps:Altitude"] = alt.ToString("0.##", inv);
+            if (gps.LatitudeRef is string lr) tags["Gps:LatitudeRef"] = lr;
+            if (gps.LongitudeRef is string lor) tags["Gps:LongitudeRef"] = lor;
+            if (gps.TimeStampUtc is string ts) tags["Gps:TimeStamp"] = ts;
+            if (gps.DateStamp is string ds) tags["Gps:DateStamp"] = ds;
+        }
 
         return new ImageMetadata
         {
             CameraMake = cr3.Make,
             CameraModel = cr3.Model,
             Software = cr3.Software,
-            CapturedAtRaw = cr3.DateTime,
+            CapturedAtRaw = cr3.Exif?.DateTimeOriginal ?? cr3.DateTime,
             Author = cr3.Artist,
             Copyright = cr3.Copyright,
+            ExposureTimeSeconds = cr3.Exif?.ExposureTimeSeconds,
+            FNumber = cr3.Exif?.FNumber,
+            IsoSpeed = cr3.Exif?.IsoSpeedRatings,
+            FocalLengthMm = cr3.Exif?.FocalLengthMm,
+            LensModel = cr3.Exif?.LensModel,
+            GpsLatitude = cr3.Gps?.LatitudeDegrees,
+            GpsLongitude = cr3.Gps?.LongitudeDegrees,
+            GpsAltitudeMeters = cr3.Gps?.AltitudeMeters,
             Tags = tags.ToFrozenDictionary(StringComparer.Ordinal),
         };
     }

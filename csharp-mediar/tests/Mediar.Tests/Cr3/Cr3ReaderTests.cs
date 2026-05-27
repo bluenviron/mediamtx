@@ -199,4 +199,201 @@ public sealed class Cr3ReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Cmt2_ExifSubIfd_Parses_ExposureTime_FNumber_Iso_FocalLength()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            Model = "Canon EOS R5",
+            ExposureTime = (1, 250),       // 1/250 s
+            FNumber = (40, 10),            // f/4.0
+            IsoSpeedRatings = 800,
+            FocalLength = (50, 1),         // 50 mm
+            DateTimeOriginal = "2024:11:22 14:30:00",
+            DateTimeDigitized = "2024:11:22 14:30:01",
+            ExposureBiasValue = (-1, 3),   // -0.333 EV
+            LensModel = "RF 50mm F1.2 L USM",
+            LensMake = "Canon",
+            Flash = 16,                    // off
+            MeteringMode = 5,
+            ExposureProgram = 3,
+            WhiteBalance = 0,
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt2);
+        Assert.NotNull(cr3.Cr3.Exif);
+        var exif = cr3.Cr3.Exif!;
+        Assert.Equal(1.0 / 250.0, exif.ExposureTimeSeconds);
+        Assert.Equal(4.0, exif.FNumber);
+        Assert.Equal((ushort)800, exif.IsoSpeedRatings);
+        Assert.Equal(50.0, exif.FocalLengthMm);
+        Assert.Equal("2024:11:22 14:30:00", exif.DateTimeOriginal);
+        Assert.Equal("2024:11:22 14:30:01", exif.DateTimeDigitized);
+        Assert.Equal(-1.0 / 3.0, exif.ExposureBiasValue!.Value, precision: 6);
+        Assert.Equal("RF 50mm F1.2 L USM", exif.LensModel);
+        Assert.Equal("Canon", exif.LensMake);
+        Assert.Equal((ushort)16, exif.Flash);
+        Assert.Equal((ushort)5, exif.MeteringMode);
+        Assert.Equal((ushort)3, exif.ExposureProgram);
+
+        // ImageMetadata bridge fields populated from Cmt2 take precedence
+        // over Cmt1 DateTime.
+        Assert.Equal("2024:11:22 14:30:00", cr3.Metadata.CapturedAtRaw);
+        Assert.Equal(1.0 / 250.0, cr3.Metadata.ExposureTimeSeconds);
+        Assert.Equal(4.0, cr3.Metadata.FNumber);
+        Assert.Equal(800, cr3.Metadata.IsoSpeed);
+        Assert.Equal(50.0, cr3.Metadata.FocalLengthMm);
+        Assert.Equal("RF 50mm F1.2 L USM", cr3.Metadata.LensModel);
+
+        Assert.Equal("1", cr3.Metadata.Tags["CR3:HasCmt2"]);
+        Assert.Equal("800", cr3.Metadata.Tags["Exif:ISOSpeedRatings"]);
+        Assert.Equal("RF 50mm F1.2 L USM", cr3.Metadata.Tags["Exif:LensModel"]);
+    }
+
+    [Fact]
+    public void Cmt4_GpsIfd_Parses_Coordinates_Altitude_TimeStamp()
+    {
+        // Latitude 37° 25' 50.4" N, longitude 122° 5' 10.8" W, altitude 30.5 m.
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            Model = "Canon EOS R5",
+            GpsLatitudeRef = "N",
+            GpsLatitudeDms = (37, 1, 25, 1, 504, 10),
+            GpsLongitudeRef = "W",
+            GpsLongitudeDms = (122, 1, 5, 1, 108, 10),
+            GpsAltitudeRef = 0,
+            GpsAltitude = (305, 10),
+            GpsTimeStampHms = (14, 1, 30, 1, 15, 1),
+            GpsDateStamp = "2024:11:22",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt4);
+        var gps = cr3.Cr3.Gps;
+        Assert.NotNull(gps);
+
+        Assert.NotNull(gps!.LatitudeDegrees);
+        Assert.Equal(37.43066666, gps.LatitudeDegrees!.Value, precision: 4);
+        Assert.NotNull(gps.LongitudeDegrees);
+        Assert.Equal(-122.086333333, gps.LongitudeDegrees!.Value, precision: 4);
+        Assert.Equal(30.5, gps.AltitudeMeters);
+        Assert.Equal("N", gps.LatitudeRef);
+        Assert.Equal("W", gps.LongitudeRef);
+        Assert.Equal("14:30:15", gps.TimeStampUtc);
+        Assert.Equal("2024:11:22", gps.DateStamp);
+
+        // ImageMetadata bridge fields.
+        Assert.Equal(gps.LatitudeDegrees, cr3.Metadata.GpsLatitude);
+        Assert.Equal(gps.LongitudeDegrees, cr3.Metadata.GpsLongitude);
+        Assert.Equal(30.5, cr3.Metadata.GpsAltitudeMeters);
+
+        Assert.Equal("1", cr3.Metadata.Tags["CR3:HasCmt4"]);
+        Assert.Equal("W", cr3.Metadata.Tags["Gps:LongitudeRef"]);
+        Assert.Equal("2024:11:22", cr3.Metadata.Tags["Gps:DateStamp"]);
+    }
+
+    [Fact]
+    public void Cmt4_Gps_Below_Sea_Level_Has_Negative_Altitude()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            GpsAltitudeRef = 1, // below sea level
+            GpsAltitude = (12, 1), // magnitude 12 m
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+        Assert.True(cr3.Cr3.HasCmt4);
+        Assert.Equal(-12.0, cr3.Cr3.Gps!.AltitudeMeters);
+    }
+
+    [Fact]
+    public void Cmt4_Gps_Southern_And_Eastern_Hemisphere_Signs()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            GpsLatitudeRef = "S",
+            GpsLatitudeDms = (33, 1, 51, 1, 30, 1),
+            GpsLongitudeRef = "E",
+            GpsLongitudeDms = (151, 1, 12, 1, 30, 1),
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+        var gps = cr3.Cr3.Gps!;
+        Assert.True(gps.LatitudeDegrees < 0);
+        Assert.True(gps.LongitudeDegrees > 0);
+    }
+
+    [Fact]
+    public void Cmt3_RawMakerNote_Surfaces_HasFlag_And_Length()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            Cmt3RawPayload = new byte[1024],
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt3);
+        Assert.Equal(1024, cr3.Cr3.Cmt3ByteLength);
+        Assert.Equal("1", cr3.Metadata.Tags["CR3:HasCmt3"]);
+        Assert.Equal("1024", cr3.Metadata.Tags["CR3:MakerNoteLength"]);
+    }
+
+    [Fact]
+    public void Cmt2_And_Cmt4_Coexist_With_Cmt1_In_Same_Canon_Uuid()
+    {
+        // Combined test: CMT1 baseline + CMT2 EXIF + CMT4 GPS in one file.
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            Model = "Canon EOS R6 Mark II",
+            DateTime = "2024:11:22 14:00:00",
+            ExposureTime = (1, 60),
+            FNumber = (28, 10),
+            IsoSpeedRatings = 400,
+            FocalLength = (35, 1),
+            DateTimeOriginal = "2024:11:22 14:30:00",
+            GpsLatitudeRef = "N",
+            GpsLatitudeDms = (48, 1, 51, 1, 24, 1),
+            GpsLongitudeRef = "E",
+            GpsLongitudeDms = (2, 1, 21, 1, 6, 1),
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt1);
+        Assert.True(cr3.Cr3.HasCmt2);
+        Assert.True(cr3.Cr3.HasCmt4);
+        Assert.False(cr3.Cr3.HasCmt3);
+
+        Assert.Equal("Canon EOS R6 Mark II", cr3.Cr3.Model);
+        Assert.Equal(2.8, cr3.Cr3.Exif!.FNumber);
+        Assert.True(cr3.Cr3.Gps!.LatitudeDegrees > 48 && cr3.Cr3.Gps.LatitudeDegrees < 49);
+    }
+
+    [Fact]
+    public void Cmt2_With_No_Fields_Set_Is_Not_Emitted()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt1);
+        Assert.False(cr3.Cr3.HasCmt2);
+        Assert.False(cr3.Cr3.HasCmt4);
+        Assert.Null(cr3.Cr3.Exif);
+        Assert.Null(cr3.Cr3.Gps);
+    }
 }

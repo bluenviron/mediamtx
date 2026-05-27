@@ -39,6 +39,99 @@ public sealed record Cr3Metadata
 
     /// <summary>True iff a CMT1 (main EXIF IFD) box was located inside the Canon UUID.</summary>
     public bool HasCmt1 { get; init; }
+
+    /// <summary>True iff a CMT2 (EXIF sub-IFD) box was located inside the Canon UUID.</summary>
+    public bool HasCmt2 { get; init; }
+
+    /// <summary>True iff a CMT3 (Canon MakerNote) box was located inside the Canon UUID.</summary>
+    public bool HasCmt3 { get; init; }
+
+    /// <summary>True iff a CMT4 (GPS IFD) box was located inside the Canon UUID.</summary>
+    public bool HasCmt4 { get; init; }
+
+    /// <summary>Length in bytes of the raw CMT3 (Canon MakerNote) payload (not yet decoded).</summary>
+    public int Cmt3ByteLength { get; init; }
+
+    /// <summary>Typed EXIF sub-IFD metadata parsed from CMT2 (null when absent).</summary>
+    public Cr3ExifMetadata? Exif { get; init; }
+
+    /// <summary>Typed GPS IFD metadata parsed from CMT4 (null when absent).</summary>
+    public Cr3GpsMetadata? Gps { get; init; }
+}
+
+/// <summary>
+/// EXIF sub-IFD metadata (Canon CR3 CMT2 box). Mirrors the subset of
+/// EXIF 2.32 tags Canon writes for every CR3 capture.
+/// </summary>
+public sealed record Cr3ExifMetadata
+{
+    /// <summary>EXIF tag 0x829A (ExposureTime), seconds.</summary>
+    public double? ExposureTimeSeconds { get; init; }
+
+    /// <summary>EXIF tag 0x829D (FNumber), e.g. 4.0 for f/4.0.</summary>
+    public double? FNumber { get; init; }
+
+    /// <summary>EXIF tag 0x8827 (ISOSpeedRatings).</summary>
+    public ushort? IsoSpeedRatings { get; init; }
+
+    /// <summary>EXIF tag 0x9003 (DateTimeOriginal), "YYYY:MM:DD HH:MM:SS".</summary>
+    public string? DateTimeOriginal { get; init; }
+
+    /// <summary>EXIF tag 0x9004 (DateTimeDigitized), "YYYY:MM:DD HH:MM:SS".</summary>
+    public string? DateTimeDigitized { get; init; }
+
+    /// <summary>EXIF tag 0x9204 (ExposureBiasValue), in stops (APEX).</summary>
+    public double? ExposureBiasValue { get; init; }
+
+    /// <summary>EXIF tag 0x920A (FocalLength), millimetres.</summary>
+    public double? FocalLengthMm { get; init; }
+
+    /// <summary>EXIF tag 0xA434 (LensModel).</summary>
+    public string? LensModel { get; init; }
+
+    /// <summary>EXIF tag 0xA433 (LensMake).</summary>
+    public string? LensMake { get; init; }
+
+    /// <summary>EXIF tag 0x9209 (Flash) status bits.</summary>
+    public ushort? Flash { get; init; }
+
+    /// <summary>EXIF tag 0x9207 (MeteringMode).</summary>
+    public ushort? MeteringMode { get; init; }
+
+    /// <summary>EXIF tag 0x8822 (ExposureProgram).</summary>
+    public ushort? ExposureProgram { get; init; }
+
+    /// <summary>EXIF tag 0xA403 (WhiteBalance): 0 = auto, 1 = manual.</summary>
+    public ushort? WhiteBalance { get; init; }
+}
+
+/// <summary>
+/// GPS IFD metadata (Canon CR3 CMT4 box). DMS triples are converted to
+/// signed decimal degrees with reference letters (S/W) applied per EXIF
+/// 2.32 § 4.6.6.
+/// </summary>
+public sealed record Cr3GpsMetadata
+{
+    /// <summary>Signed decimal latitude, degrees. Positive = north.</summary>
+    public double? LatitudeDegrees { get; init; }
+
+    /// <summary>Signed decimal longitude, degrees. Positive = east.</summary>
+    public double? LongitudeDegrees { get; init; }
+
+    /// <summary>Altitude in metres. Negative = below sea level.</summary>
+    public double? AltitudeMeters { get; init; }
+
+    /// <summary>Raw GPS latitude reference ("N" or "S").</summary>
+    public string? LatitudeRef { get; init; }
+
+    /// <summary>Raw GPS longitude reference ("E" or "W").</summary>
+    public string? LongitudeRef { get; init; }
+
+    /// <summary>UTC time-of-fix as "HH:MM:SS".</summary>
+    public string? TimeStampUtc { get; init; }
+
+    /// <summary>UTC date-of-fix as "YYYY:MM:DD".</summary>
+    public string? DateStamp { get; init; }
 }
 
 /// <summary>
