@@ -34,7 +34,8 @@ public sealed class DdsReader : IImageReader
     /// <inheritdoc/>
     public bool CanDecodePixels =>
         (!_isCompressed && Info.PixelFormat != PixelFormat.Unknown) ||
-        _bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc4 or BcnFormat.Bc5;
+        _bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3
+             or BcnFormat.Bc4 or BcnFormat.Bc5 or BcnFormat.Bc7;
 
     private DdsReader(Stream s, bool owns, byte[] b, int pixelsOffset,
                       uint r, uint g, uint bMask, uint a, int pitch, bool compressed,
@@ -98,7 +99,7 @@ public sealed class DdsReader : IImageReader
         var bcn = compressed ? BcnDecoder.Identify(fourCC, dxgiFormat) : BcnFormat.None;
         var pf = compressed ? BcnToPixelFormat(bcn) : ClassifyUncompressed(rgbBitCount, rMask, gMask, bMask, aMask);
         bool hasAlpha = compressed
-            ? bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3
+            ? bcn is BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc7
             : aMask != 0;
         var info = new ImageInfo
         {
@@ -179,6 +180,11 @@ public sealed class DdsReader : IImageReader
                     stride = width * 3;
                     pf = PixelFormat.Rgb24;
                     break;
+                case BcnFormat.Bc7:
+                    decoded = Bc7Decoder.DecodeBc7(payload, width, height);
+                    stride = width * 4;
+                    pf = PixelFormat.Bgra32;
+                    break;
                 default:
                     throw new NotSupportedException(
                         $"DDS uses {_bcn} block compression; pixel decode is not implemented in this Mediar release.");
@@ -206,7 +212,7 @@ public sealed class DdsReader : IImageReader
 
     private static PixelFormat BcnToPixelFormat(BcnFormat f) => f switch
     {
-        BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 => PixelFormat.Bgra32,
+        BcnFormat.Bc1 or BcnFormat.Bc2 or BcnFormat.Bc3 or BcnFormat.Bc7 => PixelFormat.Bgra32,
         BcnFormat.Bc4 => PixelFormat.Gray8,
         BcnFormat.Bc5 => PixelFormat.Rgb24,
         _ => PixelFormat.Unknown,
