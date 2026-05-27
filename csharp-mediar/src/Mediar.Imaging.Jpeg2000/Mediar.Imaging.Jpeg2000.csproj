@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Jpeg2000</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Jpeg2000</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>JPEG 2000 family (JP2, J2K, J2C, JPC, JPF, JPM, JPX) reader for the Mediar toolkit. Parses both the JP2 box wrapper (jP, ftyp, jp2h.ihdr, jp2h.colr, jp2h.bpcc, jp2h.cdef, jp2h.pclr, jp2h.cmap, jp2h.res, uuid, xml , jp2c) and the inner J2K codestream markers (SOC, SIZ, COD, COC, QCD, QCC, COM, SOT, SOD, EOC), exposing the SIZ component table (Xsiz/Ysiz/XOsiz/YOsiz/XTsiz/YTsiz, per-component Ssiz/XRsiz/YRsiz) and the tile-part record list. EBCOT tier-1 / tier-2 entropy decode is not implemented in this release and ReadFramesAsync throws NotSupportedException for the actual pixel data.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

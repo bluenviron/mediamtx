@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Bpg</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Bpg</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>BPG (Better Portable Graphics) container reader for the Mediar toolkit. Parses the BPG header per the format specification (signature 'BPG\xFB', pixel-format/alpha/bit-depth nibbles, ue7-encoded width/height, optional extension data: EXIF / ICC / XMP / Thumbnail / Animation control). HEVC bitstream decode is not implemented; ReadFramesAsync throws NotSupportedException.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+</Project>

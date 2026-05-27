@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Metafiles</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Metafiles</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Windows Metafile family readers (WMF, EMF, APM, EMZ, WMZ) for the Mediar toolkit. Parses the EMF header (EMR_HEADER record at the start, bounds, frame, signature, palette entries, device dimensions) and the WMF / APM (Aldus Placeable Metafile) header (META_HEADER), and exposes the full record list. EMZ / WMZ wrappers (gzip) are transparently unwrapped. GDI playback (rasterization) is not implemented; ReadFramesAsync throws NotSupportedException.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+</Project>

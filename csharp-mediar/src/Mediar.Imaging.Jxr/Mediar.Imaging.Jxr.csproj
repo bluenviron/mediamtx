@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Jxr</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Jxr</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>JPEG XR (ITU-T T.832 / ISO/IEC 29199-2) reader for the Mediar toolkit. Parses the TIFF-IFD container with the JXR tag set (PixelFormat, ImageWidth/Height, ImageOffset/ByteCount, ImageBandPresence, ColorSpace, AlphaOffset/ByteCount), exposes the entire IFD list and the GUID-coded pixel format. Bitstream decode is not implemented; ReadFramesAsync throws NotSupportedException.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+</Project>

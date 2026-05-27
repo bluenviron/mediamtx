@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Flif</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Flif</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>FLIF (Free Lossless Image Format) reader for the Mediar toolkit. Parses the FLIF main header — signature 'FLIF' + interlacing/channel/bit-depth bytes + var-length width/height/num-frames — and the optional second header section. MANIAC tree / entropy decoding is not implemented; ReadFramesAsync throws NotSupportedException.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+</Project>

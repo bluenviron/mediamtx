@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Jxl</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Jxl</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>JPEG XL (ISO/IEC 18181) reader for the Mediar toolkit. Recognises both the bare codestream signature (0xFF 0x0A) and the ISO-BMFF wrapped container (0x00 0x00 0x00 0x0C 'JXL ' 0x0D 0x0A 0x87 0x0A), walks the JXL box list (jxlc, jxlp, jbrd, jhgm, jumb, Exif, xml , brob), and decodes the SizeHeader from the first codestream chunk via the JXL bitstream prefix grammar (small_size + ratio table or rational width/height). Modular / VarDCT entropy decoding is not implemented; ReadFramesAsync throws NotSupportedException.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -83,6 +83,23 @@ public static class MediarImage
                 Mediar.Imaging.WebP.WebPReader.Open(fs, ownsStream: true),
             ImageFormat.Psd or ImageFormat.Psb =>
                 Mediar.Imaging.Psd.PsdReader.Open(fs, ownsStream: true),
+            ImageFormat.Heic or ImageFormat.Heif or ImageFormat.Avif or ImageFormat.Cr3 =>
+                Mediar.Imaging.Heif.HeifReader.Open(fs, fmt, ownsStream: true),
+            ImageFormat.Jp2 or ImageFormat.J2k or ImageFormat.J2c or ImageFormat.Jpc
+              or ImageFormat.Jpf or ImageFormat.Jpm or ImageFormat.Jpx =>
+                Mediar.Imaging.Jpeg2000.Jpeg2000Reader.Open(fs, fmt, ownsStream: true),
+            ImageFormat.Jxr =>
+                Mediar.Imaging.Jxr.JxrReader.Open(fs, ownsStream: true),
+            ImageFormat.Jxl =>
+                Mediar.Imaging.Jxl.JxlReader.Open(fs, ownsStream: true),
+            ImageFormat.Bpg =>
+                Mediar.Imaging.Bpg.BpgReader.Open(fs, ownsStream: true),
+            ImageFormat.Flif =>
+                Mediar.Imaging.Flif.FlifReader.Open(fs, ownsStream: true),
+            ImageFormat.Svgz =>
+                Mediar.Imaging.Vector.SvgReader.Open(fs, fmt, ownsStream: true),
+            ImageFormat.Emf or ImageFormat.Wmf or ImageFormat.Apm or ImageFormat.Emz or ImageFormat.Wmz =>
+                Mediar.Imaging.Metafiles.MetafileReader.Open(fs, fmt, ownsStream: true),
             _ => Mediar.Imaging.Probe.ProbeReader.Open(fs, fmt, ownsStream: true),
         };
     }

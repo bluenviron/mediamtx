@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Heif</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Heif</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>HEIF / HEIC / AVIF / CR3 (ISO/IEC 23008-12 image file format) reader for the Mediar toolkit. Walks the ISO-BMFF box tree (ftyp, meta, hdlr, pitm, iinf, iloc, iref, iprp, ipco, ispe, pixi, pasp, colr, auxC, irot, imir) and exposes a typed item-level view: brand, primary item, item list with locations and properties, association table, derived items (grid, iden, iovl), color profile, transform metadata. Pixel decoding for the underlying HEVC / AV1 / VVC bitstreams is not implemented in this release and ReadFramesAsync throws NotSupportedException with a descriptive message.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
