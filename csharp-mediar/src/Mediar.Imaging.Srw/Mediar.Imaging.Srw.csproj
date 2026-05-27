@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Srw</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Srw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Samsung NX RAW (SRW) reader for the Mediar toolkit. SRW is a TIFF-based RAW container produced by Samsung's NX-series mirrorless cameras (NX1, NX300, NX500, NX10, NX100) and certain Galaxy device modes. Identified by the EXIF Make tag matching one of "SAMSUNG TECHWIN" / "SAMSUNG ELECTRONICS CO.,LTD." / "SAMSUNG" / "Samsung". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Samsung-proprietary compression (TIFF tag 32770 and the 12/14-bit packed mosaic) is recognised but not yet decoded.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>
