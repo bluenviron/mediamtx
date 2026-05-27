@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Mef</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Mef</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Mamiya Electronic Format RAW (MEF) reader for the Mediar toolkit. MEF is a TIFF-based RAW container produced by Mamiya bodies (Mamiya ZD, Mamiya 645AFD with the ZD digital back, Mamiya 7 / 7II 6x7 medium-format film+digital workflow). Identified at parse time by the EXIF Make tag prefix matching "Mamiya", "MAMIYA" or "Phase One". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Mamiya-proprietary medium-format compression. The vast majority of MEF files are uncompressed (TIFF compression 1) because the Mamiya digital backs were medium-format and storage was rarely the constraint; the reader currently surfaces any non-standard compression tag as undecodable.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

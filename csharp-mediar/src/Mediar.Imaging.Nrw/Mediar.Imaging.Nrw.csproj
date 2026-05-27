@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Nrw</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Nrw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Nikon Coolpix RAW (NRW) reader for the Mediar toolkit. NRW is a TIFF-based RAW container produced by Nikon bodies (Coolpix P6000 / P7000 / P7100 / P7700 / P7800 and Nikon A APS-C compact). Identified at parse time by the EXIF Make tag prefix matching "NIKON" or "Nikon". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Nikon-compressed RAW (TIFF compression tag 34713) uses the same proprietary predictor + Huffman scheme as NEF and is not yet implemented. NRW is structurally identical to NEF but emitted by Nikon Coolpix and the Nikon A APS-C compact rather than the DSLR / Z mirrorless line, so the file extension is the sole disambiguator from header bytes alone.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

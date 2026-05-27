@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Mos</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Mos</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Leaf medium-format RAW (MOS) reader for the Mediar toolkit. MOS is a TIFF-based RAW container produced by Leaf bodies (Leaf Aptus II 5, 6, 7, 8, 10, 12; Leaf Credo 40 / 50 / 60 / 80; Leaf AFi6, AFi7, AFi II 6, II 7; Leaf Cantare / Volare 4-shot studio backs). Identified at parse time by the EXIF Make tag prefix matching "Leaf" or "LEAF". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Leaf medium-format MOS files are almost universally uncompressed (TIFF compression 1). Some Aptus II / Credo bodies emit a proprietary packed-12-bit / packed-16-bit format that Mediar does not yet decode.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

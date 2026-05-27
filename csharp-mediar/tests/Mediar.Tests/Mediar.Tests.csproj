@@ -70,6 +70,11 @@
     <ProjectReference Include="..\..\src\Mediar.Imaging.ThreeFr\Mediar.Imaging.ThreeFr.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Mrw\Mediar.Imaging.Mrw.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Crw\Mediar.Imaging.Crw.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Nrw\Mediar.Imaging.Nrw.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Sr2\Mediar.Imaging.Sr2.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Mef\Mediar.Imaging.Mef.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Mos\Mediar.Imaging.Mos.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Imaging.Erf\Mediar.Imaging.Erf.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.WebP\Mediar.Imaging.WebP.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Psd\Mediar.Imaging.Psd.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Imaging.Heif\Mediar.Imaging.Heif.csproj" />

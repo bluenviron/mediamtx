@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Sr2</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Sr2</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Sony Cyber-shot v2 RAW (SR2) reader for the Mediar toolkit. SR2 is a TIFF-based RAW container produced by Sony bodies (Sony Cyber-shot DSC-R1, DSC-F828, DSC-F717, DSC-V3 (the pre-Alpha advanced compacts before ARW superseded the format)). Identified at parse time by the EXIF Make tag prefix matching "SONY" or "Sony". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Sony-compressed RAW (TIFF compression tag 32770) uses a 7-of-14 bit packing scheme similar to older ARW files. SR2 files are emitted by the Sony Cyber-shot DSC-R1 / DSC-F828 / DSC-F717 / DSC-V3 family that predate the Alpha DSLR / mirrorless line; the file extension is the sole disambiguator from header bytes alone.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Erf</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Erf</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Epson R-D1 rangefinder RAW (ERF) reader for the Mediar toolkit. ERF is a TIFF-based RAW container produced by Epson bodies (Epson R-D1, R-D1s, R-D1x rangefinder cameras (the only Epson digital camera line that ever shipped a RAW format)). Identified at parse time by the EXIF Make tag prefix matching "EPSON", "Epson" or "SEIKO EPSON". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Epson-proprietary compression (TIFF compression tag 65535 in the wild). Some R-D1 bodies emit uncompressed 12-bit packed CFA mosaics in IFD 0; later firmware releases used a custom Epson packing scheme that Mediar does not yet decode.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>
