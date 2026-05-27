@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Mediar.Codecs.Bcn;
 using Mediar.Codecs.Etc;
 using Mediar.Imaging;
@@ -391,6 +392,65 @@ public sealed class KtxReaderTests
         using var reader = KtxReader.Open(ms);
         Assert.Equal(PixelFormat.Rgba64, reader.Info.PixelFormat);
         Assert.Equal(64, reader.Info.BitsPerPixel);
+        Assert.True(reader.Info.HasAlpha);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public async Task Decodes_GL_RGB32F_To_Rgb96Float()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8815, // GL_RGB32F
+            PixelWidth = 2,
+            PixelHeight = 1,
+        };
+        // 2 pixels * 12 bytes each = 24
+        var pixels = new byte[2 * 12];
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(0, 4), 1.0f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(4, 4), 2.5f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(8, 4), -7.25f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(12, 4), 100.0f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(16, 4), 0.0f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(20, 4), -0.5f);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb96Float, reader.Info.PixelFormat);
+        Assert.Equal(96, reader.Info.BitsPerPixel);
+        Assert.Equal(3, reader.Info.ChannelCount);
+        Assert.False(reader.Info.HasAlpha);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.True(frame.Pixels.Span.SequenceEqual(pixels));
+        }
+    }
+
+    [Fact]
+    public async Task Decodes_GL_RGBA32F_To_Rgba128Float()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8814, // GL_RGBA32F
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[16];
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(0, 4), 0.25f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(4, 4), 0.5f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(8, 4), 0.75f);
+        BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(12, 4), 1.0f);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba128Float, reader.Info.PixelFormat);
+        Assert.Equal(128, reader.Info.BitsPerPixel);
+        Assert.Equal(4, reader.Info.ChannelCount);
         Assert.True(reader.Info.HasAlpha);
         await foreach (var frame in reader.ReadFramesAsync())
         {

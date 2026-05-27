@@ -171,6 +171,8 @@ public sealed class Ktx2Reader : IImageReader
             PixelFormat.Rgba64 => 8,
             PixelFormat.Gray32Float => 4,
             PixelFormat.Rg64Float => 8,
+            PixelFormat.Rgb96Float => 12,
+            PixelFormat.Rgba128Float => 16,
             _ => 0,
         };
 
@@ -285,6 +287,7 @@ public sealed class Ktx2Reader : IImageReader
             PixelFormat.Rgba64 or PixelFormat.Rg64Float => 64,
             PixelFormat.Gray32Float => 32,
             PixelFormat.Rgb96Float => 96,
+            PixelFormat.Rgba128Float => 128,
             _ => 0,
         };
 
@@ -299,13 +302,15 @@ public sealed class Ktx2Reader : IImageReader
                 PixelFormat.Rg32 or PixelFormat.GrayAlpha16 or PixelFormat.Rg64Float => 2,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
                     or PixelFormat.Rgb96Float => 3,
-                PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Rgba64 => 4,
+                PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Rgba64
+                    or PixelFormat.Rgba128Float => 4,
                 _ => 0,
             },
             PixelFormat = infoPf,
             Format = ImageFormat.Ktx2,
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32
-                                or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16,
+                                or PixelFormat.Rgba64 or PixelFormat.GrayAlpha16
+                                or PixelFormat.Rgba128Float,
             FrameCount = canDecode ? levelInfos.Count : 0,
             ColorSpace = DfdColorSpace.Describe(parsedDfd)
                        ?? (KtxFormat.IsSrgbVkFormat(vkFormat) ? "sRGB" : null)

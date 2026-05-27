@@ -91,4 +91,16 @@ public sealed class DdsDxgiR32FloatTests
         Assert.Equal(1, PixelFormat.Gray32Float.ChannelCount());
         Assert.False(PixelFormat.Gray32Float.HasAlpha());
     }
+
+    [Fact]
+    public void D32_FLOAT_Shares_Gray32Float_Mapping()
+    {
+        var file = Concat(BuildDx10Dds(2, 1, 40), new byte[2 * 1 * 4]);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        Assert.Equal(PixelFormat.Gray32Float, reader.Info.PixelFormat);
+        Assert.False(reader.Info.HasAlpha);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal("Linear", reader.Info.ColorSpace);
+        Assert.Equal(32, reader.Info.BitsPerPixel);
+    }
 }

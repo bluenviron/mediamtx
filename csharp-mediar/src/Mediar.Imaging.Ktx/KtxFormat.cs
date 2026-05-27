@@ -95,6 +95,10 @@ public static class KtxFormat
         0x822E => PixelFormat.Gray32Float,
         // GL_RG32F - 32-bit RG float pair
         0x8230 => PixelFormat.Rg64Float,
+        // GL_RGB32F - 96-bit RGB float
+        0x8815 => PixelFormat.Rgb96Float,
+        // GL_RGBA32F - 128-bit RGBA float
+        0x8814 => PixelFormat.Rgba128Float,
         _ => PixelFormat.Unknown,
     };
 
@@ -179,6 +183,10 @@ public static class KtxFormat
         100 => PixelFormat.Gray32Float,
         // VK_FORMAT_R32G32_SFLOAT - 32-bit RG float pair
         103 => PixelFormat.Rg64Float,
+        // VK_FORMAT_R32G32B32_SFLOAT - 96-bit RGB float
+        106 => PixelFormat.Rgb96Float,
+        // VK_FORMAT_R32G32B32A32_SFLOAT - 128-bit RGBA float
+        109 => PixelFormat.Rgba128Float,
         _ => PixelFormat.Unknown,
     };
 

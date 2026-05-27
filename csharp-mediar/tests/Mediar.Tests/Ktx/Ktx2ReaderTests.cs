@@ -433,6 +433,61 @@ public sealed class Ktx2ReaderTests
     }
 
     [Fact]
+    public async Task Decodes_VK_FORMAT_R32G32B32_SFLOAT_To_Rgb96Float()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 106, // VK_FORMAT_R32G32B32_SFLOAT
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[12];
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(0, 4), 1.0f);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(4, 4), -2.5f);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(8, 4), 1024.0f);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb96Float, reader.Info.PixelFormat);
+        Assert.Equal(96, reader.Info.BitsPerPixel);
+        Assert.Equal(3, reader.Info.ChannelCount);
+        Assert.False(reader.Info.HasAlpha);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Decodes_VK_FORMAT_R32G32B32A32_SFLOAT_To_Rgba128Float()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 109, // VK_FORMAT_R32G32B32A32_SFLOAT
+            PixelWidth = 1,
+            PixelHeight = 1,
+        };
+        var pixels = new byte[16];
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(0, 4), 0.1f);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(4, 4), 0.2f);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(8, 4), 0.3f);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(pixels.AsSpan(12, 4), 0.9f);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba128Float, reader.Info.PixelFormat);
+        Assert.Equal(128, reader.Info.BitsPerPixel);
+        Assert.Equal(4, reader.Info.ChannelCount);
+        Assert.True(reader.Info.HasAlpha);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
     public async Task Decodes_VK_FORMAT_R8G8_UNORM_To_GrayAlpha16()
     {
         var b = new TestKtx2Builder
