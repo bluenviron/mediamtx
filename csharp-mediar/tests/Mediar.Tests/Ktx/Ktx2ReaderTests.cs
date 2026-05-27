@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 using Mediar.Imaging;
 using Mediar.Imaging.Ktx;
 using Xunit;
@@ -205,5 +207,93 @@ public sealed class Ktx2ReaderTests
     public void Vk_Format_Maps_To_Bcn(uint vk, BcnFormat expected)
     {
         Assert.Equal(expected, KtxFormat.MapVkFormat(vk));
+    }
+
+    [Fact]
+    public void Detects_Etc2_Rgba8_From_Vk_Format()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 151, // VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[16]); // one 4x4 ETC2 RGBA8 block
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal(EtcFormat.Etc2Rgba8, reader.Ktx2.Etc);
+        Assert.Equal(BcnFormat.None, reader.Ktx2.Bcn);
+    }
+
+    [Fact]
+    public async Task ReadFrames_Etc2_Rgb_Yields_Decoded_Rgba32()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 147, // VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[8]); // all-zero ETC2 RGB block
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(PixelFormat.Rgba32, frame.PixelFormat);
+            Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
+            // All-zero ETC2 RGB block (diff=0) -> (2,2,2,255) per pixel.
+            for (int i = 0; i < 16; i++)
+            {
+                Assert.Equal(2, frame.Pixels.Span[i * 4 + 0]);
+                Assert.Equal(255, frame.Pixels.Span[i * 4 + 3]);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Zlib_Supercompression_Decodes_Successfully()
+    {
+        // Build the original uncompressed RGBA8 payload (2x2 = 16 bytes).
+        var original = new byte[2 * 2 * 4];
+        for (int i = 0; i < original.Length; i++) original[i] = (byte)(i * 7 + 11);
+
+        // ZLIB-compress it.
+        byte[] compressed;
+        using (var outMs = new MemoryStream())
+        {
+            using (var zls = new ZLibStream(outMs, CompressionLevel.Optimal, leaveOpen: true))
+            {
+                zls.Write(original, 0, original.Length);
+            }
+            compressed = outMs.ToArray();
+        }
+
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 37, // VK_FORMAT_R8G8B8A8_UNORM
+            PixelWidth = 2,
+            PixelHeight = 2,
+            SupercompressionScheme = 3, // ZLIB
+            UncompressedSizes = new List<ulong> { (ulong)original.Length },
+        };
+        b.MipPayloads.Add(compressed);
+
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal((uint)3, reader.Ktx2.SupercompressionScheme);
+
+        var frames = new List<ImageFrame>();
+        await foreach (var f in reader.ReadFramesAsync()) frames.Add(f);
+        Assert.Single(frames);
+        var frame = frames[0];
+        Assert.Equal(2, frame.Width);
+        Assert.Equal(2, frame.Height);
+        Assert.Equal(PixelFormat.Rgba32, frame.PixelFormat);
+        Assert.True(frame.Pixels.Span.SequenceEqual(original));
     }
 }

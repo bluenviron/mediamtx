@@ -1,8 +1,10 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 
 namespace Mediar.Imaging.Ktx;
 
@@ -35,7 +37,9 @@ public sealed class Ktx2Reader : IImageReader
     private readonly Stream _stream;
     private readonly bool _ownsStream;
     private readonly byte[] _bytes;
+    private readonly byte[]?[]? _levelBuffers;
     private readonly BcnFormat _bcn;
+    private readonly EtcFormat _etc;
     private readonly PixelFormat _uncompressedPf;
     private readonly int _uncompressedBytesPerPixel;
     private readonly uint _supercompressionScheme;
@@ -59,14 +63,16 @@ public sealed class Ktx2Reader : IImageReader
     /// <summary>All mip / face / array entries discovered from the level index.</summary>
     public IReadOnlyList<KtxLevelInfo> Levels { get; }
 
-    private Ktx2Reader(Stream s, bool owns, byte[] bytes, BcnFormat bcn,
+    private Ktx2Reader(Stream s, bool owns, byte[] bytes, byte[]?[]? levelBuffers,
+                      BcnFormat bcn, EtcFormat etc,
                       PixelFormat uncompressedPf, int uncompressedBytesPerPixel,
                       uint supercompressionScheme,
                       ImageInfo info, ImageMetadata meta, Ktx2Metadata ktx2,
                       IReadOnlyList<KtxLevelInfo> levels, bool canDecode)
     {
         _stream = s; _ownsStream = owns; _bytes = bytes;
-        _bcn = bcn; _uncompressedPf = uncompressedPf;
+        _levelBuffers = levelBuffers;
+        _bcn = bcn; _etc = etc; _uncompressedPf = uncompressedPf;
         _uncompressedBytesPerPixel = uncompressedBytesPerPixel;
         _supercompressionScheme = supercompressionScheme;
         Info = info; Metadata = meta; Ktx2 = ktx2;
@@ -142,8 +148,17 @@ public sealed class Ktx2Reader : IImageReader
 
         var keyValues = ParseKeyValuePool(bytes, (int)kvdByteOffset, (int)kvdByteLength);
 
-        BcnFormat bcn = supercompressionScheme == 0 ? KtxFormat.MapVkFormat(vkFormat) : BcnFormat.None;
-        PixelFormat uncompressedPf = supercompressionScheme == 0 && bcn == BcnFormat.None
+        BcnFormat bcn = KtxFormat.MapVkFormat(vkFormat);
+        EtcFormat etc = bcn == BcnFormat.None ? KtxFormat.MapVkFormatEtc(vkFormat) : EtcFormat.None;
+        // For ZLIB supercompression, we can decompress on read; for Basis/Zstd we
+        // cannot. Treat bcn/etc as authoritative only when scheme is None or ZLIB.
+        bool schemeOk = supercompressionScheme == 0 || supercompressionScheme == 3;
+        if (!schemeOk)
+        {
+            bcn = BcnFormat.None;
+            etc = EtcFormat.None;
+        }
+        PixelFormat uncompressedPf = schemeOk && bcn == BcnFormat.None && etc == EtcFormat.None
             ? KtxFormat.MapVkUncompressed(vkFormat)
             : PixelFormat.Unknown;
         int uncompressedBpp = uncompressedPf switch
@@ -155,13 +170,13 @@ public sealed class Ktx2Reader : IImageReader
         };
 
         var levelInfos = new List<KtxLevelInfo>();
+        byte[]?[]? levelBuffers = supercompressionScheme == 3 ? new byte[]?[levels] : null;
         for (int level = 0; level < levels; level++)
         {
             long entry = levelIndexOffset + level * LevelIndexEntrySize;
             ulong byteOffset = ReadU64(bytes, (int)entry);
             ulong byteLength = ReadU64(bytes, (int)entry + 8);
             ulong uncompressedLen = ReadU64(bytes, (int)entry + 16);
-            _ = uncompressedLen;
 
             if (byteLength == 0 || (long)(byteOffset + byteLength) > bytes.Length)
             {
@@ -172,8 +187,44 @@ public sealed class Ktx2Reader : IImageReader
             int lh = Math.Max(1, (int)(h >> level));
             int ld = Math.Max(1, (int)(d >> level));
 
-            long perFaceLen = (long)byteLength / Math.Max(1L, (long)layers * faces);
-            long cursor = (long)byteOffset;
+            long payloadLen;
+            long basePayloadOffset;
+            if (supercompressionScheme == 3)
+            {
+                if (uncompressedLen == 0)
+                {
+                    throw new ImageFormatException($"KTX2 ZLIB level {level} declares uncompressedLength = 0.");
+                }
+                var compressed = bytes.AsSpan((int)byteOffset, (int)byteLength);
+                var decompressed = new byte[(int)uncompressedLen];
+                using (var inMs = new MemoryStream(compressed.ToArray(), writable: false))
+                using (var zls = new ZLibStream(inMs, CompressionMode.Decompress))
+                {
+                    int total = 0;
+                    while (total < decompressed.Length)
+                    {
+                        int read = zls.Read(decompressed, total, decompressed.Length - total);
+                        if (read <= 0) break;
+                        total += read;
+                    }
+                    if (total != decompressed.Length)
+                    {
+                        throw new ImageFormatException(
+                            $"KTX2 ZLIB level {level} decompressed {total} bytes, expected {decompressed.Length}.");
+                    }
+                }
+                levelBuffers![level] = decompressed;
+                payloadLen = decompressed.Length;
+                basePayloadOffset = 0;
+            }
+            else
+            {
+                payloadLen = (long)byteLength;
+                basePayloadOffset = (long)byteOffset;
+            }
+
+            long perFaceLen = payloadLen / Math.Max(1L, (long)layers * faces);
+            long cursor = basePayloadOffset;
             for (int layer = 0; layer < layers; layer++)
             {
                 for (int face = 0; face < faces; face++)
@@ -198,6 +249,7 @@ public sealed class Ktx2Reader : IImageReader
                          or BcnFormat.Bc4 or BcnFormat.Bc5
                          or BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16
                          or BcnFormat.Bc7
+                         || KtxFormat.CanDecodeEtc(etc)
                          || uncompressedPf != PixelFormat.Unknown;
 
         var ktx2Meta = new Ktx2Metadata
@@ -208,15 +260,19 @@ public sealed class Ktx2Reader : IImageReader
             FaceCount = faceCount,
             SupercompressionScheme = supercompressionScheme,
             Bcn = bcn,
+            Etc = etc,
             KeyValues = keyValues,
         };
 
         PixelFormat infoPf = canDecode
-            ? (bcn != BcnFormat.None ? KtxFormat.BcnToDecodedPixelFormat(bcn) : uncompressedPf)
+            ? (bcn != BcnFormat.None ? KtxFormat.BcnToDecodedPixelFormat(bcn)
+               : etc != EtcFormat.None ? KtxFormat.EtcToDecodedPixelFormat(etc)
+               : uncompressedPf)
             : PixelFormat.Unknown;
         int infoBpp = infoPf switch
         {
             PixelFormat.Gray8 => 8,
+            PixelFormat.Gray16 => 16,
             PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
             PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
             PixelFormat.Rgb96Float => 96,
@@ -230,7 +286,7 @@ public sealed class Ktx2Reader : IImageReader
             BitsPerPixel = infoBpp,
             ChannelCount = infoPf switch
             {
-                PixelFormat.Gray8 => 1,
+                PixelFormat.Gray8 or PixelFormat.Gray16 => 1,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb96Float => 3,
                 PixelFormat.Rgba32 or PixelFormat.Bgra32 => 4,
                 _ => 0,
@@ -239,12 +295,15 @@ public sealed class Ktx2Reader : IImageReader
             Format = ImageFormat.Ktx2,
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32,
             FrameCount = canDecode ? levelInfos.Count : 0,
-            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}" :
-                         supercompressionScheme != 0 ? $"Supercompressed:{SchemeName(supercompressionScheme)}" : "Vk",
+            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}"
+                       : etc != EtcFormat.None ? $"ETC:{etc}"
+                       : supercompressionScheme != 0 && supercompressionScheme != 3
+                            ? $"Supercompressed:{SchemeName(supercompressionScheme)}"
+                            : "Vk",
         };
 
         var meta = BuildImageMetadata(ktx2Meta);
-        return new Ktx2Reader(stream, ownsStream, bytes, bcn, uncompressedPf,
+        return new Ktx2Reader(stream, ownsStream, bytes, levelBuffers, bcn, etc, uncompressedPf,
                               uncompressedBpp, supercompressionScheme,
                               info, meta, ktx2Meta, levelInfos, canDecode);
     }
@@ -269,10 +328,26 @@ public sealed class Ktx2Reader : IImageReader
         ct.ThrowIfCancellationRequested();
         foreach (var lv in Levels)
         {
-            var payload = _bytes.AsSpan((int)lv.Offset, (int)lv.Length);
+            ReadOnlySpan<byte> payload;
+            if (_levelBuffers != null)
+            {
+                var buf = _levelBuffers[lv.Level]
+                    ?? throw new InvalidOperationException($"KTX2 level {lv.Level} buffer missing.");
+                payload = buf.AsSpan((int)lv.Offset, (int)lv.Length);
+            }
+            else
+            {
+                payload = _bytes.AsSpan((int)lv.Offset, (int)lv.Length);
+            }
+
             if (_bcn != BcnFormat.None)
             {
                 var (pixels, stride, pf) = KtxFormat.DecodeBcn(_bcn, payload, lv.Width, lv.Height);
+                yield return new ImageFrame(lv.Width, lv.Height, pf, stride, pixels);
+            }
+            else if (KtxFormat.CanDecodeEtc(_etc))
+            {
+                var (pixels, stride, pf) = KtxFormat.DecodeEtc(_etc, payload, lv.Width, lv.Height);
                 yield return new ImageFrame(lv.Width, lv.Height, pf, stride, pixels);
             }
             else
@@ -342,6 +417,7 @@ public sealed class Ktx2Reader : IImageReader
             ["KTX2:LayerCount"] = k.LayerCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["KTX2:Supercompression"] = SchemeName(k.SupercompressionScheme),
             ["KTX2:Bcn"] = k.Bcn.ToString(),
+            ["KTX2:Etc"] = k.Etc.ToString(),
         };
         foreach (var kv in k.KeyValues)
         {

@@ -1,4 +1,5 @@
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 using Mediar.Imaging;
 using Mediar.Imaging.Ktx;
 using Xunit;
@@ -191,7 +192,7 @@ public sealed class KtxReaderTests
     {
         var b = new TestKtxBuilder
         {
-            GlInternalFormat = 0x9270, // GL_COMPRESSED_R11_EAC (ETC2)
+            GlInternalFormat = 0x93B0, // GL_COMPRESSED_RGBA_ASTC_4x4 (ASTC, undecodable)
             PixelWidth = 4,
             PixelHeight = 4,
         };
@@ -215,5 +216,68 @@ public sealed class KtxReaderTests
         b.MipPayloads.Add(new byte[2 * 2 * 4]);
         var bytes = b.Build();
         Assert.Equal(ImageFormat.Ktx, ImageFormatDetector.Detect(bytes));
+    }
+
+    [Fact]
+    public void Detects_Etc1_From_Gl_Token()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8D64, // GL_ETC1_RGB8_OES
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[8]); // one 4x4 ETC1 block
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal(EtcFormat.Etc1Rgb, reader.Ktx.Etc);
+        Assert.Equal(BcnFormat.None, reader.Ktx.Bcn);
+    }
+
+    [Fact]
+    public void Detects_Etc2_Rgba8_From_Gl_Token()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x9278, // GL_COMPRESSED_RGBA8_ETC2_EAC
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[16]); // one 4x4 ETC2 RGBA8 block
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.True(reader.CanDecodePixels);
+        Assert.Equal(EtcFormat.Etc2Rgba8, reader.Ktx.Etc);
+    }
+
+    [Fact]
+    public async Task ReadFrames_Etc1_Yields_Decoded_Rgba32()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8D64, // GL_ETC1_RGB8_OES
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[8]); // all-zero ETC1 block
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(4, frame.Width);
+            Assert.Equal(4, frame.Height);
+            Assert.Equal(PixelFormat.Rgba32, frame.PixelFormat);
+            Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
+            // All-zero ETC1 block -> opaque (2,2,2,255) per pixel.
+            for (int i = 0; i < 16; i++)
+            {
+                Assert.Equal(2, frame.Pixels.Span[i * 4 + 0]);
+                Assert.Equal(255, frame.Pixels.Span[i * 4 + 3]);
+            }
+        }
     }
 }

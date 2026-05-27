@@ -49,6 +49,7 @@
     <ProjectReference Include="..\..\src\Mediar.Acceleration.X86\Mediar.Acceleration.X86.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Acceleration.Arm\Mediar.Acceleration.Arm.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Bcn\Mediar.Codecs.Bcn.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Codecs.Etc\Mediar.Codecs.Etc.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Lzw\Mediar.Codecs.Lzw.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.PackBits\Mediar.Codecs.PackBits.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Ccitt\Mediar.Codecs.Ccitt.csproj" />

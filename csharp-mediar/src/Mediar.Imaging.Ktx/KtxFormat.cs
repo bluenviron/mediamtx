@@ -1,4 +1,5 @@
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 
 namespace Mediar.Imaging.Ktx;
 
@@ -6,8 +7,8 @@ namespace Mediar.Imaging.Ktx;
 /// Format-identification helpers shared by <see cref="KtxReader"/> (KTX 1.x,
 /// OpenGL <c>glInternalFormat</c> tokens) and <see cref="Ktx2Reader"/> (KTX 2.x,
 /// Vulkan <c>VkFormat</c> enum). Maps recognised compressed enums to
-/// <see cref="BcnFormat"/> and well-known uncompressed enums to
-/// <see cref="PixelFormat"/> for direct copy.
+/// <see cref="BcnFormat"/> / <see cref="EtcFormat"/> and well-known
+/// uncompressed enums to <see cref="PixelFormat"/> for direct copy.
 /// </summary>
 public static class KtxFormat
 {
@@ -35,6 +36,32 @@ public static class KtxFormat
         // GL_COMPRESSED_RGBA_BPTC_UNORM / SRGB variant
         0x8E8C or 0x8E8D => BcnFormat.Bc7,
         _ => BcnFormat.None,
+    };
+
+    /// <summary>
+    /// Map an OpenGL <c>glInternalFormat</c> value to a Mediar
+    /// <see cref="EtcFormat"/>. Returns <see cref="EtcFormat.None"/> for
+    /// non-ETC formats.
+    /// </summary>
+    public static EtcFormat MapGlInternalFormatEtc(uint glInternalFormat) => glInternalFormat switch
+    {
+        // GL_ETC1_RGB8_OES
+        0x8D64 => EtcFormat.Etc1Rgb,
+        // GL_COMPRESSED_RGB8_ETC2 / GL_COMPRESSED_SRGB8_ETC2
+        0x9274 or 0x9275 => EtcFormat.Etc2Rgb,
+        // GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 / SRGB
+        0x9276 or 0x9277 => EtcFormat.Etc2RgbA1,
+        // GL_COMPRESSED_RGBA8_ETC2_EAC / SRGB8_ALPHA8_ETC2_EAC
+        0x9278 or 0x9279 => EtcFormat.Etc2Rgba8,
+        // GL_COMPRESSED_R11_EAC
+        0x9270 => EtcFormat.EacR11Unorm,
+        // GL_COMPRESSED_SIGNED_R11_EAC
+        0x9271 => EtcFormat.EacR11Snorm,
+        // GL_COMPRESSED_RG11_EAC
+        0x9272 => EtcFormat.EacRg11Unorm,
+        // GL_COMPRESSED_SIGNED_RG11_EAC
+        0x9273 => EtcFormat.EacRg11Snorm,
+        _ => EtcFormat.None,
     };
 
     /// <summary>
@@ -80,6 +107,30 @@ public static class KtxFormat
     };
 
     /// <summary>
+    /// Map a Vulkan <c>VkFormat</c> enum value to a Mediar
+    /// <see cref="EtcFormat"/>. Returns <see cref="EtcFormat.None"/> for
+    /// non-ETC formats.
+    /// </summary>
+    public static EtcFormat MapVkFormatEtc(uint vkFormat) => vkFormat switch
+    {
+        // VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK / SRGB
+        147 or 148 => EtcFormat.Etc2Rgb,
+        // VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK / SRGB
+        149 or 150 => EtcFormat.Etc2RgbA1,
+        // VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK / SRGB
+        151 or 152 => EtcFormat.Etc2Rgba8,
+        // VK_FORMAT_EAC_R11_UNORM_BLOCK
+        153 => EtcFormat.EacR11Unorm,
+        // VK_FORMAT_EAC_R11_SNORM_BLOCK
+        154 => EtcFormat.EacR11Snorm,
+        // VK_FORMAT_EAC_R11G11_UNORM_BLOCK
+        155 => EtcFormat.EacRg11Unorm,
+        // VK_FORMAT_EAC_R11G11_SNORM_BLOCK
+        156 => EtcFormat.EacRg11Snorm,
+        _ => EtcFormat.None,
+    };
+
+    /// <summary>
     /// Map a Vulkan <c>VkFormat</c> to a top-down uncompressed
     /// <see cref="PixelFormat"/>. Returns <see cref="PixelFormat.Unknown"/>
     /// for compressed or unrecognised formats.
@@ -119,6 +170,15 @@ public static class KtxFormat
         _ => PixelFormat.Unknown,
     };
 
+    /// <summary>Decoded-pixel format for an ETC / EAC surface after decode.</summary>
+    public static PixelFormat EtcToDecodedPixelFormat(EtcFormat f) => f switch
+    {
+        EtcFormat.Etc1Rgb or EtcFormat.Etc2Rgb or EtcFormat.Etc2RgbA1
+            or EtcFormat.Etc2Rgba8 => PixelFormat.Rgba32,
+        EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm => PixelFormat.Gray16,
+        _ => PixelFormat.Unknown,
+    };
+
     /// <summary>
     /// Decode a BCn surface to a top-down byte buffer in the layout reported
     /// by <see cref="BcnToDecodedPixelFormat"/>. Returns the decoded buffer
@@ -140,4 +200,30 @@ public static class KtxFormat
             _ => throw new NotSupportedException($"KTX/KTX2 BCn format {f} cannot be decoded."),
         };
     }
+
+    /// <summary>
+    /// Decode an ETC / EAC surface to a top-down byte buffer in the layout
+    /// reported by <see cref="EtcToDecodedPixelFormat"/>. Throws
+    /// <see cref="NotSupportedException"/> for formats not yet wired into
+    /// the reader (currently EAC RG11 unorm / snorm).
+    /// </summary>
+    public static (byte[] Pixels, int Stride, PixelFormat Format) DecodeEtc(
+        EtcFormat f, ReadOnlySpan<byte> payload, int width, int height)
+    {
+        return f switch
+        {
+            EtcFormat.Etc1Rgb => (EtcDecoder.DecodeEtc1(payload, width, height), width * 4, PixelFormat.Rgba32),
+            EtcFormat.Etc2Rgb => (EtcDecoder.DecodeEtc2Rgb(payload, width, height), width * 4, PixelFormat.Rgba32),
+            EtcFormat.Etc2RgbA1 => (EtcDecoder.DecodeEtc2RgbA1(payload, width, height), width * 4, PixelFormat.Rgba32),
+            EtcFormat.Etc2Rgba8 => (EtcDecoder.DecodeEtc2Rgba8(payload, width, height), width * 4, PixelFormat.Rgba32),
+            EtcFormat.EacR11Unorm => (EtcDecoder.DecodeEacR11Unorm(payload, width, height), width * 2, PixelFormat.Gray16),
+            EtcFormat.EacR11Snorm => (EtcDecoder.DecodeEacR11Snorm(payload, width, height), width * 2, PixelFormat.Gray16),
+            _ => throw new NotSupportedException($"KTX/KTX2 ETC format {f} cannot be decoded."),
+        };
+    }
+
+    /// <summary>True when <see cref="DecodeEtc"/> can decode the format.</summary>
+    public static bool CanDecodeEtc(EtcFormat f) => f is
+        EtcFormat.Etc1Rgb or EtcFormat.Etc2Rgb or EtcFormat.Etc2RgbA1
+        or EtcFormat.Etc2Rgba8 or EtcFormat.EacR11Unorm or EtcFormat.EacR11Snorm;
 }

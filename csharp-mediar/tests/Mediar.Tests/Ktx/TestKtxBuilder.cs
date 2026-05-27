@@ -102,6 +102,7 @@ internal sealed class TestKtx2Builder
     public uint SupercompressionScheme { get; set; }
     public List<KeyValuePair<string, string>> KeyValues { get; } = new();
     public List<byte[]> MipPayloads { get; } = new();
+    public List<ulong>? UncompressedSizes { get; set; }
     public uint? LevelCountOverride { get; set; }
 
     public byte[] Build()
@@ -162,9 +163,12 @@ internal sealed class TestKtx2Builder
         for (int i = 0; i < MipPayloads.Count && i < levels; i++)
         {
             long e = levelIndexStart + i * 24;
+            ulong uncompressedLen = UncompressedSizes is { } us && i < us.Count
+                ? us[i]
+                : (ulong)mipLengths[i];
             BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)e + 0, 8), (ulong)mipOffsets[i]);
             BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)e + 8, 8), (ulong)mipLengths[i]);
-            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)e + 16, 8), (ulong)mipLengths[i]);
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)e + 16, 8), uncompressedLen);
         }
 
         return bytes;

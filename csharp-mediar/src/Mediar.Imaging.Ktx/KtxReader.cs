@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 
 namespace Mediar.Imaging.Ktx;
 
@@ -35,6 +36,7 @@ public sealed class KtxReader : IImageReader
     private readonly bool _ownsStream;
     private readonly byte[] _bytes;
     private readonly BcnFormat _bcn;
+    private readonly EtcFormat _etc;
     private readonly PixelFormat _uncompressedPf;
     private readonly int _uncompressedBytesPerPixel;
     private bool _disposed;
@@ -57,13 +59,13 @@ public sealed class KtxReader : IImageReader
     /// <summary>All mip / face / array entries discovered by the level walk.</summary>
     public IReadOnlyList<KtxLevelInfo> Levels { get; }
 
-    private KtxReader(Stream s, bool owns, byte[] bytes, BcnFormat bcn,
+    private KtxReader(Stream s, bool owns, byte[] bytes, BcnFormat bcn, EtcFormat etc,
                      PixelFormat uncompressedPf, int uncompressedBytesPerPixel,
                      ImageInfo info, ImageMetadata meta, KtxMetadata ktx,
                      IReadOnlyList<KtxLevelInfo> levels, bool canDecode)
     {
         _stream = s; _ownsStream = owns; _bytes = bytes;
-        _bcn = bcn; _uncompressedPf = uncompressedPf;
+        _bcn = bcn; _etc = etc; _uncompressedPf = uncompressedPf;
         _uncompressedBytesPerPixel = uncompressedBytesPerPixel;
         Info = info; Metadata = meta; Ktx = ktx;
         Levels = levels; CanDecodePixels = canDecode;
@@ -141,7 +143,8 @@ public sealed class KtxReader : IImageReader
         var keyValues = ParseKeyValuePool(bytes, (int)kvdOffset, (int)kvdBytes, le);
 
         BcnFormat bcn = KtxFormat.MapGlInternalFormat(glInternalFormat);
-        PixelFormat uncompressedPf = bcn == BcnFormat.None
+        EtcFormat etc = bcn == BcnFormat.None ? KtxFormat.MapGlInternalFormatEtc(glInternalFormat) : EtcFormat.None;
+        PixelFormat uncompressedPf = bcn == BcnFormat.None && etc == EtcFormat.None
             ? KtxFormat.MapGlUncompressed(glInternalFormat)
             : PixelFormat.Unknown;
         int uncompressedBpp = uncompressedPf switch
@@ -222,6 +225,7 @@ public sealed class KtxReader : IImageReader
                          or BcnFormat.Bc4 or BcnFormat.Bc5
                          or BcnFormat.Bc6hUf16 or BcnFormat.Bc6hSf16
                          or BcnFormat.Bc7
+                         || KtxFormat.CanDecodeEtc(etc)
                          || uncompressedPf != PixelFormat.Unknown;
 
         var ktxMeta = new KtxMetadata
@@ -235,15 +239,19 @@ public sealed class KtxReader : IImageReader
             ArrayElementCount = arrayElems,
             FaceCount = faceCount,
             Bcn = bcn,
+            Etc = etc,
             KeyValues = keyValues,
         };
 
         PixelFormat infoPf = canDecode
-            ? (bcn != BcnFormat.None ? KtxFormat.BcnToDecodedPixelFormat(bcn) : uncompressedPf)
+            ? (bcn != BcnFormat.None ? KtxFormat.BcnToDecodedPixelFormat(bcn)
+               : etc != EtcFormat.None ? KtxFormat.EtcToDecodedPixelFormat(etc)
+               : uncompressedPf)
             : PixelFormat.Unknown;
         int infoBpp = infoPf switch
         {
             PixelFormat.Gray8 => 8,
+            PixelFormat.Gray16 => 16,
             PixelFormat.Rgb24 or PixelFormat.Bgr24 => 24,
             PixelFormat.Rgba32 or PixelFormat.Bgra32 => 32,
             PixelFormat.Rgb96Float => 96,
@@ -257,7 +265,7 @@ public sealed class KtxReader : IImageReader
             BitsPerPixel = infoBpp,
             ChannelCount = infoPf switch
             {
-                PixelFormat.Gray8 => 1,
+                PixelFormat.Gray8 or PixelFormat.Gray16 => 1,
                 PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb96Float => 3,
                 PixelFormat.Rgba32 or PixelFormat.Bgra32 => 4,
                 _ => 0,
@@ -266,11 +274,13 @@ public sealed class KtxReader : IImageReader
             Format = ImageFormat.Ktx,
             HasAlpha = infoPf is PixelFormat.Rgba32 or PixelFormat.Bgra32,
             FrameCount = canDecode ? levelInfos.Count : 0,
-            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}" : "GL",
+            ColorSpace = bcn != BcnFormat.None ? $"BCn:{bcn}"
+                       : etc != EtcFormat.None ? $"ETC:{etc}"
+                       : "GL",
         };
 
         var meta = BuildImageMetadata(ktxMeta);
-        return new KtxReader(stream, ownsStream, bytes, bcn, uncompressedPf,
+        return new KtxReader(stream, ownsStream, bytes, bcn, etc, uncompressedPf,
                              uncompressedBpp, info, meta, ktxMeta, levelInfos, canDecode);
     }
 
@@ -296,6 +306,11 @@ public sealed class KtxReader : IImageReader
             if (_bcn != BcnFormat.None)
             {
                 var (pixels, stride, pf) = KtxFormat.DecodeBcn(_bcn, payload, lv.Width, lv.Height);
+                yield return new ImageFrame(lv.Width, lv.Height, pf, stride, pixels);
+            }
+            else if (KtxFormat.CanDecodeEtc(_etc))
+            {
+                var (pixels, stride, pf) = KtxFormat.DecodeEtc(_etc, payload, lv.Width, lv.Height);
                 yield return new ImageFrame(lv.Width, lv.Height, pf, stride, pixels);
             }
             else
@@ -365,6 +380,7 @@ public sealed class KtxReader : IImageReader
             ["KTX:FaceCount"] = k.FaceCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["KTX:ArrayElements"] = k.ArrayElementCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["KTX:Bcn"] = k.Bcn.ToString(),
+            ["KTX:Etc"] = k.Etc.ToString(),
         };
         foreach (var kv in k.KeyValues)
         {

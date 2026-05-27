@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Etc</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Etc</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Standalone Ericsson Texture Compression (ETC) decoder for the Mediar toolkit. Provides ETC1 (RGB), ETC2 (RGB / RGB+A1 / RGBA8), and EAC (R11 / RG11, both unsigned and signed) decoders that are reusable across container formats (KTX, KTX2, PKM, PVR, etc.). Implements the Khronos KDF 1.4 reference specification.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

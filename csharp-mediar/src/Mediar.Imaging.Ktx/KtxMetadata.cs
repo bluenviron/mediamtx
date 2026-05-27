@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using Mediar.Codecs.Bcn;
+using Mediar.Codecs.Etc;
 
 namespace Mediar.Imaging.Ktx;
 
@@ -69,6 +70,9 @@ public sealed record KtxMetadata
     /// <summary>Detected BCn format (BcnFormat.None when uncompressed or unrecognised).</summary>
     public required BcnFormat Bcn { get; init; }
 
+    /// <summary>Detected ETC / EAC format (EtcFormat.None when non-ETC).</summary>
+    public required EtcFormat Etc { get; init; }
+
     /// <summary>Key-value metadata pool from the bytesOfKeyValueData section.</summary>
     public required FrozenDictionary<string, string> KeyValues { get; init; }
 }
@@ -97,6 +101,9 @@ public sealed record Ktx2Metadata
 
     /// <summary>Detected BCn format (BcnFormat.None when uncompressed or supercompressed).</summary>
     public required BcnFormat Bcn { get; init; }
+
+    /// <summary>Detected ETC / EAC format (EtcFormat.None when non-ETC).</summary>
+    public required EtcFormat Etc { get; init; }
 
     /// <summary>Key-value metadata pool from the kvd section.</summary>
     public required FrozenDictionary<string, string> KeyValues { get; init; }
