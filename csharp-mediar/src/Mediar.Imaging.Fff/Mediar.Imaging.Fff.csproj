@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Fff</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Fff</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Hasselblad Flexible File Format (FFF) reader for the Mediar toolkit. FFF is a TIFF-based container produced by the Hasselblad Phocus workflow (H-System, X-System, V-System with digital backs). Identified at parse time by the EXIF Make tag prefix matching "Hasselblad". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode. Phocus exports processed-RAW data and accompanying colour-matrix / white-balance metadata in this container; the proprietary CFA compression used in 3FR files is also possible on legacy H1D/H2D bodies.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.TiffRaw\Mediar.Imaging.TiffRaw.csproj" />
+  </ItemGroup>
+</Project>

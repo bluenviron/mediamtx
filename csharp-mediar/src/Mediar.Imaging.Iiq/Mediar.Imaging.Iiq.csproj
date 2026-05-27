@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Iiq</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Iiq</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Phase One IIQ camera-RAW reader for the Mediar toolkit. IIQ is a TIFF-based RAW container produced by Phase One IQ digital backs (IQ140 / IQ160 / IQ180 / IQ250 / IQ3 / IQ4 series) and the Phase One XF medium-format system. Identified at parse time by the EXIF Make tag prefix "Phase One". Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode and walks SubIFDs to discover the full-resolution raw sensor mosaic. Phase One IIQ files most commonly use the proprietary IIQ-L (lossless) or IIQ-S (small) compression encoded as TIFF compression tag 7 (a variant of lossless JPEG) or tag 34892; uncompressed sub-images decode through the existing TIFF stack.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.TiffRaw\Mediar.Imaging.TiffRaw.csproj" />
+  </ItemGroup>
+</Project>
