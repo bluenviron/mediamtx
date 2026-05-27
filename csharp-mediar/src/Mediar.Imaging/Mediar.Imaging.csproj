@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Mediar.Imaging.Xpm\Mediar.Imaging.Xpm.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Icns\Mediar.Imaging.Icns.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Dds\Mediar.Imaging.Dds.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Dicom\Mediar.Imaging.Dicom.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Probe\Mediar.Imaging.Probe.csproj" />
   </ItemGroup>
 

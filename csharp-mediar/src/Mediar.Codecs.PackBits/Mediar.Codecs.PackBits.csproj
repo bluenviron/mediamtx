@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.PackBits</RootNamespace>
+    <AssemblyName>Mediar.Codecs.PackBits</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Apple PackBits run-length codec for the Mediar toolkit. Implements the original byte-oriented PackBits RLE used by MacPaint, TIFF 6.0 (compression = 32773), Photoshop PSD/PSB raster layers, and Adobe Illustrator preview blocks. Decoder is allocation-free per chunk; encoder produces the shortest legal representation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

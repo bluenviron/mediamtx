@@ -3,6 +3,8 @@ using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Lzw;
+using Mediar.Codecs.PackBits;
 
 namespace Mediar.Imaging.Tiff;
 
@@ -174,8 +176,8 @@ public sealed class TiffReader : IImageReader
         {
             1 => stripBytes.ToArray(),
             8 or 32946 => DeflateDecode(stripBytes),
-            32773 => PackBitsDecode(stripBytes),
-            5 => TiffLzwDecode(stripBytes),
+            32773 => PackBitsCodec.Decode(stripBytes),
+            5 => LzwDecoder.DecodeTiff(stripBytes),
             _ => throw new NotSupportedException($"TIFF compression {compression} not implemented."),
         };
     }
@@ -186,91 +188,6 @@ public sealed class TiffReader : IImageReader
         using var z = new ZLibStream(ms, CompressionMode.Decompress);
         using var output = new MemoryStream();
         z.CopyTo(output);
-        return output.ToArray();
-    }
-
-    private static byte[] PackBitsDecode(ReadOnlySpan<byte> input)
-    {
-        var output = new List<byte>(input.Length * 2);
-        int i = 0;
-        while (i < input.Length)
-        {
-            sbyte n = (sbyte)input[i++];
-            if (n >= 0)
-            {
-                int count = n + 1;
-                if (i + count > input.Length) break;
-                for (int k = 0; k < count; k++) output.Add(input[i + k]);
-                i += count;
-            }
-            else if (n != -128)
-            {
-                int count = -n + 1;
-                if (i >= input.Length) break;
-                byte b = input[i++];
-                for (int k = 0; k < count; k++) output.Add(b);
-            }
-        }
-        return output.ToArray();
-    }
-
-    private static byte[] TiffLzwDecode(ReadOnlySpan<byte> input)
-    {
-        const int clearCode = 256;
-        const int endCode = 257;
-        int codeSize = 9;
-        var dict = new List<byte[]>(4096);
-        for (int i = 0; i < 256; i++) dict.Add([(byte)i]);
-        dict.Add([]); // clear
-        dict.Add([]); // end
-
-        var output = new List<byte>(input.Length * 2);
-        int bitBuf = 0, bitCount = 0, pos = 0;
-        byte[]? prev = null;
-
-        while (pos < input.Length || bitCount >= codeSize)
-        {
-            while (bitCount < codeSize && pos < input.Length)
-            {
-                bitBuf = (bitBuf << 8) | input[pos++];
-                bitCount += 8;
-            }
-            if (bitCount < codeSize) break;
-            int code = (bitBuf >> (bitCount - codeSize)) & ((1 << codeSize) - 1);
-            bitCount -= codeSize;
-
-            if (code == clearCode)
-            {
-                codeSize = 9;
-                dict.Clear();
-                for (int i = 0; i < 256; i++) dict.Add([(byte)i]);
-                dict.Add([]); dict.Add([]);
-                prev = null;
-                continue;
-            }
-            if (code == endCode) break;
-
-            byte[] entry;
-            if (code < dict.Count) entry = dict[code];
-            else if (code == dict.Count && prev is not null)
-            {
-                entry = new byte[prev.Length + 1];
-                Array.Copy(prev, entry, prev.Length);
-                entry[^1] = prev[0];
-            }
-            else break;
-
-            output.AddRange(entry);
-            if (prev is not null && dict.Count < 4096)
-            {
-                var ne = new byte[prev.Length + 1];
-                Array.Copy(prev, ne, prev.Length);
-                ne[^1] = entry[0];
-                dict.Add(ne);
-                if (dict.Count + 1 >= (1 << codeSize) && codeSize < 12) codeSize++;
-            }
-            prev = entry;
-        }
         return output.ToArray();
     }
 

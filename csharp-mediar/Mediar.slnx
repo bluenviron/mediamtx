@@ -12,6 +12,8 @@
     <Project Path="src/Mediar.Acceleration.X86/Mediar.Acceleration.X86.csproj" />
     <Project Path="src/Mediar.Codecs/Mediar.Codecs.csproj" />
     <Project Path="src/Mediar.Codecs.Bcn/Mediar.Codecs.Bcn.csproj" />
+    <Project Path="src/Mediar.Codecs.Lzw/Mediar.Codecs.Lzw.csproj" />
+    <Project Path="src/Mediar.Codecs.PackBits/Mediar.Codecs.PackBits.csproj" />
     <Project Path="src/Mediar.Codecs.Flac.Decoder/Mediar.Codecs.Flac.Decoder.csproj" />
     <Project Path="src/Mediar.Codecs.G711/Mediar.Codecs.G711.csproj" />
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
@@ -35,6 +37,7 @@
     <Project Path="src/Mediar.Imaging.Bmp/Mediar.Imaging.Bmp.csproj" />
     <Project Path="src/Mediar.Imaging.Core/Mediar.Imaging.Core.csproj" />
     <Project Path="src/Mediar.Imaging.Dds/Mediar.Imaging.Dds.csproj" />
+    <Project Path="src/Mediar.Imaging.Dicom/Mediar.Imaging.Dicom.csproj" />
     <Project Path="src/Mediar.Imaging.Gif/Mediar.Imaging.Gif.csproj" />
     <Project Path="src/Mediar.Imaging.Hdr/Mediar.Imaging.Hdr.csproj" />
     <Project Path="src/Mediar.Imaging.Icns/Mediar.Imaging.Icns.csproj" />

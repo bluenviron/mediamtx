@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Mediar.Codecs.Lzw;
 
 namespace Mediar.Imaging.Gif;
 
@@ -198,7 +199,7 @@ public sealed class GifReader : IImageReader
 
             byte lzwMinCode = _bytes[p++];
             byte[] lzwBytes = ReadSubBlocks(_bytes, ref p);
-            byte[] indices = LzwDecode(lzwBytes, lzwMinCode, iw * ih);
+            byte[] indices = LzwDecoder.DecodeGif(lzwBytes, lzwMinCode, iw * ih);
 
             if (disposalMethod == 3)
             {
@@ -381,90 +382,6 @@ public sealed class GifReader : IImageReader
             Description = c0,
             Tags = tags.ToFrozenDictionary(StringComparer.Ordinal),
         };
-    }
-
-    private static byte[] LzwDecode(byte[] data, int lzwMinCodeSize, int pixelCount)
-    {
-        int clearCode = 1 << lzwMinCodeSize;
-        int endCode = clearCode + 1;
-        int codeSize = lzwMinCodeSize + 1;
-        int maxCodeSize = 12;
-        var dict = new List<int[]>(4096);
-        Action reset = () =>
-        {
-            dict.Clear();
-            for (int i = 0; i < clearCode; i++) dict.Add([i]);
-            dict.Add([]); // clear sentinel
-            dict.Add([]); // end sentinel
-            codeSize = lzwMinCodeSize + 1;
-        };
-        reset();
-
-        var output = new byte[pixelCount];
-        int outPos = 0;
-
-        int bitBuf = 0, bitCount = 0, srcPos = 0;
-        int[]? prev = null;
-        int nextSize = 1 << codeSize;
-
-        while (srcPos < data.Length || bitCount >= codeSize)
-        {
-            while (bitCount < codeSize && srcPos < data.Length)
-            {
-                bitBuf |= data[srcPos++] << bitCount;
-                bitCount += 8;
-            }
-            if (bitCount < codeSize) break;
-            int code = bitBuf & ((1 << codeSize) - 1);
-            bitBuf >>= codeSize;
-            bitCount -= codeSize;
-
-            if (code == clearCode)
-            {
-                reset();
-                nextSize = 1 << codeSize;
-                prev = null;
-                continue;
-            }
-            if (code == endCode) break;
-
-            int[] entry;
-            if (code < dict.Count)
-            {
-                entry = dict[code];
-            }
-            else if (code == dict.Count && prev is not null)
-            {
-                entry = new int[prev.Length + 1];
-                Array.Copy(prev, entry, prev.Length);
-                entry[^1] = prev[0];
-            }
-            else
-            {
-                break;   // invalid code – stop early
-            }
-
-            for (int i = 0; i < entry.Length && outPos < output.Length; i++)
-            {
-                output[outPos++] = (byte)entry[i];
-            }
-
-            if (prev is not null && dict.Count < (1 << maxCodeSize))
-            {
-                var newEntry = new int[prev.Length + 1];
-                Array.Copy(prev, newEntry, prev.Length);
-                newEntry[^1] = entry[0];
-                dict.Add(newEntry);
-                if (dict.Count == nextSize && codeSize < maxCodeSize)
-                {
-                    codeSize++;
-                    nextSize = 1 << codeSize;
-                }
-            }
-            prev = entry;
-        }
-
-        return output;
     }
 
     /// <inheritdoc/>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Dicom</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Dicom</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>DICOM (Digital Imaging and Communications in Medicine) image reader for the Mediar toolkit. Supports the uncompressed Implicit VR Little Endian (1.2.840.10008.1.2) and Explicit VR Little Endian (1.2.840.10008.1.2.1) transfer syntaxes for MONOCHROME1, MONOCHROME2 and RGB photometric interpretations at 8 / 16 bits allocated. Compressed transfer syntaxes (JPEG, JPEG-LS, JPEG 2000, RLE Lossless) are recognised in the metadata pass but throw NotSupportedException when pixel data is requested.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

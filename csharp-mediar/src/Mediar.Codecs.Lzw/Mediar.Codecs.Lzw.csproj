@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Lzw</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Lzw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Container-agnostic LZW decoder for the Mediar toolkit. Supports both the GIF dialect (LSB-first packing, in-band CLEAR / EOI codes, variable initial code size driven by the palette) and the TIFF dialect (MSB-first packing, fixed 9-bit initial code size, TIFF 6.0 "early change" rule). Re-used by GIF, TIFF, PostScript and PDF readers.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
