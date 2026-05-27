@@ -4,17 +4,22 @@ using System.Runtime.CompilerServices;
 namespace Mediar.Imaging.Dds;
 
 /// <summary>
-/// Decompresses BC6H (BPTC half-float) block-compressed surfaces into
-/// top-down <see cref="PixelFormat.Rgb96Float"/> pixel buffers. BC6H stores
-/// each 4×4 block in 16 bytes using one of 14 modes; this decoder supports
-/// the two pure 1-subset modes (11 and 14) — the modes most commonly emitted
-/// by typical HDR encoders. Partitioned modes (1-10, 12-13) throw a clear
-/// <see cref="NotSupportedException"/> so callers can fall back gracefully.
+/// Full BC6H (BPTC half-float) decompressor producing top-down
+/// <see cref="PixelFormat.Rgb96Float"/> pixel buffers. Implements all
+/// 14 BC6H modes (single- and two-subset, transformed and untransformed)
+/// from the Khronos Data Format Specification 1.4 Section 20.2.
 /// </summary>
 /// <remarks>
-/// References: Microsoft DXGI BC6H_UF16 / BC6H_SF16 specification and the
-/// Khronos KTX 2.0 BPTC float format pages. All interpolation is performed
-/// in 16-bit integer space and reinterpreted as <see cref="Half"/> on output.
+/// Mode numbers used internally follow the Khronos spec (Table 134):
+/// modes 0, 1 are encoded in 2 bits; modes 2, 3, 6, 7, 10, 11, 14, 15,
+/// 18, 22, 26, 30 in 5 bits. Modes 3, 7, 11, 15 use 1 subset; the rest
+/// use 2 subsets. Reserved mode numbers (19, 23, 27, 31) decode to the
+/// spec-mandated transparent black (0, 0, 0, 1).
+///
+/// Both signed (DXGI BC6H_SF16) and unsigned (DXGI BC6H_UF16) variants
+/// are supported via a single <c>signed</c> flag. All interpolation is
+/// performed in 16-bit integer space and reinterpreted as
+/// <see cref="Half"/> on output, matching the spec's bit-exact decode.
 /// </remarks>
 internal static class Bc6hDecoder
 {
@@ -23,7 +28,6 @@ internal static class Bc6hDecoder
     {
         int blocksX = (width + 3) / 4;
         int blocksY = (height + 3) / 4;
-        // 3 floats × 4 bytes = 12 bytes per pixel.
         var output = new byte[width * height * 12];
         Span<float> block = stackalloc float[16 * 3];
 
@@ -56,191 +60,457 @@ internal static class Bc6hDecoder
 
     private static void DecodeBlock(ReadOnlySpan<byte> src, Span<float> outRgb, bool signed)
     {
-        var reader = new BitReader(src);
-        int modePrefix = reader.Read(2);
-        int modeIdx;
-        if (modePrefix < 2)
+        ulong lo = BinaryPrimitives.ReadUInt64LittleEndian(src[..8]);
+        ulong hi = BinaryPrimitives.ReadUInt64LittleEndian(src.Slice(8, 8));
+        var bits = new BlockBits(lo, hi);
+
+        int low2 = bits.Bits(0, 2);
+        int mode = low2 < 2 ? low2 : (low2 | (bits.Bits(2, 3) << 2));
+
+        // Reserved modes per spec § 20.2: 19, 23, 27, 31 decode to (0, 0, 0, 1).
+        if (mode is 19 or 23 or 27 or 31)
         {
-            modeIdx = modePrefix + 1; // mode 1 or 2 (2-subset, transformed)
-        }
-        else
-        {
-            int upper3 = reader.Read(3);
-            modeIdx = LookupFiveBitMode(modePrefix | (upper3 << 2));
+            outRgb.Clear();
+            return;
         }
 
-        switch (modeIdx)
+        var info = s_modeInfo[mode];
+        Bc6hEndpoints ep = default;
+        int partition = 0;
+
+        switch (mode)
         {
-            case 11:
-                DecodeMode11(ref reader, outRgb, signed);
-                return;
-            case 14:
-                DecodeMode14(ref reader, outRgb, signed);
-                return;
-            case 0:
-            case -1:
-                // Reserved / illegal mode → transparent black per spec recommendation.
-                outRgb.Clear();
-                return;
-            default:
-                throw new NotSupportedException(
-                    $"BC6H mode {modeIdx} (2-subset / transformed) is not implemented in this Mediar release. " +
-                    "Only the 1-subset modes 11 and 14 are currently supported.");
+            case 0:  ExtractMode0(bits, ref ep, out partition); break;
+            case 1:  ExtractMode1(bits, ref ep, out partition); break;
+            case 2:  ExtractMode2(bits, ref ep, out partition); break;
+            case 3:  ExtractMode3(bits, ref ep); break;
+            case 6:  ExtractMode6(bits, ref ep, out partition); break;
+            case 7:  ExtractMode7(bits, ref ep); break;
+            case 10: ExtractMode10(bits, ref ep, out partition); break;
+            case 11: ExtractMode11(bits, ref ep); break;
+            case 14: ExtractMode14(bits, ref ep, out partition); break;
+            case 15: ExtractMode15(bits, ref ep); break;
+            case 18: ExtractMode18(bits, ref ep, out partition); break;
+            case 22: ExtractMode22(bits, ref ep, out partition); break;
+            case 26: ExtractMode26(bits, ref ep, out partition); break;
+            case 30: ExtractMode30(bits, ref ep, out partition); break;
+        }
+
+        // Convert raw endpoint bit-patterns into unquantized 16-bit interpolation values.
+        TransformAndUnquantize(ref ep, info, signed);
+
+        // Decode 16 index values and emit final per-pixel RGB.
+        DecodePixels(bits, ep, info, partition, signed, outRgb);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Per-mode endpoint extractors. Each follows the bit-layout in
+    // Khronos KDF spec 1.4 Tables 135 / 136 / 137 ("Block descriptions
+    // for BC6H block modes" and the lower/upper bit interpretation tables).
+    // Bit positions are absolute (0..127) within the 128-bit block.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static void ExtractMode0(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 10);
+        ep.G0 = b.Bits(15, 10);
+        ep.B0 = b.Bits(25, 10);
+        ep.R1 = b.Bits(35, 5);
+        ep.G1 = b.Bits(45, 5);
+        ep.B1 = b.Bits(55, 5);
+        ep.R2 = b.Bits(65, 5);
+        ep.R3 = b.Bits(71, 5);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(2) << 4);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(40) << 4);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(3) << 4);
+        ep.B3 = b.Bit(50) | (b.Bit(60) << 1) | (b.Bit(70) << 2)
+              | (b.Bit(76) << 3) | (b.Bit(4) << 4);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode1(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 7);
+        ep.G0 = b.Bits(15, 7);
+        ep.B0 = b.Bits(25, 7);
+        ep.R1 = b.Bits(35, 6);
+        ep.G1 = b.Bits(45, 6);
+        ep.B1 = b.Bits(55, 6);
+        ep.R2 = b.Bits(65, 6);
+        ep.R3 = b.Bits(71, 6);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4) | (b.Bit(2) << 5);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(3) << 4)  | (b.Bit(4) << 5);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4) | (b.Bit(22) << 5);
+        ep.B3 = b.Bit(12) | (b.Bit(13) << 1) | (b.Bit(23) << 2)
+              | (b.Bit(32) << 3) | (b.Bit(34) << 4) | (b.Bit(33) << 5);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode2(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 10)  | (b.Bit(40) << 10);
+        ep.G0 = b.Bits(15, 10) | (b.Bit(49) << 10);
+        ep.B0 = b.Bits(25, 10) | (b.Bit(59) << 10);
+        ep.R1 = b.Bits(35, 5);
+        ep.G1 = b.Bits(45, 4);
+        ep.B1 = b.Bits(55, 4);
+        ep.R2 = b.Bits(65, 5);
+        ep.R3 = b.Bits(71, 5);
+        ep.G2 = b.Bits(41, 4);
+        ep.G3 = b.Bits(51, 4);
+        ep.B2 = b.Bits(61, 4);
+        ep.B3 = b.Bit(50) | (b.Bit(60) << 1) | (b.Bit(70) << 2) | (b.Bit(76) << 3);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode3(BlockBits b, ref Bc6hEndpoints ep)
+    {
+        ep.R0 = b.Bits(5, 10);
+        ep.G0 = b.Bits(15, 10);
+        ep.B0 = b.Bits(25, 10);
+        ep.R1 = b.Bits(35, 10);
+        ep.G1 = b.Bits(45, 10);
+        ep.B1 = b.Bits(55, 10);
+    }
+
+    private static void ExtractMode6(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 10)  | (b.Bit(39) << 10);
+        ep.G0 = b.Bits(15, 10) | (b.Bit(50) << 10);
+        ep.B0 = b.Bits(25, 10) | (b.Bit(59) << 10);
+        ep.R1 = b.Bits(35, 4);
+        ep.G1 = b.Bits(45, 5);
+        ep.B1 = b.Bits(55, 4);
+        ep.R2 = b.Bits(65, 4);
+        ep.R3 = b.Bits(71, 4);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(75) << 4);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(40) << 4);
+        ep.B2 = b.Bits(61, 4);
+        ep.B3 = b.Bit(69) | (b.Bit(60) << 1) | (b.Bit(70) << 2) | (b.Bit(76) << 3);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode7(BlockBits b, ref Bc6hEndpoints ep)
+    {
+        ep.R0 = b.Bits(5, 10)  | (b.Bit(44) << 10);
+        ep.G0 = b.Bits(15, 10) | (b.Bit(54) << 10);
+        ep.B0 = b.Bits(25, 10) | (b.Bit(64) << 10);
+        ep.R1 = b.Bits(35, 9);
+        ep.G1 = b.Bits(45, 9);
+        ep.B1 = b.Bits(55, 9);
+    }
+
+    private static void ExtractMode10(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 10)  | (b.Bit(39) << 10);
+        ep.G0 = b.Bits(15, 10) | (b.Bit(49) << 10);
+        ep.B0 = b.Bits(25, 10) | (b.Bit(60) << 10);
+        ep.R1 = b.Bits(35, 4);
+        ep.G1 = b.Bits(45, 4);
+        ep.B1 = b.Bits(55, 5);
+        ep.R2 = b.Bits(65, 4);
+        ep.R3 = b.Bits(71, 4);
+        ep.G2 = b.Bits(41, 4);
+        ep.G3 = b.Bits(51, 4);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(40) << 4);
+        ep.B3 = b.Bit(50) | (b.Bit(69) << 1) | (b.Bit(70) << 2)
+              | (b.Bit(76) << 3) | (b.Bit(75) << 4);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode11(BlockBits b, ref Bc6hEndpoints ep)
+    {
+        // R0[10..11] / G0[10..11] / B0[10..11] are stored in reversed bit
+        // order — first bit read goes to the higher (MSB) target bit.
+        ep.R0 = b.Bits(5, 10)  | (b.Bit(44) << 10) | (b.Bit(43) << 11);
+        ep.G0 = b.Bits(15, 10) | (b.Bit(54) << 10) | (b.Bit(53) << 11);
+        ep.B0 = b.Bits(25, 10) | (b.Bit(64) << 10) | (b.Bit(63) << 11);
+        ep.R1 = b.Bits(35, 8);
+        ep.G1 = b.Bits(45, 8);
+        ep.B1 = b.Bits(55, 8);
+    }
+
+    private static void ExtractMode14(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 9);
+        ep.G0 = b.Bits(15, 9);
+        ep.B0 = b.Bits(25, 9);
+        ep.R1 = b.Bits(35, 5);
+        ep.G1 = b.Bits(45, 5);
+        ep.B1 = b.Bits(55, 5);
+        ep.R2 = b.Bits(65, 5);
+        ep.R3 = b.Bits(71, 5);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(40) << 4);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4);
+        ep.B3 = b.Bit(50) | (b.Bit(60) << 1) | (b.Bit(70) << 2)
+              | (b.Bit(76) << 3) | (b.Bit(34) << 4);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode15(BlockBits b, ref Bc6hEndpoints ep)
+    {
+        // R0[10..15] / G0[10..15] / B0[10..15] are reversed — first bit
+        // read goes to the higher target bit (bit 15 first, then 14, …).
+        ep.R0 = b.Bits(5, 10)
+              | (b.Bit(44) << 10) | (b.Bit(43) << 11) | (b.Bit(42) << 12)
+              | (b.Bit(41) << 13) | (b.Bit(40) << 14) | (b.Bit(39) << 15);
+        ep.G0 = b.Bits(15, 10)
+              | (b.Bit(54) << 10) | (b.Bit(53) << 11) | (b.Bit(52) << 12)
+              | (b.Bit(51) << 13) | (b.Bit(50) << 14) | (b.Bit(49) << 15);
+        ep.B0 = b.Bits(25, 10)
+              | (b.Bit(64) << 10) | (b.Bit(63) << 11) | (b.Bit(62) << 12)
+              | (b.Bit(61) << 13) | (b.Bit(60) << 14) | (b.Bit(59) << 15);
+        ep.R1 = b.Bits(35, 4);
+        ep.G1 = b.Bits(45, 4);
+        ep.B1 = b.Bits(55, 4);
+    }
+
+    private static void ExtractMode18(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 8);
+        ep.G0 = b.Bits(15, 8);
+        ep.B0 = b.Bits(25, 8);
+        ep.R1 = b.Bits(35, 6);
+        ep.G1 = b.Bits(45, 5);
+        ep.B1 = b.Bits(55, 5);
+        ep.R2 = b.Bits(65, 6);
+        ep.R3 = b.Bits(71, 6);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(13) << 4);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4);
+        ep.B3 = b.Bit(50) | (b.Bit(60) << 1) | (b.Bit(23) << 2)
+              | (b.Bit(33) << 3) | (b.Bit(34) << 4);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode22(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 8);
+        ep.G0 = b.Bits(15, 8);
+        ep.B0 = b.Bits(25, 8);
+        ep.R1 = b.Bits(35, 5);
+        ep.G1 = b.Bits(45, 6);
+        ep.B1 = b.Bits(55, 5);
+        ep.R2 = b.Bits(65, 5);
+        ep.R3 = b.Bits(71, 5);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4) | (b.Bit(23) << 5);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(40) << 4) | (b.Bit(33) << 5);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4);
+        ep.B3 = b.Bit(13) | (b.Bit(60) << 1) | (b.Bit(70) << 2)
+              | (b.Bit(76) << 3) | (b.Bit(34) << 4);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode26(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 8);
+        ep.G0 = b.Bits(15, 8);
+        ep.B0 = b.Bits(25, 8);
+        ep.R1 = b.Bits(35, 5);
+        ep.G1 = b.Bits(45, 5);
+        ep.B1 = b.Bits(55, 6);
+        ep.R2 = b.Bits(65, 5);
+        ep.R3 = b.Bits(71, 5);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(40) << 4);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4) | (b.Bit(23) << 5);
+        ep.B3 = b.Bit(50) | (b.Bit(13) << 1) | (b.Bit(70) << 2)
+              | (b.Bit(76) << 3) | (b.Bit(34) << 4) | (b.Bit(33) << 5);
+        partition = b.Bits(77, 5);
+    }
+
+    private static void ExtractMode30(BlockBits b, ref Bc6hEndpoints ep, out int partition)
+    {
+        ep.R0 = b.Bits(5, 6);
+        ep.G0 = b.Bits(15, 6);
+        ep.B0 = b.Bits(25, 6);
+        ep.R1 = b.Bits(35, 6);
+        ep.G1 = b.Bits(45, 6);
+        ep.B1 = b.Bits(55, 6);
+        ep.R2 = b.Bits(65, 6);
+        ep.R3 = b.Bits(71, 6);
+        ep.G2 = b.Bits(41, 4) | (b.Bit(24) << 4) | (b.Bit(21) << 5);
+        ep.G3 = b.Bits(51, 4) | (b.Bit(11) << 4) | (b.Bit(31) << 5);
+        ep.B2 = b.Bits(61, 4) | (b.Bit(14) << 4) | (b.Bit(22) << 5);
+        ep.B3 = b.Bit(12) | (b.Bit(13) << 1) | (b.Bit(23) << 2)
+              | (b.Bit(32) << 3) | (b.Bit(34) << 4) | (b.Bit(33) << 5);
+        partition = b.Bits(77, 5);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Endpoint transformation, sign-extension and unquantization.
+    // Per spec § 20.2: E0 is sign-extended only if format is signed.
+    // E1/E2/E3 are sign-extended if format is signed OR mode is transformed.
+    // For transformed modes, E1/E2/E3 are stored as signed deltas relative
+    // to E0; the wrapped sum modulo (1<<EPB) becomes the actual endpoint.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static void TransformAndUnquantize(ref Bc6hEndpoints ep, Bc6hModeInfo info, bool signed)
+    {
+        // Save raw E0 (unsigned EPB-bit value) for the transform addition.
+        int r0raw = ep.R0, g0raw = ep.G0, b0raw = ep.B0;
+
+        // E0: only sign-extended for signed format.
+        ep.R0 = signed ? SignExtend(ep.R0, info.EpbR) : ep.R0;
+        ep.G0 = signed ? SignExtend(ep.G0, info.EpbG) : ep.G0;
+        ep.B0 = signed ? SignExtend(ep.B0, info.EpbB) : ep.B0;
+
+        ep.R1 = ResolveSecondaryEndpoint(ep.R1, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
+        ep.G1 = ResolveSecondaryEndpoint(ep.G1, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
+        ep.B1 = ResolveSecondaryEndpoint(ep.B1, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
+
+        if (info.TwoSubsets)
+        {
+            ep.R2 = ResolveSecondaryEndpoint(ep.R2, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
+            ep.G2 = ResolveSecondaryEndpoint(ep.G2, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
+            ep.B2 = ResolveSecondaryEndpoint(ep.B2, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
+            ep.R3 = ResolveSecondaryEndpoint(ep.R3, r0raw, info.EpbR, info.DeltaBitsR, info.Transformed, signed);
+            ep.G3 = ResolveSecondaryEndpoint(ep.G3, g0raw, info.EpbG, info.DeltaBitsG, info.Transformed, signed);
+            ep.B3 = ResolveSecondaryEndpoint(ep.B3, b0raw, info.EpbB, info.DeltaBitsB, info.Transformed, signed);
+        }
+
+        // Now unquantize all endpoints to 16-bit integer interpolation space.
+        ep.R0 = Unquantize(ep.R0, info.EpbR, signed);
+        ep.G0 = Unquantize(ep.G0, info.EpbG, signed);
+        ep.B0 = Unquantize(ep.B0, info.EpbB, signed);
+        ep.R1 = Unquantize(ep.R1, info.EpbR, signed);
+        ep.G1 = Unquantize(ep.G1, info.EpbG, signed);
+        ep.B1 = Unquantize(ep.B1, info.EpbB, signed);
+        if (info.TwoSubsets)
+        {
+            ep.R2 = Unquantize(ep.R2, info.EpbR, signed);
+            ep.G2 = Unquantize(ep.G2, info.EpbG, signed);
+            ep.B2 = Unquantize(ep.B2, info.EpbB, signed);
+            ep.R3 = Unquantize(ep.R3, info.EpbR, signed);
+            ep.G3 = Unquantize(ep.G3, info.EpbG, signed);
+            ep.B3 = Unquantize(ep.B3, info.EpbB, signed);
         }
     }
 
-    /// <summary>Mode 11: 1 subset, no transform, 10-bit endpoint components, 4-bit indices.</summary>
-    private static void DecodeMode11(ref BitReader reader, Span<float> outRgb, bool signed)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ResolveSecondaryEndpoint(int rawValue, int e0raw, int epb, int deltaBits, bool transformed, bool signed)
     {
-        int rw = reader.Read(10);
-        int gw = reader.Read(10);
-        int bw = reader.Read(10);
-        int rx = reader.Read(10);
-        int gx = reader.Read(10);
-        int bx = reader.Read(10);
-
-        // Mode 11 endpoints are 10-bit. SF16 sign-extends them; UF16 treats as unsigned.
-        int e0r = UnquantizeEndpoint(SignExtendIfSigned(rw, 10, signed), 10, signed);
-        int e0g = UnquantizeEndpoint(SignExtendIfSigned(gw, 10, signed), 10, signed);
-        int e0b = UnquantizeEndpoint(SignExtendIfSigned(bw, 10, signed), 10, signed);
-        int e1r = UnquantizeEndpoint(SignExtendIfSigned(rx, 10, signed), 10, signed);
-        int e1g = UnquantizeEndpoint(SignExtendIfSigned(gx, 10, signed), 10, signed);
-        int e1b = UnquantizeEndpoint(SignExtendIfSigned(bx, 10, signed), 10, signed);
-
-        // 16 × 4-bit indices, pixel 0 uses 3 bits (anchor).
-        Span<int> indices = stackalloc int[16];
-        for (int i = 0; i < 16; i++)
+        if (transformed)
         {
-            indices[i] = reader.Read(i == 0 ? 3 : 4);
+            // rawValue is a signed delta of width deltaBits; wrap-add to E0 modulo EPB.
+            int delta = SignExtend(rawValue, deltaBits);
+            int mask = (1 << epb) - 1;
+            int combined = (e0raw + delta) & mask;
+            return signed ? SignExtend(combined, epb) : combined;
         }
-
-        WritePixels(outRgb, e0r, e0g, e0b, e1r, e1g, e1b, indices, 4, signed);
+        // Untransformed: rawValue is already EPB-wide. Sign-extend only if signed format.
+        return signed ? SignExtend(rawValue, epb) : rawValue;
     }
 
-    /// <summary>Mode 14: 1 subset, transformed, 16-bit base + 4-bit deltas per channel, 4-bit indices.</summary>
-    private static void DecodeMode14(ref BitReader reader, Span<float> outRgb, bool signed)
+    // ─────────────────────────────────────────────────────────────────────
+    // Pixel decode: read indices in y-major order, look up subset for
+    // each pixel, interpolate endpoints, finalize to half-float bits.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static void DecodePixels(BlockBits b, in Bc6hEndpoints ep, Bc6hModeInfo info, int partition, bool signed, Span<float> outRgb)
     {
-        int rw = reader.Read(16);
-        int gw = reader.Read(16);
-        int bw = reader.Read(16);
-        int drx = reader.Read(4);
-        int dgx = reader.Read(4);
-        int dbx = reader.Read(4);
+        ushort partitionMask = info.TwoSubsets ? s_partition2[partition] : (ushort)0;
+        int anchor = info.TwoSubsets ? s_anchor2[partition] : -1;
 
-        // Base endpoint precision is 16 bits; UF16 treats unsigned, SF16 sign-extends.
-        int e0r = SignExtendIfSigned(rw, 16, signed);
-        int e0g = SignExtendIfSigned(gw, 16, signed);
-        int e0b = SignExtendIfSigned(bw, 16, signed);
-
-        // Deltas are always signed (4-bit two's complement → sign-extend to int).
-        int sdrx = SignExtend(drx, 4);
-        int sdgx = SignExtend(dgx, 4);
-        int sdbx = SignExtend(dbx, 4);
-
-        int e1r = ApplyDelta(e0r, sdrx, 16, signed);
-        int e1g = ApplyDelta(e0g, sdgx, 16, signed);
-        int e1b = ApplyDelta(e0b, sdbx, 16, signed);
-
-        // For mode 14 the endpoints are already 16-bit; unquantize is a no-op (prec >= 15 case).
-        e0r = UnquantizeEndpoint(e0r, 16, signed);
-        e0g = UnquantizeEndpoint(e0g, 16, signed);
-        e0b = UnquantizeEndpoint(e0b, 16, signed);
-        e1r = UnquantizeEndpoint(e1r, 16, signed);
-        e1g = UnquantizeEndpoint(e1g, 16, signed);
-        e1b = UnquantizeEndpoint(e1b, 16, signed);
-
-        Span<int> indices = stackalloc int[16];
-        for (int i = 0; i < 16; i++)
-        {
-            indices[i] = reader.Read(i == 0 ? 3 : 4);
-        }
-
-        WritePixels(outRgb, e0r, e0g, e0b, e1r, e1g, e1b, indices, 4, signed);
-    }
-
-    private static void WritePixels(
-        Span<float> outRgb,
-        int e0r, int e0g, int e0b,
-        int e1r, int e1g, int e1b,
-        ReadOnlySpan<int> indices, int indexBits, bool signed)
-    {
-        ReadOnlySpan<ushort> weights = indexBits switch
-        {
-            3 => s_weights3,
-            4 => s_weights4,
-            _ => s_weights4,
-        };
+        int indexPos = info.TwoSubsets ? 82 : 65;
+        ReadOnlySpan<ushort> weights = info.TwoSubsets ? s_weights3 : s_weights4;
+        int normalBits = info.TwoSubsets ? 3 : 4;
 
         for (int i = 0; i < 16; i++)
         {
-            int w = weights[indices[i]];
+            int bitsToRead = (i == 0 || i == anchor) ? normalBits - 1 : normalBits;
+            int index = b.Bits(indexPos, bitsToRead);
+            indexPos += bitsToRead;
+
+            int subset = info.TwoSubsets ? ((partitionMask >> i) & 1) : 0;
+
+            int e0r, e0g, e0b, e1r, e1g, e1b;
+            if (subset == 0)
+            {
+                e0r = ep.R0; e0g = ep.G0; e0b = ep.B0;
+                e1r = ep.R1; e1g = ep.G1; e1b = ep.B1;
+            }
+            else
+            {
+                e0r = ep.R2; e0g = ep.G2; e0b = ep.B2;
+                e1r = ep.R3; e1g = ep.G3; e1b = ep.B3;
+            }
+
+            int w = weights[index];
             int r = Interpolate(e0r, e1r, w);
             int g = Interpolate(e0g, e1g, w);
-            int b = Interpolate(e0b, e1b, w);
+            int bl = Interpolate(e0b, e1b, w);
 
-            outRgb[i * 3 + 0] = FinalizeToFloat(r, signed);
-            outRgb[i * 3 + 1] = FinalizeToFloat(g, signed);
-            outRgb[i * 3 + 2] = FinalizeToFloat(b, signed);
+            outRgb[i * 3 + 0] = Finalize(r, signed);
+            outRgb[i * 3 + 1] = Finalize(g, signed);
+            outRgb[i * 3 + 2] = Finalize(bl, signed);
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Interpolate(int e0, int e1, int weight)
-    {
-        return ((64 - weight) * e0 + weight * e1 + 32) >> 6;
-    }
+    // ─────────────────────────────────────────────────────────────────────
+    // Math primitives.
+    // ─────────────────────────────────────────────────────────────────────
 
-    /// <summary>Convert a BC6H 16-bit interpolated value to a 32-bit float.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static float FinalizeToFloat(int value, bool signed)
-    {
-        if (signed)
-        {
-            // Apply BC6H signed finalize: scale by 31/32 then reinterpret as half.
-            int finalVal = value < 0
-                ? -((-value * 31) >> 5)
-                : (value * 31) >> 5;
-            finalVal = Math.Clamp(finalVal, -0x7BFF, 0x7BFF);
-            return (float)BitConverter.Int16BitsToHalf((short)finalVal);
-        }
-        else
-        {
-            // Apply BC6H unsigned finalize: scale by 31/64 (always non-negative).
-            int finalVal = (value * 31) >> 6;
-            if (finalVal < 0) finalVal = 0;
-            if (finalVal > 0x7BFF) finalVal = 0x7BFF;
-            return (float)BitConverter.UInt16BitsToHalf((ushort)finalVal);
-        }
-    }
+    private static int Interpolate(int e0, int e1, int weight) =>
+        ((64 - weight) * e0 + weight * e1 + 32) >> 6;
 
-    /// <summary>BC6H endpoint unquantization (extends to 16-bit half-float-encoded value).</summary>
+    /// <summary>BC6H endpoint unquantization per spec § 20.2 pseudocode.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int UnquantizeEndpoint(int val, int prec, bool signed)
+    private static int Unquantize(int val, int epb, bool signed)
     {
         if (signed)
         {
-            if (prec >= 16) return val;
+            if (epb >= 16) return val;
             int sign = 0;
             int abs = val;
             if (abs < 0) { sign = 1; abs = -abs; }
             int unq;
             if (abs == 0) unq = 0;
-            else if (abs >= ((1 << (prec - 1)) - 1)) unq = 0x7FFF;
-            else unq = ((abs << 15) + 0x4000) >> (prec - 1);
+            else if (abs >= ((1 << (epb - 1)) - 1)) unq = 0x7FFF;
+            else unq = ((abs << 15) + 0x4000) >> (epb - 1);
             return sign != 0 ? -unq : unq;
         }
         else
         {
-            if (prec >= 15) return val;
+            if (epb >= 15) return val;
             if (val == 0) return 0;
-            if (val == ((1 << prec) - 1)) return 0xFFFF;
-            return ((val << 16) + 0x8000) >> prec;
+            if (val == ((1 << epb) - 1)) return 0xFFFF;
+            return ((val << 15) + 0x4000) >> (epb - 1);
         }
     }
 
+    /// <summary>Convert the interpolated 16-bit integer to a half-float reinterpreted as float.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int SignExtendIfSigned(int val, int bits, bool signed) =>
-        signed ? SignExtend(val, bits) : val;
+    private static float Finalize(int value, bool signed)
+    {
+        int bits;
+        if (signed)
+        {
+            if (value < 0)
+            {
+                int abs = -value;
+                bits = ((abs * 31) >> 5) | 0x8000;
+            }
+            else
+            {
+                bits = (value * 31) >> 5;
+            }
+        }
+        else
+        {
+            // Clamp to non-negative — interpolation can briefly produce a
+            // small negative value on rounding boundaries that the spec
+            // formula handles via integer truncation. (i*31)>>6 still
+            // produces a meaningful half bit-pattern for slightly negative
+            // values, but unsigned half floats by definition have no sign
+            // bit so we clamp first to match the format contract.
+            int v = value < 0 ? 0 : value;
+            bits = (v * 31) >> 6;
+        }
+        return (float)BitConverter.UInt16BitsToHalf((ushort)bits);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int SignExtend(int val, int bits)
@@ -250,86 +520,104 @@ internal static class Bc6hDecoder
         return val;
     }
 
-    /// <summary>Add a delta to a base endpoint, then clip to the precision range.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int ApplyDelta(int baseVal, int delta, int prec, bool signed)
+    // ─────────────────────────────────────────────────────────────────────
+    // Tables and types.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private struct Bc6hEndpoints
     {
-        int result = baseVal + delta;
-        if (signed)
-        {
-            int max = (1 << (prec - 1)) - 1;
-            int min = -(1 << (prec - 1));
-            return Math.Clamp(result, min, max);
-        }
-        else
-        {
-            int mask = (1 << prec) - 1;
-            return result & mask;
-        }
+        public int R0, G0, B0;
+        public int R1, G1, B1;
+        public int R2, G2, B2;
+        public int R3, G3, B3;
     }
 
-    private static int LookupFiveBitMode(int value5)
+    private readonly record struct Bc6hModeInfo(
+        byte EpbR, byte EpbG, byte EpbB,
+        byte DeltaBitsR, byte DeltaBitsG, byte DeltaBitsB,
+        bool Transformed,
+        bool TwoSubsets);
+
+    private static readonly Bc6hModeInfo[] s_modeInfo = BuildModeInfoTable();
+
+    private static Bc6hModeInfo[] BuildModeInfoTable()
     {
-        // Mapping from 5-bit mode bits (LSB-first) → 1-based BC6H mode number.
-        // bits 0,1 are always 1,1 for 5-bit modes (since 2-bit prefix selected 5-bit mode).
-        // Microsoft DXGI spec bit patterns (MSB-first textual) → 5-bit LSB-first value:
-        //  00010 → 2 → mode 3      00011 → 3 → mode 11
-        //  00110 → 6 → mode 4      00111 → 7 → mode 12
-        //  01010 → 10 → mode 5     01011 → 11 → mode 13
-        //  01110 → 14 → mode 6     01111 → 15 → mode 14
-        //  10010 → 18 → mode 7
-        //  10110 → 22 → mode 8
-        //  11010 → 26 → mode 9
-        //  11110 → 30 → mode 10
-        return value5 switch
-        {
-            2 => 3,
-            6 => 4,
-            10 => 5,
-            14 => 6,
-            18 => 7,
-            22 => 8,
-            26 => 9,
-            30 => 10,
-            3 => 11,
-            7 => 12,
-            11 => 13,
-            15 => 14,
-            _ => -1, // reserved / illegal
-        };
+        var t = new Bc6hModeInfo[32];
+        // 2-subset modes (Table 134):
+        t[0]  = new(10, 10, 10, 5, 5, 5, Transformed: true,  TwoSubsets: true);
+        t[1]  = new(7,  7,  7,  6, 6, 6, Transformed: true,  TwoSubsets: true);
+        t[2]  = new(11, 11, 11, 5, 4, 4, Transformed: true,  TwoSubsets: true);
+        t[6]  = new(11, 11, 11, 4, 5, 4, Transformed: true,  TwoSubsets: true);
+        t[10] = new(11, 11, 11, 4, 4, 5, Transformed: true,  TwoSubsets: true);
+        t[14] = new(9,  9,  9,  5, 5, 5, Transformed: true,  TwoSubsets: true);
+        t[18] = new(8,  8,  8,  6, 5, 5, Transformed: true,  TwoSubsets: true);
+        t[22] = new(8,  8,  8,  5, 6, 5, Transformed: true,  TwoSubsets: true);
+        t[26] = new(8,  8,  8,  5, 5, 6, Transformed: true,  TwoSubsets: true);
+        t[30] = new(6,  6,  6,  0, 0, 0, Transformed: false, TwoSubsets: true);
+        // 1-subset modes:
+        t[3]  = new(10, 10, 10, 0, 0, 0, Transformed: false, TwoSubsets: false);
+        t[7]  = new(11, 11, 11, 9, 9, 9, Transformed: true,  TwoSubsets: false);
+        t[11] = new(12, 12, 12, 8, 8, 8, Transformed: true,  TwoSubsets: false);
+        t[15] = new(16, 16, 16, 4, 4, 4, Transformed: true,  TwoSubsets: false);
+        return t;
     }
 
     private static readonly ushort[] s_weights3 = [0, 9, 18, 27, 37, 46, 55, 64];
     private static readonly ushort[] s_weights4 = [0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64];
 
-    /// <summary>LSB-first bit reader over a 128-bit BC6H block.</summary>
-    private ref struct BitReader
+    /// <summary>
+    /// 2-subset BPTC partition table (Table 127 of the Khronos DF spec 1.4).
+    /// For each of 64 partition patterns, bit <i>i</i> (LSB-first) indicates
+    /// which subset (0 or 1) pixel <i>i</i> belongs to in the 4×4 block.
+    /// </summary>
+    private static readonly ushort[] s_partition2 =
+    [
+        0xCCCC, 0x8888, 0xEEEE, 0xECC8, 0xC880, 0xFEEC, 0xFEC8, 0xEC80,
+        0xC800, 0xFFEC, 0xFE80, 0xE800, 0xFFE8, 0xFF00, 0xFFF0, 0xF000,
+        0xF710, 0x008E, 0x7100, 0x08CE, 0x008C, 0x7310, 0x3100, 0x8CCE,
+        0x088C, 0x3110, 0x6666, 0x366C, 0x17E8, 0x0FF0, 0x718E, 0x399C,
+        0xAAAA, 0xF0F0, 0x5A5A, 0x33CC, 0x3C3C, 0x55AA, 0x9696, 0xA55A,
+        0x73CE, 0x13C8, 0x324C, 0x3BDC, 0x6996, 0xC33C, 0x9966, 0x0660,
+        0x0272, 0x04E4, 0x4E40, 0x2720, 0xC936, 0x936C, 0x39C6, 0x639C,
+        0x9336, 0x9CC6, 0x817E, 0xE718, 0xCCF0, 0x0FCC, 0x7744, 0xEE22,
+    ];
+
+    /// <summary>
+    /// 2-subset BPTC anchor index table (Table 131 of the Khronos DF spec 1.4):
+    /// the pixel index that is the anchor (1 fewer bit) in the secondary
+    /// subset for each partition pattern.
+    /// </summary>
+    private static readonly byte[] s_anchor2 =
+    [
+        15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15,
+        15,  2,  8,  2,  2,  8,  8, 15,
+         2,  8,  2,  2,  8,  8,  2,  2,
+        15, 15,  6,  8,  2,  8, 15, 15,
+         2,  8,  2,  2,  2, 15, 15,  6,
+         6,  2,  6,  8, 15, 15,  2,  2,
+        15, 15, 15, 15, 15,  2,  2, 15,
+    ];
+
+    /// <summary>Random-access bit reader over a 128-bit BC6H block, LSB-first.</summary>
+    private readonly ref struct BlockBits
     {
         private readonly ulong _lo;
         private readonly ulong _hi;
-        private int _pos;
 
-        public BitReader(ReadOnlySpan<byte> src)
-        {
-            _lo = BinaryPrimitives.ReadUInt64LittleEndian(src[..8]);
-            _hi = BinaryPrimitives.ReadUInt64LittleEndian(src.Slice(8, 8));
-            _pos = 0;
-        }
+        public BlockBits(ulong lo, ulong hi) { _lo = lo; _hi = hi; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int Read(int n)
+        public int Bit(int pos) =>
+            (int)(((pos < 64 ? _lo : _hi) >> (pos & 63)) & 1UL);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Bits(int pos, int count)
         {
-            if (n <= 0) return 0;
-            int p = _pos;
-            _pos += n;
             int v = 0;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < count; i++)
             {
-                int bp = p + i;
-                ulong source = bp < 64 ? _lo : _hi;
-                int shift = bp < 64 ? bp : bp - 64;
-                int bit = (int)((source >> shift) & 1UL);
-                v |= bit << i;
+                v |= Bit(pos + i) << i;
             }
             return v;
         }

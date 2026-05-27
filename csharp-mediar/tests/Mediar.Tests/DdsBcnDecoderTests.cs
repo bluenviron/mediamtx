@@ -311,24 +311,31 @@ public sealed class DdsBcnDecoderTests
     }
 
     [Fact]
-    public async Task Bcn_Bc6h_PartitionedModeThrowsNotSupported()
+    public async Task Bcn_Bc6h_AllZeroBlock_DecodesAsMode0AllZeroPixels()
     {
-        // Mode 1 (2-bit prefix = 00, value 0) is a partitioned mode and
-        // not implemented. Verify a clear NotSupportedException is raised.
+        // An all-zero 128-bit block has low2 = 0 → Khronos Mode 0 (2 subsets,
+        // transformed). With every endpoint, delta, and index equal to zero,
+        // the entire 4×4 tile must decode to (0, 0, 0). Previously this test
+        // expected NotSupportedException because the decoder rejected
+        // partitioned modes; the full 14-mode decoder now handles it.
         var file = BuildDdsHeader(4, 4, "DX10", compressed: true);
         file = Concat(file, BuildDx10TailLocal(95)); // BC6H_UF16
-        // 16 bytes where the first 2 bits are 00 → mode 1.
         var block = new byte[16];
-        // bits 0,1 = 0,0 selects mode 1 (partitioned)
         file = Concat(file, block);
 
         await using var ms = new MemoryStream(file);
         using var reader = DdsReader.Open(ms, ownsStream: false);
         Assert.True(reader.CanDecodePixels);
-        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
         {
-            await foreach (var _ in reader.ReadFramesAsync()) { }
-        });
+            var s = captured!.Pixels.Span;
+            Assert.Equal(4 * 4 * 12, s.Length);
+            for (int i = 0; i < s.Length; i++) Assert.Equal((byte)0, s[i]);
+        }
     }
 
     private static byte[] BuildDx10TailLocal(uint dxgiFormat)

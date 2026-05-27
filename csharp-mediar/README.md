@@ -89,19 +89,21 @@ and an `ImageFormat` enum spans every requested format.
 
 | Tier | Capability | Formats |
 | --- | --- | --- |
-| Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed + BC1/BC2/BC3/BC4/BC5/BC6H modes 11+14/BC7), JPEG (baseline SOF0 + progressive SOF2 + lossless SOF3, grayscale + 4:4:4 / 4:2:2 / 4:2:0 YCbCr) |
-| Header + metadata only | dimensions / channels / EXIF without pixel decode | HEIF / HEIC / AVIF / CR3 (ISO-BMFF box walker), JP2 / J2K (codestream + container), JXR, BPG, FLIF, MNG, EMF, WMF / APM, DICOM, DJVU, SVS (Aperio TIFF), gzipped vector wrappers, DDS BC6H partitioned modes (1-10, 12-13) |
+| Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed + BC1/BC2/BC3/BC4/BC5/BC6H **all 14 modes per Khronos KDF spec 1.4**/BC7), JPEG (baseline SOF0 + progressive SOF2 + lossless SOF3, grayscale + 4:4:4 / 4:2:2 / 4:2:0 YCbCr) |
+| Header + metadata only | dimensions / channels / EXIF without pixel decode | HEIF / HEIC / AVIF / CR3 (ISO-BMFF box walker), JP2 / J2K (codestream + container), JXR, BPG, FLIF, MNG, EMF, WMF / APM, DICOM, DJVU, SVS (Aperio TIFF), gzipped vector wrappers |
 | Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG) |
 
 Pixel decoding is intentionally **never** wired to a third-party codec
 binary. JPEG arithmetic-coded variants remain deferred;
 HEIF / AVIF / JXL require codec implementations
 that are themselves multi-month projects and are out of scope. DDS BC6H
-(HDR half-float UF16 / SF16) ships **1-subset modes 11 and 14**, which
-account for the majority of real-world encoder output. The 12 partitioned
-modes (1-10, 12-13) raise `NotSupportedException` and are deferred. The
-header tier returns full dimensions + tags so callers can route, sort,
-or build indexes without touching pixels.
+(HDR half-float UF16 / SF16) implements **all 14 BC6H modes** — the four
+single-subset modes (3, 7, 11, 15) and the ten two-subset partitioned
+modes (0, 1, 2, 6, 10, 14, 18, 22, 26, 30) — per the Khronos Data Format
+Specification 1.4 § 20.2. Reserved mode numbers (19, 23, 27, 31) decode
+to the spec-mandated transparent black. The header tier returns full
+dimensions + tags so callers can route, sort, or build indexes without
+touching pixels.
 
 Performance principles applied throughout: `ArrayPool<byte>.Shared`-backed
 `ImageFrame.Rent`, `Span<byte>` on every hot path, `BinaryPrimitives` for
@@ -158,7 +160,7 @@ csharp-mediar/
 │   ├── Mediar.Imaging.Pnm/             Portable AnyMap P1..P6
 │   ├── Mediar.Imaging.Xpm/             X PixMap (XPM3 text format)
 │   ├── Mediar.Imaging.Icns/            Apple .icns sub-image enumerator
-│   ├── Mediar.Imaging.Dds/             DirectDraw Surface (uncompressed + BC1-BC5 + BC6H modes 11+14 + BC7)
+│   ├── Mediar.Imaging.Dds/             DirectDraw Surface (uncompressed + BC1-BC5 + BC6H all 14 modes + BC7)
 │   ├── Mediar.Imaging.Probe/           HEIF / AVIF / JXR / BPG / FLIF / MNG / EMF / WMF / DICOM / DJVU / SVS header probes
 │   ├── Mediar.Imaging/                 MediarImage.Open(path) facade
 │   └── Mediar/                         high-level facade
