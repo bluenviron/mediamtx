@@ -53,12 +53,55 @@ public static class VorbisComment
                 {
                     string key = entry[..eq];
                     string value = entry[(eq + 1)..];
-                    meta.Set(key, value);
+                    if (TryHandlePicture(key, value, meta))
+                    {
+                        // Picture intentionally NOT mirrored into Tags - the binary
+                        // base64 payload would dwarf real tag content.
+                    }
+                    else
+                    {
+                        meta.Set(key, value);
+                    }
                     written++;
                 }
                 p += (int)len;
             }
         }
         return written;
+    }
+
+    private static bool TryHandlePicture(string key, string value, MediaMetadataBuilder meta)
+    {
+        if (!key.Equals("METADATA_BLOCK_PICTURE", StringComparison.OrdinalIgnoreCase) &&
+            !key.Equals("COVERART", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (value.Length == 0) return true;
+        try
+        {
+            byte[] payload = Convert.FromBase64String(value);
+            if (key.Equals("METADATA_BLOCK_PICTURE", StringComparison.OrdinalIgnoreCase))
+            {
+                var picture = FlacPictureBlock.TryParse(payload);
+                if (picture is not null) meta.AddPicture(picture);
+            }
+            else
+            {
+                // Legacy Xiph COVERART carries raw image bytes (typically JPEG).
+                meta.AddPicture(new MediaPicture
+                {
+                    Type = MediaPictureType.CoverFront,
+                    MimeType = "image/jpeg",
+                    Description = string.Empty,
+                    Data = payload,
+                });
+            }
+        }
+        catch (FormatException)
+        {
+            // Malformed base64 - silently drop the picture, leave other tags intact.
+        }
+        return true;
     }
 }

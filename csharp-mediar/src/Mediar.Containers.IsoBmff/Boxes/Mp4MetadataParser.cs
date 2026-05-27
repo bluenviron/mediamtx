@@ -71,6 +71,12 @@ internal static class Mp4MetadataParser
                 continue;
             }
 
+            if (atomType.Value == BoxTypes.IlCovr.Value)
+            {
+                ParseCovrAtom(atomPayload, meta);
+                continue;
+            }
+
             string? key = MapItunesAtom(atomType);
             if (key is null) continue;
 
@@ -230,6 +236,41 @@ internal static class Mp4MetadataParser
             "ACOUSTID FINGERPRINT" => "ACOUSTID_FINGERPRINT",
             _ => upper,
         };
+    }
+
+    /// <summary>
+    /// Parse the iTunes "covr" cover-art atom. Each <c>data</c> child
+    /// carries one picture whose MIME type is encoded in the iTunes
+    /// dataType field: 13 = JPEG, 14 = PNG, 27 = BMP. The picture role
+    /// is always reported as <see cref="MediaPictureType.CoverFront"/>;
+    /// the atom carries no per-picture role or description.
+    /// </summary>
+    private static void ParseCovrAtom(ReadOnlyMemory<byte> payload, MediaMetadataBuilder meta)
+    {
+        foreach (var (childType, childPayload) in MovieParser.IterateChildren(payload))
+        {
+            if (childType.Value != BoxTypes.Data.Value) continue;
+            if (childPayload.Length < 8) continue;
+            var span = childPayload.Span;
+            uint typeFlags = BinaryPrimitives.ReadUInt32BigEndian(span);
+            uint dataType = typeFlags & 0x00FFFFFF;
+            var data = span[8..];
+            if (data.Length == 0) continue;
+            string mime = dataType switch
+            {
+                13 => "image/jpeg",
+                14 => "image/png",
+                27 => "image/bmp",
+                _ => "application/octet-stream",
+            };
+            meta.AddPicture(new MediaPicture
+            {
+                Type = MediaPictureType.CoverFront,
+                MimeType = mime,
+                Description = string.Empty,
+                Data = data.ToArray(),
+            });
+        }
     }
 
     private static long ReadBeSignedInt(ReadOnlySpan<byte> v) => v.Length switch

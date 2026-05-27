@@ -117,4 +117,6 @@ internal static class BoxTypes
     public static readonly FourCc IlFreeForm = new("----");
     public static readonly FourCc Mean = new("mean");
     public static readonly FourCc Name = new("name");
+    // Embedded cover art atom.
+    public static readonly FourCc IlCovr = new("covr");
 }

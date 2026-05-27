@@ -178,8 +178,88 @@ internal static class Id3v2
             string? url = DecodeUrl(data[valueStart..]);
             if (url is null || url.Length == 0) return;
             meta.Set("WEBSITE", url);
+            return;
+        }
+
+        if (id is "APIC")
+        {
+            HandleApicFrame(data, meta);
+            return;
+        }
+
+        if (id is "PIC")
+        {
+            HandlePicV22Frame(data, meta);
         }
     }
+
+    private static void HandleApicFrame(ReadOnlySpan<byte> data, MediaMetadataBuilder meta)
+    {
+        // ID3v2.3/2.4 APIC:
+        //   [enc:1][MIME:Latin1 NUL-terminated][picType:1][desc:enc NUL-terminated][image bytes...]
+        if (data.Length < 4) return;
+        byte enc = data[0];
+        int p = 1;
+        int mimeEnd = data[p..].IndexOf((byte)0);
+        if (mimeEnd < 0) return;
+        string mime = Encoding.Latin1.GetString(data.Slice(p, mimeEnd));
+        p += mimeEnd + 1;
+        if (p >= data.Length) return;
+        byte picType = data[p++];
+        int descEnd = FindStringTerminator(data, p, enc);
+        if (descEnd < 0) return;
+        string? desc = DecodeString(data[p..descEnd], enc);
+        int dataStart = descEnd + GetTerminatorLength(enc);
+        if (dataStart > data.Length) return;
+        byte[] picBytes = data[dataStart..].ToArray();
+        if (picBytes.Length == 0) return;
+        meta.AddPicture(new MediaPicture
+        {
+            Type = ResolvePictureType(picType),
+            MimeType = mime.Length == 0 ? "image/" : mime,
+            Description = desc ?? string.Empty,
+            Data = picBytes,
+        });
+    }
+
+    private static void HandlePicV22Frame(ReadOnlySpan<byte> data, MediaMetadataBuilder meta)
+    {
+        // ID3v2.2 PIC:
+        //   [enc:1][image format:3 ASCII (e.g. "JPG"/"PNG")][picType:1][desc:enc NUL-terminated][image bytes...]
+        if (data.Length < 6) return;
+        byte enc = data[0];
+        string fmt = Encoding.ASCII.GetString(data.Slice(1, 3));
+        byte picType = data[4];
+        int p = 5;
+        int descEnd = FindStringTerminator(data, p, enc);
+        if (descEnd < 0) return;
+        string? desc = DecodeString(data[p..descEnd], enc);
+        int dataStart = descEnd + GetTerminatorLength(enc);
+        if (dataStart > data.Length) return;
+        byte[] picBytes = data[dataStart..].ToArray();
+        if (picBytes.Length == 0) return;
+        meta.AddPicture(new MediaPicture
+        {
+            Type = ResolvePictureType(picType),
+            MimeType = ImageFormatToMimeType(fmt),
+            Description = desc ?? string.Empty,
+            Data = picBytes,
+        });
+    }
+
+    private static string ImageFormatToMimeType(string format) => format.ToUpperInvariant() switch
+    {
+        "JPG" or "JPEG" => "image/jpeg",
+        "PNG" => "image/png",
+        "GIF" => "image/gif",
+        "BMP" => "image/bmp",
+        _ => "image/" + format.ToLowerInvariant(),
+    };
+
+    private static MediaPictureType ResolvePictureType(byte raw)
+        => raw <= (byte)MediaPictureType.PublisherLogo
+            ? (MediaPictureType)raw
+            : MediaPictureType.Other;
 
     private static string MapUrlFrame(string id) => id switch
     {

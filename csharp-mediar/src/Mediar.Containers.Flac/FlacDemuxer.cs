@@ -117,6 +117,23 @@ public sealed class FlacDemuxer : IMediaDemuxer
                     ArrayPool<byte>.Shared.Return(buf);
                 }
             }
+            else if (blockType == 6)
+            {
+                // PICTURE block (RFC 9639 § 8.8).
+                byte[] buf = ArrayPool<byte>.Shared.Rent(blockLen);
+                try
+                {
+                    if (source.Read(pos, buf.AsSpan(0, blockLen)) == blockLen)
+                    {
+                        var picture = FlacPictureBlock.TryParse(buf.AsSpan(0, blockLen));
+                        if (picture is not null) meta.AddPicture(picture);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buf);
+                }
+            }
 
             pos += blockLen;
             if (isLast) break;

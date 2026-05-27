@@ -151,6 +151,12 @@ public sealed class MediaMetadata
     public GeoLocation? Location { get; init; }
 
     /// <summary>
+    /// Embedded pictures (cover art, label scans, artist photos, ...)
+    /// extracted from the container. Empty when no pictures are present.
+    /// </summary>
+    public IReadOnlyList<MediaPicture> Pictures { get; init; } = [];
+
+    /// <summary>
     /// All extracted raw tag entries keyed by an uppercase canonical name
     /// (typically the Vorbis-comment-style identifier, e.g. <c>TITLE</c>,
     /// <c>ARTIST</c>, <c>LOCATION</c>). Strong properties above are also
@@ -173,7 +179,7 @@ public sealed class MediaMetadata
         MusicalKey is null && Mood is null && Compilation is null && License is null &&
         Website is null && CatalogNumber is null && Barcode is null && Subtitle is null &&
         DiscSubtitle is null && Work is null && Version is null && Vendor is null &&
-        Location is null;
+        Location is null && Pictures.Count == 0;
 }
 
 /// <summary>
@@ -268,6 +274,11 @@ public sealed class MediaMetadataBuilder
     /// <summary>Strong-property fields populated from canonical keys.</summary>
     public GeoLocation? Location { get; set; }
 
+    private readonly List<MediaPicture> _pictures = [];
+
+    /// <summary>Embedded pictures collected via <see cref="AddPicture"/>.</summary>
+    public IReadOnlyList<MediaPicture> Pictures => _pictures;
+
     /// <summary>True when no tags have been accumulated.</summary>
     public bool IsEmpty =>
         _tags.Count == 0 && Location is null && Vendor is null &&
@@ -276,7 +287,8 @@ public sealed class MediaMetadataBuilder
         Bpm is null && MusicalKey is null && Mood is null &&
         Compilation is null && License is null && Website is null &&
         CatalogNumber is null && Barcode is null && Subtitle is null &&
-        DiscSubtitle is null && Work is null && Version is null;
+        DiscSubtitle is null && Work is null && Version is null &&
+        _pictures.Count == 0;
 
     /// <summary>
     /// Record a single tag. <paramref name="key"/> is canonicalised to
@@ -466,6 +478,18 @@ public sealed class MediaMetadataBuilder
         _tags["LOCATION"] = FormatIso6709(location);
     }
 
+    /// <summary>
+    /// Add an embedded picture (cover art, artist photo, ...) extracted
+    /// from the container. Pictures with empty or zero-length data are
+    /// silently dropped.
+    /// </summary>
+    public void AddPicture(MediaPicture picture)
+    {
+        ArgumentNullException.ThrowIfNull(picture);
+        if (picture.Data.Length == 0) return;
+        _pictures.Add(picture);
+    }
+
     /// <summary>Build the immutable <see cref="MediaMetadata"/> snapshot.</summary>
     public MediaMetadata Build()
     {
@@ -512,6 +536,7 @@ public sealed class MediaMetadataBuilder
             Version = Version,
             Vendor = Vendor,
             Location = Location,
+            Pictures = _pictures.Count == 0 ? [] : _pictures.ToArray(),
             Tags = _tags.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase),
         };
     }
