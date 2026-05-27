@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Pef</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Pef</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Pentax Electronic Format (PEF) reader for the Mediar toolkit. PEF is a TIFF-based RAW container identified by the EXIF Make tag ("PENTAX" or "RICOH IMAGING COMPANY, LTD." for later K-series and Ricoh-branded bodies). Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode, walks SubIFDs to discover the full-resolution raw sensor mosaic, and exposes the parsed Pentax-specific tag set into a structured PefMetadata record.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
