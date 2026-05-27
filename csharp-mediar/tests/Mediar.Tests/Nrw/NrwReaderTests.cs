@@ -90,7 +90,7 @@ public sealed class NrwReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = NrwReader.Open(ms);
         Assert.Equal(ImageFormat.Nrw, reader.Format);
-        Assert.Equal(make, reader.NRW.Make);
+        Assert.Equal(make, reader.Raw.Make);
     }
 
     [Fact]
@@ -158,16 +158,16 @@ public sealed class NrwReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = NrwReader.Open(ms);
 
-        Assert.Equal("NIKON", reader.NRW.Make);
-        Assert.Equal("COOLPIX P7800", reader.NRW.Model);
-        Assert.Equal("Ver.1.10", reader.NRW.Software);
-        Assert.Equal("2014:08:01 09:00:00", reader.NRW.DateTime);
-        Assert.Equal("Niko Photographer", reader.NRW.Artist);
-        Assert.Equal("(c) 2014 Nikon Test", reader.NRW.Copyright);
-        Assert.Equal(256, reader.NRW.MakerNoteLength);
+        Assert.Equal("NIKON", reader.Raw.Make);
+        Assert.Equal("COOLPIX P7800", reader.Raw.Model);
+        Assert.Equal("Ver.1.10", reader.Raw.Software);
+        Assert.Equal("2014:08:01 09:00:00", reader.Raw.DateTime);
+        Assert.Equal("Niko Photographer", reader.Raw.Artist);
+        Assert.Equal("(c) 2014 Nikon Test", reader.Raw.Copyright);
+        Assert.Equal(256, reader.Raw.MakerNoteLength);
         Assert.Equal("NIKON", reader.Metadata.CameraMake);
         Assert.Equal("COOLPIX P7800", reader.Metadata.CameraModel);
-        Assert.Equal("256", reader.Metadata.Tags["NRW:MakerNoteLength"]);
+        Assert.Equal("256", reader.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

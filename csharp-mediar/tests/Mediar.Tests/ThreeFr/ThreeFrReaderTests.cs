@@ -88,7 +88,7 @@ public sealed class ThreeFrReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var tfr = ThreeFrReader.Open(ms);
         Assert.Equal(ImageFormat.ThreeFr, tfr.Format);
-        Assert.Equal(make, tfr.ThreeFr.Make);
+        Assert.Equal(make, tfr.Raw.Make);
     }
 
     [Fact]
@@ -156,16 +156,16 @@ public sealed class ThreeFrReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var tfr = ThreeFrReader.Open(ms);
 
-        Assert.Equal("Hasselblad", tfr.ThreeFr.Make);
-        Assert.Equal("H6D-100c", tfr.ThreeFr.Model);
-        Assert.Equal("Phocus 3.6", tfr.ThreeFr.Software);
-        Assert.Equal("2019:08:15 14:22:31", tfr.ThreeFr.DateTime);
-        Assert.Equal("Henri Hasselblad", tfr.ThreeFr.Artist);
-        Assert.Equal("(c) 2019", tfr.ThreeFr.Copyright);
-        Assert.Equal(512, tfr.ThreeFr.MakerNoteLength);
+        Assert.Equal("Hasselblad", tfr.Raw.Make);
+        Assert.Equal("H6D-100c", tfr.Raw.Model);
+        Assert.Equal("Phocus 3.6", tfr.Raw.Software);
+        Assert.Equal("2019:08:15 14:22:31", tfr.Raw.DateTime);
+        Assert.Equal("Henri Hasselblad", tfr.Raw.Artist);
+        Assert.Equal("(c) 2019", tfr.Raw.Copyright);
+        Assert.Equal(512, tfr.Raw.MakerNoteLength);
         Assert.Equal("Hasselblad", tfr.Metadata.CameraMake);
         Assert.Equal("H6D-100c", tfr.Metadata.CameraModel);
-        Assert.Equal("512", tfr.Metadata.Tags["3FR:MakerNoteLength"]);
+        Assert.Equal("512", tfr.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

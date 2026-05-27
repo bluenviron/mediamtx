@@ -90,7 +90,7 @@ public sealed class MefReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = MefReader.Open(ms);
         Assert.Equal(ImageFormat.Mef, reader.Format);
-        Assert.Equal(make, reader.MEF.Make);
+        Assert.Equal(make, reader.Raw.Make);
     }
 
     [Fact]
@@ -158,16 +158,16 @@ public sealed class MefReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = MefReader.Open(ms);
 
-        Assert.Equal("Mamiya", reader.MEF.Make);
-        Assert.Equal("Mamiya ZD", reader.MEF.Model);
-        Assert.Equal("Mamiya Digital v2.1", reader.MEF.Software);
-        Assert.Equal("2006:03:15 11:00:00", reader.MEF.DateTime);
-        Assert.Equal("Manny Mamiya", reader.MEF.Artist);
-        Assert.Equal("(c) 2006 Mamiya Test", reader.MEF.Copyright);
-        Assert.Equal(256, reader.MEF.MakerNoteLength);
+        Assert.Equal("Mamiya", reader.Raw.Make);
+        Assert.Equal("Mamiya ZD", reader.Raw.Model);
+        Assert.Equal("Mamiya Digital v2.1", reader.Raw.Software);
+        Assert.Equal("2006:03:15 11:00:00", reader.Raw.DateTime);
+        Assert.Equal("Manny Mamiya", reader.Raw.Artist);
+        Assert.Equal("(c) 2006 Mamiya Test", reader.Raw.Copyright);
+        Assert.Equal(256, reader.Raw.MakerNoteLength);
         Assert.Equal("Mamiya", reader.Metadata.CameraMake);
         Assert.Equal("Mamiya ZD", reader.Metadata.CameraModel);
-        Assert.Equal("256", reader.Metadata.Tags["MEF:MakerNoteLength"]);
+        Assert.Equal("256", reader.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

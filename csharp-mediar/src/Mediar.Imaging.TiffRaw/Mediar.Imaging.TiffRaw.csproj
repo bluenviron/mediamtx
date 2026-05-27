@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.TiffRaw</RootNamespace>
+    <AssemblyName>Mediar.Imaging.TiffRaw</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Shared TIFF-RAW infrastructure for the Mediar toolkit. Centralises the TIFF header parse, IFD walk, SubIFD recursion, ASCII/short/long tag readers, EXIF metadata extraction and proprietary-compression detection used by every TIFF-based camera-RAW reader (DNG, NEF, ARW, PEF, DCR, ORF, SRW, 3FR, NRW, SR2, MEF, MOS, ERF and friends). Per-format reader assemblies become thin factories that pass a TiffRawConfig (format id + brand-name + Make-prefix predicate + proprietary-compression tag) into TiffRawReader.OpenStandard which performs the actual parse. The proprietary compression tag is surfaced via CanDecodePixels = false and a NotSupportedException with the brand name baked into the message; uncompressed and standard JPEG-in-TIFF mosaics flow straight through Mediar.Imaging.Tiff for pixel decode.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+</Project>

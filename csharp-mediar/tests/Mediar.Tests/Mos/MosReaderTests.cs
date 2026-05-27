@@ -89,7 +89,7 @@ public sealed class MosReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = MosReader.Open(ms);
         Assert.Equal(ImageFormat.Mos, reader.Format);
-        Assert.Equal(make, reader.MOS.Make);
+        Assert.Equal(make, reader.Raw.Make);
     }
 
     [Fact]
@@ -157,16 +157,16 @@ public sealed class MosReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = MosReader.Open(ms);
 
-        Assert.Equal("Leaf", reader.MOS.Make);
-        Assert.Equal("Aptus II 10", reader.MOS.Model);
-        Assert.Equal("Leaf Capture 11.5", reader.MOS.Software);
-        Assert.Equal("2011:07:12 14:45:00", reader.MOS.DateTime);
-        Assert.Equal("Lee Leafman", reader.MOS.Artist);
-        Assert.Equal("(c) 2011 Leaf Test", reader.MOS.Copyright);
-        Assert.Equal(256, reader.MOS.MakerNoteLength);
+        Assert.Equal("Leaf", reader.Raw.Make);
+        Assert.Equal("Aptus II 10", reader.Raw.Model);
+        Assert.Equal("Leaf Capture 11.5", reader.Raw.Software);
+        Assert.Equal("2011:07:12 14:45:00", reader.Raw.DateTime);
+        Assert.Equal("Lee Leafman", reader.Raw.Artist);
+        Assert.Equal("(c) 2011 Leaf Test", reader.Raw.Copyright);
+        Assert.Equal(256, reader.Raw.MakerNoteLength);
         Assert.Equal("Leaf", reader.Metadata.CameraMake);
         Assert.Equal("Aptus II 10", reader.Metadata.CameraModel);
-        Assert.Equal("256", reader.Metadata.Tags["MOS:MakerNoteLength"]);
+        Assert.Equal("256", reader.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

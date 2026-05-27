@@ -90,7 +90,7 @@ public sealed class ErfReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = ErfReader.Open(ms);
         Assert.Equal(ImageFormat.Erf, reader.Format);
-        Assert.Equal(make, reader.ERF.Make);
+        Assert.Equal(make, reader.Raw.Make);
     }
 
     [Fact]
@@ -158,16 +158,16 @@ public sealed class ErfReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = ErfReader.Open(ms);
 
-        Assert.Equal("EPSON", reader.ERF.Make);
-        Assert.Equal("R-D1", reader.ERF.Model);
-        Assert.Equal("Firmware 1.30", reader.ERF.Software);
-        Assert.Equal("2004:06:01 10:30:00", reader.ERF.DateTime);
-        Assert.Equal("Ed Epson", reader.ERF.Artist);
-        Assert.Equal("(c) 2004 Epson Test", reader.ERF.Copyright);
-        Assert.Equal(256, reader.ERF.MakerNoteLength);
+        Assert.Equal("EPSON", reader.Raw.Make);
+        Assert.Equal("R-D1", reader.Raw.Model);
+        Assert.Equal("Firmware 1.30", reader.Raw.Software);
+        Assert.Equal("2004:06:01 10:30:00", reader.Raw.DateTime);
+        Assert.Equal("Ed Epson", reader.Raw.Artist);
+        Assert.Equal("(c) 2004 Epson Test", reader.Raw.Copyright);
+        Assert.Equal(256, reader.Raw.MakerNoteLength);
         Assert.Equal("EPSON", reader.Metadata.CameraMake);
         Assert.Equal("R-D1", reader.Metadata.CameraModel);
-        Assert.Equal("256", reader.Metadata.Tags["ERF:MakerNoteLength"]);
+        Assert.Equal("256", reader.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

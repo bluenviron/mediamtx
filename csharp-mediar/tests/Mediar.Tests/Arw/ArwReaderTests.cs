@@ -138,13 +138,13 @@ public sealed class ArwReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var arw = ArwReader.Open(ms);
 
-        Assert.Equal("SONY", arw.Arw.Make);
-        Assert.Equal("ILCE-7M4", arw.Arw.Model);
-        Assert.Equal("ILCE-7M4 v1.10", arw.Arw.Software);
-        Assert.Equal("2024:03:15 12:34:56", arw.Arw.DateTime);
-        Assert.Equal("Test Photographer", arw.Arw.Artist);
-        Assert.Equal("(c) 2024 Test", arw.Arw.Copyright);
-        Assert.Equal(256, arw.Arw.MakerNoteLength);
+        Assert.Equal("SONY", arw.Raw.Make);
+        Assert.Equal("ILCE-7M4", arw.Raw.Model);
+        Assert.Equal("ILCE-7M4 v1.10", arw.Raw.Software);
+        Assert.Equal("2024:03:15 12:34:56", arw.Raw.DateTime);
+        Assert.Equal("Test Photographer", arw.Raw.Artist);
+        Assert.Equal("(c) 2024 Test", arw.Raw.Copyright);
+        Assert.Equal(256, arw.Raw.MakerNoteLength);
 
         Assert.Equal("SONY", arw.Metadata.CameraMake);
         Assert.Equal("ILCE-7M4", arw.Metadata.CameraModel);
@@ -152,8 +152,8 @@ public sealed class ArwReaderTests
         Assert.Equal("2024:03:15 12:34:56", arw.Metadata.CapturedAtRaw);
         Assert.Equal("Test Photographer", arw.Metadata.Author);
         Assert.Equal("(c) 2024 Test", arw.Metadata.Copyright);
-        Assert.True(arw.Metadata.Tags.ContainsKey("ARW:MakerNoteLength"));
-        Assert.Equal("256", arw.Metadata.Tags["ARW:MakerNoteLength"]);
+        Assert.True(arw.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+        Assert.Equal("256", arw.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

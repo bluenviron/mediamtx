@@ -90,7 +90,7 @@ public sealed class PefReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var pef = PefReader.Open(ms);
 
-        Assert.Equal(make, pef.Pef.Make);
+        Assert.Equal(make, pef.Raw.Make);
         Assert.Equal(make, pef.Metadata.CameraMake);
     }
 
@@ -167,13 +167,13 @@ public sealed class PefReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var pef = PefReader.Open(ms);
 
-        Assert.Equal("RICOH IMAGING COMPANY, LTD.", pef.Pef.Make);
-        Assert.Equal("PENTAX K-3 Mark III", pef.Pef.Model);
-        Assert.Equal("K-3 Mark III Ver 1.50", pef.Pef.Software);
-        Assert.Equal("2024:08:11 18:22:09", pef.Pef.DateTime);
-        Assert.Equal("Test Photographer", pef.Pef.Artist);
-        Assert.Equal("(c) 2024 Test", pef.Pef.Copyright);
-        Assert.Equal(200, pef.Pef.MakerNoteLength);
+        Assert.Equal("RICOH IMAGING COMPANY, LTD.", pef.Raw.Make);
+        Assert.Equal("PENTAX K-3 Mark III", pef.Raw.Model);
+        Assert.Equal("K-3 Mark III Ver 1.50", pef.Raw.Software);
+        Assert.Equal("2024:08:11 18:22:09", pef.Raw.DateTime);
+        Assert.Equal("Test Photographer", pef.Raw.Artist);
+        Assert.Equal("(c) 2024 Test", pef.Raw.Copyright);
+        Assert.Equal(200, pef.Raw.MakerNoteLength);
 
         Assert.Equal("RICOH IMAGING COMPANY, LTD.", pef.Metadata.CameraMake);
         Assert.Equal("PENTAX K-3 Mark III", pef.Metadata.CameraModel);
@@ -181,8 +181,8 @@ public sealed class PefReaderTests
         Assert.Equal("2024:08:11 18:22:09", pef.Metadata.CapturedAtRaw);
         Assert.Equal("Test Photographer", pef.Metadata.Author);
         Assert.Equal("(c) 2024 Test", pef.Metadata.Copyright);
-        Assert.True(pef.Metadata.Tags.ContainsKey("PEF:MakerNoteLength"));
-        Assert.Equal("200", pef.Metadata.Tags["PEF:MakerNoteLength"]);
+        Assert.True(pef.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+        Assert.Equal("200", pef.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

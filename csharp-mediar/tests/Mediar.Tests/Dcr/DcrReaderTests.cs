@@ -89,7 +89,7 @@ public sealed class DcrReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var dcr = DcrReader.Open(ms);
 
-        Assert.Equal(make, dcr.Dcr.Make);
+        Assert.Equal(make, dcr.Raw.Make);
         Assert.Equal(make, dcr.Metadata.CameraMake);
     }
 
@@ -166,13 +166,13 @@ public sealed class DcrReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var dcr = DcrReader.Open(ms);
 
-        Assert.Equal("EASTMAN KODAK COMPANY", dcr.Dcr.Make);
-        Assert.Equal("DCS Pro 14n", dcr.Dcr.Model);
-        Assert.Equal("Kodak DCS Photo Desk 4.2", dcr.Dcr.Software);
-        Assert.Equal("2024:08:11 18:22:09", dcr.Dcr.DateTime);
-        Assert.Equal("Test Photographer", dcr.Dcr.Artist);
-        Assert.Equal("(c) 2024 Test", dcr.Dcr.Copyright);
-        Assert.Equal(256, dcr.Dcr.MakerNoteLength);
+        Assert.Equal("EASTMAN KODAK COMPANY", dcr.Raw.Make);
+        Assert.Equal("DCS Pro 14n", dcr.Raw.Model);
+        Assert.Equal("Kodak DCS Photo Desk 4.2", dcr.Raw.Software);
+        Assert.Equal("2024:08:11 18:22:09", dcr.Raw.DateTime);
+        Assert.Equal("Test Photographer", dcr.Raw.Artist);
+        Assert.Equal("(c) 2024 Test", dcr.Raw.Copyright);
+        Assert.Equal(256, dcr.Raw.MakerNoteLength);
 
         Assert.Equal("EASTMAN KODAK COMPANY", dcr.Metadata.CameraMake);
         Assert.Equal("DCS Pro 14n", dcr.Metadata.CameraModel);
@@ -180,8 +180,8 @@ public sealed class DcrReaderTests
         Assert.Equal("2024:08:11 18:22:09", dcr.Metadata.CapturedAtRaw);
         Assert.Equal("Test Photographer", dcr.Metadata.Author);
         Assert.Equal("(c) 2024 Test", dcr.Metadata.Copyright);
-        Assert.True(dcr.Metadata.Tags.ContainsKey("DCR:MakerNoteLength"));
-        Assert.Equal("256", dcr.Metadata.Tags["DCR:MakerNoteLength"]);
+        Assert.True(dcr.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+        Assert.Equal("256", dcr.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

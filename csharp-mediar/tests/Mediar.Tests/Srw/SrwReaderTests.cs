@@ -90,7 +90,7 @@ public sealed class SrwReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var srw = SrwReader.Open(ms);
         Assert.Equal(ImageFormat.Srw, srw.Format);
-        Assert.Equal(make, srw.Srw.Make);
+        Assert.Equal(make, srw.Raw.Make);
     }
 
     [Fact]
@@ -158,16 +158,16 @@ public sealed class SrwReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var srw = SrwReader.Open(ms);
 
-        Assert.Equal("SAMSUNG", srw.Srw.Make);
-        Assert.Equal("NX300", srw.Srw.Model);
-        Assert.Equal("Ver 1.20", srw.Srw.Software);
-        Assert.Equal("2014:05:20 11:30:00", srw.Srw.DateTime);
-        Assert.Equal("Sam Samsung", srw.Srw.Artist);
-        Assert.Equal("(c) 2014", srw.Srw.Copyright);
-        Assert.Equal(256, srw.Srw.MakerNoteLength);
+        Assert.Equal("SAMSUNG", srw.Raw.Make);
+        Assert.Equal("NX300", srw.Raw.Model);
+        Assert.Equal("Ver 1.20", srw.Raw.Software);
+        Assert.Equal("2014:05:20 11:30:00", srw.Raw.DateTime);
+        Assert.Equal("Sam Samsung", srw.Raw.Artist);
+        Assert.Equal("(c) 2014", srw.Raw.Copyright);
+        Assert.Equal(256, srw.Raw.MakerNoteLength);
         Assert.Equal("SAMSUNG", srw.Metadata.CameraMake);
         Assert.Equal("NX300", srw.Metadata.CameraModel);
-        Assert.Equal("256", srw.Metadata.Tags["SRW:MakerNoteLength"]);
+        Assert.Equal("256", srw.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

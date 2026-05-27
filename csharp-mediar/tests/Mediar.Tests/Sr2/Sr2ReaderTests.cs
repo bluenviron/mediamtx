@@ -89,7 +89,7 @@ public sealed class Sr2ReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = Sr2Reader.Open(ms);
         Assert.Equal(ImageFormat.Sr2, reader.Format);
-        Assert.Equal(make, reader.SR2.Make);
+        Assert.Equal(make, reader.Raw.Make);
     }
 
     [Fact]
@@ -157,16 +157,16 @@ public sealed class Sr2ReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var reader = Sr2Reader.Open(ms);
 
-        Assert.Equal("SONY", reader.SR2.Make);
-        Assert.Equal("DSC-R1", reader.SR2.Model);
-        Assert.Equal("1.00", reader.SR2.Software);
-        Assert.Equal("2005:09:01 18:00:00", reader.SR2.DateTime);
-        Assert.Equal("Suzu Sony", reader.SR2.Artist);
-        Assert.Equal("(c) 2005 Sony Test", reader.SR2.Copyright);
-        Assert.Equal(256, reader.SR2.MakerNoteLength);
+        Assert.Equal("SONY", reader.Raw.Make);
+        Assert.Equal("DSC-R1", reader.Raw.Model);
+        Assert.Equal("1.00", reader.Raw.Software);
+        Assert.Equal("2005:09:01 18:00:00", reader.Raw.DateTime);
+        Assert.Equal("Suzu Sony", reader.Raw.Artist);
+        Assert.Equal("(c) 2005 Sony Test", reader.Raw.Copyright);
+        Assert.Equal(256, reader.Raw.MakerNoteLength);
         Assert.Equal("SONY", reader.Metadata.CameraMake);
         Assert.Equal("DSC-R1", reader.Metadata.CameraModel);
-        Assert.Equal("256", reader.Metadata.Tags["SR2:MakerNoteLength"]);
+        Assert.Equal("256", reader.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]

@@ -143,13 +143,13 @@ public sealed class NefReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         using var nef = NefReader.Open(ms);
 
-        Assert.Equal("NIKON CORPORATION", nef.Nef.Make);
-        Assert.Equal("NIKON D850", nef.Nef.Model);
-        Assert.Equal("Ver.1.20", nef.Nef.Software);
-        Assert.Equal("2024:03:15 12:34:56", nef.Nef.DateTime);
-        Assert.Equal("Test Photographer", nef.Nef.Artist);
-        Assert.Equal("(c) 2024 Test", nef.Nef.Copyright);
-        Assert.Equal(128, nef.Nef.MakerNoteLength);
+        Assert.Equal("NIKON CORPORATION", nef.Raw.Make);
+        Assert.Equal("NIKON D850", nef.Raw.Model);
+        Assert.Equal("Ver.1.20", nef.Raw.Software);
+        Assert.Equal("2024:03:15 12:34:56", nef.Raw.DateTime);
+        Assert.Equal("Test Photographer", nef.Raw.Artist);
+        Assert.Equal("(c) 2024 Test", nef.Raw.Copyright);
+        Assert.Equal(128, nef.Raw.MakerNoteLength);
 
         // ImageMetadata projection.
         Assert.Equal("NIKON CORPORATION", nef.Metadata.CameraMake);
@@ -158,8 +158,8 @@ public sealed class NefReaderTests
         Assert.Equal("2024:03:15 12:34:56", nef.Metadata.CapturedAtRaw);
         Assert.Equal("Test Photographer", nef.Metadata.Author);
         Assert.Equal("(c) 2024 Test", nef.Metadata.Copyright);
-        Assert.True(nef.Metadata.Tags.ContainsKey("NEF:MakerNoteLength"));
-        Assert.Equal("128", nef.Metadata.Tags["NEF:MakerNoteLength"]);
+        Assert.True(nef.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+        Assert.Equal("128", nef.Metadata.Tags["Exif:MakerNoteLength"]);
     }
 
     [Fact]
