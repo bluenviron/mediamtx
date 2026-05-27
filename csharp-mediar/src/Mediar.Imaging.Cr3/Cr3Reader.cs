@@ -203,6 +203,16 @@ public sealed class Cr3Reader : IImageReader
                 TimeStampUtc = cmt.GpsTimeStampUtc,
                 DateStamp = cmt.GpsDateStamp,
             } : null,
+            MakerNote = cmt.HasCmt3 ? new Cr3MakerNoteMetadata
+            {
+                ImageType = cmt.CanonImageType,
+                FirmwareRevision = cmt.CanonFirmwareRevision,
+                OwnerName = cmt.CanonOwnerName,
+                SerialNumber = cmt.CanonSerialNumber,
+                ModelId = cmt.CanonModelId,
+                LensModel = cmt.CanonLensModel,
+                InternalSerialNumber = cmt.CanonInternalSerialNumber,
+            } : null,
         };
 
         // Choose the largest JPEG sub-image as primary (preview > thumbnail).
@@ -305,6 +315,13 @@ public sealed class Cr3Reader : IImageReader
         // CMT3 (Canon MakerNote) - capture raw byte length only.
         public bool HasCmt3;
         public int Cmt3ByteLength;
+        public string? CanonImageType;
+        public string? CanonFirmwareRevision;
+        public string? CanonOwnerName;
+        public uint? CanonSerialNumber;
+        public uint? CanonModelId;
+        public string? CanonLensModel;
+        public string? CanonInternalSerialNumber;
 
         // CMT4 (GPS IFD).
         public bool HasCmt4;
@@ -355,6 +372,7 @@ public sealed class Cr3Reader : IImageReader
                 case "CMT3":
                     cmt.HasCmt3 = true;
                     cmt.Cmt3ByteLength = ce - cs;
+                    ParseCmt3(bytes, cs, ce, ref cmt);
                     break;
                 case "CMT4":
                     ParseCmt4(bytes, cs, ce, ref cmt);
@@ -497,6 +515,62 @@ public sealed class Cr3Reader : IImageReader
     }
 
     /// <summary>
+    /// Parse the CMT3 sub-box payload (Canon MakerNote). CMT3 is itself
+    /// a standard TIFF IFD whose tag numbers are Canon-specific. We
+    /// decode the well-documented top-level ASCII / LONG tags
+    /// (ImageType, FirmwareRevision, OwnerName, SerialNumber, ModelID,
+    /// LensModel, InternalSerialNumber). The per-model proprietary
+    /// arrays (CanonCameraSettings, CanonShotInfo, CameraInfo, etc.)
+    /// require per-firmware decoders and are intentionally skipped.
+    /// </summary>
+    private static void ParseCmt3(byte[] b, int s, int e, ref Cr3CmtFields cmt)
+    {
+        if (!TryReadTiffHeader(b, s, e, out bool le, out int ifdPos)) return;
+        if (!TryReadTagCount(b, e, ifdPos, le, out int tagCount, out int tagsStart)) return;
+
+        for (int i = 0; i < tagCount; i++)
+        {
+            int entry = tagsStart + i * 12;
+            ushort tag = ReadU16(b, entry, le);
+            ushort type = ReadU16(b, entry + 2, le);
+            uint count = ReadU32(b, entry + 4, le);
+            int valueAt = entry + 8;
+            switch (tag)
+            {
+                case 0x0006: // ImageType, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string imageType))
+                        cmt.CanonImageType = imageType;
+                    break;
+                case 0x0007: // FirmwareRevision, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string firmware))
+                        cmt.CanonFirmwareRevision = firmware;
+                    break;
+                case 0x0009: // OwnerName, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string owner))
+                        cmt.CanonOwnerName = owner;
+                    break;
+                case 0x000C: // SerialNumber, LONG (uint32)
+                    if (TryReadLong(b, valueAt, type, le, out uint sn))
+                        cmt.CanonSerialNumber = sn;
+                    break;
+                case 0x0010: // ModelID, LONG (uint32)
+                    if (TryReadLong(b, valueAt, type, le, out uint mid))
+                        cmt.CanonModelId = mid;
+                    break;
+                case 0x0095: // LensModel, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string lensModel))
+                        cmt.CanonLensModel = lensModel;
+                    break;
+                case 0x0096: // InternalSerialNumber, ASCII
+                    if (TryReadAscii(b, s, e, valueAt, type, count, le, out string isn))
+                        cmt.CanonInternalSerialNumber = isn;
+                    break;
+            }
+        }
+    }
+
+
+    /// <summary>
     /// Parse the CMT4 sub-box payload (GPS IFD). Decodes the standard
     /// GPS reference / coordinate / altitude / timestamp tags, converting
     /// the three-RATIONAL (deg, min, sec) DMS tuples into signed decimal
@@ -616,6 +690,22 @@ public sealed class Cr3Reader : IImageReader
         {
             uint v = ReadU32(b, valueAt, le);
             value = (ushort)Math.Min(v, ushort.MaxValue);
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryReadLong(byte[] b, int valueAt, ushort type, bool le, out uint value)
+    {
+        value = 0;
+        if (type == 4) // LONG (uint32)
+        {
+            value = ReadU32(b, valueAt, le);
+            return true;
+        }
+        if (type == 3) // SHORT - widen to uint32
+        {
+            value = ReadU16(b, valueAt, le);
             return true;
         }
         return false;
@@ -790,6 +880,18 @@ public sealed class Cr3Reader : IImageReader
         }
         if (cr3.HasCmt4) tags["CR3:HasCmt4"] = "1";
 
+        if (cr3.MakerNote is { } mn)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (mn.ImageType is string mit) tags["Canon:ImageType"] = mit;
+            if (mn.FirmwareRevision is string fwr) tags["Canon:FirmwareRevision"] = fwr;
+            if (mn.OwnerName is string own) tags["Canon:OwnerName"] = own;
+            if (mn.SerialNumber is uint sn) tags["Canon:SerialNumber"] = sn.ToString(inv);
+            if (mn.ModelId is uint mid) tags["Canon:ModelID"] = "0x" + mid.ToString("X8", inv);
+            if (mn.LensModel is string lm) tags["Canon:LensModel"] = lm;
+            if (mn.InternalSerialNumber is string isn) tags["Canon:InternalSerialNumber"] = isn;
+        }
+
         if (cr3.Exif is { } exif)
         {
             var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -832,7 +934,7 @@ public sealed class Cr3Reader : IImageReader
             FNumber = cr3.Exif?.FNumber,
             IsoSpeed = cr3.Exif?.IsoSpeedRatings,
             FocalLengthMm = cr3.Exif?.FocalLengthMm,
-            LensModel = cr3.Exif?.LensModel,
+            LensModel = cr3.MakerNote?.LensModel ?? cr3.Exif?.LensModel,
             GpsLatitude = cr3.Gps?.LatitudeDegrees,
             GpsLongitude = cr3.Gps?.LongitudeDegrees,
             GpsAltitudeMeters = cr3.Gps?.AltitudeMeters,

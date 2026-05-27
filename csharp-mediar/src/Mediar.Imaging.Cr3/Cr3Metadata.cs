@@ -57,6 +57,45 @@ public sealed record Cr3Metadata
 
     /// <summary>Typed GPS IFD metadata parsed from CMT4 (null when absent).</summary>
     public Cr3GpsMetadata? Gps { get; init; }
+
+    /// <summary>Typed Canon MakerNote metadata parsed from CMT3 (null when absent).</summary>
+    public Cr3MakerNoteMetadata? MakerNote { get; init; }
+}
+
+/// <summary>
+/// Canon MakerNote metadata (CR3 CMT3 box). Covers the well-documented
+/// ASCII and integer top-level tags Canon writes in modern bodies; the
+/// huge per-model proprietary arrays (CanonCameraSettings, CanonShotInfo,
+/// CameraInfo, etc.) are intentionally skipped because their layout
+/// differs per model and per firmware revision.
+/// </summary>
+/// <remarks>
+/// Tag numbers follow Phil Harvey's ExifTool Canon MakerNote table at
+/// <see href="https://exiftool.org/TagNames/Canon.html"/>. The IFD is
+/// itself a standard TIFF stream so it reuses Mediar's CMT2 helpers.
+/// </remarks>
+public sealed record Cr3MakerNoteMetadata
+{
+    /// <summary>Canon MakerNote tag 0x0006 (ImageType), e.g. "Canon EOS R5".</summary>
+    public string? ImageType { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x0007 (FirmwareRevision), e.g. "Firmware Version 1.6.0".</summary>
+    public string? FirmwareRevision { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x0009 (OwnerName) - the camera owner-name field set in body menus.</summary>
+    public string? OwnerName { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x000C (SerialNumber), camera body serial as a 32-bit unsigned integer.</summary>
+    public uint? SerialNumber { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x0010 (ModelID), an internal Canon-assigned 32-bit identifier per body model.</summary>
+    public uint? ModelId { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x0095 (LensModel), often more precise than the EXIF LensModel tag.</summary>
+    public string? LensModel { get; init; }
+
+    /// <summary>Canon MakerNote tag 0x0096 (InternalSerialNumber), an ASCII serial separate from the body SerialNumber.</summary>
+    public string? InternalSerialNumber { get; init; }
 }
 
 /// <summary>

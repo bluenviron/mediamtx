@@ -396,4 +396,118 @@ public sealed class Cr3ReaderTests
         Assert.Null(cr3.Cr3.Exif);
         Assert.Null(cr3.Cr3.Gps);
     }
+
+    [Fact]
+    public void Cmt3_Typed_MakerNote_Parses_ImageType_Firmware_Owner()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            CanonImageType = "Canon EOS R5",
+            CanonFirmwareRevision = "Firmware Version 1.6.0",
+            CanonOwnerName = "J. Doe",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt3);
+        Assert.NotNull(cr3.Cr3.MakerNote);
+        Assert.Equal("Canon EOS R5", cr3.Cr3.MakerNote!.ImageType);
+        Assert.Equal("Firmware Version 1.6.0", cr3.Cr3.MakerNote.FirmwareRevision);
+        Assert.Equal("J. Doe", cr3.Cr3.MakerNote.OwnerName);
+
+        Assert.Equal("Canon EOS R5", cr3.Metadata.Tags["Canon:ImageType"]);
+        Assert.Equal("Firmware Version 1.6.0", cr3.Metadata.Tags["Canon:FirmwareRevision"]);
+        Assert.Equal("J. Doe", cr3.Metadata.Tags["Canon:OwnerName"]);
+    }
+
+    [Fact]
+    public void Cmt3_Typed_MakerNote_Parses_SerialNumber_And_ModelId()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            CanonSerialNumber = 123456789u,
+            CanonModelId = 0x80000453u, // EOS R5 ID per Canon's body table.
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt3);
+        Assert.Equal(123456789u, cr3.Cr3.MakerNote!.SerialNumber);
+        Assert.Equal(0x80000453u, cr3.Cr3.MakerNote.ModelId);
+
+        Assert.Equal("123456789", cr3.Metadata.Tags["Canon:SerialNumber"]);
+        Assert.Equal("0x80000453", cr3.Metadata.Tags["Canon:ModelID"]);
+    }
+
+    [Fact]
+    public void Cmt3_LensModel_Overrides_Cmt2_LensModel_In_ImageMetadata()
+    {
+        // Canon's MakerNote LensModel is the authoritative full string;
+        // EXIF's LensModel often carries only an identifier. When both are
+        // present the more authoritative MakerNote value must win.
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            LensModel = "EF24-105mm",
+            CanonLensModel = "RF24-105mm F4 L IS USM",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.Equal("EF24-105mm", cr3.Cr3.Exif!.LensModel);
+        Assert.Equal("RF24-105mm F4 L IS USM", cr3.Cr3.MakerNote!.LensModel);
+        Assert.Equal("RF24-105mm F4 L IS USM", cr3.Metadata.LensModel);
+    }
+
+    [Fact]
+    public void Cmt3_InternalSerialNumber_Is_Surfaced()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            CanonInternalSerialNumber = "XB1234567890",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.Equal("XB1234567890", cr3.Cr3.MakerNote!.InternalSerialNumber);
+        Assert.Equal("XB1234567890", cr3.Metadata.Tags["Canon:InternalSerialNumber"]);
+    }
+
+    [Fact]
+    public void Cmt3_Raw_Payload_Still_Sets_Length_But_No_Typed_Values()
+    {
+        // Raw bytes path: HasCmt3 + byte length flow through but no typed
+        // MakerNote fields are parsed (because the bytes aren't a TIFF stream).
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+            Cmt3RawPayload = new byte[256],
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.True(cr3.Cr3.HasCmt3);
+        Assert.Equal(256, cr3.Cr3.Cmt3ByteLength);
+        Assert.NotNull(cr3.Cr3.MakerNote);
+        Assert.Null(cr3.Cr3.MakerNote!.ImageType);
+        Assert.Null(cr3.Cr3.MakerNote.SerialNumber);
+        Assert.DoesNotContain("Canon:ImageType", cr3.Metadata.Tags.Keys);
+    }
+
+    [Fact]
+    public void Cmt3_Without_Any_Tags_Yields_HasCmt3_False()
+    {
+        var spec = new TestCr3Builder.Cr3Spec
+        {
+            Make = "Canon",
+        };
+        byte[] bytes = TestCr3Builder.Build(spec);
+        using var cr3 = Cr3Reader.Open(new MemoryStream(bytes));
+
+        Assert.False(cr3.Cr3.HasCmt3);
+        Assert.Null(cr3.Cr3.MakerNote);
+    }
 }

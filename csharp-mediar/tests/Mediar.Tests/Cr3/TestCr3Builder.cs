@@ -62,6 +62,16 @@ internal static class TestCr3Builder
         // CMT3 (Canon MakerNote) raw payload. When non-null, a CMT3 box is emitted.
         public byte[]? Cmt3RawPayload { get; init; }
 
+        // CMT3 typed fields. When any non-null and Cmt3RawPayload is null,
+        // a CMT3 box is emitted carrying a TIFF IFD with the Canon MakerNote tags.
+        public string? CanonImageType { get; init; }
+        public string? CanonFirmwareRevision { get; init; }
+        public string? CanonOwnerName { get; init; }
+        public uint? CanonSerialNumber { get; init; }
+        public uint? CanonModelId { get; init; }
+        public string? CanonLensModel { get; init; }
+        public string? CanonInternalSerialNumber { get; init; }
+
         // CMT4 (GPS IFD) fields. When any non-null, a CMT4 box is emitted.
         public string? GpsLatitudeRef { get; init; }
         public (uint, uint, uint, uint, uint, uint)? GpsLatitudeDms { get; init; }
@@ -127,6 +137,10 @@ internal static class TestCr3Builder
                 if (spec.Cmt3RawPayload is not null)
                 {
                     WriteBox(uuid, "CMT3", cmt3 => cmt3.Write(spec.Cmt3RawPayload));
+                }
+                else if (HasAnyCmt3Field(spec))
+                {
+                    WriteBox(uuid, "CMT3", cmt3 => WriteCmt3Ifd(cmt3, spec));
                 }
                 if (HasAnyCmt4Field(spec))
                 {
@@ -241,6 +255,12 @@ internal static class TestCr3Builder
         || s.Flash is not null || s.MeteringMode is not null
         || s.ExposureProgram is not null || s.WhiteBalance is not null;
 
+    private static bool HasAnyCmt3Field(Cr3Spec s) =>
+        s.CanonImageType is not null || s.CanonFirmwareRevision is not null
+        || s.CanonOwnerName is not null || s.CanonSerialNumber is not null
+        || s.CanonModelId is not null || s.CanonLensModel is not null
+        || s.CanonInternalSerialNumber is not null;
+
     private static bool HasAnyCmt4Field(Cr3Spec s) =>
         s.GpsLatitudeRef is not null || s.GpsLatitudeDms is not null
         || s.GpsLongitudeRef is not null || s.GpsLongitudeDms is not null
@@ -268,6 +288,23 @@ internal static class TestCr3Builder
         tags.Sort((a, b) => a.Tag.CompareTo(b.Tag));
         WriteTiffIfdGeneric(stream, tags);
     }
+
+    private static void WriteCmt3Ifd(MemoryStream stream, Cr3Spec spec)
+    {
+        // Canon MakerNote tag numbers per ExifTool's Canon table.
+        var tags = new List<TiffTag>();
+        if (spec.CanonImageType is { } it) tags.Add(TiffTag.Ascii(0x0006, it));
+        if (spec.CanonFirmwareRevision is { } fwr) tags.Add(TiffTag.Ascii(0x0007, fwr));
+        if (spec.CanonOwnerName is { } own) tags.Add(TiffTag.Ascii(0x0009, own));
+        if (spec.CanonSerialNumber is { } sn) tags.Add(TiffTag.Long(0x000C, sn));
+        if (spec.CanonModelId is { } mid) tags.Add(TiffTag.Long(0x0010, mid));
+        if (spec.CanonLensModel is { } lm) tags.Add(TiffTag.Ascii(0x0095, lm));
+        if (spec.CanonInternalSerialNumber is { } isn) tags.Add(TiffTag.Ascii(0x0096, isn));
+
+        tags.Sort((a, b) => a.Tag.CompareTo(b.Tag));
+        WriteTiffIfdGeneric(stream, tags);
+    }
+
 
     private static void WriteCmt4Ifd(MemoryStream stream, Cr3Spec spec)
     {
@@ -304,6 +341,12 @@ internal static class TestCr3Builder
             byte[] bytes = new byte[2];
             BinaryPrimitives.WriteUInt16LittleEndian(bytes, value);
             return new TiffTag(tag, 3, 1, bytes);
+        }
+        public static TiffTag Long(ushort tag, uint value)
+        {
+            byte[] bytes = new byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes, value);
+            return new TiffTag(tag, 4, 1, bytes);
         }
         public static TiffTag Rational(ushort tag, uint num, uint den)
         {
