@@ -36,6 +36,8 @@ public enum PixelFormat
 
     /// <summary>R16 G16, 32 bits per pixel (EAC RG11, normal maps).</summary>
     Rg32,
+    /// <summary>R32 G32, 32-bit IEEE float per channel, 64 bits per pixel.</summary>
+    Rg64Float,
 
     /// <summary>32-bit IEEE float single-channel (HDR depth / luminance / scientific).</summary>
     Gray32Float,
@@ -81,7 +83,7 @@ public static class PixelFormatExtensions
         PixelFormat.Rgba32 or PixelFormat.Bgra32 or PixelFormat.Argb32
             or PixelFormat.Cmyk32 or PixelFormat.Rgbe32 or PixelFormat.Rg32 => 32,
         PixelFormat.Rgb48 => 48,
-        PixelFormat.Rgba64 => 64,
+        PixelFormat.Rgba64 or PixelFormat.Rg64Float => 64,
         PixelFormat.Gray32Float => 32,
         PixelFormat.Rgb96Float => 96,
         PixelFormat.Rgba128Float => 128,
@@ -93,7 +95,7 @@ public static class PixelFormatExtensions
     {
         PixelFormat.Gray8 or PixelFormat.Gray16 or PixelFormat.Gray32Float
             or PixelFormat.Indexed1 or PixelFormat.Indexed4 or PixelFormat.Indexed8 => 1,
-        PixelFormat.GrayAlpha16 or PixelFormat.Rg32 => 2,
+        PixelFormat.GrayAlpha16 or PixelFormat.Rg32 or PixelFormat.Rg64Float => 2,
         PixelFormat.Rgb24 or PixelFormat.Bgr24 or PixelFormat.Rgb48
             or PixelFormat.Rgb96Float or PixelFormat.Rgb565
             or PixelFormat.Rgbe32 => 3,

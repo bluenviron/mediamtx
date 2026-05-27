@@ -93,6 +93,8 @@ public static class KtxFormat
         0x805B or 0x8F9B => PixelFormat.Rgba64,
         // GL_R32F - 32-bit single-channel float
         0x822E => PixelFormat.Gray32Float,
+        // GL_RG32F - 32-bit RG float pair
+        0x8230 => PixelFormat.Rg64Float,
         _ => PixelFormat.Unknown,
     };
 
@@ -175,6 +177,8 @@ public static class KtxFormat
         91 or 92 => PixelFormat.Rgba64,
         // VK_FORMAT_R32_SFLOAT - 32-bit single-channel float
         100 => PixelFormat.Gray32Float,
+        // VK_FORMAT_R32G32_SFLOAT - 32-bit RG float pair
+        103 => PixelFormat.Rg64Float,
         _ => PixelFormat.Unknown,
     };
 

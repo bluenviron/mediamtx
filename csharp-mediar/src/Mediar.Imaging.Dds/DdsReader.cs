@@ -333,6 +333,7 @@ public sealed class DdsReader : IImageReader
             // 32-bit per channel float (HDR)
             case 2:  hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba128Float;  // R32G32B32A32_FLOAT
             case 6:  colorSpace = "Linear"; return PixelFormat.Rgb96Float;                     // R32G32B32_FLOAT
+            case 16: colorSpace = "Linear"; return PixelFormat.Rg64Float;                      // R32G32_FLOAT
             // 16-bit per channel (RGBA64 is byte-identical to FP16 RGBA)
             case 10: hasAlpha = true; colorSpace = "Linear"; return PixelFormat.Rgba64;        // R16G16B16A16_FLOAT
             case 11: hasAlpha = true; return PixelFormat.Rgba64;                               // R16G16B16A16_UNORM
