@@ -102,6 +102,14 @@ public static class ImageFormatDetector
                 (header[0] == (byte)'M' && header[1] == (byte)'M' &&
                  header[2] == 0x00 && header[3] == 0x2A))
             {
+                // CR2 (Canon Raw v2) - identical TIFF preamble but with
+                // a "CR\x02\x00" sentinel at offset 8.
+                if (header.Length >= 12 &&
+                    header[8] == (byte)'C' && header[9] == (byte)'R' &&
+                    header[10] == 0x02 && header[11] == 0x00)
+                {
+                    return ImageFormat.Cr2;
+                }
                 return ImageFormat.Tiff;
             }
 

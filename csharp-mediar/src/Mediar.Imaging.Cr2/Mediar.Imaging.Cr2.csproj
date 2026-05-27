@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Cr2</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Cr2</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Canon Raw v2 (CR2) reader for the Mediar toolkit. CR2 is TIFF-based with a sentinel "CR\x02\x00" header at offset 8 and a fourth IFD (the raw sensor data, typically lossless JPEG SOF3) addressed by a dedicated offset slot at bytes 12-15 of the file header. Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode (uncompressed, LZW, Deflate, JPEG-in-TIFF including lossless SOF3). Exposes the parsed Canon-specific file header plus typed access to all four IFDs (small thumbnail, full-size preview, RGB raw and lossless JPEG raw).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>
