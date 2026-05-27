@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Rw2</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Rw2</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Panasonic / Leica RW2 RAW reader for the Mediar toolkit. RW2 uses a TIFF-derived container with byte-order mark "II" followed by magic 0x0055 (instead of TIFF's 0x002A). Composes Mediar.Imaging.Tiff for the underlying IFD walk and pixel decode (when the strip uses a standard TIFF compression), and exposes Panasonic-specific tags (PanasonicRawVersion, SensorWidth/Height, SensorBorders, CFAPattern, ISO, ShutterSpeed). Panasonic-proprietary compression (TIFF tag 34316) is recognised but not yet decoded.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+  </ItemGroup>
+
+</Project>

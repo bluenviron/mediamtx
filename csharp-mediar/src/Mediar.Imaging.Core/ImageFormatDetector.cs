@@ -122,6 +122,14 @@ public static class ImageFormatDetector
                 return ImageFormat.Tiff;
             }
 
+            // RW2 (Panasonic / Leica RAW): identical TIFF byte-order mark "II"
+            // followed by magic 0x0055 (85) instead of TIFF's 0x002A (42).
+            if (header[0] == (byte)'I' && header[1] == (byte)'I' &&
+                header[2] == 0x55 && header[3] == 0x00)
+            {
+                return ImageFormat.Rw2;
+            }
+
             // DDS: "DDS "
             if (header[0] == (byte)'D' && header[1] == (byte)'D' &&
                 header[2] == (byte)'S' && header[3] == (byte)' ')
