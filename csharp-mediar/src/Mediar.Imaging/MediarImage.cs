@@ -75,6 +75,10 @@ public static class MediarImage
                 Mediar.Imaging.Dds.DdsReader.Open(fs, ownsStream: true),
             ImageFormat.Dicom =>
                 Mediar.Imaging.Dicom.DicomReader.Open(fs, ownsStream: true),
+            ImageFormat.Mng =>
+                Mediar.Imaging.Mng.MngReader.Open(fs, ownsStream: true),
+            ImageFormat.Svs =>
+                Mediar.Imaging.Svs.SvsReader.Open(fs, ownsStream: true),
             _ => Mediar.Imaging.Probe.ProbeReader.Open(fs, fmt, ownsStream: true),
         };
     }

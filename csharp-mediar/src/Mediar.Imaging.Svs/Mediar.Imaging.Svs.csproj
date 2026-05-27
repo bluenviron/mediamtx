@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Svs</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Svs</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Aperio Whole-Slide Image (SVS) reader for the Mediar toolkit. SVS is structured as a multi-page tiled TIFF: page 0 is the full-resolution image, page 1 is the thumbnail, subsequent pages hold pyramid levels plus an optional macro and label. The reader parses the Aperio-specific ImageDescription tag (AppMag, MPP, MPP-X/Y, Date, Time, User, ScanScope ID, slide ID, region notes) and exposes the pyramid via the LevelCount / OpenLevel API on top of Mediar.Imaging.Tiff.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Tiff\Mediar.Imaging.Tiff.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

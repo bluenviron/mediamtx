@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Mng</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Mng</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Multiple-image Network Graphics (MNG) reader for the Mediar toolkit. Parses the MNG MHDR header plus the full chunk grammar (DEFI, FRAM, LOOP, ENDL, TERM, BACK, SAVE, SEEK, eXPI, fPRI, nEED, pHYg, MAGN), then re-assembles each embedded PNG datastream (IHDR..IEND) and delegates pixel decoding to Mediar.Imaging.Png. JNG (JPEG Network Graphics) sub-streams are recognised in metadata but pixel decoding for JNG is deferred.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Png\Mediar.Imaging.Png.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
