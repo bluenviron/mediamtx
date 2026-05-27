@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.WebP</RootNamespace>
+    <AssemblyName>Mediar.Imaging.WebP</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>WebP (RFC 9649) container reader for the Mediar toolkit. Parses the RIFF/WEBP outer wrapper with all chunks defined in the WebP container spec (VP8X, VP8, VP8L, ALPH, ANIM, ANMF, ICCP, EXIF, XMP). Lossless VP8L bitstreams are fully decoded per the WebP-Lossless-Bitstream-Specification (LZ77 + 5 Huffman trees + 4 transforms: PREDICTOR, COLOR, SUBTRACT_GREEN, COLOR_INDEXING + color cache). VP8 lossy bitstreams expose container metadata + per-frame timing but pixel decoding is deferred until a VP8 codec project lands.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

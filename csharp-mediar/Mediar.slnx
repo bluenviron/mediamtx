@@ -48,9 +48,11 @@
     <Project Path="src/Mediar.Imaging.Png/Mediar.Imaging.Png.csproj" />
     <Project Path="src/Mediar.Imaging.Pnm/Mediar.Imaging.Pnm.csproj" />
     <Project Path="src/Mediar.Imaging.Probe/Mediar.Imaging.Probe.csproj" />
+    <Project Path="src/Mediar.Imaging.Psd/Mediar.Imaging.Psd.csproj" />
     <Project Path="src/Mediar.Imaging.Svs/Mediar.Imaging.Svs.csproj" />
     <Project Path="src/Mediar.Imaging.Tga/Mediar.Imaging.Tga.csproj" />
     <Project Path="src/Mediar.Imaging.Tiff/Mediar.Imaging.Tiff.csproj" />
+    <Project Path="src/Mediar.Imaging.WebP/Mediar.Imaging.WebP.csproj" />
     <Project Path="src/Mediar.Imaging.Xpm/Mediar.Imaging.Xpm.csproj" />
     <Project Path="src/Mediar.Imaging/Mediar.Imaging.csproj" />
     <Project Path="src/Mediar.Midi/Mediar.Midi.csproj" />

@@ -23,7 +23,9 @@
     <ProjectReference Include="..\Mediar.Imaging.Dds\Mediar.Imaging.Dds.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Dicom\Mediar.Imaging.Dicom.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Mng\Mediar.Imaging.Mng.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.Psd\Mediar.Imaging.Psd.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Svs\Mediar.Imaging.Svs.csproj" />
+    <ProjectReference Include="..\Mediar.Imaging.WebP\Mediar.Imaging.WebP.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Probe\Mediar.Imaging.Probe.csproj" />
   </ItemGroup>
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Imaging.Psd</RootNamespace>
+    <AssemblyName>Mediar.Imaging.Psd</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Adobe Photoshop (PSD) and Photoshop Big (PSB) reader for the Mediar toolkit. Parses the full file header (signature, version, channel count, dimensions, depth, color mode), color mode data block, image resources block (decoded selected 8BIM resources for IPTC NAA, EXIF, XMP, ICC profile, caption, copyright, URL, alpha names, slice info), then decodes the composite merged image (raw / PackBits / ZIP-without-prediction / ZIP-with-prediction compression). Channels covered: 8-bit and 16-bit Bitmap, Grayscale, Indexed, RGB, RGBA, CMYK, Lab. Layer + mask data is parsed but not yet composited.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.PackBits\Mediar.Codecs.PackBits.csproj" />
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+</Project>

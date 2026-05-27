@@ -79,6 +79,10 @@ public static class MediarImage
                 Mediar.Imaging.Mng.MngReader.Open(fs, ownsStream: true),
             ImageFormat.Svs =>
                 Mediar.Imaging.Svs.SvsReader.Open(fs, ownsStream: true),
+            ImageFormat.WebP =>
+                Mediar.Imaging.WebP.WebPReader.Open(fs, ownsStream: true),
+            ImageFormat.Psd or ImageFormat.Psb =>
+                Mediar.Imaging.Psd.PsdReader.Open(fs, ownsStream: true),
             _ => Mediar.Imaging.Probe.ProbeReader.Open(fs, fmt, ownsStream: true),
         };
     }
