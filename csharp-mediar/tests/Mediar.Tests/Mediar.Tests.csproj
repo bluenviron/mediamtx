@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\src\Mediar.Codecs\Mediar.Codecs.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.G711\Mediar.Codecs.G711.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Flac.Decoder\Mediar.Codecs.Flac.Decoder.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Codecs.Flac.Encoder\Mediar.Codecs.Flac.Encoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Aac.Decoder\Mediar.Codecs.Aac.Decoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Vorbis.Decoder\Mediar.Codecs.Vorbis.Decoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Bitstream\Mediar.Bitstream.csproj" />
