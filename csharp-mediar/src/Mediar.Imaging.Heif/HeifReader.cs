@@ -338,6 +338,113 @@ public sealed class HeifReader : IImageReader
         return VvcCodecConfigurationRecord.TryParse(data.Span, out record);
     }
 
+    /// <summary>
+    /// Resolves the <c>irot</c> rotation property associated with
+    /// <paramref name="itemId"/> into a typed
+    /// <see cref="HeifImageRotation"/>. Returns <c>false</c> when no
+    /// <c>irot</c> property is associated with the item.
+    /// </summary>
+    public bool TryGetImageRotation(uint itemId, out HeifImageRotation rotation)
+    {
+        rotation = HeifImageRotation.None;
+        if (!Associations.TryGetValue(itemId, out var indices)) return false;
+        foreach (int idx in indices)
+        {
+            if (idx <= 0 || idx > Properties.Length) continue;
+            var prop = Properties[idx - 1];
+            if (prop.Type == "irot")
+            {
+                rotation = prop.A switch
+                {
+                    90 => HeifImageRotation.Rotate90Ccw,
+                    180 => HeifImageRotation.Rotate180,
+                    270 => HeifImageRotation.Rotate270Ccw,
+                    _ => HeifImageRotation.None,
+                };
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the <c>imir</c> mirror property associated with
+    /// <paramref name="itemId"/> into a typed
+    /// <see cref="HeifImageMirrorAxis"/>. Returns <c>false</c> when no
+    /// <c>imir</c> property is associated with the item.
+    /// </summary>
+    public bool TryGetImageMirror(uint itemId, out HeifImageMirrorAxis axis)
+    {
+        axis = HeifImageMirrorAxis.Vertical;
+        if (!Associations.TryGetValue(itemId, out var indices)) return false;
+        foreach (int idx in indices)
+        {
+            if (idx <= 0 || idx > Properties.Length) continue;
+            var prop = Properties[idx - 1];
+            if (prop.Type == "imir")
+            {
+                axis = prop.A == 1 ? HeifImageMirrorAxis.Horizontal : HeifImageMirrorAxis.Vertical;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the <c>pasp</c> pixel aspect ratio property associated
+    /// with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifPixelAspectRatio"/>. Returns <c>false</c> when no
+    /// <c>pasp</c> property is associated with the item.
+    /// </summary>
+    public bool TryGetPixelAspectRatio(uint itemId, out HeifPixelAspectRatio aspect)
+    {
+        aspect = null!;
+        if (!Associations.TryGetValue(itemId, out var indices)) return false;
+        foreach (int idx in indices)
+        {
+            if (idx <= 0 || idx > Properties.Length) continue;
+            var prop = Properties[idx - 1];
+            if (prop.Type == "pasp")
+            {
+                aspect = new HeifPixelAspectRatio
+                {
+                    HorizontalSpacing = (uint)prop.C,
+                    VerticalSpacing = (uint)prop.D,
+                };
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the <c>pixi</c> pixel information property associated
+    /// with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifPixelInformation"/> exposing the per-channel
+    /// bit-depth array. Returns <c>false</c> when no <c>pixi</c>
+    /// property is associated or the payload is malformed.
+    /// </summary>
+    public bool TryGetPixelInformation(uint itemId, out HeifPixelInformation info)
+    {
+        info = null!;
+        if (!TryGetPropertyBytes(itemId, "pixi", out var data)) return false;
+        return HeifPixelInformation.TryParse(data.Span, out info);
+    }
+
+    /// <summary>
+    /// Resolves the <c>auxC</c> auxiliary type property associated with
+    /// <paramref name="itemId"/> into a typed
+    /// <see cref="HeifAuxiliaryType"/> exposing the aux URN and any
+    /// trailing subtype bytes. Returns <c>false</c> when no <c>auxC</c>
+    /// property is associated or the payload is malformed.
+    /// </summary>
+    public bool TryGetAuxiliaryType(uint itemId, out HeifAuxiliaryType type)
+    {
+        type = null!;
+        if (!TryGetPropertyBytes(itemId, "auxC", out var data)) return false;
+        return HeifAuxiliaryType.TryParse(data.Span, out type);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -671,7 +778,8 @@ public sealed class HeifReader : IImageReader
                         int channels = buf[s + 4];
                         int bitsTotal = 0;
                         for (int i = 0; i < channels && 5 + i < len; i++) bitsTotal += buf[s + 5 + i];
-                        return new HeifProperty(ty, channels, bitsTotal, 0, 0, "", default);
+                        var raw = buf.AsSpan(s, len).ToArray();
+                        return new HeifProperty(ty, channels, bitsTotal, 0, 0, "", raw);
                     }
                 case "pasp" when len >= 8:
                     return new HeifProperty(ty, 0, 0,
@@ -686,7 +794,8 @@ public sealed class HeifReader : IImageReader
                     {
                         int q = s + 4;
                         string auxType = ReadCString(buf, ref q, s + len);
-                        return new HeifProperty(ty, 0, 0, 0, 0, auxType, default);
+                        var raw = buf.AsSpan(s, len).ToArray();
+                        return new HeifProperty(ty, 0, 0, 0, 0, auxType, raw);
                     }
                 case "colr" when len >= 4:
                     {
