@@ -33,6 +33,16 @@ internal sealed class BitWriter
     /// <summary>Convenience overload for signed values that always fit in <paramref name="count"/> bits.</summary>
     public void Write(int value, int count) => Write((uint)value, count);
 
+    /// <summary>Current bit position from the start of the buffer.</summary>
+    public int BitPosition => _bitOffset;
+
+    /// <summary>Pad with zero bits until the cursor lands on the next byte boundary; no-op when already aligned.</summary>
+    public void AlignToByte()
+    {
+        int rem = _bitOffset & 7;
+        if (rem != 0) Write(0u, 8 - rem);
+    }
+
     /// <summary>Materialise the buffered bits as a byte array. Trailing bits inside the last byte are zero-padded.</summary>
     public byte[] ToArray() => _bytes.ToArray();
 }
