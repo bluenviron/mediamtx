@@ -83,6 +83,24 @@ internal ref struct NalUnitBitReader
         int rem = 8 - (_bitPos & 7);
         if (rem != 8) SkipBits(rem);
     }
+
+    /// <summary>
+    /// Returns true iff more RBSP data follows the current bit position
+    /// before the trailing <c>rbsp_stop_one_bit</c> + alignment zeros.
+    /// Used by H.264 syntax elements gated by <c>more_rbsp_data()</c>
+    /// (see ITU-T H.264 7.2).
+    /// </summary>
+    public bool HasMoreRbspData()
+    {
+        int lastByteIdx = _data.Length - 1;
+        while (lastByteIdx >= 0 && _data[lastByteIdx] == 0) lastByteIdx--;
+        if (lastByteIdx < 0) return false;
+        int b = _data[lastByteIdx];
+        int lowestSetBit = 0;
+        while ((b & 1) == 0) { b >>= 1; lowestSetBit++; }
+        int stopBitPos = lastByteIdx * 8 + (7 - lowestSetBit);
+        return _bitPos < stopBitPos;
+    }
 }
 
 internal sealed class EndOfBitstreamException : Exception
