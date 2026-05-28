@@ -279,6 +279,21 @@ public sealed class HeifReader : IImageReader
         return HeifCleanAperture.TryParse(data.Span, out info);
     }
 
+    /// <summary>
+    /// Resolves the <c>av1C</c> (AV1 Codec Configuration) property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="Av1CodecConfigurationRecord"/> per the AV1 ISOBMFF
+    /// binding §2.3. Use this on AVIF / AVIF-tiled images to learn the
+    /// AV1 sequence profile, level, tier, bit depth, and chroma format
+    /// without re-decoding the bitstream.
+    /// </summary>
+    public bool TryGetAv1CodecConfiguration(uint itemId, out Av1CodecConfigurationRecord record)
+    {
+        record = null!;
+        if (!TryGetPropertyBytes(itemId, "av1C", out var data)) return false;
+        return Av1CodecConfigurationRecord.TryParse(data.Span, out record);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -642,6 +657,7 @@ public sealed class HeifReader : IImageReader
                 case "clli" when len >= 4:
                 case "mdcv" when len >= 24:
                 case "clap" when len >= 32:
+                case "av1C" when len >= 4:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
