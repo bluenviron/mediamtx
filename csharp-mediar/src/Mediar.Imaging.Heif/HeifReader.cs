@@ -486,6 +486,34 @@ public sealed class HeifReader : IImageReader
         return HeifContentColourVolume.TryParse(data.Span, out volume);
     }
 
+    /// <summary>
+    /// Resolves the <c>lsel</c> Layer Selector property associated
+    /// with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifLayerSelector"/>. Returns <c>false</c> when no
+    /// <c>lsel</c> property is associated or the payload is
+    /// malformed.
+    /// </summary>
+    public bool TryGetLayerSelector(uint itemId, out HeifLayerSelector selector)
+    {
+        selector = null!;
+        if (!TryGetPropertyBytes(itemId, "lsel", out var data)) return false;
+        return HeifLayerSelector.TryParse(data.Span, out selector);
+    }
+
+    /// <summary>
+    /// Resolves the <c>rref</c> Required Reference Types property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifRequiredReference"/>. Returns <c>false</c> when
+    /// no <c>rref</c> property is associated or the payload is
+    /// malformed.
+    /// </summary>
+    public bool TryGetRequiredReference(uint itemId, out HeifRequiredReference required)
+    {
+        required = null!;
+        if (!TryGetPropertyBytes(itemId, "rref", out var data)) return false;
+        return HeifRequiredReference.TryParse(data.Span, out required);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -858,6 +886,8 @@ public sealed class HeifReader : IImageReader
                 case "a1op" when len >= 1:
                 case "a1lx" when len >= 1:
                 case "cclv" when len >= 5:
+                case "lsel" when len >= 2:
+                case "rref" when len >= 5:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
