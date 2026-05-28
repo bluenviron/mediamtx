@@ -5,9 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"net"
+	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -47,15 +50,26 @@ type connEntry struct {
 }
 
 type group struct {
-	id       [srtlaIDLen]byte
-	conns    []*connEntry
-	srtConn  *net.UDPConn
-	lastSeen time.Time
-	lastAddr *net.UDPAddr
+	id             [srtlaIDLen]byte
+	conns          []*connEntry
+	srtConn        *net.UDPConn
+	lastSeen       time.Time
+	lastAddr       *net.UDPAddr
+	path           string
+	bytesReceived  atomic.Uint64
+	bytesForwarded atomic.Uint64
 }
 
 type serverParent interface {
 	logger.Writer
+}
+
+type serverMetrics interface {
+	SetSRTLAServer(defs.APISRTLAServer)
+}
+
+func interfaceIsEmpty(i any) bool {
+	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
 // Server is an SRTLA receiver that bonds multiple UDP connections
@@ -63,6 +77,7 @@ type serverParent interface {
 type Server struct {
 	Address    string
 	SRTAddress string
+	Metrics    serverMetrics
 	Parent     serverParent
 
 	ln        *net.UDPConn
@@ -71,6 +86,7 @@ type Server struct {
 	mu        sync.Mutex
 	groups    map[[srtlaIDLen]byte]*group
 	connIndex map[string]*group
+	srtAddrIndex map[string]*group
 }
 
 // Initialize initializes the SRTLA server.
@@ -88,6 +104,7 @@ func (s *Server) Initialize() error {
 	s.done = make(chan struct{})
 	s.groups = make(map[[srtlaIDLen]byte]*group)
 	s.connIndex = make(map[string]*group)
+	s.srtAddrIndex = make(map[string]*group)
 
 	s.Log(logger.Info, "listener opened on %s (UDP)", s.Address)
 
@@ -95,12 +112,21 @@ func (s *Server) Initialize() error {
 	go s.readLoop()
 	go s.cleanupLoop()
 
+	if !interfaceIsEmpty(s.Metrics) {
+		s.Metrics.SetSRTLAServer(s)
+	}
+
 	return nil
 }
 
 // Close closes the SRTLA server.
 func (s *Server) Close() {
 	s.Log(logger.Info, "listener is closing")
+
+	if !interfaceIsEmpty(s.Metrics) {
+		s.Metrics.SetSRTLAServer(nil)
+	}
+
 	close(s.done)
 	s.ln.Close()
 
@@ -220,6 +246,7 @@ func (s *Server) handleReg1(data []byte, addr *net.UDPAddr) {
 
 	s.groups[fullID] = g
 	s.connIndex[addr.String()] = g
+	s.srtAddrIndex[srtConn.LocalAddr().String()] = g
 
 	s.wg.Add(1)
 	go s.srtReadLoop(g)
@@ -348,7 +375,11 @@ func (s *Server) handleData(data []byte, addr *net.UDPAddr) {
 	srtConn := g.srtConn
 	s.mu.Unlock()
 
-	_, _ = srtConn.Write(data)
+	g.bytesReceived.Add(uint64(len(data)))
+	n2, _ := srtConn.Write(data)
+	if n2 > 0 {
+		g.bytesForwarded.Add(uint64(n2))
+	}
 }
 
 func (s *Server) srtReadLoop(g *group) {
@@ -412,9 +443,10 @@ func (s *Server) cleanup() {
 			for _, c := range g.conns {
 				delete(s.connIndex, c.addr.String())
 			}
+			delete(s.srtAddrIndex, g.srtConn.LocalAddr().String())
 			g.srtConn.Close()
 			delete(s.groups, id)
-			s.Log(logger.Debug, "group timed out and removed")
+			s.Log(logger.Debug, "group timed out and removed (path: %s)", g.path)
 			continue
 		}
 
@@ -430,11 +462,62 @@ func (s *Server) cleanup() {
 		g.conns = alive
 
 		if len(g.conns) == 0 {
+			delete(s.srtAddrIndex, g.srtConn.LocalAddr().String())
 			g.srtConn.Close()
 			delete(s.groups, id)
-			s.Log(logger.Debug, "group removed (no connections remaining)")
+			s.Log(logger.Debug, "group removed (path: %s, no connections remaining)", g.path)
 		}
 	}
+}
+
+// SetGroupPath sets the stream path for the SRTLA group identified by the SRT connection address.
+func (s *Server) SetGroupPath(srtConnAddr string, path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	g, ok := s.srtAddrIndex[srtConnAddr]
+	if !ok {
+		return
+	}
+	g.path = path
+	s.Log(logger.Debug, "group path set to '%s'", path)
+}
+
+// CloseGroupByAddr closes the SRTLA group associated with the given SRT connection address.
+func (s *Server) CloseGroupByAddr(srtConnAddr string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	g, ok := s.srtAddrIndex[srtConnAddr]
+	if !ok {
+		return
+	}
+
+	for _, c := range g.conns {
+		delete(s.connIndex, c.addr.String())
+	}
+	delete(s.srtAddrIndex, srtConnAddr)
+	delete(s.groups, g.id)
+	g.srtConn.Close()
+
+	s.Log(logger.Debug, "group closed by SRT (path: %s)", g.path)
+}
+
+// APISRTLAGroupsList returns info about all active SRTLA groups for metrics.
+func (s *Server) APISRTLAGroupsList() []defs.APISRTLAGroup {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	items := make([]defs.APISRTLAGroup, 0, len(s.groups))
+	for _, g := range s.groups {
+		items = append(items, defs.APISRTLAGroup{
+			Path:           g.path,
+			ConnsActive:    len(g.conns),
+			BytesReceived:  g.bytesReceived.Load(),
+			BytesForwarded: g.bytesForwarded.Load(),
+		})
+	}
+	return items
 }
 
 func (s *Server) sendReg2(addr *net.UDPAddr, id [srtlaIDLen]byte) {

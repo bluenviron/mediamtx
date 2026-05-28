@@ -1014,6 +1014,7 @@ func (p *Core) createResources(initial bool) error {
 		i := &srtla.Server{
 			Address:    p.conf.SRTLAAddress,
 			SRTAddress: p.conf.SRTAddress,
+			Metrics:    p.metrics,
 			Parent:     p,
 		}
 		err = i.Initialize()
@@ -1021,6 +1022,7 @@ func (p *Core) createResources(initial bool) error {
 			return err
 		}
 		p.srtlaServer = i
+		p.srtServer.SRTLALinker = i
 	}
 
 	if p.conf.API &&
