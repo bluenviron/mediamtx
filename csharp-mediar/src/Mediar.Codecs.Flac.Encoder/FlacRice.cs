@@ -3,20 +3,21 @@ using Mediar.IO;
 namespace Mediar.Codecs.Flac.Encoder;
 
 /// <summary>
-/// Rice / Rice2 residual coder for FLAC (RFC 9639 §10.3.5).
+/// Rice / Rice2 residual coder for FLAC (RFC 9639 §10.3.5) with multi-partition support.
 /// </summary>
 /// <remarks>
-/// Each residual is mapped to an unsigned "folded" value via classic zigzag
-/// (<c>folded = (v &lt;&lt; 1) ^ (v &gt;&gt; 31)</c>) and then split as
-/// <c>folded = (q &lt;&lt; k) | r</c> with the quotient <c>q</c> emitted in
-/// unary (q zero bits + a single 1 stop bit) and the remainder <c>r</c> emitted
-/// in <c>k</c> LSB-first bits. The Rice parameter <c>k</c> is shared across
-/// the whole partition (we always emit a single-partition residual here).
-/// Method 0 stores the parameter in 4 bits (k ∈ [0,14]; 15 = escape); method 1
-/// in 5 bits (k ∈ [0,30]; 31 = escape). We use whichever has the smaller
-/// header for the chosen <c>k</c>; the escape path is not emitted in this
-/// floor encoder (we fall back to VERBATIM if k > 30 would be required, which
-/// only happens for genuinely random / high-energy s32 input).
+/// Residuals are folded to unsigned via zigzag (<c>folded = (v &lt;&lt; 1) ^ (v &gt;&gt; 31)</c>)
+/// and split as <c>folded = (q &lt;&lt; k) | r</c>; the quotient <c>q</c> is unary-coded
+/// (q zero bits + one stop bit) and the remainder <c>r</c> is written in <c>k</c> LSB-first bits.
+///
+/// The block of residuals is partitioned into <c>2^partition_order</c> equal-sized regions and
+/// each region picks its own Rice parameter <c>k</c>. The whole subframe shares one method
+/// (0 = 4-bit k field per partition with k ∈ [0,14]; 1 = 5-bit k with k ∈ [0,30]). The first
+/// partition holds <c>partitionSize - predictorOrder</c> residuals (the first
+/// <c>predictorOrder</c> samples in the block are warm-up, not residuals); every subsequent
+/// partition holds <c>partitionSize</c> residuals.
+///
+/// The escape paths (k = 15 / 31, raw signed binary) are not emitted by this floor encoder.
 /// </remarks>
 internal static class FlacRice
 {
@@ -26,101 +27,206 @@ internal static class FlacRice
     /// <summary>Largest Rice parameter the Method-1 5-bit field can carry.</summary>
     public const int MaxKMethod1 = 30;
 
-    /// <summary>Per-residual fixed overhead in bits for method 0 / method 1 partition headers.</summary>
-    public const int HeaderBitsMethod0 = 2 + 4 + 4; // method + partition_order + Rice param
+    /// <summary>Hard upper bound on the partition_order field (4 bits in the wire format).</summary>
+    public const int MaxPartitionOrder = 8;
 
-    /// <summary>Per-residual fixed overhead in bits for method 1.</summary>
-    public const int HeaderBitsMethod1 = 2 + 4 + 5;
+    /// <summary>Default per-subframe partition_order ceiling (matches libFLAC compression level 5).</summary>
+    public const int DefaultMaxPartitionOrder = 6;
 
     /// <summary>
-    /// Pick the Rice parameter <c>k</c> minimising total encoded body bits over
-    /// the residual span. Method 0 is preferred when <c>k ≤ 14</c>; method 1
-    /// is used for <c>k ∈ [15, 30]</c>. The returned <c>bits</c> includes the
-    /// residual-coding partition header (2+4+4 or 2+4+5) plus the per-residual
-    /// unary + stop + remainder bits.
+    /// Pick the cheapest (partition_order, method, per-partition k[]) for the residual sequence.
+    /// Sweeps <c>partition_order ∈ [0, maxPartitionOrder]</c> and both methods, skipping any
+    /// candidate whose layout would split the block unevenly or leave partition 0 with no
+    /// residuals.
     /// </summary>
-    /// <returns>
-    /// <c>(method, k, bits)</c>. If no k ∈ [0,30] yields a fitting cost the
-    /// caller should fall back to VERBATIM; this method always returns SOME
-    /// (method, k) and the caller is expected to compare cost.
-    /// </returns>
-    public static (int Method, int K, long Bits) ChooseParameter(ReadOnlySpan<int> residuals)
+    /// <param name="residuals">
+    /// Residual values, length <c>blockSize - predictorOrder</c>. Partition 0 owns the first
+    /// <c>(blockSize / 2^partition_order) - predictorOrder</c> residuals; subsequent partitions
+    /// each own <c>blockSize / 2^partition_order</c> residuals.
+    /// </param>
+    /// <param name="predictorOrder">Number of warmup samples consumed before the residual stream begins.</param>
+    /// <param name="blockSize">Total samples in the channel block (residuals.Length + predictorOrder).</param>
+    /// <param name="maxPartitionOrder">Inclusive upper bound on partition_order. Clamped to <see cref="MaxPartitionOrder"/>.</param>
+    /// <param name="ksWorkspace">
+    /// Output buffer; on success, the first <c>1 &lt;&lt; partitionOrder</c> entries hold the
+    /// per-partition Rice parameters. Must be at least <c>1 &lt;&lt; maxPartitionOrder</c> long.
+    /// </param>
+    /// <param name="partitionOrder">Winning partition order (0..maxPartitionOrder).</param>
+    /// <param name="method">Winning Rice method (0 or 1).</param>
+    /// <param name="totalBits">Total residual-coding bit cost (header + body) of the winner.</param>
+    /// <returns><c>true</c> when at least one (partition_order, method) candidate fits.</returns>
+    public static bool TryChooseBestPartitioning(
+        ReadOnlySpan<int> residuals,
+        int predictorOrder,
+        int blockSize,
+        int maxPartitionOrder,
+        Span<int> ksWorkspace,
+        out int partitionOrder,
+        out int method,
+        out long totalBits)
+    {
+        partitionOrder = 0;
+        method = 0;
+        totalBits = 0;
+
+        if (maxPartitionOrder < 0) maxPartitionOrder = 0;
+        if (maxPartitionOrder > MaxPartitionOrder) maxPartitionOrder = MaxPartitionOrder;
+
+        // Empty-residual fast path: only partition_order = 0 is legal and the body is empty.
+        if (residuals.Length == 0)
+        {
+            if (ksWorkspace.Length == 0) return false;
+            ksWorkspace[0] = 0;
+            partitionOrder = 0;
+            method = 0;
+            totalBits = 2 + 4 + 4; // method + partition_order + k field
+            return true;
+        }
+
+        Span<int> candidateKs = stackalloc int[1 << MaxPartitionOrder];
+
+        long bestTotal = long.MaxValue;
+        int bestPo = -1;
+        int bestMethod = -1;
+
+        for (int po = 0; po <= maxPartitionOrder; po++)
+        {
+            int numPartitions = 1 << po;
+            if ((blockSize & (numPartitions - 1)) != 0) continue;
+            int partitionSize = blockSize >> po;
+            // Partition 0 carries partitionSize - predictorOrder residuals; need at least one.
+            if (partitionSize <= predictorOrder) continue;
+
+            for (int m = 0; m <= 1; m++)
+            {
+                int maxK = m == 0 ? MaxKMethod0 : MaxKMethod1;
+                int kBits = m == 0 ? 4 : 5;
+                long headerBits = 2L + 4L + (long)numPartitions * kBits;
+                long body = 0;
+                int residualIdx = 0;
+                bool ok = true;
+
+                for (int p = 0; p < numPartitions; p++)
+                {
+                    int count = p == 0 ? partitionSize - predictorOrder : partitionSize;
+                    ReadOnlySpan<int> slice = residuals.Slice(residualIdx, count);
+                    int chosenK = ChoosePartitionK(slice, maxK, out long partitionBits);
+                    if (chosenK < 0) { ok = false; break; }
+                    candidateKs[p] = chosenK;
+                    body += partitionBits;
+                    residualIdx += count;
+                }
+
+                if (!ok) continue;
+                long total = headerBits + body;
+                if (total < bestTotal)
+                {
+                    bestTotal = total;
+                    bestPo = po;
+                    bestMethod = m;
+                    candidateKs[..numPartitions].CopyTo(ksWorkspace);
+                }
+            }
+        }
+
+        if (bestPo < 0) return false;
+
+        partitionOrder = bestPo;
+        method = bestMethod;
+        totalBits = bestTotal;
+        return true;
+    }
+
+    /// <summary>
+    /// Emit the residual-coding section: 2-bit method + 4-bit partition_order
+    /// + (per partition) k field + Rice-coded residuals. The partition layout
+    /// is fully determined by <paramref name="blockSize"/>, <paramref name="predictorOrder"/>
+    /// and <paramref name="partitionOrder"/> and must match the spec layout.
+    /// </summary>
+    public static void WritePartitions(
+        ref BitWriter bw,
+        ReadOnlySpan<int> residuals,
+        int predictorOrder,
+        int blockSize,
+        int partitionOrder,
+        int method,
+        ReadOnlySpan<int> ks)
+    {
+        int numPartitions = 1 << partitionOrder;
+        int partitionSize = blockSize >> partitionOrder;
+        int kBits = method == 0 ? 4 : 5;
+
+        bw.WriteBits((uint)method, 2);
+        bw.WriteBits((uint)partitionOrder, 4);
+
+        int residualIdx = 0;
+        for (int p = 0; p < numPartitions; p++)
+        {
+            int count = p == 0 ? partitionSize - predictorOrder : partitionSize;
+            int k = ks[p];
+            bw.WriteBits((uint)k, kBits);
+
+            for (int i = 0; i < count; i++)
+            {
+                int v = residuals[residualIdx + i];
+                uint folded = (uint)((v << 1) ^ (v >> 31));
+                uint q = folded >> k;
+
+                while (q >= 32)
+                {
+                    bw.WriteBits(0u, 32);
+                    q -= 32;
+                }
+                if (q > 0) bw.WriteBits(0u, (int)q);
+                bw.WriteBit(true);
+
+                if (k > 0)
+                {
+                    uint remainder = folded & ((1u << k) - 1u);
+                    bw.WriteBits(remainder, k);
+                }
+            }
+            residualIdx += count;
+        }
+    }
+
+    /// <summary>
+    /// Pick the Rice parameter <c>k ∈ [0, maxK]</c> minimising the per-residual
+    /// body bit cost for the given partition. Returns the chosen <c>k</c> and
+    /// the corresponding <c>bits</c> (the per-residual unary + stop + remainder
+    /// cost; partition-header bits are added by the caller).
+    /// </summary>
+    private static int ChoosePartitionK(ReadOnlySpan<int> residuals, int maxK, out long bits)
     {
         int n = residuals.Length;
         if (n == 0)
         {
-            // Empty partition still pays the residual-coding header.
-            return (0, 0, HeaderBitsMethod0);
+            bits = 0;
+            return 0;
         }
 
         Span<long> perK = stackalloc long[MaxKMethod1 + 1];
-        for (int k = 0; k <= MaxKMethod1; k++)
-        {
-            perK[k] = (long)n * (k + 1);
-        }
+        for (int k = 0; k <= maxK; k++) perK[k] = (long)n * (k + 1);
 
         for (int i = 0; i < n; i++)
         {
             int v = residuals[i];
             uint z = (uint)((v << 1) ^ (v >> 31));
-            for (int k = 0; k <= MaxKMethod1; k++)
-            {
-                perK[k] += (long)(z >> k);
-            }
+            for (int k = 0; k <= maxK; k++) perK[k] += (long)(z >> k);
         }
 
         int bestK = 0;
-        long bestRice = perK[0];
-        for (int k = 1; k <= MaxKMethod1; k++)
+        long best = perK[0];
+        for (int k = 1; k <= maxK; k++)
         {
-            if (perK[k] < bestRice)
+            if (perK[k] < best)
             {
-                bestRice = perK[k];
+                best = perK[k];
                 bestK = k;
             }
         }
 
-        int method = bestK <= MaxKMethod0 ? 0 : 1;
-        int headerBits = method == 0 ? HeaderBitsMethod0 : HeaderBitsMethod1;
-        return (method, bestK, bestRice + headerBits);
-    }
-
-    /// <summary>
-    /// Write the residual coding for a single partition (partition_order = 0)
-    /// with the given <paramref name="method"/> and Rice parameter <paramref name="k"/>.
-    /// Emits: 2-bit method + 4-bit partition_order (=0) + 4/5-bit k + N Rice codes.
-    /// </summary>
-    public static void WriteSinglePartition(
-        ref BitWriter bw,
-        ReadOnlySpan<int> residuals,
-        int method,
-        int k)
-    {
-        bw.WriteBits((uint)method, 2);
-        bw.WriteBits(0u, 4); // partition_order = 0
-        bw.WriteBits((uint)k, method == 0 ? 4 : 5);
-
-        for (int i = 0; i < residuals.Length; i++)
-        {
-            int v = residuals[i];
-            uint folded = (uint)((v << 1) ^ (v >> 31));
-            uint q = folded >> k;
-
-            // Unary: q zero bits, in chunks of 32.
-            while (q >= 32)
-            {
-                bw.WriteBits(0u, 32);
-                q -= 32;
-            }
-            if (q > 0) bw.WriteBits(0u, (int)q);
-
-            bw.WriteBit(true); // stop bit
-
-            if (k > 0)
-            {
-                uint remainder = folded & ((1u << k) - 1u);
-                bw.WriteBits(remainder, k);
-            }
-        }
+        bits = best;
+        return bestK;
     }
 }

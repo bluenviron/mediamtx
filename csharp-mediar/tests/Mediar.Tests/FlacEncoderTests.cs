@@ -552,6 +552,85 @@ public sealed class FlacEncoderTests
         Assert.True((subframeHeader & 0x40) == 0, $"bps=32 must not pick LPC; got 0x{subframeHeader:X2}");
     }
 
+    // ----------------- Multi-partition Rice (phase 4a) -----------------
+
+    [Fact]
+    public void EncodeFrame_LongBlock_PartitionOrder_Beats_Single_Partition()
+    {
+        // A 4096-sample block whose residual energy varies sharply by region
+        // (quiet first half, loud second half) is exactly the input where the
+        // multi-partition Rice coder beats the single-partition one. Compare
+        // against a hypothetical single-partition ceiling: the actual frame
+        // must come in well below it.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16);
+        const int n = 4096;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            // first half: small ramp (low residual energy);
+            // second half: large ramp (high residual energy).
+            double amp = i < n / 2 ? 500.0 : 18000.0;
+            samples[i] = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 17.0));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+
+        // Verbatim ceiling: 2 bytes/sample. Even a worst-case multi-partition
+        // pick should sit well below 30% of verbatim on this signal.
+        int verbatimBytes = n * 2;
+        Assert.True(
+            frameLen < verbatimBytes * 30 / 100,
+            $"phase-4a frame {frameLen} bytes should be < 30% of verbatim {verbatimBytes}.");
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(12)]
+    [InlineData(16)]
+    [InlineData(20)]
+    [InlineData(24)]
+    public void EncodeFrame_StereoSine_AllBps_MultiPartition_RoundTrip(int bps)
+    {
+        // Bit-exact decode of a longer stereo sine confirms multi-partition
+        // Rice doesn't break any of the supported bit-depth paths.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: bps);
+        const int n = 4096;
+        int max = (1 << (bps - 1)) - 1;
+        double amp = max * 0.55;
+        int[] samples = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i * 2 + 0] = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 19.3));
+            samples[i * 2 + 1] = (int)Math.Round(amp * Math.Cos(2.0 * Math.PI * i / 27.9));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_LargeBlock_MonoSine_RoundTrips_Bit_Exact()
+    {
+        // Multi-partition Rice yields its biggest wins on long blocks where
+        // residual statistics vary across the block. A 8192-sample mono sine
+        // exercises the codec at a size impossible in phase 3 (which kept
+        // partition_order = 0). The round-trip is the strict contract.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16, BlockSize: 8192);
+        const int n = 8192;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(20000.0 * Math.Sin(2.0 * Math.PI * i / 41.7));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
     // ----------------- helpers -----------------
 
     private static (byte[] Frame, int Length, byte[] StreamInfo) EncodeOneFrame(

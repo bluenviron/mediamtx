@@ -54,26 +54,24 @@ internal static class FlacLpcPredictor
     public static bool TryEstimateBest(
         ReadOnlySpan<int> samples,
         int bps,
+        int blockSize,
+        int maxPartitionOrder,
         Span<int> residualWorkspace,
         Span<double> windowedWorkspace,
         Span<int> qcoefOut,
+        Span<int> ksWorkspace,
         long maxBits,
         out int order,
         out int precision,
         out int shift,
-        out int method,
-        out int k,
         out long bits)
     {
         order = -1;
         precision = Precision;
         shift = 0;
-        method = 0;
-        k = 0;
         bits = maxBits;
 
-        if (!IsSupported(bps, samples.Length)) return false;
-        int blockSize = samples.Length;
+        if (!IsSupported(bps, blockSize)) return false;
         int maxOrder = Math.Min(MaxOrder, blockSize / 2);
         if (maxOrder < 1) return false;
 
@@ -115,21 +113,23 @@ internal static class FlacLpcPredictor
                 int n = blockSize - m;
                 if (TryComputeResiduals(samples, qcoef[..m], s, residualWorkspace[..n]))
                 {
-                    var (mm, kRice, residualBits) = FlacRice.ChooseParameter(residualWorkspace[..n]);
-                    long cost = 8L                        // subframe header byte
-                              + (long)m * bps             // warmup samples
-                              + 4 + 5                     // precision + shift fields
-                              + (long)m * Precision       // quantised coefficient bits
-                              + residualBits;
-
-                    if (cost < bits)
+                    if (FlacRice.TryChooseBestPartitioning(
+                            residualWorkspace[..n], m, blockSize, maxPartitionOrder,
+                            ksWorkspace, out _, out _, out long residualBits))
                     {
-                        bits = cost;
-                        order = m;
-                        shift = s;
-                        method = mm;
-                        k = kRice;
-                        qcoef[..m].CopyTo(qcoefOut[..m]);
+                        long cost = 8L                        // subframe header byte
+                                  + (long)m * bps             // warmup samples
+                                  + 4 + 5                     // precision + shift fields
+                                  + (long)m * Precision       // quantised coefficient bits
+                                  + residualBits;
+
+                        if (cost < bits)
+                        {
+                            bits = cost;
+                            order = m;
+                            shift = s;
+                            qcoef[..m].CopyTo(qcoefOut[..m]);
+                        }
                     }
                 }
             }
@@ -144,7 +144,8 @@ internal static class FlacLpcPredictor
     /// <summary>
     /// Emit an LPC subframe with the parameters from a prior
     /// <see cref="TryEstimateBest"/> call. Residuals are recomputed into
-    /// <paramref name="residualWorkspace"/> from the quantised coefficients.
+    /// <paramref name="residualWorkspace"/> from the quantised coefficients
+    /// and the multi-partition Rice layout is rediscovered.
     /// </summary>
     public static void WriteSubframe(
         ref BitWriter bw,
@@ -153,12 +154,13 @@ internal static class FlacLpcPredictor
         int order,
         int precision,
         int shift,
-        int method,
-        int k,
+        int blockSize,
+        int maxPartitionOrder,
         ReadOnlySpan<int> qcoef,
-        Span<int> residualWorkspace)
+        Span<int> residualWorkspace,
+        Span<int> ksWorkspace)
     {
-        int n = samples.Length - order;
+        int n = blockSize - order;
         if (!TryComputeResiduals(samples, qcoef, shift, residualWorkspace[..n]))
         {
             throw new InvalidOperationException("LPC residual recomputation overflowed int32 during WriteSubframe.");
@@ -178,7 +180,13 @@ internal static class FlacLpcPredictor
 
         for (int i = 0; i < order; i++) WriteSignedSample(ref bw, qcoef[i], precision);
 
-        FlacRice.WriteSinglePartition(ref bw, residualWorkspace[..n], method, k);
+        if (!FlacRice.TryChooseBestPartitioning(
+                residualWorkspace[..n], order, blockSize, maxPartitionOrder,
+                ksWorkspace, out int partitionOrder, out int method, out _))
+        {
+            throw new InvalidOperationException("LpcPredictor failed to re-derive partitioning during WriteSubframe.");
+        }
+        FlacRice.WritePartitions(ref bw, residualWorkspace[..n], order, blockSize, partitionOrder, method, ksWorkspace);
     }
 
     /// <summary>

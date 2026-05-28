@@ -83,42 +83,45 @@ internal static class FlacFixedPredictor
 
     /// <summary>
     /// Estimate the cheapest FIXED predictor order for the given channel
-    /// block. Returns <c>true</c> if at least one order's total bit cost is
-    /// strictly cheaper than <paramref name="maxBits"/>. The residual
-    /// workspace is left in an undefined state on return — the caller must
-    /// recompute it via <see cref="WriteSubframe"/> using the returned
-    /// <paramref name="order"/>.
+    /// block using multi-partition Rice coding. Returns <c>true</c> if at
+    /// least one order's total bit cost is strictly cheaper than
+    /// <paramref name="maxBits"/>. The residual + ks workspaces are left in
+    /// an undefined state on return — the caller must reproduce them via
+    /// <see cref="WriteSubframe"/> using the returned <paramref name="order"/>.
     /// </summary>
     public static bool TryEstimateBest(
         ReadOnlySpan<int> samples,
         int bps,
-        Span<int> workspace,
+        int blockSize,
+        int maxPartitionOrder,
+        Span<int> residualWorkspace,
+        Span<int> ksWorkspace,
         long maxBits,
         out int order,
-        out int method,
-        out int k,
         out long bits)
     {
-        int blockSize = samples.Length;
         order = -1;
-        method = 0;
-        k = 0;
         bits = maxBits;
 
         for (int o = 0; o <= MaxOrder && o <= blockSize; o++)
         {
             int n = blockSize - o;
             long cost;
-            int m = 0, kk = 0;
 
             if (n == 0)
             {
-                cost = 8L + (long)o * bps + FlacRice.HeaderBitsMethod0;
+                // Empty residual partition still costs the method + partition_order + k header.
+                cost = 8L + (long)o * bps + (2 + 4 + 4);
             }
             else
             {
-                if (!TryComputeResiduals(samples, o, workspace[..n])) continue;
-                (m, kk, long residualBits) = FlacRice.ChooseParameter(workspace[..n]);
+                if (!TryComputeResiduals(samples, o, residualWorkspace[..n])) continue;
+                if (!FlacRice.TryChooseBestPartitioning(
+                        residualWorkspace[..n], o, blockSize, maxPartitionOrder,
+                        ksWorkspace, out _, out _, out long residualBits))
+                {
+                    continue;
+                }
                 cost = 8L + (long)o * bps + residualBits;
             }
 
@@ -126,8 +129,6 @@ internal static class FlacFixedPredictor
             {
                 bits = cost;
                 order = o;
-                method = m;
-                k = kk;
             }
         }
 
@@ -137,18 +138,21 @@ internal static class FlacFixedPredictor
     /// <summary>
     /// Emit a FIXED subframe with the parameters from a prior
     /// <see cref="TryEstimateBest"/> call. Residuals are recomputed into
-    /// <paramref name="residualScratch"/>.
+    /// <paramref name="residualScratch"/> and the partitioning is
+    /// rediscovered (the per-order Rice sweep is cheap relative to the
+    /// residual computation).
     /// </summary>
     public static void WriteSubframe(
         ref BitWriter bw,
         ReadOnlySpan<int> samples,
         int bps,
         int order,
-        int method,
-        int k,
-        Span<int> residualScratch)
+        int blockSize,
+        int maxPartitionOrder,
+        Span<int> residualScratch,
+        Span<int> ksScratch)
     {
-        int n = samples.Length - order;
+        int n = blockSize - order;
         if (n > 0 && !TryComputeResiduals(samples, order, residualScratch[..n]))
         {
             throw new InvalidOperationException("FixedPredictor residual recomputation overflowed int32 during WriteSubframe.");
@@ -159,7 +163,14 @@ internal static class FlacFixedPredictor
         bw.WriteBits(headerByte, 8);
 
         for (int i = 0; i < order; i++) WriteSignedSample(ref bw, samples[i], bps);
-        FlacRice.WriteSinglePartition(ref bw, residualScratch[..n], method, k);
+
+        if (!FlacRice.TryChooseBestPartitioning(
+                residualScratch[..n], order, blockSize, maxPartitionOrder,
+                ksScratch, out int partitionOrder, out int method, out _))
+        {
+            throw new InvalidOperationException("FixedPredictor failed to re-derive partitioning during WriteSubframe.");
+        }
+        FlacRice.WritePartitions(ref bw, residualScratch[..n], order, blockSize, partitionOrder, method, ksScratch);
     }
 
     /// <summary>Emit <paramref name="value"/> as a <paramref name="bps"/>-bit two's-complement MSB-first signed integer.</summary>
