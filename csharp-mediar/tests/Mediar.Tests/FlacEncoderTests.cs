@@ -49,17 +49,109 @@ public sealed class FlacEncoderTests
     }
 
     [Fact]
-    public void EncodeFrame_MonoS16_NonConstant_Emits_Verbatim_Subframe()
+    public void EncodeFrame_MonoS16_LinearRamp_Emits_Fixed_Subframe()
     {
+        // Strictly-increasing samples drive Fixed predictor selection. The
+        // ramp 0,1,2,... has zero second differences, so the encoder should
+        // pick FIXED order 2 (type byte 0b0_001010_0 = 0x14).
         var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16);
         const int n = 192;
         int[] samples = new int[n];
-        for (int i = 0; i < n; i++) samples[i] = i; // strictly increasing -> not constant
+        for (int i = 0; i < n; i++) samples[i] = i;
 
-        var (frame, frameLen, _) = EncodeOneFrame(p, samples, n);
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
 
         Assert.True(FlacFrameHeaderParser.TryParse(frame.AsSpan(0, frameLen), 44100, 16, out var header));
-        Assert.Equal(0x02, frame[header.HeaderSize]);
+        Assert.Equal(0x14, frame[header.HeaderSize]);
+
+        // FIXED must still round-trip bit-exact through the public decoder.
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_MonoS16_Order1_Constant_Delta_Emits_Fixed_Order1()
+    {
+        // A sequence with constant non-zero first difference (e.g. 100, 113, 126, ...)
+        // makes FIXED order 1 optimal (zero second difference makes order 2 better,
+        // so use a non-arithmetic ramp by perturbing: i*13 + small jitter).
+        var p = new FlacEncoderParameters(44100, 1, 16);
+        const int n = 256;
+        int[] samples = new int[n];
+        var rng = new Random(42);
+        int acc = 0;
+        for (int i = 0; i < n; i++)
+        {
+            acc += 10 + rng.Next(-2, 3); // jittered ramp → order 1 residual ≈ ±2
+            samples[i] = acc;
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        Assert.True(FlacFrameHeaderParser.TryParse(frame.AsSpan(0, frameLen), 44100, 16, out var header));
+        // Expect a FIXED subframe (any order 0..4). Subframe-header byte layout
+        // is [pad(1)][type(6)][wasted(1)]; the FIXED family has type 0b001NNN
+        // (bit 4 set, bits 6-5 clear). Mask 0x70 = bits 6,5,4.
+        byte sub = frame[header.HeaderSize];
+        Assert.True((sub & 0b0111_0000) == 0b0001_0000,
+            $"Expected FIXED subframe (type 0b001xxx), got byte 0x{sub:X2}");
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_AllZero_Beats_Fixed_With_Constant()
+    {
+        // All-zero samples should still pick CONSTANT (8 + bps bits) over any
+        // FIXED encoding (8 + 10 + N bits minimum at k=0).
+        var p = new FlacEncoderParameters(44100, 1, 16);
+        const int n = 1024;
+        int[] samples = new int[n]; // all zero
+
+        var (frame, frameLen, _) = EncodeOneFrame(p, samples, n);
+        Assert.True(FlacFrameHeaderParser.TryParse(frame.AsSpan(0, frameLen), 44100, 16, out var header));
+        Assert.Equal(0x00, frame[header.HeaderSize]); // CONSTANT
+    }
+
+    [Fact]
+    public void EncodeFrame_Sine_Wave_Compresses_Below_Verbatim()
+    {
+        // A pure sine wave at moderate amplitude is highly predictable for
+        // Fixed orders 2-4. The encoded frame should be materially smaller
+        // than the VERBATIM bit-budget.
+        var p = new FlacEncoderParameters(44100, 1, 16);
+        const int n = 4096;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(8000.0 * Math.Sin(2.0 * Math.PI * i / 64.0));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+
+        int verbatimBytes = (8 + n * 16) / 8 + 1; // approx VERBATIM subframe size
+        Assert.True(frameLen < verbatimBytes,
+            $"Frame ({frameLen} B) should beat verbatim subframe (~{verbatimBytes} B).");
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(12)]
+    [InlineData(16)]
+    [InlineData(20)]
+    [InlineData(24)]
+    public void EncodeFrame_Sine_AllBps_Fixed_RoundTrip(int bps)
+    {
+        var p = new FlacEncoderParameters(48000, 2, bps);
+        const int n = 1024;
+        long amp = (1L << (bps - 1)) / 4;
+        int[] samples = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i * 2 + 0] = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 32.0));
+            samples[i * 2 + 1] = (int)Math.Round(amp * Math.Cos(2.0 * Math.PI * i / 48.0));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
     }
 
     [Theory]

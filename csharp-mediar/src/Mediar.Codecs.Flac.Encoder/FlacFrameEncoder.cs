@@ -1,3 +1,4 @@
+using System.Buffers;
 using Mediar.Codecs.Flac.Decoder;
 using Mediar.IO;
 
@@ -5,13 +6,14 @@ namespace Mediar.Codecs.Flac.Encoder;
 
 /// <summary>
 /// Encodes a single FLAC frame from interleaved integer PCM samples into the
-/// byte representation defined by RFC 9639 §10. This floor encoder emits
-/// <c>CONSTANT</c> subframes (when an entire channel block is a single value)
-/// and <c>VERBATIM</c> subframes otherwise — i.e. it does framing and CRCs but
-/// not compression. The output is a valid FLAC frame that the existing
-/// <see cref="Mediar.Codecs.Flac.Decoder.FlacFrameHeaderParser"/> /
-/// <see cref="Mediar.Codecs.Flac.Decoder.FlacSubframeDecoder"/> pair will
-/// round-trip back to the exact input samples.
+/// byte representation defined by RFC 9639 §10. This encoder emits
+/// <c>CONSTANT</c>, <c>VERBATIM</c>, and <c>FIXED</c> subframes (orders 0..4
+/// with Rice / Rice2 residual coding in a single partition), automatically
+/// picking the cheapest representation per channel. LPC subframes, multi-
+/// partition Rice, and stereo decorrelation are reserved for follow-up phases.
+/// The output is a valid FLAC frame that the existing
+/// <see cref="FlacFrameHeaderParser"/> / <see cref="FlacSubframeDecoder"/>
+/// pair round-trips back to the exact input samples.
 /// </summary>
 public static class FlacFrameEncoder
 {
@@ -119,9 +121,26 @@ public static class FlacFrameEncoder
         bw.WriteBits(crc8, 8);
 
         // -- Subframes (§10.3) --
-        for (int c = 0; c < parameters.Channels; c++)
+        int[] channelBuf = ArrayPool<int>.Shared.Rent(samplesPerChannel);
+        int[] residualBuf = ArrayPool<int>.Shared.Rent(samplesPerChannel);
+        try
         {
-            EncodeSubframe(parameters, interleavedSamples, samplesPerChannel, c, ref bw);
+            for (int c = 0; c < parameters.Channels; c++)
+            {
+                EncodeSubframe(
+                    parameters,
+                    interleavedSamples,
+                    samplesPerChannel,
+                    c,
+                    channelBuf.AsSpan(0, samplesPerChannel),
+                    residualBuf.AsSpan(0, samplesPerChannel),
+                    ref bw);
+            }
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(residualBuf);
+            ArrayPool<int>.Shared.Return(channelBuf);
         }
 
         // -- Frame footer (§10.4): align + CRC-16 over everything written so far. --
@@ -139,16 +158,25 @@ public static class FlacFrameEncoder
         ReadOnlySpan<int> interleaved,
         int samplesPerChannel,
         int channelIndex,
+        Span<int> channelBuf,
+        Span<int> residualBuf,
         ref BitWriter bw)
     {
         int channels = parameters.Channels;
         int bps = parameters.BitsPerSample;
 
-        int first = interleaved[channelIndex];
+        // Deinterleave this channel into a contiguous workspace.
+        for (int i = 0; i < samplesPerChannel; i++)
+        {
+            channelBuf[i] = interleaved[i * channels + channelIndex];
+        }
+
+        // CONSTANT detection (cheapest possible subframe at 8 + bps bits).
+        int first = channelBuf[0];
         bool constant = true;
         for (int i = 1; i < samplesPerChannel; i++)
         {
-            if (interleaved[i * channels + channelIndex] != first)
+            if (channelBuf[i] != first)
             {
                 constant = false;
                 break;
@@ -163,12 +191,25 @@ public static class FlacFrameEncoder
             return;
         }
 
+        // Try FIXED predictors (orders 0..4) — encoder picks the order with the
+        // smallest total bit cost, falling back to VERBATIM if every Fixed
+        // configuration is at least as expensive.
+        long verbatimBodyBits = 8L + (long)samplesPerChannel * bps;
+        if (FlacFixedPredictor.TryEncodeBestSubframe(
+                ref bw,
+                channelBuf[..samplesPerChannel],
+                bps,
+                residualBuf,
+                verbatimBodyBits))
+        {
+            return;
+        }
+
         // VERBATIM: pad 0 + type 000001 + wasted 0 = 0b00000010
         bw.WriteBits(0b00000010u, 8);
         for (int i = 0; i < samplesPerChannel; i++)
         {
-            int sample = interleaved[i * channels + channelIndex];
-            WriteSignedSample(ref bw, sample, bps);
+            WriteSignedSample(ref bw, channelBuf[i], bps);
         }
     }
 
