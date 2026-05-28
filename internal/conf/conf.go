@@ -1066,6 +1066,12 @@ func (conf *Conf) Validate(l logger.Writer) error {
 
 	// Record (deprecated)
 
+	if conf.SRTLA {
+		if conf.SRTLAAddress == "" {
+			return fmt.Errorf("'srtlaAddress' must be set when SRTLA is enabled")
+		}
+	}
+
 	if conf.Record != nil {
 		l.Log(logger.Warn, "parameter 'record' is deprecated "+
 			"and has been replaced with 'pathDefaults.record'")
