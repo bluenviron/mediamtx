@@ -46,6 +46,16 @@ public sealed record AacFillExtensionPayload
     public AacDynamicRangeInfo? DynamicRange { get; init; }
 
     /// <summary>
+    /// Typed framing view of the body when <see cref="ExtensionType"/> is
+    /// <see cref="AacFillExtensionType.SbrData"/> (0xD) or
+    /// <see cref="AacFillExtensionType.SbrDataCrc"/> (0xE). Populated
+    /// automatically by <see cref="TryParse"/> - splits off the 10-bit
+    /// <c>sbr_crc_bits</c> field (CRC variant only) and surfaces the
+    /// <c>sbr_extension_data()</c> remainder as an opaque bit slice.
+    /// </summary>
+    public AacSbrExtensionData? Sbr { get; init; }
+
+    /// <summary>
     /// True when <paramref name="rawType"/> is one of the defined codes in
     /// ISO/IEC 14496-3 Table 4.51.
     /// </summary>
@@ -88,15 +98,25 @@ public sealed record AacFillExtensionPayload
             }
         }
 
+        AacDynamicRangeInfo? drc = null;
+        AacSbrExtensionData? sbr = null;
+        if (rawType == (byte)AacFillExtensionType.DynamicRange)
+        {
+            _ = AacDynamicRangeInfo.TryParse(body, bodyBits, out drc);
+        }
+        else if (rawType == (byte)AacFillExtensionType.SbrData
+            || rawType == (byte)AacFillExtensionType.SbrDataCrc)
+        {
+            _ = AacSbrExtensionData.TryParse((AacFillExtensionType)rawType, body, bodyBits, out sbr);
+        }
+
         payload = new AacFillExtensionPayload
         {
             RawType = rawType,
             Body = body,
             BodyBitLength = bodyBits,
-            DynamicRange = rawType == (byte)AacFillExtensionType.DynamicRange
-                && AacDynamicRangeInfo.TryParse(body, bodyBits, out var drc)
-                ? drc
-                : null,
+            DynamicRange = drc,
+            Sbr = sbr,
         };
         return true;
     }
