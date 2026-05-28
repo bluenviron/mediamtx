@@ -37,6 +37,15 @@ public sealed record AacFillExtensionPayload
     public required int BodyBitLength { get; init; }
 
     /// <summary>
+    /// Typed view over the body when <see cref="ExtensionType"/> is
+    /// <see cref="AacFillExtensionType.DynamicRange"/> (0xB). Populated
+    /// automatically by <see cref="TryParse"/>; left <see langword="null"/>
+    /// for any other extension type, or when the body is too short or
+    /// malformed to parse a <c>dynamic_range_info()</c> structure.
+    /// </summary>
+    public AacDynamicRangeInfo? DynamicRange { get; init; }
+
+    /// <summary>
     /// True when <paramref name="rawType"/> is one of the defined codes in
     /// ISO/IEC 14496-3 Table 4.51.
     /// </summary>
@@ -84,6 +93,10 @@ public sealed record AacFillExtensionPayload
             RawType = rawType,
             Body = body,
             BodyBitLength = bodyBits,
+            DynamicRange = rawType == (byte)AacFillExtensionType.DynamicRange
+                && AacDynamicRangeInfo.TryParse(body, bodyBits, out var drc)
+                ? drc
+                : null,
         };
         return true;
     }
