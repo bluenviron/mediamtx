@@ -50,6 +50,12 @@ public sealed class HeifReader : IImageReader
     /// <summary>Compatible brands declared by <c>ftyp</c>.</summary>
     public ImmutableArray<string> CompatibleBrands { get; }
 
+    /// <summary>
+    /// Typed view over the <c>ftyp</c> brand list: codec, container kind,
+    /// multilayer / range-extended / tone-mapped / Apple multi-image flags.
+    /// </summary>
+    public HeifBrandInfo BrandInfo { get; }
+
     /// <summary>Primary item id (from <c>pitm</c>); 0 if none.</summary>
     public uint PrimaryItemId { get; }
 
@@ -97,6 +103,7 @@ public sealed class HeifReader : IImageReader
         _stream = s; _ownsStream = owns;
         Format = fmt; Info = info; Metadata = meta;
         MajorBrand = majorBrand; CompatibleBrands = compat;
+        BrandInfo = HeifBrandInfo.From(majorBrand, compat);
         PrimaryItemId = primary; Items = items; Properties = props;
         Associations = assoc; References = refs;
         ReferenceGraph = new HeifReferenceGraph(refs);
@@ -319,7 +326,7 @@ public sealed class HeifReader : IImageReader
                     "heic" or "heix" or "hevc" or "hevx" => ImageFormat.Heic,
                     "avif" or "avis" => ImageFormat.Avif,
                     "crx " => ImageFormat.Cr3,
-                    "mif1" or "msf1" or "heim" or "heis" => ImageFormat.Heif,
+                    "mif1" or "msf1" or "heim" or "heis" or "mif2" or "mif3" or "tmap" or "unif" or "vvic" or "vvis" => ImageFormat.Heif,
                     _ => r.Format,
                 };
             }
