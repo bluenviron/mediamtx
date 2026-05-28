@@ -65,6 +65,16 @@ public sealed record AacFillExtensionPayload
     public AacFillDataExtension? FillData { get; init; }
 
     /// <summary>
+    /// Typed view of the body when <see cref="ExtensionType"/> is
+    /// <see cref="AacFillExtensionType.DataElement"/> (0x2). Populated
+    /// by <see cref="TryParse"/>; carries the 4-bit
+    /// <c>data_element_version</c> plus the parsed ANC_DATA payload when
+    /// the version is <see cref="AacDataElementExtension.VersionAncData"/>
+    /// (0x0).
+    /// </summary>
+    public AacDataElementExtension? DataElement { get; init; }
+
+    /// <summary>
     /// True when <paramref name="rawType"/> is one of the defined codes in
     /// ISO/IEC 14496-3 Table 4.51.
     /// </summary>
@@ -110,6 +120,7 @@ public sealed record AacFillExtensionPayload
         AacDynamicRangeInfo? drc = null;
         AacSbrExtensionData? sbr = null;
         AacFillDataExtension? fillData = null;
+        AacDataElementExtension? dataElement = null;
         if (rawType == (byte)AacFillExtensionType.DynamicRange)
         {
             _ = AacDynamicRangeInfo.TryParse(body, bodyBits, out drc);
@@ -123,6 +134,10 @@ public sealed record AacFillExtensionPayload
         {
             _ = AacFillDataExtension.TryParse(body, bodyBits, out fillData);
         }
+        else if (rawType == (byte)AacFillExtensionType.DataElement)
+        {
+            _ = AacDataElementExtension.TryParse(body, bodyBits, out dataElement);
+        }
 
         payload = new AacFillExtensionPayload
         {
@@ -132,6 +147,7 @@ public sealed record AacFillExtensionPayload
             DynamicRange = drc,
             Sbr = sbr,
             FillData = fillData,
+            DataElement = dataElement,
         };
         return true;
     }
