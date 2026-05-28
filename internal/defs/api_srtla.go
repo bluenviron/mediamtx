@@ -23,6 +23,7 @@ type APISRTLAServer interface {
 
 // APISRTLAGroup is an SRTLA group entry for metrics/API.
 type APISRTLAGroup struct {
+	ID             string `json:"id"`
 	Path           string `json:"path"`
 	ConnsActive    int    `json:"connsActive"`
 	BytesReceived  uint64 `json:"bytesReceived"`

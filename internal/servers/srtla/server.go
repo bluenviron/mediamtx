@@ -4,6 +4,7 @@ package srtla
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"net"
 	"reflect"
 	"sync"
@@ -511,6 +512,7 @@ func (s *Server) APISRTLAGroupsList() []defs.APISRTLAGroup {
 	items := make([]defs.APISRTLAGroup, 0, len(s.groups))
 	for _, g := range s.groups {
 		items = append(items, defs.APISRTLAGroup{
+			ID:             hex.EncodeToString(g.id[:]),
 			Path:           g.path,
 			ConnsActive:    len(g.conns),
 			BytesReceived:  g.bytesReceived.Load(),
