@@ -115,7 +115,9 @@ public sealed class DngReader : IImageReader
 
         var subs = new List<DngSubImageInfo>();
         var visitedIfds = new HashSet<uint>();
-        WalkIfdsRecursive(bytes, le, ifd0Offset, parentSubIfdLevel: 0, subs, visitedIfds);
+        TiffRawHelpers.WalkIfdsRecursive<DngSubImageInfo>(
+            bytes, le, ifd0Offset, parentSubIfdLevel: 0, subs, visitedIfds,
+            (entries, b, lo, lvl) => BuildSubImageInfo(entries, b, lo, lvl));
 
         // Pick the "primary" sub-image: prefer NewSubFileType == 0
         // (primary), else the largest one by pixel count.
@@ -215,40 +217,6 @@ public sealed class DngReader : IImageReader
             }
         }
         return best ?? throw new ImageFormatException("DNG file has no inspectable sub-images.");
-    }
-
-    private static void WalkIfdsRecursive(byte[] bytes, bool le, uint ifdOffset,
-                                          int parentSubIfdLevel,
-                                          List<DngSubImageInfo> sink,
-                                          HashSet<uint> visited)
-    {
-        while (ifdOffset != 0)
-        {
-            if (!visited.Add(ifdOffset)) return;
-            if (ifdOffset + 2 > bytes.Length) return;
-            var entries = ParseIfd(bytes, le, (int)ifdOffset);
-            sink.Add(BuildSubImageInfo(entries, bytes, le, parentSubIfdLevel));
-
-            // Recurse into any SubIFD pointers (tag 0x014A).
-            foreach (var e in entries)
-            {
-                if (e.Tag != 0x014A) continue;
-                var subOffsets = ReadLongArray(e, bytes, le);
-                foreach (uint sub in subOffsets)
-                {
-                    WalkIfdsRecursive(bytes, le, sub, parentSubIfdLevel + 1, sink, visited);
-                }
-            }
-
-            // Walk the IFD chain only at the top level. SubIFDs themselves
-            // don't have a meaningful next-IFD pointer per the DNG spec.
-            if (parentSubIfdLevel != 0) return;
-
-            int n = entries.Length;
-            int nextSlot = (int)ifdOffset + 2 + n * 12;
-            if (nextSlot + 4 > bytes.Length) return;
-            ifdOffset = ReadU32(bytes, nextSlot, le);
-        }
     }
 
     private static DngSubImageInfo BuildSubImageInfo(IfdEntry[] entries, byte[] bytes, bool le,

@@ -103,7 +103,9 @@ public sealed class Rw2Reader : IImageReader
 
         var subs = new List<Rw2SubImageInfo>();
         var visited = new HashSet<uint>();
-        WalkIfdsRecursive(bytes, ifd0Offset, parentSubIfdLevel: 0, subs, visited);
+        TiffRawHelpers.WalkIfdsRecursive<Rw2SubImageInfo>(
+            bytes, le: true, ifd0Offset, parentSubIfdLevel: 0, subs, visited,
+            (entries, b, _, lvl) => BuildSubImageInfo(entries, lvl, b));
 
         var primary = SelectPrimary(subs);
         var info = new ImageInfo
@@ -190,37 +192,6 @@ public sealed class Rw2Reader : IImageReader
             if (best is null || px > bestPixels) { best = s; bestPixels = px; }
         }
         return best ?? throw new ImageFormatException("RW2 file has no inspectable sub-images.");
-    }
-
-    private static void WalkIfdsRecursive(byte[] bytes, uint ifdOffset,
-                                          int parentSubIfdLevel,
-                                          List<Rw2SubImageInfo> sink,
-                                          HashSet<uint> visited)
-    {
-        while (ifdOffset != 0)
-        {
-            if (!visited.Add(ifdOffset)) return;
-            if (ifdOffset + 2 > bytes.Length) return;
-            var entries = ParseIfd(bytes, le: true, (int)ifdOffset);
-            sink.Add(BuildSubImageInfo(entries, parentSubIfdLevel, bytes));
-
-            foreach (var e in entries)
-            {
-                if (e.Tag != 0x014A) continue;
-                var subOffsets = ReadLongArray(e, bytes, le: true);
-                foreach (uint sub in subOffsets)
-                {
-                    WalkIfdsRecursive(bytes, sub, parentSubIfdLevel + 1, sink, visited);
-                }
-            }
-
-            if (parentSubIfdLevel != 0) return;
-
-            int n = entries.Length;
-            int nextSlot = (int)ifdOffset + 2 + n * 12;
-            if (nextSlot + 4 > bytes.Length) return;
-            ifdOffset = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(nextSlot));
-        }
     }
 
     private static Rw2SubImageInfo BuildSubImageInfo(IfdEntry[] entries, int subIfdLevel, byte[] bytes)

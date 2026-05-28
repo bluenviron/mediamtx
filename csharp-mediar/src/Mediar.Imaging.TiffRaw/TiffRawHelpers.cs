@@ -167,4 +167,77 @@ public static class TiffRawHelpers
     public static uint ReadU32(byte[] b, int o, bool le) =>
         le ? BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(o))
            : BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(o));
+
+    /// <summary>
+    /// Walks a TIFF IFD chain starting at <paramref name="ifdOffset"/> and
+    /// recursively descends into any SubIFD pointers (tag <c>0x014A</c>),
+    /// invoking <paramref name="build"/> for each discovered IFD to materialise
+    /// a per-format sub-image descriptor into <paramref name="sink"/>.
+    /// </summary>
+    /// <typeparam name="T">Per-format sub-image descriptor type.</typeparam>
+    /// <param name="bytes">The whole file buffer.</param>
+    /// <param name="le">True for little-endian byte order.</param>
+    /// <param name="ifdOffset">Starting IFD offset (typically the value read
+    /// from the TIFF header next-IFD slot at offset 4).</param>
+    /// <param name="parentSubIfdLevel">Recursion depth (0 at the top-level
+    /// chain; incremented for each SubIFD descent).</param>
+    /// <param name="sink">Destination list for the built sub-image
+    /// descriptors. One entry is appended per discovered IFD.</param>
+    /// <param name="visited">Cycle-guard set of already-walked offsets;
+    /// pass an empty <see cref="HashSet{T}"/> at the top-level call.</param>
+    /// <param name="build">Per-format builder delegate. Receives the parsed
+    /// IFD entry table, the file buffer, the byte-order flag, and the
+    /// current SubIFD recursion depth.</param>
+    /// <remarks>
+    /// <para>
+    /// This is the canonical IFD-walk for TIFF-based RAW readers (DNG / ORF /
+    /// RW2 etc). It walks the next-IFD chain only at the top level
+    /// (<paramref name="parentSubIfdLevel"/> == 0), matching the TIFF 6.0
+    /// convention that SubIFDs themselves do not carry meaningful next-IFD
+    /// pointers.
+    /// </para>
+    /// <para>
+    /// Out-of-bounds offsets are silently treated as end-of-chain rather
+    /// than thrown - this matches the behaviour of every consumer that
+    /// previously inlined this loop.
+    /// </para>
+    /// </remarks>
+    public static void WalkIfdsRecursive<T>(
+        byte[] bytes,
+        bool le,
+        uint ifdOffset,
+        int parentSubIfdLevel,
+        List<T> sink,
+        HashSet<uint> visited,
+        Func<IfdEntry[], byte[], bool, int, T> build)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        ArgumentNullException.ThrowIfNull(visited);
+        ArgumentNullException.ThrowIfNull(build);
+
+        while (ifdOffset != 0)
+        {
+            if (!visited.Add(ifdOffset)) return;
+            if (ifdOffset + 2 > bytes.Length) return;
+            var entries = ParseIfd(bytes, le, (int)ifdOffset);
+            sink.Add(build(entries, bytes, le, parentSubIfdLevel));
+
+            foreach (var e in entries)
+            {
+                if (e.Tag != 0x014A) continue;
+                var subOffsets = ReadLongArray(e, bytes, le);
+                foreach (uint sub in subOffsets)
+                {
+                    WalkIfdsRecursive(bytes, le, sub, parentSubIfdLevel + 1, sink, visited, build);
+                }
+            }
+
+            if (parentSubIfdLevel != 0) return;
+
+            int n = entries.Length;
+            int nextSlot = (int)ifdOffset + 2 + n * 12;
+            if (nextSlot + 4 > bytes.Length) return;
+            ifdOffset = ReadU32(bytes, nextSlot, le);
+        }
+    }
 }

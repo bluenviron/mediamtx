@@ -127,7 +127,9 @@ public sealed class OrfReader : IImageReader
 
         var subs = new List<OrfSubImageInfo>();
         var visited = new HashSet<uint>();
-        WalkIfdsRecursive(bytes, le, ifd0Offset, parentSubIfdLevel: 0, subs, visited);
+        TiffRawHelpers.WalkIfdsRecursive<OrfSubImageInfo>(
+            bytes, le, ifd0Offset, parentSubIfdLevel: 0, subs, visited,
+            (entries, b, lo, lvl) => BuildSubImageInfo(entries, lvl, b, lo));
 
         var primary = SelectPrimary(subs);
         var info = new ImageInfo
@@ -216,37 +218,6 @@ public sealed class OrfReader : IImageReader
             if (best is null || px > bestPixels) { best = s; bestPixels = px; }
         }
         return best ?? throw new ImageFormatException("ORF file has no inspectable sub-images.");
-    }
-
-    private static void WalkIfdsRecursive(byte[] bytes, bool le, uint ifdOffset,
-                                          int parentSubIfdLevel,
-                                          List<OrfSubImageInfo> sink,
-                                          HashSet<uint> visited)
-    {
-        while (ifdOffset != 0)
-        {
-            if (!visited.Add(ifdOffset)) return;
-            if (ifdOffset + 2 > bytes.Length) return;
-            var entries = ParseIfd(bytes, le, (int)ifdOffset);
-            sink.Add(BuildSubImageInfo(entries, parentSubIfdLevel, bytes, le));
-
-            foreach (var e in entries)
-            {
-                if (e.Tag != 0x014A) continue;
-                var subOffsets = ReadLongArray(e, bytes, le);
-                foreach (uint sub in subOffsets)
-                {
-                    WalkIfdsRecursive(bytes, le, sub, parentSubIfdLevel + 1, sink, visited);
-                }
-            }
-
-            if (parentSubIfdLevel != 0) return;
-
-            int n = entries.Length;
-            int nextSlot = (int)ifdOffset + 2 + n * 12;
-            if (nextSlot + 4 > bytes.Length) return;
-            ifdOffset = ReadU32(bytes, nextSlot, le);
-        }
     }
 
     private static OrfSubImageInfo BuildSubImageInfo(IfdEntry[] entries, int subIfdLevel, byte[] bytes, bool le)
