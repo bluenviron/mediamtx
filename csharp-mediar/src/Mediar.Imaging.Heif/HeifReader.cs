@@ -529,6 +529,22 @@ public sealed class HeifReader : IImageReader
         return HeifJpegConfiguration.TryParse(data.Span, out config);
     }
 
+    /// <summary>
+    /// Decode the L-HEVC <c>tols</c> Target Output Layer Set
+    /// property associated with the given item, when present. The
+    /// returned index references an operating point declared by the
+    /// companion <c>oinf</c> property. Returns false when no
+    /// <c>tols</c> property is associated or the payload is malformed.
+    /// </summary>
+    public bool TryGetTargetOutputLayerSet(uint itemId, out HeifTargetOutputLayerSet tols)
+    {
+        tols = null!;
+        if (!TryGetPropertyBytes(itemId, "tols", out var data)) return false;
+        if (!HeifTargetOutputLayerSet.TryParse(data.Span, out var parsed) || parsed is null) return false;
+        tols = parsed;
+        return true;
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -904,6 +920,7 @@ public sealed class HeifReader : IImageReader
                 case "lsel" when len >= 2:
                 case "rref" when len >= 5:
                 case "jpgC" when len >= 1:
+                case "tols" when len >= 6:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
