@@ -545,6 +545,23 @@ public sealed class HeifReader : IImageReader
         return true;
     }
 
+    /// <summary>
+    /// Decode the L-HEVC <c>oinf</c> Operating Points Information
+    /// property associated with the given item, when present. The
+    /// returned record carries the scalability mask, profile-tier-
+    /// level entries, operating points and layer dependency graph.
+    /// Returns false when no <c>oinf</c> property is associated or
+    /// the payload is structurally inconsistent.
+    /// </summary>
+    public bool TryGetOperatingPointsInformation(uint itemId, out HeifOperatingPointsInformation oinf)
+    {
+        oinf = null!;
+        if (!TryGetPropertyBytes(itemId, "oinf", out var data)) return false;
+        if (!HeifOperatingPointsInformation.TryParse(data.Span, out var parsed) || parsed is null) return false;
+        oinf = parsed;
+        return true;
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -921,6 +938,7 @@ public sealed class HeifReader : IImageReader
                 case "rref" when len >= 5:
                 case "jpgC" when len >= 1:
                 case "tols" when len >= 6:
+                case "oinf" when len >= 10:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
