@@ -84,6 +84,7 @@ const (
 	metricsTypeRTMPConns      metricsType = "rtmp_conns"
 	metricsTypeRTMPSConns     metricsType = "rtmps_conns"
 	metricsTypeSRTConns       metricsType = "srt_conns"
+	metricsTypeSRTLAGroups    metricsType = "srtla_groups"
 	metricsTypeWebRTCSessions metricsType = "webrtc_sessions"
 	metricsTypeMoQSessions    metricsType = "moq_sessions"
 )
@@ -119,6 +120,7 @@ type Metrics struct {
 	rtmpServer   defs.APIRTMPServer
 	rtmpsServer  defs.APIRTMPServer
 	srtServer    defs.APISRTServer
+	srtlaServer  defs.APISRTLAServer
 	webRTCServer defs.APIWebRTCServer
 	moqServer    defs.APIMoQServer
 }
@@ -225,6 +227,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	rtmpServer := m.rtmpServer
 	rtmpsServer := m.rtmpsServer
 	srtServer := m.srtServer
+	srtlaServer := m.srtlaServer
 	webRTCServer := m.webRTCServer
 	moqServer := m.moqServer
 	m.mutex.RUnlock()
@@ -976,6 +979,33 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
+	if !interfaceIsEmpty(srtlaServer) &&
+		(typ == "" || typ == metricsTypeSRTLAGroups) &&
+		!anyFilterActive {
+		data := srtlaServer.APISRTLAGroupsList()
+		if len(data) != 0 {
+			out.WriteString("# SRTLA groups\n")
+			for _, i := range data {
+				ta := tags(map[string]string{
+					"path": i.Path,
+				})
+
+				metric(&out, "srtla_groups", ta, 1)
+				metric(&out, "srtla_groups_conns_active", ta, int64(i.ConnsActive))
+				metric(&out, "srtla_groups_bytes_received", ta, int64(i.BytesReceived))
+				metric(&out, "srtla_groups_bytes_forwarded", ta, int64(i.BytesForwarded))
+			}
+			out.WriteString("\n")
+		} else {
+			out.WriteString("# SRTLA groups\n")
+			metric(&out, "srtla_groups", "", 0)
+			metric(&out, "srtla_groups_conns_active", "", 0)
+			metric(&out, "srtla_groups_bytes_received", "", 0)
+			metric(&out, "srtla_groups_bytes_forwarded", "", 0)
+			out.WriteString("\n")
+		}
+	}
+
 	if !interfaceIsEmpty(webRTCServer) &&
 		(typ == "" || typ == metricsTypeWebRTCSessions) &&
 		(!anyFilterActive || webrtcSessionFilter != "") {
@@ -1136,6 +1166,13 @@ func (m *Metrics) SetSRTServer(s defs.APISRTServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.srtServer = s
+}
+
+// SetSRTLAServer is called by core.
+func (m *Metrics) SetSRTLAServer(s defs.APISRTLAServer) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.srtlaServer = s
 }
 
 // SetWebRTCServer is called by core.
