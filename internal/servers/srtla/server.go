@@ -455,10 +455,11 @@ func (s *Server) sendKeepalive(addr *net.UDPAddr) {
 }
 
 func (s *Server) sendSRTLAACK(addr *net.UDPAddr, seqNums []uint32) {
-	pkt := make([]byte, 2+4*len(seqNums))
+	// Sender parses ACKs as uint32_t[] starting at index 1 (byte 4), so header must be 4 bytes.
+	pkt := make([]byte, 4+4*len(seqNums))
 	binary.BigEndian.PutUint16(pkt[:2], srtlaTypeACK)
 	for i, seq := range seqNums {
-		binary.BigEndian.PutUint32(pkt[2+4*i:], seq)
+		binary.BigEndian.PutUint32(pkt[4+4*i:], seq)
 	}
 	_, _ = s.ln.WriteToUDP(pkt, addr)
 }
