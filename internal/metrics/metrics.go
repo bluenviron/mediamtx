@@ -929,6 +929,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# SRTLA groups\n")
 			for _, i := range data {
 				ta := tags(map[string]string{
+					"id":   i.ID,
 					"path": i.Path,
 				})
 
