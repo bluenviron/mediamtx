@@ -514,6 +514,21 @@ public sealed class HeifReader : IImageReader
         return HeifRequiredReference.TryParse(data.Span, out required);
     }
 
+    /// <summary>
+    /// Resolves the <c>jpgC</c> JPEG Codec Configuration property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifJpegConfiguration"/> exposing the shared JPEG
+    /// prefix bytes that must be prepended to the item payload to
+    /// form a complete JPEG bitstream. Returns <c>false</c> when no
+    /// <c>jpgC</c> property is associated or the payload is empty.
+    /// </summary>
+    public bool TryGetJpegConfiguration(uint itemId, out HeifJpegConfiguration config)
+    {
+        config = null!;
+        if (!TryGetPropertyBytes(itemId, "jpgC", out var data)) return false;
+        return HeifJpegConfiguration.TryParse(data.Span, out config);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -888,6 +903,7 @@ public sealed class HeifReader : IImageReader
                 case "cclv" when len >= 5:
                 case "lsel" when len >= 2:
                 case "rref" when len >= 5:
+                case "jpgC" when len >= 1:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
