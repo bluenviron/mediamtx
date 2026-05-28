@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Aac.Decoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Aac.Decoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>MPEG-4 AAC (ISO/IEC 14496-3) audio decoding primitives for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>
