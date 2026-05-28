@@ -82,79 +82,84 @@ internal static class FlacFixedPredictor
     }
 
     /// <summary>
-    /// Pick the best (order, residualMethod, riceK) for the given channel block
-    /// and write the chosen FIXED subframe into <paramref name="bw"/>. Returns
-    /// <c>true</c> on success. Returns <c>false</c> when the cheapest FIXED
-    /// configuration is not strictly better than VERBATIM (e.g. because every
-    /// order overflowed) — the caller is then expected to emit VERBATIM.
+    /// Estimate the cheapest FIXED predictor order for the given channel
+    /// block. Returns <c>true</c> if at least one order's total bit cost is
+    /// strictly cheaper than <paramref name="maxBits"/>. The residual
+    /// workspace is left in an undefined state on return — the caller must
+    /// recompute it via <see cref="WriteSubframe"/> using the returned
+    /// <paramref name="order"/>.
     /// </summary>
-    public static bool TryEncodeBestSubframe(
-        ref BitWriter bw,
+    public static bool TryEstimateBest(
         ReadOnlySpan<int> samples,
         int bps,
-        Span<int> residualScratch,
-        long verbatimBodyBits)
+        Span<int> workspace,
+        long maxBits,
+        out int order,
+        out int method,
+        out int k,
+        out long bits)
     {
         int blockSize = samples.Length;
+        order = -1;
+        method = 0;
+        k = 0;
+        bits = maxBits;
 
-        int bestOrder = -1;
-        int bestMethod = 0;
-        int bestK = 0;
-        long bestBits = long.MaxValue;
-
-        Span<int> tempResidual = residualScratch[..blockSize];
-
-        for (int order = 0; order <= MaxOrder && order <= blockSize; order++)
+        for (int o = 0; o <= MaxOrder && o <= blockSize; o++)
         {
-            int n = blockSize - order;
+            int n = blockSize - o;
             long cost;
-            int method = 0;
-            int k = 0;
+            int m = 0, kk = 0;
 
             if (n == 0)
             {
-                // No residuals: just warmup + empty residual partition header.
-                cost = 8L + (long)order * bps + FlacRice.HeaderBitsMethod0;
+                cost = 8L + (long)o * bps + FlacRice.HeaderBitsMethod0;
             }
             else
             {
-                if (!TryComputeResiduals(samples, order, tempResidual[..n])) continue;
-                (method, k, long residualBits) = FlacRice.ChooseParameter(tempResidual[..n]);
-                cost = 8L + (long)order * bps + residualBits;
+                if (!TryComputeResiduals(samples, o, workspace[..n])) continue;
+                (m, kk, long residualBits) = FlacRice.ChooseParameter(workspace[..n]);
+                cost = 8L + (long)o * bps + residualBits;
             }
 
-            if (cost < bestBits)
+            if (cost < bits)
             {
-                bestBits = cost;
-                bestOrder = order;
-                bestMethod = method;
-                bestK = k;
+                bits = cost;
+                order = o;
+                method = m;
+                k = kk;
             }
         }
 
-        if (bestOrder < 0 || bestBits >= verbatimBodyBits) return false;
+        return order >= 0;
+    }
 
-        // Recompute residuals for the winning order.
-        int winN = blockSize - bestOrder;
-        if (winN > 0)
+    /// <summary>
+    /// Emit a FIXED subframe with the parameters from a prior
+    /// <see cref="TryEstimateBest"/> call. Residuals are recomputed into
+    /// <paramref name="residualScratch"/>.
+    /// </summary>
+    public static void WriteSubframe(
+        ref BitWriter bw,
+        ReadOnlySpan<int> samples,
+        int bps,
+        int order,
+        int method,
+        int k,
+        Span<int> residualScratch)
+    {
+        int n = samples.Length - order;
+        if (n > 0 && !TryComputeResiduals(samples, order, residualScratch[..n]))
         {
-            bool ok = TryComputeResiduals(samples, bestOrder, tempResidual[..winN]);
-            if (!ok) return false; // defensive — should not happen since we just succeeded above
+            throw new InvalidOperationException("FixedPredictor residual recomputation overflowed int32 during WriteSubframe.");
         }
 
         // Subframe header byte: 0 (pad) | 001NNN (type) | 0 (wasted-bits flag).
-        // type = 0b001000 | order → byte = ((0b001000 | order) << 1) & 0xFE.
-        uint headerByte = (uint)((0b001000 | bestOrder) << 1);
+        uint headerByte = (uint)((0b001000 | order) << 1);
         bw.WriteBits(headerByte, 8);
 
-        // Warmup samples: bps-bit signed (two's complement) values.
-        for (int i = 0; i < bestOrder; i++)
-        {
-            WriteSignedSample(ref bw, samples[i], bps);
-        }
-
-        FlacRice.WriteSinglePartition(ref bw, tempResidual[..winN], bestMethod, bestK);
-        return true;
+        for (int i = 0; i < order; i++) WriteSignedSample(ref bw, samples[i], bps);
+        FlacRice.WriteSinglePartition(ref bw, residualScratch[..n], method, k);
     }
 
     /// <summary>Emit <paramref name="value"/> as a <paramref name="bps"/>-bit two's-complement MSB-first signed integer.</summary>

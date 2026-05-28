@@ -433,6 +433,125 @@ public sealed class FlacEncoderTests
         AssertDecodedMatches(decoder, buf2.AsSpan(0, len2), samples2, n, 2, 16);
     }
 
+    // ----------------- LPC (phase 3) -----------------
+
+    [Fact]
+    public void EncodeFrame_MonoS16_Sine4096_Picks_Lpc_Subframe()
+    {
+        // A long sinusoid at a non-trivial fractional period is the canonical
+        // input where LPC beats Fixed: Fixed's analytical predictors can match
+        // simple slopes, but a band-limited sinusoid is exactly the signal an
+        // autocorrelation-driven LPC fits to within a fraction of a bit per
+        // sample.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16);
+        const int n = 4096;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(20000.0 * Math.Sin(2.0 * Math.PI * i / 17.3));
+        }
+
+        var (frame, frameLen, _) = EncodeOneFrame(p, samples, n);
+
+        Assert.True(FlacFrameHeaderParser.TryParse(frame.AsSpan(0, frameLen), 44100, 16, out var header));
+        byte subframeHeader = frame[header.HeaderSize];
+
+        // LPC subframe type bits are 1NNNNN with N = order-1 → header byte
+        // (header << 1) has its 0x40 bit set and the 0x80 bit clear.
+        Assert.True((subframeHeader & 0x80) == 0, "subframe pad bit must be 0");
+        Assert.True((subframeHeader & 0x40) == 0x40, "subframe top type bit must be 1 (LPC family)");
+    }
+
+    [Fact]
+    public void EncodeFrame_MonoS16_Sine4096_Lpc_RoundTrips_Bit_Exact()
+    {
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16);
+        const int n = 4096;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(18000.0 * Math.Sin(2.0 * Math.PI * i / 19.7));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_MonoS16_Sine_Compresses_Better_Than_Fixed_Baseline()
+    {
+        // Cross-check that LPC's win over Fixed materialises in fewer bytes on
+        // a long, high-quality sine block. Pure verbatim ≈ 2 bytes/sample; phase
+        // 2 (Fixed) hit ~20% of verbatim on this shape, phase 3 (LPC) should
+        // come in materially below that — anything under 18% comfortably beats
+        // the Fixed baseline on this signal (measured ~15% at period=23.0).
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 16);
+        const int n = 4096;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(20000.0 * Math.Sin(2.0 * Math.PI * i / 23.0));
+        }
+
+        var (_, frameLen, _) = EncodeOneFrame(p, samples, n);
+        int verbatimBytes = n * 2;
+        Assert.True(
+            frameLen < verbatimBytes * 18 / 100,
+            $"LPC frame {frameLen} bytes should be < 18% of verbatim {verbatimBytes}.");
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(12)]
+    [InlineData(16)]
+    [InlineData(20)]
+    [InlineData(24)]
+    public void EncodeFrame_StereoSine_AllBps_Lpc_RoundTrips(int bps)
+    {
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: bps);
+        const int n = 2048;
+        int max = (1 << (bps - 1)) - 1;
+        double amp = max * 0.6;
+        int[] samples = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i * 2 + 0] = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 13.7));
+            samples[i * 2 + 1] = (int)Math.Round(amp * Math.Cos(2.0 * Math.PI * i / 21.3));
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_Bps32_Sine_Skips_Lpc_And_Stays_Bit_Exact()
+    {
+        // bps > 24 disqualifies LPC (Σ qcoef·sample > 2^63 risk on the
+        // accumulator). The encoder must fall through to Fixed or VERBATIM
+        // and still emit a frame whose header round-trips. Bit-exact decode
+        // of bps=32 itself is gated by the decoder's float-precision path
+        // (already documented in the phase-1 test); here we just verify the
+        // encoder doesn't crash and emits a non-LPC subframe.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 1, BitsPerSample: 32);
+        const int n = 1024;
+        int[] samples = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            samples[i] = (int)Math.Round(1.5e8 * Math.Sin(2.0 * Math.PI * i / 31.0));
+        }
+
+        byte[] frame = new byte[FlacFrameEncoder.MaxFrameSize(p, n)];
+        int frameLen = FlacFrameEncoder.EncodeFrame(p, samples, n, 0, frame);
+
+        Assert.True(FlacFrameHeaderParser.TryParse(frame.AsSpan(0, frameLen), 44100, 32, out var header));
+        byte subframeHeader = frame[header.HeaderSize];
+
+        // Top type bit must NOT be set (not in the LPC family at bps=32).
+        Assert.True((subframeHeader & 0x40) == 0, $"bps=32 must not pick LPC; got 0x{subframeHeader:X2}");
+    }
+
     // ----------------- helpers -----------------
 
     private static (byte[] Frame, int Length, byte[] StreamInfo) EncodeOneFrame(

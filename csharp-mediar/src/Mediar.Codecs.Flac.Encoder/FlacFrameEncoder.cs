@@ -6,14 +6,15 @@ namespace Mediar.Codecs.Flac.Encoder;
 
 /// <summary>
 /// Encodes a single FLAC frame from interleaved integer PCM samples into the
-/// byte representation defined by RFC 9639 §10. This encoder emits
-/// <c>CONSTANT</c>, <c>VERBATIM</c>, and <c>FIXED</c> subframes (orders 0..4
-/// with Rice / Rice2 residual coding in a single partition), automatically
-/// picking the cheapest representation per channel. LPC subframes, multi-
-/// partition Rice, and stereo decorrelation are reserved for follow-up phases.
-/// The output is a valid FLAC frame that the existing
-/// <see cref="FlacFrameHeaderParser"/> / <see cref="FlacSubframeDecoder"/>
-/// pair round-trips back to the exact input samples.
+/// byte representation defined by RFC 9639 §10. The encoder emits
+/// <c>CONSTANT</c>, <c>VERBATIM</c>, <c>FIXED</c> (orders 0..4) and <c>LPC</c>
+/// (orders 1..12 via Welch-windowed autocorrelation + Levinson-Durbin) subframes
+/// with Rice / Rice2 residual coding in a single partition, automatically
+/// picking the cheapest representation per channel. Multi-partition Rice and
+/// stereo decorrelation are reserved for follow-up phases. The output is a
+/// valid FLAC frame that the existing <see cref="FlacFrameHeaderParser"/> /
+/// <see cref="FlacSubframeDecoder"/> pair round-trips back to the exact input
+/// samples.
 /// </summary>
 public static class FlacFrameEncoder
 {
@@ -123,6 +124,8 @@ public static class FlacFrameEncoder
         // -- Subframes (§10.3) --
         int[] channelBuf = ArrayPool<int>.Shared.Rent(samplesPerChannel);
         int[] residualBuf = ArrayPool<int>.Shared.Rent(samplesPerChannel);
+        double[] windowedBuf = ArrayPool<double>.Shared.Rent(samplesPerChannel);
+        int[] qcoefBuf = ArrayPool<int>.Shared.Rent(FlacLpcPredictor.MaxOrder);
         try
         {
             for (int c = 0; c < parameters.Channels; c++)
@@ -134,11 +137,15 @@ public static class FlacFrameEncoder
                     c,
                     channelBuf.AsSpan(0, samplesPerChannel),
                     residualBuf.AsSpan(0, samplesPerChannel),
+                    windowedBuf.AsSpan(0, samplesPerChannel),
+                    qcoefBuf.AsSpan(0, FlacLpcPredictor.MaxOrder),
                     ref bw);
             }
         }
         finally
         {
+            ArrayPool<int>.Shared.Return(qcoefBuf);
+            ArrayPool<double>.Shared.Return(windowedBuf);
             ArrayPool<int>.Shared.Return(residualBuf);
             ArrayPool<int>.Shared.Return(channelBuf);
         }
@@ -160,6 +167,8 @@ public static class FlacFrameEncoder
         int channelIndex,
         Span<int> channelBuf,
         Span<int> residualBuf,
+        Span<double> windowedBuf,
+        Span<int> qcoefBuf,
         ref BitWriter bw)
     {
         int channels = parameters.Channels;
@@ -191,17 +200,38 @@ public static class FlacFrameEncoder
             return;
         }
 
-        // Try FIXED predictors (orders 0..4) — encoder picks the order with the
-        // smallest total bit cost, falling back to VERBATIM if every Fixed
-        // configuration is at least as expensive.
+        ReadOnlySpan<int> samples = channelBuf[..samplesPerChannel];
         long verbatimBodyBits = 8L + (long)samplesPerChannel * bps;
-        if (FlacFixedPredictor.TryEncodeBestSubframe(
-                ref bw,
-                channelBuf[..samplesPerChannel],
-                bps,
-                residualBuf,
-                verbatimBodyBits))
+        long bestBits = verbatimBodyBits;
+
+        // Estimate FIXED — cheap (5 orders × Rice sweep).
+        bool fixedOk = FlacFixedPredictor.TryEstimateBest(
+            samples, bps, residualBuf, bestBits,
+            out int fixedOrder, out int fixedMethod, out int fixedK, out long fixedBits);
+        if (fixedOk) bestBits = fixedBits;
+
+        // Estimate LPC — more expensive (autocorrelation + Levinson + per-order
+        // quantise + per-order Rice sweep) but lets LPC challenge FIXED.
+        bool lpcOk = FlacLpcPredictor.TryEstimateBest(
+            samples, bps, residualBuf, windowedBuf, qcoefBuf, bestBits,
+            out int lpcOrder, out int lpcPrecision, out int lpcShift,
+            out int lpcMethod, out int lpcK, out long lpcBits);
+        if (lpcOk) bestBits = lpcBits;
+
+        if (lpcOk)
         {
+            FlacLpcPredictor.WriteSubframe(
+                ref bw, samples, bps,
+                lpcOrder, lpcPrecision, lpcShift, lpcMethod, lpcK,
+                qcoefBuf[..lpcOrder], residualBuf);
+            return;
+        }
+
+        if (fixedOk)
+        {
+            FlacFixedPredictor.WriteSubframe(
+                ref bw, samples, bps,
+                fixedOrder, fixedMethod, fixedK, residualBuf);
             return;
         }
 
