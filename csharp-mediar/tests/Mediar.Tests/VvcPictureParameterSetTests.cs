@@ -306,7 +306,7 @@ public class VvcPictureParameterSetTests
         {
             PicWidthInLumaSamples = 1920,
             PicHeightInLumaSamples = 1080,
-            NalUnitTypeOverride = 16, // SPS_NUT
+            NalUnitTypeOverride = 15, // SPS_NUT
         });
 
         Assert.False(VvcPictureParameterSet.TryParse(nalu, out var pps));
@@ -338,7 +338,7 @@ public class VvcPictureParameterSetTests
     {
         Assert.False(VvcPictureParameterSet.TryParse(ReadOnlySpan<byte>.Empty, out _));
         Assert.False(VvcPictureParameterSet.TryParse(new byte[] { 0x00 }, out _));
-        Assert.False(VvcPictureParameterSet.TryParse(new byte[] { 0x00, 0x89 }, out _));
+        Assert.False(VvcPictureParameterSet.TryParse(new byte[] { 0x00, 0x81 }, out _));
     }
 
     [Fact]
@@ -473,7 +473,7 @@ public class VvcPictureParameterSetTests
 
         public bool ForbiddenZeroBit { get; init; }
         public bool ReservedZeroBit { get; init; }
-        public byte NalUnitTypeOverride { get; init; } = 17; // PPS_NUT
+        public byte NalUnitTypeOverride { get; init; } = 16; // PPS_NUT
     }
 
     private static class PpsBuilder

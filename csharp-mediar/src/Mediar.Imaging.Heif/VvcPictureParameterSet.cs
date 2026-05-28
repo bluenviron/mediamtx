@@ -14,8 +14,8 @@ namespace Mediar.Imaging.Heif;
 /// </summary>
 public sealed record VvcPictureParameterSet
 {
-    /// <summary>PPS_NUT in the VVC NAL unit type registry (17).</summary>
-    public const int PpsNalUnitType = 17;
+    /// <summary>PPS_NUT in the VVC NAL unit type registry (16).</summary>
+    public const int PpsNalUnitType = 16;
 
     /// <summary>6-bit <c>pps_pic_parameter_set_id</c>.</summary>
     public required byte PicParameterSetId { get; init; }
@@ -198,7 +198,7 @@ public sealed record VvcPictureParameterSet
     /// <summary>
     /// Parses a VVC PPS NAL unit. Expects a 2-byte NAL unit header
     /// (forbidden_zero_bit = 0, nuh_reserved_zero_bit = 0,
-    /// <c>nal_unit_type</c> = 17 PPS_NUT) followed by the PPS RBSP,
+    /// <c>nal_unit_type</c> = 16 PPS_NUT) followed by the PPS RBSP,
     /// optionally containing emulation prevention bytes
     /// (<c>0x00 0x00 0x03</c>) which are stripped before bit
     /// decoding. Returns false on any structural violation, on
