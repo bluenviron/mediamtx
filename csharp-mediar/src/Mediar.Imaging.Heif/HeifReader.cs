@@ -445,6 +445,33 @@ public sealed class HeifReader : IImageReader
         return HeifAuxiliaryType.TryParse(data.Span, out type);
     }
 
+    /// <summary>
+    /// Resolves the <c>a1op</c> AV1 operating-point selector property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifAv1OperatingPoint"/>. Returns <c>false</c> when
+    /// no <c>a1op</c> property is associated with the item.
+    /// </summary>
+    public bool TryGetAv1OperatingPoint(uint itemId, out HeifAv1OperatingPoint op)
+    {
+        op = null!;
+        if (!TryGetPropertyBytes(itemId, "a1op", out var data)) return false;
+        return HeifAv1OperatingPoint.TryParse(data.Span, out op);
+    }
+
+    /// <summary>
+    /// Resolves the <c>a1lx</c> AV1 layered-image-indexing property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifAv1LayeredImageIndexing"/>. Returns <c>false</c>
+    /// when no <c>a1lx</c> property is associated or the payload is
+    /// malformed.
+    /// </summary>
+    public bool TryGetAv1LayeredImageIndexing(uint itemId, out HeifAv1LayeredImageIndexing rec)
+    {
+        rec = null!;
+        if (!TryGetPropertyBytes(itemId, "a1lx", out var data)) return false;
+        return HeifAv1LayeredImageIndexing.TryParse(data.Span, out rec);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -814,6 +841,8 @@ public sealed class HeifReader : IImageReader
                 case "hvcC" when len >= 23:
                 case "udes" when len >= 4:
                 case "vvcC" when len >= 4:
+                case "a1op" when len >= 1:
+                case "a1lx" when len >= 1:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
