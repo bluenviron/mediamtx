@@ -322,6 +322,22 @@ public sealed class HeifReader : IImageReader
         return HeifUserDescription.TryParse(data.Span, out record);
     }
 
+    /// <summary>
+    /// Resolves the <c>vvcC</c> property associated with <paramref name="itemId"/>
+    /// into a typed <see cref="VvcCodecConfigurationRecord"/> per ISO/IEC
+    /// 14496-15 §11.2.4.2. Use this on VVC-encoded HEIF images (brand
+    /// <c>vvic</c>) to learn the operating-point index, Profile / Tier /
+    /// Level, chroma format, bit depth, maximum picture dimensions, and
+    /// the VPS / SPS / PPS / DCI / OPI parameter sets without re-decoding
+    /// the bitstream.
+    /// </summary>
+    public bool TryGetVvcCodecConfiguration(uint itemId, out VvcCodecConfigurationRecord record)
+    {
+        record = null!;
+        if (!TryGetPropertyBytes(itemId, "vvcC", out var data)) return false;
+        return VvcCodecConfigurationRecord.TryParse(data.Span, out record);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -688,6 +704,7 @@ public sealed class HeifReader : IImageReader
                 case "av1C" when len >= 4:
                 case "hvcC" when len >= 23:
                 case "udes" when len >= 4:
+                case "vvcC" when len >= 4:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
