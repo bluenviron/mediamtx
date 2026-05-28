@@ -21,12 +21,14 @@ const (
 	srtlaTypeRegNGP    = 0x9211
 	srtlaTypeRegNAK    = 0x9212
 
+	srtTypeACK = 0x8002
+
 	srtlaIDLen   = 256
 	srtlaReg1Len = 258 // type(2) + sender_id(256)
 	srtlaReg2Len = 258 // type(2) + full_id(256)
 	srtlaReg3Len = 2
 
-	maxConnsPerGroup = 16
+	maxConnsPerGroup = 8
 	maxGroups        = 200
 	srtMinPacketSize = 16
 
@@ -49,6 +51,7 @@ type group struct {
 	conns    []*connEntry
 	srtConn  *net.UDPConn
 	lastSeen time.Time
+	lastAddr *net.UDPAddr
 }
 
 type serverParent interface {
@@ -207,6 +210,7 @@ func (s *Server) handleReg1(data []byte, addr *net.UDPAddr) {
 		id:       fullID,
 		srtConn:  srtConn,
 		lastSeen: now,
+		lastAddr: addr,
 		conns: []*connEntry{{
 			addr:     addr,
 			lastSeen: now,
@@ -267,6 +271,7 @@ func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
 		seqNums:  make([]uint32, 0, recvACKInterval),
 	})
 	g.lastSeen = now
+	g.lastAddr = addr
 	s.connIndex[addrStr] = g
 
 	s.sendReg3(addr)
@@ -309,6 +314,7 @@ func (s *Server) handleData(data []byte, addr *net.UDPAddr) {
 
 	now := time.Now()
 	g.lastSeen = now
+	g.lastAddr = addr
 
 	var conn *connEntry
 	for _, c := range g.conns {
@@ -359,13 +365,19 @@ func (s *Server) srtReadLoop(g *group) {
 			}
 		}
 
-		if n < 4 {
+		if n < srtMinPacketSize {
 			continue
 		}
 
+		pktType := binary.BigEndian.Uint16(buf[:2])
+
 		s.mu.Lock()
-		for _, c := range g.conns {
-			_, _ = s.ln.WriteToUDP(buf[:n], c.addr)
+		if pktType == srtTypeACK {
+			for _, c := range g.conns {
+				_, _ = s.ln.WriteToUDP(buf[:n], c.addr)
+			}
+		} else if g.lastAddr != nil {
+			_, _ = s.ln.WriteToUDP(buf[:n], g.lastAddr)
 		}
 		s.mu.Unlock()
 	}
