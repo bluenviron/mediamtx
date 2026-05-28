@@ -296,8 +296,9 @@ public sealed class FlacEncoderTests
     public void MaxFrameSize_Math_Sanity()
     {
         var p = new FlacEncoderParameters(44100, 2, 16);
-        // 17 + 2 * (1 + ceil(4096 * 16 / 8)) = 17 + 2 * (1 + 8192) = 17 + 16386 = 16403
-        Assert.Equal(16403, FlacFrameEncoder.MaxFrameSize(p, 4096));
+        // 17 + 2 * (1 + ceil(4096 * 17 / 8)) = 17 + 2 * (1 + 8704) = 17 + 17410 = 17427
+        // (bps + 1 budget per channel to cover stereo side-channel worst case)
+        Assert.Equal(17427, FlacFrameEncoder.MaxFrameSize(p, 4096));
     }
 
     [Fact]
@@ -629,6 +630,143 @@ public sealed class FlacEncoderTests
         var (frame, frameLen, streamInfo) = EncodeOneFrame(p, samples, n);
         AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
         AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, samples, n);
+    }
+
+    // ----------------- phase 4b: stereo decorrelation -----------------
+
+    [Fact]
+    public void EncodeFrame_HighlyCorrelated_Stereo_Picks_Mid_Side_Or_Left_Side()
+    {
+        // L = R + tiny noise produces a near-constant side channel; the
+        // encoder must pick a decorrelation mode (LS, SR or MS) rather than
+        // independent stereo. The channel-assignment nibble lives in the
+        // upper nibble of frame byte 3.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: 16, BlockSize: 4096);
+        const int n = 4096;
+        int[] interleaved = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            int s = (int)Math.Round(15000.0 * Math.Sin(2.0 * Math.PI * i / 23.0));
+            interleaved[i * 2 + 0] = s;
+            interleaved[i * 2 + 1] = s + (i & 1); // L and R differ only by a single LSB
+        }
+
+        var (frame, frameLen, _) = EncodeOneFrame(p, interleaved, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        int nibble = (frame[3] >> 4) & 0x0F;
+        Assert.True(nibble is 0b1000 or 0b1001 or 0b1010,
+            $"Expected decorrelation nibble (LS/SR/MS), got 0x{nibble:X1}.");
+    }
+
+    [Fact]
+    public void EncodeFrame_IdenticalChannels_Stereo_Picks_Mid_Side()
+    {
+        // L == R for every sample → side channel is identically zero, which
+        // makes mid-side (MS = 0b1010) strictly the cheapest because the side
+        // subframe collapses to a 25-bit CONSTANT.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: 16, BlockSize: 4096);
+        const int n = 4096;
+        int[] interleaved = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            int s = (int)Math.Round(15000.0 * Math.Sin(2.0 * Math.PI * i / 23.0));
+            interleaved[i * 2 + 0] = s;
+            interleaved[i * 2 + 1] = s;
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, interleaved, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        int nibble = (frame[3] >> 4) & 0x0F;
+        // Either MS (0b1010) or LS (0b1000) wins here. Both keep one of the
+        // two emitted subframes constant (cost 8 + (bps+1) bits) while the
+        // other carries the full sine. Both are strictly cheaper than
+        // independent (which writes the sine twice).
+        Assert.True(nibble is 0b1000 or 0b1010,
+            $"Expected MS (0xA) or LS (0x8) on identical channels, got 0x{nibble:X1}.");
+
+        // And the decoder must reconstruct the original interleaved samples
+        // bit-exactly through whichever side it picked.
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, interleaved, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_AntiCorrelated_Stereo_Picks_Side_Right_Or_Left_Side()
+    {
+        // L = -R → mid is identically zero, side carries all the energy.
+        // The encoder should prefer LS or SR (each makes one channel CONSTANT
+        // 0) and not MS (where mid CONSTANT 0 is fine but side carries
+        // 2*L worth of energy, slightly larger than carrying L alone).
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: 16, BlockSize: 4096);
+        const int n = 4096;
+        int[] interleaved = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            int s = (int)Math.Round(15000.0 * Math.Sin(2.0 * Math.PI * i / 23.0));
+            interleaved[i * 2 + 0] = s;
+            interleaved[i * 2 + 1] = -s;
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, interleaved, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        int nibble = (frame[3] >> 4) & 0x0F;
+        // Any decorrelation mode is fine here, just not independent.
+        Assert.True(nibble is 0b1000 or 0b1001 or 0b1010,
+            $"Expected decorrelation on anti-correlated stereo, got 0x{nibble:X1}.");
+
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, interleaved, n);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(12)]
+    [InlineData(16)]
+    [InlineData(20)]
+    [InlineData(24)]
+    public void EncodeFrame_Correlated_Stereo_All_Bps_RoundTrips_Bit_Exact(int bps)
+    {
+        // Decoder round-trip must be bit-exact for every bit depth where
+        // stereo decorrelation is legal (bps < 32). Strongly correlated stereo
+        // forces the encoder through one of the three decorrelation paths,
+        // and the side channel runs at bps + 1 so the bps + 1 buffer budget
+        // is exercised.
+        var p = new FlacEncoderParameters(SampleRate: 44100, Channels: 2, BitsPerSample: bps, BlockSize: 4096);
+        const int n = 4096;
+        int max = bps == 32 ? int.MaxValue : (1 << (bps - 1)) - 1;
+        double amp = Math.Min(15000.0, max * 0.5);
+        int[] interleaved = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            int l = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 17.0));
+            int r = (int)Math.Round(amp * Math.Sin(2.0 * Math.PI * i / 17.0 + 0.1));
+            interleaved[i * 2 + 0] = l;
+            interleaved[i * 2 + 1] = r;
+        }
+
+        var (frame, frameLen, streamInfo) = EncodeOneFrame(p, interleaved, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        AssertDecoderProducesExactSamples(p, streamInfo, frame, frameLen, interleaved, n);
+    }
+
+    [Fact]
+    public void EncodeFrame_Bps32_Stereo_Stays_Independent()
+    {
+        // Side channel at bps + 1 = 33 is illegal, so the encoder must not
+        // use any decorrelation mode when bps == 32. The channel-assignment
+        // nibble must remain 0b0001 (independent stereo).
+        var p = new FlacEncoderParameters(SampleRate: 48000, Channels: 2, BitsPerSample: 32, BlockSize: 1024);
+        const int n = 1024;
+        int[] interleaved = new int[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            int s = (int)Math.Round(1_000_000.0 * Math.Sin(2.0 * Math.PI * i / 23.0));
+            interleaved[i * 2 + 0] = s;
+            interleaved[i * 2 + 1] = s; // identical channels would tempt MS, but bps=32 forbids it
+        }
+
+        var (frame, frameLen, _) = EncodeOneFrame(p, interleaved, n);
+        AssertHeaderRoundTripsAndMatches(p, frame.AsSpan(0, frameLen), n);
+        int nibble = (frame[3] >> 4) & 0x0F;
+        Assert.Equal(0b0001, nibble);
     }
 
     // ----------------- helpers -----------------
