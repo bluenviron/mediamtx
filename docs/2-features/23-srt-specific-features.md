@@ -16,3 +16,23 @@ Where:
 - key `r` contains the path
 - key `u` contains the username
 - key `s` contains the password
+
+## SRTLA (SRT Link Aggregation)
+
+SRTLA is an extension of SRT that bonds multiple network connections (e.g. cellular + Wi-Fi) into a single reliable stream. This is commonly used by mobile streaming devices like BELABOX, IRL Pro, and Moblin.
+
+When enabled, the server listens for SRTLA connections on a separate UDP port and transparently proxies them to the local SRT server.
+
+To enable SRTLA, set the following in the configuration file:
+
+```yaml
+srtla: true
+srtlaAddress: :8891
+```
+
+SRTLA clients connect to port `8891` and register multiple network links. The server aggregates incoming data packets and forwards them to the SRT server on port `8890`. SRT ACK packets are broadcast to all registered links for timely delivery, while other responses are sent only to the most recently active link.
+
+Configuration reference:
+
+- `srtla` — enable or disable the SRTLA listener (default: `true`)
+- `srtlaAddress` — address of the SRTLA listener (default: `:8891`)
