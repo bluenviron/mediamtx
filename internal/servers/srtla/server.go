@@ -252,8 +252,12 @@ func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
 		return
 	}
 
+	now := time.Now()
+
 	for _, c := range g.conns {
 		if c.addr.String() == addrStr {
+			g.lastAddr = addr
+			c.lastSeen = now
 			s.sendReg3(addr)
 			return
 		}
@@ -263,8 +267,6 @@ func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
 		s.sendRegErr(addr)
 		return
 	}
-
-	now := time.Now()
 	g.conns = append(g.conns, &connEntry{
 		addr:     addr,
 		lastSeen: now,
