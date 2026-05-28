@@ -2,7 +2,9 @@ package srtla
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -301,6 +303,185 @@ func TestServerKeepalive(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, n)
 	require.Equal(t, uint16(srtlaTypeKeepalive), binary.BigEndian.Uint16(buf[:2]))
+}
+
+func TestServerReg1OnlyNoBackendSocket(t *testing.T) {
+	srtBackend := allocateUDPListener(t)
+	defer srtBackend.Close()
+
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: srtBackend.LocalAddr().String(),
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	srtlaAddr := s.ln.LocalAddr().(*net.UDPAddr)
+
+	client, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer client.Close()
+
+	fullID := doRegistration(t, client, srtlaAddr)
+
+	s.mu.Lock()
+	g := s.groups[fullID]
+	require.NotNil(t, g)
+	require.Nil(t, g.srtConn, "srtConn must NOT be created after REG1+REG2 alone")
+	require.Empty(t, s.srtAddrIndex, "srtAddrIndex must be empty before data")
+	s.mu.Unlock()
+}
+
+func TestServerDataBeforeReg2Ignored(t *testing.T) {
+	srtBackend := allocateUDPListener(t)
+	defer srtBackend.Close()
+
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: srtBackend.LocalAddr().String(),
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	srtlaAddr := s.ln.LocalAddr().(*net.UDPAddr)
+
+	client, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer client.Close()
+
+	unregisteredClient, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer unregisteredClient.Close()
+
+	dataPkt := make([]byte, srtMinPacketSize)
+	binary.BigEndian.PutUint32(dataPkt[:4], 0x00000001)
+	_, err = unregisteredClient.WriteToUDP(dataPkt, srtlaAddr)
+	require.NoError(t, err)
+
+	srtBackend.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+	_, _, err = srtBackend.ReadFromUDP(make([]byte, 256))
+	require.Error(t, err, "data from unknown addr must NOT be forwarded to SRT backend")
+}
+
+func TestServerKeepaliveBeforeRegistrationIgnored(t *testing.T) {
+	srtBackend := allocateUDPListener(t)
+	defer srtBackend.Close()
+
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: srtBackend.LocalAddr().String(),
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	srtlaAddr := s.ln.LocalAddr().(*net.UDPAddr)
+
+	client, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer client.Close()
+
+	pkt := make([]byte, 2)
+	binary.BigEndian.PutUint16(pkt[:2], srtlaTypeKeepalive)
+	_, err = client.WriteToUDP(pkt, srtlaAddr)
+	require.NoError(t, err)
+
+	client.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+	_, _, err = client.ReadFromUDP(make([]byte, 64))
+	require.Error(t, err, "keepalive from unknown addr must NOT get response")
+}
+
+func TestServerClosesClearsState(t *testing.T) {
+	srtBackend := allocateUDPListener(t)
+	defer srtBackend.Close()
+
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: srtBackend.LocalAddr().String(),
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+
+	srtlaAddr := s.ln.LocalAddr().(*net.UDPAddr)
+
+	client, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer client.Close()
+
+	doRegistration(t, client, srtlaAddr)
+
+	s.mu.Lock()
+	require.Len(t, s.groups, 1)
+	s.mu.Unlock()
+
+	s.Close()
+
+	s.mu.Lock()
+	require.Empty(t, s.groups, "groups must be empty after Close()")
+	require.Empty(t, s.connIndex, "connIndex must be empty after Close()")
+	require.Empty(t, s.srtAddrIndex, "srtAddrIndex must be empty after Close()")
+	s.mu.Unlock()
+}
+
+func TestServerSetGroupPathPostClose(t *testing.T) {
+	srtBackend := allocateUDPListener(t)
+	defer srtBackend.Close()
+
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: srtBackend.LocalAddr().String(),
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	s.Close()
+
+	require.NotPanics(t, func() {
+		s.SetGroupPath("127.0.0.1:12345", "/live/test")
+	})
+	require.NotPanics(t, func() {
+		s.CloseGroupByAddr("127.0.0.1:12345")
+	})
+}
+
+func TestServerIPv6LoopbackResolution(t *testing.T) {
+	srtBackend, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6loopback})
+	if err != nil {
+		t.Skip("IPv6 loopback not available")
+	}
+	defer srtBackend.Close()
+
+	port := srtBackend.LocalAddr().(*net.UDPAddr).Port
+
+	s := &Server{
+		Address:    "[::1]:0",
+		SRTAddress: "[::]:"+fmt.Sprint(port),
+		Parent:     &testLogger{},
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	require.Equal(t, netip.MustParseAddr("::1"), s.srtAddrPort.Addr())
+}
+
+func TestServerIPv4LoopbackResolution(t *testing.T) {
+	s := &Server{
+		Address:    "127.0.0.1:0",
+		SRTAddress: ":8890",
+		Parent:     &testLogger{},
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	require.Equal(t, netip.MustParseAddr("127.0.0.1"), s.srtAddrPort.Addr())
 }
 
 func doRegistration(t *testing.T, client *net.UDPConn, srtlaAddr *net.UDPAddr) [srtlaIDLen]byte {
