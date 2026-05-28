@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Containers.MpegTs</RootNamespace>
+    <AssemblyName>Mediar.Containers.MpegTs</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>MPEG-TS (ISO/IEC 13818-1) transport stream demuxer for Mediar.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>

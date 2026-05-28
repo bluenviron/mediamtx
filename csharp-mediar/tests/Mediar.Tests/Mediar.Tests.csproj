@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\Mediar.Containers.Iff8Svx\Mediar.Containers.Iff8Svx.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Voc\Mediar.Containers.Voc.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Mp2\Mediar.Containers.Mp2.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Containers.MpegTs\Mediar.Containers.MpegTs.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Gsm\Mediar.Containers.Gsm.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Containers.Amr\Mediar.Containers.Amr.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Midi\Mediar.Midi.csproj" />

@@ -36,6 +36,7 @@
     <Project Path="src/Mediar.Containers.Matroska/Mediar.Containers.Matroska.csproj" />
     <Project Path="src/Mediar.Containers.Mp2/Mediar.Containers.Mp2.csproj" />
     <Project Path="src/Mediar.Containers.Mp3/Mediar.Containers.Mp3.csproj" />
+    <Project Path="src/Mediar.Containers.MpegTs/Mediar.Containers.MpegTs.csproj" />
     <Project Path="src/Mediar.Containers.Ogg/Mediar.Containers.Ogg.csproj" />
     <Project Path="src/Mediar.Containers.Voc/Mediar.Containers.Voc.csproj" />
     <Project Path="src/Mediar.Containers.Wav/Mediar.Containers.Wav.csproj" />
