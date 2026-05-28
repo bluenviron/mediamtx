@@ -24,6 +24,15 @@ public sealed record AacRawDataBlockEntry
 
     /// <summary>Opaque extension_payload bytes when <see cref="Type"/> is <see cref="AacSyntacticElementType.FillElement"/>; otherwise empty.</summary>
     public ReadOnlyMemory<byte> FillExtensionBytes { get; init; }
+
+    /// <summary>
+    /// Typed view over the FIL <c>extension_payload()</c> bytes. Populated
+    /// when <see cref="Type"/> is <see cref="AacSyntacticElementType.FillElement"/>
+    /// and the element has at least one payload byte (<c>cnt &gt;= 1</c>);
+    /// remains <see langword="null"/> for a zero-byte FIL element because it
+    /// carries no <c>extension_type</c> field at all.
+    /// </summary>
+    public AacFillExtensionPayload? FillExtension { get; init; }
 }
 
 /// <summary>
@@ -97,11 +106,17 @@ public sealed record AacRawDataBlock
 
                     case AacSyntacticElementType.FillElement:
                         if (!TryReadFillElement(ref reader, out byte[]? fillBytes)) return false;
+                        AacFillExtensionPayload? fillExt = null;
+                        if (fillBytes!.Length > 0)
+                        {
+                            _ = AacFillExtensionPayload.TryParse(fillBytes, out fillExt);
+                        }
                         entries.Add(new AacRawDataBlockEntry
                         {
                             Type = type,
                             BitOffset = idBitOffset,
                             FillExtensionBytes = fillBytes,
+                            FillExtension = fillExt,
                         });
                         break;
 
