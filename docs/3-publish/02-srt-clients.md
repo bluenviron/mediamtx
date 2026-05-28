@@ -19,3 +19,17 @@ If you need to use the standard stream ID syntax instead of the custom one in us
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
 Some clients that can publish with SRT are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md), [OBS Studio](19-obs-studio.md).
+
+## Publishing with SRTLA
+
+SRTLA (SRT Link Aggregation) allows bonding multiple network connections for improved reliability during mobile streaming. SRTLA-capable clients (BELABOX, IRL Pro, Moblin) can connect to the SRTLA port (default `:8891`) and register multiple links that are aggregated into a single SRT stream.
+
+To publish via SRTLA, point the sender to the SRTLA port instead of the SRT port:
+
+```
+srtla://yourserver:8891?streamid=publish:mystream
+```
+
+The SRTLA receiver bonds all registered connections and forwards the aggregated stream to the local SRT server. No additional SRT configuration is needed — path selection, authentication, and codec handling work identically to direct SRT publishing.
+
+See [SRTLA configuration](../2-features/25-srt-specific-features.md#srtla-srt-link-aggregation) for server-side setup.
