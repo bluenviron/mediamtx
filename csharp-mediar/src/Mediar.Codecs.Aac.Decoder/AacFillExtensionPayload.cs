@@ -75,6 +75,13 @@ public sealed record AacFillExtensionPayload
     public AacDataElementExtension? DataElement { get; init; }
 
     /// <summary>
+    /// Typed framing view of the body when <see cref="ExtensionType"/> is
+    /// <see cref="AacFillExtensionType.SacData"/> (0xC). Carries the raw
+    /// MPEG Surround Audio Coding bits opaquely.
+    /// </summary>
+    public AacSacExtensionData? Sac { get; init; }
+
+    /// <summary>
     /// True when <paramref name="rawType"/> is one of the defined codes in
     /// ISO/IEC 14496-3 Table 4.51.
     /// </summary>
@@ -121,6 +128,7 @@ public sealed record AacFillExtensionPayload
         AacSbrExtensionData? sbr = null;
         AacFillDataExtension? fillData = null;
         AacDataElementExtension? dataElement = null;
+        AacSacExtensionData? sac = null;
         if (rawType == (byte)AacFillExtensionType.DynamicRange)
         {
             _ = AacDynamicRangeInfo.TryParse(body, bodyBits, out drc);
@@ -138,6 +146,10 @@ public sealed record AacFillExtensionPayload
         {
             _ = AacDataElementExtension.TryParse(body, bodyBits, out dataElement);
         }
+        else if (rawType == (byte)AacFillExtensionType.SacData)
+        {
+            _ = AacSacExtensionData.TryParse(body, bodyBits, out sac);
+        }
 
         payload = new AacFillExtensionPayload
         {
@@ -148,6 +160,7 @@ public sealed record AacFillExtensionPayload
             Sbr = sbr,
             FillData = fillData,
             DataElement = dataElement,
+            Sac = sac,
         };
         return true;
     }
