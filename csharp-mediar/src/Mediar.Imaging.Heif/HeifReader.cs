@@ -308,6 +308,20 @@ public sealed class HeifReader : IImageReader
         return HevcCodecConfigurationRecord.TryParse(data.Span, out record);
     }
 
+    /// <summary>
+    /// Resolves the <c>udes</c> property associated with <paramref name="itemId"/>
+    /// into a typed <see cref="HeifUserDescription"/> per ISO/IEC 23008-12
+    /// §6.5.20. Use this to surface author-provided language tag, name,
+    /// description, and free-form tags without re-walking the property
+    /// boxes.
+    /// </summary>
+    public bool TryGetUserDescription(uint itemId, out HeifUserDescription record)
+    {
+        record = null!;
+        if (!TryGetPropertyBytes(itemId, "udes", out var data)) return false;
+        return HeifUserDescription.TryParse(data.Span, out record);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -673,6 +687,7 @@ public sealed class HeifReader : IImageReader
                 case "clap" when len >= 32:
                 case "av1C" when len >= 4:
                 case "hvcC" when len >= 23:
+                case "udes" when len >= 4:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
