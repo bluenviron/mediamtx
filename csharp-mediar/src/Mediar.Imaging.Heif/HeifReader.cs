@@ -472,6 +472,20 @@ public sealed class HeifReader : IImageReader
         return HeifAv1LayeredImageIndexing.TryParse(data.Span, out rec);
     }
 
+    /// <summary>
+    /// Resolves the <c>cclv</c> Content Colour Volume property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifContentColourVolume"/>. Returns <c>false</c>
+    /// when no <c>cclv</c> property is associated or the payload is
+    /// malformed.
+    /// </summary>
+    public bool TryGetContentColourVolume(uint itemId, out HeifContentColourVolume volume)
+    {
+        volume = null!;
+        if (!TryGetPropertyBytes(itemId, "cclv", out var data)) return false;
+        return HeifContentColourVolume.TryParse(data.Span, out volume);
+    }
+
     private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -843,6 +857,7 @@ public sealed class HeifReader : IImageReader
                 case "vvcC" when len >= 4:
                 case "a1op" when len >= 1:
                 case "a1lx" when len >= 1:
+                case "cclv" when len >= 5:
                     {
                         var raw = buf.AsSpan(s, len).ToArray();
                         return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
