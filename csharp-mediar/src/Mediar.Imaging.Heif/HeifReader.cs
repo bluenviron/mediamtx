@@ -242,6 +242,60 @@ public sealed class HeifReader : IImageReader
         return false;
     }
 
+    /// <summary>
+    /// Resolves the <c>clli</c> (Content Light Level) HDR property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifContentLightLevel"/>. Returns <c>false</c> when
+    /// no <c>clli</c> property is associated or the payload is malformed.
+    /// </summary>
+    public bool TryGetContentLightLevel(uint itemId, out HeifContentLightLevel info)
+    {
+        info = null!;
+        if (!TryGetPropertyBytes(itemId, "clli", out var data)) return false;
+        return HeifContentLightLevel.TryParse(data.Span, out info);
+    }
+
+    /// <summary>
+    /// Resolves the <c>mdcv</c> (Mastering Display Colour Volume) HDR
+    /// property associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifMasteringDisplayColourVolume"/>.
+    /// </summary>
+    public bool TryGetMasteringDisplayColourVolume(uint itemId, out HeifMasteringDisplayColourVolume info)
+    {
+        info = null!;
+        if (!TryGetPropertyBytes(itemId, "mdcv", out var data)) return false;
+        return HeifMasteringDisplayColourVolume.TryParse(data.Span, out info);
+    }
+
+    /// <summary>
+    /// Resolves the <c>clap</c> (Clean Aperture) cropping property
+    /// associated with <paramref name="itemId"/> into a typed
+    /// <see cref="HeifCleanAperture"/>.
+    /// </summary>
+    public bool TryGetCleanAperture(uint itemId, out HeifCleanAperture info)
+    {
+        info = null!;
+        if (!TryGetPropertyBytes(itemId, "clap", out var data)) return false;
+        return HeifCleanAperture.TryParse(data.Span, out info);
+    }
+
+    private bool TryGetPropertyBytes(uint itemId, string type, out ReadOnlyMemory<byte> data)
+    {
+        data = default;
+        if (!Associations.TryGetValue(itemId, out var indices)) return false;
+        foreach (int idx in indices)
+        {
+            if (idx <= 0 || idx > Properties.Length) continue;
+            var prop = Properties[idx - 1];
+            if (prop.Type == type && !prop.IccProfile.IsEmpty)
+            {
+                data = prop.IccProfile;
+                return true;
+            }
+        }
+        return false;
+    }
+
     private bool TryGetItemTypedData(uint itemId, string expectedType, out ReadOnlyMemory<byte> data)
     {
         data = default;
@@ -584,6 +638,13 @@ public sealed class HeifReader : IImageReader
                             return new HeifProperty(ty, 0, 0, 0, 0, ct, icc);
                         }
                         return new HeifProperty(ty, 0, 0, 0, 0, ct, default);
+                    }
+                case "clli" when len >= 4:
+                case "mdcv" when len >= 24:
+                case "clap" when len >= 32:
+                    {
+                        var raw = buf.AsSpan(s, len).ToArray();
+                        return new HeifProperty(ty, 0, 0, 0, 0, "", raw);
                     }
                 default:
                     return new HeifProperty(ty, 0, 0, 0, 0, "", default);
