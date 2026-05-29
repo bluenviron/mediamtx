@@ -471,6 +471,27 @@ func TestServerIPv6LoopbackResolution(t *testing.T) {
 	require.Equal(t, netip.MustParseAddr("::1"), s.srtAddrPort.Addr())
 }
 
+func TestServerHostlessWithIPv6Listener(t *testing.T) {
+	srtBackend, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6loopback})
+	if err != nil {
+		t.Skip("IPv6 loopback not available")
+	}
+	defer srtBackend.Close()
+
+	port := srtBackend.LocalAddr().(*net.UDPAddr).Port
+
+	s := &Server{
+		Address:    "[::1]:0",
+		SRTAddress: ":"+fmt.Sprint(port),
+		Parent:     &testLogger{},
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	require.Equal(t, netip.MustParseAddr("::1"), s.srtAddrPort.Addr())
+}
+
 func TestServerIPv4LoopbackResolution(t *testing.T) {
 	s := &Server{
 		Address:    "127.0.0.1:0",
