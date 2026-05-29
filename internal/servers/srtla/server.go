@@ -119,7 +119,14 @@ func (s *Server) Initialize() error {
 		return err
 	}
 	if srtAddr.IP == nil || srtAddr.IP.IsUnspecified() {
-		if srtAddr.IP != nil && srtAddr.IP.To4() == nil {
+		// Choose loopback family: explicit IPv6 unspecified (::) uses ::1;
+		// hostless (nil) derives family from the SRTLA listener's bind address.
+		useIPv6 := (srtAddr.IP != nil && srtAddr.IP.To4() == nil)
+		if !useIPv6 && srtAddr.IP == nil {
+			lnAddr := s.ln.LocalAddr().(*net.UDPAddr)
+			useIPv6 = lnAddr.IP != nil && lnAddr.IP.To4() == nil
+		}
+		if useIPv6 {
 			srtAddr.IP = net.IPv6loopback
 		} else {
 			srtAddr.IP = net.IPv4(127, 0, 0, 1)
