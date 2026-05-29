@@ -64,7 +64,8 @@ func matchesPermission(perms []conf.AuthInternalUserPermission, req *Request) bo
 	return false
 }
 
-func getToken(tokenInHTTPQuery bool, req *Request) string {
+// GetToken extracts the authentication token from a request.
+func GetToken(tokenInHTTPQuery bool, req *Request) string {
 	switch {
 	case req.Credentials.Token != "":
 		return req.Credentials.Token
@@ -124,7 +125,7 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 func (m *Manager) Authenticate(req *Request) (string, *Error) {
 	var token string
 	if m.Method == conf.AuthMethodHTTP || m.Method == conf.AuthMethodJWT {
-		token = getToken(m.Method == conf.AuthMethodJWT && m.JWTInHTTPQuery != nil && *m.JWTInHTTPQuery, req)
+		token = GetToken(m.Method == conf.AuthMethodJWT && m.JWTInHTTPQuery != nil && *m.JWTInHTTPQuery, req)
 	}
 
 	var user string
@@ -329,4 +330,29 @@ func (m *Manager) RefreshJWTJWKS() {
 	defer m.mutex.Unlock()
 
 	m.jwksLastRefresh = time.Time{}
+}
+
+// ExtractJWTExpiry parses the exp claim from a JWT token without validating the signature.
+// Returns zero time if the token has no exp claim or cannot be parsed.
+func ExtractJWTExpiry(tokenString string) time.Time {
+	parser := jwt.NewParser(
+		jwt.WithoutClaimsValidation(),
+	)
+
+	token, _, err := parser.ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return time.Time{}
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return time.Time{}
+	}
+
+	exp, err := claims.GetExpirationTime()
+	if err != nil || exp == nil {
+		return time.Time{}
+	}
+
+	return exp.Time
 }

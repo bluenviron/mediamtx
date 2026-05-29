@@ -82,6 +82,8 @@ type path struct {
 	matches           []string
 	wg                *sync.WaitGroup
 	externalCmdPool   *externalcmd.Pool
+	authMethod        conf.AuthMethod
+	authCheckInterval time.Duration
 	parent            pathParent
 
 	// accessed by pathManager only
@@ -99,7 +101,8 @@ type path struct {
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
 	onNotReadyHook                 func()
-	readers                        map[defs.Reader]struct{}
+	readers                        map[defs.Reader]time.Time
+	publisherAuthExpiry            time.Time
 	describeRequestsOnHold         []defs.PathDescribeReq
 	readerAddRequestsOnHold        []defs.PathAddReaderReq
 	onDemandStaticSourceState      pathOnDemandState
@@ -122,6 +125,8 @@ type path struct {
 
 	// out
 	done chan struct{}
+
+	authCheckTicker *time.Ticker
 }
 
 func (pa *path) initialize() {
@@ -130,7 +135,7 @@ func (pa *path) initialize() {
 	pa.confName = pa.conf.Name
 	pa.ctx = ctx
 	pa.ctxCancel = ctxCancel
-	pa.readers = make(map[defs.Reader]struct{})
+	pa.readers = make(map[defs.Reader]time.Time)
 	pa.onDemandStaticSourceReadyTimer = emptyTimer()
 	pa.onDemandStaticSourceCloseTimer = emptyTimer()
 	pa.onDemandPublisherReadyTimer = emptyTimer()
@@ -145,6 +150,10 @@ func (pa *path) initialize() {
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 	pa.done = make(chan struct{})
+
+	if pa.authMethod == conf.AuthMethodJWT && pa.authCheckInterval > 0 {
+		pa.authCheckTicker = time.NewTicker(pa.authCheckInterval)
+	}
 
 	pa.Log(logger.Debug, "created")
 
@@ -230,6 +239,10 @@ func (pa *path) run() {
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherCloseTimer.Stop()
 
+	if pa.authCheckTicker != nil {
+		pa.authCheckTicker.Stop()
+	}
+
 	onUnInitHook()
 
 	for _, req := range pa.describeRequestsOnHold {
@@ -262,8 +275,16 @@ func (pa *path) run() {
 }
 
 func (pa *path) runInner() error {
+	var authCheckCh <-chan time.Time
+	if pa.authCheckTicker != nil {
+		authCheckCh = pa.authCheckTicker.C
+	}
+
 	for {
 		select {
+		case <-authCheckCh:
+			pa.checkAuthExpiry()
+
 		case <-pa.onDemandStaticSourceReadyTimer.C:
 			pa.doOnDemandStaticSourceReadyTimer()
 
@@ -557,6 +578,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	pa.source = req.Author
+	pa.publisherAuthExpiry = req.AuthExpiry
 
 	req.Author.Log(logger.Info, "is publishing to path '%s'",
 		pa.name)
@@ -953,6 +975,26 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 	delete(pa.readers, r)
 }
 
+func (pa *path) checkAuthExpiry() {
+	now := time.Now()
+
+	for r, expiry := range pa.readers {
+		if !expiry.IsZero() && now.After(expiry) {
+			pa.Log(logger.Info, "closing reader because JWT has expired")
+			pa.executeRemoveReader(r)
+			r.Close()
+		}
+	}
+
+	if pa.source != nil && !pa.publisherAuthExpiry.IsZero() && now.After(pa.publisherAuthExpiry) {
+		if pub, ok := pa.source.(defs.Publisher); ok {
+			pa.Log(logger.Info, "closing publisher because JWT has expired")
+			pub.Close()
+			pa.executeRemovePublisher()
+		}
+	}
+}
+
 func (pa *path) executeRemovePublisher() {
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
@@ -976,7 +1018,7 @@ func (pa *path) addReaderPost(req defs.PathAddReaderReq) {
 		return
 	}
 
-	pa.readers[req.Author] = struct{}{}
+	pa.readers[req.Author] = req.AuthExpiry
 
 	if pa.conf.HasOnDemandStaticSource() {
 		if pa.onDemandStaticSourceState == pathOnDemandStateClosing {

@@ -455,6 +455,9 @@ func (p *Core) createResources(initial bool) error {
 			rtpMaxPayloadSize: rtpMaxPayloadSize,
 			pathConfs:         p.conf.Paths,
 			authManager:       p.authManager,
+			authMethod:        p.conf.AuthMethod,
+			jwtInHTTPQuery:    p.conf.AuthJWTInHTTPQuery != nil && *p.conf.AuthJWTInHTTPQuery,
+			authCheckInterval: time.Duration(p.conf.AuthCheckInterval),
 			externalCmdPool:   p.externalCmdPool,
 			metrics:           p.metrics,
 			parent:            p,
@@ -759,6 +762,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthJWTInHTTPQuery, p.conf.AuthJWTInHTTPQuery) ||
 		newConf.AuthJWTIssuer != p.conf.AuthJWTIssuer ||
 		newConf.AuthJWTAudience != p.conf.AuthJWTAudience ||
+		newConf.AuthCheckInterval != p.conf.AuthCheckInterval ||
 		newConf.ReadTimeout != p.conf.ReadTimeout
 	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
 		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
