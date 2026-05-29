@@ -64,6 +64,10 @@ type group struct {
 	bytesForwarded atomic.Uint64
 }
 
+func (g *group) shortID() string {
+	return hex.EncodeToString(g.id[:8])
+}
+
 type serverParent interface {
 	logger.Writer
 }
@@ -282,11 +286,11 @@ func (s *Server) handleReg1(data []byte, addr *net.UDPAddr) {
 		delete(s.groups, fullID)
 		delete(s.connIndex, addrPort)
 		s.mu.Unlock()
-		s.Log(logger.Warn, "failed to send REG2 to %s: %v", addr, err)
+		s.Log(logger.Warn, "group %s: failed to send REG2 to %s: %v", g.shortID(), addr, err)
 		return
 	}
 
-	s.Log(logger.Debug, "new group registered from %s", addr)
+	s.Log(logger.Debug, "group %s: registered from %s", g.shortID(), addr)
 }
 
 func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
@@ -322,7 +326,7 @@ func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
 			c.lastSeen = now
 			s.mu.Unlock()
 			if err := s.sendReg3(addr); err != nil {
-				s.Log(logger.Warn, "failed to send REG3 to %s: %v", addr, err)
+				s.Log(logger.Warn, "group %s: failed to send REG3 to %s: %v", g.shortID(), addr, err)
 			}
 			return
 		}
@@ -352,11 +356,11 @@ func (s *Server) handleReg2(data []byte, addr *net.UDPAddr) {
 		}
 		delete(s.connIndex, addrPort)
 		s.mu.Unlock()
-		s.Log(logger.Warn, "failed to send REG3 to %s: %v", addr, err)
+		s.Log(logger.Warn, "group %s: failed to send REG3 to %s: %v", g.shortID(), addr, err)
 		return
 	}
 
-	s.Log(logger.Debug, "connection added to group from %s (total: %d)", addr, len(g.conns))
+	s.Log(logger.Debug, "group %s: connection added from %s (total: %d)", g.shortID(), addr, len(g.conns))
 }
 
 func (s *Server) handleKeepalive(addr *net.UDPAddr) {
@@ -380,7 +384,7 @@ func (s *Server) handleKeepalive(addr *net.UDPAddr) {
 	s.mu.Unlock()
 
 	if err := s.sendKeepalive(addr); err != nil {
-		s.Log(logger.Debug, "failed to send keepalive to %s: %v", addr, err)
+		s.Log(logger.Debug, "group %s: failed to send keepalive to %s: %v", g.shortID(), addr, err)
 	}
 }
 
@@ -432,7 +436,7 @@ func (s *Server) handleData(data []byte, addr *net.UDPAddr) {
 
 			defer func() {
 				if err := s.sendSRTLAACK(ackAddr, seqNums); err != nil {
-					s.Log(logger.Debug, "failed to send SRTLA ACK to %s: %v", ackAddr, err)
+					s.Log(logger.Debug, "group %s: failed to send SRTLA ACK to %s: %v", g.shortID(), ackAddr, err)
 				}
 			}()
 		}
@@ -443,7 +447,7 @@ func (s *Server) handleData(data []byte, addr *net.UDPAddr) {
 		s.mu.Unlock()
 		newConn, err := s.createSRTConn(g)
 		if err != nil {
-			s.Log(logger.Error, "failed to create SRT connection for group: %v", err)
+			s.Log(logger.Error, "group %s: failed to create SRT connection: %v", g.shortID(), err)
 			return
 		}
 		srtConn = newConn
@@ -454,7 +458,7 @@ func (s *Server) handleData(data []byte, addr *net.UDPAddr) {
 	g.bytesReceived.Add(uint64(len(data)))
 	n2, err := srtConn.Write(data)
 	if err != nil {
-		s.Log(logger.Debug, "failed to forward data to SRT: %v", err)
+		s.Log(logger.Debug, "group %s: failed to forward data to SRT: %v", g.shortID(), err)
 	}
 	if n2 > 0 {
 		g.bytesForwarded.Add(uint64(n2))
@@ -534,7 +538,7 @@ func (s *Server) srtReadLoop(g *group) {
 			s.mu.Unlock()
 			for _, a := range addrs {
 				if _, err := s.ln.WriteToUDP(pktData, a); err != nil {
-					s.Log(logger.Debug, "failed to send SRT ACK to %s: %v", a, err)
+					s.Log(logger.Debug, "group %s: failed to send SRT ACK to %s: %v", g.shortID(), a, err)
 				}
 			}
 		} else {
@@ -542,7 +546,7 @@ func (s *Server) srtReadLoop(g *group) {
 			s.mu.Unlock()
 			if dst != nil {
 				if _, err := s.ln.WriteToUDP(pktData, dst); err != nil {
-					s.Log(logger.Debug, "failed to route SRT packet to %s: %v", dst, err)
+					s.Log(logger.Debug, "group %s: failed to route SRT packet to %s: %v", g.shortID(), dst, err)
 				}
 			}
 		}
@@ -581,7 +585,7 @@ func (s *Server) cleanup() {
 				g.srtConn.Close()
 			}
 			delete(s.groups, id)
-			s.Log(logger.Debug, "group timed out and removed (path: %s)", g.path)
+			s.Log(logger.Debug, "group %s: timed out (path: %s)", g.shortID(), g.path)
 			continue
 		}
 
@@ -589,7 +593,7 @@ func (s *Server) cleanup() {
 		for _, c := range g.conns {
 			if now.Sub(c.lastSeen) > connTimeout {
 				delete(s.connIndex, c.addrPort)
-				s.Log(logger.Debug, "connection timed out: %s", c.addr)
+				s.Log(logger.Debug, "group %s: connection timed out: %s", g.shortID(), c.addr)
 			} else {
 				alive = append(alive, c)
 			}
@@ -616,7 +620,7 @@ func (s *Server) cleanup() {
 				g.srtConn.Close()
 			}
 			delete(s.groups, id)
-			s.Log(logger.Debug, "group removed (path: %s, no connections remaining)", g.path)
+			s.Log(logger.Debug, "group %s: removed, no connections remaining (path: %s)", g.shortID(), g.path)
 		}
 	}
 }
@@ -633,7 +637,7 @@ func (s *Server) SetGroupPath(srtConnAddr string, path string) {
 		return
 	}
 	g.path = path
-	s.Log(logger.Debug, "group path set to '%s'", path)
+	s.Log(logger.Debug, "group %s: path set to '%s'", g.shortID(), path)
 }
 
 // CloseGroupByAddr closes the SRTLA group associated with the given SRT connection address.
@@ -657,7 +661,7 @@ func (s *Server) CloseGroupByAddr(srtConnAddr string) {
 		g.srtConn.Close()
 	}
 
-	s.Log(logger.Debug, "group closed by SRT (path: %s)", g.path)
+	s.Log(logger.Debug, "group %s: closed by SRT (path: %s)", g.shortID(), g.path)
 }
 
 // normalizeSRTAddr converts a raw address string to canonical form for srtAddrIndex lookup.
