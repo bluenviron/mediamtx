@@ -11,12 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 func TestFindAllPathsWithSegments(t *testing.T) {
 	dir := t.TempDir()
 
@@ -93,11 +87,11 @@ func TestFindSegments(t *testing.T) {
 			case "no filtering":
 
 			case "filtering":
-				start = ptrOf(time.Date(2015, 5, 19, 22, 18, 25, 427000, time.Local))
-				end = ptrOf(start.Add(60 * time.Minute))
+				start = new(time.Date(2015, 5, 19, 22, 18, 25, 427000, time.Local))
+				end = new(start.Add(60 * time.Minute))
 
 			case "start before first":
-				start = ptrOf(time.Date(2014, 5, 19, 22, 18, 25, 427000, time.Local))
+				start = new(time.Date(2014, 5, 19, 22, 18, 25, 427000, time.Local))
 			}
 
 			segments, err := FindSegments(
