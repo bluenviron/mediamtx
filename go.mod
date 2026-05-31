@@ -29,7 +29,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.4
 	github.com/minio/selfupdate v0.6.0
-	github.com/pion/ice/v4 v4.2.5
+	github.com/pion/ice/v4 v4.2.6
 	github.com/pion/interceptor v0.1.45
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.16
