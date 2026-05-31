@@ -19,12 +19,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 type testServer struct {
 	onDescribe func(*gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error)
 	onSetup    func(*gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error)
@@ -514,7 +508,7 @@ func TestSkipBackChannel(t *testing.T) {
 			Context:        ctx,
 			ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
-				RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+				RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
 				RTSPUDPSourcePortRange: []uint{10000, 65535},
 			},
 		})
@@ -590,7 +584,7 @@ func TestOnlyBackChannelsError(t *testing.T) {
 		Context:        ctx,
 		ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 		Conf: &conf.Path{
-			RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+			RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
 			RTSPUDPSourcePortRange: []uint{10000, 65535},
 		},
 	})

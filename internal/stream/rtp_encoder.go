@@ -24,12 +24,6 @@ import (
 	"github.com/pion/rtp"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 type rtpEncoderNotAvailableError struct {
 	format format.Format
 }
@@ -219,7 +213,7 @@ func newRTPEncoder(
 			PayloadType:           forma.PayloadTyp,
 			SSRC:                  ssrc,
 			InitialSequenceNumber: initialSequenceNumber,
-			InitialPictureID:      ptrOf(uint16(0x35af)),
+			InitialPictureID:      new(uint16(0x35af)),
 		}
 		err := wrapped.Init()
 		if err != nil {

@@ -27,12 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 type dummyPath struct{}
 
 func (p *dummyPath) Name() string {
@@ -201,8 +195,8 @@ func TestServerPublish(t *testing.T) {
 						BytesSent:          list.Items[0].BytesSent,
 						Conns:              list.Items[0].Conns,
 						RTPPacketsReceived: list.Items[0].RTPPacketsReceived,
-						Transport:          ptrOf("TCP"),
-						Profile:            ptrOf("AVP"),
+						Transport:          new("TCP"),
+						Profile:            new("AVP"),
 					},
 				},
 			}, list)
@@ -525,8 +519,8 @@ func TestServerRead(t *testing.T) {
 						Conns:              list.Items[0].Conns,
 						RTPPacketsReceived: list.Items[0].RTPPacketsReceived,
 						RTPPacketsSent:     list.Items[0].RTPPacketsSent,
-						Transport:          ptrOf("TCP"),
-						Profile:            ptrOf("AVP"),
+						Transport:          new("TCP"),
+						Profile:            new("AVP"),
 					},
 				},
 			}, list)
