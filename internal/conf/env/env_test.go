@@ -8,12 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 type myDuration time.Duration
 
 func (d *myDuration) UnmarshalJSON(b []byte) error {
@@ -87,17 +81,17 @@ func TestLoadPrimitives(t *testing.T) {
 
 	require.Equal(t, testStruct{
 		MyString:      "testcontent",
-		MyStringOpt:   ptrOf("testcontent2"),
+		MyStringOpt:   new("testcontent2"),
 		MyInt:         123,
-		MyIntOpt:      ptrOf(456),
+		MyIntOpt:      new(456),
 		MyUint:        8910,
-		MyUintOpt:     ptrOf(uint(112313)),
+		MyUintOpt:     new(uint(112313)),
 		MyFloat:       15.2,
-		MyFloatOpt:    ptrOf(16.2),
+		MyFloatOpt:    new(16.2),
 		MyBool:        true,
-		MyBoolOpt:     ptrOf(false),
+		MyBoolOpt:     new(false),
 		MyDuration:    22000000000,
-		MyDurationOpt: ptrOf(myDuration(30000000000)),
+		MyDurationOpt: new(myDuration(30000000000)),
 		MyMap: map[string]*mapEntry{
 			"mykey": {
 				MyValue: "",

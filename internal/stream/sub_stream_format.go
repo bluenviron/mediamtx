@@ -126,7 +126,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 				if len(pkt.Payload) > ssf.streamFormat.rtpMaxPayloadSize {
 					var err error
 					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.format, ssf.streamFormat.rtpMaxPayloadSize,
-						ptrOf(pkt.SSRC), ptrOf(pkt.SequenceNumber))
+						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
 						var err2 rtpEncoderNotAvailableError
 						if errors.As(err, &err2) {

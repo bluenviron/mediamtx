@@ -14,7 +14,7 @@ type OutgoingDataChannel struct {
 func (c *OutgoingDataChannel) setup(p *PeerConnection) error {
 	var err error
 	c.dataChan, err = p.wr.CreateDataChannel(c.Label, &webrtc.DataChannelInit{
-		Ordered: ptrOf(false),
+		Ordered: new(false),
 	})
 	if err != nil {
 		return err

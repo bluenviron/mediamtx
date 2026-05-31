@@ -19,12 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
-
 type dummyPathManager struct{}
 
 func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
@@ -39,7 +33,7 @@ func (dummyPathManager) APIPathsList() (*defs.APIPathList, error) {
 				ID:   "123324354",
 			},
 			Ready:                true,
-			ReadyTime:            ptrOf(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
+			ReadyTime:            new(time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC)),
 			Tracks:               []defs.APIPathTrackCodec{formatlabel.H264, formatlabel.H265},
 			InboundBytes:         123,
 			OutboundBytes:        456,
