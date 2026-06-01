@@ -88,6 +88,69 @@ public class AacAdtsStreamReaderTests
     }
 
     [Fact]
+    public void ReadNextFrame_SingleShortFrame_DecodesAndPopulatesState()
+    {
+        // Reader has to forward EightShort raw_data_blocks through the inner
+        // AacAdtsFrameDecoder. The PCM output length and frame counter must
+        // match the long-window contract.
+        var frame = BuildAdtsMonoShortSceFrame();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var block = reader.ReadNextFrame();
+
+        Assert.NotNull(block);
+        Assert.Single(block!.Channels);
+        Assert.Equal(AacSpeaker.FrontCentre, block.Channels[0].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, block.Channels[0].Samples.Length);
+        Assert.Equal(1, reader.FrameCount);
+        Assert.Equal(48_000, reader.CurrentSampleRate);
+    }
+
+    [Fact]
+    public void ReadNextFrame_MixedLongAndShortFrames_BothDecodedInOrder()
+    {
+        // A long frame followed by a short frame at the same ADTS header
+        // exercises the inner decoder's per-frame window-sequence reset.
+        var longFrame = BuildAdtsMonoSceFrame();
+        var shortFrame = BuildAdtsMonoShortSceFrame();
+        using var ms = new MemoryStream(Concat(longFrame, shortFrame));
+        using var reader = NewReader(ms);
+
+        var b1 = reader.ReadNextFrame();
+        var b2 = reader.ReadNextFrame();
+
+        Assert.NotNull(b1);
+        Assert.NotNull(b2);
+        Assert.Null(reader.ReadNextFrame());
+        Assert.Equal(2, reader.FrameCount);
+    }
+
+    [Fact]
+    public void ReadNextFrame_MultiBlockShortAdtsFrame_YieldsEachShortBlockSeparately()
+    {
+        // One ADTS frame whose number_of_raw_data_blocks=2 (rdbInFrame=1)
+        // and both blocks are EightShort SCEs.
+        byte[] frame = BuildAdtsMonoMultiShortSceFrame(blockCount: 2);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var b1 = reader.ReadNextFrame();
+        var b2 = reader.ReadNextFrame();
+        var eof = reader.ReadNextFrame();
+
+        Assert.NotNull(b1);
+        Assert.NotNull(b2);
+        Assert.Null(eof);
+        Assert.All(new[] { b1!, b2! }, b =>
+        {
+            Assert.Single(b.Channels);
+            Assert.Equal(AacSpeaker.FrontCentre, b.Channels[0].Speaker);
+        });
+        Assert.Equal(2, reader.FrameCount);
+    }
+
+    [Fact]
     public void ReadNextFrame_ThreeFramesBackToBack_AllDecodedThenNull()
     {
         var frame = BuildAdtsMonoSceFrame();
@@ -783,6 +846,40 @@ public class AacAdtsStreamReaderTests
         AacRawDataBlockTests.WriteEmptySceBodyShared(w, tag, maxSfb);
         w.Write((uint)AacSyntacticElementType.End, 3);
         return w.ToArray();
+    }
+
+    private static byte[] BuildEmptyShortSceRdb(int tag = 0, int maxSfb = 4, byte grouping = 0x7F)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        AacRawDataBlockTests.WriteEmptyShortSceBodyShared(w, tag, maxSfb, grouping);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+        return w.ToArray();
+    }
+
+    private static byte[] BuildAdtsMonoShortSceFrame()
+    {
+        byte[] payload = BuildEmptyShortSceRdb();
+        return WrapAdtsHeader(payload, rdbInFrame: 0);
+    }
+
+    private static byte[] BuildAdtsMonoMultiShortSceFrame(int blockCount)
+    {
+        byte[][] blocks = new byte[blockCount][];
+        int payloadLen = 0;
+        for (int i = 0; i < blockCount; i++)
+        {
+            blocks[i] = BuildEmptyShortSceRdb(tag: i);
+            payloadLen += blocks[i].Length;
+        }
+        byte[] payload = new byte[payloadLen];
+        int o = 0;
+        foreach (var b in blocks)
+        {
+            Buffer.BlockCopy(b, 0, payload, o, b.Length);
+            o += b.Length;
+        }
+        return WrapAdtsHeader(payload, rdbInFrame: blockCount - 1);
     }
 
     private static byte[] WrapAdtsHeader(byte[] payload, int rdbInFrame)
