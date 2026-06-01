@@ -672,6 +672,69 @@ public class AacAdtsStreamReaderTests
         Assert.Null(await reader.ReadNextFrameAsync());
     }
 
+    // ----- TryReadNextFrame -----
+
+    [Fact]
+    public void TryReadNextFrame_ValidFrame_ReturnsTrueWithFrame()
+    {
+        byte[] payload = BuildAdtsMonoSceFrame();
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextFrame(out var frame);
+        Assert.True(ok);
+        Assert.NotNull(frame);
+    }
+
+    [Fact]
+    public void TryReadNextFrame_CleanEof_ReturnsTrueWithNullFrame()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>());
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextFrame(out var frame);
+        Assert.True(ok);
+        Assert.Null(frame);
+    }
+
+    [Fact]
+    public void TryReadNextFrame_Garbage_ReturnsFalseWithNull()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextFrame(out var frame);
+        Assert.False(ok);
+        Assert.Null(frame);
+    }
+
+    [Fact]
+    public async Task TryReadNextFrameAsync_ValidFrame_ReturnsTrueWithFrame()
+    {
+        byte[] payload = BuildAdtsMonoSceFrame();
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var (ok, frame) = await reader.TryReadNextFrameAsync();
+        Assert.True(ok);
+        Assert.NotNull(frame);
+    }
+
+    [Fact]
+    public async Task TryReadNextFrameAsync_Garbage_ReturnsFalseWithNull()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var (ok, frame) = await reader.TryReadNextFrameAsync();
+        Assert.False(ok);
+        Assert.Null(frame);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

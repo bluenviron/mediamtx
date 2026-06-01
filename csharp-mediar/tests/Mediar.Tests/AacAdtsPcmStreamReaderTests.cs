@@ -428,6 +428,69 @@ public class AacAdtsPcmStreamReaderTests
         await reader.DisposeAsync(); // must not throw
     }
 
+    // ----- TryReadNextPcmFrame -----
+
+    [Fact]
+    public void TryReadNextPcmFrame_ValidFrame_ReturnsTrueWithFrame()
+    {
+        byte[] payload = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextPcmFrame(out var frame);
+        Assert.True(ok);
+        Assert.NotNull(frame);
+    }
+
+    [Fact]
+    public void TryReadNextPcmFrame_CleanEof_ReturnsTrueWithNullFrame()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>());
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextPcmFrame(out var frame);
+        Assert.True(ok);
+        Assert.Null(frame);
+    }
+
+    [Fact]
+    public void TryReadNextPcmFrame_Garbage_ReturnsFalseWithNull()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        bool ok = reader.TryReadNextPcmFrame(out var frame);
+        Assert.False(ok);
+        Assert.Null(frame);
+    }
+
+    [Fact]
+    public async Task TryReadNextPcmFrameAsync_ValidFrame_ReturnsTrueWithFrame()
+    {
+        byte[] payload = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var (ok, frame) = await reader.TryReadNextPcmFrameAsync();
+        Assert.True(ok);
+        Assert.NotNull(frame);
+    }
+
+    [Fact]
+    public async Task TryReadNextPcmFrameAsync_Garbage_ReturnsFalseWithNull()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var (ok, frame) = await reader.TryReadNextPcmFrameAsync();
+        Assert.False(ok);
+        Assert.Null(frame);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

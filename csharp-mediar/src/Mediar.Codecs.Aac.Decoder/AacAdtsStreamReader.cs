@@ -324,6 +324,58 @@ public sealed class AacAdtsStreamReader : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
+    /// Non-throwing variant of <see cref="ReadNextFrame"/>.
+    /// Returns <c>true</c> with a non-null <paramref name="frame"/> on success,
+    /// <c>true</c> with <c>null</c> on clean end-of-stream, and <c>false</c> with
+    /// <c>null</c> when an <see cref="InvalidDataException"/> is raised (lost sync,
+    /// impossible advertised frame length, or a frame body that ends before the
+    /// stream does).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RecoverFromLostSync"/> is orthogonal: when <c>true</c>, the reader
+    /// already skips bad bytes and resynchronises internally, so this method would
+    /// only return <c>false</c> for decoder-level errors inside a structurally valid
+    /// frame body.
+    /// </remarks>
+    public bool TryReadNextFrame(out AacDecodedRawDataBlock? frame)
+    {
+        try
+        {
+            frame = ReadNextFrame();
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            frame = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronous, non-throwing variant of <see cref="ReadNextFrameAsync"/>.
+    /// Returns <c>(true, block)</c> on success, <c>(true, null)</c> on clean
+    /// end-of-stream, and <c>(false, null)</c> on an
+    /// <see cref="InvalidDataException"/>.
+    /// </summary>
+    /// <remarks>
+    /// See <see cref="TryReadNextFrame"/> for the interaction with
+    /// <see cref="RecoverFromLostSync"/>.
+    /// </remarks>
+    public async ValueTask<(bool Success, AacDecodedRawDataBlock? Frame)> TryReadNextFrameAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var frame = await ReadNextFrameAsync(cancellationToken).ConfigureAwait(false);
+            return (true, frame);
+        }
+        catch (InvalidDataException)
+        {
+            return (false, null);
+        }
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state and clear any buffered
     /// bytes. Use after seeking the underlying stream so the next
     /// <see cref="ReadNextFrame"/> resynchronises from the stream's

@@ -264,6 +264,51 @@ public sealed class AacAdtsPcmStreamReader : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
+    /// Non-throwing variant of <see cref="ReadNextPcmFrame"/>.
+    /// Returns <c>true</c> with a non-null <paramref name="frame"/> on success,
+    /// <c>true</c> with <c>null</c> on clean end-of-stream, and <c>false</c> with
+    /// <c>null</c> when an <see cref="InvalidDataException"/> is raised by the inner
+    /// reader (lost sync, truncated frame, or an empty decoded block).
+    /// </summary>
+    /// <remarks>
+    /// See <see cref="AacAdtsStreamReader.TryReadNextFrame"/> for the interaction with
+    /// <see cref="RecoverFromLostSync"/>.
+    /// </remarks>
+    public bool TryReadNextPcmFrame(out AacPcmFrame? frame)
+    {
+        try
+        {
+            frame = ReadNextPcmFrame();
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            frame = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronous, non-throwing variant of <see cref="ReadNextPcmFrameAsync"/>.
+    /// Returns <c>(true, frame)</c> on success, <c>(true, null)</c> on clean
+    /// end-of-stream, and <c>(false, null)</c> on an
+    /// <see cref="InvalidDataException"/>.
+    /// </summary>
+    public async ValueTask<(bool Success, AacPcmFrame? Frame)> TryReadNextPcmFrameAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var frame = await ReadNextPcmFrameAsync(cancellationToken).ConfigureAwait(false);
+            return (true, frame);
+        }
+        catch (InvalidDataException)
+        {
+            return (false, null);
+        }
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state and clear any buffered
     /// bytes. Use after seeking the underlying stream so the next
     /// read resynchronises and rebuilds filterbank state.
