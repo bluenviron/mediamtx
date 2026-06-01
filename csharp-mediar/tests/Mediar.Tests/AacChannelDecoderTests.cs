@@ -1052,6 +1052,39 @@ public sealed class AacChannelDecoderTests
         Assert.Equal(1024, right.Coefficients.Length);
     }
 
+    // ----- DecodePair — EightShort spectrum path -----
+
+    [Fact]
+    public void DecodePair_EightShort_NoCommonWindow_ReturnsEightShortSpectra()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildShortWindowFrameNoTns(), BuildShortWindowFrameNoTns(),
+            commonWindow: false, AacMsMaskPresent.None);
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        Assert.Equal(AacWindowSequence.EightShort, left.WindowSequence);
+        Assert.Equal(AacWindowSequence.EightShort, right.WindowSequence);
+        Assert.Equal(1024, left.Coefficients.Length);
+        Assert.Equal(1024, right.Coefficients.Length);
+    }
+
+    [Fact]
+    public void DecodePair_EightShort_NoCommonWindow_MatchesIndependentMonoDecodes()
+    {
+        var leftFrame = BuildShortWindowFrameNoTns();
+        var rightFrame = BuildShortWindowFrameWithTns(tnsOrder: 2, tnsCoef: 3);
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        var monoLeft = AacChannelDecoder.DecodeMono(leftFrame, Sr48k, new AacPnsRandom());
+        var monoRight = AacChannelDecoder.DecodeMono(rightFrame, Sr48k, new AacPnsRandom());
+
+        Assert.Equal(monoLeft.Coefficients.ToArray(), left.Coefficients.ToArray());
+        Assert.Equal(monoRight.Coefficients.ToArray(), right.Coefficients.ToArray());
+    }
+
     // ---------- DecodeCce tests ----------
 
     /// <summary>
@@ -2083,5 +2116,23 @@ public sealed class AacChannelDecoderTests
             AacAudioObjectType.AacLc, fb2, out2);
 
         Assert.Equal(out1, out2);
+    }
+
+    [Fact]
+    public void DecodeLfeToSamples_EightShort_ParityWithDecodeMonoToSamples()
+    {
+        var frame = BuildShortWindowFrameNoTns();
+        var lfe = BuildLfeFromFrame(frame);
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeLfeToSamples(
+            lfe, Sr48k, new AacPnsRandom(seed: 37u), fb1, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: 37u), fb2, out2);
+
+        Assert.Equal(out2, out1);
     }
 }
