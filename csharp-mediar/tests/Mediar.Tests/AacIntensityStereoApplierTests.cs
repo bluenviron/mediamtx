@@ -428,4 +428,119 @@ public sealed class AacIntensityStereoApplierTests
             Assert.Equal(0f, right[i]);
         }
     }
+
+    // ----- EightShort window-sequence intensity-stereo coverage -----
+
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                 // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2); // window_sequence
+        w.Write(0u, 1);                                 // window_shape
+        w.Write((uint)maxSfb, 4);                       // max_sfb (4 bits for EightShort)
+        w.Write(grouping, 7);                           // scale_factor_grouping
+    }
+
+    /// <summary>
+    /// Build a 2-SFB EightShort right-channel frame (all 8 windows in one group):
+    /// SFB 0 = cb 1 (spectral), SFB 1 = cb <paramref name="isCb"/> (14 or 15, intensity stereo)
+    /// with intensity-position accumulator equal to <paramref name="isPosition"/>.
+    /// At 48 kHz the IS band spans coefs [32, 64) after grouping (4 × 8 windows).
+    /// </summary>
+    private static AacChannelFrame BuildShortFrameWithIntensityStereo(int isCb, int isPosition)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        const int globalGain = 100;
+
+        var w = new AacBitWriter();
+        w.Write((uint)globalGain, 8);
+        WriteShortIcsInfo(w, maxSfb: 2, grouping: 0x7F);
+
+        // Section data (1 group), 3-bit sect_len_incr for short.
+        w.Write(1u, 4); w.Write(1u, 3);
+        w.Write((uint)isCb, 4); w.Write(1u, 3);
+
+        // Scale factors (1 group, 2 SFBs):
+        //   SFB 0: ordinary SF diff = 0.
+        var (sfCode, sfLen) = EncodeSfDiff(0);
+        w.Write(sfCode, sfLen);
+        //   SFB 1: intensity-position differential (accumulator starts at 0).
+        var (isCode, isLen) = EncodeSfDiff(isPosition);
+        w.Write(isCode, isLen);
+
+        // pulse/tns/gain flags.
+        w.Write(0u, 1);
+        w.Write(0u, 1);
+        w.Write(0u, 1);
+
+        // Spectral data: SFB 0 covers 4 coefs × 8 windows = 32 bins = 8 quads of sym 80.
+        for (int i = 0; i < 8; i++) w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.Equal(AacWindowSequence.EightShort, frame!.Stream.IcsInfo.WindowSequence);
+        return frame;
+    }
+
+    [Fact]
+    public void ApplyInPlace_ShortWindow_PositivePolarity_ScalesRightAcrossAllEightWindows()
+    {
+        const int isPosition = 4; // scale = 0.5^(4/4) = 0.5
+        var frame = BuildShortFrameWithIntensityStereo(isCb: 14, isPosition);
+
+        // Group-major layout: PNS/IS SFB 1 at coefs [32, 64).
+        var left = LeftSpectrumImpulse(bandStart: 32, bandWidth: 32, value: 2.0f);
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+
+        AacIntensityStereoApplier.ApplyInPlace(
+            left, right, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        for (int i = 32; i < 64; i++)
+        {
+            Assert.Equal(1.0f, right[i], 6);
+        }
+        // Outside the IS band, right stays zero.
+        for (int i = 0; i < 32; i++) Assert.Equal(0f, right[i]);
+        for (int i = 64; i < right.Length; i++) Assert.Equal(0f, right[i]);
+    }
+
+    [Fact]
+    public void ApplyInPlace_ShortWindow_NegativePolarity_FlipsSign()
+    {
+        const int isPosition = 0; // scale magnitude = 1.0
+        var frame = BuildShortFrameWithIntensityStereo(isCb: 15, isPosition);
+
+        var left = LeftSpectrumImpulse(bandStart: 32, bandWidth: 32, value: 0.5f);
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+
+        AacIntensityStereoApplier.ApplyInPlace(
+            left, right, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        for (int i = 32; i < 64; i++)
+        {
+            Assert.Equal(-0.5f, right[i], 6);
+        }
+    }
+
+    [Fact]
+    public void ApplyInPlace_ShortWindow_MsAllBands_FlipsSignBackToPositive()
+    {
+        const int isPosition = 0;
+        var frame = BuildShortFrameWithIntensityStereo(isCb: 15, isPosition);
+
+        var left = LeftSpectrumImpulse(bandStart: 32, bandWidth: 32, value: 0.5f);
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+
+        AacIntensityStereoApplier.ApplyInPlace(
+            left, right, frame, AacMsMaskPresent.AllBands, EmptyMsUsed(), Sr48k);
+
+        // cb=15 sign (-1) XOR MS-mask (-1) = +1.
+        for (int i = 32; i < 64; i++)
+        {
+            Assert.Equal(0.5f, right[i], 6);
+        }
+    }
 }

@@ -284,4 +284,124 @@ public sealed class AacPnsApplierTests
         double target = AacPnsNoiseGenerator.TargetBandEnergy(sf);
         Assert.InRange(energy, target * (1 - 1e-4), target * (1 + 1e-4));
     }
+
+    // ----- EightShort window-sequence PNS coverage -----
+
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                 // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2); // window_sequence
+        w.Write(0u, 1);                                 // window_shape
+        w.Write((uint)maxSfb, 4);                       // max_sfb (4 bits for EightShort)
+        w.Write(grouping, 7);                           // scale_factor_grouping
+    }
+
+    /// <summary>
+    /// Build a 2-SFB EightShort frame (all 8 windows in one group): SFB 0 = cb 1 (spectral),
+    /// SFB 1 = cb 13 (PNS). At 48 kHz, SFB 1 occupies 4 coefficients per short window, so
+    /// the PNS band spans coefs [32, 64) after grouping (4 × 8 windows).
+    /// </summary>
+    private static AacChannelFrame BuildShortFrameWithPns(int globalGain, int spectralSfDiff, int noiseSf)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write((uint)globalGain, 8);
+        WriteShortIcsInfo(w, maxSfb: 2, grouping: 0x7F);
+
+        // Section data (1 group): cb=1/len=1, cb=13/len=1 (3-bit sect_len_incr for short).
+        w.Write(1u, 4); w.Write(1u, 3);
+        w.Write(13u, 4); w.Write(1u, 3);
+
+        // Scale factors (1 group, 2 SFBs):
+        //   SFB 0: ordinary SF diff
+        var (sfCode, sfLen) = EncodeSfDiff(spectralSfDiff);
+        w.Write(sfCode, sfLen);
+        //   SFB 1: PNS first band = 9-bit unsigned PCM.
+        int diff = noiseSf - (globalGain - AacAbsoluteScaleFactors.NoiseOffset);
+        int raw = diff + 256;
+        Assert.InRange(raw, 0, 511);
+        w.Write((uint)raw, 9);
+
+        // pulse/tns/gain flags (all absent).
+        w.Write(0u, 1);
+        w.Write(0u, 1);
+        w.Write(0u, 1);
+
+        // Spectral data: SFB 0 covers 4 coefs × 8 windows = 32 bins = 8 quads of sym 80.
+        for (int i = 0; i < 8; i++) w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.Equal(AacWindowSequence.EightShort, frame!.Stream.IcsInfo.WindowSequence);
+        return frame;
+    }
+
+    [Fact]
+    public void Apply_ShortWindow_FillsPnsBandToTargetEnergyAcrossAllEightWindows()
+    {
+        var frame = BuildShortFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 40);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        // Before apply: PNS band (coefs 32..63 in the group-major layout) is all zero.
+        for (int i = 32; i < 64; i++)
+        {
+            Assert.Equal(0f, dq.Coefficients[i]);
+        }
+
+        var result = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 7u));
+
+        double energy = 0;
+        for (int i = 32; i < 64; i++)
+        {
+            energy += (double)result.Coefficients[i] * result.Coefficients[i];
+        }
+
+        // Short PNS bands span (band_width × windows_in_group) coefficients but the
+        // applier rescales the whole span to the per-band target energy of
+        // 2^(noiseSf / 2) in one shot.
+        double expected = AacPnsNoiseGenerator.TargetBandEnergy(40);
+        Assert.Equal(expected, energy, expected * 1e-4);
+    }
+
+    [Fact]
+    public void Apply_ShortWindow_LeavesSpectralBandUnchanged()
+    {
+        var frame = BuildShortFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        float[] beforeBand0 = new float[32];
+        for (int i = 0; i < 32; i++) beforeBand0[i] = dq.Coefficients[i];
+
+        var result = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 5u));
+        for (int i = 0; i < 32; i++)
+        {
+            Assert.Equal(beforeBand0[i], result.Coefficients[i]);
+        }
+
+        // Coefficients outside the spectral and PNS bands remain zero.
+        for (int i = 64; i < result.Coefficients.Length; i++)
+        {
+            Assert.Equal(0f, result.Coefficients[i]);
+        }
+    }
+
+    [Fact]
+    public void ApplyInPlace_ShortWindow_AdvancesPrngOncePerPnsCoefficient()
+    {
+        var frame = BuildShortFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 25);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        var prng = new AacPnsRandom(seed: 11u);
+        float[] copy = dq.Coefficients.ToArray();
+        AacPnsApplier.ApplyInPlace(copy.AsSpan(), frame, Sr48k, prng);
+
+        // Short PNS band at 48 kHz / SFB 1 = 4 coefs × 8 windows = 32 PRNG advances.
+        var reference = new AacPnsRandom(seed: 11u);
+        for (int i = 0; i < 32; i++) reference.NextFloat();
+        Assert.Equal(reference.State, prng.State);
+    }
 }
