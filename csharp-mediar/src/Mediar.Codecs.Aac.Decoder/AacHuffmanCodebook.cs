@@ -1,15 +1,20 @@
 namespace Mediar.Codecs.Aac.Decoder;
 
 /// <summary>
-/// Canonical Huffman decoder used by the AAC spectral and scale-factor
-/// pipeline (ISO/IEC 14496-3 §4.6.3, Tables 4.A.2..4.A.13). The codebook
-/// is constructed from per-symbol code lengths only - the actual
-/// codewords are generated canonically (RFC 1951 / ISO 14496-3
-/// §4.6.3.3): codes are sorted by length and, within a length, by
-/// symbol index. Decode walks an internal binary tree representation
-/// MSB-first one bit at a time.
+/// Huffman decoder used by the AAC spectral and scale-factor
+/// pipeline. The codebook tree is built once and walks MSB-first one
+/// bit at a time during decode.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Two factories are provided. <see cref="FromCanonicalLengths"/>
+/// builds a canonical Huffman tree from per-symbol code lengths only
+/// (RFC 1951; suitable for FLAC, Vorbis and any format using
+/// canonical Huffman). <see cref="FromExplicitCodes"/> takes verbatim
+/// codeword values plus lengths and is required for the MPEG-4 AAC
+/// standard codebooks (ISO/IEC 14496-3 Annex 4.A.2) whose codes are
+/// NOT canonical.
+/// </para>
 /// <para>
 /// A length of <c>0</c> indicates an unused symbol. Valid lengths are
 /// <c>1..32</c>. Lengths are validated against the Kraft inequality;
@@ -153,6 +158,150 @@ public sealed class AacHuffmanCodebook
                     else if (existing < 0)
                     {
                         throw new ArgumentException("Codebook collision: prefix shadows leaf.", nameof(codeLengths));
+                    }
+                    else
+                    {
+                        node = existing;
+                    }
+                }
+            }
+        }
+
+        return new AacHuffmanCodebook(tree, maxLen, symbolCount, codeLengths.Length);
+    }
+
+    /// <summary>
+    /// Build a Huffman codebook from explicit (code, length) pairs as
+    /// published by the MPEG-4 AAC standard codebook tables
+    /// (ISO/IEC 14496-3 Annex 4.A.2). Unlike
+    /// <see cref="FromCanonicalLengths"/> the AAC spectral / scalefactor
+    /// codewords are NOT canonical: their code values do not follow the
+    /// sort-by-length-then-symbol rule and must be supplied verbatim.
+    /// </summary>
+    /// <param name="codes">
+    /// Per-symbol codeword values. Each codeword is interpreted as the
+    /// least-significant <c>codeLengths[i]</c> bits, transmitted
+    /// MSB-first by the decoder. Entries whose length is zero are
+    /// ignored.
+    /// </param>
+    /// <param name="codeLengths">
+    /// Per-symbol code lengths. A length of <c>0</c> marks the symbol as
+    /// unused; any other value must be in <c>[1, 32]</c>. Must be the
+    /// same length as <paramref name="codes"/>.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="codes"/> and <paramref name="codeLengths"/>
+    /// differ in length, when both arrays are empty, when all lengths are
+    /// zero, when a code value does not fit in its declared length, when
+    /// the codebook is over-specified (Kraft inequality violation), or
+    /// when two symbols share the same prefix.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when a length is outside <c>[0, 32]</c>.
+    /// </exception>
+    public static AacHuffmanCodebook FromExplicitCodes(
+        ReadOnlySpan<uint> codes, ReadOnlySpan<int> codeLengths)
+    {
+        if (codes.Length != codeLengths.Length)
+        {
+            throw new ArgumentException(
+                "codes and codeLengths must have the same length.",
+                nameof(codes));
+        }
+        if (codeLengths.IsEmpty)
+        {
+            throw new ArgumentException(
+                "Code length array must be non-empty.", nameof(codeLengths));
+        }
+
+        int maxLen = 0;
+        int symbolCount = 0;
+        for (int i = 0; i < codeLengths.Length; i++)
+        {
+            int l = codeLengths[i];
+            if (l < 0 || l > 32)
+                throw new ArgumentOutOfRangeException(nameof(codeLengths), l, "Code lengths must be in [0, 32].");
+            if (l == 0) continue;
+            uint c = codes[i];
+            // A code of L bits must satisfy code < 2^L.
+            if (l < 32 && c >= (1u << l))
+            {
+                throw new ArgumentException(
+                    $"Code 0x{c:X} for symbol {i} does not fit in {l} bits.",
+                    nameof(codes));
+            }
+            if (l > maxLen) maxLen = l;
+            symbolCount++;
+        }
+        if (maxLen == 0)
+        {
+            throw new ArgumentException(
+                "All code lengths are zero - no symbols.",
+                nameof(codeLengths));
+        }
+
+        long kraftScale = 1L << maxLen;
+        long kraftSum = 0;
+        for (int i = 0; i < codeLengths.Length; i++)
+        {
+            int l = codeLengths[i];
+            if (l > 0) kraftSum += kraftScale >> l;
+        }
+        if (kraftSum > kraftScale)
+        {
+            throw new ArgumentException(
+                "Kraft inequality violated - codebook is over-specified.",
+                nameof(codeLengths));
+        }
+
+        int initialNodes = Math.Max(2, symbolCount * maxLen + 2);
+        var tree = new int[initialNodes * 2];
+        for (int i = 0; i < tree.Length; i++) tree[i] = Unallocated;
+        int nextNode = 1;
+
+        for (int sym = 0; sym < codeLengths.Length; sym++)
+        {
+            int len = codeLengths[sym];
+            if (len == 0) continue;
+
+            uint symCode = codes[sym];
+            int node = 0;
+            for (int b = len - 1; b >= 0; b--)
+            {
+                int bit = (int)((symCode >> b) & 1u);
+                int childSlot = node * 2 + bit;
+                if (b == 0)
+                {
+                    if (tree[childSlot] != Unallocated)
+                    {
+                        throw new ArgumentException(
+                            "Codebook collision while assigning explicit codes.",
+                            nameof(codes));
+                    }
+                    tree[childSlot] = -(sym + 1);
+                }
+                else
+                {
+                    int existing = tree[childSlot];
+                    if (existing == Unallocated)
+                    {
+                        int newNode = nextNode++;
+                        if (newNode * 2 + 1 >= tree.Length)
+                        {
+                            int newSize = tree.Length * 2;
+                            var grown = new int[newSize];
+                            Array.Copy(tree, grown, tree.Length);
+                            for (int i = tree.Length; i < newSize; i++) grown[i] = Unallocated;
+                            tree = grown;
+                        }
+                        tree[childSlot] = newNode;
+                        node = newNode;
+                    }
+                    else if (existing < 0)
+                    {
+                        throw new ArgumentException(
+                            "Codebook collision: prefix shadows leaf.",
+                            nameof(codes));
                     }
                     else
                     {
