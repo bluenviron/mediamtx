@@ -70,7 +70,7 @@ public sealed record AacChannelFrame
     /// <see langword="false"/> when the ICS body rejects (see
     /// <see cref="AacIndividualChannelStream.TryRead"/>) or when the
     /// spectral_data walker rejects (see
-    /// <see cref="AacSpectralData.TryRead"/>).
+    /// <see cref="AacSpectralData.TryRead(ref BitReader, AacIcsInfo, AacSectionData, int, IReadOnlyList{AacHuffmanCodebook}, out AacSpectralData)"/>).
     /// </returns>
     internal static bool TryRead(
         scoped ref BitReader reader,

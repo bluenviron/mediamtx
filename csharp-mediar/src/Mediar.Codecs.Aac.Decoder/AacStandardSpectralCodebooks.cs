@@ -49,6 +49,47 @@ public static class AacStandardSpectralCodebooks
         return BookLookup[cbNumber - 1].Value;
     }
 
+    /// <summary>
+    /// A 16-slot lookup table indexed by AAC <c>sect_cb</c> number,
+    /// suitable for passing directly to
+    /// <see cref="AacSpectralData.TryRead(ref BitReader, AacIcsInfo, AacSectionData, int, IReadOnlyList{AacHuffmanCodebook}, out AacSpectralData)"/>.
+    /// Slots 1..11 hold the canonical spectral codebooks (built
+    /// lazily on first access). Slots 0, 12, 13, 14, 15 are
+    /// <see langword="null"/> because they correspond to the
+    /// ZERO_HCB, RESERVED, NOISE_HCB and INTENSITY_HCB[,_2]
+    /// sentinels respectively, which the spectral walker handles
+    /// without ever dereferencing the codebook list.
+    /// </summary>
+    public static IReadOnlyList<AacHuffmanCodebook?> StandardCodebookList { get; } = new StandardCodebookListView();
+
+    private sealed class StandardCodebookListView : IReadOnlyList<AacHuffmanCodebook?>
+    {
+        public AacHuffmanCodebook? this[int index]
+        {
+            get
+            {
+                if ((uint)index >= 16)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), index, "sect_cb index must be in [0, 15].");
+                }
+                if (index >= 1 && index <= 11)
+                {
+                    return BookLookup[index - 1].Value;
+                }
+                return null;
+            }
+        }
+
+        public int Count => 16;
+
+        public IEnumerator<AacHuffmanCodebook?> GetEnumerator()
+        {
+            for (int i = 0; i < 16; i++) yield return this[i];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     /// <summary>Standard spectral codebook cb 1 (Table 4.A.1).</summary>
     public static AacHuffmanCodebook Cb1 => BookLookup[0].Value;
 

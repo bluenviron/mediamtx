@@ -191,8 +191,28 @@ public sealed record AacSpectralData
     }
 
     /// <summary>
+    /// Convenience overload that uses
+    /// <see cref="AacStandardSpectralCodebooks.StandardCodebookList"/>
+    /// for the spectral codebook lookup. Use this in production
+    /// decode paths; the codebook-injected overload remains for
+    /// tests and synthetic fixtures.
+    /// </summary>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacIcsInfo icsInfo,
+        AacSectionData sectionData,
+        int sampleRate,
+        out AacSpectralData? data)
+    {
+        return TryRead(
+            ref reader, icsInfo, sectionData, sampleRate,
+            AacStandardSpectralCodebooks.StandardCodebookList, out data);
+    }
+
+    /// <summary>
     /// Decode <c>spectral_data()</c> from a byte buffer starting at the
-    /// first bit. See <see cref="TryRead"/> for parameter semantics.
+    /// first bit. See <see cref="TryRead(ref BitReader, AacIcsInfo, AacSectionData, int, IReadOnlyList{AacHuffmanCodebook}, out AacSpectralData)"/>
+    /// for parameter semantics.
     /// </summary>
     public static bool TryParse(
         ReadOnlySpan<byte> bytes,
@@ -204,5 +224,21 @@ public sealed record AacSpectralData
     {
         var reader = new BitReader(bytes);
         return TryRead(ref reader, icsInfo, sectionData, sampleRate, spectralCodebooks, out data);
+    }
+
+    /// <summary>
+    /// Convenience overload of
+    /// <see cref="TryParse(ReadOnlySpan{byte}, AacIcsInfo, AacSectionData, int, IReadOnlyList{AacHuffmanCodebook}, out AacSpectralData)"/>
+    /// that uses the standard spectral codebook list.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> bytes,
+        AacIcsInfo icsInfo,
+        AacSectionData sectionData,
+        int sampleRate,
+        out AacSpectralData? data)
+    {
+        var reader = new BitReader(bytes);
+        return TryRead(ref reader, icsInfo, sectionData, sampleRate, out data);
     }
 }
