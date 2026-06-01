@@ -419,4 +419,205 @@ public sealed class AacChannelDecoderTests
             frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacSsr);
         Assert.Equal(1024, decoded.Coefficients.Length);
     }
+
+    // ---------- DecodePair tests ----------
+
+    private static AacChannelPairElement BuildCpeFromTwoFrames(
+        AacChannelFrame leftFrame,
+        AacChannelFrame rightFrame,
+        bool commonWindow,
+        AacMsMaskPresent msMaskPresent,
+        IReadOnlyList<IReadOnlyList<bool>>? msUsed = null)
+    {
+        return new AacChannelPairElement
+        {
+            ElementInstanceTag = 0,
+            CommonWindow = commonWindow,
+            SharedIcsInfo = commonWindow ? leftFrame.Stream.IcsInfo : null,
+            MsMaskPresent = msMaskPresent,
+            MsUsed = msUsed ?? Array.Empty<IReadOnlyList<bool>>(),
+            FirstStream = leftFrame.Stream,
+            SecondStream = rightFrame.Stream,
+            FirstSpectralData = leftFrame.SpectralData,
+            SecondSpectralData = rightFrame.SpectralData,
+            BitsConsumed = 0,
+        };
+    }
+
+    [Fact]
+    public void DecodePair_NullCpe_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePair(
+                null!, Sr48k, new AacPnsRandom(), new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodePair_NullLeftPrng_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePair(cpe, Sr48k, null!, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodePair_NullRightPrng_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePair(cpe, Sr48k, new AacPnsRandom(), null!));
+    }
+
+    [Fact]
+    public void DecodePair_MissingFirstSpectralData_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None) with { FirstSpectralData = null };
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodePair(cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodePair_MissingSecondSpectralData_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None) with { SecondSpectralData = null };
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodePair(cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodePair_BadSampleRate_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodePair(cpe, sampleRate: 12345,
+                new AacPnsRandom(), new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodePair_ReturnsTransformLengthCoefficients()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        Assert.Equal(1024, left.Coefficients.Length);
+        Assert.Equal(1024, right.Coefficients.Length);
+    }
+
+    [Fact]
+    public void DecodePair_NoCommonWindow_DecodesEachChannelIndependently()
+    {
+        var leftFrame = BuildFrameNoPns();
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+
+        var monoLeft = AacChannelDecoder.DecodeMono(leftFrame, Sr48k, new AacPnsRandom());
+        var monoRight = AacChannelDecoder.DecodeMono(rightFrame, Sr48k, new AacPnsRandom());
+        Assert.Equal(monoLeft.Coefficients.ToArray(), left.Coefficients.ToArray());
+        Assert.Equal(monoRight.Coefficients.ToArray(), right.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodePair_CommonWindowMsNone_MatchesMonoPipeline()
+    {
+        var leftFrame = BuildFrameNoPns();
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: true, AacMsMaskPresent.None);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+
+        var monoLeft = AacChannelDecoder.DecodeMono(leftFrame, Sr48k, new AacPnsRandom());
+        var monoRight = AacChannelDecoder.DecodeMono(rightFrame, Sr48k, new AacPnsRandom());
+        Assert.Equal(monoLeft.Coefficients.ToArray(), left.Coefficients.ToArray());
+        Assert.Equal(monoRight.Coefficients.ToArray(), right.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodePair_MsAllBands_AppliesSumAndDifference()
+    {
+        var leftFrame = BuildFrameNoPns();
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: true, AacMsMaskPresent.AllBands);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+
+        // BuildFrameNoPns yields (1, 1, 1, 1, 0, ..., 0) after dequant.
+        // MS all-bands on band 0 gives L = 1+1 = 2, R = 1-1 = 0.
+        Assert.Equal(2f, left.Coefficients[0]);
+        Assert.Equal(2f, left.Coefficients[1]);
+        Assert.Equal(2f, left.Coefficients[2]);
+        Assert.Equal(2f, left.Coefficients[3]);
+        Assert.Equal(0f, right.Coefficients[0]);
+        Assert.Equal(0f, right.Coefficients[1]);
+        Assert.Equal(0f, right.Coefficients[2]);
+        Assert.Equal(0f, right.Coefficients[3]);
+    }
+
+    [Fact]
+    public void DecodePair_WindowSequenceFromSharedIcs()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        Assert.Equal(AacWindowSequence.OnlyLong, left.WindowSequence);
+        Assert.Equal(AacWindowSequence.OnlyLong, right.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodePair_DeterministicWithSamePrngSeeds()
+    {
+        var cpe1 = BuildCpeFromTwoFrames(
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            commonWindow: true, AacMsMaskPresent.None);
+        var cpe2 = BuildCpeFromTwoFrames(
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            commonWindow: true, AacMsMaskPresent.None);
+
+        var (l1, r1) = AacChannelDecoder.DecodePair(
+            cpe1, Sr48k, new AacPnsRandom(seed: 123u), new AacPnsRandom(seed: 456u));
+        var (l2, r2) = AacChannelDecoder.DecodePair(
+            cpe2, Sr48k, new AacPnsRandom(seed: 123u), new AacPnsRandom(seed: 456u));
+
+        Assert.Equal(l1.Coefficients.ToArray(), l2.Coefficients.ToArray());
+        Assert.Equal(r1.Coefficients.ToArray(), r2.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodePair_LeftAndRightUseIndependentPrngs()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30),
+            commonWindow: true, AacMsMaskPresent.None);
+
+        // Different PRNG seeds for left/right should yield different
+        // noise patterns even with identical frame content.
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(seed: 1u), new AacPnsRandom(seed: 2u));
+
+        Assert.NotEqual(left.Coefficients.ToArray(), right.Coefficients.ToArray());
+    }
 }

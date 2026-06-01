@@ -157,4 +157,129 @@ public static class AacChannelDecoder
             WindowSequence = ws,
         };
     }
+
+    /// <summary>
+    /// CPE composer: dequantize both channels, apply M/S stereo when
+    /// active, fill intensity-stereo bands on the right channel, then
+    /// run PNS synthesis on each channel. The result is a pair of
+    /// post-PNS spectra ready for TNS / IMDCT.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Decoding order follows the AAC spec §4.6 chain:
+    /// dequantize ➜ M/S ➜ intensity stereo ➜ PNS. The four operations
+    /// write to disjoint band sets (M/S to "real" Huffman bands, IS to
+    /// cb 14/15 bands, PNS to cb 13 bands), so the visible output is
+    /// invariant to small reorderings - but the spec ordering is kept
+    /// for clarity and future-proofing.
+    /// </para>
+    /// <para>
+    /// Intensity stereo and M/S are applied only when the CPE supplies
+    /// a shared <c>ics_info()</c> (common_window = 1) because both
+    /// stages require the two channels to share window / SFB
+    /// partitioning. CPEs with common_window = 0 are passed through
+    /// without joint-stereo / intensity processing.
+    /// </para>
+    /// </remarks>
+    /// <param name="cpe">Parsed channel-pair element including spectral data for both channels.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="leftPrng">Per-frame PNS PRNG for the first channel.</param>
+    /// <param name="rightPrng">Per-frame PNS PRNG for the second channel.</param>
+    /// <returns>Post-PNS decoded spectra for the first and second channels.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// Any required argument is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="cpe"/> is missing spectral data for one of the
+    /// channels, or <paramref name="sampleRate"/> has no SWB offset
+    /// table.
+    /// </exception>
+    public static (AacDecodedSpectrum Left, AacDecodedSpectrum Right) DecodePair(
+        AacChannelPairElement cpe,
+        int sampleRate,
+        AacPnsRandom leftPrng,
+        AacPnsRandom rightPrng)
+    {
+        ArgumentNullException.ThrowIfNull(cpe);
+        ArgumentNullException.ThrowIfNull(leftPrng);
+        ArgumentNullException.ThrowIfNull(rightPrng);
+
+        if (cpe.FirstSpectralData is null)
+        {
+            throw new ArgumentException(
+                "CPE is missing spectral data for the first channel.",
+                nameof(cpe));
+        }
+        if (cpe.SecondSpectralData is null)
+        {
+            throw new ArgumentException(
+                "CPE is missing spectral data for the second channel.",
+                nameof(cpe));
+        }
+
+        var leftFrame = new AacChannelFrame
+        {
+            Stream = cpe.FirstStream,
+            SpectralData = cpe.FirstSpectralData,
+            BitsConsumed = 0,
+        };
+        var rightFrame = new AacChannelFrame
+        {
+            Stream = cpe.SecondStream,
+            SpectralData = cpe.SecondSpectralData,
+            BitsConsumed = 0,
+        };
+
+        var leftDeq = AacDequantizedSpectrum.FromFrame(leftFrame, sampleRate);
+        var rightDeq = AacDequantizedSpectrum.FromFrame(rightFrame, sampleRate);
+
+        var leftBuf = new float[AacDequantizedSpectrum.TransformLength];
+        var rightBuf = new float[AacDequantizedSpectrum.TransformLength];
+        leftDeq.Coefficients.CopyTo(leftBuf);
+        rightDeq.Coefficients.CopyTo(rightBuf);
+
+        if (cpe.CommonWindow
+            && cpe.SharedIcsInfo is not null
+            && cpe.MsMaskPresent != AacMsMaskPresent.None)
+        {
+            AacMsStereoDecoder.Decode(
+                leftBuf,
+                rightBuf,
+                cpe.SharedIcsInfo,
+                cpe.MsMaskPresent,
+                cpe.MsUsed,
+                cpe.SecondStream.SectionData,
+                sampleRate);
+        }
+
+        if (cpe.CommonWindow && cpe.SharedIcsInfo is not null)
+        {
+            AacIntensityStereoApplier.ApplyInPlace(
+                leftBuf,
+                rightBuf,
+                rightFrame,
+                cpe.MsMaskPresent,
+                cpe.MsUsed,
+                sampleRate);
+        }
+
+        AacPnsApplier.ApplyInPlace(leftBuf, leftFrame, sampleRate, leftPrng);
+        AacPnsApplier.ApplyInPlace(rightBuf, rightFrame, sampleRate, rightPrng);
+
+        var ws = cpe.SharedIcsInfo?.WindowSequence
+            ?? cpe.FirstStream.IcsInfo.WindowSequence;
+
+        return (
+            new AacDecodedSpectrum
+            {
+                Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(leftBuf),
+                WindowSequence = ws,
+            },
+            new AacDecodedSpectrum
+            {
+                Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(rightBuf),
+                WindowSequence = cpe.SharedIcsInfo?.WindowSequence
+                    ?? cpe.SecondStream.IcsInfo.WindowSequence,
+            });
+    }
 }
