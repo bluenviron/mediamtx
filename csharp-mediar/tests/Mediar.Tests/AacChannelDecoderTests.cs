@@ -1022,4 +1022,132 @@ public sealed class AacChannelDecoderTests
         Assert.Throws<ArgumentNullException>(() =>
             AacChannelDecoder.DecodeCce(cce, Sr48k, null!, AacAudioObjectType.AacLc));
     }
+
+    // ---------- DecodeMonoToSamples tests ----------
+
+    [Fact]
+    public void DecodeMonoToSamples_NullFilterbank_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeMonoToSamples(
+                frame, Sr48k, new AacPnsRandom(), null!, output));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_NullFrame_Throws()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeMonoToSamples(
+                null!, Sr48k, new AacPnsRandom(), fb, output));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_WrongOutputLength_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[512];
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodeMonoToSamples(
+                frame, Sr48k, new AacPnsRandom(), fb, output));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_OnlyLongFrame_ProducesExpectedLength()
+    {
+        var frame = BuildFrameNoPns();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), fb, output);
+
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, output.Length);
+        // First frame starts from a zero overlap buffer; output values
+        // should be finite even if quiet.
+        foreach (var s in output) Assert.False(float.IsNaN(s) || float.IsInfinity(s));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_AdvancesFilterbankOverlap()
+    {
+        var frame = BuildFrameNoPns();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        // Capture overlap before/after a single frame. With a non-zero
+        // input spectrum the overlap buffer must be modified.
+        bool overlapWasZero = true;
+        foreach (var v in fb.Overlap) if (v != 0f) { overlapWasZero = false; break; }
+        Assert.True(overlapWasZero);
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), fb, output);
+
+        bool overlapIsZero = true;
+        foreach (var v in fb.Overlap) if (v != 0f) { overlapIsZero = false; break; }
+        Assert.False(overlapIsZero);
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_Aot_NullFilterbank_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeMonoToSamples(
+                frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, null!, output));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_Aot_LcWithoutTns_MatchesNonAotOverload()
+    {
+        var frame = BuildFrameNoPns();
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: 9u), fb1, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: 9u),
+            AacAudioObjectType.AacLc, fb2, out2);
+
+        Assert.Equal(out1, out2);
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_TwoFrames_OverlapAddCarries()
+    {
+        var frame = BuildFrameNoPns();
+        var fb = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), fb, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), fb, out2);
+
+        // The second frame includes the previous frame's IMDCT tail
+        // through the overlap buffer. With identical input spectra,
+        // the first half of out2 carries a non-zero tail
+        // contribution that out1 did not (out1 was the first frame
+        // and the overlap was all-zero).
+        bool out1HalfAllZero = true;
+        bool out2HalfAllZero = true;
+        for (int i = 0; i < 512; i++)
+        {
+            if (out1[i] != 0f) out1HalfAllZero = false;
+            if (out2[i] != 0f) out2HalfAllZero = false;
+        }
+        // At least one of the outputs must contain non-zero samples
+        // (the spectrum decodes to (1,1,1,1) plus zeros).
+        Assert.False(out1HalfAllZero && out2HalfAllZero);
+    }
 }

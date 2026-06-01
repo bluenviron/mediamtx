@@ -413,6 +413,103 @@ public static class AacChannelDecoder
         return DecodeMono(frame, sampleRate, prng, objectType);
     }
 
+    /// <summary>
+    /// End-to-end SCE / LFE / CPE-half decoder that produces 1024 PCM
+    /// samples per frame: runs the
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom)"/>
+    /// composer to obtain post-PNS MDCT coefficients, then drives
+    /// <paramref name="filterbank"/> to apply the IMDCT + window +
+    /// overlap-add.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="filterbank"/> is stateful: it owns the overlap
+    /// buffer that carries between consecutive frames. The caller
+    /// must construct one filterbank per channel and feed every frame
+    /// of that channel through the same instance in stream order. A
+    /// fresh filterbank (or one whose
+    /// <see cref="AacSynthesisFilterbank.Reset"/> has been called)
+    /// produces a half-frame of silent ramp-up on the first frame,
+    /// which is the spec-compliant behaviour at stream start / seek.
+    /// </para>
+    /// <para>
+    /// TNS is not applied by this overload. Use the AOT-aware
+    /// overload when long-window TNS inverse filtering is required.
+    /// </para>
+    /// </remarks>
+    /// <param name="frame">Parsed mono channel frame.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="prng">Per-frame PRNG for PNS synthesis.</param>
+    /// <param name="filterbank">
+    /// Per-channel synthesis filterbank carrying the overlap state.
+    /// </param>
+    /// <param name="output">
+    /// Receives exactly <see cref="AacSynthesisFilterbank.LongFrameLength"/>
+    /// PCM samples (1024).
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// Any required argument is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="output"/> is not 1024 samples long, or
+    /// <paramref name="sampleRate"/> has no SWB offset table.
+    /// </exception>
+    public static void DecodeMonoToSamples(
+        AacChannelFrame frame,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeMono(frame, sampleRate, prng);
+        RunFilterbank(decoded, frame.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    /// <summary>
+    /// AOT-aware end-to-end mono decoder: same as
+    /// <see cref="DecodeMonoToSamples(AacChannelFrame, int, AacPnsRandom, AacSynthesisFilterbank, Span{float})"/>
+    /// but additionally applies long-window TNS inverse filtering
+    /// when the frame carries TNS data.
+    /// </summary>
+    /// <param name="frame">Parsed mono channel frame.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="prng">Per-frame PRNG for PNS synthesis.</param>
+    /// <param name="objectType">AAC audio object type for TNS limits.</param>
+    /// <param name="filterbank">
+    /// Per-channel synthesis filterbank carrying the overlap state.
+    /// </param>
+    /// <param name="output">Receives 1024 PCM samples.</param>
+    public static void DecodeMonoToSamples(
+        AacChannelFrame frame,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeMono(frame, sampleRate, prng, objectType);
+        RunFilterbank(decoded, frame.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    private static void RunFilterbank(
+        AacDecodedSpectrum decoded,
+        AacWindowShape currentWindowShape,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        var coefs = decoded.Coefficients.AsSpan();
+        if (decoded.WindowSequence == AacWindowSequence.EightShort)
+        {
+            filterbank.ProcessEightShortBlock(coefs, currentWindowShape, output);
+        }
+        else
+        {
+            filterbank.ProcessLongBlock(coefs, decoded.WindowSequence, currentWindowShape, output);
+        }
+    }
+
     private static AacChannelFrame CouplingChannelFrame(AacCouplingChannelElement cce)
     {
         if (cce.SpectralData is null)
