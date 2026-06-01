@@ -96,6 +96,45 @@ public static class AacAdtsFrameIndexer
                 "Initial buffer size must be at least 16 bytes.");
         }
 
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            asyncReader: null,
+            cancellationToken: default).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Asynchronous overload of <see cref="BuildIndex"/>. Useful when
+    /// indexing large remote / cloud-backed streams where the file
+    /// IO would otherwise block a thread for non-trivial wall time.
+    /// </summary>
+    public static Task<IReadOnlyList<AacAdtsFrameIndexEntry>> BuildIndexAsync(
+        Stream stream,
+        int initialBufferSize = AacAdtsStreamReader.DefaultBufferSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
+        if (initialBufferSize < 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(initialBufferSize),
+                "Initial buffer size must be at least 16 bytes.");
+        }
+
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
+            cancellationToken: cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<AacAdtsFrameIndexEntry>> BuildIndexCore(
+        Stream stream,
+        int initialBufferSize,
+        Func<byte[], int, int, CancellationToken, ValueTask<int>>? asyncReader,
+        CancellationToken cancellationToken)
+    {
         var index = new List<AacAdtsFrameIndexEntry>();
         byte[] buf = new byte[initialBufferSize];
         int start = 0, end = 0;
@@ -105,6 +144,8 @@ public static class AacAdtsFrameIndexer
 
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Ensure 7 bytes (full fixed + variable header) for parsing.
             while (end - start < 7 && !eof)
             {
@@ -129,7 +170,9 @@ public static class AacAdtsFrameIndexer
                     buf = grown;
                     free = buf.Length - end;
                 }
-                int read = stream.Read(buf, end, free);
+                int read = asyncReader is null
+                    ? stream.Read(buf, end, free)
+                    : await asyncReader(buf, end, free, cancellationToken).ConfigureAwait(false);
                 if (read <= 0) eof = true;
                 else end += read;
             }
@@ -176,7 +219,9 @@ public static class AacAdtsFrameIndexer
                 while (end - start < parsed.FrameLength && !eof)
                 {
                     int free = buf.Length - end;
-                    int read = stream.Read(buf, end, free);
+                    int read = asyncReader is null
+                        ? stream.Read(buf, end, free)
+                        : await asyncReader(buf, end, free, cancellationToken).ConfigureAwait(false);
                     if (read <= 0) eof = true;
                     else end += read;
                 }

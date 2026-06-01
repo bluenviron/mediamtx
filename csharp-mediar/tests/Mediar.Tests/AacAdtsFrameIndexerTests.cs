@@ -106,6 +106,49 @@ public class AacAdtsFrameIndexerTests
             AacAdtsFrameIndexer.BuildIndex(ms, initialBufferSize: 4));
     }
 
+    [Fact]
+    public async Task BuildIndexAsync_TwoFrames_MatchesSyncIndex()
+    {
+        byte[] a = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] b = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[a.Length + b.Length];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        Buffer.BlockCopy(b, 0, payload, a.Length, b.Length);
+
+        using var msSync = new MemoryStream(payload);
+        var sync = AacAdtsFrameIndexer.BuildIndex(msSync);
+
+        using var msAsync = new MemoryStream(payload);
+        var async = await AacAdtsFrameIndexer.BuildIndexAsync(msAsync);
+
+        Assert.Equal(sync.Count, async.Count);
+        for (int i = 0; i < sync.Count; i++)
+        {
+            Assert.Equal(sync[i].ByteOffset, async[i].ByteOffset);
+            Assert.Equal(sync[i].FrameLength, async[i].FrameLength);
+            Assert.Equal(sync[i].SampleOffset, async[i].SampleOffset);
+            Assert.Equal(sync[i].BlockCount, async[i].BlockCount);
+        }
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_Cancelled_Throws()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await AacAdtsFrameIndexer.BuildIndexAsync(ms, cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_NullStream_Throws()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await AacAdtsFrameIndexer.BuildIndexAsync(null!));
+    }
+
     private sealed class WriteOnlyStream : Stream
     {
         public override bool CanRead => false;
