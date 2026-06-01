@@ -23,14 +23,19 @@ public enum AacScaleFactorKind : byte
 
     /// <summary>
     /// Perceptual-noise-substitution (PNS) noise energy
-    /// (codebook 13). Reserved for a future ship; this phase-1
-    /// reader rejects PNS sections.
+    /// (codebook 13). One Huffman codeword per band, decoded the
+    /// same way as a spectral-gain differential (idx - 60). The
+    /// caller is responsible for cumulative reconstruction against
+    /// the PNS noise-energy state machine.
     /// </summary>
     NoiseEnergy = 2,
 
     /// <summary>
-    /// Intensity-stereo position (codebooks 14 and 15). Reserved for
-    /// a future ship; this phase-1 reader rejects intensity sections.
+    /// Intensity-stereo position (codebooks 14 and 15). One Huffman
+    /// codeword per band, decoded the same way as a spectral-gain
+    /// differential (idx - 60). The caller is responsible for
+    /// cumulative reconstruction against the intensity-position
+    /// accumulator (codebook 15 indicates inverted polarity).
     /// </summary>
     IntensityPosition = 3,
 }
@@ -86,11 +91,15 @@ public sealed record AacScaleFactorData
 
     /// <summary>
     /// Walk a section list and read scale-factor differentials.
-    /// Returns <see langword="false"/> on stream underflow, on a
-    /// decoded symbol outside <c>[0, 120]</c>, or when a section's
-    /// codebook number is one of the PNS / intensity codebooks
-    /// (13, 14, 15) which require dedicated state not yet
-    /// implemented.
+    /// Returns <see langword="false"/> on stream underflow or on a
+    /// decoded symbol outside <c>[0, 120]</c>. PNS / intensity
+    /// sections (codebooks 13, 14, 15) are read using the same
+    /// scale-factor codebook and tagged with the appropriate
+    /// <see cref="AacScaleFactorKind"/>; the bitstream encoding is
+    /// identical to a spectral-gain differential (one Huffman
+    /// symbol per band, value <c>idx - 60</c>). Cumulative
+    /// reconstruction (per-state initial values, PNS energy offset,
+    /// intensity-position accumulator) is the caller's responsibility.
     /// </summary>
     internal static bool TryRead(
         scoped ref BitReader reader,
@@ -109,11 +118,6 @@ public sealed record AacScaleFactorData
         foreach (var section in sectionData.Sections)
         {
             var kind = ClassifyCodebook(section.CodebookNumber);
-            if (kind == AacScaleFactorKind.NoiseEnergy || kind == AacScaleFactorKind.IntensityPosition)
-            {
-                // Phase-1 reader rejects PNS / intensity sections.
-                return false;
-            }
 
             for (int sfb = section.StartSfb; sfb < section.EndSfb; sfb++)
             {
@@ -138,7 +142,7 @@ public sealed record AacScaleFactorData
                 {
                     Group = section.Group,
                     Sfb = sfb,
-                    Kind = AacScaleFactorKind.SpectralGain,
+                    Kind = kind,
                     Differential = symbolIndex - 60,
                 });
             }

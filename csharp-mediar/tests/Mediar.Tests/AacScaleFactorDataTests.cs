@@ -96,34 +96,70 @@ public sealed class AacScaleFactorDataTests
         Assert.Equal(0, data.BitsConsumed);
     }
 
+    private static readonly int[] SymbolsNoise60 = new[] { 60 };
+    private static readonly int[] SymbolsIntensity75 = new[] { 75 };
+    private static readonly int[] SymbolsIntensity45 = new[] { 45 };
+    private static readonly int[] SymbolsMixed3Sections = new[] { 60, 70, 50 };
+
     [Fact]
-    public void TryRead_NoiseCodebook13_Rejected()
+    public void TryRead_NoiseCodebook13_ReadsAsNoiseEnergy()
     {
         var book = BuildSyntheticSfCodebook();
         var sections = MakeSections((0, 13, 0, 1));
-        var reader = new BitReader(new byte[] { 0 });
-        Assert.False(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
-        Assert.Null(data);
+        var bytes = EncodeSymbols(SymbolsNoise60);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Single(data!.Entries);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[0].Kind);
+        Assert.Equal(0, data.Entries[0].Differential);
     }
 
     [Fact]
-    public void TryRead_IntensityCodebook14_Rejected()
+    public void TryRead_IntensityCodebook14_ReadsAsIntensityPosition()
     {
         var book = BuildSyntheticSfCodebook();
         var sections = MakeSections((0, 14, 0, 1));
-        var reader = new BitReader(new byte[] { 0 });
-        Assert.False(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
-        Assert.Null(data);
+        var bytes = EncodeSymbols(SymbolsIntensity75);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Single(data!.Entries);
+        Assert.Equal(AacScaleFactorKind.IntensityPosition, data.Entries[0].Kind);
+        Assert.Equal(15, data.Entries[0].Differential);
     }
 
     [Fact]
-    public void TryRead_IntensityCodebook15_Rejected()
+    public void TryRead_IntensityCodebook15_ReadsAsIntensityPosition()
     {
         var book = BuildSyntheticSfCodebook();
         var sections = MakeSections((0, 15, 0, 1));
-        var reader = new BitReader(new byte[] { 0 });
-        Assert.False(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
-        Assert.Null(data);
+        var bytes = EncodeSymbols(SymbolsIntensity45);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Single(data!.Entries);
+        Assert.Equal(AacScaleFactorKind.IntensityPosition, data.Entries[0].Kind);
+        Assert.Equal(-15, data.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void TryRead_MixedSections_KindsTagCorrectly()
+    {
+        var book = BuildSyntheticSfCodebook();
+        // 3 sections: spectral cb=1, noise cb=13, intensity cb=14, one band each.
+        var sections = MakeSections((0, 1, 0, 1), (0, 13, 1, 2), (0, 14, 2, 3));
+        var bytes = EncodeSymbols(SymbolsMixed3Sections);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(3, data!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, data.Entries[0].Kind);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[1].Kind);
+        Assert.Equal(AacScaleFactorKind.IntensityPosition, data.Entries[2].Kind);
+        Assert.Equal(0, data.Entries[0].Differential);
+        Assert.Equal(10, data.Entries[1].Differential);
+        Assert.Equal(-10, data.Entries[2].Differential);
     }
 
     [Fact]
