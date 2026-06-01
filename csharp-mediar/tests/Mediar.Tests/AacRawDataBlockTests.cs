@@ -441,4 +441,156 @@ public sealed class AacRawDataBlockTests
         Assert.False(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
         Assert.Null(block);
     }
+
+    // FromAudioSpecificConfig factory tests
+
+    private static AudioSpecificConfig BuildAsc(
+        int aot = 2,
+        int sfIndex = 3,            // 48000 Hz
+        int sampleRate = 48_000,
+        int channelConfig = 2,
+        bool sbrPresent = false,
+        int extSampleRate = 0,
+        int extSfIndex = -1)
+    {
+        return new AudioSpecificConfig
+        {
+            AudioObjectType = aot,
+            SamplingFrequencyIndex = sfIndex,
+            SamplingFrequency = sampleRate,
+            ChannelConfiguration = channelConfig,
+            ChannelCount = 2,
+            SbrPresent = sbrPresent,
+            ExtensionSamplingFrequency = extSampleRate,
+            ExtensionSamplingFrequencyIndex = extSfIndex,
+        };
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_NullConfig_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacRawDataBlockContext.FromAudioSpecificConfig(
+                config: null!,
+                scaleFactorCodebook: BuildSyntheticSfCodebook(),
+                spectralCodebooks: new AacHuffmanCodebook?[16]));
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_NullSfCodebook_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacRawDataBlockContext.FromAudioSpecificConfig(
+                config: BuildAsc(),
+                scaleFactorCodebook: null!,
+                spectralCodebooks: new AacHuffmanCodebook?[16]));
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_NullSpectralBooks_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacRawDataBlockContext.FromAudioSpecificConfig(
+                config: BuildAsc(),
+                scaleFactorCodebook: BuildSyntheticSfCodebook(),
+                spectralCodebooks: null!));
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_AacLc48k_UsesRateDirectly()
+    {
+        var asc = BuildAsc(aot: 2, sfIndex: 3, sampleRate: 48_000);
+        var ctx = AacRawDataBlockContext.FromAudioSpecificConfig(
+            asc,
+            BuildSyntheticSfCodebook(),
+            new AacHuffmanCodebook?[16]);
+        Assert.Equal(48_000, ctx.SampleRate);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_AacLc44k1_UsesRateDirectly()
+    {
+        var asc = BuildAsc(aot: 2, sfIndex: 4, sampleRate: 44_100);
+        var ctx = AacRawDataBlockContext.FromAudioSpecificConfig(
+            asc,
+            BuildSyntheticSfCodebook(),
+            new AacHuffmanCodebook?[16]);
+        Assert.Equal(44_100, ctx.SampleRate);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_HeAacSbr48k_DerivesCoreRate24k()
+    {
+        // HE-AAC: SBR layer reports 48 kHz, AAC-LC core operates at 24 kHz.
+        var asc = BuildAsc(
+            aot: 2,
+            sfIndex: 3,
+            sampleRate: 48_000,
+            sbrPresent: true,
+            extSfIndex: 3,
+            extSampleRate: 48_000);
+        var ctx = AacRawDataBlockContext.FromAudioSpecificConfig(
+            asc,
+            BuildSyntheticSfCodebook(),
+            new AacHuffmanCodebook?[16]);
+        Assert.Equal(24_000, ctx.SampleRate);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_HeAacSbr44k1_DerivesCoreRate22k05()
+    {
+        // HE-AAC: SBR @ 44.1 kHz, AAC-LC core @ 22.05 kHz.
+        var asc = BuildAsc(
+            aot: 2,
+            sfIndex: 4,
+            sampleRate: 44_100,
+            sbrPresent: true,
+            extSfIndex: 4,
+            extSampleRate: 44_100);
+        var ctx = AacRawDataBlockContext.FromAudioSpecificConfig(
+            asc,
+            BuildSyntheticSfCodebook(),
+            new AacHuffmanCodebook?[16]);
+        Assert.Equal(22_050, ctx.SampleRate);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_ZeroSampleRate_Throws()
+    {
+        var asc = BuildAsc(sampleRate: 0);
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacRawDataBlockContext.FromAudioSpecificConfig(
+                asc,
+                BuildSyntheticSfCodebook(),
+                new AacHuffmanCodebook?[16]));
+        Assert.Contains("no valid sample rate", ex.Message);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_NonStandardCoreRate_Throws()
+    {
+        // 192 kHz isn't in the AAC SWB offset tables.
+        var asc = BuildAsc(sfIndex: 15, sampleRate: 192_000);
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacRawDataBlockContext.FromAudioSpecificConfig(
+                asc,
+                BuildSyntheticSfCodebook(),
+                new AacHuffmanCodebook?[16]));
+        Assert.Contains("not a standard AAC rate", ex.Message);
+    }
+
+    [Fact]
+    public void FromAudioSpecificConfig_DerivedContext_DrivesEndOnlyParseSuccessfully()
+    {
+        // Smoke test: the factory output is structurally a valid context.
+        var asc = BuildAsc();
+        var ctx = AacRawDataBlockContext.FromAudioSpecificConfig(
+            asc,
+            BuildSyntheticSfCodebook(),
+            new AacHuffmanCodebook?[16]);
+        byte[] bytes = [0xE0];
+        Assert.True(AacRawDataBlock.TryParse(bytes, ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+    }
 }

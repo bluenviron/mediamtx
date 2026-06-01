@@ -20,6 +20,57 @@ public sealed record AacRawDataBlockContext
     /// not to be referenced may be <see langword="null"/>.
     /// </summary>
     public required IReadOnlyList<AacHuffmanCodebook?> SpectralCodebooks { get; init; }
+
+    /// <summary>
+    /// Build a context from a parsed <see cref="AudioSpecificConfig"/> plus
+    /// the caller-supplied Huffman codebooks. The sample rate is the
+    /// AAC-LC core rate from <see cref="AudioSpecificConfig.SamplingFrequency"/>;
+    /// when <see cref="AudioSpecificConfig.SbrPresent"/> is true, the core
+    /// rate is half the SBR layer rate (per ISO/IEC 14496-3 §1.6.5,
+    /// explicit hierarchical SBR signalling stores the SBR rate in
+    /// <see cref="AudioSpecificConfig.SamplingFrequency"/>).
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Any argument is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="config"/> has no valid sample rate, or the derived
+    /// core rate is not in the standard 8000-96000 Hz set supported by
+    /// the AAC SWB offset tables.
+    /// </exception>
+    public static AacRawDataBlockContext FromAudioSpecificConfig(
+        AudioSpecificConfig config,
+        AacHuffmanCodebook scaleFactorCodebook,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(scaleFactorCodebook);
+        ArgumentNullException.ThrowIfNull(spectralCodebooks);
+
+        if (config.SamplingFrequency <= 0)
+        {
+            throw new ArgumentException(
+                "AudioSpecificConfig has no valid sample rate; cannot derive SWB offset tables.",
+                nameof(config));
+        }
+
+        int coreSampleRate = config.SbrPresent
+            ? config.SamplingFrequency / 2
+            : config.SamplingFrequency;
+
+        if (AacSwbOffsets.GetLongOffsets(coreSampleRate).IsEmpty &&
+            AacSwbOffsets.GetShortOffsets(coreSampleRate).IsEmpty)
+        {
+            throw new ArgumentException(
+                $"Derived core sample rate {coreSampleRate} Hz is not a standard AAC rate.",
+                nameof(config));
+        }
+
+        return new AacRawDataBlockContext
+        {
+            SampleRate = coreSampleRate,
+            ScaleFactorCodebook = scaleFactorCodebook,
+            SpectralCodebooks = spectralCodebooks,
+        };
+    }
 }
 
 /// <summary>
