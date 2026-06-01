@@ -306,6 +306,8 @@ public sealed class AacRawDataBlockTests
         return AacHuffmanCodebook.FromCanonicalLengths(lengths);
     }
 
+    internal static AacHuffmanCodebook GetSharedSyntheticSfCodebook() => BuildSyntheticSfCodebook();
+
     private static AacRawDataBlockContext BuildContext()
     {
         return new AacRawDataBlockContext
@@ -331,6 +333,9 @@ public sealed class AacRawDataBlockTests
         w.Write(0u, 1);                        // tns_data_present
         w.Write(0u, 1);                        // gain_control_data_present
     }
+
+    internal static void WriteEmptySceBodyShared(AacBitWriter w, int tag, int maxSfb)
+        => WriteEmptySceBody(w, tag, maxSfb);
 
     private static void WriteEmptyLfeBody(AacBitWriter w, int tag, int maxSfb)
     {
