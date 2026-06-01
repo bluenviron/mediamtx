@@ -842,4 +842,184 @@ public sealed class AacChannelDecoderTests
         Assert.Equal(1024, left.Coefficients.Length);
         Assert.Equal(1024, right.Coefficients.Length);
     }
+
+    // ---------- DecodeCce tests ----------
+
+    /// <summary>
+    /// 1-target SCE CCE with a 1-SFB cb 1 spectral body (4-tuple = sym 80)
+    /// and no PNS / TNS / pulses. Auxiliary coupling channel only.
+    /// </summary>
+    private static AacCouplingChannelElement BuildCceCb1NoPns()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(4u, 4);              // element_instance_tag
+        w.Write(0u, 1);              // ind_sw_cce_flag = 0
+        w.Write(0u, 3);              // num_coupled_elements = 0 -> 1 target
+        w.Write(0u, 1); w.Write(2u, 4);   // SCE target, tag 2
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);   // cc_domain / sign / scale
+        // ICS body: cb=1, 1 SFB
+        w.Write(100u, 8);            // global_gain
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);  // section cb=1, len=1
+        var (sfCode, sfLen) = EncodeSfDiff(0);
+        w.Write(sfCode, sfLen);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); // pulse/tns/gain flags
+        // Spectral: sym 80 -> (1,1,1,1)
+        w.Write(80u, 7);
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), sfBook, sampleRate: Sr48k, spectralBooks, out var cce));
+        return cce!;
+    }
+
+    /// <summary>
+    /// CCE that carries pulse_data on its auxiliary channel (1-SFB cb 1).
+    /// Single pulse at position 0 with amplitude 5.
+    /// </summary>
+    private static AacCouplingChannelElement BuildCceWithPulse()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(4u, 4);              // element_instance_tag
+        w.Write(0u, 1);              // ind_sw_cce_flag
+        w.Write(0u, 3);              // num_coupled_elements = 0
+        w.Write(0u, 1); w.Write(2u, 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);
+        // ICS body: cb=1, 1 SFB, with pulse data
+        w.Write(100u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);
+        var (sfCode, sfLen) = EncodeSfDiff(0);
+        w.Write(sfCode, sfLen);
+        // pulse_data_present = 1
+        w.Write(1u, 1);
+        w.Write(0u, 2);              // numberPulse = 0 (1 pulse)
+        w.Write(0u, 6);              // pulse_start_sfb = 0
+        w.Write(0u, 5);              // pulse_offset = 0
+        w.Write(5u, 4);              // pulse_amplitude = 5
+        w.Write(0u, 1); w.Write(0u, 1); // tns/gain flags
+        // Spectral
+        w.Write(80u, 7);
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), sfBook, sampleRate: Sr48k, spectralBooks, out var cce));
+        return cce!;
+    }
+
+    [Fact]
+    public void DecodeCce_NullCce_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeCce(null!, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeCce_NullPrng_Throws()
+    {
+        var cce = BuildCceCb1NoPns();
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeCce(cce, Sr48k, null!));
+    }
+
+    [Fact]
+    public void DecodeCce_BoundaryParsedCce_MissingSpectralData_Throws()
+    {
+        // Boundary-stopping overload yields SpectralData == null.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(4u, 4);
+        w.Write(0u, 1);
+        w.Write(0u, 3);
+        w.Write(0u, 1); w.Write(2u, 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 10);
+        w.Write(0u, 4); w.Write(10u, 5);  // zero section across maxSfb
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacCouplingChannelElement.TryParse(w.ToArray(), book, out var cce));
+        Assert.Null(cce!.SpectralData);
+
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodeCce(cce, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeCce_NoPnsNoPulse_DequantizesSpectrum()
+    {
+        var cce = BuildCceCb1NoPns();
+        var decoded = AacChannelDecoder.DecodeCce(cce, Sr48k, new AacPnsRandom());
+
+        // 1^(4/3) = 1, position 0..3 from cb 1 sym 80.
+        Assert.Equal(1f, decoded.Coefficients[0], precision: 4);
+        Assert.Equal(1f, decoded.Coefficients[1], precision: 4);
+        Assert.Equal(1f, decoded.Coefficients[2], precision: 4);
+        Assert.Equal(1f, decoded.Coefficients[3], precision: 4);
+        Assert.Equal(AacWindowSequence.OnlyLong, decoded.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeCce_PulseData_AppliedBeforeDequant()
+    {
+        var cce = BuildCceWithPulse();
+        var decoded = AacChannelDecoder.DecodeCce(cce, Sr48k, new AacPnsRandom());
+
+        // Pos 0: quantised 1+5=6, dequant 6^(4/3) ≈ 10.903.
+        float expected = MathF.Pow(6f, 4f / 3f);
+        Assert.Equal(expected, decoded.Coefficients[0], precision: 4);
+        Assert.Equal(1f, decoded.Coefficients[1], precision: 4);
+    }
+
+    [Fact]
+    public void DecodeCce_ProducesSameResultAsDecodeMono()
+    {
+        // CCE wrapping the same Stream+SpectralData should decode to
+        // exactly the same spectrum as DecodeMono on a synthetic
+        // AacChannelFrame holding identical data.
+        var cce = BuildCceCb1NoPns();
+        var frame = new AacChannelFrame
+        {
+            Stream = cce.Stream,
+            SpectralData = cce.SpectralData!,
+            BitsConsumed = 0,
+        };
+
+        var fromCce = AacChannelDecoder.DecodeCce(cce, Sr48k, new AacPnsRandom(seed: 42u));
+        var fromMono = AacChannelDecoder.DecodeMono(frame, Sr48k, new AacPnsRandom(seed: 42u));
+
+        Assert.Equal(fromMono.Coefficients.ToArray(), fromCce.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodeCce_Aot_LcWithoutTns_MatchesNonAotOverload()
+    {
+        var cce = BuildCceCb1NoPns();
+        var withoutAot = AacChannelDecoder.DecodeCce(cce, Sr48k, new AacPnsRandom(seed: 7u));
+        var withAot = AacChannelDecoder.DecodeCce(
+            cce, Sr48k, new AacPnsRandom(seed: 7u), AacAudioObjectType.AacLc);
+
+        Assert.Equal(withoutAot.Coefficients.ToArray(), withAot.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodeCce_Aot_NullCce_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeCce(null!, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc));
+    }
+
+    [Fact]
+    public void DecodeCce_Aot_NullPrng_Throws()
+    {
+        var cce = BuildCceCb1NoPns();
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeCce(cce, Sr48k, null!, AacAudioObjectType.AacLc));
+    }
 }

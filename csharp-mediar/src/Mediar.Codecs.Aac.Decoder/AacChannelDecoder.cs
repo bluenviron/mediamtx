@@ -342,6 +342,94 @@ public static class AacChannelDecoder
             });
     }
 
+    /// <summary>
+    /// CCE (coupling channel element) per-channel composer: dequantize
+    /// the coupling channel's spectrum, then fill PNS bands. Coupling
+    /// channels are mono auxiliary streams and never use M/S or
+    /// intensity stereo, so the pipeline is the same shape as
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom)"/>
+    /// but operates against the CCE's
+    /// <see cref="AacCouplingChannelElement.Stream"/> +
+    /// <see cref="AacCouplingChannelElement.SpectralData"/>.
+    /// </summary>
+    /// <remarks>
+    /// The result is the coupling channel's MDCT spectrum in the
+    /// group-major / SFB-interleaved layout produced by
+    /// <see cref="AacDequantizedSpectrum.FromFrame"/>. <strong>The
+    /// per-target coupling-gain application that mixes this spectrum
+    /// into the downstream SCE/CPE targets is a separate ship and is
+    /// NOT performed here.</strong> Callers receive the prepared
+    /// auxiliary spectrum and run gain application as a subsequent
+    /// step.
+    /// </remarks>
+    /// <param name="cce">Parsed CCE including spectral data.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="prng">Per-frame PRNG for PNS synthesis.</param>
+    /// <returns>An <see cref="AacDecodedSpectrum"/> after Dequantize + PNS.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="cce"/> or <paramref name="prng"/> is
+    /// <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="cce"/> is missing spectral data (parsed with
+    /// the boundary-stopping overload) or
+    /// <paramref name="sampleRate"/> has no SWB offset table.
+    /// </exception>
+    public static AacDecodedSpectrum DecodeCce(
+        AacCouplingChannelElement cce,
+        int sampleRate,
+        AacPnsRandom prng)
+    {
+        ArgumentNullException.ThrowIfNull(cce);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = CouplingChannelFrame(cce);
+        return DecodeMono(frame, sampleRate, prng);
+    }
+
+    /// <summary>
+    /// AOT-aware CCE composer: same as
+    /// <see cref="DecodeCce(AacCouplingChannelElement, int, AacPnsRandom)"/>
+    /// but additionally applies TNS inverse filtering when the
+    /// coupling channel carries TNS data AND uses a long window
+    /// sequence. Short-window TNS is intentionally skipped (see
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom, AacAudioObjectType)"/>
+    /// for rationale).
+    /// </summary>
+    /// <param name="cce">Parsed CCE including spectral data.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="prng">Per-frame PRNG for PNS synthesis.</param>
+    /// <param name="objectType">AAC audio object type for TNS limits.</param>
+    public static AacDecodedSpectrum DecodeCce(
+        AacCouplingChannelElement cce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType)
+    {
+        ArgumentNullException.ThrowIfNull(cce);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = CouplingChannelFrame(cce);
+        return DecodeMono(frame, sampleRate, prng, objectType);
+    }
+
+    private static AacChannelFrame CouplingChannelFrame(AacCouplingChannelElement cce)
+    {
+        if (cce.SpectralData is null)
+        {
+            throw new ArgumentException(
+                "CCE is missing spectral_data (boundary-stopping parse); use the 'full' TryRead/TryParse overload before decoding.",
+                nameof(cce));
+        }
+
+        return new AacChannelFrame
+        {
+            Stream = cce.Stream,
+            SpectralData = cce.SpectralData,
+            BitsConsumed = 0,
+        };
+    }
+
     private static void ApplyLongWindowTnsIfPresent(
         AacChannelFrame frame,
         int sampleRate,
