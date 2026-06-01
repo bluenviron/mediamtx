@@ -147,4 +147,79 @@ public sealed class AacTnsLpcStepUpTests
             Assert.Equal(x[n], z[n], precision: 4);
         }
     }
+
+    [Fact]
+    public void Compute_LengthMismatch_LpcLonger_Throws()
+    {
+        var parcor = new float[2];
+        var lpc = new float[3];
+        Assert.Throws<ArgumentException>(() => AacTnsLpcStepUp.Compute(parcor, lpc));
+    }
+
+    [Fact]
+    public void MaxOrder_Matches_TnsLongMax()
+    {
+        Assert.Equal(AacTnsData.MaxOrderLong, AacTnsLpcStepUp.MaxOrder);
+    }
+
+    [Fact]
+    public void Compute_Span_Overload_OrderZero_NoOp()
+    {
+        // Spec: order == 0 returns without touching the (zero-length) buffer.
+        var lpc = Array.Empty<float>();
+        AacTnsLpcStepUp.Compute(ReadOnlySpan<float>.Empty, lpc);
+        Assert.Empty(lpc);
+    }
+
+    [Fact]
+    public void Compute_AllocatingOverload_OrderZero_ReturnsEmpty()
+    {
+        var lpc = AacTnsLpcStepUp.Compute(ReadOnlySpan<float>.Empty);
+        Assert.Empty(lpc);
+    }
+
+    [Fact]
+    public void Compute_AllocatingOverload_AllocatesIndependentArrayPerCall()
+    {
+        var parcor = new float[] { 0.1f, 0.2f };
+        var a = AacTnsLpcStepUp.Compute(parcor);
+        var b = AacTnsLpcStepUp.Compute(parcor);
+        Assert.NotSame(a, b);
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Compute_Span_And_Allocating_Produce_Same_Output()
+    {
+        var parcor = new float[] { 0.7f, -0.3f, 0.2f, -0.1f };
+        var a = AacTnsLpcStepUp.Compute(parcor);
+        var b = new float[parcor.Length];
+        AacTnsLpcStepUp.Compute(parcor, b);
+        for (int i = 0; i < a.Length; i++)
+        {
+            Assert.Equal(a[i], b[i], precision: 6);
+        }
+    }
+
+    [Fact]
+    public void Compute_DoesNotMutate_Parcor_Input()
+    {
+        var parcor = new float[] { 0.5f, 0.25f, 0.125f };
+        var copy = (float[])parcor.Clone();
+        _ = AacTnsLpcStepUp.Compute(parcor);
+        Assert.Equal(copy, parcor);
+    }
+
+    [Fact]
+    public void Compute_OrderTwo_Negative_Then_Positive_Parcor()
+    {
+        // k1 = -0.5, k2 = 0.25
+        //   After step 1: lpc = [-0.5]
+        //   Step 2:
+        //     tmp[0] = -0.5 + 0.25 * -0.5 = -0.625
+        //   lpc = [-0.625, 0.25]
+        var lpc = AacTnsLpcStepUp.Compute(new float[] { -0.5f, 0.25f });
+        Assert.Equal(-0.625f, lpc[0], precision: 6);
+        Assert.Equal(0.25f, lpc[1], precision: 6);
+    }
 }

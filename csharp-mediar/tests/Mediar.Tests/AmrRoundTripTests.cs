@@ -146,4 +146,354 @@ public sealed class AmrRoundTripTests
         using var src = new IO.MemoryRandomAccessSource(junk);
         Assert.Throws<InvalidDataException>(() => AmrDemuxer.Open(src));
     }
+
+    [Fact]
+    public void Open_NullSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => AmrDemuxer.Open((IO.IRandomAccessSource)null!));
+    }
+
+    [Fact]
+    public void Open_NullPath_Throws()
+    {
+        Assert.ThrowsAny<ArgumentException>(() => AmrDemuxer.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_MissingFile_Throws()
+    {
+        Assert.ThrowsAny<IOException>(() => AmrDemuxer.Open(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.amr")));
+    }
+
+    [Fact]
+    public void Demuxer_FormatName_And_Metadata_Defaults()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        data.AddRange(BuildNbFrame(0));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        Assert.Equal("amr-nb", dx.FormatName);
+        Assert.Equal(MediaMetadata.Empty, dx.Metadata);
+        Assert.Equal(TimeSpan.Zero, dx.Duration);
+    }
+
+    [Fact]
+    public void Demuxer_Dispose_Idempotent()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        var dx = AmrDemuxer.Open(src);
+        dx.Dispose();
+        dx.Dispose();
+    }
+
+    [Fact]
+    public async Task Demuxer_DisposeAsync_Disposes_Without_Throwing()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        var dx = AmrDemuxer.Open(src, ownsSource: true);
+        await dx.DisposeAsync();
+        await dx.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Demuxer_Truncated_Frame_Stops_Early()
+    {
+        // Magic + one full frame + one truncated frame (just the type-octet).
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        data.AddRange(BuildNbFrame(0));
+        data.Add(0x04); // start of next frame, but no payload
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        int seen = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { seen++; } finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(1, seen);
+    }
+
+    [Fact]
+    public async Task Demuxer_Empty_Stream_After_Magic_Yields_No_Samples()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        int seen = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { seen++; } finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(0, seen);
+    }
+
+    [Fact]
+    public async Task Demuxer_Cancellation_Throws()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        data.AddRange(BuildNbFrame(0));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var s in dx.ReadSamplesAsync(cts.Token))
+            {
+                s.Owner?.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Demuxer_Pts_Advances_By_160_For_NB()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        data.AddRange(BuildNbFrame(0));
+        data.AddRange(BuildNbFrame(1));
+        data.AddRange(BuildNbFrame(2));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        long expected = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                Assert.Equal(expected, s.Pts);
+                Assert.Equal(expected, s.Dts);
+                expected += 160;
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(480, expected);
+    }
+
+    [Fact]
+    public async Task Demuxer_Pts_Advances_By_320_For_WB()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR-WB\n"u8.ToArray());
+        data.AddRange(BuildWbFrame(0));
+        data.AddRange(BuildWbFrame(1));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        long expected = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                Assert.Equal(expected, s.Pts);
+                expected += 320;
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(640, expected);
+    }
+
+    [Fact]
+    public async Task Demuxer_Seek_To_Beyond_End_Stops_Reading()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        data.AddRange(BuildNbFrame(0));
+        data.AddRange(BuildNbFrame(1));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        await dx.SeekAsync(TimeSpan.FromSeconds(60));
+        int seen = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { seen++; } finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(0, seen);
+    }
+
+    [Fact]
+    public async Task Demuxer_Seek_To_Mid_Stream_Resumes_After_That_Frame()
+    {
+        var data = new List<byte>();
+        data.AddRange("#!AMR\n"u8.ToArray());
+        for (int i = 0; i < 5; i++) data.AddRange(BuildNbFrame(i));
+        using var src = new IO.MemoryRandomAccessSource(data.ToArray());
+        using var dx = AmrDemuxer.Open(src);
+        await dx.SeekAsync(TimeSpan.FromMilliseconds(40)); // 40 ms / 20 ms = 2 frames forward
+        var ptsList = new List<long>();
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { ptsList.Add(s.Pts); } finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(3, ptsList.Count);
+        Assert.Equal(new long[] { 320, 480, 640 }, ptsList);
+    }
+
+    [Fact]
+    public void Muxer_NullStream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new AmrMuxer(null!));
+    }
+
+    [Fact]
+    public void Muxer_NonWritable_Throws()
+    {
+        var readonlyMs = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ArgumentException>(() => new AmrMuxer(readonlyMs));
+    }
+
+    [Fact]
+    public void Muxer_AddTrack_Null_Throws()
+    {
+        using var ms = new MemoryStream();
+        using var mux = new AmrMuxer(ms, leaveOpen: true);
+        Assert.Throws<ArgumentNullException>(() => mux.AddTrack(null!));
+    }
+
+    [Fact]
+    public void Muxer_AddTrack_NonAudio_Throws()
+    {
+        using var ms = new MemoryStream();
+        using var mux = new AmrMuxer(ms, leaveOpen: true);
+        var t = new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 90000),
+            Codec = new VideoCodecParameters { Codec = CodecId.H264, Width = 16, Height = 16 },
+        };
+        Assert.Throws<ArgumentException>(() => mux.AddTrack(t));
+    }
+
+    [Fact]
+    public void Muxer_AddTrack_WrongCodec_Throws()
+    {
+        using var ms = new MemoryStream();
+        using var mux = new AmrMuxer(ms, leaveOpen: true);
+        var t = new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.Aac, SampleRate = 8000, Channels = 1 },
+        };
+        Assert.Throws<ArgumentException>(() => mux.AddTrack(t));
+    }
+
+    [Fact]
+    public void Muxer_AddTrack_Duplicate_Throws()
+    {
+        using var ms = new MemoryStream();
+        using var mux = new AmrMuxer(ms, leaveOpen: true);
+        var t = new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrNb, SampleRate = 8000, Channels = 1 },
+        };
+        mux.AddTrack(t);
+        Assert.Throws<InvalidOperationException>(() => mux.AddTrack(t));
+    }
+
+    [Fact]
+    public async Task Muxer_StartAsync_Without_Track_Throws()
+    {
+        await using var ms = new MemoryStream();
+        await using var mux = new AmrMuxer(ms, leaveOpen: true);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await mux.StartAsync());
+    }
+
+    [Fact]
+    public async Task Muxer_StartAsync_Is_Idempotent()
+    {
+        await using var ms = new MemoryStream();
+        await using var mux = new AmrMuxer(ms, leaveOpen: true);
+        mux.AddTrack(new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrNb, SampleRate = 8000, Channels = 1 },
+        });
+        await mux.StartAsync();
+        await mux.StartAsync(); // does not write a second magic
+        Assert.Equal("#!AMR\n"u8.ToArray().Length, ms.Length);
+    }
+
+    [Fact]
+    public async Task Muxer_WriteSample_Auto_Starts()
+    {
+        await using var ms = new MemoryStream();
+        await using var mux = new AmrMuxer(ms, leaveOpen: true);
+        mux.AddTrack(new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrNb, SampleRate = 8000, Channels = 1 },
+        });
+        await mux.WriteSampleAsync(new MediaSample
+        {
+            TrackIndex = 0, Pts = 0, Dts = 0, Duration = 160,
+            IsKeyFrame = true, Data = BuildNbFrame(0),
+        });
+        // Magic prefix written automatically.
+        Assert.Equal((byte)'#', ms.GetBuffer()[0]);
+    }
+
+    [Fact]
+    public void Muxer_FormatName_Defaults_To_Nb_Without_Track()
+    {
+        using var ms = new MemoryStream();
+        using var mux = new AmrMuxer(ms, leaveOpen: true);
+        Assert.Equal("amr-nb", mux.FormatName);
+    }
+
+    [Fact]
+    public async Task Muxer_FormatName_Reflects_Wb_Codec()
+    {
+        await using var ms = new MemoryStream();
+        await using var mux = new AmrMuxer(ms, leaveOpen: true);
+        mux.AddTrack(new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 16000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrWb, SampleRate = 16000, Channels = 1 },
+        });
+        Assert.Equal("amr-wb", mux.FormatName);
+    }
+
+    [Fact]
+    public async Task Muxer_LeaveOpen_False_Closes_Stream()
+    {
+        var ms = new MemoryStream();
+        var mux = new AmrMuxer(ms, leaveOpen: false);
+        mux.AddTrack(new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrNb, SampleRate = 8000, Channels = 1 },
+        });
+        await mux.StartAsync();
+        await mux.DisposeAsync();
+        Assert.False(ms.CanWrite);
+    }
+
+    [Fact]
+    public async Task Muxer_LeaveOpen_True_Preserves_Stream()
+    {
+        var ms = new MemoryStream();
+        var mux = new AmrMuxer(ms, leaveOpen: true);
+        mux.AddTrack(new MediaTrack
+        {
+            Index = 0, Id = 1,
+            TimeBase = new Rational(1, 8000),
+            Codec = new AudioCodecParameters { Codec = CodecId.AmrNb, SampleRate = 8000, Channels = 1 },
+        });
+        await mux.StartAsync();
+        await mux.DisposeAsync();
+        Assert.True(ms.CanWrite);
+        ms.Dispose();
+    }
 }
