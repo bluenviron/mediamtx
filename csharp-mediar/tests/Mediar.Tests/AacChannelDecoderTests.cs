@@ -1365,4 +1365,144 @@ public sealed class AacChannelDecoderTests
             AacChannelDecoder.DecodeCceToSamples(
                 cce, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, null!, output));
     }
+
+    // ----- DecodeSingleChannel composer -----
+
+    private static AacSingleChannelElement BuildSceFromFrame(AacChannelFrame frame, int tag = 0)
+    {
+        return new AacSingleChannelElement
+        {
+            ElementInstanceTag = tag,
+            Stream = frame.Stream,
+            SpectralData = frame.SpectralData,
+            BitsConsumed = frame.BitsConsumed,
+        };
+    }
+
+    private static AacLowFrequencyElement BuildLfeFromFrame(AacChannelFrame frame, int tag = 0)
+    {
+        return new AacLowFrequencyElement
+        {
+            ElementInstanceTag = tag,
+            Stream = frame.Stream,
+            SpectralData = frame.SpectralData,
+            BitsConsumed = frame.BitsConsumed,
+        };
+    }
+
+    [Fact]
+    public void DecodeSingleChannel_NullSce_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeSingleChannel(null!, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeSingleChannel_NullPrng_Throws()
+    {
+        var sce = BuildSceFromFrame(BuildFrameNoPns());
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeSingleChannel(sce, Sr48k, null!));
+    }
+
+    [Fact]
+    public void DecodeSingleChannel_NoSpectralData_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        var sce = new AacSingleChannelElement
+        {
+            ElementInstanceTag = 0,
+            Stream = frame.Stream,
+            SpectralData = null,
+            BitsConsumed = 0,
+        };
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodeSingleChannel(sce, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeSingleChannel_ParityWithDecodeMono()
+    {
+        var frame = BuildFrameNoPns();
+        var sce = BuildSceFromFrame(frame);
+
+        var direct = AacChannelDecoder.DecodeMono(frame, Sr48k, new AacPnsRandom(seed: 7u));
+        var via = AacChannelDecoder.DecodeSingleChannel(sce, Sr48k, new AacPnsRandom(seed: 7u));
+
+        Assert.Equal(direct.Coefficients.ToArray(), via.Coefficients.ToArray());
+        Assert.Equal(direct.WindowSequence, via.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeSingleChannel_Aot_ParityWithDecodeMonoAot()
+    {
+        var frame = BuildFrameWithTns(order: 2, coef: 3);
+        var sce = BuildSceFromFrame(frame);
+
+        var direct = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+        var via = AacChannelDecoder.DecodeSingleChannel(
+            sce, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+
+        Assert.Equal(direct.Coefficients.ToArray(), via.Coefficients.ToArray());
+    }
+
+    // ----- DecodeLfe composer -----
+
+    [Fact]
+    public void DecodeLfe_NullLfe_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeLfe(null!, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeLfe_NullPrng_Throws()
+    {
+        var lfe = BuildLfeFromFrame(BuildFrameNoPns());
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeLfe(lfe, Sr48k, null!));
+    }
+
+    [Fact]
+    public void DecodeLfe_NoSpectralData_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        var lfe = new AacLowFrequencyElement
+        {
+            ElementInstanceTag = 0,
+            Stream = frame.Stream,
+            SpectralData = null,
+            BitsConsumed = 0,
+        };
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodeLfe(lfe, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void DecodeLfe_ParityWithDecodeMono()
+    {
+        var frame = BuildFrameNoPns();
+        var lfe = BuildLfeFromFrame(frame);
+
+        var direct = AacChannelDecoder.DecodeMono(frame, Sr48k, new AacPnsRandom(seed: 13u));
+        var via = AacChannelDecoder.DecodeLfe(lfe, Sr48k, new AacPnsRandom(seed: 13u));
+
+        Assert.Equal(direct.Coefficients.ToArray(), via.Coefficients.ToArray());
+        Assert.Equal(direct.WindowSequence, via.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeLfe_Aot_ParityWithDecodeMonoAot()
+    {
+        var frame = BuildFrameNoPns();
+        var lfe = BuildLfeFromFrame(frame);
+
+        var direct = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 17u), AacAudioObjectType.AacLc);
+        var via = AacChannelDecoder.DecodeLfe(
+            lfe, Sr48k, new AacPnsRandom(seed: 17u), AacAudioObjectType.AacLc);
+
+        Assert.Equal(direct.Coefficients.ToArray(), via.Coefficients.ToArray());
+    }
 }

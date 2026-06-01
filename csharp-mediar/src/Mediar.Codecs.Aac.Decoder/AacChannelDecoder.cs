@@ -414,6 +414,100 @@ public static class AacChannelDecoder
     }
 
     /// <summary>
+    /// SCE composer: extracts the channel frame from
+    /// <paramref name="sce"/> and routes through
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom)"/>.
+    /// Convenience entry point matching the parser's element
+    /// taxonomy.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="sce"/> or <paramref name="prng"/> is null.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="sce"/> has no <c>SpectralData</c> (boundary
+    /// parse) or <paramref name="sampleRate"/> has no SWB table.
+    /// </exception>
+    public static AacDecodedSpectrum DecodeSingleChannel(
+        AacSingleChannelElement sce,
+        int sampleRate,
+        AacPnsRandom prng)
+    {
+        ArgumentNullException.ThrowIfNull(sce);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = SingleChannelFrame(sce);
+        return DecodeMono(frame, sampleRate, prng);
+    }
+
+    /// <summary>
+    /// AOT-aware SCE composer: same as
+    /// <see cref="DecodeSingleChannel(AacSingleChannelElement, int, AacPnsRandom)"/>
+    /// but additionally applies TNS inverse filtering (long and
+    /// short windows) per <paramref name="objectType"/>.
+    /// </summary>
+    public static AacDecodedSpectrum DecodeSingleChannel(
+        AacSingleChannelElement sce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType)
+    {
+        ArgumentNullException.ThrowIfNull(sce);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = SingleChannelFrame(sce);
+        return DecodeMono(frame, sampleRate, prng, objectType);
+    }
+
+    /// <summary>
+    /// LFE composer: extracts the channel frame from
+    /// <paramref name="lfe"/> and routes through
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom)"/>.
+    /// LFE elements share the SCE individual-channel-stream body
+    /// shape with additional spec-level constraints (long windows
+    /// only, MaxSfb &lt;= 6) which are enforced at parse time, not
+    /// decode time.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="lfe"/> or <paramref name="prng"/> is null.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="lfe"/> has no <c>SpectralData</c> or
+    /// <paramref name="sampleRate"/> has no SWB table.
+    /// </exception>
+    public static AacDecodedSpectrum DecodeLfe(
+        AacLowFrequencyElement lfe,
+        int sampleRate,
+        AacPnsRandom prng)
+    {
+        ArgumentNullException.ThrowIfNull(lfe);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = LfeChannelFrame(lfe);
+        return DecodeMono(frame, sampleRate, prng);
+    }
+
+    /// <summary>
+    /// AOT-aware LFE composer: same as
+    /// <see cref="DecodeLfe(AacLowFrequencyElement, int, AacPnsRandom)"/>
+    /// but additionally applies TNS inverse filtering when present.
+    /// In practice TNS in LFE is extremely rare because LFE windows
+    /// are always long and the band cap is low; the AOT overload is
+    /// provided for uniformity with the other composers.
+    /// </summary>
+    public static AacDecodedSpectrum DecodeLfe(
+        AacLowFrequencyElement lfe,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType)
+    {
+        ArgumentNullException.ThrowIfNull(lfe);
+        ArgumentNullException.ThrowIfNull(prng);
+
+        var frame = LfeChannelFrame(lfe);
+        return DecodeMono(frame, sampleRate, prng, objectType);
+    }
+
+    /// <summary>
     /// End-to-end SCE / LFE / CPE-half decoder that produces 1024 PCM
     /// samples per frame: runs the
     /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom)"/>
@@ -640,6 +734,40 @@ public static class AacChannelDecoder
         {
             Stream = cce.Stream,
             SpectralData = cce.SpectralData,
+            BitsConsumed = 0,
+        };
+    }
+
+    private static AacChannelFrame SingleChannelFrame(AacSingleChannelElement sce)
+    {
+        if (sce.SpectralData is null)
+        {
+            throw new ArgumentException(
+                "SCE is missing spectral_data (boundary-stopping parse); use the 'full' TryRead/TryParse overload before decoding.",
+                nameof(sce));
+        }
+
+        return new AacChannelFrame
+        {
+            Stream = sce.Stream,
+            SpectralData = sce.SpectralData,
+            BitsConsumed = 0,
+        };
+    }
+
+    private static AacChannelFrame LfeChannelFrame(AacLowFrequencyElement lfe)
+    {
+        if (lfe.SpectralData is null)
+        {
+            throw new ArgumentException(
+                "LFE is missing spectral_data (boundary-stopping parse); use the 'full' TryRead/TryParse overload before decoding.",
+                nameof(lfe));
+        }
+
+        return new AacChannelFrame
+        {
+            Stream = lfe.Stream,
+            SpectralData = lfe.SpectralData,
             BitsConsumed = 0,
         };
     }
