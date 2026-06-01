@@ -2,7 +2,7 @@ namespace Mediar.Codecs.Aac.Decoder;
 
 /// <summary>
 /// One entry in the index produced by
-/// <see cref="AacAdtsFrameIndexer.BuildIndex"/>: identifies a
+/// <see cref="AacAdtsFrameIndexer.BuildIndex(Stream, int)"/>: identifies a
 /// single ADTS frame by byte offset and reports the PCM sample
 /// position at its start so seek operations can map (or bracket)
 /// a target sample to the right byte offset without re-parsing
@@ -99,12 +99,43 @@ public static class AacAdtsFrameIndexer
         return BuildIndexCore(
             stream,
             initialBufferSize,
+            skipId3v2: false,
             asyncReader: null,
             cancellationToken: default).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Asynchronous overload of <see cref="BuildIndex"/>. Useful when
+    /// Overload of <see cref="BuildIndex(Stream, int)"/> that
+    /// optionally skips a leading ID3v2 tag before walking the
+    /// ADTS frames. Set <paramref name="skipId3v2"/> when feeding
+    /// a raw <c>.aac</c> file straight off disk; leave it
+    /// <c>false</c> when the caller has already positioned the
+    /// stream past their tag.
+    /// </summary>
+    public static IReadOnlyList<AacAdtsFrameIndexEntry> BuildIndex(
+        Stream stream,
+        bool skipId3v2,
+        int initialBufferSize = AacAdtsStreamReader.DefaultBufferSize)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
+        if (initialBufferSize < 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(initialBufferSize),
+                "Initial buffer size must be at least 16 bytes.");
+        }
+
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            skipId3v2,
+            asyncReader: null,
+            cancellationToken: default).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Asynchronous overload of <see cref="BuildIndex(Stream, int)"/>. Useful when
     /// indexing large remote / cloud-backed streams where the file
     /// IO would otherwise block a thread for non-trivial wall time.
     /// </summary>
@@ -125,6 +156,33 @@ public static class AacAdtsFrameIndexer
         return BuildIndexCore(
             stream,
             initialBufferSize,
+            skipId3v2: false,
+            asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Async counterpart of the ID3v2-aware sync overload.
+    /// </summary>
+    public static Task<IReadOnlyList<AacAdtsFrameIndexEntry>> BuildIndexAsync(
+        Stream stream,
+        bool skipId3v2,
+        int initialBufferSize = AacAdtsStreamReader.DefaultBufferSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
+        if (initialBufferSize < 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(initialBufferSize),
+                "Initial buffer size must be at least 16 bytes.");
+        }
+
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            skipId3v2,
             asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
             cancellationToken: cancellationToken);
     }
@@ -132,6 +190,7 @@ public static class AacAdtsFrameIndexer
     private static async Task<IReadOnlyList<AacAdtsFrameIndexEntry>> BuildIndexCore(
         Stream stream,
         int initialBufferSize,
+        bool skipId3v2,
         Func<byte[], int, int, CancellationToken, ValueTask<int>>? asyncReader,
         CancellationToken cancellationToken)
     {
@@ -141,6 +200,12 @@ public static class AacAdtsFrameIndexer
         bool eof = false;
         long streamOffset = 0;
         long sampleOffset = 0;
+
+        if (skipId3v2)
+        {
+            int skipped = await SkipLeadingId3v2Async(stream, buf, asyncReader, cancellationToken).ConfigureAwait(false);
+            streamOffset = skipped;
+        }
 
         while (true)
         {
@@ -283,6 +348,67 @@ public static class AacAdtsFrameIndexer
             SampleRate: sampleRate,
             ChannelConfig: channelConfig);
         return true;
+    }
+
+    private static async Task<int> SkipLeadingId3v2Async(
+        Stream stream,
+        byte[] buf,
+        Func<byte[], int, int, CancellationToken, ValueTask<int>>? asyncReader,
+        CancellationToken cancellationToken)
+    {
+        // Peek 10 bytes to test for an "ID3" tag header. Anything we
+        // read here that isn't part of an ID3 tag must be reported
+        // back to the caller's outer buffer — but the caller invokes
+        // this before any other reads, so we can safely Stream.Seek
+        // back instead when the stream is seekable, otherwise we
+        // copy into the caller's buffer.
+        int got = 0;
+        while (got < 10)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int read = asyncReader is null
+                ? stream.Read(buf, got, 10 - got)
+                : await asyncReader(buf, got, 10 - got, cancellationToken).ConfigureAwait(false);
+            if (read <= 0) break;
+            got += read;
+        }
+        if (got < 10 || buf[0] != (byte)'I' || buf[1] != (byte)'D' || buf[2] != (byte)'3')
+        {
+            // No ID3 tag — give back the peeked bytes.
+            if (got > 0)
+            {
+                if (stream.CanSeek)
+                {
+                    stream.Seek(-got, SeekOrigin.Current);
+                }
+                else
+                {
+                    throw new InvalidDataException(
+                        "Stream has no ID3v2 tag but is not seekable; cannot rewind the 10-byte sniff. Pass skipId3v2: false on non-seekable streams that lack a tag.");
+                }
+            }
+            return 0;
+        }
+
+        int size =
+            ((buf[6] & 0x7F) << 21) |
+            ((buf[7] & 0x7F) << 14) |
+            ((buf[8] & 0x7F) << 7) |
+            (buf[9] & 0x7F);
+
+        int remaining = size;
+        while (remaining > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int want = Math.Min(buf.Length, remaining);
+            int read = asyncReader is null
+                ? stream.Read(buf, 0, want)
+                : await asyncReader(buf, 0, want, cancellationToken).ConfigureAwait(false);
+            if (read <= 0) break;
+            remaining -= read;
+        }
+
+        return 10 + (size - remaining);
     }
 
     /// <summary>

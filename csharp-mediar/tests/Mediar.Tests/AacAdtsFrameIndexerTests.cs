@@ -269,6 +269,102 @@ public class AacAdtsFrameIndexerTests
         Assert.Equal(2, AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.FromMilliseconds(50), 48000));
     }
 
+    // ----- ID3v2 skip -----
+
+    [Fact]
+    public void BuildIndex_SkipId3v2_StripsTagBeforeIndexing()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] tag = BuildId3v2Tag(payloadSize: 73);
+        byte[] payload = new byte[tag.Length + frame.Length];
+        Buffer.BlockCopy(tag, 0, payload, 0, tag.Length);
+        Buffer.BlockCopy(frame, 0, payload, tag.Length, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: true);
+        Assert.Single(index);
+        // ByteOffset is the absolute offset in the original stream
+        // (including the skipped tag), so callers can seek directly.
+        Assert.Equal((long)tag.Length, index[0].ByteOffset);
+        Assert.Equal(frame.Length, index[0].FrameLength);
+    }
+
+    [Fact]
+    public void BuildIndex_SkipId3v2_NoTag_FallsBackToParsing()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        // A seekable MemoryStream can be rewound, so this works even
+        // when there is no leading ID3 tag.
+        using var ms = new MemoryStream(frame);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: true);
+        Assert.Single(index);
+        Assert.Equal(0L, index[0].ByteOffset);
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_SkipId3v2_StripsTagBeforeIndexing()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] tag = BuildId3v2Tag(payloadSize: 73);
+        byte[] payload = new byte[tag.Length + frame.Length];
+        Buffer.BlockCopy(tag, 0, payload, 0, tag.Length);
+        Buffer.BlockCopy(frame, 0, payload, tag.Length, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        var index = await AacAdtsFrameIndexer.BuildIndexAsync(ms, skipId3v2: true);
+        Assert.Single(index);
+        Assert.Equal((long)tag.Length, index[0].ByteOffset);
+    }
+
+    [Fact]
+    public void BuildIndex_SkipId3v2_NonSeekableNoTag_Throws()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var inner = new MemoryStream(frame);
+        using var ns = new NonSeekableReadStream(inner);
+        Assert.Throws<InvalidDataException>(() =>
+            AacAdtsFrameIndexer.BuildIndex(ns, skipId3v2: true));
+    }
+
+    private static byte[] BuildId3v2Tag(int payloadSize)
+    {
+        // 10-byte header + payloadSize bytes of filler. Synchsafe size
+        // encodes payloadSize across bytes 6..9.
+        byte[] tag = new byte[10 + payloadSize];
+        tag[0] = (byte)'I';
+        tag[1] = (byte)'D';
+        tag[2] = (byte)'3';
+        tag[3] = 0x04; // major version
+        tag[4] = 0x00; // revision
+        tag[5] = 0x00; // flags
+        tag[6] = (byte)((payloadSize >> 21) & 0x7F);
+        tag[7] = (byte)((payloadSize >> 14) & 0x7F);
+        tag[8] = (byte)((payloadSize >> 7) & 0x7F);
+        tag[9] = (byte)(payloadSize & 0x7F);
+        // Tag body is just zeros; the indexer never inspects it.
+        return tag;
+    }
+
+    private sealed class NonSeekableReadStream : Stream
+    {
+        private readonly Stream _inner;
+        public NonSeekableReadStream(Stream inner) { _inner = inner; }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => _inner.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     private sealed class WriteOnlyStream : Stream
     {
         public override bool CanRead => false;
