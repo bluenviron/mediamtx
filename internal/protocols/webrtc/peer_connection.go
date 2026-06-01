@@ -26,7 +26,7 @@ const (
 	twccExtensionURI = "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
 )
 
-func interfaceIPs(interfaceList []string) ([]string, error) {
+func interfaceIPs(interfaceList []string, excludeList []string) ([]string, error) {
 	intfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -35,6 +35,9 @@ func interfaceIPs(interfaceList []string) ([]string, error) {
 	var ips []string
 
 	for _, intf := range intfs {
+		if slices.Contains(excludeList, intf.Name) {
+			continue
+		}
 		if len(interfaceList) == 0 || slices.Contains(interfaceList, intf.Name) {
 			var addrs []net.Addr
 			addrs, err = intf.Addrs()
@@ -157,8 +160,9 @@ type PeerConnection struct {
 	ICETCPMux             *TCPMuxWrapper
 	ICEServers            []webrtc.ICEServer
 	IPsFromInterfaces     bool
-	IPsFromInterfacesList []string
-	AdditionalHosts       []string
+	IPsFromInterfacesList        []string
+	IPsFromInterfacesExcludeList []string
+	AdditionalHosts              []string
 	STUNGatherTimeout     time.Duration
 	Publish               bool
 	OutgoingTracks        []*OutgoingTrack
@@ -463,7 +467,7 @@ func (co *PeerConnection) removeUnwantedCandidates(firstMedia *sdp.MediaDescript
 	var allowedIPs []string
 	if co.IPsFromInterfaces {
 		var err error
-		allowedIPs, err = interfaceIPs(co.IPsFromInterfacesList)
+		allowedIPs, err = interfaceIPs(co.IPsFromInterfacesList, co.IPsFromInterfacesExcludeList)
 		if err != nil {
 			return err
 		}

@@ -653,8 +653,9 @@ func (p *Core) createResources(initial bool) error {
 			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
 			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
-			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
-			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
+			IPsFromInterfacesList:        p.conf.WebRTCIPsFromInterfacesList,
+			IPsFromInterfacesExcludeList: p.conf.WebRTCIPsFromInterfacesExcludeList,
+			AdditionalHosts:              p.conf.WebRTCAdditionalHosts,
 			ICEServers:            p.conf.WebRTCICEServers2,
 			STUNGatherTimeout:     p.conf.WebRTCSTUNGatherTimeout,
 			HandshakeTimeout:      p.conf.WebRTCHandshakeTimeout,
@@ -950,6 +951,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
+		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesExcludeList, p.conf.WebRTCIPsFromInterfacesExcludeList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		newConf.WebRTCSTUNGatherTimeout != p.conf.WebRTCSTUNGatherTimeout ||

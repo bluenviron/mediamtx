@@ -379,8 +379,9 @@ type Conf struct {
 	WebRTCLocalUDPAddress       string            `json:"webrtcLocalUDPAddress"`
 	WebRTCLocalTCPAddress       string            `json:"webrtcLocalTCPAddress"`
 	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
-	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
-	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
+	WebRTCIPsFromInterfacesList        []string          `json:"webrtcIPsFromInterfacesList"`
+	WebRTCIPsFromInterfacesExcludeList []string          `json:"webrtcIPsFromInterfacesExcludeList"`
+	WebRTCAdditionalHosts              []string          `json:"webrtcAdditionalHosts"`
 	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
 	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
 	WebRTCHandshakeTimeout      Duration          `json:"webrtcHandshakeTimeout"`

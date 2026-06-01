@@ -553,6 +553,10 @@ components:
           type: array
           items:
             type: string
+        webrtcIPsFromInterfacesExcludeList:
+          type: array
+          items:
+            type: string
         webrtcAdditionalHosts:
           type: array
           items:
