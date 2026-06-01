@@ -510,6 +510,79 @@ public static class AacChannelDecoder
         }
     }
 
+    /// <summary>
+    /// CPE end-to-end composer that produces 1024 PCM samples per
+    /// channel: runs the
+    /// <see cref="DecodePair(AacChannelPairElement, int, AacPnsRandom, AacPnsRandom)"/>
+    /// composer to obtain post-PNS MDCT spectra for both channels,
+    /// then drives one
+    /// <see cref="AacSynthesisFilterbank"/> per channel for IMDCT +
+    /// window + overlap-add.
+    /// </summary>
+    /// <remarks>
+    /// The two filterbanks are independent and stateful - each must
+    /// be the same instance reused across consecutive frames of its
+    /// respective channel.
+    /// </remarks>
+    /// <param name="cpe">Parsed channel-pair element including spectral data.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="leftPrng">PRNG for first channel's PNS synthesis.</param>
+    /// <param name="rightPrng">PRNG for second channel's PNS synthesis.</param>
+    /// <param name="leftFilterbank">Filterbank for the first channel.</param>
+    /// <param name="rightFilterbank">Filterbank for the second channel.</param>
+    /// <param name="leftOutput">1024 samples for the first channel.</param>
+    /// <param name="rightOutput">1024 samples for the second channel.</param>
+    public static void DecodePairToSamples(
+        AacChannelPairElement cpe,
+        int sampleRate,
+        AacPnsRandom leftPrng,
+        AacPnsRandom rightPrng,
+        AacSynthesisFilterbank leftFilterbank,
+        AacSynthesisFilterbank rightFilterbank,
+        Span<float> leftOutput,
+        Span<float> rightOutput)
+    {
+        ArgumentNullException.ThrowIfNull(leftFilterbank);
+        ArgumentNullException.ThrowIfNull(rightFilterbank);
+
+        var (left, right) = DecodePair(cpe, sampleRate, leftPrng, rightPrng);
+
+        var leftShape = (cpe.SharedIcsInfo ?? cpe.FirstStream.IcsInfo).WindowShape;
+        var rightShape = (cpe.SharedIcsInfo ?? cpe.SecondStream.IcsInfo).WindowShape;
+
+        RunFilterbank(left, leftShape, leftFilterbank, leftOutput);
+        RunFilterbank(right, rightShape, rightFilterbank, rightOutput);
+    }
+
+    /// <summary>
+    /// AOT-aware CPE end-to-end composer: same as
+    /// <see cref="DecodePairToSamples(AacChannelPairElement, int, AacPnsRandom, AacPnsRandom, AacSynthesisFilterbank, AacSynthesisFilterbank, Span{float}, Span{float})"/>
+    /// but also runs long-window TNS inverse filtering on each
+    /// channel.
+    /// </summary>
+    public static void DecodePairToSamples(
+        AacChannelPairElement cpe,
+        int sampleRate,
+        AacPnsRandom leftPrng,
+        AacPnsRandom rightPrng,
+        AacAudioObjectType objectType,
+        AacSynthesisFilterbank leftFilterbank,
+        AacSynthesisFilterbank rightFilterbank,
+        Span<float> leftOutput,
+        Span<float> rightOutput)
+    {
+        ArgumentNullException.ThrowIfNull(leftFilterbank);
+        ArgumentNullException.ThrowIfNull(rightFilterbank);
+
+        var (left, right) = DecodePair(cpe, sampleRate, leftPrng, rightPrng, objectType);
+
+        var leftShape = (cpe.SharedIcsInfo ?? cpe.FirstStream.IcsInfo).WindowShape;
+        var rightShape = (cpe.SharedIcsInfo ?? cpe.SecondStream.IcsInfo).WindowShape;
+
+        RunFilterbank(left, leftShape, leftFilterbank, leftOutput);
+        RunFilterbank(right, rightShape, rightFilterbank, rightOutput);
+    }
+
     private static AacChannelFrame CouplingChannelFrame(AacCouplingChannelElement cce)
     {
         if (cce.SpectralData is null)

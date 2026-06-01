@@ -1150,4 +1150,117 @@ public sealed class AacChannelDecoderTests
         // (the spectrum decodes to (1,1,1,1) plus zeros).
         Assert.False(out1HalfAllZero && out2HalfAllZero);
     }
+
+    // ---------- DecodePairToSamples tests ----------
+
+    [Fact]
+    public void DecodePairToSamples_NullLeftFilterbank_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+        var rightFb = new AacSynthesisFilterbank();
+        var outL = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePairToSamples(
+                cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+                null!, rightFb, outL, outR));
+    }
+
+    [Fact]
+    public void DecodePairToSamples_NullRightFilterbank_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+        var leftFb = new AacSynthesisFilterbank();
+        var outL = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePairToSamples(
+                cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+                leftFb, null!, outL, outR));
+    }
+
+    [Fact]
+    public void DecodePairToSamples_ProducesPerChannelOutput()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+        var leftFb = new AacSynthesisFilterbank();
+        var rightFb = new AacSynthesisFilterbank();
+        var outL = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodePairToSamples(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+            leftFb, rightFb, outL, outR);
+
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, outL.Length);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, outR.Length);
+        foreach (var s in outL) Assert.False(float.IsNaN(s) || float.IsInfinity(s));
+        foreach (var s in outR) Assert.False(float.IsNaN(s) || float.IsInfinity(s));
+    }
+
+    [Fact]
+    public void DecodePairToSamples_IdenticalFrames_NoMs_EqualOutput()
+    {
+        // Without M/S (commonWindow: false) and identical L/R spectra,
+        // the per-channel PCM outputs must match bit-for-bit because
+        // PRNG state matches.
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+        var leftFb = new AacSynthesisFilterbank();
+        var rightFb = new AacSynthesisFilterbank();
+        var outL = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodePairToSamples(
+            cpe, Sr48k, new AacPnsRandom(seed: 5u), new AacPnsRandom(seed: 5u),
+            leftFb, rightFb, outL, outR);
+
+        Assert.Equal(outL, outR);
+    }
+
+    [Fact]
+    public void DecodePairToSamples_Aot_LcNoTns_MatchesNonAotOverload()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+
+        var fb1L = new AacSynthesisFilterbank();
+        var fb1R = new AacSynthesisFilterbank();
+        var fb2L = new AacSynthesisFilterbank();
+        var fb2R = new AacSynthesisFilterbank();
+        var outL1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outL2 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodePairToSamples(
+            cpe, Sr48k, new AacPnsRandom(seed: 7u), new AacPnsRandom(seed: 7u),
+            fb1L, fb1R, outL1, outR1);
+        AacChannelDecoder.DecodePairToSamples(
+            cpe, Sr48k, new AacPnsRandom(seed: 7u), new AacPnsRandom(seed: 7u),
+            AacAudioObjectType.AacLc, fb2L, fb2R, outL2, outR2);
+
+        Assert.Equal(outL1, outL2);
+        Assert.Equal(outR1, outR2);
+    }
+
+    [Fact]
+    public void DecodePairToSamples_Aot_NullLeftFilterbank_Throws()
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(), commonWindow: false, AacMsMaskPresent.None);
+        var rightFb = new AacSynthesisFilterbank();
+        var outL = new float[AacSynthesisFilterbank.LongFrameLength];
+        var outR = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodePairToSamples(
+                cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+                AacAudioObjectType.AacLc, null!, rightFb, outL, outR));
+    }
 }
