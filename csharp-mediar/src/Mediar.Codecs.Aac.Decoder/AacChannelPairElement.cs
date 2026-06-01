@@ -88,6 +88,20 @@ public sealed record AacChannelPairElement
     public required AacIndividualChannelStream SecondStream { get; init; }
 
     /// <summary>
+    /// Parsed <c>spectral_data()</c> trailing the first channel's ICS body
+    /// when consumed via the "full" overload that supplies a sample rate
+    /// and spectral codebook lookup; <see langword="null"/> otherwise.
+    /// </summary>
+    public AacSpectralData? FirstSpectralData { get; init; }
+
+    /// <summary>
+    /// Parsed <c>spectral_data()</c> trailing the second channel's ICS body
+    /// when consumed via the "full" overload that supplies a sample rate
+    /// and spectral codebook lookup; <see langword="null"/> otherwise.
+    /// </summary>
+    public AacSpectralData? SecondSpectralData { get; init; }
+
+    /// <summary>
     /// Total bits consumed by the prefix + common_window block + both
     /// stream bodies. The bits that follow inside the parent
     /// raw_data_block belong to <c>spectral_data()</c> and are not
@@ -97,7 +111,11 @@ public sealed record AacChannelPairElement
 
     /// <summary>
     /// Read a <c>channel_pair_element()</c> from <paramref name="reader"/>
-    /// positioned at <c>element_instance_tag</c>.
+    /// positioned at <c>element_instance_tag</c>. This boundary overload
+    /// stops at the first channel's <c>spectral_data()</c>; the caller is
+    /// responsible for consuming it. Use the overload that takes a
+    /// sample rate + spectral codebook lookup to consume both channels'
+    /// spectral_data inline.
     /// </summary>
     /// <param name="reader">Bit reader positioned at element_instance_tag.</param>
     /// <param name="scaleFactorCodebook">121-symbol scale-factor Huffman codebook.</param>
@@ -106,6 +124,44 @@ public sealed record AacChannelPairElement
     internal static bool TryRead(
         scoped ref BitReader reader,
         AacHuffmanCodebook scaleFactorCodebook,
+        out AacChannelPairElement? element)
+    {
+        return TryReadCore(
+            ref reader,
+            scaleFactorCodebook,
+            sampleRate: null,
+            spectralCodebooks: null,
+            out element);
+    }
+
+    /// <summary>
+    /// Read a <c>channel_pair_element()</c> from <paramref name="reader"/>
+    /// and additionally consume each channel's <c>spectral_data()</c>
+    /// block immediately after its individual_channel_stream() body, per
+    /// ISO/IEC 14496-3 Table 4.5. The two SpectralData properties are
+    /// populated on success.
+    /// </summary>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacChannelPairElement? element)
+    {
+        ArgumentNullException.ThrowIfNull(spectralCodebooks);
+        return TryReadCore(
+            ref reader,
+            scaleFactorCodebook,
+            sampleRate,
+            spectralCodebooks,
+            out element);
+    }
+
+    private static bool TryReadCore(
+        scoped ref BitReader reader,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int? sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?>? spectralCodebooks,
         out AacChannelPairElement? element)
     {
         element = null;
@@ -154,26 +210,66 @@ public sealed record AacChannelPairElement
             }
         }
 
-        if (!AacIndividualChannelStream.TryRead(
-                ref reader,
-                sharedIcsInfo,
-                scaleFlag: false,
-                scaleFactorCodebook,
-                out var first)
-            || first is null)
-        {
-            return false;
-        }
+        AacIndividualChannelStream? first;
+        AacIndividualChannelStream? second;
+        AacSpectralData? firstSpectral = null;
+        AacSpectralData? secondSpectral = null;
 
-        if (!AacIndividualChannelStream.TryRead(
-                ref reader,
-                sharedIcsInfo,
-                scaleFlag: false,
-                scaleFactorCodebook,
-                out var second)
-            || second is null)
+        if (sampleRate is int sr && spectralCodebooks is not null)
         {
-            return false;
+            if (!AacChannelFrame.TryRead(
+                    ref reader,
+                    sharedIcsInfo,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    sr,
+                    spectralCodebooks,
+                    out var firstFrame)
+                || firstFrame is null)
+            {
+                return false;
+            }
+            first = firstFrame.Stream;
+            firstSpectral = firstFrame.SpectralData;
+
+            if (!AacChannelFrame.TryRead(
+                    ref reader,
+                    sharedIcsInfo,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    sr,
+                    spectralCodebooks,
+                    out var secondFrame)
+                || secondFrame is null)
+            {
+                return false;
+            }
+            second = secondFrame.Stream;
+            secondSpectral = secondFrame.SpectralData;
+        }
+        else
+        {
+            if (!AacIndividualChannelStream.TryRead(
+                    ref reader,
+                    sharedIcsInfo,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    out first)
+                || first is null)
+            {
+                return false;
+            }
+
+            if (!AacIndividualChannelStream.TryRead(
+                    ref reader,
+                    sharedIcsInfo,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    out second)
+                || second is null)
+            {
+                return false;
+            }
         }
 
         element = new AacChannelPairElement
@@ -185,6 +281,8 @@ public sealed record AacChannelPairElement
             MsUsed = msUsed,
             FirstStream = first,
             SecondStream = second,
+            FirstSpectralData = firstSpectral,
+            SecondSpectralData = secondSpectral,
             BitsConsumed = reader.Position - startBits,
         };
         return true;
@@ -192,7 +290,10 @@ public sealed record AacChannelPairElement
 
     /// <summary>
     /// Parses a contiguous <c>channel_pair_element()</c> body from
-    /// <paramref name="bytes"/> starting at the first bit.
+    /// <paramref name="bytes"/> starting at the first bit. This boundary
+    /// overload stops at the first channel's <c>spectral_data()</c>;
+    /// use the overload that takes a sample rate + spectral codebook
+    /// lookup to consume both channels' spectral_data inline.
     /// </summary>
     public static bool TryParse(
         ReadOnlySpan<byte> bytes,
@@ -201,5 +302,23 @@ public sealed record AacChannelPairElement
     {
         var reader = new BitReader(bytes);
         return TryRead(ref reader, scaleFactorCodebook, out element);
+    }
+
+    /// <summary>
+    /// Parses a contiguous <c>channel_pair_element()</c> body from
+    /// <paramref name="bytes"/>, consuming each channel's
+    /// <c>spectral_data()</c> block immediately after its
+    /// individual_channel_stream() body per ISO/IEC 14496-3 Table 4.5.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> bytes,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacChannelPairElement? element)
+    {
+        ArgumentNullException.ThrowIfNull(spectralCodebooks);
+        var reader = new BitReader(bytes);
+        return TryRead(ref reader, scaleFactorCodebook, sampleRate, spectralCodebooks, out element);
     }
 }

@@ -342,4 +342,159 @@ public sealed class AacChannelPairElementTests
     {
         Assert.Equal(expected, (int)value);
     }
+
+    // CPE "full" overload tests
+
+    private static AacHuffmanCodebook BuildFixed7BitCodebook(int symbolCount)
+    {
+        var lengths = new int[symbolCount];
+        for (int i = 0; i < symbolCount; i++) lengths[i] = 7;
+        return AacHuffmanCodebook.FromCanonicalLengths(lengths);
+    }
+
+    private static AacHuffmanCodebook?[] SpectralBooksWith(int slot, AacHuffmanCodebook book)
+    {
+        var arr = new AacHuffmanCodebook?[16];
+        arr[slot] = book;
+        return arr;
+    }
+
+    private static void WriteIcsBodyWithSection(AacBitWriter w, byte globalGain, int cb, int len)
+    {
+        // CPE common_window=1 body: NO ics_info, section_data + scale_factor_data + flags.
+        w.Write(globalGain, 8);
+        w.Write((uint)cb, 4);              // sect_cb
+        w.Write((uint)len, 5);             // sect_len
+        // scale_factor_data: if cb != 0 we need one SF symbol per band.
+        if (cb != 0)
+        {
+            // 1-bit "0" code = SF diff symbol 60 (zero diff).
+            for (int i = 0; i < len; i++) w.Write(0u, 1);
+        }
+        w.Write(0u, 1);                    // pulse_data_present
+        w.Write(0u, 1);                    // tns_data_present
+        w.Write(0u, 1);                    // gain_control_data_present
+    }
+
+    [Fact]
+    public void CpeFull_CommonWindow_BothChannelsEmpty_PopulatesSpectralData()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(3u, 4);                    // element_instance_tag
+        w.Write(1u, 1);                    // common_window = 1
+        WriteLongIcsInfo(w, maxSfb: 10);
+        w.Write((uint)AacMsMaskPresent.None, 2);
+        WriteIcsBodyWithSection(w, 0x80, cb: 0, len: 10);
+        WriteIcsBodyWithSection(w, 0x80, cb: 0, len: 10);
+
+        Assert.True(AacChannelPairElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.True(cpe!.CommonWindow);
+        Assert.NotNull(cpe.FirstSpectralData);
+        Assert.NotNull(cpe.SecondSpectralData);
+        Assert.All(cpe.FirstSpectralData!.Coefficients, c => Assert.Equal(0, c));
+        Assert.All(cpe.SecondSpectralData!.Coefficients, c => Assert.Equal(0, c));
+        Assert.Equal(0, cpe.FirstSpectralData.BitsConsumed);
+        Assert.Equal(0, cpe.SecondSpectralData.BitsConsumed);
+    }
+
+    [Fact]
+    public void CpeFull_CommonWindow_BothChannelsCb1_DecodesSpectralCoefficients()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = SpectralBooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(5u, 4);
+        w.Write(1u, 1);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write((uint)AacMsMaskPresent.None, 2);
+        // First channel ICS + spectral_data (1 tuple, cb=1, dim 4).
+        WriteIcsBodyWithSection(w, 0x80, cb: 1, len: 1);
+        w.Write(80u, 7);                   // symbol 80 -> (1,1,1,1)
+        // Second channel ICS + spectral_data.
+        WriteIcsBodyWithSection(w, 0x80, cb: 1, len: 1);
+        w.Write(40u, 7);                   // symbol 40 -> (0,0,0,0)
+
+        Assert.True(AacChannelPairElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.NotNull(cpe!.FirstSpectralData);
+        Assert.NotNull(cpe.SecondSpectralData);
+        Assert.Equal(1, cpe.FirstSpectralData!.Coefficients[0]);
+        Assert.Equal(1, cpe.FirstSpectralData.Coefficients[3]);
+        Assert.Equal(0, cpe.SecondSpectralData!.Coefficients[0]);
+        Assert.Equal(0, cpe.SecondSpectralData.Coefficients[3]);
+        Assert.Equal(7, cpe.FirstSpectralData.BitsConsumed);
+        Assert.Equal(7, cpe.SecondSpectralData.BitsConsumed);
+    }
+
+    [Fact]
+    public void CpeFull_IndependentWindow_EachChannelOwnIcsInfo_ParsesBothSpectral()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = SpectralBooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0u, 1);                    // common_window = 0
+        // First channel: full body with its own ics_info.
+        w.Write(0x80, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);    // sect_cb=1, len=1
+        w.Write(0u, 1);                    // sf symbol 60
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(80u, 7);                   // spectral
+        // Second channel: same shape.
+        w.Write(0x80, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);
+        w.Write(0u, 1);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(40u, 7);
+
+        Assert.True(AacChannelPairElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.False(cpe!.CommonWindow);
+        Assert.Null(cpe.SharedIcsInfo);
+        Assert.NotNull(cpe.FirstSpectralData);
+        Assert.NotNull(cpe.SecondSpectralData);
+        Assert.Equal(1, cpe.FirstSpectralData!.Coefficients[0]);
+        Assert.Equal(0, cpe.SecondSpectralData!.Coefficients[0]);
+    }
+
+    [Fact]
+    public void CpeFull_BoundaryOverload_LeavesSpectralDataNull()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCommonWindowCpe(
+            tag: 2,
+            maxSfb: 10,
+            msMask: AacMsMaskPresent.None,
+            msUsed: Array.Empty<bool[]>(),
+            gain1: 0x80,
+            gain2: 0x40);
+
+        Assert.True(AacChannelPairElement.TryParse(bytes, book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.Null(cpe!.FirstSpectralData);
+        Assert.Null(cpe.SecondSpectralData);
+    }
+
+    [Fact]
+    public void CpeFull_NullSpectralCodebooks_Throws()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = new byte[32];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelPairElement.TryParse(
+                bytes, book, sampleRate: 48_000, spectralCodebooks: null!, out _));
+    }
 }
