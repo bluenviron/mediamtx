@@ -22,10 +22,25 @@ public sealed class AacLowFrequencyElementTests
         w.Write(0u, 1);                                     // predictor_data_present
     }
 
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                     // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);     // window_sequence
+        w.Write(0u, 1);                                     // window_shape (Sine)
+        w.Write((uint)maxSfb, 4);                           // max_sfb (4 bits for short)
+        w.Write(grouping, 7);                               // scale_factor_grouping
+    }
+
     private static void WriteOneZeroSection(AacBitWriter w, int len)
     {
         w.Write(0u, 4);                 // sect_cb = 0 (ZERO_HCB)
         w.Write((uint)len, 5);          // sect_len (long: 5-bit increment)
+    }
+
+    private static void WriteOneZeroShortSection(AacBitWriter w, int len)
+    {
+        w.Write(0u, 4);                 // sect_cb = 0 (ZERO_HCB)
+        w.Write((uint)len, 3);          // sect_len (short: 3-bit increment, < escape 7)
     }
 
     private static byte[] BuildCanonicalLfeBytes(int tag, byte globalGain, int maxSfb)
@@ -182,6 +197,61 @@ public sealed class AacLowFrequencyElementTests
         Assert.Equal(sce!.ElementInstanceTag, lfe!.ElementInstanceTag);
         Assert.Equal(sce.Stream.GlobalGain, lfe.Stream.GlobalGain);
         Assert.Equal(sce.Stream.IcsInfo.MaxSfb, lfe.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(sce.BitsConsumed, lfe.BitsConsumed);
+    }
+
+    // ----- EightShort window LFE coverage -----
+    //
+    // Real encoders never emit EightShort on an LFE channel because LFE
+    // is intrinsically low-bandwidth/long-window, but the LFE bitstream
+    // is syntactically identical to SCE and the spec does not forbid it
+    // at the parse layer. These tests verify the syntactic path stays
+    // open and stays parity-equivalent with SCE.
+
+    private static byte[] BuildCanonicalShortLfeBytes(int tag, byte globalGain, int maxSfb, byte grouping)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)tag, 4);          // element_instance_tag
+        w.Write(globalGain, 8);         // global_gain
+        WriteShortIcsInfo(w, maxSfb, grouping);
+        WriteOneZeroShortSection(w, maxSfb);
+        // scale_factor_data: empty (cb=0)
+        w.Write(0u, 1);                 // pulse_data_present (must stay 0 for short)
+        w.Write(0u, 1);                 // tns_data_present
+        w.Write(0u, 1);                 // gain_control_data_present
+        return w.ToArray();
+    }
+
+    [Fact]
+    public void TryParse_CanonicalShortLfe_Succeeds()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortLfeBytes(tag: 0, globalGain: 0x40, maxSfb: 4, grouping: 0x7F);
+
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.NotNull(lfe);
+        Assert.Equal(AacWindowSequence.EightShort, lfe!.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(4, lfe.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(1, lfe.Stream.IcsInfo.WindowGroupCount);
+        // 4 + 8 + 15 (short ics) + 7 (short section) + 0 + 3 = 37 bits.
+        Assert.Equal(37, lfe.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_ShortLfe_BitstreamIsIdenticalToSce()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortLfeBytes(tag: 6, globalGain: 0x77, maxSfb: 4, grouping: 0x7F);
+
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+
+        Assert.NotNull(lfe);
+        Assert.NotNull(sce);
+        Assert.Equal(sce!.ElementInstanceTag, lfe!.ElementInstanceTag);
+        Assert.Equal(sce.Stream.IcsInfo.WindowSequence, lfe.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(sce.Stream.IcsInfo.MaxSfb, lfe.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(sce.Stream.IcsInfo.WindowGroupCount, lfe.Stream.IcsInfo.WindowGroupCount);
         Assert.Equal(sce.BitsConsumed, lfe.BitsConsumed);
     }
 }

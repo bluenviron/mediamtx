@@ -600,4 +600,87 @@ public sealed class AacCouplingChannelElementTests
             AacCouplingChannelElement.TryParse(
                 bytes, book, sampleRate: 48_000, spectralCodebooks: null!, out _));
     }
+
+    // ----- EightShort window CCE coverage -----
+
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                     // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);     // window_sequence
+        w.Write(0u, 1);                                     // window_shape (Sine)
+        w.Write((uint)maxSfb, 4);                           // max_sfb (4 bits for short)
+        w.Write(grouping, 7);                               // scale_factor_grouping
+    }
+
+    private static void WriteOneZeroShortSection(AacBitWriter w, int len)
+    {
+        w.Write(0u, 4);                                     // sect_cb = 0 (ZERO_HCB)
+        w.Write((uint)len, 3);                              // sect_len_incr (short: 3 bits)
+    }
+
+    /// <summary>ICS body whose sections are entirely ZERO_HCB, EightShort variant.</summary>
+    private static void WriteEmptyShortIcsBody(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0x80u, 8);                                  // global_gain
+        WriteShortIcsInfo(w, maxSfb, grouping);
+        // One ZERO_HCB section per window group covering all max_sfb bands.
+        int groupCount = 1;
+        for (int i = 1; i < 8; i++) if (((grouping >> (7 - i)) & 1) == 0) groupCount++;
+        for (int g = 0; g < groupCount; g++) WriteOneZeroShortSection(w, len: maxSfb);
+        // scale_factor_data: empty (cb=0 everywhere)
+        w.Write(0u, 1);                                     // pulse_data_present (forbidden when set for short)
+        w.Write(0u, 1);                                     // tns_data_present
+        w.Write(0u, 1);                                     // gain_control_data_present
+    }
+
+    [Fact]
+    public void TryParse_SingleSceTarget_EightShortIcsBody_Parses()
+    {
+        // Mirror the simplest CCE shape (1 SCE target, no gain lists) but route
+        // the embedded ICS through the EightShort window path.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(4u, 4);                                     // element_instance_tag = 4
+        w.Write(0u, 1);                                     // ind_sw_cce_flag = 0
+        w.Write(0u, 3);                                     // num_coupled_elements = 0 -> 1 target
+        // Target 0: SCE, tag 2
+        w.Write(0u, 1);                                     // cc_target_is_cpe[0] = 0
+        w.Write(2u, 4);                                     // cc_target_tag_select[0] = 2
+        // Coupling framing
+        w.Write(0u, 1);                                     // cc_domain
+        w.Write(0u, 1);                                     // gain_element_sign
+        w.Write(0u, 2);                                     // gain_element_scale
+        // ICS body with EightShort (1 group of 8 windows, ZERO_HCB)
+        WriteEmptyShortIcsBody(w, maxSfb: 4, grouping: 0x7F);
+
+        Assert.True(AacCouplingChannelElement.TryParse(w.ToArray(), book, out var cce));
+        Assert.NotNull(cce);
+        Assert.Equal(4, cce!.ElementInstanceTag);
+        Assert.Single(cce.Targets);
+        Assert.Equal(AacWindowSequence.EightShort, cce.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(4, cce.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(1, cce.Stream.IcsInfo.WindowGroupCount);
+        Assert.Empty(cce.GainLists);
+        // 4 + 1 + 3 + 5 (target) + 4 (framing) + 33 (short ICS) = 50 bits.
+        Assert.Equal(50, cce.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_SingleSceTarget_EightShortIcsBody_AllSeparateGroups_Parses()
+    {
+        // Same CCE shape but grouping = 0 → 8 singleton window groups → the
+        // section_data() loop must run 8 times with the short 3-bit length field.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4); w.Write(0u, 1); w.Write(0u, 3);
+        w.Write(0u, 1); w.Write(3u, 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);
+        WriteEmptyShortIcsBody(w, maxSfb: 4, grouping: 0x00);
+
+        Assert.True(AacCouplingChannelElement.TryParse(w.ToArray(), book, out var cce));
+        Assert.NotNull(cce);
+        Assert.Equal(8, cce!.Stream.IcsInfo.WindowGroupCount);
+        Assert.Equal(8, cce.Stream.SectionData.Sections.Count);
+        Assert.All(cce.Stream.SectionData.Sections, s => Assert.Equal(0, s.CodebookNumber));
+    }
 }
