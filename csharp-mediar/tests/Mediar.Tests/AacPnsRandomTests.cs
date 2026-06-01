@@ -159,4 +159,109 @@ public sealed class AacPnsRandomTests
         Assert.Equal(1664525u, AacPnsRandom.Multiplier);
         Assert.Equal(1013904223u, AacPnsRandom.Increment);
     }
+
+    [Fact]
+    public void DefaultSeed_Constant_IsZero()
+    {
+        Assert.Equal(0u, AacPnsRandom.DefaultSeed);
+    }
+
+    [Fact]
+    public void State_Property_DoesNotAdvanceGenerator()
+    {
+        var prng = new AacPnsRandom(seed: 50u);
+        _ = prng.State;
+        _ = prng.State;
+        Assert.Equal(50u, prng.State);
+    }
+
+    [Fact]
+    public void Reseed_To_Zero_Restores_DefaultSeed()
+    {
+        var prng = new AacPnsRandom(seed: 999u);
+        prng.Next();
+        prng.Reseed(AacPnsRandom.DefaultSeed);
+        Assert.Equal(0u, prng.State);
+    }
+
+    [Fact]
+    public void Reseed_Then_Next_Produces_Reseed_Recurrence()
+    {
+        var a = new AacPnsRandom(seed: 42u);
+        a.Reseed(99u);
+        uint expected = unchecked(AacPnsRandom.Multiplier * 99u + AacPnsRandom.Increment);
+        Assert.Equal(expected, a.Next());
+    }
+
+    [Fact]
+    public void NextFloat_Mean_Across_Many_Samples_Is_Near_Zero()
+    {
+        var prng = new AacPnsRandom(seed: 1u);
+        double sum = 0;
+        const int n = 10_000;
+        for (int i = 0; i < n; i++) sum += prng.NextFloat();
+        double mean = sum / n;
+        // LCG noise should average near 0 with this many samples.
+        Assert.InRange(mean, -0.05, 0.05);
+    }
+
+    [Fact]
+    public void NextFloat_HasNegativeAndPositiveValues_Over_Many_Samples()
+    {
+        var prng = new AacPnsRandom(seed: 1u);
+        int neg = 0, pos = 0;
+        for (int i = 0; i < 500; i++)
+        {
+            float v = prng.NextFloat();
+            if (v < 0) neg++; else if (v > 0) pos++;
+        }
+        Assert.True(neg > 100);
+        Assert.True(pos > 100);
+    }
+
+    [Fact]
+    public void Fill_LargeBuffer_DoesNotThrow()
+    {
+        var prng = new AacPnsRandom(seed: 5u);
+        var buf = new float[1024];
+        prng.Fill(buf);
+        Assert.Contains(buf, v => v != 0f);
+    }
+
+    [Fact]
+    public void Fill_Sequence_Matches_Per_Element_NextFloat()
+    {
+        var a = new AacPnsRandom(seed: 7u);
+        var b = new AacPnsRandom(seed: 7u);
+        var ab = new float[32];
+        a.Fill(ab);
+        for (int i = 0; i < ab.Length; i++)
+        {
+            Assert.Equal(b.NextFloat(), ab[i]);
+        }
+        Assert.Equal(a.State, b.State);
+    }
+
+    [Fact]
+    public void NextSigned_Matches_BitCast_For_Multiple_Calls()
+    {
+        var a = new AacPnsRandom(seed: 31u);
+        var b = new AacPnsRandom(seed: 31u);
+        for (int i = 0; i < 32; i++)
+        {
+            int signed = a.NextSigned();
+            uint unsigned = b.Next();
+            Assert.Equal(unchecked((int)unsigned), signed);
+        }
+    }
+
+    [Fact]
+    public void Two_Generators_With_Sequential_Seeds_Have_Independent_States()
+    {
+        var a = new AacPnsRandom(seed: 100u);
+        var b = new AacPnsRandom(seed: 101u);
+        for (int i = 0; i < 4; i++) a.Next();
+        for (int i = 0; i < 4; i++) b.Next();
+        Assert.NotEqual(a.State, b.State);
+    }
 }
