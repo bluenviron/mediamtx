@@ -198,6 +198,81 @@ public sealed class AacAdtsFrameDecoder
     }
 
     /// <summary>
+    /// Sink callback invoked once per decoded ADTS frame by
+    /// <see cref="DecodeFrames(ReadOnlySpan{byte}, FrameSink)"/>.
+    /// </summary>
+    /// <param name="block">The decoded raw_data_block for the frame.</param>
+    public delegate void FrameSink(AacDecodedRawDataBlock block);
+
+    /// <summary>
+    /// Walk a contiguous slice of ADTS-framed bytes, decode every
+    /// complete frame found, and invoke <paramref name="sink"/> for
+    /// each one in stream order. Stops at the first truncated frame
+    /// — the leftover bytes (if any) should be kept by the caller
+    /// and prepended to the next chunk to resume cleanly.
+    /// </summary>
+    /// <param name="input">
+    /// Bytes starting at an ADTS frame boundary. The decoder is
+    /// strict: any byte that fails to match the syncword + layer
+    /// preamble immediately aborts the walk by throwing
+    /// <see cref="InvalidDataException"/>; resynchronisation is the
+    /// caller's responsibility.
+    /// </param>
+    /// <param name="sink">Callback invoked for every fully-decoded frame.</param>
+    /// <returns>
+    /// Number of bytes consumed up to the start of the first
+    /// incomplete frame (or end of input). Equal to
+    /// <c>input.Length</c> when every frame in the buffer was fully
+    /// decoded.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sink"/> is null.</exception>
+    /// <exception cref="InvalidDataException">
+    /// A byte position contained a non-zero buffer that did not
+    /// start with a valid ADTS syncword.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// A frame inside the buffer signalled multiple raw_data_blocks.
+    /// </exception>
+    public int DecodeFrames(ReadOnlySpan<byte> input, FrameSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+
+        int offset = 0;
+        while (offset < input.Length)
+        {
+            var remaining = input[offset..];
+
+            // We need at least the 6 bytes peek_frame_length looks
+            // at to know whether the next frame fits.
+            if (!TryParseFrameLength(remaining, out int frameLength))
+            {
+                if (remaining.Length < 6)
+                {
+                    // Header is itself incomplete; defer to next call.
+                    return offset;
+                }
+
+                throw new InvalidDataException(
+                    $"Lost ADTS sync at byte offset {offset}; resynchronisation " +
+                    "is the caller's responsibility.");
+            }
+
+            if (remaining.Length < frameLength)
+            {
+                // Frame body is truncated; preserve the rest for next call.
+                return offset;
+            }
+
+            var frame = remaining[..frameLength];
+            var block = DecodeFrame(frame);
+            sink(block);
+            offset += frameLength;
+        }
+
+        return offset;
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state. The next
     /// <see cref="DecodeFrame(ReadOnlySpan{byte})"/> call will rebuild
     /// the <see cref="AacFrameDecoder"/> from the next ADTS header

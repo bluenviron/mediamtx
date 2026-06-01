@@ -231,6 +231,98 @@ public class AacAdtsFrameDecoderTests
         Assert.Equal(1, dec.FrameCount);
     }
 
+    // ----- DecodeFrames (multi-frame walker) -----
+
+    [Fact]
+    public void DecodeFrames_NullSink_Throws()
+    {
+        var dec = NewDecoder();
+        Assert.Throws<ArgumentNullException>(() =>
+            dec.DecodeFrames(ReadOnlySpan<byte>.Empty, null!));
+    }
+
+    [Fact]
+    public void DecodeFrames_EmptyInput_ConsumesZero()
+    {
+        var dec = NewDecoder();
+        int consumed = dec.DecodeFrames(ReadOnlySpan<byte>.Empty, _ => { });
+        Assert.Equal(0, consumed);
+        Assert.Equal(0, dec.FrameCount);
+    }
+
+    [Fact]
+    public void DecodeFrames_ThreeBackToBack_InvokesSinkThreeTimes()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        byte[] buffer = Concat(frame, frame, frame);
+
+        int callbacks = 0;
+        int consumed = dec.DecodeFrames(buffer, _ => callbacks++);
+
+        Assert.Equal(3, callbacks);
+        Assert.Equal(buffer.Length, consumed);
+        Assert.Equal(3, dec.FrameCount);
+    }
+
+    [Fact]
+    public void DecodeFrames_TruncatedTail_ReportsConsumedBytesAndKeepsRemainder()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        // Two whole frames + first 12 bytes of a third (truncated).
+        byte[] buffer = Concat(frame, frame, frame.AsSpan(0, 12).ToArray());
+
+        int callbacks = 0;
+        int consumed = dec.DecodeFrames(buffer, _ => callbacks++);
+
+        Assert.Equal(2, callbacks);
+        Assert.Equal(frame.Length * 2, consumed);
+        Assert.Equal(12, buffer.Length - consumed);
+    }
+
+    [Fact]
+    public void DecodeFrames_PartialHeader_DefersWithoutThrowing()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        // First whole frame followed by just 3 header bytes of the next.
+        byte[] buffer = Concat(frame, new byte[] { 0xFF, 0xF1, 0x40 });
+
+        int callbacks = 0;
+        int consumed = dec.DecodeFrames(buffer, _ => callbacks++);
+
+        Assert.Equal(1, callbacks);
+        Assert.Equal(frame.Length, consumed);
+    }
+
+    [Fact]
+    public void DecodeFrames_LostSync_ThrowsInvalidData()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        // First frame + 8 bytes of garbage (>= 6 → cannot defer as partial header).
+        byte[] buffer = Concat(frame, new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 });
+
+        var ex = Assert.Throws<InvalidDataException>(() =>
+            dec.DecodeFrames(buffer, _ => { }));
+        Assert.Contains("Lost ADTS sync", ex.Message);
+    }
+
+    private static byte[] Concat(params byte[][] parts)
+    {
+        int total = 0;
+        foreach (var p in parts) total += p.Length;
+        byte[] result = new byte[total];
+        int o = 0;
+        foreach (var p in parts)
+        {
+            Buffer.BlockCopy(p, 0, result, o, p.Length);
+            o += p.Length;
+        }
+        return result;
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
