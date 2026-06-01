@@ -17,11 +17,22 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// — a config change forces a fresh underlying decoder.
 /// </para>
 /// <para>
-/// Only the single-block ADTS shape is supported in this revision
-/// (<c>number_of_raw_data_blocks_in_frame == 0</c>). Multi-block ADTS
-/// frames throw <see cref="NotSupportedException"/>. CRCs, when
-/// present, are skipped without verification — callers that need CRC
-/// validation should check the bytes themselves before calling.
+/// Both single-block and multi-block ADTS frames are supported.
+/// Single-block frames (<c>number_of_raw_data_blocks_in_frame == 0</c>)
+/// can be processed with <see cref="DecodeFrame(ReadOnlySpan{byte})"/>
+/// which returns the one decoded block. Multi-block frames must use
+/// <see cref="DecodeBlocks(ReadOnlySpan{byte}, FrameSink)"/>, which
+/// invokes the sink once per contained raw_data_block; calling
+/// <see cref="DecodeFrame(ReadOnlySpan{byte})"/> on a multi-block
+/// frame throws <see cref="NotSupportedException"/>.
+/// </para>
+/// <para>
+/// CRC bytes, when present (protection_absent == 0), are skipped
+/// without verification — callers that need CRC validation should
+/// check the bytes themselves before calling. Multi-block CRC
+/// interleaving (per-block CRC trailer) is currently NOT supported
+/// and protected multi-block frames are rejected with
+/// <see cref="NotSupportedException"/>.
 /// </para>
 /// <para>
 /// PCE-described streams (channelConfig == 0) cannot be carried by
@@ -64,8 +75,12 @@ public sealed class AacAdtsFrameDecoder
     }
 
     /// <summary>
-    /// Total number of ADTS frames successfully decoded since
+    /// Total number of decoded <c>raw_data_block</c>s since
     /// construction (or since the last <see cref="ResetState"/>).
+    /// For single-block ADTS streams this equals the number of ADTS
+    /// frames; for multi-block streams it counts each contained
+    /// block separately because each block represents one frame of
+    /// PCM (1024 samples per channel).
     /// </summary>
     public long FrameCount { get; private set; }
 
@@ -173,9 +188,9 @@ public sealed class AacAdtsFrameDecoder
         if (parsed.RawDataBlockCount > 1)
         {
             throw new NotSupportedException(
-                "ADTS frames with multiple raw_data_blocks " +
-                $"(number_of_raw_data_blocks_in_frame = {parsed.RawDataBlockCount - 1}) " +
-                "are not yet supported by AacAdtsFrameDecoder.");
+                "ADTS frame has multiple raw_data_blocks " +
+                $"(number_of_raw_data_blocks_in_frame = {parsed.RawDataBlockCount - 1}); " +
+                "use DecodeBlocks(ReadOnlySpan<byte>, FrameSink) to receive each block.");
         }
 
         if (parsed.ChannelConfig is < 1 or > 7)
@@ -198,18 +213,116 @@ public sealed class AacAdtsFrameDecoder
     }
 
     /// <summary>
-    /// Sink callback invoked once per decoded ADTS frame by
-    /// <see cref="DecodeFrames(ReadOnlySpan{byte}, FrameSink)"/>.
+    /// Sink callback invoked once per decoded raw_data_block by
+    /// <see cref="DecodeFrames(ReadOnlySpan{byte}, FrameSink)"/> and
+    /// <see cref="DecodeBlocks(ReadOnlySpan{byte}, FrameSink)"/>.
     /// </summary>
-    /// <param name="block">The decoded raw_data_block for the frame.</param>
+    /// <param name="block">The decoded raw_data_block.</param>
     public delegate void FrameSink(AacDecodedRawDataBlock block);
+
+    /// <summary>
+    /// Decode every raw_data_block inside one ADTS frame and invoke
+    /// <paramref name="sink"/> for each one in order. Handles both
+    /// single-block (<c>number_of_raw_data_blocks_in_frame == 0</c>)
+    /// and multi-block frames. Each subsequent raw_data_block starts
+    /// at the next byte boundary after the previous block's END
+    /// sentinel.
+    /// </summary>
+    /// <param name="adtsFrame">
+    /// Exactly one ADTS frame, i.e. <c>frame_length</c> bytes
+    /// starting at the syncword.
+    /// </param>
+    /// <param name="sink">Invoked once per decoded raw_data_block.</param>
+    /// <returns>Number of raw_data_blocks decoded and dispatched.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sink"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The header fails to parse or the buffer is shorter than
+    /// <c>frame_length</c>.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// The frame signals <c>protection_absent == 0</c> together with
+    /// multiple raw_data_blocks (per-block CRC interleaving is not
+    /// implemented).
+    /// </exception>
+    /// <exception cref="InvalidDataException">
+    /// Forwarded from <see cref="AacFrameDecoder.DecodeRawDataBlock(ReadOnlySpan{byte}, out int)"/>
+    /// for malformed blocks, or raised here when the ADTS header
+    /// signals <c>channel_configuration == 0</c> (which ADTS cannot
+    /// carry).
+    /// </exception>
+    public int DecodeBlocks(ReadOnlySpan<byte> adtsFrame, FrameSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+
+        if (!TryParseAdtsHeader(adtsFrame, out var parsed))
+        {
+            throw new ArgumentException(
+                "Input does not start with a valid ADTS header.",
+                nameof(adtsFrame));
+        }
+
+        if (adtsFrame.Length < parsed.FrameLength)
+        {
+            throw new ArgumentException(
+                $"ADTS frame buffer is shorter than the declared frame_length " +
+                $"({adtsFrame.Length} < {parsed.FrameLength}).",
+                nameof(adtsFrame));
+        }
+
+        if (parsed.ChannelConfig is < 1 or > 7)
+        {
+            throw new InvalidDataException(
+                $"ADTS header declares unsupported channel_configuration {parsed.ChannelConfig}.");
+        }
+
+        int blockCount = parsed.RawDataBlockCount;
+
+        // Multi-block frames with per-block CRC trailers are not yet
+        // supported (would require interleaving block decoding with
+        // 16-bit CRC skips). The blocks themselves are byte-aligned
+        // but the CRCs split the payload non-contiguously.
+        if (blockCount > 1 && !parsed.ProtectionAbsent)
+        {
+            throw new NotSupportedException(
+                "Protected multi-block ADTS frames are not supported " +
+                "(protection_absent == 0 together with " +
+                $"number_of_raw_data_blocks_in_frame = {blockCount - 1}).");
+        }
+
+        EnsureFrameDecoder(parsed);
+
+        int payloadOffset = parsed.HeaderSize;
+        int payloadEnd = parsed.FrameLength;
+        int cursor = payloadOffset;
+
+        for (int i = 0; i < blockCount; i++)
+        {
+            if (cursor >= payloadEnd)
+            {
+                throw new InvalidDataException(
+                    $"ADTS frame ran out of payload at block {i + 1}/{blockCount}.");
+            }
+
+            var slice = adtsFrame[cursor..payloadEnd];
+            var decoded = _inner!.DecodeRawDataBlock(slice, out int bitsConsumed);
+            sink(decoded);
+            FrameCount++;
+
+            // Each raw_data_block ends with byte_alignment(); round up.
+            int blockBytes = (bitsConsumed + 7) >> 3;
+            cursor += blockBytes;
+        }
+
+        return blockCount;
+    }
 
     /// <summary>
     /// Walk a contiguous slice of ADTS-framed bytes, decode every
     /// complete frame found, and invoke <paramref name="sink"/> for
-    /// each one in stream order. Stops at the first truncated frame
-    /// — the leftover bytes (if any) should be kept by the caller
-    /// and prepended to the next chunk to resume cleanly.
+    /// each contained raw_data_block in stream order. Stops at the
+    /// first truncated frame — the leftover bytes (if any) should be
+    /// kept by the caller and prepended to the next chunk to resume
+    /// cleanly.
     /// </summary>
     /// <param name="input">
     /// Bytes starting at an ADTS frame boundary. The decoder is
@@ -218,7 +331,7 @@ public sealed class AacAdtsFrameDecoder
     /// <see cref="InvalidDataException"/>; resynchronisation is the
     /// caller's responsibility.
     /// </param>
-    /// <param name="sink">Callback invoked for every fully-decoded frame.</param>
+    /// <param name="sink">Callback invoked for every decoded raw_data_block.</param>
     /// <returns>
     /// Number of bytes consumed up to the start of the first
     /// incomplete frame (or end of input). Equal to
@@ -231,7 +344,8 @@ public sealed class AacAdtsFrameDecoder
     /// start with a valid ADTS syncword.
     /// </exception>
     /// <exception cref="NotSupportedException">
-    /// A frame inside the buffer signalled multiple raw_data_blocks.
+    /// A frame inside the buffer signalled a combination of
+    /// per-block CRCs and multiple raw_data_blocks.
     /// </exception>
     public int DecodeFrames(ReadOnlySpan<byte> input, FrameSink sink)
     {
@@ -264,8 +378,7 @@ public sealed class AacAdtsFrameDecoder
             }
 
             var frame = remaining[..frameLength];
-            var block = DecodeFrame(frame);
-            sink(block);
+            _ = DecodeBlocks(frame, sink);
             offset += frameLength;
         }
 
@@ -322,7 +435,8 @@ public sealed class AacAdtsFrameDecoder
         int SamplingFrequencyIndex,
         int SampleRate,
         int ChannelConfig,
-        int RawDataBlockCount);
+        int RawDataBlockCount,
+        bool ProtectionAbsent);
 
     private static bool TryParseAdtsHeader(ReadOnlySpan<byte> data, out AdtsParsedHeader header)
     {
@@ -351,7 +465,12 @@ public sealed class AacAdtsFrameDecoder
 
         int rdbInFrame = data[6] & 0x03;
 
-        int headerSize = protectionAbsent ? 7 : 9;
+        // Header size: 7 bytes always (fixed + variable headers);
+        // when protected, add 2 bytes per extra raw_data_block_position
+        // entry plus 2 bytes for crc_check trailer.
+        int headerSize = protectionAbsent
+            ? 7
+            : 9 + 2 * rdbInFrame;
         if (frameLength <= headerSize) return false;
 
         header = new AdtsParsedHeader(
@@ -361,7 +480,8 @@ public sealed class AacAdtsFrameDecoder
             SamplingFrequencyIndex: sampleRateIndex,
             SampleRate: sampleRate,
             ChannelConfig: channelConfig,
-            RawDataBlockCount: rdbInFrame + 1);
+            RawDataBlockCount: rdbInFrame + 1,
+            ProtectionAbsent: protectionAbsent);
         return true;
     }
 }

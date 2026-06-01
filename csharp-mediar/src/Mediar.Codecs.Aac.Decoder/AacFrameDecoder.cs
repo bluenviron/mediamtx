@@ -117,12 +117,54 @@ public sealed class AacFrameDecoder
     /// </exception>
     public AacDecodedRawDataBlock DecodeFrame(ReadOnlySpan<byte> rawDataBlockBytes)
     {
-        if (rawDataBlockBytes.IsEmpty)
+        var decoded = DecodeRawDataBlock(rawDataBlockBytes, out _);
+        return decoded;
+    }
+
+    /// <summary>
+    /// Decode the next AAC <c>raw_data_block</c> starting at bit
+    /// position 0 of <paramref name="bytes"/> and report how many
+    /// bits were consumed (excluding any trailing
+    /// <c>byte_alignment()</c>). Filterbank overlap-add state is
+    /// carried across consecutive calls.
+    /// </summary>
+    /// <remarks>
+    /// Lower-level companion of
+    /// <see cref="DecodeFrame(ReadOnlySpan{byte})"/> used by
+    /// streaming containers that pack multiple raw_data_blocks into
+    /// one outer frame (e.g. multi-block ADTS,
+    /// <c>number_of_raw_data_blocks_in_frame &gt; 0</c>). Each block
+    /// is byte-aligned at its end inside the outer frame, so
+    /// callers should advance their byte cursor by
+    /// <c>(bitsConsumed + 7) / 8</c> after every call.
+    /// </remarks>
+    /// <param name="bytes">
+    /// Buffer that contains at least one full <c>raw_data_block()</c>
+    /// terminated by an END (id=7) sentinel. Trailing bytes are not
+    /// inspected — they belong to the next block (or padding).
+    /// </param>
+    /// <param name="bitsConsumed">
+    /// Bit offset of the bit just after the END sentinel. The next
+    /// raw_data_block in a multi-block container starts at the
+    /// next byte boundary (round up by 7).
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="bytes"/> is empty.
+    /// </exception>
+    /// <exception cref="InvalidDataException">
+    /// The block fails to parse, or terminates without reaching the
+    /// END sentinel (truncated or malformed payload).
+    /// </exception>
+    public AacDecodedRawDataBlock DecodeRawDataBlock(
+        ReadOnlySpan<byte> bytes,
+        out int bitsConsumed)
+    {
+        if (bytes.IsEmpty)
         {
-            throw new ArgumentException("rawDataBlockBytes is empty.", nameof(rawDataBlockBytes));
+            throw new ArgumentException("bytes is empty.", nameof(bytes));
         }
 
-        if (!AacRawDataBlock.TryParse(rawDataBlockBytes, _context, out var block) || block is null)
+        if (!AacRawDataBlock.TryParse(bytes, _context, out var block) || block is null)
         {
             throw new InvalidDataException(
                 "AAC raw_data_block failed to parse; payload is truncated, malformed, " +
@@ -134,6 +176,8 @@ public sealed class AacFrameDecoder
             throw new InvalidDataException(
                 "AAC raw_data_block did not reach the END (id=7) sentinel before the buffer ended.");
         }
+
+        bitsConsumed = block.BitsConsumed;
 
         if (_applyTns)
         {

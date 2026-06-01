@@ -186,7 +186,142 @@ public class AacAdtsFrameDecoderTests
     {
         var dec = NewDecoder();
         var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1, rdbInFrame: 1);
-        Assert.Throws<NotSupportedException>(() => dec.DecodeFrame(frame));
+        var ex = Assert.Throws<NotSupportedException>(() => dec.DecodeFrame(frame));
+        Assert.Contains("DecodeBlocks", ex.Message);
+    }
+
+    // ----- multi-block DecodeBlocks coverage -----
+
+    [Fact]
+    public void DecodeBlocks_NullSink_Throws()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        Assert.Throws<ArgumentNullException>(() =>
+            dec.DecodeBlocks(frame, null!));
+    }
+
+    [Fact]
+    public void DecodeBlocks_SingleBlockFrame_InvokesSinkOnceReturnsOne()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+
+        int callCount = 0;
+        AacDecodedRawDataBlock? captured = null;
+        int returned = dec.DecodeBlocks(frame, b => { callCount++; captured = b; });
+
+        Assert.Equal(1, returned);
+        Assert.Equal(1, callCount);
+        Assert.NotNull(captured);
+        Assert.Single(captured!.Channels);
+        Assert.Equal(AacSpeaker.FrontCentre, captured.Channels[0].Speaker);
+    }
+
+    [Fact]
+    public void DecodeBlocks_TwoBlockFrame_InvokesSinkTwiceReturnsTwo()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMultiSceFrame(sfIndex: 3, channelConfig: 1, blockCount: 2);
+
+        var blocks = new List<AacDecodedRawDataBlock>();
+        int returned = dec.DecodeBlocks(frame, b => blocks.Add(b));
+
+        Assert.Equal(2, returned);
+        Assert.Equal(2, blocks.Count);
+        Assert.All(blocks, b =>
+        {
+            Assert.Single(b.Channels);
+            Assert.Equal(AacSpeaker.FrontCentre, b.Channels[0].Speaker);
+            Assert.Equal(AacSynthesisFilterbank.LongFrameLength, b.Channels[0].Samples.Length);
+        });
+    }
+
+    [Fact]
+    public void DecodeBlocks_ThreeBlockFrame_InvokesSinkThriceReturnsThree()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMultiSceFrame(sfIndex: 3, channelConfig: 1, blockCount: 3);
+
+        int callCount = 0;
+        int returned = dec.DecodeBlocks(frame, _ => callCount++);
+
+        Assert.Equal(3, returned);
+        Assert.Equal(3, callCount);
+    }
+
+    [Fact]
+    public void DecodeBlocks_MultiBlockFrame_AdvancesFrameCountPerBlock()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMultiSceFrame(sfIndex: 3, channelConfig: 1, blockCount: 3);
+
+        _ = dec.DecodeBlocks(frame, _ => { });
+
+        // FrameCount counts decoded raw_data_blocks, not ADTS frame
+        // envelopes — so a 3-block frame contributes 3 to the count.
+        Assert.Equal(3, dec.FrameCount);
+    }
+
+    [Fact]
+    public void DecodeBlocks_TruncatedBuffer_ThrowsArgument()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        var ex = Assert.Throws<ArgumentException>(() =>
+            dec.DecodeBlocks(frame.AsSpan(0, frame.Length - 2).ToArray(), _ => { }));
+        Assert.Contains("shorter than the declared", ex.Message);
+    }
+
+    [Fact]
+    public void DecodeBlocks_BadSync_ThrowsArgument()
+    {
+        var dec = NewDecoder();
+        byte[] garbage = new byte[20];
+        Assert.Throws<ArgumentException>(() =>
+            dec.DecodeBlocks(garbage, _ => { }));
+    }
+
+    [Fact]
+    public void DecodeBlocks_ChannelConfigZero_ThrowsInvalidData()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 0);
+        Assert.Throws<InvalidDataException>(() =>
+            dec.DecodeBlocks(frame, _ => { }));
+    }
+
+    [Fact]
+    public void DecodeBlocks_ProtectedMultiBlock_ThrowsNotSupported()
+    {
+        var dec = NewDecoder();
+        // Protected (protection_absent=0) + multiple raw_data_blocks =
+        // per-block CRC interleaving, which isn't implemented.
+        // headerSize for protected + rdbInFrame=1 is 11 bytes; pad
+        // payload so frame_length > headerSize and the inline parser
+        // accepts the header.
+        var frame = BuildProtectedMultiBlockHeader(
+            sfIndex: 3, channelConfig: 1, rdbInFrame: 1, payloadSize: 16);
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            dec.DecodeBlocks(frame, _ => { }));
+        Assert.Contains("Protected multi-block", ex.Message);
+    }
+
+    [Fact]
+    public void DecodeFrames_MultiBlockFrame_InvokesSinkPerBlock()
+    {
+        var dec = NewDecoder();
+        var frameA = BuildAdtsMultiSceFrame(sfIndex: 3, channelConfig: 1, blockCount: 2);
+        var frameB = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        var buffer = Concat(frameA, frameB);
+
+        int callCount = 0;
+        int consumed = dec.DecodeFrames(buffer, _ => callCount++);
+
+        // The walker fans out each ADTS frame into its contained
+        // raw_data_blocks: 2 + 1 = 3 sink invocations.
+        Assert.Equal(3, callCount);
+        Assert.Equal(buffer.Length, consumed);
     }
 
     [Fact]
@@ -363,6 +498,66 @@ public class AacAdtsFrameDecoderTests
         return frame;
     }
 
+    private static byte[] BuildAdtsMultiSceFrame(
+        int sfIndex,
+        int channelConfig,
+        int blockCount)
+    {
+        // Each raw_data_block is independently byte-aligned by its
+        // BitWriter; concatenating them gives the multi-block payload
+        // shape the spec describes (each block ends with
+        // byte_alignment(), so the next block starts at a byte
+        // boundary in the outer buffer).
+        byte[][] blocks = new byte[blockCount][];
+        int payloadLen = 0;
+        for (int i = 0; i < blockCount; i++)
+        {
+            blocks[i] = BuildEmptySceRawDataBlock(tag: i, maxSfb: 10);
+            payloadLen += blocks[i].Length;
+        }
+
+        int headerSize = 7;
+        int frameLength = headerSize + payloadLen;
+        byte[] header = BuildAdtsHeader(
+            profile: 1,
+            sfIndex: sfIndex,
+            channelConfig: channelConfig,
+            frameLength: frameLength,
+            protectionAbsent: true,
+            rdbInFrame: blockCount - 1);
+
+        byte[] frame = new byte[frameLength];
+        Buffer.BlockCopy(header, 0, frame, 0, headerSize);
+        int o = headerSize;
+        foreach (var b in blocks)
+        {
+            Buffer.BlockCopy(b, 0, frame, o, b.Length);
+            o += b.Length;
+        }
+        return frame;
+    }
+
+    private static byte[] BuildProtectedMultiBlockHeader(
+        int sfIndex,
+        int channelConfig,
+        int rdbInFrame,
+        int payloadSize)
+    {
+        int headerSize = 9 + 2 * rdbInFrame;
+        int frameLength = headerSize + payloadSize;
+        byte[] header = BuildAdtsHeader(
+            profile: 1,
+            sfIndex: sfIndex,
+            channelConfig: channelConfig,
+            frameLength: frameLength,
+            protectionAbsent: false,
+            rdbInFrame: rdbInFrame);
+
+        byte[] frame = new byte[frameLength];
+        Buffer.BlockCopy(header, 0, frame, 0, headerSize);
+        return frame;
+    }
+
     private static byte[] BuildAdtsHeader(
         int profile,
         int sfIndex,
@@ -371,7 +566,7 @@ public class AacAdtsFrameDecoderTests
         bool protectionAbsent,
         int rdbInFrame)
     {
-        int size = protectionAbsent ? 7 : 9;
+        int size = protectionAbsent ? 7 : 9 + 2 * rdbInFrame;
         byte[] h = new byte[size];
 
         // syncword 0xFFF, ID=0 (MPEG-4), layer=0, protection_absent
@@ -394,8 +589,9 @@ public class AacAdtsFrameDecoderTests
         // buffer_fullness low 6 bits (all 1), number_of_raw_data_blocks_in_frame (2 bits)
         h[6] = (byte)(0xFC | (rdbInFrame & 0x03));
 
-        // For CRC frames, leave the two CRC bytes as zero — the
-        // decoder does not verify them in this revision.
+        // For CRC frames, leave the raw_data_block_position[] and
+        // crc_check bytes as zero — the decoder does not verify them
+        // in this revision.
         return h;
     }
 }
