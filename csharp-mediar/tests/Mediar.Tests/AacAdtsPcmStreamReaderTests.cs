@@ -212,6 +212,111 @@ public class AacAdtsPcmStreamReaderTests
         Assert.Throws<ObjectDisposedException>(() => reader.ReadNextInt16Frame());
     }
 
+    // ----- async surface -----
+
+    [Fact]
+    public async Task ReadNextPcmFrameAsync_EmptyStream_ReturnsNull()
+    {
+        using var ms = new MemoryStream();
+        using var reader = NewReader(ms);
+        Assert.Null(await reader.ReadNextPcmFrameAsync());
+    }
+
+    [Fact]
+    public async Task ReadNextPcmFrameAsync_SingleFrame_MatchesSyncShape()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+
+        using var msSync = new MemoryStream(frame);
+        using var sync = NewReader(msSync);
+        var syncFrame = sync.ReadNextPcmFrame();
+        Assert.NotNull(syncFrame);
+
+        using var msAsync = new MemoryStream(frame);
+        using var async = NewReader(msAsync);
+        var asyncFrame = await async.ReadNextPcmFrameAsync();
+        Assert.NotNull(asyncFrame);
+
+        Assert.Equal(syncFrame!.ChannelCount, asyncFrame!.ChannelCount);
+        Assert.Equal(syncFrame.SamplesPerChannel, asyncFrame.SamplesPerChannel);
+        Assert.Equal(syncFrame.SampleRate, asyncFrame.SampleRate);
+        Assert.Equal(syncFrame.Samples.Length, asyncFrame.Samples.Length);
+    }
+
+    [Fact]
+    public async Task ReadPcmFramesAsync_TwoFrames_YieldsBoth()
+    {
+        byte[] a = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[a.Length * 2];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        Buffer.BlockCopy(a, 0, payload, a.Length, a.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        int count = 0;
+        await foreach (var f in reader.ReadPcmFramesAsync())
+        {
+            Assert.NotNull(f);
+            count++;
+        }
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public async Task ReadNextInt16FrameAsync_SingleFrame_ReturnsInt16Frame()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+        var int16 = await reader.ReadNextInt16FrameAsync();
+        Assert.NotNull(int16);
+        Assert.Equal(1, int16!.ChannelCount);
+        Assert.Equal(1024, int16.SamplesPerChannel);
+    }
+
+    [Fact]
+    public async Task ReadInt16FramesAsync_TwoFrames_YieldsBoth()
+    {
+        byte[] a = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[a.Length * 2];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        Buffer.BlockCopy(a, 0, payload, a.Length, a.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        int count = 0;
+        await foreach (var f in reader.ReadInt16FramesAsync())
+        {
+            Assert.NotNull(f);
+            count++;
+        }
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public async Task ReadNextPcmFrameAsync_Cancelled_Throws()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await reader.ReadNextPcmFrameAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task ReadNextPcmFrameAsync_AfterDispose_Throws()
+    {
+        using var ms = new MemoryStream();
+        var reader = new AacAdtsPcmStreamReader(ms, GetSf(), new AacHuffmanCodebook?[16], leaveOpen: true);
+        reader.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            async () => await reader.ReadNextPcmFrameAsync());
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

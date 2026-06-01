@@ -185,6 +185,85 @@ public sealed class AacAdtsPcmStreamReader : IDisposable
     }
 
     /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadNextPcmFrame"/>.
+    /// Awaits the inner reader's
+    /// <see cref="AacAdtsStreamReader.ReadNextFrameAsync"/>, then
+    /// interleaves the resulting raw_data_block without blocking
+    /// the calling thread.
+    /// </summary>
+    public async Task<AacPcmFrame?> ReadNextPcmFrameAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        var block = await _reader.ReadNextFrameAsync(cancellationToken).ConfigureAwait(false);
+        if (block is null) return null;
+
+        int channelCount = block.Channels.Count;
+        if (channelCount == 0)
+        {
+            throw new InvalidDataException(
+                "Decoded raw_data_block contained no channels — refusing to emit an empty PCM frame.");
+        }
+        int samplesPerChannel = block.Channels[0].Samples.Length;
+
+        var interleaved = AacChannelInterleaver.Interleave(block);
+
+        var speakers = new AacSpeaker[channelCount];
+        for (int i = 0; i < channelCount; i++)
+        {
+            speakers[i] = block.Channels[i].Speaker;
+        }
+
+        return new AacPcmFrame
+        {
+            Samples = interleaved,
+            ChannelCount = channelCount,
+            SamplesPerChannel = samplesPerChannel,
+            SampleRate = _reader.CurrentSampleRate,
+            Speakers = speakers,
+        };
+    }
+
+    /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadPcmFrames"/>.
+    /// </summary>
+    public async IAsyncEnumerable<AacPcmFrame> ReadPcmFramesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            var frame = await ReadNextPcmFrameAsync(cancellationToken).ConfigureAwait(false);
+            if (frame is null) yield break;
+            yield return frame;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadNextInt16Frame"/>.
+    /// </summary>
+    public async Task<AacPcmInt16Frame?> ReadNextInt16FrameAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var floatFrame = await ReadNextPcmFrameAsync(cancellationToken).ConfigureAwait(false);
+        return floatFrame is null ? null : AacPcmFrameConverter.ToInt16Frame(floatFrame);
+    }
+
+    /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadInt16Frames"/>.
+    /// </summary>
+    public async IAsyncEnumerable<AacPcmInt16Frame> ReadInt16FramesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            var frame = await ReadNextInt16FrameAsync(cancellationToken).ConfigureAwait(false);
+            if (frame is null) yield break;
+            yield return frame;
+        }
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state and clear any buffered
     /// bytes. Use after seeking the underlying stream so the next
     /// read resynchronises and rebuilds filterbank state.
