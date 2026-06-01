@@ -125,36 +125,12 @@ public static class AacChannelDecoder
 
         AacPnsApplier.ApplyInPlace(buffer, frame, sampleRate, prng);
 
-        var ics = frame.Stream.IcsInfo;
-        var ws = ics.WindowSequence;
-        if (frame.Stream.TnsDataPresent
-            && frame.Stream.TnsData is { } tnsData
-            && ws != AacWindowSequence.EightShort)
-        {
-            int sfIndex = AacSampleRates.ToIndex(sampleRate);
-            if (sfIndex == AacSampleRates.EscapeIndex)
-            {
-                throw new ArgumentException(
-                    $"Sample rate {sampleRate} Hz has no indexed AAC TNS limit table.",
-                    nameof(sampleRate));
-            }
-
-            ReadOnlySpan<int> swbOffsets = AacSwbOffsets.GetLongOffsets(sampleRate);
-            int tnsMaxSfb = AacTnsSpecLimits.GetMaxBands(objectType, sfIndex, ws);
-            int tnsMaxOrder = AacTnsSpecLimits.GetMaxOrder(objectType, ws);
-
-            int numSwb = swbOffsets.Length - 1;
-            if (tnsMaxSfb > numSwb) tnsMaxSfb = numSwb;
-            if (tnsMaxOrder > AacTnsLpcStepUp.MaxOrder) tnsMaxOrder = AacTnsLpcStepUp.MaxOrder;
-
-            AacTnsSpectrumApplier.Apply(
-                tnsData, ics, buffer, swbOffsets, tnsMaxSfb, tnsMaxOrder);
-        }
+        ApplyLongWindowTnsIfPresent(frame, sampleRate, objectType, buffer);
 
         return new AacDecodedSpectrum
         {
             Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(buffer),
-            WindowSequence = ws,
+            WindowSequence = frame.Stream.IcsInfo.WindowSequence,
         };
     }
 
@@ -281,5 +257,118 @@ public static class AacChannelDecoder
                 WindowSequence = cpe.SharedIcsInfo?.WindowSequence
                     ?? cpe.SecondStream.IcsInfo.WindowSequence,
             });
+    }
+
+    /// <summary>
+    /// Same as <see cref="DecodePair(AacChannelPairElement, int, AacPnsRandom, AacPnsRandom)"/>
+    /// but additionally applies long-window TNS inverse filtering to
+    /// each channel that carries parsed
+    /// <see cref="AacIndividualChannelStream.TnsData"/>.
+    /// <see cref="AacWindowSequence.EightShort"/> channels skip the TNS
+    /// step (short-window TNS requires deinterleaving the group-major
+    /// spectrum back to per-window layout, which is a separate composer
+    /// ship).
+    /// </summary>
+    /// <param name="cpe">Parsed channel-pair element including spectral data for both channels.</param>
+    /// <param name="sampleRate">
+    /// Source sample rate in Hz; must be one of the 13 indexed AAC
+    /// rates so the SWB tables and the
+    /// <see cref="AacTnsSpecLimits"/> per-rate band limits resolve.
+    /// </param>
+    /// <param name="leftPrng">Per-frame PNS PRNG for the first channel.</param>
+    /// <param name="rightPrng">Per-frame PNS PRNG for the second channel.</param>
+    /// <param name="objectType">
+    /// AAC audio object type. See
+    /// <see cref="DecodeMono(AacChannelFrame, int, AacPnsRandom, AacAudioObjectType)"/>
+    /// for the supported set.
+    /// </param>
+    /// <returns>Post-PNS, post-(long)-TNS decoded spectra for both channels.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// Any required argument is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="cpe"/> is missing spectral data for one of the
+    /// channels, or <paramref name="sampleRate"/> has no SWB / TNS
+    /// table.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="objectType"/> is outside the four AOTs
+    /// supported by <see cref="AacTnsSpecLimits"/> AND at least one
+    /// channel actually carries TNS data of a non-short window.
+    /// </exception>
+    public static (AacDecodedSpectrum Left, AacDecodedSpectrum Right) DecodePair(
+        AacChannelPairElement cpe,
+        int sampleRate,
+        AacPnsRandom leftPrng,
+        AacPnsRandom rightPrng,
+        AacAudioObjectType objectType)
+    {
+        var (left, right) = DecodePair(cpe, sampleRate, leftPrng, rightPrng);
+
+        var leftBuf = left.Coefficients.ToArray();
+        var rightBuf = right.Coefficients.ToArray();
+
+        var leftFrame = new AacChannelFrame
+        {
+            Stream = cpe.FirstStream,
+            SpectralData = cpe.FirstSpectralData!,
+            BitsConsumed = 0,
+        };
+        var rightFrame = new AacChannelFrame
+        {
+            Stream = cpe.SecondStream,
+            SpectralData = cpe.SecondSpectralData!,
+            BitsConsumed = 0,
+        };
+
+        ApplyLongWindowTnsIfPresent(leftFrame, sampleRate, objectType, leftBuf);
+        ApplyLongWindowTnsIfPresent(rightFrame, sampleRate, objectType, rightBuf);
+
+        return (
+            new AacDecodedSpectrum
+            {
+                Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(leftBuf),
+                WindowSequence = left.WindowSequence,
+            },
+            new AacDecodedSpectrum
+            {
+                Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(rightBuf),
+                WindowSequence = right.WindowSequence,
+            });
+    }
+
+    private static void ApplyLongWindowTnsIfPresent(
+        AacChannelFrame frame,
+        int sampleRate,
+        AacAudioObjectType objectType,
+        float[] spectrum)
+    {
+        var ics = frame.Stream.IcsInfo;
+        var ws = ics.WindowSequence;
+        if (!frame.Stream.TnsDataPresent
+            || frame.Stream.TnsData is not { } tnsData
+            || ws == AacWindowSequence.EightShort)
+        {
+            return;
+        }
+
+        int sfIndex = AacSampleRates.ToIndex(sampleRate);
+        if (sfIndex == AacSampleRates.EscapeIndex)
+        {
+            throw new ArgumentException(
+                $"Sample rate {sampleRate} Hz has no indexed AAC TNS limit table.",
+                nameof(sampleRate));
+        }
+
+        ReadOnlySpan<int> swbOffsets = AacSwbOffsets.GetLongOffsets(sampleRate);
+        int tnsMaxSfb = AacTnsSpecLimits.GetMaxBands(objectType, sfIndex, ws);
+        int tnsMaxOrder = AacTnsSpecLimits.GetMaxOrder(objectType, ws);
+
+        int numSwb = swbOffsets.Length - 1;
+        if (tnsMaxSfb > numSwb) tnsMaxSfb = numSwb;
+        if (tnsMaxOrder > AacTnsLpcStepUp.MaxOrder) tnsMaxOrder = AacTnsLpcStepUp.MaxOrder;
+
+        AacTnsSpectrumApplier.Apply(
+            tnsData, ics, spectrum, swbOffsets, tnsMaxSfb, tnsMaxOrder);
     }
 }

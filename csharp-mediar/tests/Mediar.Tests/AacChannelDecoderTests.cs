@@ -620,4 +620,92 @@ public sealed class AacChannelDecoderTests
 
         Assert.NotEqual(left.Coefficients.ToArray(), right.Coefficients.ToArray());
     }
+
+    // ---------- DecodePair AOT overload tests ----------
+
+    [Fact]
+    public void DecodePair_Aot_NoTnsData_MatchesNonAotOverload()
+    {
+        var leftFrame = BuildFrameNoPns();
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: true, AacMsMaskPresent.None);
+
+        var (l1, r1) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        var (l2, r2) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+            AacAudioObjectType.AacLc);
+
+        Assert.Equal(l1.Coefficients.ToArray(), l2.Coefficients.ToArray());
+        Assert.Equal(r1.Coefficients.ToArray(), r2.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodePair_Aot_TnsAppliedDiffersFromNonAotOverload()
+    {
+        var leftFrame = BuildFrameWithTns(order: 2, coef: 3);
+        var rightFrame = BuildFrameWithTns(order: 2, coef: 3);
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        var (l1, _) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+        var (l2, _) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+            AacAudioObjectType.AacLc);
+
+        Assert.NotEqual(l1.Coefficients.ToArray(), l2.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodePair_Aot_BothChannelsHaveTns_BothFiltered()
+    {
+        var leftFrame = BuildFrameWithTns(order: 2, coef: 3);
+        var rightFrame = BuildFrameWithTns(order: 2, coef: 3);
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(),
+            AacAudioObjectType.AacLc);
+        var leftOnlyMono = AacChannelDecoder.DecodeMono(
+            leftFrame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+
+        // Both channels should match the mono pipeline output since
+        // common_window = false skips MS / IS.
+        Assert.Equal(leftOnlyMono.Coefficients.ToArray(), left.Coefficients.ToArray());
+        Assert.Equal(leftOnlyMono.Coefficients.ToArray(), right.Coefficients.ToArray());
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacSsr)]
+    [InlineData(AacAudioObjectType.Sbr)]
+    [InlineData(AacAudioObjectType.AacScalable)]
+    public void DecodePair_Aot_UnsupportedAot_TnsActive_Throws(AacAudioObjectType aot)
+    {
+        var leftFrame = BuildFrameWithTns(order: 2, coef: 3);
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacChannelDecoder.DecodePair(
+                cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(), aot));
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacSsr)]
+    [InlineData(AacAudioObjectType.Sbr)]
+    [InlineData(AacAudioObjectType.AacScalable)]
+    public void DecodePair_Aot_UnsupportedAot_NoTnsData_DoesNotThrow(AacAudioObjectType aot)
+    {
+        var cpe = BuildCpeFromTwoFrames(
+            BuildFrameNoPns(), BuildFrameNoPns(),
+            commonWindow: true, AacMsMaskPresent.None);
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom(), aot);
+        Assert.Equal(1024, left.Coefficients.Length);
+        Assert.Equal(1024, right.Coefficients.Length);
+    }
 }
