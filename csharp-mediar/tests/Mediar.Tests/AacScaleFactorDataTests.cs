@@ -96,23 +96,86 @@ public sealed class AacScaleFactorDataTests
         Assert.Equal(0, data.BitsConsumed);
     }
 
-    private static readonly int[] SymbolsNoise60 = new[] { 60 };
     private static readonly int[] SymbolsIntensity75 = new[] { 75 };
     private static readonly int[] SymbolsIntensity45 = new[] { 45 };
-    private static readonly int[] SymbolsMixed3Sections = new[] { 60, 70, 50 };
 
     [Fact]
-    public void TryRead_NoiseCodebook13_ReadsAsNoiseEnergy()
+    public void TryRead_NoiseCodebook13_FirstBandReadsAs9BitPcm()
     {
         var book = BuildSyntheticSfCodebook();
         var sections = MakeSections((0, 13, 0, 1));
-        var bytes = EncodeSymbols(SymbolsNoise60);
+        // First PNS band uses 9-bit unsigned PCM (raw - 256). Encode raw=256 -> diff=0.
+        var w = new AacBitWriter();
+        w.Write(256u, 9);
+        var bytes = w.ToArray();
         var reader = new BitReader(bytes);
         Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
         Assert.NotNull(data);
         Assert.Single(data!.Entries);
         Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[0].Kind);
         Assert.Equal(0, data.Entries[0].Differential);
+        Assert.Equal(9, data.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_FirstBand9BitNegative()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 13, 0, 1));
+        // raw=128 -> diff=-128 (in the [-256, +255] range that 9-bit PCM allows).
+        var w = new AacBitWriter();
+        w.Write(128u, 9);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Single(data!.Entries);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[0].Kind);
+        Assert.Equal(-128, data.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_MultiBand_FirstIsPcm_RestAreHuffman()
+    {
+        var book = BuildSyntheticSfCodebook();
+        // Two PNS bands in one section.
+        var sections = MakeSections((0, 13, 0, 2));
+        var w = new AacBitWriter();
+        w.Write(256u, 9);                 // first band: raw=256 -> diff=0
+        var (b, l) = EncodeSymbol(70);    // second band: huffman symbol 70 -> diff=10
+        w.Write(b, l);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(2, data!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[0].Kind);
+        Assert.Equal(0, data.Entries[0].Differential);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[1].Kind);
+        Assert.Equal(10, data.Entries[1].Differential);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_MultiSection_OnlyFirstPnsBandPcm()
+    {
+        var book = BuildSyntheticSfCodebook();
+        // 3 sections: spectral(cb=1, 1 band) + noise(cb=13, 1 band) + noise(cb=13, 1 band)
+        var sections = MakeSections((0, 1, 0, 1), (0, 13, 1, 2), (0, 13, 2, 3));
+        var w = new AacBitWriter();
+        var (b1, l1) = EncodeSymbol(60); w.Write(b1, l1);   // spectral diff 0
+        w.Write(256u, 9);                                    // first PNS band (PCM): diff 0
+        var (b2, l2) = EncodeSymbol(50); w.Write(b2, l2);   // second PNS band (huffman): diff -10
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(3, data!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, data.Entries[0].Kind);
+        Assert.Equal(0, data.Entries[0].Differential);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[1].Kind);
+        Assert.Equal(0, data.Entries[1].Differential);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[2].Kind);
+        Assert.Equal(-10, data.Entries[2].Differential);
     }
 
     [Fact]
@@ -147,9 +210,13 @@ public sealed class AacScaleFactorDataTests
     public void TryRead_MixedSections_KindsTagCorrectly()
     {
         var book = BuildSyntheticSfCodebook();
-        // 3 sections: spectral cb=1, noise cb=13, intensity cb=14, one band each.
+        // 3 sections: spectral cb=1, noise cb=13 (first PNS band uses 9-bit PCM), intensity cb=14.
         var sections = MakeSections((0, 1, 0, 1), (0, 13, 1, 2), (0, 14, 2, 3));
-        var bytes = EncodeSymbols(SymbolsMixed3Sections);
+        var w = new AacBitWriter();
+        var (b1, l1) = EncodeSymbol(60); w.Write(b1, l1);   // spectral diff 0
+        w.Write(266u, 9);                                    // first PNS band PCM: diff +10
+        var (b3, l3) = EncodeSymbol(50); w.Write(b3, l3);   // intensity diff -10
+        var bytes = w.ToArray();
         var reader = new BitReader(bytes);
         Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
         Assert.NotNull(data);

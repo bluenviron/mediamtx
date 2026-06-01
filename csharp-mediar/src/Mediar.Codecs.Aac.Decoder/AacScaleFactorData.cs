@@ -60,7 +60,14 @@ public sealed record AacScaleFactorEntry
     /// Signed differential as read from the bitstream. <c>0</c> when
     /// <see cref="Kind"/> is <see cref="AacScaleFactorKind.None"/>; in
     /// the range <c>[-60, +60]</c> for
-    /// <see cref="AacScaleFactorKind.SpectralGain"/>.
+    /// <see cref="AacScaleFactorKind.SpectralGain"/> and
+    /// <see cref="AacScaleFactorKind.IntensityPosition"/>; in the
+    /// range <c>[-256, +255]</c> for the first
+    /// <see cref="AacScaleFactorKind.NoiseEnergy"/> band of a
+    /// scale_factor_data() call (which uses a 9-bit unsigned PCM
+    /// value <c>dpcm_noise_nrg</c> with offset 256, per ISO/IEC
+    /// 14496-3 §4.6.2.3), and <c>[-60, +60]</c> for every
+    /// subsequent noise band.
     /// </summary>
     public required int Differential { get; init; }
 }
@@ -92,15 +99,30 @@ public sealed record AacScaleFactorData
     /// <summary>
     /// Walk a section list and read scale-factor differentials.
     /// Returns <see langword="false"/> on stream underflow or on a
-    /// decoded symbol outside <c>[0, 120]</c>. PNS / intensity
-    /// sections (codebooks 13, 14, 15) are read using the same
-    /// scale-factor codebook and tagged with the appropriate
-    /// <see cref="AacScaleFactorKind"/>; the bitstream encoding is
-    /// identical to a spectral-gain differential (one Huffman
-    /// symbol per band, value <c>idx - 60</c>). Cumulative
-    /// reconstruction (per-state initial values, PNS energy offset,
-    /// intensity-position accumulator) is the caller's responsibility.
+    /// decoded symbol outside <c>[0, 120]</c>.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Spectral-gain sections (codebooks 1..11) each carry one
+    /// Huffman codeword per band, decoded against the scale-factor
+    /// codebook (value <c>idx - 60</c>).
+    /// </para>
+    /// <para>
+    /// Intensity-stereo sections (codebooks 14, 15) likewise carry
+    /// one Huffman codeword per band, decoded the same way.
+    /// </para>
+    /// <para>
+    /// PNS sections (codebook 13) follow a special two-mode encoding
+    /// per ISO/IEC 14496-3 §4.6.2.3: the <i>first</i> PNS band of a
+    /// scale_factor_data() call uses a 9-bit unsigned PCM value
+    /// (<c>dpcm_noise_nrg</c>, exposed as <c>raw - 256</c> via
+    /// <see cref="AacScaleFactorEntry.Differential"/>); every
+    /// subsequent PNS band uses the SF Huffman codebook like the
+    /// other kinds. Cumulative reconstruction (per-state initial
+    /// values, PNS energy offset, intensity-position accumulator) is
+    /// the caller's responsibility.
+    /// </para>
+    /// </remarks>
     internal static bool TryRead(
         scoped ref BitReader reader,
         AacSectionData sectionData,
@@ -114,6 +136,7 @@ public sealed record AacScaleFactorData
 
         int startBits = reader.Position;
         var entries = new List<AacScaleFactorEntry>();
+        bool noisePcmPending = true;
 
         foreach (var section in sectionData.Sections)
         {
@@ -133,17 +156,29 @@ public sealed record AacScaleFactorData
                     continue;
                 }
 
-                if (!scaleFactorCodebook.TryDecode(ref reader, out int symbolIndex))
-                    return false;
-                if (symbolIndex < 0 || symbolIndex > 120)
-                    return false;
+                int diff;
+                if (kind == AacScaleFactorKind.NoiseEnergy && noisePcmPending)
+                {
+                    if (reader.Remaining < 9) return false;
+                    int raw = (int)reader.ReadBits(9);
+                    diff = raw - 256;
+                    noisePcmPending = false;
+                }
+                else
+                {
+                    if (!scaleFactorCodebook.TryDecode(ref reader, out int symbolIndex))
+                        return false;
+                    if (symbolIndex < 0 || symbolIndex > 120)
+                        return false;
+                    diff = symbolIndex - 60;
+                }
 
                 entries.Add(new AacScaleFactorEntry
                 {
                     Group = section.Group,
                     Sfb = sfb,
                     Kind = kind,
-                    Differential = symbolIndex - 60,
+                    Differential = diff,
                 });
             }
         }
