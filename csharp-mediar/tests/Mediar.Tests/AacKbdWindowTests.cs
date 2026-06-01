@@ -186,4 +186,139 @@ public sealed class AacKbdWindowTests
         }
         Assert.True(anyDiff);
     }
+
+    [Theory]
+    [InlineData(0, 4.0)]
+    [InlineData(-1, 4.0)]
+    public void ComputeFull_BadLength_Throws(int n, double alpha)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AacKbdWindow.ComputeFull(n, alpha));
+    }
+
+    [Theory]
+    [InlineData(8, 0.0)]
+    [InlineData(8, -1.0)]
+    public void ComputeFull_BadAlpha_Throws(int n, double alpha)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AacKbdWindow.ComputeFull(n, alpha));
+    }
+
+    [Theory]
+    [InlineData(8, 4.0)]
+    [InlineData(128, 4.0)]
+    [InlineData(1024, 4.0)]
+    public void ComputeFull_ReturnsDoubleLength(int halfLength, double alpha)
+    {
+        var w = AacKbdWindow.ComputeFull(halfLength, alpha);
+        Assert.Equal(halfLength * 2, w.Length);
+    }
+
+    [Theory]
+    [InlineData(8, 4.0)]
+    [InlineData(128, 4.0)]
+    [InlineData(128, 6.0)]
+    [InlineData(1024, 4.0)]
+    public void ComputeFull_AllValuesInZeroToOne(int halfLength, double alpha)
+    {
+        var w = AacKbdWindow.ComputeFull(halfLength, alpha);
+        foreach (var v in w) Assert.InRange(v, 0f, 1f);
+    }
+
+    [Fact]
+    public void ComputeFull_MaxValueIsAtCenter()
+    {
+        var w = AacKbdWindow.ComputeFull(64, 4.0);
+        int center = w.Length / 2 - 1;
+        Assert.True(w[center] >= w[0], "Center must be >= edge");
+        Assert.True(w[center] >= w[^1], "Center must be >= edge");
+    }
+
+    [Fact]
+    public void ModifiedBesselI0_LargeNegativeArg_Same_As_Positive()
+    {
+        // I0 is even: I0(-x) = I0(x). Verify symmetry.
+        double pos = AacKbdWindow.ModifiedBesselI0(3.5);
+        double neg = AacKbdWindow.ModifiedBesselI0(-3.5);
+        Assert.Equal(pos, neg, 6);
+    }
+
+    [Fact]
+    public void ModifiedBesselI0_Monotone_For_Positive_Arguments()
+    {
+        // I0(x) is monotonically increasing on [0, infinity).
+        double prev = double.MinValue;
+        for (double x = 0.0; x <= 5.0; x += 0.25)
+        {
+            double v = AacKbdWindow.ModifiedBesselI0(x);
+            Assert.True(v >= prev, $"I0 not monotone at x={x}");
+            prev = v;
+        }
+    }
+
+    [Fact]
+    public void WriteRisingHalf_With_Long_Alpha_Matches_ComputeRisingHalf()
+    {
+        var reference = AacKbdWindow.ComputeRisingHalf(AacKbdWindow.LongHalfLength, AacKbdWindow.LongAlpha);
+        var buf = new float[AacKbdWindow.LongHalfLength];
+        AacKbdWindow.WriteRisingHalf(buf, AacKbdWindow.LongAlpha);
+        for (int i = 0; i < buf.Length; i++)
+        {
+            Assert.Equal(reference[i], buf[i], 6);
+        }
+    }
+
+    [Fact]
+    public void WriteRisingHalf_With_Short_Alpha_Matches_ComputeRisingHalf()
+    {
+        var reference = AacKbdWindow.ComputeRisingHalf(AacKbdWindow.ShortHalfLength, AacKbdWindow.ShortAlpha);
+        var buf = new float[AacKbdWindow.ShortHalfLength];
+        AacKbdWindow.WriteRisingHalf(buf, AacKbdWindow.ShortAlpha);
+        for (int i = 0; i < buf.Length; i++)
+        {
+            Assert.Equal(reference[i], buf[i], 6);
+        }
+    }
+
+    [Fact]
+    public void WriteRisingHalf_ZeroAlpha_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            float[] buf = new float[16];
+            AacKbdWindow.WriteRisingHalf(buf.AsSpan(), 0.0);
+        });
+    }
+
+    [Fact]
+    public void ComputeRisingHalf_TwoCalls_Produce_Equal_But_Independent_Arrays()
+    {
+        var a = AacKbdWindow.ComputeRisingHalf(128, 4.0);
+        var b = AacKbdWindow.ComputeRisingHalf(128, 4.0);
+        Assert.Equal(a.Length, b.Length);
+        for (int i = 0; i < a.Length; i++) Assert.Equal(a[i], b[i]);
+    }
+
+    [Theory]
+    [InlineData(64, 4.0)]
+    [InlineData(128, 6.0)]
+    public void ComputeFull_RightHalfDescends(int halfLength, double alpha)
+    {
+        var w = AacKbdWindow.ComputeFull(halfLength, alpha);
+        for (int i = halfLength + 1; i < w.Length; i++)
+        {
+            Assert.True(w[i] <= w[i - 1]);
+        }
+    }
+
+    [Fact]
+    public void ComputeRisingHalf_HigherAlpha_StartsLower_For_Same_Length()
+    {
+        // Larger alpha -> more concentrated kernel -> first sample is even smaller.
+        var a4 = AacKbdWindow.ComputeRisingHalf(128, 4.0);
+        var a6 = AacKbdWindow.ComputeRisingHalf(128, 6.0);
+        Assert.True(a6[0] <= a4[0],
+            $"alpha=6 first sample {a6[0]} should be <= alpha=4 first sample {a4[0]}");
+    }
 }

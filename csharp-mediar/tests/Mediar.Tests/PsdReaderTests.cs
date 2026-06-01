@@ -86,6 +86,171 @@ public class PsdReaderTests
         Assert.Equal("Test photo", r.Metadata.Description);
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            PsdReader.Open((Stream)null!, ownsStream: false));
+    }
+
+    [Fact]
+    public void Open_Missing_Path_Throws_FileNotFound()
+    {
+        string p = Path.Combine(Path.GetTempPath(),
+            "missing-psd-" + Guid.NewGuid().ToString("N") + ".psd");
+        Assert.Throws<FileNotFoundException>(() => PsdReader.Open(p));
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        Assert.Throws<ImageFormatException>(() =>
+            PsdReader.Open(new MemoryStream(Array.Empty<byte>()), ownsStream: true));
+    }
+
+    [Fact]
+    public void Stream_Too_Short_For_Header_Throws()
+    {
+        // Less than 26 bytes -> rejected.
+        byte[] tooShort = [(byte)'8', (byte)'B', (byte)'P', (byte)'S', 0, 1];
+        Assert.Throws<ImageFormatException>(() =>
+            PsdReader.Open(new MemoryStream(tooShort), ownsStream: true));
+    }
+
+    [Fact]
+    public void Unsupported_Version_Throws()
+    {
+        // 8BPS signature, version 0xABCD (not 1 or 2) -> rejected.
+        var bytes = new byte[26];
+        bytes[0] = (byte)'8'; bytes[1] = (byte)'B'; bytes[2] = (byte)'P'; bytes[3] = (byte)'S';
+        bytes[4] = 0xAB; bytes[5] = 0xCD;
+        Assert.Throws<ImageFormatException>(() =>
+            PsdReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var psd = BuildPsd(2, 2, 3, 8, PsdColorMode.Rgb, 1);
+        var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        r.Dispose();
+        r.Dispose(); // must not throw
+    }
+
+    [Fact]
+    public void OwnsStream_False_Keeps_Underlying_Stream_Alive()
+    {
+        var psd = BuildPsd(2, 2, 3, 8, PsdColorMode.Rgb, 1);
+        var inner = new MemoryStream(psd, writable: false);
+        var r = PsdReader.Open(inner, ownsStream: false);
+        r.Dispose();
+        Assert.True(inner.CanRead);
+        inner.Dispose();
+    }
+
+    [Fact]
+    public void Grayscale_8Bit_Single_Channel_Header()
+    {
+        var psd = BuildPsd(width: 4, height: 2, channels: 1, depth: 8,
+                            mode: PsdColorMode.Grayscale, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PsdColorMode.Grayscale, r.ColorMode);
+        Assert.Equal(1, r.ChannelCount);
+        Assert.Equal(8, r.BitDepth);
+        Assert.Equal(PixelFormat.Gray8, r.Info.PixelFormat);
+    }
+
+    [Fact]
+    public void Grayscale_16Bit_Single_Channel_Header()
+    {
+        var psd = BuildPsd(width: 4, height: 2, channels: 1, depth: 16,
+                            mode: PsdColorMode.Grayscale, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PixelFormat.Gray16, r.Info.PixelFormat);
+        Assert.Equal(16, r.BitDepth);
+    }
+
+    [Fact]
+    public void Rgba_8Bit_Four_Channels_Header_HasAlpha()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 4, depth: 8,
+                            mode: PsdColorMode.Rgb, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PixelFormat.Rgba32, r.Info.PixelFormat);
+        Assert.True(r.Info.HasAlpha);
+        Assert.Equal(4, r.ChannelCount);
+    }
+
+    [Fact]
+    public void Cmyk_8Bit_Four_Channels_Header()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 4, depth: 8,
+                            mode: PsdColorMode.Cmyk, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PsdColorMode.Cmyk, r.ColorMode);
+        Assert.Equal(PixelFormat.Cmyk32, r.Info.PixelFormat);
+    }
+
+    [Fact]
+    public void Indexed_8Bit_Header()
+    {
+        var psd = BuildPsd(width: 4, height: 4, channels: 1, depth: 8,
+                            mode: PsdColorMode.Indexed, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PixelFormat.Indexed8, r.Info.PixelFormat);
+    }
+
+    [Fact]
+    public void Unknown_Combination_Sets_PixelFormat_Unknown_And_CannotDecode()
+    {
+        // Multichannel with depth 32 -> falls into wildcard arm.
+        var psd = BuildPsd(width: 2, height: 2, channels: 5, depth: 32,
+                            mode: PsdColorMode.Multichannel, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(PixelFormat.Unknown, r.Info.PixelFormat);
+        Assert.False(r.CanDecodePixels);
+    }
+
+    [Fact]
+    public void Info_FrameCount_Is_One()
+    {
+        var psd = BuildPsd(width: 4, height: 4, channels: 3, depth: 8,
+                            mode: PsdColorMode.Rgb, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(1, r.Info.FrameCount);
+        Assert.False(r.Info.IsAnimated);
+    }
+
+    [Fact]
+    public void Info_BitsPerPixel_Reflects_Depth_Times_Channels()
+    {
+        var psd = BuildPsd(width: 4, height: 4, channels: 4, depth: 16,
+                            mode: PsdColorMode.Rgb, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(64, r.Info.BitsPerPixel);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honours_Cancellation_Token()
+    {
+        var psd = BuildPsd(2, 2, 3, 8, PsdColorMode.Rgb, 1, compression: 0,
+            channelData: [
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ]);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
+
     private static byte[] BuildIptcBlock(string byline, string caption)
     {
         using var ms = new MemoryStream();
