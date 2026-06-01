@@ -172,4 +172,131 @@ public sealed class AacIcsInfoTests
             Assert.Equal(8, sum);
         }
     }
+
+    [Fact]
+    public void TryParse_EightShort_Sets_ScaleFactorGrouping_NonNull()
+    {
+        // Long sequences leave ScaleFactorGrouping null; EIGHT_SHORT
+        // always populates it.
+        var longBytes = ParseHelper_BuildLong(maxSfb: 5, windowShape: 0, predictor: false);
+        Assert.True(RunParse(longBytes, out var longInfo));
+        Assert.Null(longInfo!.ScaleFactorGrouping);
+
+        var shortBytes = ParseHelper_BuildShort(maxSfb: 3, windowShape: 0, sfg: 0b0101_0101);
+        Assert.True(RunParse(shortBytes, out var shortInfo));
+        Assert.NotNull(shortInfo!.ScaleFactorGrouping);
+    }
+
+    [Fact]
+    public void TryParse_EightShort_PredictorDataPresent_Is_Always_False()
+    {
+        // Predictor is forced false for the EIGHT_SHORT branch (no
+        // predictor field exists for it in the spec).
+        var data = ParseHelper_BuildShort(maxSfb: 3, windowShape: 0, sfg: 0b0011_1100);
+        Assert.True(RunParse(data, out var info));
+        Assert.False(info!.PredictorDataPresent);
+    }
+
+    [Fact]
+    public void TryParse_LongStart_Sets_PredictorDataPresent_False()
+    {
+        // Predictor bit = 0 -> info populated, PredictorDataPresent stays false.
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStart, 2);
+        w.Write(0u, 1);
+        w.Write(20u, 6);
+        w.Write(0u, 1);
+        Assert.True(RunParse(w.ToArray(), out var info));
+        Assert.False(info!.PredictorDataPresent);
+    }
+
+    [Fact]
+    public void TryParse_LongStop_Predictor_Rejected_Like_OnlyLong()
+    {
+        // Phase-1 rejects predictor for *every* long window sequence,
+        // not just OnlyLong.
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStop, 2);
+        w.Write(0u, 1);
+        w.Write(20u, 6);
+        w.Write(1u, 1); // predictor = 1
+        Assert.False(RunParse(w.ToArray(), out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void TryParse_LongStart_Predictor_Rejected_Like_OnlyLong()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStart, 2);
+        w.Write(0u, 1);
+        w.Write(20u, 6);
+        w.Write(1u, 1);
+        Assert.False(RunParse(w.ToArray(), out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void TryParse_Zero_Length_Stream_Returns_False()
+    {
+        var reader = new BitReader(Array.Empty<byte>());
+        Assert.False(AacIcsInfo.TryParse(ref reader, out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void Record_With_Init_Replaces_WindowSequence()
+    {
+        var data = ParseHelper_BuildLong(maxSfb: 10, windowShape: 0, predictor: false);
+        Assert.True(RunParse(data, out var info));
+        var altered = info! with { WindowSequence = AacWindowSequence.EightShort };
+        Assert.Equal(AacWindowSequence.OnlyLong, info!.WindowSequence);
+        Assert.Equal(AacWindowSequence.EightShort, altered.WindowSequence);
+    }
+
+    [Fact]
+    public void TryParse_EightShort_MaxSfb_Limit_Is_15()
+    {
+        // The 4-bit field caps at 15 (already enforced by the field
+        // width); ensure that value is accepted.
+        var data = ParseHelper_BuildShort(maxSfb: 15, windowShape: 0, sfg: 0);
+        Assert.True(RunParse(data, out var info));
+        Assert.Equal(15, info!.MaxSfb);
+    }
+
+    [Fact]
+    public void TryParse_Advances_Reader_To_Expected_Position_For_Long()
+    {
+        var data = ParseHelper_BuildLong(maxSfb: 49, windowShape: 0, predictor: false);
+        var reader = new BitReader(data);
+        int beforeRemaining = reader.Remaining;
+        Assert.True(AacIcsInfo.TryParse(ref reader, out _));
+        // ics_info() long = 1 + 2 + 1 + 6 + 1 = 11 bits consumed.
+        Assert.Equal(beforeRemaining - 11, reader.Remaining);
+    }
+
+    [Fact]
+    public void TryParse_Advances_Reader_To_Expected_Position_For_EightShort()
+    {
+        var data = ParseHelper_BuildShort(maxSfb: 5, windowShape: 0, sfg: 0);
+        var reader = new BitReader(data);
+        int beforeRemaining = reader.Remaining;
+        Assert.True(AacIcsInfo.TryParse(ref reader, out _));
+        // ics_info() short = 1 + 2 + 1 + 4 + 7 = 15 bits consumed.
+        Assert.Equal(beforeRemaining - 15, reader.Remaining);
+    }
+
+    [Fact]
+    public void TryParse_WindowsPerGroup_Memory_Length_Matches_GroupCount()
+    {
+        for (int sfg = 0; sfg < 128; sfg++)
+        {
+            var data = ParseHelper_BuildShort(maxSfb: 0, windowShape: 0, sfg: (byte)sfg);
+            Assert.True(RunParse(data, out var info));
+            Assert.Equal(info!.WindowGroupCount, info.WindowsPerGroup.Length);
+        }
+    }
 }
