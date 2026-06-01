@@ -1767,6 +1767,51 @@ public sealed class AacChannelDecoderTests
                 cce, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, null!, output));
     }
 
+    // ----- DecodeCceToSamples — EightShort filterbank path -----
+
+    private static AacCouplingChannelElement BuildShortWindowCce()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        const int maxSfb = 4;
+        var w = new AacBitWriter();
+        w.Write(4u, 4);              // element_instance_tag
+        w.Write(0u, 1);              // ind_sw_cce_flag = 0
+        w.Write(0u, 3);              // num_coupled_elements = 0 → 1 SCE target
+        w.Write(0u, 1); w.Write(2u, 4);         // target: SCE, tag 2
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2); // cc_domain / sign / scale
+        // ICS body: EightShort window
+        w.Write(100u, 8);            // global_gain
+        WriteShortIcsInfo(w, maxSfb, grouping: 0x7F);
+        WriteZeroHcbAndCodebook1Sections(w, groupCount: 1, maxSfb);
+        WriteShortSfData(w, groupCount: 1, maxSfb);
+        w.Write(0u, 1); // pulse_data_present
+        w.Write(0u, 1); // tns_data_present
+        w.Write(0u, 1); // gain_control_data_present
+        WriteShortSpectralData(w, maxSfb, windowsInGroup: 8);
+        // 1 target, not a "both channels coupled" CPE → 0 extra gain lists
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), sfBook, sampleRate: Sr48k, spectralBooks, out var cce));
+        return cce!;
+    }
+
+    [Fact]
+    public void DecodeCceToSamples_EightShort_ProducesPcmOutput()
+    {
+        var cce = BuildShortWindowCce();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeCceToSamples(
+            cce, Sr48k, new AacPnsRandom(), fb, output);
+
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, output.Length);
+        foreach (var s in output) Assert.False(float.IsNaN(s) || float.IsInfinity(s));
+    }
+
     // ----- DecodeSingleChannel composer -----
 
     private static AacSingleChannelElement BuildSceFromFrame(AacChannelFrame frame, int tag = 0)
@@ -1963,6 +2008,25 @@ public sealed class AacChannelDecoderTests
             AacAudioObjectType.AacLc, fb2, out2);
 
         Assert.Equal(out1, out2);
+    }
+
+    [Fact]
+    public void DecodeSingleChannelToSamples_EightShort_ParityWithDecodeMonoToSamples()
+    {
+        var frame = BuildShortWindowFrameNoTns();
+        var sce = BuildSceFromFrame(frame);
+        const uint seed = 55u;
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeSingleChannelToSamples(
+            sce, Sr48k, new AacPnsRandom(seed), fb1, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed), fb2, out2);
+
+        Assert.Equal(out2, out1);
     }
 
     [Fact]
