@@ -1505,4 +1505,118 @@ public sealed class AacChannelDecoderTests
 
         Assert.Equal(direct.Coefficients.ToArray(), via.Coefficients.ToArray());
     }
+
+    // ----- DecodeSingleChannelToSamples / DecodeLfeToSamples -----
+
+    [Fact]
+    public void DecodeSingleChannelToSamples_NullFilterbank_Throws()
+    {
+        var sce = BuildSceFromFrame(BuildFrameNoPns());
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeSingleChannelToSamples(
+                sce, Sr48k, new AacPnsRandom(), null!, output));
+    }
+
+    [Fact]
+    public void DecodeSingleChannelToSamples_ParityWithDecodeMonoToSamples()
+    {
+        var frame = BuildFrameNoPns();
+        var sce = BuildSceFromFrame(frame);
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeSingleChannelToSamples(
+            sce, Sr48k, new AacPnsRandom(seed: 5u), fb1, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: 5u), fb2, out2);
+
+        Assert.Equal(out2, out1);
+    }
+
+    [Fact]
+    public void DecodeSingleChannelToSamples_Aot_NullFilterbank_Throws()
+    {
+        var sce = BuildSceFromFrame(BuildFrameNoPns());
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeSingleChannelToSamples(
+                sce, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, null!, output));
+    }
+
+    [Fact]
+    public void DecodeSingleChannelToSamples_Aot_LcNoTns_MatchesNonAotOverload()
+    {
+        var sce = BuildSceFromFrame(BuildFrameNoPns());
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeSingleChannelToSamples(
+            sce, Sr48k, new AacPnsRandom(seed: 21u), fb1, out1);
+        AacChannelDecoder.DecodeSingleChannelToSamples(
+            sce, Sr48k, new AacPnsRandom(seed: 21u),
+            AacAudioObjectType.AacLc, fb2, out2);
+
+        Assert.Equal(out1, out2);
+    }
+
+    [Fact]
+    public void DecodeLfeToSamples_NullFilterbank_Throws()
+    {
+        var lfe = BuildLfeFromFrame(BuildFrameNoPns());
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeLfeToSamples(
+                lfe, Sr48k, new AacPnsRandom(), null!, output));
+    }
+
+    [Fact]
+    public void DecodeLfeToSamples_ParityWithDecodeMonoToSamples()
+    {
+        var frame = BuildFrameNoPns();
+        var lfe = BuildLfeFromFrame(frame);
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeLfeToSamples(
+            lfe, Sr48k, new AacPnsRandom(seed: 31u), fb1, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: 31u), fb2, out2);
+
+        Assert.Equal(out2, out1);
+    }
+
+    [Fact]
+    public void DecodeLfeToSamples_Aot_NullFilterbank_Throws()
+    {
+        var lfe = BuildLfeFromFrame(BuildFrameNoPns());
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeLfeToSamples(
+                lfe, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, null!, output));
+    }
+
+    [Fact]
+    public void DecodeLfeToSamples_Aot_LcNoTns_MatchesNonAotOverload()
+    {
+        var lfe = BuildLfeFromFrame(BuildFrameNoPns());
+        var fb1 = new AacSynthesisFilterbank();
+        var fb2 = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeLfeToSamples(
+            lfe, Sr48k, new AacPnsRandom(seed: 33u), fb1, out1);
+        AacChannelDecoder.DecodeLfeToSamples(
+            lfe, Sr48k, new AacPnsRandom(seed: 33u),
+            AacAudioObjectType.AacLc, fb2, out2);
+
+        Assert.Equal(out1, out2);
+    }
 }

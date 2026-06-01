@@ -721,6 +721,79 @@ public static class AacChannelDecoder
         RunFilterbank(decoded, cce.Stream.IcsInfo.WindowShape, filterbank, output);
     }
 
+    /// <summary>
+    /// SCE end-to-end composer: routes through
+    /// <see cref="DecodeSingleChannel(AacSingleChannelElement, int, AacPnsRandom)"/>
+    /// and the synthesis filterbank to produce 1024 PCM samples.
+    /// </summary>
+    public static void DecodeSingleChannelToSamples(
+        AacSingleChannelElement sce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeSingleChannel(sce, sampleRate, prng);
+        RunFilterbank(decoded, sce.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    /// <summary>
+    /// AOT-aware SCE end-to-end composer: same as
+    /// <see cref="DecodeSingleChannelToSamples(AacSingleChannelElement, int, AacPnsRandom, AacSynthesisFilterbank, Span{float})"/>
+    /// but also applies TNS inverse filtering.
+    /// </summary>
+    public static void DecodeSingleChannelToSamples(
+        AacSingleChannelElement sce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeSingleChannel(sce, sampleRate, prng, objectType);
+        RunFilterbank(decoded, sce.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    /// <summary>
+    /// LFE end-to-end composer: routes through
+    /// <see cref="DecodeLfe(AacLowFrequencyElement, int, AacPnsRandom)"/>
+    /// and the synthesis filterbank to produce 1024 PCM samples.
+    /// LFE elements are always long-window; the produced PCM has the
+    /// usual 50 % overlap-add carrying state in
+    /// <paramref name="filterbank"/>.
+    /// </summary>
+    public static void DecodeLfeToSamples(
+        AacLowFrequencyElement lfe,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeLfe(lfe, sampleRate, prng);
+        RunFilterbank(decoded, lfe.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    /// <summary>
+    /// AOT-aware LFE end-to-end composer: same as
+    /// <see cref="DecodeLfeToSamples(AacLowFrequencyElement, int, AacPnsRandom, AacSynthesisFilterbank, Span{float})"/>
+    /// but also applies TNS inverse filtering.
+    /// </summary>
+    public static void DecodeLfeToSamples(
+        AacLowFrequencyElement lfe,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeLfe(lfe, sampleRate, prng, objectType);
+        RunFilterbank(decoded, lfe.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
     private static AacChannelFrame CouplingChannelFrame(AacCouplingChannelElement cce)
     {
         if (cce.SpectralData is null)
