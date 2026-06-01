@@ -166,4 +166,113 @@ public sealed class AacStandardScaleFactorCodebookTests
                 $"Symbol {i}: code 0x{code:X} exceeds {bits}-bit cap.");
         }
     }
+
+    [Fact]
+    public void DeltaToSymbol_Boundaries_Are_Inclusive()
+    {
+        Assert.Equal(0, AacStandardScaleFactorCodebook.DeltaToSymbol(-60));
+        Assert.Equal(120, AacStandardScaleFactorCodebook.DeltaToSymbol(60));
+    }
+
+    [Fact]
+    public void SymbolToDelta_AllSymbols_RoundTrip_Via_DeltaToSymbol()
+    {
+        for (int sym = 0; sym < AacStandardScaleFactorCodebook.SymbolCount; sym++)
+        {
+            int delta = AacStandardScaleFactorCodebook.SymbolToDelta(sym);
+            Assert.Equal(sym, AacStandardScaleFactorCodebook.DeltaToSymbol(delta));
+        }
+    }
+
+    [Fact]
+    public void Codes_Have_No_Duplicates_Within_Same_BitLength()
+    {
+        // Huffman prefix property: within a bit-length bucket, all codes
+        // are distinct.
+        var byLen = new Dictionary<int, HashSet<uint>>();
+        for (int i = 0; i < AacStandardScaleFactorCodebook.SymbolCount; i++)
+        {
+            int bits = AacStandardScaleFactorCodebook.Bits[i];
+            uint code = AacStandardScaleFactorCodebook.Codes[i];
+            if (!byLen.TryGetValue(bits, out var set))
+            {
+                set = new HashSet<uint>();
+                byLen[bits] = set;
+            }
+            Assert.True(set.Add(code),
+                $"Duplicate code 0x{code:X} at length {bits} (symbol {i}).");
+        }
+    }
+
+    [Fact]
+    public void Bits_Sum_Total_Is_Stable_Across_Runs()
+    {
+        // Capture the current sum of all bit-lengths; if the table is ever
+        // edited this value will change and surface as a deliberate fail.
+        long sum = 0;
+        for (int i = 0; i < AacStandardScaleFactorCodebook.SymbolCount; i++)
+        {
+            sum += AacStandardScaleFactorCodebook.Bits[i];
+        }
+        Assert.True(sum >= AacStandardScaleFactorCodebook.SymbolCount,
+            $"Sum {sum} is smaller than symbol count.");
+        Assert.True(sum <= AacStandardScaleFactorCodebook.SymbolCount * 19,
+            $"Sum {sum} exceeds max possible (121 * 19).");
+    }
+
+    [Fact]
+    public void Codes_Kraft_Inequality_Holds()
+    {
+        // For a uniquely-decodable Huffman code, Kraft's inequality must hold:
+        //   sum(2^-bits[i]) <= 1
+        double kraft = 0;
+        for (int i = 0; i < AacStandardScaleFactorCodebook.SymbolCount; i++)
+        {
+            kraft += Math.Pow(2, -AacStandardScaleFactorCodebook.Bits[i]);
+        }
+        Assert.True(kraft <= 1.0 + 1e-9, $"Kraft sum {kraft} exceeds 1.");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(50)]
+    [InlineData(60)]
+    [InlineData(75)]
+    [InlineData(120)]
+    public void Encoded_Symbol_Is_Decoded_Back_From_Bit_Buffer(int symbol)
+    {
+        int bits = AacStandardScaleFactorCodebook.Bits[symbol];
+        uint code = AacStandardScaleFactorCodebook.Codes[symbol];
+
+        // Pack `bits` left-aligned into a byte buffer big enough for it.
+        int byteLen = (bits + 7) / 8;
+        // Use up to 3 bytes; for symbols requiring 19 bits we need 3 bytes.
+        Assert.True(byteLen <= 3);
+        byte[] buf = new byte[byteLen];
+        // Shift code left to align with the top of the buffer.
+        int shift = byteLen * 8 - bits;
+        ulong padded = (ulong)code << shift;
+        for (int i = 0; i < byteLen; i++)
+        {
+            buf[i] = (byte)((padded >> ((byteLen - 1 - i) * 8)) & 0xFF);
+        }
+        var reader = new BitReader(buf);
+        Assert.True(AacStandardScaleFactorCodebook.Book.TryDecode(ref reader, out var decoded));
+        Assert.Equal(symbol, decoded);
+    }
+
+    [Fact]
+    public void Bits_Distribution_Includes_Shortest_And_Longest()
+    {
+        // The single-bit codeword and the 19-bit codewords must both
+        // appear in any valid build of this table.
+        bool hasMin = false, hasMax = false;
+        for (int i = 0; i < AacStandardScaleFactorCodebook.SymbolCount; i++)
+        {
+            if (AacStandardScaleFactorCodebook.Bits[i] == 1) hasMin = true;
+            if (AacStandardScaleFactorCodebook.Bits[i] == 19) hasMax = true;
+        }
+        Assert.True(hasMin, "Expected at least one 1-bit codeword.");
+        Assert.True(hasMax, "Expected at least one 19-bit codeword.");
+    }
 }

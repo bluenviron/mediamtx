@@ -93,6 +93,112 @@ public sealed class Mp4CoverArtAtomTests
         Assert.Equal("application/octet-stream", picture.MimeType);
     }
 
+    [Fact]
+    public void Covr_With_Three_Pictures_All_Surface_In_Order()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtomMulti(
+            (13, JpegPayload),
+            (14, PngPayload),
+            (27, BmpPayload))]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(3, meta.Pictures.Count);
+        Assert.Equal("image/jpeg", meta.Pictures[0].MimeType);
+        Assert.Equal("image/png", meta.Pictures[1].MimeType);
+        Assert.Equal("image/bmp", meta.Pictures[2].MimeType);
+    }
+
+    [Fact]
+    public void Covr_Picture_Description_Defaults_To_EmptyString()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 13, JpegPayload)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(string.Empty, picture.Description);
+    }
+
+    [Fact]
+    public void Covr_Picture_Has_CoverFront_Type_Even_When_DataType_Implicit()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 0, JpegPayload)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(MediaPictureType.CoverFront, picture.Type);
+    }
+
+    [Fact]
+    public void Covr_Multiple_Atoms_Accumulate_Pictures()
+    {
+        byte[] ilst = BuildIlst([
+            BuildCovrAtom(dataType: 13, JpegPayload),
+            BuildCovrAtom(dataType: 14, PngPayload),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(2, meta.Pictures.Count);
+    }
+
+    [Fact]
+    public void Covr_With_All_Empty_Children_Adds_No_Pictures()
+    {
+        // Two data children, both empty payloads — both should be skipped.
+        byte[] ilst = BuildIlst([BuildCovrAtomMulti(
+            (13, Array.Empty<byte>()),
+            (14, Array.Empty<byte>()))]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Covr_With_Mixed_Empty_And_Nonempty_Children_Only_NonEmpty_Survives()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtomMulti(
+            (13, Array.Empty<byte>()),
+            (14, PngPayload),
+            (27, Array.Empty<byte>()))]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        Assert.Equal("image/png", pic.MimeType);
+        Assert.Equal(PngPayload, pic.Data.ToArray());
+    }
+
+    [Fact]
+    public void Covr_Then_Multiple_Standard_Text_Atoms_Coexist()
+    {
+        byte[] ilst = BuildIlst([
+            BuildCovrAtom(dataType: 14, PngPayload),
+            BuildTextAtom("\u00A9nam", "Title"),
+            BuildTextAtom("\u00A9ART", "Artist"),
+            BuildTextAtom("\u00A9alb", "Album"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("Title", meta.Title);
+        Assert.Equal("Artist", meta.Artist);
+        Assert.Equal("Album", meta.Album);
+        Assert.Single(meta.Pictures);
+    }
+
+    [Fact]
+    public void Covr_Picture_Data_Is_Independent_Of_Source_Buffer()
+    {
+        // Mutating the original ilst buffer must not bleed into the picture.
+        byte[] src = (byte[])JpegPayload.Clone();
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 13, src)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        var snapshot = pic.Data.ToArray();
+        for (int i = 0; i < ilst.Length; i++) ilst[i] = 0xFF;
+        Assert.Equal(snapshot, pic.Data.ToArray());
+    }
+
+    [Fact]
+    public void Covr_Single_Byte_Payload_Is_Surfaced()
+    {
+        byte[] tiny = [0x42];
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 13, tiny)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        Assert.Equal(tiny, pic.Data.ToArray());
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata ParseIlstAndBuild(byte[] ilstBytes)
