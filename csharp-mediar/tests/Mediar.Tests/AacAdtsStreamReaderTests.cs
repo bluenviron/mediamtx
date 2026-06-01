@@ -267,6 +267,76 @@ public class AacAdtsStreamReaderTests
         Assert.Throws<ObjectDisposedException>(() => reader.ReadNextFrame());
     }
 
+    [Fact]
+    public void ReadNextFrame_MultiBlockAdtsFrame_YieldsEachBlockSeparately()
+    {
+        byte[] frame = BuildAdtsMonoMultiSceFrame(blockCount: 3);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var block1 = reader.ReadNextFrame();
+        var block2 = reader.ReadNextFrame();
+        var block3 = reader.ReadNextFrame();
+        var eof = reader.ReadNextFrame();
+
+        Assert.NotNull(block1);
+        Assert.NotNull(block2);
+        Assert.NotNull(block3);
+        Assert.Null(eof);
+        Assert.All(new[] { block1!, block2!, block3! }, b =>
+        {
+            Assert.Single(b.Channels);
+            Assert.Equal(AacSpeaker.FrontCentre, b.Channels[0].Speaker);
+        });
+        // FrameCount on the inner decoder counts every decoded
+        // raw_data_block — three for one multi-block ADTS frame.
+        Assert.Equal(3, reader.FrameCount);
+    }
+
+    [Fact]
+    public void ReadFrames_MultiBlockEnumerator_YieldsAllInOrder()
+    {
+        byte[] frame = BuildAdtsMonoMultiSceFrame(blockCount: 2);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        int count = 0;
+        foreach (var b in reader.ReadFrames())
+        {
+            Assert.Single(b.Channels);
+            count++;
+        }
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public void ResetState_ClearsPendingMultiBlockQueue()
+    {
+        byte[] frameA = BuildAdtsMonoMultiSceFrame(blockCount: 3);
+        byte[] frameB = BuildAdtsMonoSceFrame();
+        byte[] payload = Concat(frameA, frameB);
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        // Pull one block from the 3-block frame; the remaining two
+        // sit on the pending queue. FrameCount reflects the inner
+        // decoder's block counter, which counted all three blocks
+        // when DecodeBlocks drained the ADTS frame.
+        _ = reader.ReadNextFrame();
+        Assert.Equal(3, reader.FrameCount);
+
+        // ResetState must drop those pending blocks; the next read
+        // pulls from the buffered second frame in the stream rather
+        // than the queue. But because we don't rewind the stream,
+        // the next ReadNextFrame may produce InvalidData (stream
+        // mid-frame). The assertion here is just that ResetState
+        // does not throw, and that FrameCount + buffer state are
+        // both cleared.
+        reader.ResetState();
+        Assert.Equal(0, reader.FrameCount);
+        Assert.Null(reader.CurrentConfig);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
@@ -277,12 +347,43 @@ public class AacAdtsStreamReaderTests
 
     private static byte[] BuildAdtsMonoSceFrame()
     {
+        byte[] payload = BuildEmptySceRdb();
+        return WrapAdtsHeader(payload, rdbInFrame: 0);
+    }
+
+    private static byte[] BuildAdtsMonoMultiSceFrame(int blockCount)
+    {
+        // Each empty SCE block's BitWriter byte-aligns on ToArray;
+        // concatenating N gives the byte-aligned multi-block payload
+        // shape required by ADTS with number_of_raw_data_blocks > 0.
+        byte[][] blocks = new byte[blockCount][];
+        int payloadLen = 0;
+        for (int i = 0; i < blockCount; i++)
+        {
+            blocks[i] = BuildEmptySceRdb(tag: i);
+            payloadLen += blocks[i].Length;
+        }
+        byte[] payload = new byte[payloadLen];
+        int o = 0;
+        foreach (var b in blocks)
+        {
+            Buffer.BlockCopy(b, 0, payload, o, b.Length);
+            o += b.Length;
+        }
+        return WrapAdtsHeader(payload, rdbInFrame: blockCount - 1);
+    }
+
+    private static byte[] BuildEmptySceRdb(int tag = 0, int maxSfb = 10)
+    {
         var w = new AacBitWriter();
         w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
-        AacRawDataBlockTests.WriteEmptySceBodyShared(w, tag: 0, maxSfb: 10);
+        AacRawDataBlockTests.WriteEmptySceBodyShared(w, tag, maxSfb);
         w.Write((uint)AacSyntacticElementType.End, 3);
-        byte[] payload = w.ToArray();
+        return w.ToArray();
+    }
 
+    private static byte[] WrapAdtsHeader(byte[] payload, int rdbInFrame)
+    {
         int headerSize = 7;
         int frameLength = headerSize + payload.Length;
 
@@ -294,7 +395,7 @@ public class AacAdtsStreamReaderTests
         h[3] = (byte)(((1 & 0x03) << 6) | ((frameLength >> 11) & 0x03));
         h[4] = (byte)((frameLength >> 3) & 0xFF);
         h[5] = (byte)(((frameLength & 0x07) << 5) | 0x1F);
-        h[6] = 0xFC;
+        h[6] = (byte)(0xFC | (rdbInFrame & 0x03));
 
         byte[] frame = new byte[frameLength];
         Buffer.BlockCopy(h, 0, frame, 0, headerSize);

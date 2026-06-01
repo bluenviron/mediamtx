@@ -43,6 +43,7 @@ public sealed class AacAdtsStreamReader : IDisposable
     private bool _eof;
     private bool _skippedLeadingId3;
     private bool _disposed;
+    private readonly Queue<AacDecodedRawDataBlock> _pending = new();
 
     /// <summary>Construct a reader over <paramref name="stream"/>.</summary>
     /// <param name="stream">Source stream; must be readable.</param>
@@ -101,19 +102,31 @@ public sealed class AacAdtsStreamReader : IDisposable
     public int CurrentChannelCount => _decoder.CurrentChannelCount;
 
     /// <summary>
-    /// Read the next decoded frame from the stream, or <c>null</c>
-    /// when end-of-stream is reached on a clean frame boundary.
+    /// Read the next decoded raw_data_block from the stream, or
+    /// <c>null</c> when end-of-stream is reached on a clean frame
+    /// boundary. Multi-block ADTS frames are transparently
+    /// fanned out — successive calls return the next block until
+    /// the queue drains, then the reader pulls the next frame
+    /// from the stream.
     /// </summary>
     /// <exception cref="InvalidDataException">
     /// Mid-stream sync was lost or the stream ended in the middle
     /// of a frame.
     /// </exception>
     /// <exception cref="NotSupportedException">
-    /// A multi-raw_data_block ADTS frame was encountered.
+    /// A protected multi-block ADTS frame
+    /// (<c>protection_absent == 0</c> with multiple raw_data_blocks)
+    /// was encountered. Per-block CRC interleaving is not yet
+    /// supported.
     /// </exception>
     public AacDecodedRawDataBlock? ReadNextFrame()
     {
         ThrowIfDisposed();
+
+        if (_pending.Count > 0)
+        {
+            return _pending.Dequeue();
+        }
 
         if (!_skippedLeadingId3)
         {
@@ -153,9 +166,13 @@ public sealed class AacAdtsStreamReader : IDisposable
         }
 
         var frame = _buffer.AsSpan(_start, frameLength);
-        var block = _decoder.DecodeFrame(frame);
+        _decoder.DecodeBlocks(frame, b => _pending.Enqueue(b));
         _start += frameLength;
-        return block;
+
+        // DecodeBlocks always produces at least one block for a
+        // syntactically valid frame; a zero-yield outcome would
+        // indicate a parser bug rather than malformed input.
+        return _pending.Count > 0 ? _pending.Dequeue() : null;
     }
 
     /// <summary>
@@ -186,6 +203,7 @@ public sealed class AacAdtsStreamReader : IDisposable
         _start = 0;
         _end = 0;
         _eof = false;
+        _pending.Clear();
         // ID3v2 only sits at file start; after a seek we deliberately
         // do NOT re-scan for it (callers should seek past their own
         // ID3 tag if any).
