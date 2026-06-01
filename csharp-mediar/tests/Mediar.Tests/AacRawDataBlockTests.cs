@@ -598,4 +598,95 @@ public sealed class AacRawDataBlockTests
         Assert.NotNull(block);
         Assert.True(block!.TerminatedByEnd);
     }
+
+    // ----- EightShort window raw_data_block coverage -----
+
+    private static void WriteEmptyShortSceBody(AacBitWriter w, int tag, int maxSfb, byte grouping)
+    {
+        w.Write((uint)tag, 4);                              // element_instance_tag
+        w.Write(0u, 8);                                     // global_gain
+        w.Write(0u, 1);                                     // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);     // window_sequence
+        w.Write(0u, 1);                                     // window_shape (Sine)
+        w.Write((uint)maxSfb, 4);                           // max_sfb (4 bits for short)
+        w.Write(grouping, 7);                               // scale_factor_grouping
+        // One ZERO_HCB section per group.
+        int groupCount = 1;
+        for (int i = 1; i < 8; i++) if (((grouping >> (7 - i)) & 1) == 0) groupCount++;
+        for (int g = 0; g < groupCount; g++)
+        {
+            w.Write(0u, 4);                                 // sect_cb = 0 (ZERO_HCB)
+            w.Write((uint)maxSfb, 3);                       // sect_len_incr (short: 3 bits, < 7)
+        }
+        w.Write(0u, 1);                                     // pulse_data_present (forbidden when 1 for short)
+        w.Write(0u, 1);                                     // tns_data_present
+        w.Write(0u, 1);                                     // gain_control_data_present
+    }
+
+    [Fact]
+    public void TryParse_WithContext_EightShortSceFollowedByEnd_ConsumesSceWithShortIcs()
+    {
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptyShortSceBody(w, tag: 4, maxSfb: 4, grouping: 0x7F);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(2, block.Entries.Count);
+        Assert.Equal(AacSyntacticElementType.SingleChannelElement, block.Entries[0].Type);
+        Assert.NotNull(block.Entries[0].SingleChannel);
+        Assert.Equal(4, block.Entries[0].SingleChannel!.ElementInstanceTag);
+        Assert.Equal(
+            AacWindowSequence.EightShort,
+            block.Entries[0].SingleChannel!.Stream.IcsInfo.WindowSequence);
+        Assert.NotNull(block.Entries[0].SingleChannel!.SpectralData);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_EightShortLfeFollowedByEnd_ConsumesLfeWithShortIcs()
+    {
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.LfeChannelElement, 3);
+        WriteEmptyShortSceBody(w, tag: 1, maxSfb: 4, grouping: 0x7F); // LFE shares the SCE body shape.
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(2, block.Entries.Count);
+        Assert.NotNull(block.Entries[0].LowFrequency);
+        Assert.Equal(1, block.Entries[0].LowFrequency!.ElementInstanceTag);
+        Assert.Equal(
+            AacWindowSequence.EightShort,
+            block.Entries[0].LowFrequency!.Stream.IcsInfo.WindowSequence);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_MixedLongAndShortSces_BothConsumed()
+    {
+        // Verify a raw_data_block can mix per-element window sequences across
+        // back-to-back SCEs (one OnlyLong, one EightShort).
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptySceBody(w, tag: 0, maxSfb: 6);
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptyShortSceBody(w, tag: 1, maxSfb: 4, grouping: 0x7F);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(3, block.Entries.Count);
+        Assert.Equal(
+            AacWindowSequence.OnlyLong,
+            block.Entries[0].SingleChannel!.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(
+            AacWindowSequence.EightShort,
+            block.Entries[1].SingleChannel!.Stream.IcsInfo.WindowSequence);
+    }
 }
