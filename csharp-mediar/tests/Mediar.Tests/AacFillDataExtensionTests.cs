@@ -138,4 +138,88 @@ public sealed class AacFillDataExtensionTests
         Assert.Equal(AacFillExtensionType.DynamicRange, fil.FillExtension!.ExtensionType);
         Assert.Null(fil.FillExtension.FillData);
     }
+
+    [Fact]
+    public void Expected_FillNibble_Constant_Is_Zero()
+    {
+        Assert.Equal((byte)0x0, AacFillDataExtension.ExpectedFillNibble);
+    }
+
+    [Fact]
+    public void Expected_FillByte_Constant_Is_A5()
+    {
+        Assert.Equal((byte)0xA5, AacFillDataExtension.ExpectedFillByte);
+    }
+
+    [Fact]
+    public void TryParse_NegativeBitLength_Returns_False()
+    {
+        Assert.False(AacFillDataExtension.TryParse(new byte[1], -1, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_BodyShorterThanRequestedBits_Returns_False()
+    {
+        // 12 bits requested but body is only 1 byte (8 bits)
+        Assert.False(AacFillDataExtension.TryParse(new byte[1], 12, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_OneByteOfFill_RoundTrips()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 12, out var data));
+        Assert.Equal((byte)0x0, data!.FillNibble);
+        Assert.Equal(1, data.FillBytes.Length);
+        Assert.Equal(0xA5, data.FillBytes.Span[0]);
+        Assert.True(data.IsConformant);
+    }
+
+    [Fact]
+    public void TryParse_MismatchedNibble_NotConformant_Even_With_Conformant_Bytes()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x3u, 4); // bad nibble
+        w.Write(0xA5u, 8);
+        w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 20, out var data));
+        Assert.Equal((byte)0x3, data!.FillNibble);
+        Assert.False(data.IsConformant);
+    }
+
+    [Fact]
+    public void TryParse_AllFillBytesConformant_Boundary_Case()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        // 10 fill bytes
+        for (int i = 0; i < 10; i++) w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 84, out var data));
+        Assert.Equal(10, data!.FillBytes.Length);
+        Assert.True(data.IsConformant);
+    }
+
+    [Fact]
+    public void FillBytes_Memory_Is_Independent_Per_Instance()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xA5u, 8);
+        AacFillDataExtension.TryParse(w.ToArray(), 12, out var d1);
+
+        var w2 = new AacBitWriter();
+        w2.Write(0x0u, 4);
+        w2.Write(0xA5u, 8);
+        AacFillDataExtension.TryParse(w2.ToArray(), 12, out var d2);
+
+        Assert.NotSame(d1, d2);
+        Assert.True(d1!.FillBytes.Span.SequenceEqual(d2!.FillBytes.Span));
+    }
 }

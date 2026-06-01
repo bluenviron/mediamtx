@@ -49,6 +49,241 @@ public class HeifReaderTests
         Assert.Equal(1u, r.PrimaryItemId);
     }
 
+    [Fact]
+    public void Open_NullStream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => HeifReader.Open(null!, ImageFormat.Heif));
+    }
+
+    [Fact]
+    public void Open_NonExistentFile_Throws()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"mediar-heif-missing-{Guid.NewGuid():N}.heic");
+        Assert.Throws<FileNotFoundException>(() => HeifReader.Open(path));
+    }
+
+    [Fact]
+    public void CanDecodePixels_Is_False()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.CanDecodePixels);
+    }
+
+    [Fact]
+    public void Dispose_Idempotent()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void OwnsStreamFalse_Leaves_Source_Open()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        var src = new MemoryStream(bytes);
+        var r = HeifReader.Open(src, ImageFormat.Heif, ownsStream: false);
+        r.Dispose();
+        Assert.True(src.CanRead);
+        src.Dispose();
+    }
+
+    [Fact]
+    public void CompatibleBrands_Populated()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        // Fixture writes major+minor then "mif1" then major again.
+        Assert.Contains("mif1", r.CompatibleBrands);
+        Assert.Contains("heic", r.CompatibleBrands);
+    }
+
+    [Fact]
+    public void BrandInfo_Reflects_Major_Brand_Heic()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("heic", r.BrandInfo.MajorBrand);
+        Assert.Equal(HeifCodec.Hevc, r.BrandInfo.PrimaryCodec);
+        Assert.Equal(HeifContainerKind.SingleImage, r.BrandInfo.ContainerKind);
+        Assert.False(r.BrandInfo.IsImageSequence);
+        Assert.True(r.BrandInfo.HasBrand("heic"));
+        Assert.True(r.BrandInfo.HasBrand("mif1"));
+        Assert.False(r.BrandInfo.HasBrand("xxxx"));
+    }
+
+    [Fact]
+    public void BrandInfo_Reflects_Major_Brand_Avif()
+    {
+        var bytes = BuildMinimalHeif("avif", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("avif", r.BrandInfo.MajorBrand);
+        Assert.Equal(HeifCodec.Av1, r.BrandInfo.PrimaryCodec);
+    }
+
+    [Fact]
+    public void Items_Contains_Primary_Item()
+    {
+        var bytes = BuildMinimalHeif("heic", 16, 16, primaryItemId: 1);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.NotEmpty(r.Items);
+        Assert.Contains(r.Items, i => i.Id == 1);
+    }
+
+    [Fact]
+    public void Properties_Contains_Ispe()
+    {
+        var bytes = BuildMinimalHeif("heic", 32, 24);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Contains(r.Properties, p => p.Type == "ispe");
+    }
+
+    [Fact]
+    public void Associations_Maps_Primary_To_Ispe()
+    {
+        var bytes = BuildMinimalHeif("heic", 32, 24, primaryItemId: 1);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.Associations.ContainsKey(1u));
+        var indices = r.Associations[1u];
+        Assert.NotEmpty(indices);
+    }
+
+    [Fact]
+    public void References_Empty_For_Minimal_Fixture()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Empty(r.References);
+    }
+
+    [Fact]
+    public void Primary_Thumbnails_And_Auxiliaries_Empty_When_None()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8, primaryItemId: 1);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Empty(r.PrimaryThumbnailIds);
+        Assert.Empty(r.PrimaryAuxiliaryIds);
+    }
+
+    [Fact]
+    public void GetConstructionMethod_UnknownItem_ReturnsZero()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(0, r.GetConstructionMethod(9999u));
+    }
+
+    [Fact]
+    public void TryGetItemData_UnknownItem_ReturnsFalse()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.TryGetItemData(9999u, out var data));
+        Assert.True(data.IsEmpty);
+    }
+
+    [Fact]
+    public void TryGetGridDerivation_UnknownItem_ReturnsFalse()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.TryGetGridDerivation(9999u, out _));
+    }
+
+    [Fact]
+    public void TryGetOverlayDerivation_UnknownItem_ReturnsFalse()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.TryGetOverlayDerivation(9999u, out _));
+    }
+
+    [Fact]
+    public void IsIdentityDerivation_UnknownItem_ReturnsFalse()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.IsIdentityDerivation(9999u));
+    }
+
+    [Fact]
+    public void IsIdentityDerivation_HvcItem_ReturnsFalse()
+    {
+        // The minimal fixture's primary item is "hvc1", not "iden".
+        var bytes = BuildMinimalHeif("heic", 8, 8, primaryItemId: 1);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.IsIdentityDerivation(1u));
+    }
+
+    [Fact]
+    public void Property_Lookup_Helpers_Return_False_When_Property_Missing()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8, primaryItemId: 1);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        // None of these properties exist in the minimal fixture.
+        Assert.False(r.TryGetContentLightLevel(1u, out _));
+        Assert.False(r.TryGetMasteringDisplayColourVolume(1u, out _));
+        Assert.False(r.TryGetCleanAperture(1u, out _));
+        Assert.False(r.TryGetPixelInformation(1u, out _));
+        Assert.False(r.TryGetAuxiliaryType(1u, out _));
+        Assert.False(r.TryGetAv1OperatingPoint(1u, out _));
+        Assert.False(r.TryGetAv1LayeredImageIndexing(1u, out _));
+        Assert.False(r.TryGetAv1CodecConfiguration(1u, out _));
+        Assert.False(r.TryGetHevcCodecConfiguration(1u, out _));
+        Assert.False(r.TryGetVvcCodecConfiguration(1u, out _));
+        Assert.False(r.TryGetUserDescription(1u, out _));
+        Assert.False(r.TryGetContentColourVolume(1u, out _));
+        Assert.False(r.TryGetLayerSelector(1u, out _));
+        Assert.False(r.TryGetRequiredReference(1u, out _));
+        Assert.False(r.TryGetJpegConfiguration(1u, out _));
+        Assert.False(r.TryGetTargetOutputLayerSet(1u, out _));
+        Assert.False(r.TryGetOperatingPointsInformation(1u, out _));
+        Assert.False(r.TryGetImageRotation(1u, out var rot));
+        Assert.Equal(HeifImageRotation.None, rot);
+        Assert.False(r.TryGetImageMirror(1u, out _));
+        Assert.False(r.TryGetPixelAspectRatio(1u, out _));
+    }
+
+    [Fact]
+    public void Property_Lookup_Helpers_Return_False_For_Item_Without_Associations()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        // Unknown item has no associations row at all.
+        Assert.False(r.TryGetImageRotation(9999u, out _));
+        Assert.False(r.TryGetImageMirror(9999u, out _));
+        Assert.False(r.TryGetPixelAspectRatio(9999u, out _));
+    }
+
+    [Fact]
+    public void Refining_Mif1_Brand_Stays_Heif()
+    {
+        var bytes = BuildMinimalHeif("mif1", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(ImageFormat.Heif, r.Format);
+        Assert.Equal("mif1", r.MajorBrand);
+    }
+
+    [Fact]
+    public void Refining_Cr3_Brand_Sets_Cr3()
+    {
+        var bytes = BuildMinimalHeif("crx ", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(ImageFormat.Cr3, r.Format);
+        Assert.Equal(HeifCodec.CanonRaw, r.BrandInfo.PrimaryCodec);
+    }
+
+    [Fact]
+    public void Format_Preserved_When_Caller_Passes_Specific()
+    {
+        // Caller-supplied non-Heif format should NOT be refined.
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Avif, ownsStream: true);
+        Assert.Equal(ImageFormat.Avif, r.Format);
+    }
+
     // ---- fixture builder ----
     private static byte[] BuildMinimalHeif(string brand, int widthDim, int heightDim, uint primaryItemId = 1)
     {
