@@ -403,4 +403,138 @@ public sealed class AacSynthesisFilterbankTests
         }
         return coefs;
     }
+
+    // ----- LongStart / LongStop transition-window coverage -----
+
+    [Fact]
+    public void ProcessLongBlock_LongStart_AllZeroCoefs_ProducesZeroOutput()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStart,
+            AacWindowShape.Sine, output);
+
+        for (int i = 0; i < output.Length; i++) Assert.Equal(0f, output[i]);
+        for (int i = 0; i < fb.Overlap.Length; i++) Assert.Equal(0f, fb.Overlap[i]);
+    }
+
+    [Fact]
+    public void ProcessLongBlock_LongStop_AllZeroCoefs_ProducesZeroOutput()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStop,
+            AacWindowShape.Sine, output);
+
+        for (int i = 0; i < output.Length; i++) Assert.Equal(0f, output[i]);
+        for (int i = 0; i < fb.Overlap.Length; i++) Assert.Equal(0f, fb.Overlap[i]);
+    }
+
+    [Fact]
+    public void ProcessLongBlock_LongStart_UpdatesPreviousWindowShape()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStart,
+            AacWindowShape.KaiserBesselDerived, output);
+        Assert.Equal(AacWindowShape.KaiserBesselDerived, fb.PreviousWindowShape);
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStart,
+            AacWindowShape.Sine, output);
+        Assert.Equal(AacWindowShape.Sine, fb.PreviousWindowShape);
+    }
+
+    [Fact]
+    public void ProcessLongBlock_LongStop_UpdatesPreviousWindowShape()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStop,
+            AacWindowShape.KaiserBesselDerived, output);
+        Assert.Equal(AacWindowShape.KaiserBesselDerived, fb.PreviousWindowShape);
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStop,
+            AacWindowShape.Sine, output);
+        Assert.Equal(AacWindowShape.Sine, fb.PreviousWindowShape);
+    }
+
+    [Fact]
+    public void ProcessLongBlock_LongStart_OverlapTailIs448Zeros()
+    {
+        // LongStart window right half is [1×448, w_short_right(0..127), 0×448].
+        // After IMDCT × window, the saved overlap (= imdct[M..2M-1] × right-half-window)
+        // must have its last 448 samples set to zero by the windowing.
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        // Drive non-trivial IMDCT output: place an impulse so the windowed result is rich.
+        coefs[10] = 50f;
+        coefs[200] = -30f;
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessLongBlock(coefs, AacWindowSequence.LongStart,
+            AacWindowShape.Sine, output);
+
+        const int zeroTailStart = AacSynthesisFilterbank.LongFrameLength - 448;
+        for (int i = zeroTailStart; i < AacSynthesisFilterbank.LongFrameLength; i++)
+        {
+            Assert.Equal(0f, fb.Overlap[i]);
+        }
+
+        // Sanity: the middle of the new overlap (around the short subwindow tail and the
+        // 1×448 plateau region) is non-zero — proves the windowing actually ran.
+        bool anyNonZero = false;
+        for (int i = 0; i < zeroTailStart; i++)
+        {
+            if (fb.Overlap[i] != 0f) { anyNonZero = true; break; }
+        }
+        Assert.True(anyNonZero, "Expected LongStart overlap before the 448-zero tail to contain energy.");
+    }
+
+    [Fact]
+    public void ProcessLongBlock_LongStop_OutputHeadIsPreviousOverlapHead()
+    {
+        // LongStop window left half is [0×448, w_short_left(0..127), 1×448].
+        // The first 448 samples of the windowed current IMDCT are forced to zero, so
+        // output[0..447] = imdct[0..447] × 0 + previous_overlap[0..447] = previous_overlap.
+        var fb = new AacSynthesisFilterbank();
+
+        // Frame 1: any OnlyLong frame that leaves a non-trivial overlap state.
+        var coefs1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        coefs1[5] = 25f;
+        coefs1[600] = -15f;
+        var output1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        fb.ProcessLongBlock(coefs1, AacWindowSequence.OnlyLong, AacWindowShape.Sine, output1);
+
+        // Snapshot the overlap after frame 1 — these are the samples LongStop should pass through.
+        var savedOverlap = fb.Overlap.ToArray();
+
+        // Frame 2: LongStop with arbitrary coefs; assert head-of-output == head-of-saved-overlap.
+        var coefs2 = new float[AacSynthesisFilterbank.LongFrameLength];
+        coefs2[3] = 12f;
+        coefs2[800] = 7f;
+        var output2 = new float[AacSynthesisFilterbank.LongFrameLength];
+        fb.ProcessLongBlock(coefs2, AacWindowSequence.LongStop, AacWindowShape.Sine, output2);
+
+        for (int i = 0; i < 448; i++)
+        {
+            Assert.Equal(savedOverlap[i], output2[i], 5);
+        }
+
+        // Sanity: samples after the zero head should NOT be identical to the saved overlap —
+        // they pick up the current frame's contribution through the short-left ramp and plateau.
+        bool diverges = false;
+        for (int i = 448; i < AacSynthesisFilterbank.LongFrameLength; i++)
+        {
+            if (Math.Abs(output2[i] - savedOverlap[i]) > 1e-4f) { diverges = true; break; }
+        }
+        Assert.True(diverges, "Expected LongStop output past sample 448 to mix in the current frame.");
+    }
 }
