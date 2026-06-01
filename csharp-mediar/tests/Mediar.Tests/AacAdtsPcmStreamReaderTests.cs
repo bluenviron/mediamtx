@@ -406,6 +406,28 @@ public class AacAdtsPcmStreamReaderTests
         Assert.Throws<ObjectDisposedException>(() => reader.SeekToFrame(entry));
     }
 
+    // ----- async dispose -----
+
+    [Fact]
+    public async Task DisposeAsync_DisposesUnderlyingStream()
+    {
+        var inner = new MemoryStream();
+        var reader = new AacAdtsPcmStreamReader(inner, GetSf(), new AacHuffmanCodebook?[16]);
+        await reader.DisposeAsync();
+        // Subsequent reads must throw because the inner reader is disposed.
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            async () => await reader.ReadNextPcmFrameAsync());
+    }
+
+    [Fact]
+    public async Task DisposeAsync_Idempotent()
+    {
+        var inner = new MemoryStream();
+        var reader = new AacAdtsPcmStreamReader(inner, GetSf(), new AacHuffmanCodebook?[16]);
+        await reader.DisposeAsync();
+        await reader.DisposeAsync(); // must not throw
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

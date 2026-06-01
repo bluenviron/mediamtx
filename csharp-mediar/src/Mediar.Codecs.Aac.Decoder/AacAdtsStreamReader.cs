@@ -29,7 +29,7 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// (skip-forward-and-resync) is the caller's responsibility.
 /// </para>
 /// </remarks>
-public sealed class AacAdtsStreamReader : IDisposable
+public sealed class AacAdtsStreamReader : IDisposable, IAsyncDisposable
 {
     /// <summary>Maximum ADTS frame length (13-bit field): 8191 bytes.</summary>
     public const int MaxFrameLength = (1 << 13) - 1;
@@ -354,6 +354,20 @@ public sealed class AacAdtsStreamReader : IDisposable
         if (_disposed) return;
         _disposed = true;
         if (!_leaveOpen) _stream.Dispose();
+    }
+
+    /// <summary>
+    /// Asynchronously releases the reader and, unless constructed
+    /// with <c>leaveOpen: true</c>, asynchronously disposes the
+    /// underlying stream via
+    /// <see cref="System.IO.Stream.DisposeAsync"/>. Idempotent and
+    /// safe to interleave with synchronous <see cref="Dispose"/>.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        return _leaveOpen ? ValueTask.CompletedTask : _stream.DisposeAsync();
     }
 
     private void ThrowIfDisposed()

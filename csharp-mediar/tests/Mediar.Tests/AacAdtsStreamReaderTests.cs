@@ -544,6 +544,53 @@ public class AacAdtsStreamReaderTests
         Assert.Throws<ObjectDisposedException>(() => reader.SeekToFrame(entry));
     }
 
+    // ----- async dispose -----
+
+    [Fact]
+    public async Task DisposeAsync_DisposesUnderlyingStream()
+    {
+        var inner = new MemoryStream();
+        var tracking = new TrackingStream(inner);
+        var reader = new AacAdtsStreamReader(tracking, GetSf(), new AacHuffmanCodebook?[16]);
+        await reader.DisposeAsync();
+        Assert.True(tracking.AsyncDisposed);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await reader.ReadNextFrameAsync());
+    }
+
+    [Fact]
+    public async Task DisposeAsync_LeaveOpen_DoesNotDisposeStream()
+    {
+        var inner = new MemoryStream();
+        var tracking = new TrackingStream(inner);
+        var reader = new AacAdtsStreamReader(tracking, GetSf(), new AacHuffmanCodebook?[16], leaveOpen: true);
+        await reader.DisposeAsync();
+        Assert.False(tracking.AsyncDisposed);
+        Assert.False(tracking.SyncDisposed);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_Idempotent_SecondCallIsNoop()
+    {
+        var inner = new MemoryStream();
+        var tracking = new TrackingStream(inner);
+        var reader = new AacAdtsStreamReader(tracking, GetSf(), new AacHuffmanCodebook?[16]);
+        await reader.DisposeAsync();
+        await reader.DisposeAsync(); // must not double-dispose
+        Assert.Equal(1, tracking.AsyncDisposeCount);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterSyncDispose_IsNoop()
+    {
+        var inner = new MemoryStream();
+        var tracking = new TrackingStream(inner);
+        var reader = new AacAdtsStreamReader(tracking, GetSf(), new AacHuffmanCodebook?[16]);
+        reader.Dispose();
+        await reader.DisposeAsync(); // already disposed sync, async must not run
+        Assert.Equal(0, tracking.AsyncDisposeCount);
+        Assert.Equal(1, tracking.SyncDisposeCount);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
@@ -710,5 +757,43 @@ public class AacAdtsStreamReaderTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) { }
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class TrackingStream : Stream
+    {
+        private readonly Stream _inner;
+        public bool SyncDisposed { get; private set; }
+        public bool AsyncDisposed { get; private set; }
+        public int SyncDisposeCount { get; private set; }
+        public int AsyncDisposeCount { get; private set; }
+        public TrackingStream(Stream inner) { _inner = inner; }
+        public override bool CanRead => _inner.CanRead;
+        public override bool CanSeek => _inner.CanSeek;
+        public override bool CanWrite => _inner.CanWrite;
+        public override long Length => _inner.Length;
+        public override long Position { get => _inner.Position; set => _inner.Position = value; }
+        public override void Flush() => _inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+        public override void SetLength(long value) => _inner.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                SyncDisposed = true;
+                SyncDisposeCount++;
+                _inner.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2215:Dispose methods should call base class dispose",
+            Justification = "Test helper deliberately bypasses base.DisposeAsync to track sync vs async dispose paths.")]
+        public override ValueTask DisposeAsync()
+        {
+            AsyncDisposed = true;
+            AsyncDisposeCount++;
+            return _inner.DisposeAsync();
+        }
     }
 }

@@ -58,7 +58,7 @@ public sealed record AacPcmFrame
 /// from the inner reader.
 /// </para>
 /// </remarks>
-public sealed class AacAdtsPcmStreamReader : IDisposable
+public sealed class AacAdtsPcmStreamReader : IDisposable, IAsyncDisposable
 {
     private readonly AacAdtsStreamReader _reader;
     private bool _disposed;
@@ -305,6 +305,18 @@ public sealed class AacAdtsPcmStreamReader : IDisposable
         if (_disposed) return;
         _disposed = true;
         _reader.Dispose();
+    }
+
+    /// <summary>
+    /// Asynchronously disposes the facade by forwarding to
+    /// <see cref="AacAdtsStreamReader.DisposeAsync"/> on the inner
+    /// reader. Idempotent.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        return _reader.DisposeAsync();
     }
 
     private void ThrowIfDisposed()
