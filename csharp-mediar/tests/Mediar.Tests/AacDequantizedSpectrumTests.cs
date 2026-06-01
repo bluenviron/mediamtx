@@ -260,4 +260,91 @@ public sealed class AacDequantizedSpectrumTests
         var dq = AacDequantizedSpectrum.FromFrame(frame!, Sr48k);
         Assert.All(dq.Coefficients, c => Assert.Equal(0f, c));
     }
+
+    // ----- EightShort window-sequence coverage -----
+
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                 // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2); // window_sequence
+        w.Write(0u, 1);                                 // window_shape
+        w.Write((uint)maxSfb, 4);                       // max_sfb (4 bits for EightShort)
+        w.Write(grouping, 7);                           // scale_factor_grouping
+    }
+
+    /// <summary>
+    /// 1-SFB EightShort frame (all 8 windows in one group), cb=1, value 1 across the band.
+    /// At 48 kHz, SFB 0 covers 4 coefs × 8 windows = 32 bins → 8 quads of sym 80.
+    /// </summary>
+    private static AacChannelFrame BuildShortSingleGroupFrame(int globalGain, int sfDiff)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write((uint)globalGain, 8);
+        WriteShortIcsInfo(w, maxSfb: 1, grouping: 0x7F);
+
+        w.Write(1u, 4); w.Write(1u, 3);          // sect_cb=1, sect_len_incr=1 (3 bits, short)
+        var (sfCode, sfLen) = EncodeSfDiff(sfDiff);
+        w.Write(sfCode, sfLen);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        for (int i = 0; i < 8; i++) w.Write(80u, 7); // 8 quads of (1,1,1,1)
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.Equal(AacWindowSequence.EightShort, frame!.Stream.IcsInfo.WindowSequence);
+        return frame;
+    }
+
+    [Fact]
+    public void FromFrame_ShortWindow_SingleGroup_DequantizesAcrossAllEightWindows()
+    {
+        var frame = BuildShortSingleGroupFrame(globalGain: 100, sfDiff: 0);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        Assert.Equal(1024, dq.Coefficients.Length);
+        // Group-major layout: SFB 0 packed at coefs [0, 32).
+        for (int i = 0; i < 32; i++)
+        {
+            Assert.Equal(1f, dq.Coefficients[i], precision: 5);
+        }
+        for (int i = 32; i < 1024; i++)
+        {
+            Assert.Equal(0f, dq.Coefficients[i]);
+        }
+    }
+
+    [Fact]
+    public void FromFrame_ShortWindow_SfDiffShiftsGain()
+    {
+        // sf_diff = +4 → sf = 104 → gain = 2.0 across all 32 grouped bins.
+        var frame = BuildShortSingleGroupFrame(globalGain: 100, sfDiff: +4);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        for (int i = 0; i < 32; i++)
+        {
+            Assert.Equal(2f, dq.Coefficients[i], precision: 5);
+        }
+    }
+
+    [Fact]
+    public void FromFrame_ShortWindow_EmptyMaxSfb_ReturnsAllZeros()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteShortIcsInfo(w, maxSfb: 0, grouping: 0x7F);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var frame));
+        var dq = AacDequantizedSpectrum.FromFrame(frame!, Sr48k);
+        Assert.Equal(1024, dq.Coefficients.Length);
+        Assert.All(dq.Coefficients, c => Assert.Equal(0f, c));
+    }
 }
