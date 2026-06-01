@@ -337,6 +337,93 @@ public class AacAdtsStreamReaderTests
         Assert.Null(reader.CurrentConfig);
     }
 
+    // ----- async surface -----
+
+    [Fact]
+    public async Task ReadNextFrameAsync_EmptyStream_ReturnsNull()
+    {
+        using var ms = new MemoryStream();
+        using var reader = NewReader(ms);
+        Assert.Null(await reader.ReadNextFrameAsync());
+    }
+
+    [Fact]
+    public async Task ReadNextFrameAsync_SingleFrame_MatchesSync()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+
+        using var msSync = new MemoryStream(frame);
+        using var sync = NewReader(msSync);
+        var syncBlock = sync.ReadNextFrame();
+        Assert.NotNull(syncBlock);
+
+        using var msAsync = new MemoryStream(frame);
+        using var async = NewReader(msAsync);
+        var asyncBlock = await async.ReadNextFrameAsync();
+        Assert.NotNull(asyncBlock);
+
+        Assert.Equal(sync.FrameCount, async.FrameCount);
+        Assert.Equal(sync.CurrentSampleRate, async.CurrentSampleRate);
+        Assert.Equal(sync.CurrentChannelCount, async.CurrentChannelCount);
+    }
+
+    [Fact]
+    public async Task ReadNextFrameAsync_MultiBlockFrame_FansOutLikeSync()
+    {
+        byte[] frame = BuildAdtsMonoMultiSceFrame(blockCount: 3);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var blocks = new List<AacDecodedRawDataBlock>();
+        AacDecodedRawDataBlock? b;
+        while ((b = await reader.ReadNextFrameAsync()) is not null)
+        {
+            blocks.Add(b);
+        }
+        Assert.Equal(3, blocks.Count);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_TwoFrames_YieldsBoth()
+    {
+        byte[] a = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[a.Length * 2];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        Buffer.BlockCopy(a, 0, payload, a.Length, a.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        int count = 0;
+        await foreach (var _ in reader.ReadFramesAsync())
+        {
+            count++;
+        }
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public async Task ReadNextFrameAsync_Cancelled_Throws()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await reader.ReadNextFrameAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task ReadNextFrameAsync_AfterDispose_Throws()
+    {
+        using var ms = new MemoryStream();
+        var reader = NewReader(ms);
+        reader.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            async () => await reader.ReadNextFrameAsync());
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

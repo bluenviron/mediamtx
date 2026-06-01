@@ -195,6 +195,86 @@ public sealed class AacAdtsStreamReader : IDisposable
     }
 
     /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadNextFrame"/>.
+    /// Performs the same buffer-refill / parse / decode pipeline but
+    /// uses <see cref="System.IO.Stream.ReadAsync(System.Memory{byte}, CancellationToken)"/>
+    /// so the thread is never blocked while waiting on network or
+    /// file IO. Multi-block fan-out is shared with the sync path via
+    /// the same pending queue; subsequent <see cref="ReadNextFrameAsync"/>
+    /// (or <see cref="ReadNextFrame"/>) calls drain it before any new
+    /// stream read.
+    /// </summary>
+    public async Task<AacDecodedRawDataBlock?> ReadNextFrameAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_pending.Count > 0)
+        {
+            return _pending.Dequeue();
+        }
+
+        if (!_skippedLeadingId3)
+        {
+            _skippedLeadingId3 = true;
+            await SkipLeadingId3v2Async(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (!await EnsureBufferedAsync(minBytes: 6, cancellationToken).ConfigureAwait(false))
+        {
+            int leftover = _end - _start;
+            if (leftover == 0) return null;
+            throw new InvalidDataException(
+                $"Stream ended with {leftover} unconsumed bytes before a complete ADTS header.");
+        }
+
+        if (!AacAdtsFrameDecoder.TryParseFrameLength(_buffer.AsSpan(_start, _end - _start), out int frameLength))
+        {
+            throw new InvalidDataException(
+                "Lost ADTS sync at the next-frame boundary; resynchronisation is the caller's responsibility.");
+        }
+
+        if (frameLength > _buffer.Length)
+        {
+            if (frameLength > MaxFrameLength)
+            {
+                throw new InvalidDataException(
+                    $"ADTS header advertised an impossible frame_length of {frameLength} (max {MaxFrameLength}).");
+            }
+            GrowBuffer(frameLength);
+        }
+
+        if (!await EnsureBufferedAsync(minBytes: frameLength, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidDataException(
+                $"Stream ended after only {(_end - _start)} bytes of a declared {frameLength}-byte ADTS frame.");
+        }
+
+        var frame = _buffer.AsSpan(_start, frameLength);
+        _decoder.DecodeBlocks(frame, b => _pending.Enqueue(b));
+        _start += frameLength;
+
+        return _pending.Count > 0 ? _pending.Dequeue() : null;
+    }
+
+    /// <summary>
+    /// Asynchronous counterpart of <see cref="ReadFrames"/>. Yields
+    /// each decoded frame until end-of-stream, awaiting underlying
+    /// IO without blocking the calling thread.
+    /// </summary>
+    public async IAsyncEnumerable<AacDecodedRawDataBlock> ReadFramesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            var frame = await ReadNextFrameAsync(cancellationToken).ConfigureAwait(false);
+            if (frame is null) yield break;
+            yield return frame;
+        }
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state and clear any buffered
     /// bytes. Use after seeking the underlying stream so the next
     /// <see cref="ReadNextFrame"/> resynchronises from the stream's
@@ -244,6 +324,37 @@ public sealed class AacAdtsStreamReader : IDisposable
             }
 
             int read = _stream.Read(_buffer, _end, free);
+            if (read <= 0)
+            {
+                _eof = true;
+            }
+            else
+            {
+                _end += read;
+            }
+        }
+
+        return true;
+    }
+
+    private async ValueTask<bool> EnsureBufferedAsync(int minBytes, CancellationToken cancellationToken)
+    {
+        while (_end - _start < minBytes)
+        {
+            if (_eof) return false;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            CompactBuffer();
+            int free = _buffer.Length - _end;
+            if (free == 0)
+            {
+                GrowBuffer(_buffer.Length * 2);
+                free = _buffer.Length - _end;
+            }
+
+            int read = await _stream
+                .ReadAsync(_buffer.AsMemory(_end, free), cancellationToken)
+                .ConfigureAwait(false);
             if (read <= 0)
             {
                 _eof = true;
@@ -328,6 +439,49 @@ public sealed class AacAdtsStreamReader : IDisposable
             }
             _end += read;
             // Consume those bytes (they're part of the ID3 tag).
+            _start += read;
+            remaining -= read;
+        }
+    }
+
+    private async ValueTask SkipLeadingId3v2Async(CancellationToken cancellationToken)
+    {
+        if (!await EnsureBufferedAsync(minBytes: 10, cancellationToken).ConfigureAwait(false)) return;
+        var head = _buffer.AsSpan(_start, 10);
+        if (head[0] != (byte)'I' || head[1] != (byte)'D' || head[2] != (byte)'3') return;
+
+        int size =
+            ((head[6] & 0x7F) << 21) |
+            ((head[7] & 0x7F) << 14) |
+            ((head[8] & 0x7F) << 7) |
+            (head[9] & 0x7F);
+        int totalSkip = 10 + size;
+
+        int skipFromBuffer = Math.Min(totalSkip, _end - _start);
+        _start += skipFromBuffer;
+        int remaining = totalSkip - skipFromBuffer;
+
+        while (remaining > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int free = _buffer.Length - _end;
+            if (free == 0)
+            {
+                CompactBuffer();
+                free = _buffer.Length - _end;
+            }
+
+            int want = Math.Min(free, remaining);
+            int read = await _stream
+                .ReadAsync(_buffer.AsMemory(_end, want), cancellationToken)
+                .ConfigureAwait(false);
+            if (read <= 0)
+            {
+                _eof = true;
+                return;
+            }
+            _end += read;
             _start += read;
             remaining -= read;
         }
