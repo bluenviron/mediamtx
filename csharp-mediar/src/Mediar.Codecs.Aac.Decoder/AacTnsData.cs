@@ -60,6 +60,57 @@ public sealed record AacTnsData
     public required int BitsConsumed { get; init; }
 
     /// <summary>
+    /// Reads a complete <c>tns_data()</c> element and additionally
+    /// validates each filter's order against the AOT-specific max
+    /// returned by <see cref="AacTnsSpecLimits.GetMaxOrder"/>. Returns
+    /// <see langword="false"/> when any filter's order exceeds the
+    /// permitted maximum for the given AOT/window combination, which
+    /// matches FFmpeg's <c>AVERROR_INVALIDDATA</c> behaviour in
+    /// <c>decode_tns()</c>.
+    /// </summary>
+    /// <param name="reader">Bit reader positioned at the start of <c>tns_data()</c>.</param>
+    /// <param name="windowSequence">Window sequence from the enclosing <c>ics_info()</c>.</param>
+    /// <param name="objectType">
+    /// AAC audio object type, used to pick the per-AOT max-order
+    /// (see <see cref="AacTnsSpecLimits.GetMaxOrder"/>). Must be one
+    /// of <see cref="AacAudioObjectType.AacMain"/>,
+    /// <see cref="AacAudioObjectType.AacLc"/>,
+    /// <see cref="AacAudioObjectType.AacLtp"/>, or
+    /// <see cref="AacAudioObjectType.ErAacLc"/>; other AOTs throw.
+    /// </param>
+    /// <param name="data">Parsed element on success; <see langword="null"/> on failure.</param>
+    /// <returns>
+    /// <see langword="true"/> on a complete read with every filter
+    /// order within the AOT-specific max; <see langword="false"/> on
+    /// stream underflow or on an over-large order.
+    /// </returns>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacWindowSequence windowSequence,
+        AacAudioObjectType objectType,
+        out AacTnsData? data)
+    {
+        if (!TryRead(ref reader, windowSequence, out data) || data is null)
+        {
+            return false;
+        }
+
+        int maxOrder = AacTnsSpecLimits.GetMaxOrder(objectType, windowSequence);
+        foreach (var window in data.Windows)
+        {
+            foreach (var filter in window.Filters)
+            {
+                if (filter.Order > maxOrder)
+                {
+                    data = null;
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Reads a complete <c>tns_data()</c> element from
     /// <paramref name="reader"/> using the layout implied by
     /// <paramref name="windowSequence"/>.
@@ -180,6 +231,23 @@ public sealed record AacTnsData
     {
         var reader = new BitReader(bytes);
         return TryRead(ref reader, windowSequence, out data);
+    }
+
+    /// <summary>
+    /// Parses a contiguous <c>tns_data()</c> element from
+    /// <paramref name="bytes"/> using the layout implied by
+    /// <paramref name="windowSequence"/> and additionally rejects
+    /// any filter whose order exceeds the AOT-specific maximum
+    /// returned by <see cref="AacTnsSpecLimits.GetMaxOrder"/>.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> bytes,
+        AacWindowSequence windowSequence,
+        AacAudioObjectType objectType,
+        out AacTnsData? data)
+    {
+        var reader = new BitReader(bytes);
+        return TryRead(ref reader, windowSequence, objectType, out data);
     }
 
     /// <summary>
