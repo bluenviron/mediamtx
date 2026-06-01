@@ -583,6 +583,50 @@ public static class AacChannelDecoder
         RunFilterbank(right, rightShape, rightFilterbank, rightOutput);
     }
 
+    /// <summary>
+    /// CCE auxiliary-channel end-to-end composer: produces 1024 PCM
+    /// samples of the coupling channel by running
+    /// <see cref="DecodeCce(AacCouplingChannelElement, int, AacPnsRandom)"/>
+    /// followed by the per-channel synthesis filterbank pass. <strong>This
+    /// is the auxiliary coupling channel only;</strong> the
+    /// per-target gain application that mixes this signal into the
+    /// downstream SCE / CPE targets is a separate composer.
+    /// </summary>
+    /// <param name="cce">Parsed CCE including spectral data.</param>
+    /// <param name="sampleRate">Source sample rate (Hz).</param>
+    /// <param name="prng">PRNG for PNS synthesis.</param>
+    /// <param name="filterbank">Filterbank carrying the overlap state.</param>
+    /// <param name="output">Receives 1024 PCM samples.</param>
+    public static void DecodeCceToSamples(
+        AacCouplingChannelElement cce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeCce(cce, sampleRate, prng);
+        RunFilterbank(decoded, cce.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
+    /// <summary>
+    /// AOT-aware CCE auxiliary-channel end-to-end composer: same as
+    /// <see cref="DecodeCceToSamples(AacCouplingChannelElement, int, AacPnsRandom, AacSynthesisFilterbank, Span{float})"/>
+    /// but also runs long-window TNS inverse filtering.
+    /// </summary>
+    public static void DecodeCceToSamples(
+        AacCouplingChannelElement cce,
+        int sampleRate,
+        AacPnsRandom prng,
+        AacAudioObjectType objectType,
+        AacSynthesisFilterbank filterbank,
+        Span<float> output)
+    {
+        ArgumentNullException.ThrowIfNull(filterbank);
+        var decoded = DecodeCce(cce, sampleRate, prng, objectType);
+        RunFilterbank(decoded, cce.Stream.IcsInfo.WindowShape, filterbank, output);
+    }
+
     private static AacChannelFrame CouplingChannelFrame(AacCouplingChannelElement cce)
     {
         if (cce.SpectralData is null)
