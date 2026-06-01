@@ -294,6 +294,60 @@ public sealed class AacAdtsStreamReader : IDisposable
         _skippedLeadingId3 = true;
     }
 
+    /// <summary>
+    /// Reports whether the underlying stream supports the seek-based
+    /// overloads (<see cref="SeekToFrame(AacAdtsFrameIndexEntry)"/>
+    /// and <see cref="SeekToFrame(System.Collections.Generic.IReadOnlyList{AacAdtsFrameIndexEntry}, long)"/>).
+    /// </summary>
+    public bool CanSeek => _stream.CanSeek;
+
+    /// <summary>
+    /// Seek the underlying stream to the byte offset recorded in
+    /// <paramref name="entry"/>, then clear all decoder + buffer
+    /// state so the next <see cref="ReadNextFrame"/> (or
+    /// <see cref="ReadNextFrameAsync"/>) call returns the
+    /// raw_data_block at that frame. Requires
+    /// <see cref="CanSeek"/> to be <c>true</c>.
+    /// </summary>
+    public void SeekToFrame(AacAdtsFrameIndexEntry entry)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(entry);
+        if (!_stream.CanSeek)
+        {
+            throw new NotSupportedException(
+                "Underlying stream is not seekable; seek is unsupported on this reader.");
+        }
+        if (entry.ByteOffset < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(entry),
+                "Index entry byte offset must be non-negative.");
+        }
+
+        _stream.Seek(entry.ByteOffset, SeekOrigin.Begin);
+        ResetState();
+    }
+
+    /// <summary>
+    /// Convenience wrapper: looks up <paramref name="sampleTarget"/>
+    /// in <paramref name="index"/> via
+    /// <see cref="AacAdtsFrameIndexer.FindFrameAtSample"/>, then
+    /// delegates to <see cref="SeekToFrame(AacAdtsFrameIndexEntry)"/>.
+    /// Returns the entry that was seeked to, or <c>null</c> when the
+    /// index is empty or the target falls before the first entry.
+    /// </summary>
+    public AacAdtsFrameIndexEntry? SeekToFrame(
+        IReadOnlyList<AacAdtsFrameIndexEntry> index,
+        long sampleTarget)
+    {
+        int position = AacAdtsFrameIndexer.FindFrameAtSample(index, sampleTarget);
+        if (position < 0) return null;
+        var entry = index[position];
+        SeekToFrame(entry);
+        return entry;
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {

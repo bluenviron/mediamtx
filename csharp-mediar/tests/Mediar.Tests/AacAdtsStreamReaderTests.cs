@@ -424,6 +424,126 @@ public class AacAdtsStreamReaderTests
             async () => await reader.ReadNextFrameAsync());
     }
 
+    // ----- seek surface -----
+
+    [Fact]
+    public void SeekToFrame_NonSeekableStream_Throws()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        using var inner = new MemoryStream(frame);
+        using var ns = new NonSeekableReadStream(inner);
+        using var reader = NewReader(ns);
+
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = 0,
+            FrameLength = frame.Length,
+            BlockCount = 1,
+            SampleOffset = 0,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        Assert.False(reader.CanSeek);
+        Assert.Throws<NotSupportedException>(() => reader.SeekToFrame(entry));
+    }
+
+    [Fact]
+    public void SeekToFrame_Entry_RepositionsToOffset()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[frame.Length * 3];
+        Buffer.BlockCopy(frame, 0, payload, 0, frame.Length);
+        Buffer.BlockCopy(frame, 0, payload, frame.Length, frame.Length);
+        Buffer.BlockCopy(frame, 0, payload, frame.Length * 2, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        // Read through all 3 to exercise the queue + buffer state.
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.Null(reader.ReadNextFrame());
+
+        // Seek back to the second frame and read again.
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = frame.Length,
+            FrameLength = frame.Length,
+            BlockCount = 1,
+            SampleOffset = 1024,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        reader.SeekToFrame(entry);
+
+        Assert.Equal(0, reader.FrameCount);
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.Null(reader.ReadNextFrame());
+    }
+
+    [Fact]
+    public void SeekToFrame_IndexLookup_HitsBracketingEntry()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[frame.Length * 3];
+        for (int i = 0; i < 3; i++)
+        {
+            Buffer.BlockCopy(frame, 0, payload, i * frame.Length, frame.Length);
+        }
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 0, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = frame.Length, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = frame.Length * 2, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 2048, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+
+        // Sample target inside the second frame's range.
+        var hit = reader.SeekToFrame(index, sampleTarget: 1500);
+        Assert.NotNull(hit);
+        Assert.Equal(frame.Length, (int)hit!.ByteOffset);
+        Assert.Equal(frame.Length, (int)ms.Position);
+    }
+
+    [Fact]
+    public void SeekToFrame_IndexLookup_BeforeFirstEntry_ReturnsNullAndLeavesStreamAlone()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 100, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 10_000, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        var hit = reader.SeekToFrame(index, sampleTarget: 0);
+        Assert.Null(hit);
+        Assert.Equal(0, (int)ms.Position);
+    }
+
+    [Fact]
+    public void SeekToFrame_AfterDispose_Throws()
+    {
+        using var ms = new MemoryStream();
+        var reader = NewReader(ms);
+        reader.Dispose();
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = 0,
+            FrameLength = 64,
+            BlockCount = 1,
+            SampleOffset = 0,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        Assert.Throws<ObjectDisposedException>(() => reader.SeekToFrame(entry));
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
@@ -538,6 +658,26 @@ public class AacAdtsStreamReaderTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) { }
         public override void Write(byte[] buffer, int offset, int count) { }
+    }
+
+    private sealed class NonSeekableReadStream : Stream
+    {
+        private readonly Stream _inner;
+        public NonSeekableReadStream(Stream inner) { _inner = inner; }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => _inner.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed class ChunkingStream : Stream

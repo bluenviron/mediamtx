@@ -274,6 +274,31 @@ public sealed class AacAdtsPcmStreamReader : IDisposable
         _reader.ResetState();
     }
 
+    /// <summary>Forwards <see cref="AacAdtsStreamReader.CanSeek"/>.</summary>
+    public bool CanSeek => _reader.CanSeek;
+
+    /// <summary>
+    /// Forwards
+    /// <see cref="AacAdtsStreamReader.SeekToFrame(AacAdtsFrameIndexEntry)"/>.
+    /// </summary>
+    public void SeekToFrame(AacAdtsFrameIndexEntry entry)
+    {
+        ThrowIfDisposed();
+        _reader.SeekToFrame(entry);
+    }
+
+    /// <summary>
+    /// Forwards
+    /// <see cref="AacAdtsStreamReader.SeekToFrame(System.Collections.Generic.IReadOnlyList{AacAdtsFrameIndexEntry}, long)"/>.
+    /// </summary>
+    public AacAdtsFrameIndexEntry? SeekToFrame(
+        IReadOnlyList<AacAdtsFrameIndexEntry> index,
+        long sampleTarget)
+    {
+        ThrowIfDisposed();
+        return _reader.SeekToFrame(index, sampleTarget);
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {

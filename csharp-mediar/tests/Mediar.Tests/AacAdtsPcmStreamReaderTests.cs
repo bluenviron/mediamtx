@@ -317,6 +317,95 @@ public class AacAdtsPcmStreamReaderTests
             async () => await reader.ReadNextPcmFrameAsync());
     }
 
+    // ----- seek surface (forwards inner reader) -----
+
+    [Fact]
+    public void CanSeek_DefaultMemoryStream_True()
+    {
+        using var ms = new MemoryStream();
+        using var reader = NewReader(ms);
+        Assert.True(reader.CanSeek);
+    }
+
+    [Fact]
+    public void SeekToFrame_Entry_RepositionsUnderlyingStream()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[frame.Length * 3];
+        for (int i = 0; i < 3; i++)
+        {
+            Buffer.BlockCopy(frame, 0, payload, i * frame.Length, frame.Length);
+        }
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        // Consume all 3 to drain the buffer state.
+        Assert.NotNull(reader.ReadNextPcmFrame());
+        Assert.NotNull(reader.ReadNextPcmFrame());
+        Assert.NotNull(reader.ReadNextPcmFrame());
+
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = frame.Length,
+            FrameLength = frame.Length,
+            BlockCount = 1,
+            SampleOffset = 1024,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        reader.SeekToFrame(entry);
+
+        Assert.Equal(frame.Length, (int)ms.Position);
+        Assert.NotNull(reader.ReadNextPcmFrame());
+        Assert.NotNull(reader.ReadNextPcmFrame());
+        Assert.Null(reader.ReadNextPcmFrame());
+    }
+
+    [Fact]
+    public void SeekToFrame_IndexLookup_HitsBracketingEntry()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[frame.Length * 3];
+        for (int i = 0; i < 3; i++)
+        {
+            Buffer.BlockCopy(frame, 0, payload, i * frame.Length, frame.Length);
+        }
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 0, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = frame.Length, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = frame.Length * 2, FrameLength = frame.Length, BlockCount = 1, SampleOffset = 2048, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+
+        var hit = reader.SeekToFrame(index, sampleTarget: 1500);
+        Assert.NotNull(hit);
+        Assert.Equal(frame.Length, (int)hit!.ByteOffset);
+        Assert.Equal(frame.Length, (int)ms.Position);
+    }
+
+    [Fact]
+    public void SeekToFrame_AfterDispose_Throws()
+    {
+        using var ms = new MemoryStream();
+        var reader = new AacAdtsPcmStreamReader(ms, GetSf(), new AacHuffmanCodebook?[16], leaveOpen: true);
+        reader.Dispose();
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = 0,
+            FrameLength = 64,
+            BlockCount = 1,
+            SampleOffset = 0,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        Assert.Throws<ObjectDisposedException>(() => reader.SeekToFrame(entry));
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
