@@ -124,4 +124,72 @@ public sealed class AacScaleFactorGainTests
     {
         Assert.Equal(100, AacScaleFactorGain.SfOffset);
     }
+
+    [Fact]
+    public void ApplyTo_Zeros_RemainZeros_For_AnyScaleFactor()
+    {
+        Span<float> band = stackalloc float[] { 0f, 0f, 0f };
+        AacScaleFactorGain.ApplyTo(band, absoluteScaleFactor: 200);
+        Assert.Equal(0f, band[0]);
+        Assert.Equal(0f, band[1]);
+        Assert.Equal(0f, band[2]);
+    }
+
+    [Fact]
+    public void ApplyTo_Negative_ScaleFactor_Shrinks_Towards_Zero()
+    {
+        var band = new float[] { 1f, -1f };
+        AacScaleFactorGain.ApplyTo(band, absoluteScaleFactor: -100);
+        Assert.True(Math.Abs(band[0]) < 1e-10f);
+        Assert.True(Math.Abs(band[1]) < 1e-10f);
+    }
+
+    [Fact]
+    public void Apply_EmptySource_NoOp()
+    {
+        Span<float> dst = stackalloc float[3];
+        dst[0] = 7f;
+        AacScaleFactorGain.Apply(ReadOnlySpan<float>.Empty, dst, absoluteScaleFactor: 100);
+        Assert.Equal(7f, dst[0]);
+    }
+
+    [Fact]
+    public void Apply_Matches_ApplyTo_When_Source_Equals_Destination_Buffer()
+    {
+        var inplace = new float[] { 1f, 2f, 3f, 4f };
+        var copy = new float[] { 1f, 2f, 3f, 4f };
+        var dst = new float[4];
+        AacScaleFactorGain.ApplyTo(inplace, 108); // gain = 4
+        AacScaleFactorGain.Apply(copy, dst, 108);
+        for (int i = 0; i < dst.Length; i++)
+        {
+            Assert.Equal(inplace[i], dst[i], precision: 5);
+        }
+    }
+
+    [Fact]
+    public void Gain_Symmetric_Around_Offset()
+    {
+        for (int delta = 1; delta <= 50; delta++)
+        {
+            float up = AacScaleFactorGain.Gain(100 + delta);
+            float dn = AacScaleFactorGain.Gain(100 - delta);
+            Assert.Equal(1.0, up * dn, tolerance: 1e-4);
+        }
+    }
+
+    [Fact]
+    public void Apply_Reverses_With_Negated_Exponent()
+    {
+        var src = new float[] { 1.5f, -3.25f, 0.125f };
+        var forward = new float[3];
+        AacScaleFactorGain.Apply(src, forward, 116); // gain=16
+
+        var roundTrip = new float[3];
+        AacScaleFactorGain.Apply(forward, roundTrip, 84); // gain=1/16
+        for (int i = 0; i < src.Length; i++)
+        {
+            Assert.Equal(src[i], roundTrip[i], precision: 4);
+        }
+    }
 }

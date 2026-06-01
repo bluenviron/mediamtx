@@ -119,4 +119,51 @@ public sealed class AacInverseQuantizationTests
     {
         Assert.Equal(4f / 3f, AacInverseQuantization.Exponent);
     }
+
+    [Fact]
+    public void Dequantize_OutOfSpec_PositiveInput_StillProcessed()
+    {
+        // Spec limit is +/-8191; we do not saturate, just compute.
+        float r = AacInverseQuantization.Dequantize(10_000);
+        Assert.True(r > 200_000f && r < 250_000f);
+    }
+
+    [Fact]
+    public void Dequantize_OutOfSpec_NegativeInput_StillProcessed()
+    {
+        float r = AacInverseQuantization.Dequantize(-10_000);
+        Assert.True(r < -200_000f && r > -250_000f);
+    }
+
+    [Fact]
+    public void Dequantize_Span_AllocatingOverload_Empty_Returns_Empty()
+    {
+        var result = AacInverseQuantization.Dequantize(ReadOnlySpan<int>.Empty);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Dequantize_Span_AllocatingOverload_AgreesWithScalar()
+    {
+        int[] src = [-8191, -1, 0, 1, 8191];
+        float[] viaSpan = AacInverseQuantization.Dequantize(src);
+        for (int i = 0; i < src.Length; i++)
+        {
+            Assert.Equal(AacInverseQuantization.Dequantize(src[i]), viaSpan[i]);
+        }
+    }
+
+    [Fact]
+    public void Dequantize_Span_DestinationLargerThanSource_LeavesTail()
+    {
+        int[] src = [1];
+        var dst = new float[3];
+        dst[1] = 99f;
+        dst[2] = -99f;
+        AacInverseQuantization.Dequantize(src, dst);
+        Assert.Equal(1f, dst[0], precision: 5);
+        // Tail untouched.
+        Assert.Equal(99f, dst[1]);
+        Assert.Equal(-99f, dst[2]);
+    }
 }
