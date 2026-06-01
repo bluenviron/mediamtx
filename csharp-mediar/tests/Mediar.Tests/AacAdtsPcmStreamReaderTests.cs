@@ -161,6 +161,57 @@ public class AacAdtsPcmStreamReaderTests
         Assert.Equal(1, ms.ReadByte());
     }
 
+    // ----- Int16 helpers -----
+
+    [Fact]
+    public void ReadNextInt16Frame_EmptyStream_ReturnsNull()
+    {
+        using var ms = new MemoryStream();
+        using var reader = NewReader(ms);
+        Assert.Null(reader.ReadNextInt16Frame());
+    }
+
+    [Fact]
+    public void ReadNextInt16Frame_SingleSceFrame_AllZeroSamples()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var pcm = reader.ReadNextInt16Frame();
+        Assert.NotNull(pcm);
+        Assert.Equal(1, pcm!.ChannelCount);
+        Assert.Equal(1024, pcm.SamplesPerChannel);
+        Assert.Equal(1024, pcm.Samples.Length);
+        Assert.Equal(48000, pcm.SampleRate);
+        Assert.All(pcm.Samples, s => Assert.Equal((short)0, s));
+    }
+
+    [Fact]
+    public void ReadInt16Frames_MultiBlock_YieldsPerBlock()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoMultiSceFrameShared(blockCount: 2);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        int count = 0;
+        foreach (var p in reader.ReadInt16Frames())
+        {
+            Assert.Equal(1024, p.Samples.Length);
+            count++;
+        }
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public void ReadNextInt16Frame_AfterDispose_Throws()
+    {
+        using var ms = new MemoryStream();
+        var reader = new AacAdtsPcmStreamReader(ms, GetSf(), new AacHuffmanCodebook?[16], leaveOpen: true);
+        reader.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => reader.ReadNextInt16Frame());
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

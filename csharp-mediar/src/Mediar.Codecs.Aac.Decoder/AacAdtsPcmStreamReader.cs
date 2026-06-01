@@ -159,6 +159,32 @@ public sealed class AacAdtsPcmStreamReader : IDisposable
     }
 
     /// <summary>
+    /// Read the next raw_data_block and return its interleaved
+    /// samples as PCM-S16 (the audio-device-friendly integer
+    /// format). Equivalent to
+    /// <c>AacPcmFrameConverter.ToInt16Frame(ReadNextPcmFrame())</c>
+    /// when the inner reader still has data.
+    /// </summary>
+    public AacPcmInt16Frame? ReadNextInt16Frame()
+    {
+        var floatFrame = ReadNextPcmFrame();
+        return floatFrame is null ? null : AacPcmFrameConverter.ToInt16Frame(floatFrame);
+    }
+
+    /// <summary>
+    /// Iterator-style wrapper over <see cref="ReadNextInt16Frame"/>.
+    /// </summary>
+    public IEnumerable<AacPcmInt16Frame> ReadInt16Frames()
+    {
+        while (true)
+        {
+            var frame = ReadNextInt16Frame();
+            if (frame is null) yield break;
+            yield return frame;
+        }
+    }
+
+    /// <summary>
     /// Drop the underlying decoder state and clear any buffered
     /// bytes. Use after seeking the underlying stream so the next
     /// read resynchronises and rebuilds filterbank state.
