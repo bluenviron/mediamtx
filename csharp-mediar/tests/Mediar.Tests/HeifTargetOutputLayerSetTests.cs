@@ -80,6 +80,111 @@ public class HeifTargetOutputLayerSetTests
         Assert.Null(tols);
     }
 
+    [Fact]
+    public void TryParse_Accepts_Exactly_Six_Bytes()
+    {
+        byte[] payload = [0, 0, 0, 0, 0x00, 0x01];
+        Assert.True(HeifTargetOutputLayerSet.TryParse(payload, out var result));
+        Assert.Equal((ushort)1, result!.TargetOlsIndex);
+    }
+
+    [Fact]
+    public void TryParse_Ignores_Trailing_Bytes_Beyond_Six()
+    {
+        // The spec says target_ols is the only field; extra bytes are
+        // tolerated (treated as padding) by this parser.
+        byte[] payload = [0, 0, 0, 0, 0x00, 0x42, 0xAA, 0xBB, 0xCC];
+        Assert.True(HeifTargetOutputLayerSet.TryParse(payload, out var result));
+        Assert.Equal((ushort)0x42, result!.TargetOlsIndex);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_All_Wrong_Versions_From_1_To_255()
+    {
+        for (int v = 1; v <= 255; v++)
+        {
+            byte[] payload = [(byte)v, 0, 0, 0, 0, 5];
+            Assert.False(HeifTargetOutputLayerSet.TryParse(payload, out var result),
+                $"version {v} should be rejected.");
+            Assert.Null(result);
+        }
+    }
+
+    [Fact]
+    public void TryParse_Sets_Result_NotNull_On_Success_And_Null_On_Failure()
+    {
+        Assert.True(HeifTargetOutputLayerSet.TryParse(
+            new byte[] { 0, 0, 0, 0, 0, 0 }, out var ok));
+        Assert.NotNull(ok);
+
+        Assert.False(HeifTargetOutputLayerSet.TryParse(
+            new byte[] { 0, 0, 0 }, out var bad));
+        Assert.Null(bad);
+    }
+
+    [Fact]
+    public void Record_Equality_Compares_By_TargetOlsIndex()
+    {
+        var a = new HeifTargetOutputLayerSet { TargetOlsIndex = 5 };
+        var b = new HeifTargetOutputLayerSet { TargetOlsIndex = 5 };
+        var c = new HeifTargetOutputLayerSet { TargetOlsIndex = 6 };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void Record_With_Init_Changes_TargetOlsIndex()
+    {
+        var a = new HeifTargetOutputLayerSet { TargetOlsIndex = 5 };
+        var b = a with { TargetOlsIndex = 9 };
+        Assert.Equal((ushort)5, a.TargetOlsIndex);
+        Assert.Equal((ushort)9, b.TargetOlsIndex);
+    }
+
+    [Fact]
+    public void TryParse_Roundtrip_Across_Sample_Indices()
+    {
+        ushort[] samples = [0, 1, 7, 0x80, 0xFF, 0x100, 0x7FFF, 0x8000, 0xFFFE, 0xFFFF];
+        foreach (var s in samples)
+        {
+            byte[] payload = [0, 0, 0, 0, (byte)(s >> 8), (byte)(s & 0xFF)];
+            Assert.True(HeifTargetOutputLayerSet.TryParse(payload, out var result));
+            Assert.Equal(s, result!.TargetOlsIndex);
+        }
+    }
+
+    [Fact]
+    public void HeifReader_TryGetTargetOutputLayerSet_Returns_False_For_Unknown_Item()
+    {
+        var bytes = BuildHeifWithProperty("tols", [0, 0, 0, 0, 0x00, 0x07]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        Assert.False(r.TryGetTargetOutputLayerSet(9999, out var tols));
+        Assert.Null(tols);
+    }
+
+    [Fact]
+    public void HeifReader_TryGetTargetOutputLayerSet_Reflects_Max_Index_From_Container()
+    {
+        var bytes = BuildHeifWithProperty("tols", [0, 0, 0, 0, 0xFF, 0xFF]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        Assert.True(r.TryGetTargetOutputLayerSet(1, out var tols));
+        Assert.Equal(ushort.MaxValue, tols!.TargetOlsIndex);
+    }
+
+    [Fact]
+    public void HeifReader_TryGetTargetOutputLayerSet_Rejects_Malformed_Tols_In_Container()
+    {
+        // tols with version != 0 -> property parser fails; reader surfaces false.
+        var bytes = BuildHeifWithProperty("tols", [1, 0, 0, 0, 0x00, 0x07]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        Assert.False(r.TryGetTargetOutputLayerSet(1, out var tols));
+        Assert.Null(tols);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildHeifWithProperty(string? propertyType, byte[]? propertyPayload)
