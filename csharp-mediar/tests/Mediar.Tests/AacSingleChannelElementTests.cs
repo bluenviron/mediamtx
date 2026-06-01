@@ -116,9 +116,9 @@ public sealed class AacSingleChannelElementTests
     }
 
     [Fact]
-    public void TryParse_GainControlDataPresent_Rejected()
+    public void TryParse_GainControlDataPresent_ParsesEmptyGainControlData()
     {
-        // gain_control_data_present = 1 is SSR-only and unsupported.
+        // gain_control_data_present = 1 with an empty (max_band = 0) gcd body parses cleanly.
         var book = BuildSyntheticSfCodebook();
         var w = new AacBitWriter();
         w.Write(3u, 4);                 // element_instance_tag
@@ -128,11 +128,14 @@ public sealed class AacSingleChannelElementTests
         w.Write(0u, 1);                 // pulse_data_present
         w.Write(0u, 1);                 // tns_data_present
         w.Write(1u, 1);                 // gain_control_data_present = 1
-        // pad to byte boundary
-        w.Write(0u, 5);
+        w.Write(0u, 2);                 // gain_control_data(): max_band = 0 (empty)
 
-        Assert.False(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
-        Assert.Null(sce);
+        Assert.True(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
+        Assert.NotNull(sce);
+        Assert.True(sce!.Stream.GainControlDataPresent);
+        Assert.NotNull(sce.Stream.GainControlData);
+        Assert.Equal(0, sce.Stream.GainControlData!.MaxBand);
+        Assert.Empty(sce.Stream.GainControlData.Bands);
     }
 
     [Fact]

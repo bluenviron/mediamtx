@@ -244,15 +244,43 @@ public sealed class AacIndividualChannelStreamTests
     }
 
     [Fact]
-    public void TryRead_GainControlDataPresent_Rejected()
+    public void TryRead_GainControlDataPresent_ParsesEmptyGainControlData()
     {
+        // gain_control_data_present = 1 with an empty (max_band = 0)
+        // gain_control_data() body must round-trip cleanly via the parser.
         var book = BuildSyntheticSfCodebook();
         var w = new AacBitWriter();
         w.Write(0u, 8);
         WriteLongIcsInfo(w, maxSfb: 5);
         WriteOneZeroSection(w, len: 5);
         w.Write(0u, 1); w.Write(0u, 1);
-        w.Write(1u, 1);                 // gain_control_data_present = 1 (SSR-only, unsupported)
+        w.Write(1u, 1);                 // gain_control_data_present = 1
+        w.Write(0u, 2);                 // gain_control_data(): max_band = 0 (empty)
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.NotNull(stream);
+        Assert.True(stream!.GainControlDataPresent);
+        Assert.NotNull(stream.GainControlData);
+        Assert.Equal(AacWindowSequence.OnlyLong, stream.GainControlData!.WindowSequence);
+        Assert.Equal(0, stream.GainControlData.MaxBand);
+        Assert.Empty(stream.GainControlData.Bands);
+        // 8 (gg) + 11 (long ics) + 9 (sect cb=0 maxSfb=5) + 0 (sf) + 3 (flags) + 2 (gcd) = 33
+        Assert.Equal(33, stream.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_GainControlDataPresent_RejectsTruncatedGcd()
+    {
+        // gain_control_data_present = 1 but the gcd body is truncated before max_band.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 5);
+        WriteOneZeroSection(w, len: 5);
+        w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(1u, 1);                 // gain_control_data_present = 1
+        // (no max_band bits follow - truncated)
 
         Assert.False(AacIndividualChannelStream.TryParse(
             w.ToArray(), null, false, book, out var stream));

@@ -269,25 +269,35 @@ public sealed class AacChannelPairElementTests
     }
 
     [Fact]
-    public void TryParse_GainControlDataInFirstStream_Rejected()
+    public void TryParse_GainControlDataInFirstStream_ParsesEmptyGainControlData()
     {
+        // gain_control_data_present = 1 with an empty (max_band = 0) gcd body parses cleanly
+        // in the first stream of a common_window CPE.
         var book = BuildSyntheticSfCodebook();
         var w = new AacBitWriter();
         w.Write(3u, 4);                 // element_instance_tag
         w.Write(1u, 1);                 // common_window = 1
         WriteLongIcsInfo(w, maxSfb: 4);
         w.Write(0u, 2);                 // ms_mask_present = 0 (None)
-        // First stream body with gain_control_data_present = 1 — should reject via the underlying ICS aggregator.
+        // First stream body with gain_control_data_present = 1
         w.Write(0x40u, 8);              // global_gain
         WriteOneZeroSection(w, len: 4);
         w.Write(0u, 1);                 // pulse_data_present
         w.Write(0u, 1);                 // tns_data_present
         w.Write(1u, 1);                 // gain_control_data_present = 1
-        // pad
-        for (int i = 0; i < 4; i++) w.Write(0u, 8);
+        w.Write(0u, 2);                 // gain_control_data(): max_band = 0
+        // Second stream body (no gcd)
+        w.Write(0x60u, 8);              // global_gain
+        WriteOneZeroSection(w, len: 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
 
-        Assert.False(AacChannelPairElement.TryParse(w.ToArray(), book, out var cpe));
-        Assert.Null(cpe);
+        Assert.True(AacChannelPairElement.TryParse(w.ToArray(), book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.True(cpe!.FirstStream.GainControlDataPresent);
+        Assert.NotNull(cpe.FirstStream.GainControlData);
+        Assert.Equal(0, cpe.FirstStream.GainControlData!.MaxBand);
+        Assert.False(cpe.SecondStream.GainControlDataPresent);
+        Assert.Null(cpe.SecondStream.GainControlData);
     }
 
     [Fact]

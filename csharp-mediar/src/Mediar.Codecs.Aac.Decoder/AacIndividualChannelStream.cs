@@ -25,9 +25,10 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// <c>gain_control_data()</c> bodies are SSR-profile-only
 /// (audio_object_type == 3) and extremely rare in real-world content.
 /// When the <c>gain_control_data_present</c> bit is set the aggregator
-/// returns <see langword="false"/> because the SSR body parser is not
-/// yet implemented; <c>gain_control_data_present = 0</c> is accepted
-/// and surfaced via <see cref="GainControlDataPresent"/>.
+/// dispatches to <see cref="AacGainControlData"/> using the active
+/// <see cref="AacIcsInfo.WindowSequence"/> for the bit-layout. The
+/// parsed payload is exposed via <see cref="GainControlData"/>;
+/// <c>gain_control_data_present = 0</c> leaves it <see langword="null"/>.
 /// </para>
 /// <para>
 /// Per spec, <c>pulse_data_present</c> may only be set when the
@@ -75,11 +76,18 @@ public sealed record AacIndividualChannelStream
     public AacTnsData? TnsData { get; init; }
 
     /// <summary>
-    /// <c>gain_control_data_present</c> flag (1 bit). Always
-    /// <see langword="false"/> on success - a set flag is rejected by
-    /// the parser because the SSR body is not implemented.
+    /// <c>gain_control_data_present</c> flag (1 bit). When
+    /// <see langword="true"/>, the parsed payload is exposed via
+    /// <see cref="GainControlData"/>.
     /// </summary>
     public required bool GainControlDataPresent { get; init; }
+
+    /// <summary>
+    /// Parsed <c>gain_control_data()</c> when
+    /// <see cref="GainControlDataPresent"/>; otherwise
+    /// <see langword="null"/>.
+    /// </summary>
+    public AacGainControlData? GainControlData { get; init; }
 
     /// <summary>
     /// Total bits consumed up to and including the
@@ -111,9 +119,8 @@ public sealed record AacIndividualChannelStream
     /// <param name="stream">Populated on success; <see langword="null"/> otherwise.</param>
     /// <returns>
     /// <see langword="true"/> when every sub-element parsed cleanly;
-    /// <see langword="false"/> on stream underflow, on a
-    /// <c>pulse_data_present = 1</c> with an EIGHT_SHORT ics_info, or
-    /// on a <c>gain_control_data_present = 1</c>.
+    /// <see langword="false"/> on stream underflow or on a
+    /// <c>pulse_data_present = 1</c> with an EIGHT_SHORT ics_info.
     /// </returns>
     internal static bool TryRead(
         scoped ref BitReader reader,
@@ -161,6 +168,7 @@ public sealed record AacIndividualChannelStream
         bool tnsDataPresent = false;
         AacTnsData? tnsData = null;
         bool gainControlDataPresent = false;
+        AacGainControlData? gainControlData = null;
 
         if (!scaleFlag)
         {
@@ -193,8 +201,11 @@ public sealed record AacIndividualChannelStream
             gainControlDataPresent = reader.ReadBit();
             if (gainControlDataPresent)
             {
-                // gain_control_data() is SSR-only (Table 4.41) and not yet implemented.
-                return false;
+                if (!AacGainControlData.TryRead(ref reader, icsInfo.WindowSequence, out gainControlData)
+                    || gainControlData is null)
+                {
+                    return false;
+                }
             }
         }
 
@@ -210,6 +221,7 @@ public sealed record AacIndividualChannelStream
             TnsDataPresent = tnsDataPresent,
             TnsData = tnsData,
             GainControlDataPresent = gainControlDataPresent,
+            GainControlData = gainControlData,
             BitsConsumed = reader.Position - startBits,
         };
         return true;
