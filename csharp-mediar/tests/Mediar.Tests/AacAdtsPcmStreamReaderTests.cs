@@ -97,6 +97,61 @@ public class AacAdtsPcmStreamReaderTests
         Assert.Equal(1024, p3!.Samples.Length);
     }
 
+    // ----- EightShort coverage -----
+
+    [Fact]
+    public void ReadNextPcmFrame_SingleShortSceFrame_ProducesInterleavedMono()
+    {
+        // EightShort raw_data_block must produce the same 1024-sample
+        // PCM contract as a long frame (8 IMDCT outputs overlap-added).
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoShortSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var pcm = reader.ReadNextPcmFrame();
+        Assert.NotNull(pcm);
+        Assert.Equal(1, pcm!.ChannelCount);
+        Assert.Equal(1024, pcm.SamplesPerChannel);
+        Assert.Equal(1024, pcm.Samples.Length);
+        Assert.Equal(48000, pcm.SampleRate);
+        // Empty short-windowed SCE produces an all-zero spectrum -> all-zero PCM.
+        Assert.All(pcm.Samples, s => Assert.Equal(0f, s));
+        Assert.Null(reader.ReadNextPcmFrame());
+    }
+
+    [Fact]
+    public void ReadNextPcmFrame_MultiBlockShortFrame_YieldsOnePcmFramePerShortBlock()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoMultiShortSceFrameShared(blockCount: 2);
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var p1 = reader.ReadNextPcmFrame();
+        var p2 = reader.ReadNextPcmFrame();
+        var eof = reader.ReadNextPcmFrame();
+
+        Assert.NotNull(p1);
+        Assert.NotNull(p2);
+        Assert.Null(eof);
+        Assert.Equal(1024, p1!.Samples.Length);
+        Assert.Equal(1024, p2!.Samples.Length);
+    }
+
+    [Fact]
+    public void ReadNextInt16Frame_SingleShortSceFrame_AllZeroSamples()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoShortSceFrameShared();
+        using var ms = new MemoryStream(frame);
+        using var reader = NewReader(ms);
+
+        var pcm = reader.ReadNextInt16Frame();
+        Assert.NotNull(pcm);
+        Assert.Equal(1, pcm!.ChannelCount);
+        Assert.Equal(1024, pcm.SamplesPerChannel);
+        Assert.Equal(1024, pcm.Samples.Length);
+        Assert.All(pcm.Samples, s => Assert.Equal((short)0, s));
+    }
+
     // ----- iterator wrapper -----
 
     [Fact]

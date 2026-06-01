@@ -74,6 +74,58 @@ public class AacAdtsFrameIndexerTests
         Assert.Equal(1, index[1].BlockCount);
     }
 
+    // ----- EightShort coverage -----
+
+    [Fact]
+    public void BuildIndex_SingleShortFrame_RecordsOneEntryAtOffsetZero()
+    {
+        // ADTS indexer only looks at headers; an EightShort raw_data_block
+        // must produce identical entry shape to a long frame.
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoShortSceFrameShared();
+        using var ms = new MemoryStream(frame);
+
+        var index = AacAdtsFrameIndexer.BuildIndex(ms);
+        Assert.Single(index);
+        var e = index[0];
+        Assert.Equal(0L, e.ByteOffset);
+        Assert.Equal(frame.Length, e.FrameLength);
+        Assert.Equal(1, e.BlockCount);
+        Assert.Equal(0L, e.SampleOffset);
+        Assert.Equal(48000, e.SampleRate);
+        Assert.Equal(1, e.ChannelConfiguration);
+    }
+
+    [Fact]
+    public void BuildIndex_LongThenShortFrame_RecordsBothWithCumulativeOffsets()
+    {
+        byte[] longFrame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] shortFrame = AacAdtsStreamReaderTests.BuildAdtsMonoShortSceFrameShared();
+        byte[] payload = new byte[longFrame.Length + shortFrame.Length];
+        Buffer.BlockCopy(longFrame, 0, payload, 0, longFrame.Length);
+        Buffer.BlockCopy(shortFrame, 0, payload, longFrame.Length, shortFrame.Length);
+        using var ms = new MemoryStream(payload);
+
+        var index = AacAdtsFrameIndexer.BuildIndex(ms);
+        Assert.Equal(2, index.Count);
+        Assert.Equal(0L, index[0].ByteOffset);
+        Assert.Equal(longFrame.Length, index[1].ByteOffset);
+        Assert.Equal(0L, index[0].SampleOffset);
+        Assert.Equal(1024L, index[1].SampleOffset);
+        Assert.Equal(shortFrame.Length, index[1].FrameLength);
+    }
+
+    [Fact]
+    public void BuildIndex_MultiBlockShortFrame_BlockCountReflectsAllShortBlocks()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoMultiShortSceFrameShared(blockCount: 2);
+        using var ms = new MemoryStream(frame);
+
+        var index = AacAdtsFrameIndexer.BuildIndex(ms);
+        Assert.Single(index);
+        Assert.Equal(2, index[0].BlockCount);
+        Assert.Equal(0L, index[0].SampleOffset);
+    }
+
     [Fact]
     public void BuildIndex_LostSync_Throws()
     {

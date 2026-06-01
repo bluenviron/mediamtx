@@ -817,6 +817,11 @@ public class AacAdtsStreamReaderTests
     internal static byte[] BuildAdtsMonoMultiSceFrameShared(int blockCount) =>
         BuildAdtsMonoMultiSceFrame(blockCount);
 
+    internal static byte[] BuildAdtsMonoShortSceFrameShared() => BuildAdtsMonoShortSceFrame();
+
+    internal static byte[] BuildAdtsMonoMultiShortSceFrameShared(int blockCount) =>
+        BuildAdtsMonoMultiShortSceFrame(blockCount);
+
     private static byte[] BuildAdtsMonoMultiSceFrame(int blockCount)
     {
         // Each empty SCE block's BitWriter byte-aligns on ToArray;
