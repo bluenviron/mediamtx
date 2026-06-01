@@ -11,14 +11,18 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// the IIR step is
 /// </para>
 /// <code>
-///     spectrum[m] += sum_{k = 1 .. order} lpc[k - 1] * past[k]
+///     spectrum[m] -= sum_{k = 1 .. order} lpc[k - 1] * past[k]
 /// </code>
 /// <para>
 /// where <c>past[k]</c> is the previously filtered output
-/// <c>k</c> steps ago in the walk direction. The convention matches
-/// the libfaad TNS implementation, where the LPC coefficients carry
-/// the PLUS sign from <see cref="AacTnsLpcStepUp"/> and the inverse
-/// filter adds the past contributions rather than subtracting them.
+/// <c>k</c> steps ago in the walk direction. The minus sign mirrors
+/// the AAC spec §4.6.9.4 inverse recursion
+/// <c>y[m] = x[m] − Σ a[k] y[m − k]</c> and the libfaad TNS
+/// implementation. With this convention, PARCOR coefficients in
+/// (−1, 1) (the natural output range of
+/// <see cref="AacTnsInverseQuant"/>) produce a minimum-phase
+/// polynomial via <see cref="AacTnsLpcStepUp"/> whose inverse is a
+/// stable causal IIR.
 /// </para>
 /// <para>
 /// Direction selects the walk through the spectrum slice:
@@ -98,7 +102,7 @@ public static class AacTnsInverseFilter
                 float sum = spectrum[m];
                 for (int k = 0; k < order; k++)
                 {
-                    sum += lpc[k] * state[k];
+                    sum -= lpc[k] * state[k];
                 }
                 spectrum[m] = sum;
                 ShiftStateRight(state, order, sum);
@@ -111,7 +115,7 @@ public static class AacTnsInverseFilter
                 float sum = spectrum[m];
                 for (int k = 0; k < order; k++)
                 {
-                    sum += lpc[k] * state[k];
+                    sum -= lpc[k] * state[k];
                 }
                 spectrum[m] = sum;
                 ShiftStateRight(state, order, sum);
