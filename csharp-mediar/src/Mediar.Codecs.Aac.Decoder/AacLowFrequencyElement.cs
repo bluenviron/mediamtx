@@ -33,10 +33,20 @@ public sealed record AacLowFrequencyElement
     public required AacIndividualChannelStream Stream { get; init; }
 
     /// <summary>
+    /// Parsed <c>spectral_data()</c> coefficients when the caller used the
+    /// "full" <see cref="TryRead(ref BitReader, AacHuffmanCodebook, int, IReadOnlyList{AacHuffmanCodebook?}, out AacLowFrequencyElement?)"/>
+    /// overload; <see langword="null"/> when the caller used the
+    /// boundary-stopping overload.
+    /// </summary>
+    public AacSpectralData? SpectralData { get; init; }
+
+    /// <summary>
     /// Total bits consumed by the <c>element_instance_tag</c> prefix plus the
-    /// <see cref="AacIndividualChannelStream.BitsConsumed"/> body. The bits
-    /// that follow inside the parent raw_data_block belong to
-    /// <c>spectral_data()</c> and are not consumed here.
+    /// <see cref="AacIndividualChannelStream.BitsConsumed"/> body. When
+    /// <see cref="SpectralData"/> is populated this also includes the bits
+    /// consumed by <c>spectral_data()</c>; otherwise the bits that follow
+    /// inside the parent raw_data_block belong to <c>spectral_data()</c>
+    /// and are not counted here.
     /// </summary>
     public required int BitsConsumed { get; init; }
 
@@ -93,5 +103,75 @@ public sealed record AacLowFrequencyElement
     {
         var reader = new BitReader(bytes);
         return TryRead(ref reader, scaleFactorCodebook, out element);
+    }
+
+    /// <summary>
+    /// Read a "full" <c>lfe_channel_element()</c> that also consumes the
+    /// inline <c>spectral_data()</c> coefficient block, populating
+    /// <see cref="SpectralData"/>.
+    /// </summary>
+    /// <param name="reader">Bit reader positioned at element_instance_tag.</param>
+    /// <param name="scaleFactorCodebook">121-symbol scale-factor Huffman codebook.</param>
+    /// <param name="sampleRate">
+    /// Source sample rate (Hz) used to dispatch the SWB offset table.
+    /// </param>
+    /// <param name="spectralCodebooks">
+    /// Codebook lookup indexed by codebook number; element <c>i</c> holds
+    /// the Huffman codebook used by <c>sect_cb == i</c>. Slots known not to
+    /// be referenced may be <see langword="null"/>.
+    /// </param>
+    /// <param name="element">Populated on success; <see langword="null"/> otherwise.</param>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacLowFrequencyElement? element)
+    {
+        element = null;
+        ArgumentNullException.ThrowIfNull(scaleFactorCodebook);
+        ArgumentNullException.ThrowIfNull(spectralCodebooks);
+
+        int startBits = reader.Position;
+        if (reader.Remaining < 4) return false;
+        int elementInstanceTag = (int)reader.ReadBits(4);
+
+        if (!AacChannelFrame.TryRead(
+                ref reader,
+                sharedIcsInfo: null,
+                scaleFlag: false,
+                scaleFactorCodebook,
+                sampleRate,
+                spectralCodebooks,
+                out var frame)
+            || frame is null)
+        {
+            return false;
+        }
+
+        element = new AacLowFrequencyElement
+        {
+            ElementInstanceTag = elementInstanceTag,
+            Stream = frame.Stream,
+            SpectralData = frame.SpectralData,
+            BitsConsumed = reader.Position - startBits,
+        };
+        return true;
+    }
+
+    /// <summary>
+    /// Parses a contiguous "full" <c>lfe_channel_element()</c> body
+    /// (element_instance_tag + ICS body + spectral_data) from
+    /// <paramref name="bytes"/> starting at the first bit.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> bytes,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacLowFrequencyElement? element)
+    {
+        var reader = new BitReader(bytes);
+        return TryRead(ref reader, scaleFactorCodebook, sampleRate, spectralCodebooks, out element);
     }
 }
