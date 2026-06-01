@@ -124,4 +124,228 @@ public sealed class FlacDecoderTests
         si[17] = (byte)packed;
         return si;
     }
+
+    [Fact]
+    public void Ctor_Null_Parameters_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new FlacDecoder(null!));
+    }
+
+    [Fact]
+    public void Ctor_Wrong_Codec_Throws()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Aac,
+            SampleRate = 44100,
+            Channels = 1,
+            BitsPerSample = 16,
+        };
+        Assert.Throws<ArgumentException>(() => new FlacDecoder(pars));
+    }
+
+    [Fact]
+    public void Codec_Property_Is_Flac()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        Assert.Equal(CodecId.Flac, dec.Codec);
+    }
+
+    [Fact]
+    public void Parameters_Property_Returns_Same_Instance()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        Assert.Same(pars, dec.Parameters);
+    }
+
+    [Fact]
+    public void Decode_Empty_Returns_Default()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        var frame = dec.Decode(ReadOnlySpan<byte>.Empty, pts: 0);
+        Assert.Equal(default, frame);
+    }
+
+    [Fact]
+    public void Decode_TooShort_Throws()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        Assert.Throws<InvalidDataException>(() => dec.Decode(new byte[5], pts: 0));
+    }
+
+    [Fact]
+    public void Decode_BadSyncCode_Throws()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        // 6 bytes but no FLAC sync.
+        byte[] junk = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        Assert.Throws<InvalidDataException>(() => dec.Decode(junk, pts: 0));
+    }
+
+    [Fact]
+    public void Decode_Missing_Crc16_Footer_Throws()
+    {
+        byte[] frame = BuildConstantFrame(constantValue: 0);
+        // Drop the trailing 2-byte CRC-16 so the body has no footer.
+        byte[] trimmed = new byte[frame.Length - 2];
+        Buffer.BlockCopy(frame, 0, trimmed, 0, trimmed.Length);
+
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        Assert.Throws<InvalidDataException>(() => dec.Decode(trimmed, pts: 0));
+    }
+
+    [Fact]
+    public void Decode_Pts_Propagates_To_Frame()
+    {
+        byte[] frame = BuildConstantFrame(constantValue: 500);
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        using var decoded = dec.Decode(frame, pts: 12345);
+        Assert.Equal(12345, decoded.Pts);
+    }
+
+    [Fact]
+    public void Decode_NegativeConstant_DecodesCorrectly()
+    {
+        byte[] frame = BuildConstantFrame(constantValue: -1000);
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        using var decoded = dec.Decode(frame, pts: 0);
+        float expected = -1000f / 32768f;
+        Assert.Equal(expected, decoded.Samples.Span[0], precision: 5);
+    }
+
+    [Fact]
+    public void Decode_Empty_StreamInfo_Falls_Back_To_Params()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = ReadOnlyMemory<byte>.Empty,
+        };
+        using var dec = new FlacDecoder(pars);
+        byte[] frame = BuildConstantFrame(constantValue: 0);
+        using var decoded = dec.Decode(frame, pts: 0);
+        Assert.Equal(1, decoded.Channels);
+    }
+
+    [Fact]
+    public void Reset_Then_Decode_Still_Works()
+    {
+        byte[] frame = BuildConstantFrame(constantValue: 0);
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = new FlacDecoder(pars);
+        dec.Reset();
+        using var decoded = dec.Decode(frame, pts: 0);
+        Assert.Equal(192, decoded.SamplesPerChannel);
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        var dec = new FlacDecoder(pars);
+        dec.Dispose();
+        dec.Dispose(); // no exception
+    }
+
+    [Fact]
+    public void Factory_Supports_OnlyFlac()
+    {
+        var f = new FlacDecoderFactory();
+        Assert.True(f.Supports(CodecId.Flac));
+        Assert.False(f.Supports(CodecId.Aac));
+        Assert.False(f.Supports(CodecId.Opus));
+    }
+
+    [Fact]
+    public void Factory_Create_Returns_FlacDecoder()
+    {
+        var f = new FlacDecoderFactory();
+        var pars = new AudioCodecParameters
+        {
+            Codec = CodecId.Flac, SampleRate = 44100, Channels = 1, BitsPerSample = 16,
+            ExtraData = BuildStreamInfo(44100, 1, 16, 192),
+        };
+        using var dec = f.Create(pars);
+        Assert.IsType<FlacDecoder>(dec);
+    }
+
+    [Fact]
+    public void Crc8_Of_EmptySpan_IsZero()
+    {
+        Assert.Equal(0, FlacCrc.Crc8(ReadOnlySpan<byte>.Empty));
+    }
+
+    [Fact]
+    public void Crc16_Of_EmptySpan_IsZero()
+    {
+        Assert.Equal(0, FlacCrc.Crc16(ReadOnlySpan<byte>.Empty));
+    }
+
+    [Fact]
+    public void Crc8_Incremental_Matches_Span()
+    {
+        var data = new byte[] { 0xFF, 0xF8, 0x19, 0x08, 0x00 };
+        byte spanCrc = FlacCrc.Crc8(data);
+        byte stepped = 0;
+        for (int i = 0; i < data.Length; i++) stepped = FlacCrc.Crc8(stepped, data[i]);
+        Assert.Equal(spanCrc, stepped);
+    }
+
+    [Fact]
+    public void Crc16_Incremental_Matches_Span()
+    {
+        var data = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x11 };
+        ushort spanCrc = FlacCrc.Crc16(data);
+        ushort stepped = 0;
+        for (int i = 0; i < data.Length; i++) stepped = FlacCrc.Crc16(stepped, data[i]);
+        Assert.Equal(spanCrc, stepped);
+    }
 }
