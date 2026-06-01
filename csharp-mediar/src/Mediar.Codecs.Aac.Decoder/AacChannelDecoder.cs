@@ -644,7 +644,7 @@ public static class AacChannelDecoder
         };
     }
 
-    private static void ApplyLongWindowTnsIfPresent(
+    private static void ApplyTnsIfPresent(
         AacChannelFrame frame,
         int sampleRate,
         AacAudioObjectType objectType,
@@ -653,8 +653,7 @@ public static class AacChannelDecoder
         var ics = frame.Stream.IcsInfo;
         var ws = ics.WindowSequence;
         if (!frame.Stream.TnsDataPresent
-            || frame.Stream.TnsData is not { } tnsData
-            || ws == AacWindowSequence.EightShort)
+            || frame.Stream.TnsData is not { } tnsData)
         {
             return;
         }
@@ -667,7 +666,10 @@ public static class AacChannelDecoder
                 nameof(sampleRate));
         }
 
-        ReadOnlySpan<int> swbOffsets = AacSwbOffsets.GetLongOffsets(sampleRate);
+        bool isShort = ws == AacWindowSequence.EightShort;
+        ReadOnlySpan<int> swbOffsets = isShort
+            ? AacSwbOffsets.GetShortOffsets(sampleRate)
+            : AacSwbOffsets.GetLongOffsets(sampleRate);
         int tnsMaxSfb = AacTnsSpecLimits.GetMaxBands(objectType, sfIndex, ws);
         int tnsMaxOrder = AacTnsSpecLimits.GetMaxOrder(objectType, ws);
 
@@ -675,8 +677,31 @@ public static class AacChannelDecoder
         if (tnsMaxSfb > numSwb) tnsMaxSfb = numSwb;
         if (tnsMaxOrder > AacTnsLpcStepUp.MaxOrder) tnsMaxOrder = AacTnsLpcStepUp.MaxOrder;
 
+        if (!isShort)
+        {
+            AacTnsSpectrumApplier.Apply(
+                tnsData, ics, spectrum, swbOffsets, tnsMaxSfb, tnsMaxOrder);
+            return;
+        }
+
+        // Short-window TNS: deinterleave the group-major /
+        // SFB-window-interleaved layout to window-major (8 contiguous
+        // 128-sample windows) so AacTnsSpectrumApplier can act per
+        // window, then re-interleave back to group-major.
+        var windowMajor = new float[AacShortWindowDeinterleaver.TotalLength];
+        AacShortWindowDeinterleaver.ToWindowMajor(spectrum, ics, swbOffsets, windowMajor);
         AacTnsSpectrumApplier.Apply(
-            tnsData, ics, spectrum, swbOffsets, tnsMaxSfb, tnsMaxOrder);
+            tnsData, ics, windowMajor, swbOffsets, tnsMaxSfb, tnsMaxOrder);
+        AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, swbOffsets, spectrum);
+    }
+
+    private static void ApplyLongWindowTnsIfPresent(
+        AacChannelFrame frame,
+        int sampleRate,
+        AacAudioObjectType objectType,
+        float[] spectrum)
+    {
+        ApplyTnsIfPresent(frame, sampleRate, objectType, spectrum);
     }
 
     /// <summary>
