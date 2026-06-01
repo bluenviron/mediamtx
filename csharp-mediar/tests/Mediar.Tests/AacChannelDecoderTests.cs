@@ -1360,6 +1360,107 @@ public sealed class AacChannelDecoderTests
         Assert.False(out1HalfAllZero && out2HalfAllZero);
     }
 
+    // ----- DecodeMonoToSamples — EightShort filterbank path -----
+
+    [Fact]
+    public void DecodeMonoToSamples_EightShort_NoTns_ProducesFiniteSamples()
+    {
+        var frame = BuildShortWindowFrameNoTns();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, fb, output);
+
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, output.Length);
+        foreach (var s in output) Assert.False(float.IsNaN(s) || float.IsInfinity(s));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_EightShort_AdvancesFilterbankShape()
+    {
+        var frame = BuildShortWindowFrameNoTns();
+        var fb = new AacSynthesisFilterbank();
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        Assert.Equal(AacWindowShape.Sine, fb.PreviousWindowShape);
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, fb, output);
+
+        // Window shape must be updated to match the frame's window_shape after the call.
+        Assert.Equal(frame.Stream.IcsInfo.WindowShape, fb.PreviousWindowShape);
+
+        // The synthetic frame places all active bins in the first 128 coefficients
+        // (group-major layout: 4 SFBs × 8 windows). Window 0's IMDCT output lands at
+        // positions 448–703 in the PCM frame, so the output has non-zero samples there.
+        bool anyNonZero = false;
+        foreach (var s in output) if (s != 0f) { anyNonZero = true; break; }
+        Assert.True(anyNonZero);
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_EightShort_ConsecutiveIdenticalFrames_IsDeterministic()
+    {
+        // With a synthetic group-major frame, the IMDCT contribution from each short
+        // window falls within the first 1024 output samples; no energy reaches the
+        // overlap buffer. Consecutive calls with the same frame therefore produce the
+        // same output — confirming that the filterbank state does not corrupt
+        // subsequent calls.
+        var frame = BuildShortWindowFrameNoTns();
+        var fb = new AacSynthesisFilterbank();
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, fb, out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc, fb, out2);
+
+        Assert.True(out1.SequenceEqual(out2));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_EightShort_WithTns_DiffersFromNoTns()
+    {
+        var frameNoTns = BuildShortWindowFrameNoTns();
+        var frameTns = BuildShortWindowFrameWithTns(tnsOrder: 2, tnsCoef: 3);
+        var out1 = new float[AacSynthesisFilterbank.LongFrameLength];
+        var out2 = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        AacChannelDecoder.DecodeMonoToSamples(
+            frameNoTns, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc,
+            new AacSynthesisFilterbank(), out1);
+        AacChannelDecoder.DecodeMonoToSamples(
+            frameTns, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc,
+            new AacSynthesisFilterbank(), out2);
+
+        Assert.False(out1.SequenceEqual(out2));
+    }
+
+    [Fact]
+    public void DecodeMonoToSamples_EightShort_MatchesManualFilterbankPath()
+    {
+        var frame = BuildShortWindowFrameWithTns(tnsOrder: 2, tnsCoef: 3);
+        const uint seed = 77u;
+
+        // Composer path.
+        var fb1 = new AacSynthesisFilterbank();
+        var viaComposer = new float[AacSynthesisFilterbank.LongFrameLength];
+        AacChannelDecoder.DecodeMonoToSamples(
+            frame, Sr48k, new AacPnsRandom(seed: seed), AacAudioObjectType.AacLc,
+            fb1, viaComposer);
+
+        // Manual path: DecodeMono (spectrum + TNS) → ProcessEightShortBlock.
+        var spectrum = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: seed), AacAudioObjectType.AacLc);
+        var fb2 = new AacSynthesisFilterbank();
+        var viaManual = new float[AacSynthesisFilterbank.LongFrameLength];
+        fb2.ProcessEightShortBlock(
+            spectrum.Coefficients.AsSpan(), frame.Stream.IcsInfo.WindowShape, viaManual);
+
+        Assert.Equal(viaComposer, viaManual);
+    }
+
     // ---------- DecodePairToSamples tests ----------
 
     [Fact]
