@@ -155,12 +155,12 @@ public class AacPceLayoutResolverTests
 
     // ----- helpers -----
 
-    private static AacPceChannelSlot Sce(int tag) => new() { IsCpe = false, TagSelect = tag };
-    private static AacPceChannelSlot Cpe(int tag) => new() { IsCpe = true, TagSelect = tag };
-    private static AacPceCouplingSlot Coupling(int tag) =>
+    internal static AacPceChannelSlot Sce(int tag) => new() { IsCpe = false, TagSelect = tag };
+    internal static AacPceChannelSlot Cpe(int tag) => new() { IsCpe = true, TagSelect = tag };
+    internal static AacPceCouplingSlot Coupling(int tag) =>
         new() { IsIndependentlySwitched = false, TagSelect = tag };
 
-    private static AacProgramConfigurationElement BuildPce(
+    internal static AacProgramConfigurationElement BuildPce(
         IReadOnlyList<AacPceChannelSlot>? frontElements = null,
         IReadOnlyList<AacPceChannelSlot>? sideElements = null,
         IReadOnlyList<AacPceChannelSlot>? backElements = null,
@@ -182,7 +182,7 @@ public class AacPceLayoutResolverTests
         };
     }
 
-    private static AacRawDataBlock BuildBlock(params AacRawDataBlockEntry[] entries)
+    internal static AacRawDataBlock BuildBlock(params AacRawDataBlockEntry[] entries)
     {
         return new AacRawDataBlock
         {
@@ -192,7 +192,7 @@ public class AacPceLayoutResolverTests
         };
     }
 
-    private static AacRawDataBlockEntry BuildSceEntry(int tag)
+    internal static AacRawDataBlockEntry BuildSceEntry(int tag)
     {
         // Build a minimal SCE with a real frame so the typed payload is valid
         var frame = AacChannelDecoderTests.BuildFrameNoPns();
@@ -211,7 +211,7 @@ public class AacPceLayoutResolverTests
         };
     }
 
-    private static AacRawDataBlockEntry BuildCpeEntry(int tag)
+    internal static AacRawDataBlockEntry BuildCpeEntry(int tag)
     {
         var l = AacChannelDecoderTests.BuildFrameNoPns();
         var r = AacChannelDecoderTests.BuildFrameNoPns();
@@ -236,7 +236,7 @@ public class AacPceLayoutResolverTests
         };
     }
 
-    private static AacRawDataBlockEntry BuildLfeEntry(int tag)
+    internal static AacRawDataBlockEntry BuildLfeEntry(int tag)
     {
         var frame = AacChannelDecoderTests.BuildFrameNoPns();
         var lfe = new AacLowFrequencyElement
@@ -254,7 +254,7 @@ public class AacPceLayoutResolverTests
         };
     }
 
-    private static AacRawDataBlockEntry BuildCceEntry(int tag)
+    internal static AacRawDataBlockEntry BuildCceEntry(int tag)
     {
         var cce = AacChannelDecoderTests.BuildCceCb1NoPns() with { ElementInstanceTag = tag };
         return new AacRawDataBlockEntry
