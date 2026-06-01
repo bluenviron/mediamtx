@@ -7,6 +7,7 @@ namespace Mediar.Tests;
 public sealed class AacChannelDecoderTests
 {
     private const int Sr48k = 48_000;
+    private const int AacSwbOffsetsLongCount = 49; // 48k long has 49 SWBs (50 offsets)
 
     private static AacHuffmanCodebook BuildSyntheticSfCodebook()
     {
@@ -102,6 +103,55 @@ public sealed class AacChannelDecoderTests
         w.Write(0u, 1);
 
         w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        return frame!;
+    }
+
+    /// <summary>10-SFB long-window frame with order-2 TNS, no PNS, all-1 spectral coefs.</summary>
+    private static AacChannelFrame BuildFrameWithTns(int order, int coef)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        const int sfbs = 10;
+        // TNS filter length must cover down to the spectral range or it
+        // clamps to a no-op. Use the full long-window SWB count so the
+        // filter actually overlaps [0, swb[sfbs]) once mmm clamps top.
+        const int tnsLength = AacSwbOffsetsLongCount;
+        var w = new AacBitWriter();
+        w.Write(100u, 8);
+        WriteLongIcsInfo(w, maxSfb: sfbs);
+
+        w.Write(1u, 4);
+        w.Write((uint)sfbs, 5);
+
+        for (int i = 0; i < sfbs; i++)
+        {
+            var (sfCode, sfLen) = EncodeSfDiff(0);
+            w.Write(sfCode, sfLen);
+        }
+
+        w.Write(0u, 1);
+        w.Write(1u, 1);
+        w.Write(1u, 2);
+        w.Write(0u, 1);
+        w.Write((uint)tnsLength, 6);
+        w.Write((uint)order, 5);
+        if (order > 0)
+        {
+            w.Write(0u, 1);
+            w.Write(0u, 1);
+            for (int i = 0; i < order; i++) w.Write((uint)coef, 3);
+        }
+        w.Write(0u, 1);
+
+        int swb48k0 = AacSwbOffsets.GetLongOffsets(Sr48k)[sfbs];
+        int tuples = swb48k0 / 4;
+        for (int i = 0; i < tuples; i++) w.Write(80u, 7);
 
         Assert.True(AacChannelFrame.TryParse(
             w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
@@ -242,5 +292,131 @@ public sealed class AacChannelDecoderTests
         var viaApplier = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 5u));
 
         Assert.Equal(viaApplier.Coefficients.ToArray(), viaComposer.Coefficients.ToArray());
+    }
+
+    // --- DecodeMono with AOT (Dequantize + PNS + long-window TNS) ---
+
+    [Fact]
+    public void DecodeMono_Aot_NullFrame_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeMono(null!, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc));
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_NullPrng_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        Assert.Throws<ArgumentNullException>(() =>
+            AacChannelDecoder.DecodeMono(frame, Sr48k, null!, AacAudioObjectType.AacLc));
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_BadSampleRate_Throws()
+    {
+        var frame = BuildFrameNoPns();
+        Assert.Throws<ArgumentException>(() =>
+            AacChannelDecoder.DecodeMono(
+                frame, 192_000, new AacPnsRandom(), AacAudioObjectType.AacLc));
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_NoTnsData_MatchesNonAotOverload()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 30);
+
+        var withoutAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u));
+        var withAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+
+        Assert.Equal(withoutAot.Coefficients.ToArray(), withAot.Coefficients.ToArray());
+        Assert.Equal(withoutAot.WindowSequence, withAot.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_TnsOrderZero_MatchesNonAotOverload()
+    {
+        var frame = BuildFrameWithTns(order: 0, coef: 0);
+
+        var withoutAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u));
+        var withAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+
+        Assert.Equal(withoutAot.Coefficients.ToArray(), withAot.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_TnsAppliedDiffersFromNonAotOverload()
+    {
+        var frame = BuildFrameWithTns(order: 2, coef: 3);
+
+        var withoutAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u));
+        var withAot = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+
+        Assert.NotEqual(withoutAot.Coefficients.ToArray(), withAot.Coefficients.ToArray());
+        Assert.Equal(AacWindowSequence.OnlyLong, withAot.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_TnsMatchesManualPipeline()
+    {
+        var frame = BuildFrameWithTns(order: 2, coef: 3);
+
+        var viaComposer = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(seed: 11u), AacAudioObjectType.AacLc);
+
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        var buf = dq.Coefficients.ToArray();
+        AacPnsApplier.ApplyInPlace(buf, frame, Sr48k, new AacPnsRandom(seed: 11u));
+
+        var ics = frame.Stream.IcsInfo;
+        var swb = AacSwbOffsets.GetLongOffsets(Sr48k);
+        int sfIdx = AacSampleRates.ToIndex(Sr48k);
+        int maxSfb = AacTnsSpecLimits.GetMaxBands(
+            AacAudioObjectType.AacLc, sfIdx, ics.WindowSequence);
+        int maxOrder = AacTnsSpecLimits.GetMaxOrder(
+            AacAudioObjectType.AacLc, ics.WindowSequence);
+        if (maxSfb > swb.Length - 1) maxSfb = swb.Length - 1;
+        AacTnsSpectrumApplier.Apply(
+            frame.Stream.TnsData!, ics, buf, swb, maxSfb, maxOrder);
+
+        Assert.Equal(buf, viaComposer.Coefficients.ToArray());
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacSsr)]
+    [InlineData(AacAudioObjectType.Sbr)]
+    [InlineData(AacAudioObjectType.AacScalable)]
+    public void DecodeMono_Aot_UnsupportedAot_TnsActive_Throws(AacAudioObjectType aot)
+    {
+        var frame = BuildFrameWithTns(order: 2, coef: 3);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacChannelDecoder.DecodeMono(frame, Sr48k, new AacPnsRandom(), aot));
+    }
+
+    [Fact]
+    public void BuildFrameWithTns_SanityCheck_FrameHasTnsData()
+    {
+        var frame = BuildFrameWithTns(order: 2, coef: 3);
+        Assert.True(frame.Stream.TnsDataPresent);
+        Assert.NotNull(frame.Stream.TnsData);
+        Assert.Single(frame.Stream.TnsData!.Windows);
+        Assert.Single(frame.Stream.TnsData.Windows[0].Filters);
+        Assert.Equal(2, frame.Stream.TnsData.Windows[0].Filters[0].Order);
+        Assert.Equal(3, frame.Stream.TnsData.Windows[0].Filters[0].Coefficients[0]);
+        Assert.Equal(3, frame.Stream.TnsData.Windows[0].Filters[0].Coefficients[1]);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_UnsupportedAot_NoTnsData_DoesNotThrow()
+    {
+        var frame = BuildFrameNoPns();
+        var decoded = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacSsr);
+        Assert.Equal(1024, decoded.Coefficients.Length);
     }
 }
