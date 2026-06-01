@@ -71,7 +71,7 @@ public sealed record AacAbsoluteScaleFactors
     /// (the 8-bit field that prefixes <c>individual_channel_stream()</c>).
     /// </summary>
     /// <param name="deltas">
-    /// Differentials decoded by <see cref="AacScaleFactorData.TryRead"/>.
+    /// Differentials decoded by <see cref="AacScaleFactorData.TryRead(ref BitReader, AacSectionData, AacHuffmanCodebook, out AacScaleFactorData)"/>.
     /// </param>
     /// <param name="globalGain">
     /// The 8-bit <c>global_gain</c> value (0..255). The caller should

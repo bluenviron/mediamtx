@@ -123,6 +123,21 @@ public sealed record AacScaleFactorData
     /// the caller's responsibility.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Convenience overload that uses the canonical standard
+    /// scale-factor codebook (ISO/IEC 14496-3 Annex 4.A.2.1)
+    /// supplied by <see cref="AacStandardScaleFactorCodebook.Book"/>.
+    /// Use this in production decode paths; the codebook-injected
+    /// overload remains for tests and synthetic fixtures.
+    /// </summary>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacSectionData sectionData,
+        out AacScaleFactorData? data)
+    {
+        return TryRead(ref reader, sectionData, AacStandardScaleFactorCodebook.Book, out data);
+    }
+
     internal static bool TryRead(
         scoped ref BitReader reader,
         AacSectionData sectionData,
