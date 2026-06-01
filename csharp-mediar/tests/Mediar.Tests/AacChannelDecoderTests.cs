@@ -420,6 +420,215 @@ public sealed class AacChannelDecoderTests
         Assert.Equal(1024, decoded.Coefficients.Length);
     }
 
+    // ----- Short-window TNS integration -----
+
+    /// <summary>4-SFB EightShort frame: all 8 windows in one group, codebook 1, no TNS.</summary>
+    private static AacChannelFrame BuildShortWindowFrameNoTns()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        const int maxSfb = 4;
+        var w = new AacBitWriter();
+        w.Write(100u, 8);
+        WriteShortIcsInfo(w, maxSfb, grouping: 0x7F);
+        WriteZeroHcbAndCodebook1Sections(w, groupCount: 1, maxSfb);
+        WriteShortSfData(w, groupCount: 1, maxSfb);
+
+        w.Write(0u, 1); // pulse_data_present
+        w.Write(0u, 1); // tns_data_present
+        w.Write(0u, 1); // gain_control_data_present
+
+        WriteShortSpectralData(w, maxSfb, windowsInGroup: 8);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        return frame!;
+    }
+
+    /// <summary>4-SFB EightShort frame: all 8 windows in one group, codebook 1, with an
+    /// order-<paramref name="tnsOrder"/> TNS filter on window 0.</summary>
+    private static AacChannelFrame BuildShortWindowFrameWithTns(int tnsOrder = 2, int tnsCoef = 3)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        const int maxSfb = 4;
+        var w = new AacBitWriter();
+        w.Write(100u, 8);
+        WriteShortIcsInfo(w, maxSfb, grouping: 0x7F);
+        WriteZeroHcbAndCodebook1Sections(w, groupCount: 1, maxSfb);
+        WriteShortSfData(w, groupCount: 1, maxSfb);
+
+        w.Write(0u, 1); // pulse_data_present
+        w.Write(1u, 1); // tns_data_present
+
+        // tns_data() for EightShort: 8 windows
+        // Window 0: one filter with the requested order.
+        w.Write(1u, 1); // n_filt_short = 1
+        w.Write(1u, 1); // coef_res = 1 (4-bit coefficients)
+        w.Write(15u, 4); // length = 15 (max for short window)
+        w.Write((uint)tnsOrder, 3); // order (3-bit field for short)
+        if (tnsOrder > 0)
+        {
+            w.Write(0u, 1); // direction = 0
+            w.Write(0u, 1); // coef_compress = 0 → coef_bits = 4 − 0 = 4
+            for (int i = 0; i < tnsOrder; i++) w.Write((uint)tnsCoef, 4);
+        }
+        // Windows 1–7: no filter.
+        for (int win = 1; win < 8; win++) w.Write(0u, 1);
+
+        w.Write(0u, 1); // gain_control_data_present
+
+        WriteShortSpectralData(w, maxSfb, windowsInGroup: 8);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        return frame!;
+    }
+
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2); // window_sequence
+        w.Write(0u, 1);                                // window_shape
+        w.Write((uint)maxSfb, 4);                      // max_sfb (4 bits for EightShort)
+        w.Write(grouping, 7);                          // scale_factor_grouping
+    }
+
+    /// <summary>Writes section_data() for <paramref name="groupCount"/> groups, each
+    /// covered by a single codebook-1 section spanning all <paramref name="maxSfb"/> SFBs.
+    /// EightShort uses 3-bit sect_len_incr; escape = 7.</summary>
+    private static void WriteZeroHcbAndCodebook1Sections(
+        AacBitWriter w, int groupCount, int maxSfb)
+    {
+        for (int g = 0; g < groupCount; g++)
+        {
+            w.Write(1u, 4); // sect_cb = 1 (codebook 1)
+            // sect_len encoded as 3-bit chunks; escape = 7
+            int remaining = maxSfb;
+            while (remaining >= 7)
+            {
+                w.Write(7u, 3);
+                remaining -= 7;
+            }
+            w.Write((uint)remaining, 3);
+        }
+    }
+
+    /// <summary>Writes scale_factor_data(): <paramref name="maxSfb"/> zero-diff SF
+    /// deltas per group (symbol 60 in the SF codebook = diff 0 = one bit).</summary>
+    private static void WriteShortSfData(AacBitWriter w, int groupCount, int maxSfb)
+    {
+        for (int g = 0; g < groupCount; g++)
+        {
+            for (int sfb = 0; sfb < maxSfb; sfb++)
+            {
+                var (sfCode, sfLen) = EncodeSfDiff(0);
+                w.Write(sfCode, sfLen);
+            }
+        }
+    }
+
+    /// <summary>Writes spectral_data() for a single-group EightShort frame encoded with
+    /// codebook 1. Each SFB covers <paramref name="windowsInGroup"/> × bandWidth
+    /// coefficients packed as (bandWidth × windowsInGroup / 4) 7-bit tuples.</summary>
+    private static void WriteShortSpectralData(AacBitWriter w, int maxSfb, int windowsInGroup)
+    {
+        var shortSwb = AacSwbOffsets.GetShortOffsets(Sr48k);
+        int activeBins = shortSwb[maxSfb] * windowsInGroup;
+        int tuples = activeBins / 4; // codebook 1 decodes 4 coefficients per tuple
+        for (int i = 0; i < tuples; i++) w.Write(80u, 7);
+    }
+
+    [Fact]
+    public void BuildShortWindowFrameWithTns_SanityCheck_EightShortAndTnsDataPresent()
+    {
+        var frame = BuildShortWindowFrameWithTns();
+        Assert.Equal(AacWindowSequence.EightShort, frame.Stream.IcsInfo.WindowSequence);
+        Assert.True(frame.Stream.TnsDataPresent);
+        Assert.NotNull(frame.Stream.TnsData);
+        Assert.Equal(8, frame.Stream.TnsData!.Windows.Length);
+        Assert.Single(frame.Stream.TnsData.Windows[0].Filters);
+        Assert.Equal(2, frame.Stream.TnsData.Windows[0].Filters[0].Order);
+        // Windows 1–7 carry no filter.
+        for (int w = 1; w < 8; w++) Assert.Empty(frame.Stream.TnsData.Windows[w].Filters);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_ShortWindow_NoTnsData_ReturnsSpectrum()
+    {
+        var frame = BuildShortWindowFrameNoTns();
+        var decoded = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+        Assert.Equal(1024, decoded.Coefficients.Length);
+        Assert.Equal(AacWindowSequence.EightShort, decoded.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_ShortWindow_TnsApplied_DiffersFromNoTns()
+    {
+        var frameNoTns = BuildShortWindowFrameNoTns();
+        var frameTns = BuildShortWindowFrameWithTns(tnsOrder: 2, tnsCoef: 3);
+
+        var withoutTns = AacChannelDecoder.DecodeMono(
+            frameNoTns, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+        var withTns = AacChannelDecoder.DecodeMono(
+            frameTns, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+
+        Assert.NotEqual(withoutTns.Coefficients.ToArray(), withTns.Coefficients.ToArray());
+        Assert.Equal(AacWindowSequence.EightShort, withTns.WindowSequence);
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_ShortWindow_TnsOrderZero_MatchesNoTns()
+    {
+        var frameNoTns = BuildShortWindowFrameNoTns();
+        var frameTnsOrder0 = BuildShortWindowFrameWithTns(tnsOrder: 0, tnsCoef: 0);
+
+        var withoutTns = AacChannelDecoder.DecodeMono(
+            frameNoTns, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+        var withTnsOrder0 = AacChannelDecoder.DecodeMono(
+            frameTnsOrder0, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+
+        Assert.Equal(withoutTns.Coefficients.ToArray(), withTnsOrder0.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void DecodeMono_Aot_ShortWindow_TnsMatchesManualPipeline()
+    {
+        var frame = BuildShortWindowFrameWithTns(tnsOrder: 2, tnsCoef: 3);
+
+        var viaComposer = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom(), AacAudioObjectType.AacLc);
+
+        // Manual pipeline: dequant → PNS → deinterleave to window-major → TNS → re-interleave.
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        var buf = dq.Coefficients.ToArray();
+        AacPnsApplier.ApplyInPlace(buf, frame, Sr48k, new AacPnsRandom());
+
+        var ics = frame.Stream.IcsInfo;
+        var shortSwb = AacSwbOffsets.GetShortOffsets(Sr48k);
+        int sfIdx = AacSampleRates.ToIndex(Sr48k);
+        int maxSfb = AacTnsSpecLimits.GetMaxBands(
+            AacAudioObjectType.AacLc, sfIdx, ics.WindowSequence);
+        int maxOrder = AacTnsSpecLimits.GetMaxOrder(
+            AacAudioObjectType.AacLc, ics.WindowSequence);
+        if (maxSfb > shortSwb.Length - 1) maxSfb = shortSwb.Length - 1;
+
+        var windowMajor = new float[1024];
+        AacShortWindowDeinterleaver.ToWindowMajor(buf, ics, shortSwb, windowMajor);
+        AacTnsSpectrumApplier.Apply(
+            frame.Stream.TnsData!, ics, windowMajor, shortSwb, maxSfb, maxOrder);
+        AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, shortSwb, buf);
+
+        Assert.Equal(buf, viaComposer.Coefficients.ToArray());
+    }
+
     // ---------- DecodePair tests ----------
 
     private static AacChannelPairElement BuildCpeFromTwoFrames(
