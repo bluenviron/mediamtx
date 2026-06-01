@@ -242,6 +242,52 @@ public class AacFrameDecoderTests
         Assert.Equal(2, dec.Config.ChannelCount);
     }
 
+    // ----- EightShort window tests -----
+
+    [Fact]
+    public void DecodeFrame_MonoEightShort_ProducesFrontCenterPcmOfCorrectLength()
+    {
+        var dec = BuildDecoder(channelConfig: 1);
+        var bytes = BuildShortWindowMonoSceBlock(tag: 0);
+
+        var decoded = dec.DecodeFrame(bytes);
+
+        Assert.Single(decoded.Channels);
+        Assert.Equal(AacSpeaker.FrontCentre, decoded.Channels[0].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, decoded.Channels[0].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeFrame_MonoEightShort_TwoConsecutiveFrames_BothHaveCorrectShape()
+    {
+        var dec = BuildDecoder(channelConfig: 1);
+        var bytes = BuildShortWindowMonoSceBlock(tag: 0);
+
+        var frame1 = dec.DecodeFrame(bytes);
+        var frame2 = dec.DecodeFrame(bytes);
+
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, frame1.Channels[0].Samples.Length);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, frame2.Channels[0].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeFrame_MonoEightShort_ResetState_ProducesIdenticalOutputAsFreshDecoder()
+    {
+        var bytes = BuildShortWindowMonoSceBlock(tag: 0);
+
+        var dec1 = BuildDecoder(channelConfig: 1);
+        var frame1 = dec1.DecodeFrame(bytes);
+
+        var dec2 = BuildDecoder(channelConfig: 1);
+        // Burn one long-window frame to dirty the overlap buffer,
+        // then reset so the next EightShort starts from a clean slate.
+        _ = dec2.DecodeFrame(BuildMonoSceBlock(tag: 0, maxSfb: 4));
+        dec2.ResetState();
+        var frame2 = dec2.DecodeFrame(bytes);
+
+        Assert.Equal(frame1.Channels[0].Samples, frame2.Channels[0].Samples);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
@@ -301,6 +347,37 @@ public class AacFrameDecoderTests
         w.Write((uint)AacSyntacticElementType.ChannelPairElement, 3);
         AacChannelPairElementTests.WriteCommonWindowCpeBodyShared(
             w, tag, maxSfb, gain1: 0, gain2: 0);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+        return w.ToArray();
+    }
+
+    /// <summary>
+    /// 4-SFB EightShort SCE: all 8 windows in one group, ZERO_HCB
+    /// sections, global_gain = 0. Produces all-zero PCM but exercises
+    /// the short-window parse + filterbank dispatch path.
+    /// </summary>
+    private static byte[] BuildShortWindowMonoSceBlock(int tag)
+    {
+        const int maxSfb = 4;
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        // SCE body:
+        w.Write((uint)tag, 4);                             // element_instance_tag
+        w.Write(0u, 8);                                    // global_gain
+        w.Write(0u, 1);                                    // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);    // window_sequence
+        w.Write(0u, 1);                                    // window_shape = Sine
+        w.Write((uint)maxSfb, 4);                          // max_sfb (4 bits for short)
+        w.Write(0x7Fu, 7);                                 // scale_factor_grouping: all 1s = 1 group of 8 windows
+        // section_data: 1 group, ZERO_HCB covering all 4 SFBs
+        w.Write(0u, 4);                                    // sect_cb = 0 (ZERO_HCB)
+        w.Write((uint)maxSfb, 3);                          // sect_len_incr = 4 (< escape 7)
+        // No scale_factor_data (all ZERO_HCB)
+        // No pulse_data for short window (flag still present)
+        w.Write(0u, 1);                                    // pulse_data_present = 0
+        w.Write(0u, 1);                                    // tns_data_present = 0
+        w.Write(0u, 1);                                    // gain_control_data_present = 0
+        // No spectral_data (all ZERO_HCB)
         w.Write((uint)AacSyntacticElementType.End, 3);
         return w.ToArray();
     }
