@@ -292,19 +292,40 @@ public class AacAdtsFrameDecoderTests
     }
 
     [Fact]
-    public void DecodeBlocks_ProtectedMultiBlock_ThrowsNotSupported()
+    public void DecodeBlocks_ProtectedMultiBlock_DecodesAllBlocks()
     {
         var dec = NewDecoder();
-        // Protected (protection_absent=0) + multiple raw_data_blocks =
-        // per-block CRC interleaving, which isn't implemented.
-        // headerSize for protected + rdbInFrame=1 is 11 bytes; pad
-        // payload so frame_length > headerSize and the inline parser
-        // accepts the header.
-        var frame = BuildProtectedMultiBlockHeader(
-            sfIndex: 3, channelConfig: 1, rdbInFrame: 1, payloadSize: 16);
-        var ex = Assert.Throws<NotSupportedException>(() =>
-            dec.DecodeBlocks(frame, _ => { }));
-        Assert.Contains("Protected multi-block", ex.Message);
+        // Protected (protection_absent=0) + 2 raw_data_blocks: each
+        // block trails a zeroed 16-bit crc_check that the decoder
+        // skips without verifying.
+        var frame = BuildProtectedMultiSceFrame(
+            sfIndex: 3, channelConfig: 1, blockCount: 2);
+
+        int count = 0;
+        int decoded = dec.DecodeBlocks(frame, _ => count++);
+        Assert.Equal(2, decoded);
+        Assert.Equal(2, count);
+        Assert.Equal(2, dec.FrameCount);
+    }
+
+    [Fact]
+    public void DecodeBlocks_ProtectedMultiBlock_MissingCrcTrailer_Throws()
+    {
+        var dec = NewDecoder();
+        var frame = BuildProtectedMultiSceFrame(
+            sfIndex: 3, channelConfig: 1, blockCount: 2);
+        // Strip the trailing 2 CRC bytes from the last block. The
+        // frame_length field is rebuilt by the helper, so we have to
+        // patch both the buffer length AND the length field.
+        int newLen = frame.Length - 2;
+        var truncated = frame.AsSpan(0, newLen).ToArray();
+        // frame_length: bits [3:30..29] [4:28..21] [5:20..18]
+        truncated[3] = (byte)((truncated[3] & 0xFC) | ((newLen >> 11) & 0x03));
+        truncated[4] = (byte)((newLen >> 3) & 0xFF);
+        truncated[5] = (byte)((truncated[5] & 0x1F) | ((newLen & 0x07) << 5));
+
+        Assert.Throws<InvalidDataException>(() =>
+            dec.DecodeBlocks(truncated, _ => { }));
     }
 
     [Fact]
@@ -533,6 +554,46 @@ public class AacAdtsFrameDecoderTests
         {
             Buffer.BlockCopy(b, 0, frame, o, b.Length);
             o += b.Length;
+        }
+        return frame;
+    }
+
+    private static byte[] BuildProtectedMultiSceFrame(
+        int sfIndex,
+        int channelConfig,
+        int blockCount)
+    {
+        // Build N raw_data_blocks (byte-aligned), each followed by a
+        // 2-byte zeroed CRC trailer. The header is the protected
+        // variant with raw_data_block_position[] pointers also zeroed
+        // (the decoder ignores them and walks the cursor instead).
+        byte[][] blocks = new byte[blockCount][];
+        int payloadLen = 0;
+        for (int i = 0; i < blockCount; i++)
+        {
+            blocks[i] = BuildEmptySceRawDataBlock(tag: i, maxSfb: 10);
+            payloadLen += blocks[i].Length + 2; // +2 for per-block crc_check
+        }
+
+        int headerSize = 9 + 2 * (blockCount - 1);
+        int frameLength = headerSize + payloadLen;
+        byte[] header = BuildAdtsHeader(
+            profile: 1,
+            sfIndex: sfIndex,
+            channelConfig: channelConfig,
+            frameLength: frameLength,
+            protectionAbsent: false,
+            rdbInFrame: blockCount - 1);
+
+        byte[] frame = new byte[frameLength];
+        Buffer.BlockCopy(header, 0, frame, 0, headerSize);
+        int o = headerSize;
+        for (int i = 0; i < blockCount; i++)
+        {
+            Buffer.BlockCopy(blocks[i], 0, frame, o, blocks[i].Length);
+            o += blocks[i].Length;
+            // Per-block crc_check trailer: 2 bytes, value irrelevant.
+            o += 2;
         }
         return frame;
     }

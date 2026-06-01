@@ -29,10 +29,12 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// <para>
 /// CRC bytes, when present (protection_absent == 0), are skipped
 /// without verification — callers that need CRC validation should
-/// check the bytes themselves before calling. Multi-block CRC
-/// interleaving (per-block CRC trailer) is currently NOT supported
-/// and protected multi-block frames are rejected with
-/// <see cref="NotSupportedException"/>.
+/// check the bytes themselves before calling. For protected
+/// multi-block frames, the 16-bit per-block crc_check trailer
+/// after each raw_data_block is also skipped, and the multi-block
+/// raw_data_block_position[] pointers in the header are ignored
+/// in favour of the byte-aligned cursor walk used by the
+/// unprotected path.
 /// </para>
 /// <para>
 /// PCE-described streams (channelConfig == 0) cannot be carried by
@@ -239,16 +241,12 @@ public sealed class AacAdtsFrameDecoder
     /// The header fails to parse or the buffer is shorter than
     /// <c>frame_length</c>.
     /// </exception>
-    /// <exception cref="NotSupportedException">
-    /// The frame signals <c>protection_absent == 0</c> together with
-    /// multiple raw_data_blocks (per-block CRC interleaving is not
-    /// implemented).
-    /// </exception>
     /// <exception cref="InvalidDataException">
     /// Forwarded from <see cref="AacFrameDecoder.DecodeRawDataBlock(ReadOnlySpan{byte}, out int)"/>
     /// for malformed blocks, or raised here when the ADTS header
     /// signals <c>channel_configuration == 0</c> (which ADTS cannot
-    /// carry).
+    /// carry), or when a protected multi-block frame is missing
+    /// the trailing 16-bit per-block crc_check.
     /// </exception>
     public int DecodeBlocks(ReadOnlySpan<byte> adtsFrame, FrameSink sink)
     {
@@ -277,17 +275,13 @@ public sealed class AacAdtsFrameDecoder
 
         int blockCount = parsed.RawDataBlockCount;
 
-        // Multi-block frames with per-block CRC trailers are not yet
-        // supported (would require interleaving block decoding with
-        // 16-bit CRC skips). The blocks themselves are byte-aligned
-        // but the CRCs split the payload non-contiguously.
-        if (blockCount > 1 && !parsed.ProtectionAbsent)
-        {
-            throw new NotSupportedException(
-                "Protected multi-block ADTS frames are not supported " +
-                "(protection_absent == 0 together with " +
-                $"number_of_raw_data_blocks_in_frame = {blockCount - 1}).");
-        }
+        // Protected multi-block frames have a 16-bit CRC trailer
+        // after every raw_data_block. The blocks themselves are
+        // still byte-aligned, so we walk them with the same cursor
+        // logic and skip 2 extra bytes per block. CRCs are not
+        // verified (the spec considers verification optional and
+        // recoverable streams are usually re-validated upstream).
+        bool hasPerBlockCrc = blockCount > 1 && !parsed.ProtectionAbsent;
 
         EnsureFrameDecoder(parsed);
 
@@ -311,6 +305,17 @@ public sealed class AacAdtsFrameDecoder
             // Each raw_data_block ends with byte_alignment(); round up.
             int blockBytes = (bitsConsumed + 7) >> 3;
             cursor += blockBytes;
+            if (hasPerBlockCrc)
+            {
+                // Skip the 16-bit per-block crc_check trailer without
+                // validation.
+                if (cursor + 2 > payloadEnd)
+                {
+                    throw new InvalidDataException(
+                        $"Protected ADTS frame is missing the 16-bit CRC trailer for block {i + 1}/{blockCount}.");
+                }
+                cursor += 2;
+            }
         }
 
         return blockCount;
@@ -342,10 +347,6 @@ public sealed class AacAdtsFrameDecoder
     /// <exception cref="InvalidDataException">
     /// A byte position contained a non-zero buffer that did not
     /// start with a valid ADTS syncword.
-    /// </exception>
-    /// <exception cref="NotSupportedException">
-    /// A frame inside the buffer signalled a combination of
-    /// per-block CRCs and multiple raw_data_blocks.
     /// </exception>
     public int DecodeFrames(ReadOnlySpan<byte> input, FrameSink sink)
     {
