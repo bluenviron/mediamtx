@@ -447,4 +447,157 @@ public sealed class AacCouplingChannelElementTests
         // The 0xAB padding byte is still readable from the reader.
         Assert.Equal(0xABu, reader.ReadBits(8));
     }
+
+    // CCE "full" overload tests
+
+    private static AacHuffmanCodebook BuildFixed7BitCodebook(int symbolCount)
+    {
+        var lengths = new int[symbolCount];
+        for (int i = 0; i < symbolCount; i++) lengths[i] = 7;
+        return AacHuffmanCodebook.FromCanonicalLengths(lengths);
+    }
+
+    private static AacHuffmanCodebook?[] SpectralBooksWith(int slot, AacHuffmanCodebook book)
+    {
+        var arr = new AacHuffmanCodebook?[16];
+        arr[slot] = book;
+        return arr;
+    }
+
+    [Fact]
+    public void CceFull_SingleSceTarget_EmptySpectrum_PopulatesSpectralData()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(4u, 4);              // element_instance_tag
+        w.Write(0u, 1);              // ind_sw_cce_flag = 0
+        w.Write(0u, 3);              // num_coupled_elements = 0 -> 1 target
+        w.Write(0u, 1); w.Write(2u, 4);   // SCE target, tag 2
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);   // cc_domain / sign / scale
+        WriteEmptyLongIcsBody(w, maxSfb: 10);
+        // No spectral bits (cb=0 across the board).
+        // No gain lists (numGainElementLists = 1 -> no extras).
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cce));
+        Assert.NotNull(cce);
+        Assert.NotNull(cce!.SpectralData);
+        Assert.All(cce.SpectralData!.Coefficients, c => Assert.Equal(0, c));
+        Assert.Equal(0, cce.SpectralData.BitsConsumed);
+        // Same BitsConsumed as the boundary overload since there are no spectral bits.
+        Assert.Equal(48, cce.BitsConsumed);
+        Assert.Empty(cce.GainLists);
+    }
+
+    [Fact]
+    public void CceFull_SingleSceTarget_Cb1Spectrum_ConsumesSpectralBeforeGainLists()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = SpectralBooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(4u, 4);
+        w.Write(0u, 1);              // ind_sw_cce_flag = 0
+        w.Write(0u, 3);              // 1 target -> no extra gain lists
+        w.Write(0u, 1); w.Write(2u, 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);
+        // ICS body with cb=1 single-band section.
+        w.Write(0x80u, 8);           // global_gain
+        WriteLongIcsInfo(w, maxSfb: 1);
+        WriteSection(w, cb: 1, len: 1);
+        WriteSfSymbol(w, symbol: 60); // 1 SF symbol diff 0
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); // pulse/tns/gain flags
+        // Spectral data: 1 cb=1 tuple of dim 4 -> 7 bits.
+        w.Write(80u, 7);             // symbol 80 -> (1,1,1,1)
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cce));
+        Assert.NotNull(cce);
+        Assert.NotNull(cce!.SpectralData);
+        Assert.Equal(1, cce.SpectralData!.Coefficients[0]);
+        Assert.Equal(1, cce.SpectralData.Coefficients[3]);
+        Assert.Equal(7, cce.SpectralData.BitsConsumed);
+        // Empty gain lists since num_gain_element_lists = 1.
+        Assert.Empty(cce.GainLists);
+    }
+
+    [Fact]
+    public void CceFull_TwoTargets_GainListsAlignAfterSpectralData()
+    {
+        // Two CPE targets with cc_l=cc_r=1 each -> num_gain_element_lists = 4.
+        // ind_sw_cce_flag = 1 -> each of the 3 explicit lists is an implied
+        // common gain element (1 SF symbol). The "full" overload must consume
+        // the spectral_data block between the ICS body and the first gain
+        // list - this test would mis-align under the boundary overload.
+        var book = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = SpectralBooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(7u, 4);              // element_instance_tag
+        w.Write(1u, 1);              // ind_sw_cce_flag = 1
+        w.Write(1u, 3);              // num_coupled_elements = 1 -> 2 targets
+        // Target 0
+        w.Write(1u, 1); w.Write(0u, 4); w.Write(1u, 1); w.Write(1u, 1);
+        // Target 1
+        w.Write(1u, 1); w.Write(1u, 4); w.Write(1u, 1); w.Write(1u, 1);
+        // Framing
+        w.Write(1u, 1); w.Write(0u, 1); w.Write(2u, 2);
+        // ICS body with cb=1 single-band section
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        WriteSection(w, cb: 1, len: 1);
+        WriteSfSymbol(w, symbol: 60);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        // Spectral data: 1 tuple
+        w.Write(80u, 7);
+        // 3 implied common gain elements (one per explicit gain list).
+        WriteSfSymbol(w, symbol: 65); // gain list 1 diff +5
+        WriteSfSymbol(w, symbol: 55); // gain list 2 diff -5
+        WriteSfSymbol(w, symbol: 60); // gain list 3 diff 0
+
+        Assert.True(AacCouplingChannelElement.TryParse(
+            w.ToArray(), book, sampleRate: 48_000, spectralBooks, out var cce));
+        Assert.NotNull(cce);
+        Assert.Equal(2, cce!.Targets.Count);
+        Assert.Equal(4, cce.NumGainElementLists);
+        Assert.Equal(3, cce.GainLists.Count);
+        Assert.True(cce.GainLists[0].CommonGainElementPresent);
+        Assert.Equal(5, cce.GainLists[0].CommonGainDifferential);
+        Assert.Equal(-5, cce.GainLists[1].CommonGainDifferential);
+        Assert.Equal(0, cce.GainLists[2].CommonGainDifferential);
+        Assert.NotNull(cce.SpectralData);
+        Assert.Equal(1, cce.SpectralData!.Coefficients[0]);
+    }
+
+    [Fact]
+    public void CceFull_BoundaryOverload_LeavesSpectralDataNull()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(4u, 4);
+        w.Write(0u, 1);
+        w.Write(0u, 3);
+        w.Write(0u, 1); w.Write(2u, 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 2);
+        WriteEmptyLongIcsBody(w, maxSfb: 10);
+
+        Assert.True(AacCouplingChannelElement.TryParse(w.ToArray(), book, out var cce));
+        Assert.NotNull(cce);
+        Assert.Null(cce!.SpectralData);
+        Assert.Equal(48, cce.BitsConsumed);
+    }
+
+    [Fact]
+    public void CceFull_NullSpectralCodebooks_Throws()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = new byte[16];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacCouplingChannelElement.TryParse(
+                bytes, book, sampleRate: 48_000, spectralCodebooks: null!, out _));
+    }
 }

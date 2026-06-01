@@ -180,6 +180,23 @@ public sealed record AacCouplingChannelElement
     public required AacIndividualChannelStream Stream { get; init; }
 
     /// <summary>
+    /// Parsed <c>spectral_data()</c> for the coupling channel when
+    /// the caller used the "full" overload
+    /// (<see cref="TryRead(ref BitReader, AacHuffmanCodebook, int, IReadOnlyList{AacHuffmanCodebook?}, out AacCouplingChannelElement?)"/>);
+    /// <see langword="null"/> for the boundary-stopping overload.
+    /// </summary>
+    /// <remarks>
+    /// Per ISO/IEC 14496-3 Table 4.8, the spectral_data block sits
+    /// between the coupling channel's ICS body and the per-target
+    /// gain element lists. The boundary-stopping overload therefore
+    /// loses sync with the gain lists on real streams - callers
+    /// that need correctly-aligned gain lists should always use the
+    /// "full" overload. The boundary overload remains usable for
+    /// inspection-only paths that don't depend on the gain lists.
+    /// </remarks>
+    public AacSpectralData? SpectralData { get; init; }
+
+    /// <summary>
     /// Per-target gain-element lists in stream order. Excludes the
     /// implicit first list (which always has unity gain). Length is
     /// <c>num_gain_element_lists - 1</c> and can be zero when there
@@ -189,8 +206,9 @@ public sealed record AacCouplingChannelElement
     public required IReadOnlyList<AacCouplingGainList> GainLists { get; init; }
 
     /// <summary>
-    /// Total bits consumed by the CCE structure (excluding any
-    /// trailing <c>spectral_data()</c> bits).
+    /// Total bits consumed by the CCE structure. Includes the
+    /// <c>spectral_data()</c> block only when the "full" overload was
+    /// used (i.e. when <see cref="SpectralData"/> is populated).
     /// </summary>
     public required int BitsConsumed { get; init; }
 
@@ -204,7 +222,13 @@ public sealed record AacCouplingChannelElement
     /// <summary>
     /// Read a <c>coupling_channel_element()</c> from
     /// <paramref name="reader"/> positioned at
-    /// <c>element_instance_tag</c>.
+    /// <c>element_instance_tag</c>. The boundary-stopping overload:
+    /// stops at the <c>spectral_data()</c> boundary and reads the
+    /// per-target gain lists immediately afterwards. <strong>Note:</strong>
+    /// on real CCE streams the gain lists are not actually
+    /// immediately-adjacent to the ICS body - the spectral_data
+    /// block sits between them per ISO/IEC 14496-3 Table 4.8. Use the
+    /// "full" overload when correctly-aligned gain lists are needed.
     /// </summary>
     /// <param name="reader">Bit reader positioned at element_instance_tag.</param>
     /// <param name="scaleFactorCodebook">121-symbol scale-factor Huffman codebook.</param>
@@ -219,6 +243,54 @@ public sealed record AacCouplingChannelElement
     internal static bool TryRead(
         scoped ref BitReader reader,
         AacHuffmanCodebook scaleFactorCodebook,
+        out AacCouplingChannelElement? element)
+    {
+        return TryReadCore(
+            ref reader,
+            scaleFactorCodebook,
+            sampleRate: null,
+            spectralCodebooks: null,
+            out element);
+    }
+
+    /// <summary>
+    /// Read a "full" <c>coupling_channel_element()</c> that also
+    /// consumes the inline <c>spectral_data()</c> block between the
+    /// ICS body and the per-target gain lists, populating
+    /// <see cref="SpectralData"/>. This matches the ISO/IEC 14496-3
+    /// Table 4.8 layout exactly.
+    /// </summary>
+    /// <param name="reader">Bit reader positioned at element_instance_tag.</param>
+    /// <param name="scaleFactorCodebook">121-symbol scale-factor Huffman codebook.</param>
+    /// <param name="sampleRate">Source sample rate (Hz) used to dispatch the SWB offset table.</param>
+    /// <param name="spectralCodebooks">
+    /// Codebook lookup indexed by codebook number; element <c>i</c> holds
+    /// the Huffman codebook used by <c>sect_cb == i</c>. Slots known
+    /// not to be referenced may be <see langword="null"/>.
+    /// </param>
+    /// <param name="element">Populated on success; <see langword="null"/> otherwise.</param>
+    internal static bool TryRead(
+        scoped ref BitReader reader,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacCouplingChannelElement? element)
+    {
+        element = null;
+        ArgumentNullException.ThrowIfNull(spectralCodebooks);
+        return TryReadCore(
+            ref reader,
+            scaleFactorCodebook,
+            sampleRate,
+            spectralCodebooks,
+            out element);
+    }
+
+    private static bool TryReadCore(
+        scoped ref BitReader reader,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int? sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?>? spectralCodebooks,
         out AacCouplingChannelElement? element)
     {
         element = null;
@@ -263,15 +335,38 @@ public sealed record AacCouplingChannelElement
         bool gainElementSign = reader.ReadBit();
         int gainElementScale = (int)reader.ReadBits(2);
 
-        if (!AacIndividualChannelStream.TryRead(
-                ref reader,
-                sharedIcsInfo: null,
-                scaleFlag: false,
-                scaleFactorCodebook,
-                out var stream)
-            || stream is null)
+        AacIndividualChannelStream stream;
+        AacSpectralData? spectralData = null;
+        if (sampleRate is int sr && spectralCodebooks is not null)
         {
-            return false;
+            if (!AacChannelFrame.TryRead(
+                    ref reader,
+                    sharedIcsInfo: null,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    sr,
+                    spectralCodebooks,
+                    out var frame)
+                || frame is null)
+            {
+                return false;
+            }
+            stream = frame.Stream;
+            spectralData = frame.SpectralData;
+        }
+        else
+        {
+            if (!AacIndividualChannelStream.TryRead(
+                    ref reader,
+                    sharedIcsInfo: null,
+                    scaleFlag: false,
+                    scaleFactorCodebook,
+                    out var icsStream)
+                || icsStream is null)
+            {
+                return false;
+            }
+            stream = icsStream;
         }
 
         int extraGainLists = numGainElementLists - 1;
@@ -336,6 +431,7 @@ public sealed record AacCouplingChannelElement
             GainElementSign = gainElementSign,
             GainElementScale = gainElementScale,
             Stream = stream,
+            SpectralData = spectralData,
             GainLists = gainLists,
             BitsConsumed = reader.Position - startBits,
         };
@@ -344,7 +440,9 @@ public sealed record AacCouplingChannelElement
 
     /// <summary>
     /// Parses a contiguous <c>coupling_channel_element()</c> body
-    /// from <paramref name="bytes"/> starting at the first bit.
+    /// from <paramref name="bytes"/> starting at the first bit
+    /// (boundary-stopping variant - see the corresponding TryRead
+    /// remarks for the gain-list alignment caveat).
     /// </summary>
     public static bool TryParse(
         ReadOnlySpan<byte> bytes,
@@ -353,5 +451,22 @@ public sealed record AacCouplingChannelElement
     {
         var reader = new BitReader(bytes);
         return TryRead(ref reader, scaleFactorCodebook, out element);
+    }
+
+    /// <summary>
+    /// Parses a contiguous "full" <c>coupling_channel_element()</c>
+    /// body (element_instance_tag + target descriptors + framing +
+    /// ICS body + spectral_data + per-target gain element lists) from
+    /// <paramref name="bytes"/> starting at the first bit.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> bytes,
+        AacHuffmanCodebook scaleFactorCodebook,
+        int sampleRate,
+        IReadOnlyList<AacHuffmanCodebook?> spectralCodebooks,
+        out AacCouplingChannelElement? element)
+    {
+        var reader = new BitReader(bytes);
+        return TryRead(ref reader, scaleFactorCodebook, sampleRate, spectralCodebooks, out element);
     }
 }
