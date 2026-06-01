@@ -22,10 +22,25 @@ public sealed class AacChannelPairElementTests
         w.Write(0u, 1);                                     // predictor_data_present
     }
 
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping)
+    {
+        w.Write(0u, 1);                                     // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);     // window_sequence
+        w.Write(0u, 1);                                     // window_shape (Sine)
+        w.Write((uint)maxSfb, 4);                           // max_sfb (4 bits for short)
+        w.Write(grouping, 7);                               // scale_factor_grouping
+    }
+
     private static void WriteOneZeroSection(AacBitWriter w, int len)
     {
         w.Write(0u, 4);                 // sect_cb = 0 (ZERO_HCB)
         w.Write((uint)len, 5);          // sect_len (long: 5-bit increment)
+    }
+
+    private static void WriteOneZeroShortSection(AacBitWriter w, int len)
+    {
+        w.Write(0u, 4);                 // sect_cb = 0 (ZERO_HCB)
+        w.Write((uint)len, 3);          // sect_len (short: 3-bit increment, < escape 7)
     }
 
     private static void WriteIcsBody(AacBitWriter w, byte globalGain, int maxSfb)
@@ -395,6 +410,156 @@ public sealed class AacChannelPairElementTests
     public void MaxElementInstanceTag_IsFifteen()
     {
         Assert.Equal(15, AacChannelPairElement.MaxElementInstanceTag);
+    }
+
+    // ----- EightShort window CPE coverage -----
+
+    private static byte[] BuildCommonWindowShortCpe(
+        int tag, int maxSfb, byte grouping, AacMsMaskPresent msMask, bool[][] msUsed,
+        byte gain1, byte gain2)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)tag, 4);                              // element_instance_tag
+        w.Write(1u, 1);                                     // common_window = 1
+        WriteShortIcsInfo(w, maxSfb, grouping);             // shared ics_info (short)
+        w.Write((uint)msMask, 2);                           // ms_mask_present
+        if (msMask == AacMsMaskPresent.PerBand)
+        {
+            foreach (var group in msUsed)
+            {
+                foreach (var bit in group) w.Write(bit ? 1u : 0u, 1);
+            }
+        }
+        // First ics body: gain + section_data (one section per group) + flags.
+        // Counts mirror the shared ics_info: groupCount sections, each covering maxSfb bands.
+        WriteShortIcsBody(w, gain1, msUsed: null, groupCount: GroupCountFor(grouping), maxSfb: maxSfb);
+        WriteShortIcsBody(w, gain2, msUsed: null, groupCount: GroupCountFor(grouping), maxSfb: maxSfb);
+        return w.ToArray();
+    }
+
+    private static void WriteShortIcsBody(AacBitWriter w, byte globalGain, bool[][]? msUsed, int groupCount, int maxSfb)
+    {
+        w.Write(globalGain, 8);                             // global_gain
+        // Common-window CPE body has no own ics_info, so go straight to section_data.
+        for (int g = 0; g < groupCount; g++) WriteOneZeroShortSection(w, maxSfb);
+        // scale_factor_data: empty (cb=0 everywhere)
+        w.Write(0u, 1);                                     // pulse_data_present (must stay 0 for short)
+        w.Write(0u, 1);                                     // tns_data_present
+        w.Write(0u, 1);                                     // gain_control_data_present
+    }
+
+    private static byte[] BuildIndependentShortCpe(int tag, int maxSfb, byte grouping, byte gain1, byte gain2)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)tag, 4);                              // element_instance_tag
+        w.Write(0u, 1);                                     // common_window = 0
+        WriteIndependentShortIcsStream(w, gain1, maxSfb, grouping);
+        WriteIndependentShortIcsStream(w, gain2, maxSfb, grouping);
+        return w.ToArray();
+    }
+
+    private static void WriteIndependentShortIcsStream(AacBitWriter w, byte globalGain, int maxSfb, byte grouping)
+    {
+        w.Write(globalGain, 8);                             // global_gain
+        WriteShortIcsInfo(w, maxSfb, grouping);             // own ics_info
+        int groupCount = GroupCountFor(grouping);
+        for (int g = 0; g < groupCount; g++) WriteOneZeroShortSection(w, maxSfb);
+        w.Write(0u, 1);                                     // pulse_data_present
+        w.Write(0u, 1);                                     // tns_data_present
+        w.Write(0u, 1);                                     // gain_control_data_present
+    }
+
+    private static int GroupCountFor(byte grouping)
+    {
+        // Mirror AacIcsInfo.DeriveShortWindowGroups: bit (7-w) for windows 1..7.
+        int gc = 1;
+        for (int w = 1; w < 8; w++)
+        {
+            int bit = (grouping >> (7 - w)) & 1;
+            if (bit == 0) gc++;
+        }
+        return gc;
+    }
+
+    [Fact]
+    public void TryParse_CommonWindow_EightShort_OneGroup_Succeeds()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCommonWindowShortCpe(
+            tag: 0, maxSfb: 4, grouping: 0x7F,
+            msMask: AacMsMaskPresent.None, msUsed: [],
+            gain1: 0x40, gain2: 0x60);
+
+        Assert.True(AacChannelPairElement.TryParse(bytes, book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.True(cpe!.CommonWindow);
+        Assert.NotNull(cpe.SharedIcsInfo);
+        Assert.Equal(AacWindowSequence.EightShort, cpe.SharedIcsInfo!.WindowSequence);
+        Assert.Equal(4, cpe.SharedIcsInfo.MaxSfb);
+        Assert.Equal(1, cpe.SharedIcsInfo.WindowGroupCount);
+        // Both streams share the ics_info; neither owns its own.
+        Assert.Null(cpe.FirstStream.OwnIcsInfo);
+        Assert.Null(cpe.SecondStream.OwnIcsInfo);
+        Assert.Equal(0x40, cpe.FirstStream.GlobalGain);
+        Assert.Equal(0x60, cpe.SecondStream.GlobalGain);
+        // 4 (tag) + 1 (cw) + 15 (short ics) + 2 (msmp) + 18 (body1) + 18 (body2) = 58 bits.
+        Assert.Equal(58, cpe.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_CommonWindow_EightShort_PerBandMsMask_RoundTripsFlags()
+    {
+        var book = BuildSyntheticSfCodebook();
+        // PerBand for EightShort: one bit per (group, sfb). With 1 group and maxSfb=4 that's 4 bits.
+        var pattern = new bool[] { true, false, true, false };
+        var bytes = BuildCommonWindowShortCpe(
+            tag: 5, maxSfb: 4, grouping: 0x7F,
+            msMask: AacMsMaskPresent.PerBand, msUsed: [pattern],
+            gain1: 0x10, gain2: 0x10);
+
+        Assert.True(AacChannelPairElement.TryParse(bytes, book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.Equal(AacWindowSequence.EightShort, cpe!.SharedIcsInfo!.WindowSequence);
+        Assert.Equal(AacMsMaskPresent.PerBand, cpe.MsMaskPresent);
+        Assert.Single(cpe.MsUsed);
+        Assert.Equal(pattern, cpe.MsUsed[0]);
+    }
+
+    [Fact]
+    public void TryParse_IndependentChannels_EightShort_Succeeds()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildIndependentShortCpe(
+            tag: 2, maxSfb: 4, grouping: 0x7F, gain1: 0x33, gain2: 0x44);
+
+        Assert.True(AacChannelPairElement.TryParse(bytes, book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.False(cpe!.CommonWindow);
+        Assert.Null(cpe.SharedIcsInfo);
+        // Each stream now owns its own ics_info — both must be EightShort.
+        Assert.NotNull(cpe.FirstStream.OwnIcsInfo);
+        Assert.NotNull(cpe.SecondStream.OwnIcsInfo);
+        Assert.Equal(AacWindowSequence.EightShort, cpe.FirstStream.IcsInfo.WindowSequence);
+        Assert.Equal(AacWindowSequence.EightShort, cpe.SecondStream.IcsInfo.WindowSequence);
+        Assert.Equal(0x33, cpe.FirstStream.GlobalGain);
+        Assert.Equal(0x44, cpe.SecondStream.GlobalGain);
+    }
+
+    [Fact]
+    public void TryParse_CommonWindow_EightShort_AllSeparateGroups_RequiresEightSections()
+    {
+        var book = BuildSyntheticSfCodebook();
+        // grouping=0 → 8 singleton groups → 8 sections per stream.
+        var bytes = BuildCommonWindowShortCpe(
+            tag: 7, maxSfb: 4, grouping: 0x00,
+            msMask: AacMsMaskPresent.None, msUsed: [],
+            gain1: 0x00, gain2: 0x00);
+
+        Assert.True(AacChannelPairElement.TryParse(bytes, book, out var cpe));
+        Assert.NotNull(cpe);
+        Assert.Equal(8, cpe!.SharedIcsInfo!.WindowGroupCount);
+        Assert.Equal(8, cpe.FirstStream.SectionData.Sections.Count);
+        Assert.Equal(8, cpe.SecondStream.SectionData.Sections.Count);
     }
 
     [Theory]
