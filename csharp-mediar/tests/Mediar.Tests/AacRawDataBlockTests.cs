@@ -296,4 +296,149 @@ public sealed class AacRawDataBlockTests
         CouplingElements = [],
         CommentField = string.Empty,
     };
+
+    // Context-driven "full" overload tests
+
+    private static AacHuffmanCodebook BuildSyntheticSfCodebook()
+    {
+        var lengths = new int[121];
+        for (int i = 0; i < 121; i++) lengths[i] = i == 60 ? 1 : 8;
+        return AacHuffmanCodebook.FromCanonicalLengths(lengths);
+    }
+
+    private static AacRawDataBlockContext BuildContext()
+    {
+        return new AacRawDataBlockContext
+        {
+            SampleRate = 48_000,
+            ScaleFactorCodebook = BuildSyntheticSfCodebook(),
+            SpectralCodebooks = new AacHuffmanCodebook?[16],
+        };
+    }
+
+    private static void WriteEmptySceBody(AacBitWriter w, int tag, int maxSfb)
+    {
+        w.Write((uint)tag, 4);                 // element_instance_tag
+        w.Write(0u, 8);                        // global_gain
+        w.Write(0u, 1);                        // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.OnlyLong, 2);
+        w.Write(0u, 1);                        // window_shape
+        w.Write((uint)maxSfb, 6);              // max_sfb
+        w.Write(0u, 1);                        // predictor_data_present
+        w.Write(0u, 4);                        // sect_cb = 0 (ZERO_HCB)
+        w.Write((uint)maxSfb, 5);              // sect_len
+        w.Write(0u, 1);                        // pulse_data_present
+        w.Write(0u, 1);                        // tns_data_present
+        w.Write(0u, 1);                        // gain_control_data_present
+    }
+
+    private static void WriteEmptyLfeBody(AacBitWriter w, int tag, int maxSfb)
+    {
+        // LFE is bit-for-bit identical to SCE.
+        WriteEmptySceBody(w, tag, maxSfb);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_NullContext_Throws()
+    {
+        byte[] bytes = [0xE0];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacRawDataBlock.TryParse(bytes, context: null!, out _));
+    }
+
+    [Fact]
+    public void TryParse_WithContext_EndOnly_StillWorks()
+    {
+        byte[] bytes = [0xE0];
+        Assert.True(AacRawDataBlock.TryParse(bytes, BuildContext(), out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Single(block.Entries);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_SceFollowedByEnd_ConsumesSceAndContinues()
+    {
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptySceBody(w, tag: 2, maxSfb: 10);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(2, block.Entries.Count);
+        Assert.Equal(AacSyntacticElementType.SingleChannelElement, block.Entries[0].Type);
+        Assert.NotNull(block.Entries[0].SingleChannel);
+        Assert.Equal(2, block.Entries[0].SingleChannel!.ElementInstanceTag);
+        Assert.NotNull(block.Entries[0].SingleChannel!.SpectralData);
+        Assert.Equal(AacSyntacticElementType.End, block.Entries[1].Type);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_LfeFollowedByEnd_ConsumesLfeAndContinues()
+    {
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.LfeChannelElement, 3);
+        WriteEmptyLfeBody(w, tag: 1, maxSfb: 6);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(2, block.Entries.Count);
+        Assert.NotNull(block.Entries[0].LowFrequency);
+        Assert.Equal(1, block.Entries[0].LowFrequency!.ElementInstanceTag);
+    }
+
+    [Fact]
+    public void TryParse_WithoutContext_StopsAtAudioElement_UnchangedBehavior()
+    {
+        // Backwards-compat: the existing single-arg overload still stops
+        // at the first audio element with no payload populated.
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptySceBody(w, tag: 2, maxSfb: 10);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), out var block));
+        Assert.NotNull(block);
+        Assert.False(block!.TerminatedByEnd);
+        Assert.Single(block.Entries);
+        Assert.Equal(AacSyntacticElementType.SingleChannelElement, block.Entries[0].Type);
+        Assert.Null(block.Entries[0].SingleChannel);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_MultipleSceElements_AllConsumed()
+    {
+        var ctx = BuildContext();
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptySceBody(w, tag: 0, maxSfb: 8);
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        WriteEmptySceBody(w, tag: 1, maxSfb: 8);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+
+        Assert.True(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.NotNull(block);
+        Assert.True(block!.TerminatedByEnd);
+        Assert.Equal(3, block.Entries.Count);
+        Assert.Equal(0, block.Entries[0].SingleChannel!.ElementInstanceTag);
+        Assert.Equal(1, block.Entries[1].SingleChannel!.ElementInstanceTag);
+    }
+
+    [Fact]
+    public void TryParse_WithContext_MalformedSce_Fails()
+    {
+        var ctx = BuildContext();
+        // Just the SCE id with no body - should fail rather than terminate gracefully.
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        // No SCE body bytes follow.
+        Assert.False(AacRawDataBlock.TryParse(w.ToArray(), ctx, out var block));
+        Assert.Null(block);
+    }
 }

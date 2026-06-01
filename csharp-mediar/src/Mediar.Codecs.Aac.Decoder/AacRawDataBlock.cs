@@ -1,12 +1,35 @@
 namespace Mediar.Codecs.Aac.Decoder;
 
 /// <summary>
+/// Caller-supplied context for the "full" <see cref="AacRawDataBlock"/>
+/// walker overload. Supplies the sample rate and Huffman codebooks needed
+/// to fully consume audio elements (SCE / CPE / CCE / LFE) instead of
+/// stopping at them.
+/// </summary>
+public sealed record AacRawDataBlockContext
+{
+    /// <summary>Source sample rate (Hz) used to dispatch SWB offset tables.</summary>
+    public required int SampleRate { get; init; }
+
+    /// <summary>121-symbol scale-factor Huffman codebook (Annex 4.A.2.1).</summary>
+    public required AacHuffmanCodebook ScaleFactorCodebook { get; init; }
+
+    /// <summary>
+    /// Spectral Huffman codebook lookup indexed by codebook number; element
+    /// <c>i</c> holds the codebook used by <c>sect_cb == i</c>. Slots known
+    /// not to be referenced may be <see langword="null"/>.
+    /// </summary>
+    public required IReadOnlyList<AacHuffmanCodebook?> SpectralCodebooks { get; init; }
+}
+
+/// <summary>
 /// Single element surfaced by <see cref="AacRawDataBlock"/>'s walk over an
 /// AAC raw_data_block (ISO/IEC 14496-3 Table 4.71). The
 /// <see cref="Type"/> selects which of the typed payload fields - if any -
-/// is populated; opaque audio elements (SCE/CPE/CCE/LFE) carry no payload
-/// because their body parsing is gated on the still-unimplemented
-/// spectral / coupling decoder.
+/// is populated; audio elements (SCE/CPE/CCE/LFE) carry no payload when the
+/// boundary <see cref="AacRawDataBlock.TryParse(ReadOnlySpan{byte}, out AacRawDataBlock)"/>
+/// overload is used, and the corresponding typed property when the "full"
+/// overload that accepts an <see cref="AacRawDataBlockContext"/> is used.
 /// </summary>
 public sealed record AacRawDataBlockEntry
 {
@@ -33,16 +56,48 @@ public sealed record AacRawDataBlockEntry
     /// carries no <c>extension_type</c> field at all.
     /// </summary>
     public AacFillExtensionPayload? FillExtension { get; init; }
+
+    /// <summary>
+    /// Populated when <see cref="Type"/> is
+    /// <see cref="AacSyntacticElementType.SingleChannelElement"/> and the
+    /// walk was driven through the "full" overload.
+    /// </summary>
+    public AacSingleChannelElement? SingleChannel { get; init; }
+
+    /// <summary>
+    /// Populated when <see cref="Type"/> is
+    /// <see cref="AacSyntacticElementType.ChannelPairElement"/> and the
+    /// walk was driven through the "full" overload.
+    /// </summary>
+    public AacChannelPairElement? ChannelPair { get; init; }
+
+    /// <summary>
+    /// Populated when <see cref="Type"/> is
+    /// <see cref="AacSyntacticElementType.CouplingChannelElement"/> and the
+    /// walk was driven through the "full" overload.
+    /// </summary>
+    public AacCouplingChannelElement? CouplingChannel { get; init; }
+
+    /// <summary>
+    /// Populated when <see cref="Type"/> is
+    /// <see cref="AacSyntacticElementType.LfeChannelElement"/> and the walk
+    /// was driven through the "full" overload.
+    /// </summary>
+    public AacLowFrequencyElement? LowFrequency { get; init; }
 }
 
 /// <summary>
 /// A walked AAC raw_data_block (ISO/IEC 14496-3 §4.4.2.1, Table 4.71). The
 /// raw_data_block is a sequence of syntactic elements terminated by the END
-/// marker (id = 7). This phase-1 walker fully parses the codec-state-free
-/// elements - PCE (id=5), DSE (id=4), FIL (id=6) - and the END sentinel.
-/// Audio elements (SCE / CPE / CCE / LFE) are surfaced as opaque markers
-/// and terminate the walk because their bit-length is determined by
-/// section / Huffman / spectral state that is not yet implemented.
+/// marker (id = 7). The boundary
+/// <see cref="TryParse(ReadOnlySpan{byte}, out AacRawDataBlock)"/> overload
+/// fully parses the codec-state-free elements - PCE (id=5), DSE (id=4),
+/// FIL (id=6) - and the END sentinel; audio elements (SCE / CPE / CCE / LFE)
+/// are surfaced as opaque markers and terminate the walk. The "full"
+/// <see cref="TryParse(ReadOnlySpan{byte}, AacRawDataBlockContext, out AacRawDataBlock)"/>
+/// overload accepts a sample rate + codebook context and additionally
+/// consumes the audio elements via their "full" overloads, populating the
+/// typed payload properties on each <see cref="AacRawDataBlockEntry"/>.
 /// </summary>
 public sealed record AacRawDataBlock
 {
@@ -67,6 +122,30 @@ public sealed record AacRawDataBlock
     /// underflowed.
     /// </summary>
     public static bool TryParse(ReadOnlySpan<byte> data, out AacRawDataBlock? block)
+    {
+        return TryParseCore(data, context: null, out block);
+    }
+
+    /// <summary>
+    /// Walk a raw_data_block byte buffer and additionally consume any audio
+    /// elements (SCE / CPE / CCE / LFE) via their "full" overloads using the
+    /// supplied <paramref name="context"/>. The walk stops only at the END
+    /// marker; malformed audio elements cause the walk to fail rather than
+    /// terminate gracefully.
+    /// </summary>
+    public static bool TryParse(
+        ReadOnlySpan<byte> data,
+        AacRawDataBlockContext context,
+        out AacRawDataBlock? block)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return TryParseCore(data, context, out block);
+    }
+
+    private static bool TryParseCore(
+        ReadOnlySpan<byte> data,
+        AacRawDataBlockContext? context,
+        out AacRawDataBlock? block)
     {
         block = null;
         if (data.IsEmpty) return false;
@@ -132,20 +211,124 @@ public sealed record AacRawDataBlock
                         return true;
 
                     case AacSyntacticElementType.SingleChannelElement:
-                    case AacSyntacticElementType.ChannelPairElement:
-                    case AacSyntacticElementType.CouplingChannelElement:
-                    case AacSyntacticElementType.LfeChannelElement:
-                        // Body parsing depends on the spectral decoder; surface
-                        // the element id and stop. The caller still gets back
-                        // any PCE / DSE / FIL entries already collected.
-                        entries.Add(new AacRawDataBlockEntry { Type = type, BitOffset = idBitOffset });
-                        block = new AacRawDataBlock
+                        if (context is null)
                         {
-                            Entries = entries,
-                            TerminatedByEnd = false,
-                            BitsConsumed = reader.Position,
-                        };
-                        return true;
+                            entries.Add(new AacRawDataBlockEntry { Type = type, BitOffset = idBitOffset });
+                            block = new AacRawDataBlock
+                            {
+                                Entries = entries,
+                                TerminatedByEnd = false,
+                                BitsConsumed = reader.Position,
+                            };
+                            return true;
+                        }
+                        if (!AacSingleChannelElement.TryRead(
+                                ref reader,
+                                context.ScaleFactorCodebook,
+                                context.SampleRate,
+                                context.SpectralCodebooks,
+                                out var sce)
+                            || sce is null)
+                        {
+                            return false;
+                        }
+                        entries.Add(new AacRawDataBlockEntry
+                        {
+                            Type = type,
+                            BitOffset = idBitOffset,
+                            SingleChannel = sce,
+                        });
+                        break;
+
+                    case AacSyntacticElementType.ChannelPairElement:
+                        if (context is null)
+                        {
+                            entries.Add(new AacRawDataBlockEntry { Type = type, BitOffset = idBitOffset });
+                            block = new AacRawDataBlock
+                            {
+                                Entries = entries,
+                                TerminatedByEnd = false,
+                                BitsConsumed = reader.Position,
+                            };
+                            return true;
+                        }
+                        if (!AacChannelPairElement.TryRead(
+                                ref reader,
+                                context.ScaleFactorCodebook,
+                                context.SampleRate,
+                                context.SpectralCodebooks,
+                                out var cpe)
+                            || cpe is null)
+                        {
+                            return false;
+                        }
+                        entries.Add(new AacRawDataBlockEntry
+                        {
+                            Type = type,
+                            BitOffset = idBitOffset,
+                            ChannelPair = cpe,
+                        });
+                        break;
+
+                    case AacSyntacticElementType.CouplingChannelElement:
+                        if (context is null)
+                        {
+                            entries.Add(new AacRawDataBlockEntry { Type = type, BitOffset = idBitOffset });
+                            block = new AacRawDataBlock
+                            {
+                                Entries = entries,
+                                TerminatedByEnd = false,
+                                BitsConsumed = reader.Position,
+                            };
+                            return true;
+                        }
+                        if (!AacCouplingChannelElement.TryRead(
+                                ref reader,
+                                context.ScaleFactorCodebook,
+                                context.SampleRate,
+                                context.SpectralCodebooks,
+                                out var cce)
+                            || cce is null)
+                        {
+                            return false;
+                        }
+                        entries.Add(new AacRawDataBlockEntry
+                        {
+                            Type = type,
+                            BitOffset = idBitOffset,
+                            CouplingChannel = cce,
+                        });
+                        break;
+
+                    case AacSyntacticElementType.LfeChannelElement:
+                        if (context is null)
+                        {
+                            entries.Add(new AacRawDataBlockEntry { Type = type, BitOffset = idBitOffset });
+                            block = new AacRawDataBlock
+                            {
+                                Entries = entries,
+                                TerminatedByEnd = false,
+                                BitsConsumed = reader.Position,
+                            };
+                            return true;
+                        }
+                        if (!AacLowFrequencyElement.TryRead(
+                                ref reader,
+                                context.ScaleFactorCodebook,
+                                context.SampleRate,
+                                context.SpectralCodebooks,
+                                out var lfe)
+                            || lfe is null)
+                        {
+                            return false;
+                        }
+                        entries.Add(new AacRawDataBlockEntry
+                        {
+                            Type = type,
+                            BitOffset = idBitOffset,
+                            LowFrequency = lfe,
+                        });
+                        break;
 
                     default:
                         return false; // unreachable; 3-bit id is 0..7
