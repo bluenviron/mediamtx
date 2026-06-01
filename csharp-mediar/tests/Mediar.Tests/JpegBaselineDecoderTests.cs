@@ -46,10 +46,6 @@ public sealed class JpegBaselineDecoderTests
             var pixels = captured!.Pixels.Span;
             Assert.Equal(16 * 16 * 3, pixels.Length);
 
-            // The JPEG was encoded from a solid (255,0,0) image. After
-            // YCbCr quantisation we expect red to be strongly dominant on
-            // every pixel; values can drift by ±15 due to chroma subsampling
-            // plus quant.
             long rSum = 0, gSum = 0, bSum = 0;
             for (int i = 0; i + 2 < pixels.Length; i += 3)
             {
@@ -98,5 +94,116 @@ public sealed class JpegBaselineDecoderTests
         {
             if (File.Exists(tmp)) File.Delete(tmp);
         }
+    }
+
+    [Fact]
+    public async Task SolidRed_Format_Defaults_To_Jpeg_From_Stream()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.Equal(ImageFormat.Jpeg, reader.Format);
+    }
+
+    [Theory]
+    [InlineData(".jpg", ImageFormat.Jpeg)]
+    [InlineData(".jpeg", ImageFormat.Jpeg)]
+    [InlineData(".thm", ImageFormat.Thm)]
+    [InlineData(".mpo", ImageFormat.Mpo)]
+    [InlineData(".jfif", ImageFormat.Jfif)]
+    [InlineData(".jpg_large", ImageFormat.JpgLarge)]
+    public async Task Open_Path_Selects_Format_From_Extension(string ext, ImageFormat expected)
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        var tmp = Path.Combine(Path.GetTempPath(), $"mediar-jpeg-{Guid.NewGuid():N}{ext}");
+        try
+        {
+            await File.WriteAllBytesAsync(tmp, bytes);
+            using var reader = JpegReader.Open(tmp);
+            Assert.Equal(expected, reader.Format);
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+    }
+
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => JpegReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Missing_Path_Throws()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"mediar-jpeg-missing-{Guid.NewGuid():N}.jpg");
+        Assert.Throws<FileNotFoundException>(() => JpegReader.Open(path));
+    }
+
+    [Fact]
+    public void Open_Wrong_Magic_Throws()
+    {
+        var bytes = new byte[16];
+        bytes[0] = 0xFF; bytes[1] = 0xC8; // wrong SOI
+        using var ms = new MemoryStream(bytes);
+        Assert.Throws<ImageFormatException>(() => JpegReader.Open(ms));
+    }
+
+    [Fact]
+    public void Open_Truncated_Magic_Throws()
+    {
+        using var ms = new MemoryStream(new byte[1]);
+        Assert.Throws<EndOfStreamException>(() => JpegReader.Open(ms));
+    }
+
+    [Fact]
+    public async Task ExifTags_Reflect_Metadata()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.NotNull(reader.ExifTags);
+        Assert.NotNull(reader.Metadata);
+    }
+
+    [Fact]
+    public async Task Dispose_Idempotent()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        var reader = JpegReader.Open(ms);
+        reader.Dispose();
+        reader.Dispose();
+    }
+
+    [Fact]
+    public async Task OwnsStream_False_Leaves_Stream_Open_After_Dispose()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        var ms = new MemoryStream(bytes);
+        var reader = JpegReader.Open(ms, ownsStream: false);
+        reader.Dispose();
+        _ = ms.Length;
+        ms.Dispose();
+    }
+
+    [Fact]
+    public async Task OwnsStream_True_Closes_Stream_On_Dispose()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        var ms = new MemoryStream(bytes);
+        var reader = JpegReader.Open(ms, ownsStream: true);
+        reader.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => _ = ms.Length);
+    }
+
+    [Fact]
+    public async Task Info_Exposes_Frame_Count_1()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.Equal(1, reader.Info.FrameCount);
     }
 }
