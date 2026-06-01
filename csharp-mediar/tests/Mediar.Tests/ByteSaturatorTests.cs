@@ -83,6 +83,188 @@ public sealed class ByteSaturatorTests
     }
 
     [Fact]
+    public void Scalar_EmptySource_NoOp()
+    {
+        byte[] dst = new byte[3] { 1, 2, 3 };
+        ScalarByteSaturator.Instance.Saturate(ReadOnlySpan<int>.Empty, dst);
+        // Tail untouched.
+        Assert.Equal(1, dst[0]);
+        Assert.Equal(2, dst[1]);
+        Assert.Equal(3, dst[2]);
+    }
+
+    [Fact]
+    public void Scalar_DestinationLargerThanSource_LeavesTail()
+    {
+        int[] src = { 100, 200 };
+        byte[] dst = new byte[] { 7, 7, 9, 9 };
+        ScalarByteSaturator.Instance.Saturate(src, dst);
+        Assert.Equal(100, dst[0]);
+        Assert.Equal(200, dst[1]);
+        Assert.Equal(9, dst[2]);
+        Assert.Equal(9, dst[3]);
+    }
+
+    [Fact]
+    public void Scalar_Instance_IsSingleton()
+    {
+        Assert.Same(ScalarByteSaturator.Instance, ScalarByteSaturator.Instance);
+        Assert.Equal(AccelerationTier.Scalar, ScalarByteSaturator.Instance.IsaTier);
+    }
+
+    [Fact]
+    public void Sse2_Instance_HasCorrectTier()
+    {
+        Assert.Same(Sse2ByteSaturator.Instance, Sse2ByteSaturator.Instance);
+        Assert.Equal(AccelerationTier.Sse2, Sse2ByteSaturator.Instance.IsaTier);
+    }
+
+    [Fact]
+    public void Sse2_ThrowsWhenDestinationTooShort()
+    {
+        if (!Sse2ByteSaturator.IsSupported) return;
+        Assert.Throws<ArgumentException>(() =>
+            Sse2ByteSaturator.Instance.Saturate(new int[16], new byte[15]));
+    }
+
+    [Fact]
+    public void Sse2_EmptySource_NoOp()
+    {
+        if (!Sse2ByteSaturator.IsSupported) return;
+        byte[] dst = new byte[2] { 9, 9 };
+        Sse2ByteSaturator.Instance.Saturate(ReadOnlySpan<int>.Empty, dst);
+        Assert.Equal(9, dst[0]);
+        Assert.Equal(9, dst[1]);
+    }
+
+    [Fact]
+    public void Avx2_Instance_HasCorrectTier()
+    {
+        Assert.Same(Avx2ByteSaturator.Instance, Avx2ByteSaturator.Instance);
+        Assert.Equal(AccelerationTier.Avx2, Avx2ByteSaturator.Instance.IsaTier);
+    }
+
+    [Fact]
+    public void Avx2_ThrowsWhenDestinationTooShort()
+    {
+        if (!Avx2ByteSaturator.IsSupported) return;
+        Assert.Throws<ArgumentException>(() =>
+            Avx2ByteSaturator.Instance.Saturate(new int[32], new byte[31]));
+    }
+
+    [Fact]
+    public void Avx2_EmptySource_NoOp()
+    {
+        if (!Avx2ByteSaturator.IsSupported) return;
+        byte[] dst = new byte[2] { 9, 9 };
+        Avx2ByteSaturator.Instance.Saturate(ReadOnlySpan<int>.Empty, dst);
+        Assert.Equal(9, dst[0]);
+        Assert.Equal(9, dst[1]);
+    }
+
+    [Fact]
+    public void Neon_Instance_HasCorrectTier()
+    {
+        Assert.Same(NeonByteSaturator.Instance, NeonByteSaturator.Instance);
+        Assert.Equal(AccelerationTier.Neon, NeonByteSaturator.Instance.IsaTier);
+    }
+
+    [Fact]
+    public void Neon_ThrowsWhenDestinationTooShort()
+    {
+        if (!NeonByteSaturator.IsSupported) return;
+        Assert.Throws<ArgumentException>(() =>
+            NeonByteSaturator.Instance.Saturate(new int[16], new byte[15]));
+    }
+
+    [Fact]
+    public void Neon_EmptySource_NoOp()
+    {
+        if (!NeonByteSaturator.IsSupported) return;
+        byte[] dst = new byte[2] { 9, 9 };
+        NeonByteSaturator.Instance.Saturate(ReadOnlySpan<int>.Empty, dst);
+        Assert.Equal(9, dst[0]);
+        Assert.Equal(9, dst[1]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(7)]
+    [InlineData(15)]
+    public void Scalar_AndAllSimd_HandleShortLengths(int length)
+    {
+        int[] src = MakeDeterministicInputs(length);
+        byte[] sca = new byte[length];
+        ScalarByteSaturator.Instance.Saturate(src, sca);
+
+        if (Sse2ByteSaturator.IsSupported)
+        {
+            byte[] sse = new byte[length];
+            Sse2ByteSaturator.Instance.Saturate(src, sse);
+            Assert.Equal(sca, sse);
+        }
+        if (Avx2ByteSaturator.IsSupported)
+        {
+            byte[] avx = new byte[length];
+            Avx2ByteSaturator.Instance.Saturate(src, avx);
+            Assert.Equal(sca, avx);
+        }
+        if (NeonByteSaturator.IsSupported)
+        {
+            byte[] neon = new byte[length];
+            NeonByteSaturator.Instance.Saturate(src, neon);
+            Assert.Equal(sca, neon);
+        }
+    }
+
+    [Fact]
+    public void Saturate_LargeBuffer_AllTiersAgree()
+    {
+        int[] src = MakeDeterministicInputs(4096);
+        byte[] sca = new byte[src.Length];
+        ScalarByteSaturator.Instance.Saturate(src, sca);
+
+        if (Sse2ByteSaturator.IsSupported)
+        {
+            byte[] sse = new byte[src.Length];
+            Sse2ByteSaturator.Instance.Saturate(src, sse);
+            Assert.Equal(sca, sse);
+        }
+        if (Avx2ByteSaturator.IsSupported)
+        {
+            byte[] avx = new byte[src.Length];
+            Avx2ByteSaturator.Instance.Saturate(src, avx);
+            Assert.Equal(sca, avx);
+        }
+        if (NeonByteSaturator.IsSupported)
+        {
+            byte[] neon = new byte[src.Length];
+            NeonByteSaturator.Instance.Saturate(src, neon);
+            Assert.Equal(sca, neon);
+        }
+    }
+
+    [Fact]
+    public void Saturate_AllZeros_AllZeros()
+    {
+        int[] src = new int[200];
+        byte[] dst = new byte[200];
+        Kernels.ByteSaturator.Saturate(src, dst);
+        foreach (var b in dst) Assert.Equal(0, b);
+    }
+
+    [Fact]
+    public void Saturate_AllInRange_PassesThrough()
+    {
+        int[] src = Enumerable.Range(0, 256).ToArray();
+        byte[] dst = new byte[256];
+        Kernels.ByteSaturator.Saturate(src, dst);
+        for (int i = 0; i < 256; i++) Assert.Equal((byte)i, dst[i]);
+    }
+
+    [Fact]
     public void Dispatcher_ResolvesBestAvailableKernel()
     {
         IByteSaturator k = Kernels.ByteSaturator;

@@ -131,4 +131,127 @@ public class Jpeg2000ReaderTests
         s.Write(hdr);
         s.Write(payload);
     }
+
+    [Fact]
+    public void Open_NullStream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => Jpeg2000Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Raw_J2k_SingleComponent_Greyscale()
+    {
+        byte[] cs = BuildCodestream(width: 100, height: 50, components: 1, bitDepth: 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Single(r.Components);
+        Assert.Equal(8, r.Info.BitsPerPixel);
+        Assert.Equal(1, r.Info.ChannelCount);
+    }
+
+    [Fact]
+    public void Raw_J2k_HighBitDepth_PreservedPerComponent()
+    {
+        byte[] cs = BuildCodestream(width: 16, height: 16, components: 3, bitDepth: 16);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Equal(48, r.Info.BitsPerPixel); // 3 * 16
+        Assert.All(r.Components, c => Assert.Equal(16, c.BitDepth));
+    }
+
+    [Fact]
+    public void Raw_J2k_NoSoc_Returns_Empty_Geometry()
+    {
+        // Just put junk before SOC; the reader gives up and returns default geometry.
+        byte[] cs = new byte[] { 0x00, 0x00, 0x00, 0x00 };
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Empty(r.Components);
+        Assert.Equal(0, r.Info.Width);
+        Assert.Equal(0, r.Info.Height);
+    }
+
+    [Fact]
+    public void Jp2_Wrapper_Greyscale_ColourSpace_Recognised()
+    {
+        byte[] cs = BuildCodestream(32, 32, 1, 8);
+        byte[] file = WrapInJp2(cs, enumColorSpace: 17 /* Greyscale */);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(file), ImageFormat.Jp2, ownsStream: true);
+        Assert.Equal("Greyscale", r.ColourSpace);
+    }
+
+    [Fact]
+    public void Jp2_Wrapper_sYCC_ColourSpace_Recognised()
+    {
+        byte[] cs = BuildCodestream(32, 32, 3, 8);
+        byte[] file = WrapInJp2(cs, enumColorSpace: 18 /* sYCC */);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(file), ImageFormat.Jp2, ownsStream: true);
+        Assert.Equal("sYCC", r.ColourSpace);
+    }
+
+    [Fact]
+    public void Jp2_Wrapper_Unknown_Enum_Falls_Back_To_Enum_Tag()
+    {
+        byte[] cs = BuildCodestream(32, 32, 3, 8);
+        byte[] file = WrapInJp2(cs, enumColorSpace: 9999);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(file), ImageFormat.Jp2, ownsStream: true);
+        Assert.Equal("Enum:9999", r.ColourSpace);
+    }
+
+    [Fact]
+    public void Raw_J2k_HasNoColourSpace_NoBoxes()
+    {
+        byte[] cs = BuildCodestream(32, 32, 3, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Empty(r.Boxes);
+        Assert.Equal("", r.ColourSpace);
+        Assert.Null(r.Info.ColorSpace);
+    }
+
+    [Fact]
+    public void Format_Is_Set_From_Hint_Parameter()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2c, ownsStream: true);
+        Assert.Equal(ImageFormat.J2c, r.Format);
+        Assert.Equal(ImageFormat.J2c, r.Info.Format);
+    }
+
+    [Fact]
+    public void CanDecodePixels_Is_False()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.False(r.CanDecodePixels);
+        Assert.Equal(ImageMetadata.Empty, r.Metadata);
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void OwnsStream_False_Leaves_Source_Open()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        var ms = new MemoryStream(cs);
+        using (var r = Jpeg2000Reader.Open(ms, ImageFormat.J2k, ownsStream: false))
+        {
+            Assert.NotNull(r);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Size_Properties_PopulatedFromSiz()
+    {
+        byte[] cs = BuildCodestream(width: 320, height: 240, components: 3, bitDepth: 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Equal(320u, r.Size.Xsiz);
+        Assert.Equal(240u, r.Size.Ysiz);
+        Assert.Equal(0u, r.Size.XOsiz);
+        Assert.Equal(0u, r.Size.YOsiz);
+    }
 }
