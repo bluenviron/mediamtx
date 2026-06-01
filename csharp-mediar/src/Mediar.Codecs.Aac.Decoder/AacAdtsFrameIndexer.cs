@@ -100,6 +100,7 @@ public static class AacAdtsFrameIndexer
             stream,
             initialBufferSize,
             skipId3v2: false,
+            recoverFromLostSync: false,
             asyncReader: null,
             cancellationToken: default).GetAwaiter().GetResult();
     }
@@ -130,6 +131,41 @@ public static class AacAdtsFrameIndexer
             stream,
             initialBufferSize,
             skipId3v2,
+            recoverFromLostSync: false,
+            asyncReader: null,
+            cancellationToken: default).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Overload of <see cref="BuildIndex(Stream, bool, int)"/> that
+    /// additionally accepts <paramref name="recoverFromLostSync"/>.
+    /// When <c>true</c>, the scanner does not throw on lost ADTS
+    /// sync — it scans forward one byte at a time looking for the
+    /// next valid syncword and continues indexing from there.
+    /// Recovered byte ranges are silently dropped (no entry is
+    /// emitted for them); their PCM samples are not counted toward
+    /// the cumulative <see cref="AacAdtsFrameIndexEntry.SampleOffset"/>.
+    /// </summary>
+    public static IReadOnlyList<AacAdtsFrameIndexEntry> BuildIndex(
+        Stream stream,
+        bool skipId3v2,
+        bool recoverFromLostSync,
+        int initialBufferSize = AacAdtsStreamReader.DefaultBufferSize)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
+        if (initialBufferSize < 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(initialBufferSize),
+                "Initial buffer size must be at least 16 bytes.");
+        }
+
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            skipId3v2,
+            recoverFromLostSync,
             asyncReader: null,
             cancellationToken: default).GetAwaiter().GetResult();
     }
@@ -157,6 +193,7 @@ public static class AacAdtsFrameIndexer
             stream,
             initialBufferSize,
             skipId3v2: false,
+            recoverFromLostSync: false,
             asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
             cancellationToken: cancellationToken);
     }
@@ -183,6 +220,38 @@ public static class AacAdtsFrameIndexer
             stream,
             initialBufferSize,
             skipId3v2,
+            recoverFromLostSync: false,
+            asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Async counterpart of
+    /// <see cref="BuildIndex(Stream, bool, bool, int)"/>. See that
+    /// overload for the semantics of
+    /// <paramref name="recoverFromLostSync"/>.
+    /// </summary>
+    public static Task<IReadOnlyList<AacAdtsFrameIndexEntry>> BuildIndexAsync(
+        Stream stream,
+        bool skipId3v2,
+        bool recoverFromLostSync,
+        int initialBufferSize = AacAdtsStreamReader.DefaultBufferSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
+        if (initialBufferSize < 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(initialBufferSize),
+                "Initial buffer size must be at least 16 bytes.");
+        }
+
+        return BuildIndexCore(
+            stream,
+            initialBufferSize,
+            skipId3v2,
+            recoverFromLostSync,
             asyncReader: (buf, offset, count, ct) => stream.ReadAsync(buf.AsMemory(offset, count), ct),
             cancellationToken: cancellationToken);
     }
@@ -191,6 +260,7 @@ public static class AacAdtsFrameIndexer
         Stream stream,
         int initialBufferSize,
         bool skipId3v2,
+        bool recoverFromLostSync,
         Func<byte[], int, int, CancellationToken, ValueTask<int>>? asyncReader,
         CancellationToken cancellationToken)
     {
@@ -246,6 +316,7 @@ public static class AacAdtsFrameIndexer
             if (avail == 0) break;
             if (avail < 7)
             {
+                if (recoverFromLostSync) break;
                 throw new InvalidDataException(
                     $"Stream ended with {avail} unconsumed bytes before a complete ADTS header at byte offset {streamOffset}.");
             }
@@ -253,6 +324,14 @@ public static class AacAdtsFrameIndexer
             var header = buf.AsSpan(start, avail);
             if (!TryParseIndexHeader(header, out var parsed))
             {
+                if (recoverFromLostSync)
+                {
+                    // Advance one byte and retry; the next iteration's
+                    // EnsureBuffered top-up handles the buffer state.
+                    start++;
+                    streamOffset++;
+                    continue;
+                }
                 throw new InvalidDataException(
                     $"Lost ADTS sync at byte offset {streamOffset}.");
             }
@@ -264,6 +343,12 @@ public static class AacAdtsFrameIndexer
                 {
                     if (parsed.FrameLength > AacAdtsStreamReader.MaxFrameLength)
                     {
+                        if (recoverFromLostSync)
+                        {
+                            start++;
+                            streamOffset++;
+                            continue;
+                        }
                         throw new InvalidDataException(
                             $"ADTS header at offset {streamOffset} advertised an impossible frame_length of {parsed.FrameLength}.");
                     }
@@ -292,6 +377,12 @@ public static class AacAdtsFrameIndexer
                 }
                 if (end - start < parsed.FrameLength)
                 {
+                    if (recoverFromLostSync)
+                    {
+                        // Truncated frame at EOF — drop the remaining
+                        // bytes silently and exit the loop.
+                        break;
+                    }
                     throw new InvalidDataException(
                         $"Stream ended after only {(end - start)} bytes of a declared {parsed.FrameLength}-byte ADTS frame at offset {streamOffset}.");
                 }

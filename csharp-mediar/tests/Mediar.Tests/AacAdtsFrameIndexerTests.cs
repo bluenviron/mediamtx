@@ -326,6 +326,102 @@ public class AacAdtsFrameIndexerTests
             AacAdtsFrameIndexer.BuildIndex(ns, skipId3v2: true));
     }
 
+    // ----- lost-sync recovery -----
+
+    [Fact]
+    public void BuildIndex_RecoverFromLostSync_LeadingGarbageThenFrame_RecoversAtFrame()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[16 + frame.Length];
+        for (int i = 0; i < 16; i++) payload[i] = (byte)(i + 1); // non-syncword garbage
+        Buffer.BlockCopy(frame, 0, payload, 16, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: false, recoverFromLostSync: true);
+
+        Assert.Single(index);
+        Assert.Equal(16L, index[0].ByteOffset);
+        Assert.Equal(0L, index[0].SampleOffset);
+    }
+
+    [Fact]
+    public void BuildIndex_RecoverFromLostSync_GarbageBetweenFrames_SkipsGarbage()
+    {
+        byte[] a = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] b = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        // a + 8 garbage bytes + b
+        byte[] payload = new byte[a.Length + 8 + b.Length];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        for (int i = 0; i < 8; i++) payload[a.Length + i] = (byte)(0x10 + i);
+        Buffer.BlockCopy(b, 0, payload, a.Length + 8, b.Length);
+
+        using var ms = new MemoryStream(payload);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: false, recoverFromLostSync: true);
+
+        Assert.Equal(2, index.Count);
+        Assert.Equal(0L, index[0].ByteOffset);
+        Assert.Equal((long)(a.Length + 8), index[1].ByteOffset);
+        // SampleOffset counts only successfully-indexed frames; the garbage
+        // contributes zero samples so frame 2 starts at frame-1's sample-count.
+        Assert.Equal(0L, index[0].SampleOffset);
+        Assert.Equal(1024L, index[1].SampleOffset);
+    }
+
+    [Fact]
+    public void BuildIndex_RecoverFromLostSync_TrailingGarbage_DropsItSilently()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[frame.Length + 3]; // 3 trailing bytes is < header size
+        Buffer.BlockCopy(frame, 0, payload, 0, frame.Length);
+        payload[frame.Length] = 0x55;
+        payload[frame.Length + 1] = 0xAA;
+        payload[frame.Length + 2] = 0x33;
+
+        using var ms = new MemoryStream(payload);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: false, recoverFromLostSync: true);
+
+        Assert.Single(index);
+    }
+
+    [Fact]
+    public void BuildIndex_RecoverFromLostSync_OnlyGarbage_ReturnsEmpty()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+
+        using var ms = new MemoryStream(payload);
+        var index = AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: false, recoverFromLostSync: true);
+
+        Assert.Empty(index);
+    }
+
+    [Fact]
+    public void BuildIndex_RecoverFromLostSync_False_StillThrowsOnLostSync()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+
+        using var ms = new MemoryStream(payload);
+        Assert.Throws<InvalidDataException>(() =>
+            AacAdtsFrameIndexer.BuildIndex(ms, skipId3v2: false, recoverFromLostSync: false));
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_RecoverFromLostSync_LeadingGarbage_RecoversAtFrame()
+    {
+        byte[] frame = AacAdtsStreamReaderTests.BuildAdtsMonoSceFrameShared();
+        byte[] payload = new byte[16 + frame.Length];
+        for (int i = 0; i < 16; i++) payload[i] = (byte)(i + 1);
+        Buffer.BlockCopy(frame, 0, payload, 16, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        var index = await AacAdtsFrameIndexer.BuildIndexAsync(
+            ms, skipId3v2: false, recoverFromLostSync: true);
+
+        Assert.Single(index);
+        Assert.Equal(16L, index[0].ByteOffset);
+    }
+
     private static byte[] BuildId3v2Tag(int payloadSize)
     {
         // 10-byte header + payloadSize bytes of filler. Synchsafe size
