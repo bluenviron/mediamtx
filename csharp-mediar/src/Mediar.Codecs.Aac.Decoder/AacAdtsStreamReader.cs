@@ -18,11 +18,15 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// construction.
 /// </para>
 /// <para>
-/// For multi-block ADTS frames, the underlying frame decoder
-/// throws <see cref="NotSupportedException"/>. For corrupted
-/// streams where the sync is lost mid-stream, the reader raises
-/// <see cref="InvalidDataException"/>; recovery (skip-forward-and-
-/// resync) is the caller's responsibility.
+/// Multi-block ADTS frames (unprotected) are transparently fanned
+/// out one block per <see cref="ReadNextFrame"/> call via a small
+/// internal queue. Protected multi-block ADTS frames
+/// (<c>protection_absent == 0</c> with multiple raw_data_blocks)
+/// surface as <see cref="NotSupportedException"/> via the inner
+/// frame decoder — per-block CRC interleaving is not yet wired.
+/// For corrupted streams where the sync is lost mid-stream, the
+/// reader raises <see cref="InvalidDataException"/>; recovery
+/// (skip-forward-and-resync) is the caller's responsibility.
 /// </para>
 /// </remarks>
 public sealed class AacAdtsStreamReader : IDisposable
