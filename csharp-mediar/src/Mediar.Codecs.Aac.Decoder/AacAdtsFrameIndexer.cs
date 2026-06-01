@@ -284,4 +284,91 @@ public static class AacAdtsFrameIndexer
             ChannelConfig: channelConfig);
         return true;
     }
+
+    /// <summary>
+    /// Binary-searches the (sample-sorted) <paramref name="index"/>
+    /// and returns the position of the frame whose sample range
+    /// covers <paramref name="sampleTarget"/>. The returned value is
+    /// the index of the entry with the largest <c>SampleOffset</c>
+    /// less than or equal to <paramref name="sampleTarget"/>.
+    /// </summary>
+    /// <param name="index">
+    /// Frame index produced by <see cref="BuildIndex(Stream, int)"/>.
+    /// Must be non-null and sorted by <c>SampleOffset</c> (the
+    /// indexer always produces this ordering).
+    /// </param>
+    /// <param name="sampleTarget">
+    /// Target sample position (per channel), counted from the start
+    /// of the stream. Negative values throw.
+    /// </param>
+    /// <returns>
+    /// Position of the matching entry, or <c>-1</c> when the index
+    /// is empty or <paramref name="sampleTarget"/> falls strictly
+    /// before the first entry's <c>SampleOffset</c>. Targets past
+    /// the last entry clamp to the last entry's index.
+    /// </returns>
+    public static int FindFrameAtSample(
+        IReadOnlyList<AacAdtsFrameIndexEntry> index,
+        long sampleTarget)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        if (sampleTarget < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleTarget),
+                "Sample target must be non-negative.");
+        }
+
+        int count = index.Count;
+        if (count == 0) return -1;
+        if (sampleTarget < index[0].SampleOffset) return -1;
+        if (sampleTarget >= index[count - 1].SampleOffset) return count - 1;
+
+        int lo = 0;
+        int hi = count - 1;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo + 1) >> 1);
+            if (index[mid].SampleOffset <= sampleTarget) lo = mid;
+            else hi = mid - 1;
+        }
+        return lo;
+    }
+
+    /// <summary>
+    /// Convenience wrapper over <see cref="FindFrameAtSample"/>
+    /// that converts a wall-clock <paramref name="time"/> into a
+    /// sample target using <paramref name="sampleRate"/> before
+    /// dispatching the binary search.
+    /// </summary>
+    /// <param name="index">Frame index; see <see cref="FindFrameAtSample"/>.</param>
+    /// <param name="time">Target playback time. Negative values throw.</param>
+    /// <param name="sampleRate">
+    /// Sampling frequency (Hz) used to convert <paramref name="time"/>
+    /// to a sample offset. Must be positive. When all frames share a
+    /// single sample rate, callers typically pass
+    /// <c>index[0].SampleRate</c>.
+    /// </param>
+    public static int FindFrameAtTime(
+        IReadOnlyList<AacAdtsFrameIndexEntry> index,
+        TimeSpan time,
+        int sampleRate)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        if (time < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(time),
+                "Target time must be non-negative.");
+        }
+        if (sampleRate <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                "Sample rate must be positive.");
+        }
+
+        long sampleTarget = (long)Math.Floor(time.TotalSeconds * sampleRate);
+        return FindFrameAtSample(index, sampleTarget);
+    }
 }

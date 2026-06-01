@@ -149,6 +149,126 @@ public class AacAdtsFrameIndexerTests
             await AacAdtsFrameIndexer.BuildIndexAsync(null!));
     }
 
+    [Fact]
+    public void FindFrameAtSample_NullIndex_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            AacAdtsFrameIndexer.FindFrameAtSample(null!, 0));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_EmptyIndex_ReturnsMinusOne()
+    {
+        var empty = Array.Empty<AacAdtsFrameIndexEntry>();
+        Assert.Equal(-1, AacAdtsFrameIndexer.FindFrameAtSample(empty, 0));
+        Assert.Equal(-1, AacAdtsFrameIndexer.FindFrameAtSample(empty, 1_000_000));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_NegativeTarget_Throws()
+    {
+        var entry = new AacAdtsFrameIndexEntry
+        {
+            ByteOffset = 0,
+            FrameLength = 64,
+            BlockCount = 1,
+            SampleOffset = 0,
+            SampleRate = 48000,
+            ChannelConfiguration = 1,
+        };
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacAdtsFrameIndexer.FindFrameAtSample(new[] { entry }, -1));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_TargetBeforeFirst_ReturnsMinusOne()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0, FrameLength = 64, BlockCount = 1, SampleOffset = 5_000, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 64, FrameLength = 64, BlockCount = 1, SampleOffset = 6_024, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Equal(-1, AacAdtsFrameIndexer.FindFrameAtSample(index, 1_000));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_TargetMatchesExactBoundary_ReturnsThatEntry()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0,   FrameLength = 64, BlockCount = 1, SampleOffset = 0,    SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 64,  FrameLength = 64, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 128, FrameLength = 64, BlockCount = 1, SampleOffset = 2048, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Equal(0, AacAdtsFrameIndexer.FindFrameAtSample(index, 0));
+        Assert.Equal(1, AacAdtsFrameIndexer.FindFrameAtSample(index, 1024));
+        Assert.Equal(2, AacAdtsFrameIndexer.FindFrameAtSample(index, 2048));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_TargetInsideRange_ReturnsBracketingEntry()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0,   FrameLength = 64, BlockCount = 1, SampleOffset = 0,    SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 64,  FrameLength = 64, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 128, FrameLength = 64, BlockCount = 1, SampleOffset = 2048, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Equal(0, AacAdtsFrameIndexer.FindFrameAtSample(index, 500));
+        Assert.Equal(1, AacAdtsFrameIndexer.FindFrameAtSample(index, 1500));
+        Assert.Equal(2, AacAdtsFrameIndexer.FindFrameAtSample(index, 2500));
+    }
+
+    [Fact]
+    public void FindFrameAtSample_TargetPastLastEntry_ClampsToLast()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0,  FrameLength = 64, BlockCount = 1, SampleOffset = 0,    SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 64, FrameLength = 64, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Equal(1, AacAdtsFrameIndexer.FindFrameAtSample(index, 1_000_000));
+    }
+
+    [Fact]
+    public void FindFrameAtTime_NegativeTime_Throws()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0, FrameLength = 64, BlockCount = 1, SampleOffset = 0, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.FromSeconds(-0.1), 48000));
+    }
+
+    [Fact]
+    public void FindFrameAtTime_NonPositiveSampleRate_Throws()
+    {
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0, FrameLength = 64, BlockCount = 1, SampleOffset = 0, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.Zero, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.Zero, -48000));
+    }
+
+    [Fact]
+    public void FindFrameAtTime_ConvertsTimeToSampleAndDispatches()
+    {
+        // 48 kHz: every 1024 samples = 1024/48000 s = ~21.333 ms.
+        var index = new[]
+        {
+            new AacAdtsFrameIndexEntry { ByteOffset = 0,   FrameLength = 64, BlockCount = 1, SampleOffset = 0,    SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 64,  FrameLength = 64, BlockCount = 1, SampleOffset = 1024, SampleRate = 48000, ChannelConfiguration = 1 },
+            new AacAdtsFrameIndexEntry { ByteOffset = 128, FrameLength = 64, BlockCount = 1, SampleOffset = 2048, SampleRate = 48000, ChannelConfiguration = 1 },
+        };
+        Assert.Equal(0, AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.FromMilliseconds(10), 48000));
+        Assert.Equal(1, AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.FromMilliseconds(30), 48000));
+        Assert.Equal(2, AacAdtsFrameIndexer.FindFrameAtTime(index, TimeSpan.FromMilliseconds(50), 48000));
+    }
+
     private sealed class WriteOnlyStream : Stream
     {
         public override bool CanRead => false;
