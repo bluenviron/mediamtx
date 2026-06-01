@@ -106,6 +106,19 @@ public sealed class AacAdtsStreamReader : IDisposable, IAsyncDisposable
     public int CurrentChannelCount => _decoder.CurrentChannelCount;
 
     /// <summary>
+    /// When <c>true</c>, <see cref="ReadNextFrame"/> /
+    /// <see cref="ReadNextFrameAsync"/> do not throw on lost ADTS
+    /// sync, impossible advertised frame_length, or a frame body
+    /// that runs past end-of-stream — instead they skip the bad
+    /// byte(s) and resynchronise to the next valid syncword, or
+    /// return <c>null</c> when there is nothing left to recover.
+    /// Decoder-level errors raised from inside a header-valid
+    /// frame body are not recovered from and still propagate.
+    /// Defaults to <c>false</c> to preserve the strict behaviour.
+    /// </summary>
+    public bool RecoverFromLostSync { get; set; }
+
+    /// <summary>
     /// Read the next decoded raw_data_block from the stream, or
     /// <c>null</c> when end-of-stream is reached on a clean frame
     /// boundary. Multi-block ADTS frames are transparently
@@ -138,35 +151,53 @@ public sealed class AacAdtsStreamReader : IDisposable, IAsyncDisposable
             SkipLeadingId3v2();
         }
 
-        // Make sure we have at least the 6 bytes needed to read frame_length.
-        if (!EnsureBuffered(minBytes: 6))
+        int frameLength;
+        while (true)
         {
-            int leftover = _end - _start;
-            if (leftover == 0) return null;
-            throw new InvalidDataException(
-                $"Stream ended with {leftover} unconsumed bytes before a complete ADTS header.");
-        }
-
-        if (!AacAdtsFrameDecoder.TryParseFrameLength(_buffer.AsSpan(_start, _end - _start), out int frameLength))
-        {
-            throw new InvalidDataException(
-                "Lost ADTS sync at the next-frame boundary; resynchronisation is the caller's responsibility.");
-        }
-
-        if (frameLength > _buffer.Length)
-        {
-            if (frameLength > MaxFrameLength)
+            // Make sure we have at least the 6 bytes needed to read frame_length.
+            if (!EnsureBuffered(minBytes: 6))
             {
+                int leftover = _end - _start;
+                if (leftover == 0) return null;
+                if (RecoverFromLostSync) return null;
                 throw new InvalidDataException(
-                    $"ADTS header advertised an impossible frame_length of {frameLength} (max {MaxFrameLength}).");
+                    $"Stream ended with {leftover} unconsumed bytes before a complete ADTS header.");
             }
-            GrowBuffer(frameLength);
-        }
 
-        if (!EnsureBuffered(minBytes: frameLength))
-        {
-            throw new InvalidDataException(
-                $"Stream ended after only {(_end - _start)} bytes of a declared {frameLength}-byte ADTS frame.");
+            if (!AacAdtsFrameDecoder.TryParseFrameLength(_buffer.AsSpan(_start, _end - _start), out frameLength))
+            {
+                if (RecoverFromLostSync)
+                {
+                    _start++;
+                    continue;
+                }
+                throw new InvalidDataException(
+                    "Lost ADTS sync at the next-frame boundary; resynchronisation is the caller's responsibility.");
+            }
+
+            if (frameLength > _buffer.Length)
+            {
+                if (frameLength > MaxFrameLength)
+                {
+                    if (RecoverFromLostSync)
+                    {
+                        _start++;
+                        continue;
+                    }
+                    throw new InvalidDataException(
+                        $"ADTS header advertised an impossible frame_length of {frameLength} (max {MaxFrameLength}).");
+                }
+                GrowBuffer(frameLength);
+            }
+
+            if (!EnsureBuffered(minBytes: frameLength))
+            {
+                if (RecoverFromLostSync) return null;
+                throw new InvalidDataException(
+                    $"Stream ended after only {(_end - _start)} bytes of a declared {frameLength}-byte ADTS frame.");
+            }
+
+            break;
         }
 
         var frame = _buffer.AsSpan(_start, frameLength);
@@ -221,34 +252,52 @@ public sealed class AacAdtsStreamReader : IDisposable, IAsyncDisposable
             await SkipLeadingId3v2Async(cancellationToken).ConfigureAwait(false);
         }
 
-        if (!await EnsureBufferedAsync(minBytes: 6, cancellationToken).ConfigureAwait(false))
+        int frameLength;
+        while (true)
         {
-            int leftover = _end - _start;
-            if (leftover == 0) return null;
-            throw new InvalidDataException(
-                $"Stream ended with {leftover} unconsumed bytes before a complete ADTS header.");
-        }
-
-        if (!AacAdtsFrameDecoder.TryParseFrameLength(_buffer.AsSpan(_start, _end - _start), out int frameLength))
-        {
-            throw new InvalidDataException(
-                "Lost ADTS sync at the next-frame boundary; resynchronisation is the caller's responsibility.");
-        }
-
-        if (frameLength > _buffer.Length)
-        {
-            if (frameLength > MaxFrameLength)
+            if (!await EnsureBufferedAsync(minBytes: 6, cancellationToken).ConfigureAwait(false))
             {
+                int leftover = _end - _start;
+                if (leftover == 0) return null;
+                if (RecoverFromLostSync) return null;
                 throw new InvalidDataException(
-                    $"ADTS header advertised an impossible frame_length of {frameLength} (max {MaxFrameLength}).");
+                    $"Stream ended with {leftover} unconsumed bytes before a complete ADTS header.");
             }
-            GrowBuffer(frameLength);
-        }
 
-        if (!await EnsureBufferedAsync(minBytes: frameLength, cancellationToken).ConfigureAwait(false))
-        {
-            throw new InvalidDataException(
-                $"Stream ended after only {(_end - _start)} bytes of a declared {frameLength}-byte ADTS frame.");
+            if (!AacAdtsFrameDecoder.TryParseFrameLength(_buffer.AsSpan(_start, _end - _start), out frameLength))
+            {
+                if (RecoverFromLostSync)
+                {
+                    _start++;
+                    continue;
+                }
+                throw new InvalidDataException(
+                    "Lost ADTS sync at the next-frame boundary; resynchronisation is the caller's responsibility.");
+            }
+
+            if (frameLength > _buffer.Length)
+            {
+                if (frameLength > MaxFrameLength)
+                {
+                    if (RecoverFromLostSync)
+                    {
+                        _start++;
+                        continue;
+                    }
+                    throw new InvalidDataException(
+                        $"ADTS header advertised an impossible frame_length of {frameLength} (max {MaxFrameLength}).");
+                }
+                GrowBuffer(frameLength);
+            }
+
+            if (!await EnsureBufferedAsync(minBytes: frameLength, cancellationToken).ConfigureAwait(false))
+            {
+                if (RecoverFromLostSync) return null;
+                throw new InvalidDataException(
+                    $"Stream ended after only {(_end - _start)} bytes of a declared {frameLength}-byte ADTS frame.");
+            }
+
+            break;
         }
 
         var frame = _buffer.AsSpan(_start, frameLength);

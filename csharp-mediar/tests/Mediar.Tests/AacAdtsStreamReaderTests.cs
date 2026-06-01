@@ -591,6 +591,87 @@ public class AacAdtsStreamReaderTests
         Assert.Equal(1, tracking.SyncDisposeCount);
     }
 
+    // ----- lost-sync recovery -----
+
+    [Fact]
+    public void ReadNextFrame_RecoverFromLostSync_LeadingGarbage_RecoversAtFrame()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[16 + frame.Length];
+        for (int i = 0; i < 16; i++) payload[i] = (byte)(i + 1);
+        Buffer.BlockCopy(frame, 0, payload, 16, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+        reader.RecoverFromLostSync = true;
+
+        var block = reader.ReadNextFrame();
+        Assert.NotNull(block);
+        Assert.Null(reader.ReadNextFrame());
+    }
+
+    [Fact]
+    public void ReadNextFrame_RecoverFromLostSync_GarbageBetweenFrames_RecoversAtSecondFrame()
+    {
+        byte[] a = BuildAdtsMonoSceFrame();
+        byte[] b = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[a.Length + 8 + b.Length];
+        Buffer.BlockCopy(a, 0, payload, 0, a.Length);
+        for (int i = 0; i < 8; i++) payload[a.Length + i] = (byte)(0x10 + i);
+        Buffer.BlockCopy(b, 0, payload, a.Length + 8, b.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+        reader.RecoverFromLostSync = true;
+
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.NotNull(reader.ReadNextFrame());
+        Assert.Null(reader.ReadNextFrame());
+    }
+
+    [Fact]
+    public void ReadNextFrame_RecoverFromLostSync_OnlyGarbage_ReturnsNull()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+        reader.RecoverFromLostSync = true;
+
+        Assert.Null(reader.ReadNextFrame());
+    }
+
+    [Fact]
+    public void ReadNextFrame_RecoverFromLostSync_False_StillThrowsOnLostSync()
+    {
+        byte[] payload = new byte[64];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i + 1);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+
+        Assert.False(reader.RecoverFromLostSync);
+        Assert.Throws<InvalidDataException>(() => reader.ReadNextFrame());
+    }
+
+    [Fact]
+    public async Task ReadNextFrameAsync_RecoverFromLostSync_LeadingGarbage_RecoversAtFrame()
+    {
+        byte[] frame = BuildAdtsMonoSceFrame();
+        byte[] payload = new byte[16 + frame.Length];
+        for (int i = 0; i < 16; i++) payload[i] = (byte)(i + 1);
+        Buffer.BlockCopy(frame, 0, payload, 16, frame.Length);
+
+        using var ms = new MemoryStream(payload);
+        using var reader = NewReader(ms);
+        reader.RecoverFromLostSync = true;
+
+        var block = await reader.ReadNextFrameAsync();
+        Assert.NotNull(block);
+        Assert.Null(await reader.ReadNextFrameAsync());
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>

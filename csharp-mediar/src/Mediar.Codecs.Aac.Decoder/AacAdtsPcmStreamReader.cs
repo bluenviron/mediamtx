@@ -278,6 +278,16 @@ public sealed class AacAdtsPcmStreamReader : IDisposable, IAsyncDisposable
     public bool CanSeek => _reader.CanSeek;
 
     /// <summary>
+    /// Forwards <see cref="AacAdtsStreamReader.RecoverFromLostSync"/>
+    /// onto the inner reader. Default <c>false</c>.
+    /// </summary>
+    public bool RecoverFromLostSync
+    {
+        get => _reader.RecoverFromLostSync;
+        set => _reader.RecoverFromLostSync = value;
+    }
+
+    /// <summary>
     /// Forwards
     /// <see cref="AacAdtsStreamReader.SeekToFrame(AacAdtsFrameIndexEntry)"/>.
     /// </summary>
