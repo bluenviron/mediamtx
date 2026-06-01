@@ -82,7 +82,7 @@ public sealed class AacChannelDecoderTests
     }
 
     /// <summary>1-SFB long-window frame: SFB 0 = cb 1 (spectral); no PNS bands.</summary>
-    private static AacChannelFrame BuildFrameNoPns()
+    internal static AacChannelFrame BuildFrameNoPns()
     {
         var sfBook = BuildSyntheticSfCodebook();
         var spectralBook = BuildFixed7BitCodebook(81);
@@ -849,7 +849,7 @@ public sealed class AacChannelDecoderTests
     /// 1-target SCE CCE with a 1-SFB cb 1 spectral body (4-tuple = sym 80)
     /// and no PNS / TNS / pulses. Auxiliary coupling channel only.
     /// </summary>
-    private static AacCouplingChannelElement BuildCceCb1NoPns()
+    internal static AacCouplingChannelElement BuildCceCb1NoPns()
     {
         var sfBook = BuildSyntheticSfCodebook();
         var spectralBook = BuildFixed7BitCodebook(81);
