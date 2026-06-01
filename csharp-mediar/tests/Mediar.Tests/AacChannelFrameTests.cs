@@ -39,6 +39,15 @@ public sealed class AacChannelFrameTests
         w.Write(0u, 1);                                          // predictor_data_present
     }
 
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping = 0x7F)
+    {
+        w.Write(0u, 1);                                          // ics_reserved_bit
+        w.Write((uint)AacWindowSequence.EightShort, 2);          // window_sequence
+        w.Write(0u, 1);                                          // window_shape
+        w.Write((uint)maxSfb, 4);                                // max_sfb (4 bits for short)
+        w.Write(grouping, 7);                                    // scale_factor_grouping
+    }
+
     private static void WriteOneZeroSection(AacBitWriter w, int len)
     {
         w.Write(0u, 4);                                          // sect_cb = 0
@@ -396,5 +405,91 @@ public sealed class AacChannelFrameTests
                      frame.BitsConsumed);
         Assert.Equal(1, frame.SpectralData.Coefficients[0]);
         Assert.Equal(1, frame.SpectralData.Coefficients[7]);
+    }
+
+    // ----- EightShort coverage -----
+
+    [Fact]
+    public void TryRead_ShortOwnIcs_EmptySpectrum_BitsConsumedMatchesIcsAlone()
+    {
+        // EightShort own ICS with maxSfb=0 -> no sections, no SF, no spectral.
+        // Body = 8 (gg) + 15 (short ics) + 0 (sections) + 0 (sf) + 3 (flags) = 26 bits.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteShortIcsInfo(w, maxSfb: 0);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(AacWindowSequence.EightShort, frame!.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(0, frame.Stream.IcsInfo.MaxSfb);
+        Assert.Empty(frame.Stream.SectionData.Sections);
+        Assert.Equal(26, frame.Stream.BitsConsumed);
+        Assert.Equal(0, frame.SpectralData.BitsConsumed);
+        Assert.Equal(1024, frame.SpectralData.Coefficients.Length);
+        Assert.All(frame.SpectralData.Coefficients, c => Assert.Equal(0, c));
+        Assert.Equal(26, frame.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_ShortSharedIcs_DoesNotConsumeIcsInfoBits()
+    {
+        // Shared short ICS - body skips ics_info(): 8 (gg) + 0 + 0 + 3 = 11 bits.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+        var shared = new AacIcsInfo
+        {
+            WindowSequence = AacWindowSequence.EightShort,
+            WindowShape = AacWindowShape.Sine,
+            MaxSfb = 0,
+            ScaleFactorGrouping = 0x7F,
+            WindowGroupCount = 1,
+            WindowsPerGroup = new byte[] { 8 },
+            PredictorDataPresent = false,
+        };
+
+        var w = new AacBitWriter();
+        w.Write(0x42u, 8);              // global_gain
+        w.Write(0u, 1);                 // pulse_data_present (forbidden=1 for short)
+        w.Write(0u, 1);                 // tns_data_present
+        w.Write(0u, 1);                 // gain_control_data_present
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: shared, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(0x42, frame!.Stream.GlobalGain);
+        Assert.Null(frame.Stream.OwnIcsInfo);
+        Assert.Same(shared, frame.Stream.IcsInfo);
+        Assert.Equal(11, frame.Stream.BitsConsumed);
+        Assert.Equal(0, frame.SpectralData.BitsConsumed);
+        Assert.Equal(11, frame.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_ShortOwnIcs_AllSingletonGroups_StillEmptySpectrum()
+    {
+        // scale_factor_grouping = 0 -> 8 singleton groups. maxSfb=0 still
+        // means zero sections per group, so the body bit count is unchanged.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x10u, 8);
+        WriteShortIcsInfo(w, maxSfb: 0, grouping: 0x00);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(8, frame!.Stream.IcsInfo.WindowGroupCount);
+        Assert.Equal(26, frame.BitsConsumed);
+        Assert.All(frame.SpectralData.Coefficients, c => Assert.Equal(0, c));
     }
 }

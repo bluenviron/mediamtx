@@ -38,6 +38,15 @@ public sealed class AacChannelElementFullTests
         w.Write(0u, 1);
     }
 
+    private static void WriteShortIcsInfo(AacBitWriter w, int maxSfb, byte grouping = 0x7F)
+    {
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.EightShort, 2);
+        w.Write(0u, 1);
+        w.Write((uint)maxSfb, 4);
+        w.Write(grouping, 7);
+    }
+
     private static byte[] BuildEmptyElementBytes(int tag, byte globalGain)
     {
         var w = new AacBitWriter();
@@ -48,6 +57,20 @@ public sealed class AacChannelElementFullTests
         w.Write(0u, 1);                 // tns_data_present
         w.Write(0u, 1);                 // gain_control_data_present
         // No spectral bits (maxSfb=0).
+        return w.ToArray();
+    }
+
+    private static byte[] BuildEmptyShortElementBytes(int tag, byte globalGain, byte grouping = 0x7F)
+    {
+        // Short-windowed analogue of BuildEmptyElementBytes: same shape but
+        // EightShort window_sequence and 4-bit max_sfb + 7-bit grouping.
+        var w = new AacBitWriter();
+        w.Write((uint)tag, 4);
+        w.Write(globalGain, 8);
+        WriteShortIcsInfo(w, maxSfb: 0, grouping: grouping);
+        w.Write(0u, 1);                 // pulse_data_present (must be 0 for short)
+        w.Write(0u, 1);                 // tns_data_present
+        w.Write(0u, 1);                 // gain_control_data_present
         return w.ToArray();
     }
 
@@ -215,5 +238,65 @@ public sealed class AacChannelElementFullTests
         Assert.Throws<ArgumentNullException>(() =>
             AacLowFrequencyElement.TryParse(
                 bytes, sf, Sr48k, spectralCodebooks: null!, out _));
+    }
+
+    // ----- EightShort full-parse coverage -----
+
+    [Fact]
+    public void SceFull_EmptyShortSpectrum_Succeeds()
+    {
+        // EightShort SCE with maxSfb=0 has no sections, no scale factors,
+        // and no spectral coefficients. Verifies the "Full" overload (which
+        // walks spectral_data) handles a short empty body.
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildEmptyShortElementBytes(tag: 4, globalGain: 0x55),
+            sf, Sr48k, spectral, out var sce));
+        Assert.NotNull(sce);
+        Assert.Equal(4, sce!.ElementInstanceTag);
+        Assert.Equal(0x55, sce.Stream.GlobalGain);
+        Assert.Equal(AacWindowSequence.EightShort, sce.Stream.IcsInfo!.WindowSequence);
+        Assert.NotNull(sce.SpectralData);
+        Assert.All(sce.SpectralData!.Coefficients, c => Assert.Equal(0, c));
+        // tag(4) + global_gain(8) + ics(15) + flags(3) + spectral(0) = 30 bits.
+        Assert.Equal(30, sce.BitsConsumed);
+    }
+
+    [Fact]
+    public void SceFull_EmptyShortSpectrum_AllSeparateGroups_Succeeds()
+    {
+        // scale_factor_grouping=0 -> 8 singleton groups but maxSfb=0 still
+        // means zero sections per group, so the body shape is identical.
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildEmptyShortElementBytes(tag: 1, globalGain: 0x10, grouping: 0x00),
+            sf, Sr48k, spectral, out var sce));
+        Assert.NotNull(sce);
+        Assert.Equal(8, sce!.Stream.IcsInfo!.WindowGroupCount);
+        Assert.NotNull(sce.SpectralData);
+        Assert.Equal(30, sce.BitsConsumed);
+    }
+
+    [Fact]
+    public void LfeFull_EmptyShortSpectrum_Succeeds()
+    {
+        // LFE shares the SCE bitstream shape; the full-parser must accept
+        // an EightShort body even though no encoder emits short-windowed LFE.
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacLowFrequencyElement.TryParse(
+            BuildEmptyShortElementBytes(tag: 6, globalGain: 0x33),
+            sf, Sr48k, spectral, out var lfe));
+        Assert.NotNull(lfe);
+        Assert.Equal(6, lfe!.ElementInstanceTag);
+        Assert.Equal(AacWindowSequence.EightShort, lfe.Stream.IcsInfo!.WindowSequence);
+        Assert.NotNull(lfe.SpectralData);
+        Assert.All(lfe.SpectralData!.Coefficients, c => Assert.Equal(0, c));
+        Assert.Equal(30, lfe.BitsConsumed);
     }
 }

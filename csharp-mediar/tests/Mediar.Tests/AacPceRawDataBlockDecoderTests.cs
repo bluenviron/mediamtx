@@ -338,5 +338,52 @@ public class AacPceRawDataBlockDecoderTests
         Assert.Equal(1, decoded.Channels[3].PairIndex);
     }
 
+    // ----- EightShort coverage -----
+
+    [Fact]
+    public void DecodeToSamples_SingleFrontShortSce_ProducesOneChannelWithFullFrame()
+    {
+        // PCE-driven dispatch must accept an EightShort SCE and route it
+        // through the short-window filterbank path.
+        var pce = AacPceLayoutResolverTests.BuildPce(
+            frontElements: [AacPceLayoutResolverTests.Sce(0)]);
+        var block = AacPceLayoutResolverTests.BuildBlock(
+            AacPceLayoutResolverTests.BuildShortSceEntry(0));
+        var fbs = AacPceRawDataBlockDecoder.CreateFilterbanks(pce);
+
+        var decoded = AacPceRawDataBlockDecoder.DecodeToSamples(
+            block, pce, SampleRate, NewPrng, fbs);
+
+        Assert.Single(decoded.Channels);
+        var ch = decoded.Channels[0];
+        Assert.Equal(AacPceChannelRegion.Front, ch.Region);
+        Assert.Equal(0, ch.RegionIndex);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, ch.Samples.Length);
+        Assert.Contains(ch.Samples, s => s != 0f);
+    }
+
+    [Fact]
+    public void DecodeToSamples_MixedLongAndShortAcrossPceRegions_ProducesAllChannels()
+    {
+        // Front SCE long + Back SCE short — the PCE walker must dispatch
+        // each entry to the correct filterbank for its own window sequence.
+        var pce = AacPceLayoutResolverTests.BuildPce(
+            frontElements: [AacPceLayoutResolverTests.Sce(0)],
+            backElements: [AacPceLayoutResolverTests.Sce(1)]);
+        var block = AacPceLayoutResolverTests.BuildBlock(
+            AacPceLayoutResolverTests.BuildSceEntry(0),
+            AacPceLayoutResolverTests.BuildShortSceEntry(1));
+        var fbs = AacPceRawDataBlockDecoder.CreateFilterbanks(pce);
+
+        var decoded = AacPceRawDataBlockDecoder.DecodeToSamples(
+            block, pce, SampleRate, NewPrng, fbs);
+
+        Assert.Equal(2, decoded.Channels.Count);
+        Assert.Equal(AacPceChannelRegion.Front, decoded.Channels[0].Region);
+        Assert.Equal(AacPceChannelRegion.Back, decoded.Channels[1].Region);
+        Assert.All(decoded.Channels, ch =>
+            Assert.Equal(AacSynthesisFilterbank.LongFrameLength, ch.Samples.Length));
+    }
+
     private static AacPnsRandom NewPrng() => new(seed: 1u);
 }

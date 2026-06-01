@@ -278,6 +278,77 @@ public class AacRawDataBlockDecoderTests
                 block, 1, Sr48k, () => null!, fbs));
     }
 
+    // ----- EightShort coverage -----
+
+    [Fact]
+    public void DecodeToSamples_MonoShort_ProducesOneChannelWithFullFrame()
+    {
+        // A single EightShort SCE must still produce a 1024-sample mono PCM frame.
+        var shortFrame = AacChannelDecoderTests.BuildShortFrameNoTnsShared();
+        var block = BuildBlockFromEntries(new[] { BuildSceEntry(shortFrame) });
+        var fbs = AacRawDataBlockDecoder.CreateFilterbanks(1);
+
+        var result = AacRawDataBlockDecoder.DecodeToSamples(
+            block, 1, Sr48k, () => new AacPnsRandom(seed: 2u), fbs);
+
+        Assert.Single(result.Channels);
+        Assert.Equal(AacSpeaker.FrontCentre, result.Channels[0].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, result.Channels[0].Samples.Length);
+        // EightShort with cb=1 spectrum produces a non-trivial PCM frame.
+        Assert.Contains(result.Channels[0].Samples, s => s != 0f);
+    }
+
+    [Fact]
+    public void DecodeToSamples_StereoShort_ProducesTwoChannelsWithFullFrame()
+    {
+        var l = AacChannelDecoderTests.BuildShortFrameNoTnsShared();
+        var r = AacChannelDecoderTests.BuildShortFrameNoTnsShared();
+        var block = BuildBlockFromEntries(new[] { BuildCpeEntry(l, r) });
+        var fbs = AacRawDataBlockDecoder.CreateFilterbanks(2);
+
+        var result = AacRawDataBlockDecoder.DecodeToSamples(
+            block, 2, Sr48k, () => new AacPnsRandom(seed: 9u), fbs);
+
+        Assert.Equal(2, result.Channels.Count);
+        Assert.Equal(AacSpeaker.FrontLeft, result.Channels[0].Speaker);
+        Assert.Equal(AacSpeaker.FrontRight, result.Channels[1].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, result.Channels[0].Samples.Length);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, result.Channels[1].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeToSamples_FiveOneWithShortCentreChannel_StillProducesSixChannels()
+    {
+        // 5.1 = SCE C, CPE L R, CPE Ls Rs, LFE.  Make the centre channel
+        // EightShort while every other channel stays long — verifies the
+        // dispatcher tolerates a mixed window-sequence layout within one block.
+        var c = AacChannelDecoderTests.BuildShortFrameNoTnsShared();
+        var l = AacChannelDecoderTests.BuildFrameNoPns();
+        var r = AacChannelDecoderTests.BuildFrameNoPns();
+        var ls = AacChannelDecoderTests.BuildFrameNoPns();
+        var rs = AacChannelDecoderTests.BuildFrameNoPns();
+        var lfe = AacChannelDecoderTests.BuildFrameNoPns();
+
+        var block = BuildBlockFromEntries(new[]
+        {
+            BuildSceEntry(c, tag: 0),
+            BuildCpeEntry(l, r, tag: 0),
+            BuildCpeEntry(ls, rs, tag: 1),
+            BuildLfeEntry(lfe, tag: 0),
+        });
+
+        var fbs = AacRawDataBlockDecoder.CreateFilterbanks(6);
+        var result = AacRawDataBlockDecoder.DecodeToSamples(
+            block, 6, Sr48k, () => new AacPnsRandom(seed: 12u), fbs);
+
+        Assert.Equal(6, result.Channels.Count);
+        Assert.All(result.Channels, ch =>
+            Assert.Equal(AacSynthesisFilterbank.LongFrameLength, ch.Samples.Length));
+        // The short-windowed centre channel must contain at least one non-zero sample.
+        var centre = result.Channels.First(ch => ch.Speaker == AacSpeaker.FrontCentre);
+        Assert.Contains(centre.Samples, s => s != 0f);
+    }
+
     // ----- helpers -----
 
     private static AacRawDataBlockEntry BuildSceEntry(AacChannelFrame frame, int tag = 0)

@@ -423,6 +423,9 @@ public sealed class AacChannelDecoderTests
     // ----- Short-window TNS integration -----
 
     /// <summary>4-SFB EightShort frame: all 8 windows in one group, codebook 1, no TNS.</summary>
+    internal static AacChannelFrame BuildShortFrameNoTnsShared() => BuildShortWindowFrameNoTns();
+
+    /// <summary>4-SFB EightShort frame: all 8 windows in one group, codebook 1, no TNS.</summary>
     private static AacChannelFrame BuildShortWindowFrameNoTns()
     {
         var sfBook = BuildSyntheticSfCodebook();

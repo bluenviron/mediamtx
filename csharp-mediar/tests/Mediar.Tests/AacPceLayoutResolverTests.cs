@@ -211,6 +211,26 @@ public class AacPceLayoutResolverTests
         };
     }
 
+    internal static AacRawDataBlockEntry BuildShortSceEntry(int tag)
+    {
+        // EightShort-windowed SCE entry; payload built from a real
+        // AacChannelFrame so the SpectralData lengths line up.
+        var frame = AacChannelDecoderTests.BuildShortFrameNoTnsShared();
+        var sce = new AacSingleChannelElement
+        {
+            ElementInstanceTag = tag,
+            Stream = frame.Stream,
+            SpectralData = frame.SpectralData,
+            BitsConsumed = 0,
+        };
+        return new AacRawDataBlockEntry
+        {
+            Type = AacSyntacticElementType.SingleChannelElement,
+            BitOffset = 0,
+            SingleChannel = sce,
+        };
+    }
+
     internal static AacRawDataBlockEntry BuildCpeEntry(int tag)
     {
         var l = AacChannelDecoderTests.BuildFrameNoPns();
