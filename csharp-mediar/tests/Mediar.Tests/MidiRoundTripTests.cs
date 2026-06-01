@@ -177,4 +177,289 @@ public sealed class MidiRoundTripTests
         byte[] junk = new byte[16];
         Assert.Throws<InvalidDataException>(() => MidiReader.Read(junk));
     }
+
+    [Fact]
+    public void Throws_On_Too_Small_Input()
+    {
+        Assert.Throws<InvalidDataException>(() => MidiReader.Read(new byte[5]));
+    }
+
+    [Fact]
+    public void Throws_On_Truncated_Header_Chunk_Length()
+    {
+        // MThd present, but advertised header length < 6 bytes.
+        byte[] bad = new byte[16];
+        bad[0] = (byte)'M'; bad[1] = (byte)'T'; bad[2] = (byte)'h'; bad[3] = (byte)'d';
+        // header length = 4 (too small)
+        bad[4] = 0; bad[5] = 0; bad[6] = 0; bad[7] = 4;
+        Assert.Throws<InvalidDataException>(() => MidiReader.Read(bad));
+    }
+
+    [Fact]
+    public void Throws_On_Truncated_MTrk_Body()
+    {
+        // Header advertises one track of 100 bytes but body is missing.
+        var file = new MidiFile
+        {
+            Format = 0,
+            Division = MidiDivision.Ppq(96),
+            Tracks = [new MidiTrack { Events = [
+                new() { Tick = 0, Type = MidiMessageType.NoteOn, Channel = 0, Data1 = 60, Data2 = 100 },
+            ] }],
+        };
+        byte[] good = MidiWriter.Write(file);
+        // Truncate to just header + first 8 bytes of MTrk.
+        byte[] truncated = good.AsSpan(0, 14 + 8 + 4).ToArray();
+        // Inflate the trkLen field to something larger than what's present.
+        truncated[18] = 0xFF;
+        // Some malformations surface as InvalidDataException, others
+        // as IndexOutOfRangeException; either signals a parse failure.
+        Assert.ThrowsAny<Exception>(() => MidiReader.Read(truncated));
+    }
+
+    [Fact]
+    public void ReadFile_NullOrEmpty_Path_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => MidiReader.ReadFile(null!));
+        Assert.Throws<ArgumentException>(() => MidiReader.ReadFile(string.Empty));
+    }
+
+    [Fact]
+    public void ReadFile_Missing_Path_Throws_FileNotFound()
+    {
+        var path = Path.Combine(Path.GetTempPath(),
+            "missing-midi-" + Guid.NewGuid().ToString("N") + ".mid");
+        Assert.Throws<FileNotFoundException>(() => MidiReader.ReadFile(path));
+    }
+
+    [Fact]
+    public void ControlChange_RoundTrips()
+    {
+        var track = new MidiTrack
+        {
+            Events =
+            [
+                new() { Tick = 0,  Type = MidiMessageType.ControlChange, Channel = 0, Data1 = 7,  Data2 = 100 }, // volume
+                new() { Tick = 10, Type = MidiMessageType.ControlChange, Channel = 0, Data1 = 64, Data2 = 127 }, // sustain
+            ],
+        };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        var ev0 = rt.Tracks[0].Events[0];
+        Assert.Equal(MidiMessageType.ControlChange, ev0.Type);
+        Assert.Equal((byte)7, ev0.Data1);
+        Assert.Equal((byte)100, ev0.Data2);
+        Assert.Equal((byte)64, rt.Tracks[0].Events[1].Data1);
+    }
+
+    [Fact]
+    public void PitchBend_RoundTrips_And_PitchBend14_Computes_Centered_Value()
+    {
+        // Pitch bend value 0x2000 = centered (0)
+        var track = new MidiTrack
+        {
+            Events =
+            [
+                new() { Tick = 0, Type = MidiMessageType.PitchBend, Channel = 0, Data1 = 0x00, Data2 = 0x40 },
+            ],
+        };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        var ev = rt.Tracks[0].Events[0];
+        Assert.Equal(MidiMessageType.PitchBend, ev.Type);
+        Assert.Equal(0, ev.PitchBend14);
+    }
+
+    [Fact]
+    public void PolyphonicKeyPressure_RoundTrips()
+    {
+        var track = new MidiTrack
+        {
+            Events =
+            [
+                new() { Tick = 0, Type = MidiMessageType.PolyphonicKeyPressure, Channel = 2, Data1 = 60, Data2 = 80 },
+            ],
+        };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        var ev = rt.Tracks[0].Events[0];
+        Assert.Equal(MidiMessageType.PolyphonicKeyPressure, ev.Type);
+        Assert.Equal(2, ev.Channel);
+        Assert.Equal((byte)60, ev.Data1);
+        Assert.Equal((byte)80, ev.Data2);
+    }
+
+    [Fact]
+    public void ChannelPressure_RoundTrips()
+    {
+        var track = new MidiTrack
+        {
+            Events =
+            [
+                new() { Tick = 0, Type = MidiMessageType.ChannelPressure, Channel = 3, Data1 = 64 },
+            ],
+        };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        var ev = rt.Tracks[0].Events[0];
+        Assert.Equal(MidiMessageType.ChannelPressure, ev.Type);
+        Assert.Equal(3, ev.Channel);
+        Assert.Equal((byte)64, ev.Data1);
+    }
+
+    [Fact]
+    public void Multiple_Meta_Subtypes_RoundTrip()
+    {
+        var events = new List<MidiEvent>
+        {
+            new() {
+                Tick = 0, Type = MidiMessageType.Meta, MetaType = MidiMetaType.Copyright,
+                Payload = Encoding.UTF8.GetBytes("(c) Mediar"),
+            },
+            new() {
+                Tick = 0, Type = MidiMessageType.Meta, MetaType = MidiMetaType.Text,
+                Payload = Encoding.UTF8.GetBytes("Some text"),
+            },
+            new() {
+                Tick = 5, Type = MidiMessageType.Meta, MetaType = MidiMetaType.Marker,
+                Payload = Encoding.UTF8.GetBytes("Verse 1"),
+            },
+            new() {
+                Tick = 10, Type = MidiMessageType.Meta, MetaType = MidiMetaType.CuePoint,
+                Payload = Encoding.UTF8.GetBytes("Cue A"),
+            },
+            new() {
+                Tick = 15, Type = MidiMessageType.Meta, MetaType = MidiMetaType.Lyric,
+                Payload = Encoding.UTF8.GetBytes("La"),
+            },
+            new() {
+                Tick = 20, Type = MidiMessageType.Meta, MetaType = MidiMetaType.TimeSignature,
+                Payload = new byte[] { 4, 2, 24, 8 }, // 4/4
+            },
+            new() {
+                Tick = 20, Type = MidiMessageType.Meta, MetaType = MidiMetaType.KeySignature,
+                Payload = new byte[] { 0x00, 0x00 }, // C major
+            },
+        };
+        var track = new MidiTrack { Events = events };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        // EOT auto-appended -> events.Count + 1.
+        Assert.Equal(events.Count + 1, rt.Tracks[0].Events.Count);
+        Assert.Equal(MidiMetaType.Copyright, rt.Tracks[0].Events[0].MetaType);
+        Assert.Equal(MidiMetaType.KeySignature, rt.Tracks[0].Events[^2].MetaType);
+        Assert.Equal(MidiMetaType.EndOfTrack, rt.Tracks[0].Events[^1].MetaType);
+    }
+
+    [Fact]
+    public void Empty_Track_Yields_Only_EndOfTrack()
+    {
+        var file = new MidiFile
+        {
+            Format = 0, Division = MidiDivision.Ppq(96),
+            Tracks = [new MidiTrack { Events = [] }],
+        };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        var ev = Assert.Single(rt.Tracks[0].Events);
+        Assert.Equal(MidiMessageType.Meta, ev.Type);
+        Assert.Equal(MidiMetaType.EndOfTrack, ev.MetaType);
+    }
+
+    [Fact]
+    public void Header_Format_1_Track_Count_Matches()
+    {
+        var file = new MidiFile
+        {
+            Format = 1, Division = MidiDivision.Ppq(96),
+            Tracks =
+            [
+                new() { Events = [] },
+                new() { Events = [] },
+                new() { Events = [] },
+            ],
+        };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        Assert.Equal(1, rt.Format);
+        Assert.Equal(3, rt.Tracks.Count);
+    }
+
+    [Fact]
+    public void PitchBend14_Returns_Zero_For_NonPitchBend_Event()
+    {
+        var ev = new MidiEvent
+        {
+            Tick = 0, Type = MidiMessageType.NoteOn,
+            Channel = 0, Data1 = 60, Data2 = 100,
+        };
+        Assert.Equal(0, ev.PitchBend14);
+    }
+
+    [Fact]
+    public void PitchBend14_Min_And_Max_Return_Expected_Signed_Values()
+    {
+        var lo = new MidiEvent
+        {
+            Tick = 0, Type = MidiMessageType.PitchBend,
+            Channel = 0, Data1 = 0, Data2 = 0, // raw 0
+        };
+        var hi = new MidiEvent
+        {
+            Tick = 0, Type = MidiMessageType.PitchBend,
+            Channel = 0, Data1 = 0x7F, Data2 = 0x7F, // raw 16383
+        };
+        Assert.Equal(-0x2000, lo.PitchBend14);
+        Assert.Equal(0x1FFF, hi.PitchBend14);
+    }
+
+    [Fact]
+    public void Tracks_Read_Back_With_Preserved_Tick_Ordering()
+    {
+        // Generate 50 events with increasing tick values and ensure the
+        // round-tripped track preserves the order.
+        var events = new List<MidiEvent>();
+        long t = 0;
+        for (int i = 0; i < 50; i++)
+        {
+            t += 7;
+            events.Add(new MidiEvent
+            {
+                Tick = t, Type = MidiMessageType.NoteOn,
+                Channel = 0, Data1 = (byte)(60 + (i % 12)), Data2 = 100,
+            });
+        }
+        var track = new MidiTrack { Events = events };
+        var file = new MidiFile { Format = 0, Division = MidiDivision.Ppq(96), Tracks = [track] };
+        var rt = MidiReader.Read(MidiWriter.Write(file));
+        long lastTick = -1;
+        for (int i = 0; i < 50; i++)
+        {
+            Assert.True(rt.Tracks[0].Events[i].Tick >= lastTick);
+            lastTick = rt.Tracks[0].Events[i].Tick;
+        }
+    }
+
+    [Fact]
+    public void ReadFile_Reads_Same_Bytes_As_Read_Span()
+    {
+        var file = new MidiFile
+        {
+            Format = 0, Division = MidiDivision.Ppq(96),
+            Tracks = [new MidiTrack { Events = [] }],
+        };
+        byte[] bytes = MidiWriter.Write(file);
+        string path = Path.Combine(Path.GetTempPath(),
+            "mediar-midi-" + Guid.NewGuid().ToString("N") + ".mid");
+        try
+        {
+            File.WriteAllBytes(path, bytes);
+            var fromPath = MidiReader.ReadFile(path);
+            var fromSpan = MidiReader.Read(bytes);
+            Assert.Equal(fromPath.Format, fromSpan.Format);
+            Assert.Equal(fromPath.Tracks.Count, fromSpan.Tracks.Count);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }
