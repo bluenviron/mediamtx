@@ -121,4 +121,86 @@ public sealed class AacSynthesisFilterbank
 
         PreviousWindowShape = currentWindowShape;
     }
+
+    /// <summary>
+    /// Process a single <see cref="AacWindowSequence.EightShort"/>
+    /// frame: eight 128-coef short transforms placed at strides of
+    /// 128 samples within the 2048-sample windowed time buffer,
+    /// then overlap-added with the previous frame's tail to produce
+    /// <see cref="LongFrameLength"/> PCM samples.
+    /// </summary>
+    /// <param name="coefs">
+    /// <see cref="LongFrameLength"/> spectral coefficients laid out
+    /// as eight contiguous 128-coef groups, one per short window.
+    /// </param>
+    /// <param name="currentWindowShape">
+    /// Window shape carried by this frame's <c>ics_info</c>; used
+    /// for short-window inner overlaps and the right half of the
+    /// last short.
+    /// </param>
+    /// <param name="output">
+    /// Receives <see cref="LongFrameLength"/> PCM samples.
+    /// </param>
+    public void ProcessEightShortBlock(
+        ReadOnlySpan<float> coefs,
+        AacWindowShape currentWindowShape,
+        Span<float> output)
+    {
+        if (coefs.Length != LongFrameLength)
+        {
+            throw new ArgumentException(
+                $"Spectral input must be {LongFrameLength} samples long, got {coefs.Length}.",
+                nameof(coefs));
+        }
+        if (output.Length != LongFrameLength)
+        {
+            throw new ArgumentException(
+                $"Output must be {LongFrameLength} samples long, got {output.Length}.",
+                nameof(output));
+        }
+
+        // Zero the long-block IMDCT scratch buffer; we accumulate
+        // eight short windows into it instead.
+        Array.Clear(_imdctOutput);
+
+        Span<float> shortImdct = stackalloc float[2 * AacBlockWindow.ShortHalfLength];
+
+        // 8 short blocks of N=256 samples each. They start at offset
+        // 448 within the 2048-sample frame, with a stride of 128.
+        const int firstOffset = AacBlockWindow.TransitionPlateauLength; // 448
+        const int stride = AacBlockWindow.ShortHalfLength;              // 128
+        const int shortLength = 2 * AacBlockWindow.ShortHalfLength;     // 256
+
+        for (int w = 0; w < 8; w++)
+        {
+            var blockCoefs = coefs.Slice(w * AacBlockWindow.ShortHalfLength,
+                AacBlockWindow.ShortHalfLength);
+
+            AacImdctNaive.Inverse(blockCoefs, shortImdct);
+
+            // First short's left half uses the previous frame's
+            // window_shape; all other left halves use the current
+            // shape. All right halves use the current shape.
+            var leftShape = w == 0 ? PreviousWindowShape : currentWindowShape;
+            var shortFull = AacBlockWindow.ComposeShortWindow(leftShape, currentWindowShape);
+
+            int baseOffset = firstOffset + w * stride;
+            for (int i = 0; i < shortLength; i++)
+            {
+                _imdctOutput[baseOffset + i] += shortImdct[i] * shortFull[i];
+            }
+        }
+
+        for (int i = 0; i < LongFrameLength; i++)
+        {
+            output[i] = _imdctOutput[i] + _overlap[i];
+        }
+
+        for (int i = 0; i < LongFrameLength; i++)
+        {
+            _overlap[i] = _imdctOutput[LongFrameLength + i];
+        }
+
+        PreviousWindowShape = currentWindowShape;
+    }
 }

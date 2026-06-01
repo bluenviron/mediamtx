@@ -236,6 +236,124 @@ public sealed class AacSynthesisFilterbankTests
     }
 
     [Fact]
+    public void ProcessEightShortBlock_BadCoefsLength_Throws()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[100];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            fb.ProcessEightShortBlock(coefs, AacWindowShape.Sine, output));
+        Assert.Equal("coefs", ex.ParamName);
+    }
+
+    [Fact]
+    public void ProcessEightShortBlock_BadOutputLength_Throws()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[100];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            fb.ProcessEightShortBlock(coefs, AacWindowShape.Sine, output));
+        Assert.Equal("output", ex.ParamName);
+    }
+
+    [Fact]
+    public void ProcessEightShortBlock_AllZeroCoefs_ProducesZeroOutput()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessEightShortBlock(coefs, AacWindowShape.Sine, output);
+        for (int i = 0; i < output.Length; i++)
+        {
+            Assert.Equal(0f, output[i]);
+        }
+        for (int i = 0; i < AacSynthesisFilterbank.LongFrameLength; i++)
+        {
+            Assert.Equal(0f, fb.Overlap[i]);
+        }
+    }
+
+    [Fact]
+    public void ProcessEightShortBlock_UpdatesPreviousWindowShape()
+    {
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessEightShortBlock(coefs, AacWindowShape.KaiserBesselDerived, output);
+        Assert.Equal(AacWindowShape.KaiserBesselDerived, fb.PreviousWindowShape);
+    }
+
+    [Fact]
+    public void ProcessEightShortBlock_FirstSixteenAndLast384SamplesAreOverlapOnly()
+    {
+        // The eight short blocks occupy positions [448..1599] within
+        // the 2048-sample windowed time buffer. The leading 448
+        // samples and the trailing 448 samples are zero before OLA.
+        // With a zero overlap buffer (fresh instance), the output
+        // [0..447] equals 0, output [448..1023] gets short contributions,
+        // and overlap [448..1023-1024] gets short contributions.
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        for (int i = 0; i < coefs.Length; i++) coefs[i] = 0.5f;
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessEightShortBlock(coefs, AacWindowShape.Sine, output);
+
+        for (int i = 0; i < AacBlockWindow.TransitionPlateauLength; i++)
+        {
+            Assert.Equal(0f, output[i]);
+        }
+        // Overlap [LongFrame - 448 = 576 .. 1023] should be zero too
+        // (corresponds to absolute frame position [1600..2047]).
+        for (int i = AacSynthesisFilterbank.LongFrameLength
+                     - AacBlockWindow.TransitionPlateauLength;
+             i < AacSynthesisFilterbank.LongFrameLength; i++)
+        {
+            Assert.Equal(0f, fb.Overlap[i]);
+        }
+    }
+
+    [Fact]
+    public void ProcessEightShortBlock_ImpulseInFirstShort_ProducesScaledImdctAtOffset448()
+    {
+        // Put an impulse only in the first short block (coefs[0]=1).
+        // The contribution to the windowed time buffer is at offset 448.
+        var fb = new AacSynthesisFilterbank();
+        var coefs = new float[AacSynthesisFilterbank.LongFrameLength];
+        coefs[0] = 1.0f;
+        var output = new float[AacSynthesisFilterbank.LongFrameLength];
+
+        fb.ProcessEightShortBlock(coefs, AacWindowShape.Sine, output);
+
+        // Manually compute what the first short contributes.
+        var shortCoefs = new float[AacBlockWindow.ShortHalfLength];
+        shortCoefs[0] = 1.0f;
+        var shortImdct = AacImdctNaive.Inverse(shortCoefs.AsSpan());
+        var shortWindow = AacBlockWindow.ComposeShortWindow(
+            AacWindowShape.Sine, AacWindowShape.Sine);
+
+        int firstOffset = AacBlockWindow.TransitionPlateauLength; // 448
+        for (int i = 0; i < 2 * AacBlockWindow.ShortHalfLength; i++)
+        {
+            int abs = firstOffset + i;
+            float expected = shortImdct[i] * shortWindow[i];
+            // Second short adds to abs in [576..831]; first short alone
+            // dominates only [448..575]. Check just that exclusive band.
+            if (abs < firstOffset + AacBlockWindow.ShortHalfLength)
+            {
+                // Output covers [0..1023]; overlap covers [1024..2047].
+                if (abs < AacSynthesisFilterbank.LongFrameLength)
+                {
+                    Assert.Equal(expected, output[abs], 6);
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void ProcessLongBlock_Reset_ProducesIdenticalOutputAsFreshInstance()
     {
         const int m = AacSynthesisFilterbank.LongFrameLength;
