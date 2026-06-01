@@ -18,13 +18,14 @@ namespace Mediar.Codecs.Aac.Decoder;
 /// ranges therefore tile the spectrum without overlap.
 /// </para>
 /// <para>
-/// The clamp on <c>start</c> uses the encoded <c>max_sfb</c> from
-/// <see cref="AacIcsInfo.MaxSfb"/> (above it the spectrum is zero
-/// anyway) while the clamp on <c>end</c> uses the spec table value
-/// <c>tns_max_sfb</c> (above it TNS is disallowed regardless of
-/// whether the spectrum carries data). Mirroring libfaad's
-/// asymmetric <c>start = swb_offset[min(bottom, max_sfb)]</c> /
-/// <c>end = swb_offset[min(top, tns_max_sfb)]</c> intentionally.
+/// Both <c>start</c> and <c>end</c> SFB lookups are clamped to
+/// <c>min(tnsMaxSfb, ics.MaxSfb)</c>, matching the canonical FFmpeg
+/// and libfaad implementations (<c>start = swb_offset[min(bottom,
+/// mmm)]</c>, <c>end = swb_offset[min(top, mmm)]</c>). This caps the
+/// filter range at whichever of the two SFB limits is more
+/// restrictive; above either limit the spectrum is conceptually zero
+/// (for above-max_sfb) or TNS is disallowed (for above-tns_max_sfb).
+/// Empty ranges (<c>end ≤ start</c>) are skipped.
 /// </para>
 /// <para>
 /// <b>Spectrum layout contract</b>: <see cref="Apply"/> expects the
@@ -187,6 +188,10 @@ public static class AacTnsSpectrumApplier
         Span<float> parcorWork = stackalloc float[AacTnsLpcStepUp.MaxOrder];
         Span<float> lpcWork = stackalloc float[AacTnsLpcStepUp.MaxOrder];
 
+        // Symmetric clamp matching FFmpeg apply_tns / libfaad's current
+        // tns_decode_frame: both start and end use min(bound, mmm).
+        int mmm = Math.Min(tnsMaxSfb, icsInfo.MaxSfb);
+
         for (int w = 0; w < tnsData.Windows.Length; w++)
         {
             var window = tnsData.Windows[w];
@@ -236,16 +241,16 @@ public static class AacTnsSpectrumApplier
                 AacTnsInverseQuant.Compute(filter, window.CoefResHigh, parcorFull);
 
                 // Step-up uses only the effective-order prefix; higher
-                // coefficients are silently dropped per libfaad's clamp.
+                // coefficients are silently dropped per FFmpeg's clamp.
                 Span<float> parcor = parcorFull[..effectiveOrder];
                 Span<float> lpc = lpcWork[..effectiveOrder];
                 AacTnsLpcStepUp.Compute(parcor, lpc);
 
-                // Asymmetric clamp per §4.6.9.2 / libfaad: start uses
-                // ics max_sfb (above it data is zero), end uses
-                // tns_max_sfb (above it TNS is disallowed).
-                int start = swbOffsets[Math.Min(bottom, icsInfo.MaxSfb)];
-                int end = swbOffsets[Math.Min(top, tnsMaxSfb)];
+                // Symmetric clamp per §4.6.9.2 / FFmpeg apply_tns: both
+                // bounds use min(bound, mmm) where mmm = min(tnsMaxSfb,
+                // ics.MaxSfb).
+                int start = swbOffsets[Math.Min(bottom, mmm)];
+                int end = swbOffsets[Math.Min(top, mmm)];
                 if (end <= start) continue;
 
                 AacTnsInverseFilter.Apply(

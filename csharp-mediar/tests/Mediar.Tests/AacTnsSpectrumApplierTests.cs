@@ -315,6 +315,46 @@ public sealed class AacTnsSpectrumApplierTests
     // ----- happy-path application -----
 
     [Fact]
+    public void Apply_LongFilter_SymmetricClampUsesMinOfBothBounds()
+    {
+        // maxSfb = 3, tnsMaxSfb = 2 → mmm = min(2, 3) = 2.
+        // Filter length=1, top starts at numSwb=4, bottom=3.
+        // start = swb[min(bottom=3, mmm=2)] = swb[2] = 256.
+        // end   = swb[min(top=4,    mmm=2)] = swb[2] = 256.
+        // Empty range → skip. Now stack a second filter with length=2:
+        // top=3, bottom=1.
+        // start = swb[min(1, 2)] = swb[1] = 128.
+        // end   = swb[min(3, 2)] = swb[2] = 256.
+        // Range [128, 256), filter applies there.
+        var f0 = Filter(length: 1, order: 1, direction: false, 2);
+        var f1 = Filter(length: 2, order: 1, direction: false, 3);
+
+        var s = FillRamp(1024);
+        var expected = (float[])s.Clone();
+        // f0 contributes nothing (range collapses); f1 applies to [128, 256).
+        ApplyOneFilterReference(expected.AsSpan(), f1, coefResHigh: true,
+            start: 128, end: 256, effectiveOrder: 1);
+
+        var ics = new AacIcsInfo
+        {
+            WindowSequence = AacWindowSequence.OnlyLong,
+            WindowShape = AacWindowShape.Sine,
+            MaxSfb = 3,
+            ScaleFactorGrouping = null,
+            WindowGroupCount = 1,
+            WindowsPerGroup = new byte[] { 1 },
+            PredictorDataPresent = false,
+        };
+        AacTnsSpectrumApplier.Apply(LongTns(f0, f1), ics, s, LongSwb, tnsMaxSfb: 2, tnsMaxOrder: 12);
+
+        for (int i = 0; i < 1024; i++) Assert.Equal(expected[i], s[i], precision: 6);
+        // Lines outside [128, 256) must be exactly the input.
+        var input = FillRamp(1024);
+        for (int i = 0; i < 128; i++) Assert.Equal(input[i], s[i]);
+        for (int i = 256; i < 1024; i++) Assert.Equal(input[i], s[i]);
+    }
+
+    [Fact]
     public void Apply_LongSingleFilter_AffectsExpectedBandOnly()
     {
         // length=2 → bottom=4-2=2, top=4
@@ -392,8 +432,9 @@ public sealed class AacTnsSpectrumApplierTests
     [Fact]
     public void Apply_LongFilter_ClampedByTnsMaxSfb()
     {
-        // tnsMaxSfb = 3 → end = swb[min(top=4, 3)] = swb[3] = 512.
-        // start = swb[min(bottom=2, max_sfb=4)] = swb[2] = 256.
+        // tnsMaxSfb = 3, maxSfb = 4 → mmm = min(3, 4) = 3.
+        // end = swb[min(top=4, 3)] = swb[3] = 512.
+        // start = swb[min(bottom=2, 3)] = swb[2] = 256.
         // Effective range: [256, 512).
         var f = Filter(length: 2, order: 2, direction: false, 4, -1);
 
@@ -412,20 +453,18 @@ public sealed class AacTnsSpectrumApplierTests
     [Fact]
     public void Apply_LongFilter_ClampedByMaxSfb()
     {
-        // ics max_sfb = 2 → start = swb[min(bottom=2, 2)] = swb[2] = 256.
-        // tnsMaxSfb = 4 → end = swb[min(top=4, 4)] = swb[4] = 1024.
-        // Range: [256, 1024). Above max_sfb the spectrum *would* be
-        // zero in a real decode, but the applier still walks it; the
-        // test below just checks the slice matches the reference.
+        // ics max_sfb = 2, tnsMaxSfb = 4 → mmm = min(4, 2) = 2.
+        // start = swb[min(bottom=2, 2)] = swb[2] = 256.
+        // end   = swb[min(top=4,   2)] = swb[2] = 256.
+        // Range collapses (end == start) → filter is skipped per
+        // symmetric-clamp semantics; spectrum stays untouched.
         var f = Filter(length: 2, order: 2, direction: false, 4, -1);
 
         var s = FillRamp(1024);
-        var expected = (float[])s.Clone();
-        ApplyOneFilterReference(expected.AsSpan(), f, coefResHigh: true,
-            start: 256, end: 1024, effectiveOrder: 2);
+        var copy = (float[])s.Clone();
 
         AacTnsSpectrumApplier.Apply(LongTns(f), LongIcs(maxSfb: 2), s, LongSwb, 4, 12);
-        for (int i = 0; i < 1024; i++) Assert.Equal(expected[i], s[i], precision: 6);
+        Assert.Equal(copy, s);
     }
 
     [Fact]
