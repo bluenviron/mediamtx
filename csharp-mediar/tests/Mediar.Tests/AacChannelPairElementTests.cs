@@ -91,6 +91,70 @@ public sealed class AacChannelPairElementTests
         return w.ToArray();
     }
 
+    /// <summary>
+    /// Cross-fixture accessor: builds an independent-streams CPE byte body
+    /// (no leading element-type bits, no trailing END) shaped exactly like
+    /// <see cref="BuildIndependentCpe"/>. Used by sibling test fixtures that
+    /// need a real CPE for end-to-end facade coverage without having to
+    /// re-implement the bit layout.
+    /// </summary>
+    internal static byte[] BuildIndependentCpeShared(int tag, int maxSfb, byte gain1, byte gain2)
+        => BuildIndependentCpe(tag, maxSfb, gain1, gain2);
+
+    /// <summary>
+    /// Cross-fixture accessor: same as <see cref="BuildCommonWindowCpe"/>
+    /// (common_window=1 with optional MS mask). Used by sibling test
+    /// fixtures that exercise the high-level facade with common-window CPE.
+    /// </summary>
+    internal static byte[] BuildCommonWindowCpeShared(
+        int tag,
+        int maxSfb,
+        AacMsMaskPresent msMask,
+        bool[][] msUsed,
+        byte gain1,
+        byte gain2)
+        => BuildCommonWindowCpe(tag, maxSfb, msMask, msUsed, gain1, gain2);
+
+    /// <summary>
+    /// Cross-fixture accessor: writes an independent-streams CPE
+    /// (common_window=0) body into a shared writer. Symmetric with
+    /// <see cref="AacRawDataBlockTests.WriteEmptySceBodyShared"/> so
+    /// callers can splice a CPE between an element-type prefix and an
+    /// END sentinel inside one bit stream.
+    /// </summary>
+    internal static void WriteIndependentCpeBodyShared(
+        AacBitWriter w,
+        int tag,
+        int maxSfb,
+        byte gain1,
+        byte gain2)
+    {
+        w.Write((uint)tag, 4);
+        w.Write(0u, 1);                 // common_window = 0
+        WriteIndependentIcsStream(w, gain1, maxSfb);
+        WriteIndependentIcsStream(w, gain2, maxSfb);
+    }
+
+    /// <summary>
+    /// Cross-fixture accessor: writes a common-window CPE
+    /// (common_window=1, no MS) body into a shared writer.
+    /// </summary>
+    internal static void WriteCommonWindowCpeBodyShared(
+        AacBitWriter w,
+        int tag,
+        int maxSfb,
+        byte gain1,
+        byte gain2)
+    {
+        w.Write((uint)tag, 4);
+        w.Write(1u, 1);                 // common_window = 1
+        WriteLongIcsInfo(w, maxSfb);
+        w.Write((uint)AacMsMaskPresent.None, 2);
+        WriteIcsBody(w, gain1, maxSfb);
+        WriteIcsBody(w, gain2, maxSfb);
+    }
+
+
     [Fact]
     public void TryParse_CommonWindow_NoMsMask_Succeeds()
     {

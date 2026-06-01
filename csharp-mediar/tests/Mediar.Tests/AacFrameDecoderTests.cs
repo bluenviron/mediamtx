@@ -170,6 +170,78 @@ public class AacFrameDecoderTests
         Assert.Equal(1, prngCalls);
     }
 
+    [Fact]
+    public void DecodeFrame_StereoIndependentCpe_ProducesFrontLeftRightPcm()
+    {
+        var dec = BuildDecoder(channelConfig: 2);
+        var bytes = BuildStereoIndependentCpeBlock(tag: 0, maxSfb: 10);
+
+        var decoded = dec.DecodeFrame(bytes);
+
+        Assert.Equal(2, decoded.Channels.Count);
+        Assert.Equal(AacSpeaker.FrontLeft, decoded.Channels[0].Speaker);
+        Assert.Equal(AacSpeaker.FrontRight, decoded.Channels[1].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, decoded.Channels[0].Samples.Length);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, decoded.Channels[1].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeFrame_StereoCommonWindowCpe_ProducesFrontLeftRightPcm()
+    {
+        var dec = BuildDecoder(channelConfig: 2);
+        var bytes = BuildStereoCommonWindowCpeBlock(tag: 0, maxSfb: 10);
+
+        var decoded = dec.DecodeFrame(bytes);
+
+        Assert.Equal(2, decoded.Channels.Count);
+        Assert.Equal(AacSpeaker.FrontLeft, decoded.Channels[0].Speaker);
+        Assert.Equal(AacSpeaker.FrontRight, decoded.Channels[1].Speaker);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, decoded.Channels[0].Samples.Length);
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, decoded.Channels[1].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeFrame_StereoFacadeSpeakers_MatchMappingForConfig2()
+    {
+        var dec = BuildDecoder(channelConfig: 2);
+
+        Assert.Equal(2, dec.Speakers.Count);
+        Assert.Equal(AacSpeaker.FrontLeft, dec.Speakers[0]);
+        Assert.Equal(AacSpeaker.FrontRight, dec.Speakers[1]);
+    }
+
+    [Fact]
+    public void DecodeFrame_StereoTwoFramesInSequence_FilterbankStateCarriesPerChannel()
+    {
+        var dec = BuildDecoder(channelConfig: 2);
+        var bytes = BuildStereoIndependentCpeBlock(tag: 0, maxSfb: 10);
+
+        var frame1 = dec.DecodeFrame(bytes);
+        var frame2 = dec.DecodeFrame(bytes);
+
+        Assert.Equal(2, frame1.Channels.Count);
+        Assert.Equal(2, frame2.Channels.Count);
+        // Two separate filterbanks (one per stereo channel) carry overlap
+        // state independently across frames. Empty spectra produce zero
+        // PCM, so the only invariant checkable here is shape parity; the
+        // numeric carry-over is exercised by the lower dispatcher tests.
+        Assert.Equal(
+            AacSynthesisFilterbank.LongFrameLength,
+            frame1.Channels[0].Samples.Length);
+        Assert.Equal(
+            AacSynthesisFilterbank.LongFrameLength,
+            frame2.Channels[1].Samples.Length);
+    }
+
+    [Fact]
+    public void DecodeFrame_StereoChannelConfig2_ReportsChannelCountTwo()
+    {
+        var dec = BuildDecoder(channelConfig: 2);
+
+        Assert.Equal(2, dec.Config.ChannelConfiguration);
+        Assert.Equal(2, dec.Config.ChannelCount);
+    }
+
     // ----- helpers -----
 
     private static AacHuffmanCodebook GetSf() =>
@@ -209,6 +281,26 @@ public class AacFrameDecoderTests
         var w = new AacBitWriter();
         w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
         AacRawDataBlockTests.WriteEmptySceBodyShared(w, tag, maxSfb);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+        return w.ToArray();
+    }
+
+    private static byte[] BuildStereoIndependentCpeBlock(int tag, int maxSfb)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.ChannelPairElement, 3);
+        AacChannelPairElementTests.WriteIndependentCpeBodyShared(
+            w, tag, maxSfb, gain1: 0, gain2: 0);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+        return w.ToArray();
+    }
+
+    private static byte[] BuildStereoCommonWindowCpeBlock(int tag, int maxSfb)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.ChannelPairElement, 3);
+        AacChannelPairElementTests.WriteCommonWindowCpeBodyShared(
+            w, tag, maxSfb, gain1: 0, gain2: 0);
         w.Write((uint)AacSyntacticElementType.End, 3);
         return w.ToArray();
     }
