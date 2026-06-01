@@ -621,6 +621,140 @@ public sealed class AacChannelDecoderTests
         Assert.NotEqual(left.Coefficients.ToArray(), right.Coefficients.ToArray());
     }
 
+    // ---------- Pulse-data tests ----------
+
+    /// <summary>
+    /// 1-SFB long-window frame: SFB 0 = cb 1 (spectral), with pulse_data
+    /// carrying a single pulse at position 0 with the given amplitude.
+    /// All four spectral coefs decode to 1 from cb 1 sym 80 before pulse
+    /// apply.
+    /// </summary>
+    private static AacChannelFrame BuildFrameWithPulse(int pulseAmplitude)
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(100u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+
+        w.Write(1u, 4);
+        w.Write(1u, 5);
+
+        var (sfCode, sfLen) = EncodeSfDiff(0);
+        w.Write(sfCode, sfLen);
+
+        // pulse_data_present = 1
+        w.Write(1u, 1);
+        // pulse_data: numberPulse=0 (1 pulse), startSfb=0, offset=0, amplitude=N
+        w.Write(0u, 2);
+        w.Write(0u, 6);
+        w.Write(0u, 5);
+        w.Write((uint)pulseAmplitude, 4);
+
+        // tns_data_present = 0
+        w.Write(0u, 1);
+        // gain_control_data_present = 0
+        w.Write(0u, 1);
+
+        // spectral_data: 1 tuple of cb 1 (4-tuple) = sym 80
+        w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        return frame!;
+    }
+
+    [Fact]
+    public void BuildFrameWithPulse_SanityCheck_FrameHasPulseData()
+    {
+        var frame = BuildFrameWithPulse(pulseAmplitude: 5);
+        Assert.True(frame.Stream.PulseDataPresent);
+        Assert.NotNull(frame.Stream.PulseData);
+        Assert.Equal(0, frame.Stream.PulseData!.StartScaleFactorBand);
+        Assert.Single(frame.Stream.PulseData.Pulses);
+        Assert.Equal(0, frame.Stream.PulseData.Pulses[0].Offset);
+        Assert.Equal(5, frame.Stream.PulseData.Pulses[0].Amplitude);
+    }
+
+    [Fact]
+    public void DecodeMono_PulseDataPresent_AppliesPulseBeforeDequant()
+    {
+        var pulseFrame = BuildFrameWithPulse(pulseAmplitude: 5);
+        var noPulseFrame = BuildFrameNoPns();
+
+        var withPulse = AacChannelDecoder.DecodeMono(
+            pulseFrame, Sr48k, new AacPnsRandom());
+        var withoutPulse = AacChannelDecoder.DecodeMono(
+            noPulseFrame, Sr48k, new AacPnsRandom());
+
+        // Position 0 was 1 (integer); after pulse it becomes 6.
+        // Dequant: 6^(4/3) ≈ 10.903, vs 1^(4/3) = 1. So position 0 should
+        // differ significantly between the two outputs.
+        Assert.NotEqual(withoutPulse.Coefficients[0], withPulse.Coefficients[0]);
+        // Pulse only modifies position 0 here, so positions 1..3 still
+        // decode to the same value (the synthetic spectrum is (1,1,1,1)
+        // so positions 1..3 remain at 1 in both runs).
+        Assert.Equal(withoutPulse.Coefficients[1], withPulse.Coefficients[1]);
+        Assert.Equal(withoutPulse.Coefficients[2], withPulse.Coefficients[2]);
+        Assert.Equal(withoutPulse.Coefficients[3], withPulse.Coefficients[3]);
+    }
+
+    [Fact]
+    public void DecodeMono_PulseDataPresent_AmplitudeFiveYieldsKnownValue()
+    {
+        var frame = BuildFrameWithPulse(pulseAmplitude: 5);
+        var decoded = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom());
+
+        // Position 0 was quantised int=1, after pulse +5 = 6; dequant: 6^(4/3).
+        float expected = MathF.Pow(6f, 4f / 3f);
+        Assert.Equal(expected, decoded.Coefficients[0], precision: 4);
+    }
+
+    [Fact]
+    public void DecodeMono_PulseDataAbsent_NoModification()
+    {
+        var frame = BuildFrameNoPns();
+        var decoded = AacChannelDecoder.DecodeMono(
+            frame, Sr48k, new AacPnsRandom());
+
+        // No pulse, original quantised int=1, dequant: 1^(4/3) = 1.
+        Assert.Equal(1f, decoded.Coefficients[0], precision: 4);
+    }
+
+    [Fact]
+    public void DecodePair_PulseDataOnFirstChannelOnly_AppliesOnFirstOnly()
+    {
+        var leftFrame = BuildFrameWithPulse(pulseAmplitude: 5);
+        var rightFrame = BuildFrameNoPns();
+        var cpe = BuildCpeFromTwoFrames(
+            leftFrame, rightFrame, commonWindow: false, AacMsMaskPresent.None);
+
+        var (left, right) = AacChannelDecoder.DecodePair(
+            cpe, Sr48k, new AacPnsRandom(), new AacPnsRandom());
+
+        float expectedLeftPos0 = MathF.Pow(6f, 4f / 3f);
+        Assert.Equal(expectedLeftPos0, left.Coefficients[0], precision: 4);
+        Assert.Equal(1f, right.Coefficients[0], precision: 4);
+    }
+
+    [Fact]
+    public void DecodeMono_PulseDataInputFrameNotMutated()
+    {
+        var frame = BuildFrameWithPulse(pulseAmplitude: 5);
+        int beforeCoef0 = frame.SpectralData.Coefficients[0];
+
+        AacChannelDecoder.DecodeMono(frame, Sr48k, new AacPnsRandom());
+
+        int afterCoef0 = frame.SpectralData.Coefficients[0];
+        // Caller-supplied frame's spectral data must not be mutated by
+        // the composer; pulse apply happens on a copy.
+        Assert.Equal(beforeCoef0, afterCoef0);
+    }
+
     // ---------- DecodePair AOT overload tests ----------
 
     [Fact]

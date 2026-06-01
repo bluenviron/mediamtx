@@ -56,16 +56,17 @@ public static class AacChannelDecoder
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(prng);
 
-        var dequant = AacDequantizedSpectrum.FromFrame(frame, sampleRate);
+        var preparedFrame = ApplyPulsesIfPresent(frame, sampleRate);
+        var dequant = AacDequantizedSpectrum.FromFrame(preparedFrame, sampleRate);
         var buffer = new float[AacDequantizedSpectrum.TransformLength];
         dequant.Coefficients.CopyTo(buffer);
 
-        AacPnsApplier.ApplyInPlace(buffer, frame, sampleRate, prng);
+        AacPnsApplier.ApplyInPlace(buffer, preparedFrame, sampleRate, prng);
 
         return new AacDecodedSpectrum
         {
             Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(buffer),
-            WindowSequence = frame.Stream.IcsInfo.WindowSequence,
+            WindowSequence = preparedFrame.Stream.IcsInfo.WindowSequence,
         };
     }
 
@@ -119,18 +120,19 @@ public static class AacChannelDecoder
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(prng);
 
-        var dequant = AacDequantizedSpectrum.FromFrame(frame, sampleRate);
+        var preparedFrame = ApplyPulsesIfPresent(frame, sampleRate);
+        var dequant = AacDequantizedSpectrum.FromFrame(preparedFrame, sampleRate);
         var buffer = new float[AacDequantizedSpectrum.TransformLength];
         dequant.Coefficients.CopyTo(buffer);
 
-        AacPnsApplier.ApplyInPlace(buffer, frame, sampleRate, prng);
+        AacPnsApplier.ApplyInPlace(buffer, preparedFrame, sampleRate, prng);
 
-        ApplyLongWindowTnsIfPresent(frame, sampleRate, objectType, buffer);
+        ApplyLongWindowTnsIfPresent(preparedFrame, sampleRate, objectType, buffer);
 
         return new AacDecodedSpectrum
         {
             Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(buffer),
-            WindowSequence = frame.Stream.IcsInfo.WindowSequence,
+            WindowSequence = preparedFrame.Stream.IcsInfo.WindowSequence,
         };
     }
 
@@ -205,6 +207,9 @@ public static class AacChannelDecoder
             SpectralData = cpe.SecondSpectralData,
             BitsConsumed = 0,
         };
+
+        leftFrame = ApplyPulsesIfPresent(leftFrame, sampleRate);
+        rightFrame = ApplyPulsesIfPresent(rightFrame, sampleRate);
 
         var leftDeq = AacDequantizedSpectrum.FromFrame(leftFrame, sampleRate);
         var rightDeq = AacDequantizedSpectrum.FromFrame(rightFrame, sampleRate);
@@ -370,5 +375,56 @@ public static class AacChannelDecoder
 
         AacTnsSpectrumApplier.Apply(
             tnsData, ics, spectrum, swbOffsets, tnsMaxSfb, tnsMaxOrder);
+    }
+
+    /// <summary>
+    /// If the frame carries pulse_data, returns a new
+    /// <see cref="AacChannelFrame"/> whose <see cref="AacSpectralData.Coefficients"/>
+    /// have been updated per spec §4.6.2.1 BEFORE inverse quantisation.
+    /// Returns the input frame unchanged when no pulse data is present.
+    /// </summary>
+    /// <remarks>
+    /// Pulse data is illegal in EIGHT_SHORT_SEQUENCE windows (the
+    /// parser already enforces this); the helper additionally returns
+    /// the input frame unchanged for short-window frames as a defence
+    /// in depth. The pulse_data() bitstream layout addresses positions
+    /// via the long-window SWB offsets only, so applying it to a short
+    /// frame would corrupt the spectrum even if the parser ever let one
+    /// through.
+    /// </remarks>
+    private static AacChannelFrame ApplyPulsesIfPresent(
+        AacChannelFrame frame,
+        int sampleRate)
+    {
+        if (!frame.Stream.PulseDataPresent
+            || frame.Stream.PulseData is not { } pulses)
+        {
+            return frame;
+        }
+
+        var ics = frame.Stream.IcsInfo;
+        if (ics.WindowSequence == AacWindowSequence.EightShort)
+        {
+            return frame;
+        }
+
+        ReadOnlySpan<int> longSwbOffsets = AacSwbOffsets.GetLongOffsets(sampleRate);
+        if (longSwbOffsets.IsEmpty)
+        {
+            throw new ArgumentException(
+                $"Sample rate {sampleRate} Hz has no SWB offset table.",
+                nameof(sampleRate));
+        }
+
+        var modified = frame.SpectralData.Coefficients.ToArray();
+        AacPulseApplier.ApplyToQuantised(modified, pulses, longSwbOffsets);
+
+        var newSpectral = new AacSpectralData
+        {
+            Coefficients = ImmutableCollectionsMarshal.AsImmutableArray(modified),
+            BitsConsumed = frame.SpectralData.BitsConsumed,
+        };
+
+        return frame with { SpectralData = newSpectral };
     }
 }
