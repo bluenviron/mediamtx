@@ -105,6 +105,54 @@ public class AacAdtsFrameDecoderTests
     }
 
     [Fact]
+    public void DecodeFrame_SingleMonoShortSce_DecodesAndPopulatesState()
+    {
+        // ADTS-wrapped frame whose raw_data_block carries an EightShort SCE.
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoShortSceFrame(sfIndex: 3, channelConfig: 1);
+
+        var block = dec.DecodeFrame(frame);
+
+        Assert.Single(block.Channels);
+        Assert.Equal(AacSpeaker.FrontCentre, block.Channels[0].Speaker);
+        // The synthesis filterbank still produces 1024 PCM samples
+        // for EightShort frames (8 × 128 IMDCT output overlap-added).
+        Assert.Equal(AacSynthesisFilterbank.LongFrameLength, block.Channels[0].Samples.Length);
+        Assert.Equal(1, dec.FrameCount);
+        Assert.Equal(48_000, dec.CurrentSampleRate);
+    }
+
+    [Fact]
+    public void DecodeFrame_TwoConsecutiveShortFrames_FrameCountIncrements()
+    {
+        var dec = NewDecoder();
+        var frame = BuildAdtsMonoShortSceFrame(sfIndex: 3, channelConfig: 1);
+
+        _ = dec.DecodeFrame(frame);
+        _ = dec.DecodeFrame(frame);
+
+        Assert.Equal(2, dec.FrameCount);
+    }
+
+    [Fact]
+    public void DecodeFrame_MixedLongAndShortFrames_ReusesInnerDecoder()
+    {
+        // Same sample rate and channel config → the inner AacFrameDecoder
+        // should be reused across the long → short transition without a
+        // rebuild, since the ADTS header is identical.
+        var dec = NewDecoder();
+        var longFrame = BuildAdtsMonoSceFrame(sfIndex: 3, channelConfig: 1);
+        var shortFrame = BuildAdtsMonoShortSceFrame(sfIndex: 3, channelConfig: 1);
+
+        _ = dec.DecodeFrame(longFrame);
+        var firstConfig = dec.CurrentConfig;
+        _ = dec.DecodeFrame(shortFrame);
+
+        Assert.Same(firstConfig, dec.CurrentConfig);
+        Assert.Equal(2, dec.FrameCount);
+    }
+
+    [Fact]
     public void DecodeFrame_TwoFrames_FrameCountIncrements()
     {
         var dec = NewDecoder();
@@ -496,6 +544,15 @@ public class AacAdtsFrameDecoderTests
         return w.ToArray();
     }
 
+    private static byte[] BuildEmptyShortSceRawDataBlock(int tag = 0, int maxSfb = 4, byte grouping = 0x7F)
+    {
+        var w = new AacBitWriter();
+        w.Write((uint)AacSyntacticElementType.SingleChannelElement, 3);
+        AacRawDataBlockTests.WriteEmptyShortSceBodyShared(w, tag, maxSfb, grouping);
+        w.Write((uint)AacSyntacticElementType.End, 3);
+        return w.ToArray();
+    }
+
     private static byte[] BuildAdtsMonoSceFrame(
         int sfIndex,
         int channelConfig,
@@ -507,6 +564,29 @@ public class AacAdtsFrameDecoderTests
         int frameLength = headerSize + payload.Length;
         byte[] header = BuildAdtsHeader(
             profile: 1,            // AAC-LC
+            sfIndex: sfIndex,
+            channelConfig: channelConfig,
+            frameLength: frameLength,
+            protectionAbsent: !withCrc,
+            rdbInFrame: rdbInFrame);
+
+        byte[] frame = new byte[frameLength];
+        Buffer.BlockCopy(header, 0, frame, 0, header.Length);
+        Buffer.BlockCopy(payload, 0, frame, headerSize, payload.Length);
+        return frame;
+    }
+
+    private static byte[] BuildAdtsMonoShortSceFrame(
+        int sfIndex,
+        int channelConfig,
+        bool withCrc = false,
+        int rdbInFrame = 0)
+    {
+        byte[] payload = BuildEmptyShortSceRawDataBlock();
+        int headerSize = withCrc ? 9 : 7;
+        int frameLength = headerSize + payload.Length;
+        byte[] header = BuildAdtsHeader(
+            profile: 1,
             sfIndex: sfIndex,
             channelConfig: channelConfig,
             frameLength: frameLength,

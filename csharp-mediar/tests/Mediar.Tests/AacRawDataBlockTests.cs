@@ -623,6 +623,9 @@ public sealed class AacRawDataBlockTests
         w.Write(0u, 1);                                     // gain_control_data_present
     }
 
+    internal static void WriteEmptyShortSceBodyShared(AacBitWriter w, int tag, int maxSfb, byte grouping)
+        => WriteEmptyShortSceBody(w, tag, maxSfb, grouping);
+
     [Fact]
     public void TryParse_WithContext_EightShortSceFollowedByEnd_ConsumesSceWithShortIcs()
     {
