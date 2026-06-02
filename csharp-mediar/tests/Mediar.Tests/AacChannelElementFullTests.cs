@@ -299,4 +299,148 @@ public sealed class AacChannelElementFullTests
         Assert.All(lfe.SpectralData!.Coefficients, c => Assert.Equal(0, c));
         Assert.Equal(30, lfe.BitsConsumed);
     }
+
+    [Fact]
+    public void SceFull_LfeFull_Same_Bytes_Same_Stream_State()
+    {
+        // SCE and LFE share an identical bitstream syntax. Parsing the same
+        // bytes through both should produce structurally identical Stream
+        // and SpectralData state (modulo container record type).
+        var sf = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var bytes = BuildCb1ElementBytes(tag: 2);
+
+        Assert.True(AacSingleChannelElement.TryParse(bytes, sf, Sr48k,
+            CodebooksWith(1, spectralBook), out var sce));
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, sf, Sr48k,
+            CodebooksWith(1, spectralBook), out var lfe));
+        Assert.NotNull(sce);
+        Assert.NotNull(lfe);
+        Assert.Equal(sce!.ElementInstanceTag, lfe!.ElementInstanceTag);
+        Assert.Equal(sce.BitsConsumed, lfe.BitsConsumed);
+        Assert.Equal(sce.Stream.GlobalGain, lfe.Stream.GlobalGain);
+        Assert.Equal(sce.SpectralData!.Coefficients.Length,
+                     lfe.SpectralData!.Coefficients.Length);
+    }
+
+    [Fact]
+    public void SceFull_Record_With_Expression_Modifies_Tag()
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildEmptyElementBytes(tag: 1, globalGain: 0x10),
+            sf, Sr48k, spectral, out var sce));
+        Assert.NotNull(sce);
+        var modified = sce! with { ElementInstanceTag = 9 };
+        Assert.Equal(9, modified.ElementInstanceTag);
+        Assert.Equal(1, sce.ElementInstanceTag);
+        Assert.NotSame(sce, modified);
+    }
+
+    [Fact]
+    public void LfeFull_Record_With_Expression_Modifies_Tag()
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacLowFrequencyElement.TryParse(
+            BuildEmptyElementBytes(tag: 2, globalGain: 0x00),
+            sf, Sr48k, spectral, out var lfe));
+        Assert.NotNull(lfe);
+        var modified = lfe! with { ElementInstanceTag = 14 };
+        Assert.Equal(14, modified.ElementInstanceTag);
+        Assert.Equal(2, lfe.ElementInstanceTag);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(15)]
+    public void SceFull_Various_Tag_Values_Roundtrip(int tag)
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildEmptyElementBytes(tag, globalGain: 0x10),
+            sf, Sr48k, spectral, out var sce));
+        Assert.Equal(tag, sce!.ElementInstanceTag);
+    }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x01)]
+    [InlineData(0x7F)]
+    [InlineData(0xFF)]
+    public void SceFull_Various_GlobalGain_Values_Roundtrip(byte globalGain)
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildEmptyElementBytes(tag: 0, globalGain),
+            sf, Sr48k, spectral, out var sce));
+        Assert.Equal(globalGain, sce!.Stream.GlobalGain);
+    }
+
+    [Fact]
+    public void SceFull_EmptyInput_Returns_False()
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+        Assert.False(AacSingleChannelElement.TryParse(
+            ReadOnlySpan<byte>.Empty, sf, Sr48k, spectral, out var sce));
+        Assert.Null(sce);
+    }
+
+    [Fact]
+    public void LfeFull_EmptyInput_Returns_False()
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectral = new AacHuffmanCodebook?[16];
+        Assert.False(AacLowFrequencyElement.TryParse(
+            ReadOnlySpan<byte>.Empty, sf, Sr48k, spectral, out var lfe));
+        Assert.Null(lfe);
+    }
+
+    [Fact]
+    public void LfeFull_NullScaleFactorCodebook_Throws()
+    {
+        var spectral = new AacHuffmanCodebook?[16];
+        var bytes = BuildEmptyElementBytes(tag: 0, globalGain: 0);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacLowFrequencyElement.TryParse(
+                bytes, scaleFactorCodebook: null!, Sr48k, spectral, out _));
+    }
+
+    [Fact]
+    public void SceFull_BitsConsumed_Equals_Stream_Plus_Spectral()
+    {
+        // For a non-empty body the full SCE BitsConsumed must equal the
+        // sum of element-tag(4) + Stream.BitsConsumed + SpectralData.BitsConsumed.
+        var sf = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+
+        Assert.True(AacSingleChannelElement.TryParse(
+            BuildCb1ElementBytes(tag: 0),
+            sf, Sr48k, CodebooksWith(1, spectralBook), out var sce));
+        int expected = 4 + sce!.Stream.BitsConsumed + sce.SpectralData!.BitsConsumed;
+        Assert.Equal(expected, sce.BitsConsumed);
+    }
+
+    [Fact]
+    public void LfeFull_BitsConsumed_Equals_Stream_Plus_Spectral()
+    {
+        var sf = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+
+        Assert.True(AacLowFrequencyElement.TryParse(
+            BuildCb1ElementBytes(tag: 0),
+            sf, Sr48k, CodebooksWith(1, spectralBook), out var lfe));
+        int expected = 4 + lfe!.Stream.BitsConsumed + lfe.SpectralData!.BitsConsumed;
+        Assert.Equal(expected, lfe.BitsConsumed);
+    }
 }

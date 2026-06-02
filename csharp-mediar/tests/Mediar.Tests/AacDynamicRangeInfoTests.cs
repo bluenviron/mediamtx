@@ -303,4 +303,183 @@ public sealed class AacDynamicRangeInfoTests
         Assert.Equal(AacFillExtensionType.SbrData, fil.FillExtension!.ExtensionType);
         Assert.Null(fil.FillExtension.DynamicRange);
     }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    [InlineData(int.MinValue)]
+    public void TryParse_NegativeBudget_AnyLength_Returns_False(int budget)
+    {
+        Assert.False(AacDynamicRangeInfo.TryParse(new byte[8], budget, out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void TryParse_BodyBitLength_Zero_Returns_False()
+    {
+        // Header insists on at least one bit for pce_tag_present.
+        var bytes = new byte[1];
+        Assert.False(AacDynamicRangeInfo.TryParse(bytes, 0, out var info));
+        Assert.Null(info);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 2)]
+    [InlineData(3, 4)]
+    [InlineData(7, 8)]
+    [InlineData(15, 16)]
+    public void TryParse_DrcBandIncr_Maps_To_DrcNumBands(int incr, int expectedBands)
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1); // pce_tag_present
+        w.Write(0u, 1); // excluded_chns_present
+        w.Write(1u, 1); // drc_bands_present
+        w.Write((uint)incr, 4); // drc_band_incr
+        w.Write(0u, 4); // drc_interpolation_scheme
+        for (int i = 0; i < expectedBands; i++) w.Write(0u, 8);
+        w.Write(0u, 1); // prog_ref_level_present
+        for (int i = 0; i < expectedBands; i++)
+        {
+            w.Write(0u, 1); w.Write(0u, 7);
+        }
+        int bodyBits = 1 + 1 + 1 + 8 + (expectedBands * 8) + 1 + (expectedBands * 8);
+
+        Assert.True(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        Assert.Equal(expectedBands, info!.DrcNumBands);
+        Assert.Equal(expectedBands, info.DrcBandTop.Length);
+        Assert.Equal(expectedBands, info.Bands.Count);
+    }
+
+    [Fact]
+    public void TryParse_Defaults_Are_Zero_When_Flags_Off()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(0u, 1); w.Write(0u, 7);
+        int bodyBits = 12;
+        Assert.True(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        Assert.Equal(0, info!.PceInstanceTag);
+        Assert.Equal(0, info.DrcTagReservedBits);
+        Assert.Equal(0, info.DrcBandIncr);
+        Assert.Equal(0, info.DrcInterpolationScheme);
+        Assert.Equal(0, info.DrcBandTop.Length);
+        Assert.Equal(0, info.ProgRefLevel);
+        Assert.Equal(0, info.ProgRefLevelReservedBit);
+        Assert.False(info.Bands[0].Sign);
+    }
+
+    [Fact]
+    public void TryParse_ProgRefLevel_Boundaries_Round_Trip()
+    {
+        // Combined: both extremes for prog_ref_level (0 and 0x7F) verified
+        // in one body via two consecutive parses of the same bytes.
+        foreach (byte prl in new byte[] { 0x00, 0x7F })
+        {
+            var w = new AacBitWriter();
+            w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+            w.Write(1u, 1); // prog_ref_level_present
+            w.Write(prl, 7);
+            w.Write(0u, 1); // reserved bit
+            w.Write(0u, 1); w.Write(0u, 7);
+            int bodyBits = 1 + 1 + 1 + 1 + 8 + 8;
+
+            Assert.True(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+            Assert.Equal(prl, info!.ProgRefLevel);
+        }
+    }
+
+    [Fact]
+    public void TryParse_DrcBands_BandTop_Truncation_Returns_False()
+    {
+        // Claim drc_band_incr=3 (4 bands) but only supply space for 2 band_top bytes.
+        var w = new AacBitWriter();
+        w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(1u, 1);
+        w.Write(3u, 4); w.Write(0u, 4);
+        w.Write(0u, 8); w.Write(0u, 8);
+        int bodyBits = 1 + 1 + 1 + 8 + 16;
+        Assert.False(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void TryParse_ExcludedChannels_Truncated_MidChunk_Returns_False()
+    {
+        // Claim excluded_chns_present but only 4 bits remain in the budget.
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write(1u, 1); // excluded_chns_present
+        w.Write(0u, 4); // only 4 bits of "mask" provided
+        int bodyBits = 1 + 1 + 4;
+        Assert.False(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        Assert.Null(info);
+    }
+
+    [Fact]
+    public void TryParse_ExcludedChannels_BitsConsumed_Matches_ChunkCount()
+    {
+        // 2 chunks → 16 bits in ExcludedChannels.BitsConsumed.
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write(1u, 1);
+        w.Write(0x11u, 7); w.Write(1u, 1);
+        w.Write(0x22u, 7); w.Write(0u, 1);
+        w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(0u, 1); w.Write(0u, 7);
+        int bodyBits = 1 + 1 + 16 + 1 + 1 + 8;
+
+        Assert.True(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        Assert.Equal(2, info!.ExcludedChannels!.ChunkCount);
+        Assert.Equal(16, info.ExcludedChannels.BitsConsumed);
+    }
+
+    [Fact]
+    public void DrcBand_RecordStruct_Equality_And_Hash_Match()
+    {
+        var a = new AacDrcBand { Sign = true, Ctl = 0x21 };
+        var b = new AacDrcBand { Sign = true, Ctl = 0x21 };
+        var c = new AacDrcBand { Sign = false, Ctl = 0x21 };
+        var d = new AacDrcBand { Sign = true, Ctl = 0x22 };
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, c);
+        Assert.NotEqual(a, d);
+    }
+
+    [Fact]
+    public void DynamicRangeInfo_With_Expression_Returns_Modified_Copy()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(1u, 1); w.Write(0x55u, 7);
+        int bodyBits = 12;
+
+        Assert.True(AacDynamicRangeInfo.TryParse(w.ToArray(), bodyBits, out var info));
+        var modified = info! with { ProgRefLevel = 0x40, ProgRefLevelPresent = true };
+        Assert.Equal((byte)0x40, modified.ProgRefLevel);
+        Assert.True(modified.ProgRefLevelPresent);
+        Assert.False(info.ProgRefLevelPresent);
+        Assert.NotSame(info, modified);
+    }
+
+    [Fact]
+    public void DynamicRangeInfo_Record_Equality_From_Identical_Bytes()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(1u, 1); w.Write(0x33u, 7);
+        var bytes = w.ToArray();
+
+        Assert.True(AacDynamicRangeInfo.TryParse(bytes, 12, out var a));
+        Assert.True(AacDynamicRangeInfo.TryParse(bytes, 12, out var b));
+        // Per-band content equal (DrcBand is a value record struct); top-
+        // level record uses reference identity for ReadOnlyMemory fields,
+        // so just compare the visible fields.
+        Assert.Equal(a!.PceTagPresent, b!.PceTagPresent);
+        Assert.Equal(a.DrcNumBands, b.DrcNumBands);
+        Assert.Equal(a.Bands[0], b.Bands[0]);
+        Assert.Equal(a.BitsConsumed, b.BitsConsumed);
+    }
 }
