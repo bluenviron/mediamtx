@@ -239,6 +239,118 @@ public class WebPReaderTests
         Assert.True(r.CanDecodePixels);
     }
 
+    [Fact]
+    public void Open_FromFilePath_ReturnsCorrectFormat()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 5, height: 7);
+        string tempPath = Path.Combine(Path.GetTempPath(), $"webp-test-{Guid.NewGuid():N}.webp");
+        try
+        {
+            File.WriteAllBytes(tempPath, bytes);
+            using var r = WebPReader.Open(tempPath);
+            Assert.Equal(ImageFormat.WebP, r.Format);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public void Animated_Vp8X_LoopCount_NonZero_IsReflected()
+    {
+        // ANIM = 4 bytes BG color + 2 bytes loop_count (little-endian).
+        var vp8x = new byte[10];
+        vp8x[0] = 0x02;
+        vp8x[4] = (byte)((8 - 1) & 0xFF);
+        vp8x[7] = (byte)((8 - 1) & 0xFF);
+        var anim = new byte[6];
+        BinaryPrimitives.WriteUInt16LittleEndian(anim.AsSpan(4, 2), 42);
+        var chunks = new List<(string, byte[])>
+        {
+            ("VP8X", vp8x),
+            ("ANIM", anim),
+            ("ANMF", BuildAnmf(8, 8)),
+        };
+        var bytes = BuildRiffWebp(chunks);
+
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(42, r.LoopCount);
+    }
+
+    [Fact]
+    public void Animated_Vp8X_BackgroundColor_NonZero_IsReflected()
+    {
+        var vp8x = new byte[10];
+        vp8x[0] = 0x02;
+        vp8x[4] = (byte)((8 - 1) & 0xFF);
+        vp8x[7] = (byte)((8 - 1) & 0xFF);
+        var anim = new byte[6];
+        // BG = 0xAABBCCDD little-endian
+        anim[0] = 0xDD; anim[1] = 0xCC; anim[2] = 0xBB; anim[3] = 0xAA;
+        var chunks = new List<(string, byte[])>
+        {
+            ("VP8X", vp8x),
+            ("ANIM", anim),
+            ("ANMF", BuildAnmf(8, 8)),
+        };
+        var bytes = BuildRiffWebp(chunks);
+
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(0xAABBCCDDu, r.BackgroundColor);
+    }
+
+    [Fact]
+    public void Animated_Vp8X_FrameCount_MatchesAnmfChunks()
+    {
+        var bytes = BuildAnimatedVp8XContainer(width: 8, height: 8, frames: 5);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(5, r.Info.FrameCount);
+    }
+
+    [Fact]
+    public void Open_OwnsStreamFalse_LeavesUnderlyingStreamOpen()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        using var underlying = new MemoryStream(bytes);
+        var r = WebPReader.Open(underlying, ownsStream: false);
+        r.Dispose();
+        // Underlying must still be usable.
+        underlying.Position = 0;
+        Assert.True(underlying.CanRead);
+        Assert.Equal(0, underlying.Position);
+    }
+
+    [Fact]
+    public void Iccp_And_Xmp_Both_Present_BothSurface()
+    {
+        byte[] icc = { 0x01, 0x02, 0x03 };
+        byte[] xmp = System.Text.Encoding.UTF8.GetBytes("<x:xmpmeta/>");
+        var bytes = BuildWithExtraChunks(width: 4, height: 4, extras: new[]
+        {
+            ("ICCP", icc),
+            ("XMP ", xmp),
+        });
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(icc, r.Info.IccProfile.ToArray());
+        Assert.True(r.Metadata.Tags.ContainsKey("XMP"));
+    }
+
+    [Fact]
+    public void Recognises_Multiple_Chunks_In_Chunk_List()
+    {
+        byte[] icc = { 0x01, 0x02 };
+        var bytes = BuildWithExtraChunks(width: 4, height: 4, extras: new[]
+        {
+            ("ICCP", icc),
+            ("EXIF", new byte[8]),
+        });
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Contains(r.Chunks, c => c.FourCC == "VP8L");
+        Assert.Contains(r.Chunks, c => c.FourCC == "ICCP");
+        Assert.Contains(r.Chunks, c => c.FourCC == "EXIF");
+    }
+
     private static byte[] BuildVp8XWithAlphaContainer(int width, int height)
     {
         var vp8x = new byte[10];

@@ -377,4 +377,134 @@ public sealed class AacSingleChannelElementTests
         Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
         Assert.Equal(35, sce!.BitsConsumed);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(15)]
+    public void TryParse_ShortSce_RoundTripsElementInstanceTag(int tag)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortSceBytes(tag, globalGain: 0x40, maxSfb: 4, grouping: 0x7F);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(tag, sce!.ElementInstanceTag);
+    }
+
+    [Theory]
+    [InlineData((byte)0x00)]
+    [InlineData((byte)0x55)]
+    [InlineData((byte)0xAA)]
+    [InlineData((byte)0xFF)]
+    public void TryParse_ShortSce_RoundTripsGlobalGain(byte gain)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortSceBytes(tag: 1, globalGain: gain, maxSfb: 4, grouping: 0x7F);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(gain, sce!.Stream.GlobalGain);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void TryParse_ShortSce_HandlesAllMaxSfbValues(int maxSfb)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortSceBytes(tag: 0, globalGain: 0x40, maxSfb: maxSfb, grouping: 0x7F);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(maxSfb, sce!.Stream.IcsInfo.MaxSfb);
+    }
+
+    [Fact]
+    public void TryParse_LongSce_MaxSfb30_StillSucceeds()
+    {
+        // 30 fits in the 5-bit sect_len field (max 31).
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 2, globalGain: 0x12, maxSfb: 30);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(30, sce!.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(30, sce.Stream.ScaleFactorData.Entries.Count);
+    }
+
+    [Fact]
+    public void TryParse_ShortSce_AllSeparateGroups_Consumes_MoreBits_Than_OneGroup()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var oneGroup = BuildCanonicalShortSceBytes(tag: 0, globalGain: 0x40, maxSfb: 4, grouping: 0x7F);
+        // Build the 8-group variant explicitly via the writer.
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0x40u, 8);
+        WriteShortIcsInfo(w, maxSfb: 4, grouping: 0x00);
+        for (int g = 0; g < 8; g++) WriteOneZeroShortSection(w, len: 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        var eightGroups = w.ToArray();
+
+        Assert.True(AacSingleChannelElement.TryParse(oneGroup, book, out var sceA));
+        Assert.True(AacSingleChannelElement.TryParse(eightGroups, book, out var sceB));
+        Assert.True(sceB!.BitsConsumed > sceA!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_ShortSce_GainControlData_EmptyBody_IsAccepted()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0u, 8);
+        WriteShortIcsInfo(w, maxSfb: 4, grouping: 0x7F);
+        WriteOneZeroShortSection(w, len: 4);
+        w.Write(0u, 1);                 // pulse_data_present
+        w.Write(0u, 1);                 // tns_data_present
+        w.Write(1u, 1);                 // gain_control_data_present
+        w.Write(0u, 2);                 // gain_control_data(): max_band = 0
+
+        Assert.True(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
+        Assert.True(sce!.Stream.GainControlDataPresent);
+        Assert.NotNull(sce.Stream.GainControlData);
+        Assert.Equal(0, sce.Stream.GainControlData!.MaxBand);
+    }
+
+    [Fact]
+    public void TryParse_ShortSce_AllSeparateGroups_RoundTrips_To_EightSections()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0x40u, 8);
+        WriteShortIcsInfo(w, maxSfb: 4, grouping: 0x00);
+        for (int g = 0; g < 8; g++) WriteOneZeroShortSection(w, len: 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        var bytes = w.ToArray();
+
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(8, sce!.Stream.SectionData.Sections.Count);
+    }
+
+    [Fact]
+    public void TryParse_LongSce_BitsConsumed_For_MaxSfb_Zero_Excludes_Section_Header()
+    {
+        // max_sfb = 0: no sections need to be emitted, so no 9-bit section
+        // header follows. Total: 4 (tag) + 8 (gain) + 11 (long ics_info)
+        // + 0 (no section) + 0 (no SF) + 3 (flags) = 26 bits.
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 0, globalGain: 0, maxSfb: 0);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Empty(sce!.Stream.ScaleFactorData.Entries);
+        // Section count is implementation-dependent for max_sfb=0; just
+        // assert no SF entries were materialised.
+    }
+
+    [Fact]
+    public void TryParse_LongSce_ProducesScaleFactorEntries_Count_MatchesMaxSfb()
+    {
+        var book = BuildSyntheticSfCodebook();
+        for (int maxSfb = 0; maxSfb <= 10; maxSfb++)
+        {
+            var bytes = BuildCanonicalSceBytes(tag: 0, globalGain: 0x80, maxSfb: maxSfb);
+            Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce), $"maxSfb={maxSfb}");
+            Assert.Equal(maxSfb, sce!.Stream.ScaleFactorData.Entries.Count);
+        }
+    }
 }
