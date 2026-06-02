@@ -397,4 +397,220 @@ public static class CeltBands
         cm &= (uint)((1 << B) - 1);
         return cm;
     }
+
+    /// <summary>
+    /// Re-derives left / right channel norms from a decoded mid/side
+    /// pair. <paramref name="X"/> holds the unit-norm mid (in Q14 float
+    /// form, ‖X‖ = 1) before the call; <paramref name="Y"/> holds the
+    /// unit-norm side. After the call X is the left and Y the right
+    /// channel, both scaled so their joint energy matches what an
+    /// inverse rotation by <paramref name="mid"/> would produce. Float-
+    /// build port of libopus <c>stereo_merge</c>. When either output
+    /// channel's reconstructed energy drops below 6e-4, the side
+    /// component is silenced by copying X to Y (matches the libopus
+    /// near-zero clamp).
+    /// </summary>
+    /// <param name="X">Mid in, left out (length ≥ N).</param>
+    /// <param name="Y">Side in, right out (length ≥ N).</param>
+    /// <param name="mid">Mid scaling factor (Q15 float, ≈cos θ).</param>
+    /// <param name="N">Vector length.</param>
+    public static void StereoMerge(Span<float> X, Span<float> Y, float mid, int N)
+    {
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(N, 1);
+        if (X.Length < N) throw new System.ArgumentException("X must hold at least N samples.", nameof(X));
+        if (Y.Length < N) throw new System.ArgumentException("Y must hold at least N samples.", nameof(Y));
+
+        // Compute the norm of X+Y and X-Y as |X|² + |Y|² ± Σ XY.
+        // In float build celt_inner_prod_norm_shift is just Σ x·y.
+        float xp = 0f, side = 0f;
+        for (int j = 0; j < N; j++)
+        {
+            xp += Y[j] * X[j];
+            side += Y[j] * Y[j];
+        }
+        xp = mid * xp;
+        float midSq = mid * mid;
+        float El = midSq + side - 2f * xp;
+        float Er = midSq + side + 2f * xp;
+
+        const float minEnergy = 6e-4f;
+        if (Er < minEnergy || El < minEnergy)
+        {
+            X.Slice(0, N).CopyTo(Y);
+            return;
+        }
+
+        float lgain = 1f / System.MathF.Sqrt(El);
+        float rgain = 1f / System.MathF.Sqrt(Er);
+        for (int j = 0; j < N; j++)
+        {
+            float l = mid * X[j];
+            float r = Y[j];
+            X[j] = lgain * (l - r);
+            Y[j] = rgain * (l + r);
+        }
+    }
+
+    /// <summary>
+    /// Decoder-side stereo band wrapper. Decodes the energy / angle
+    /// split shared by both channels via
+    /// <see cref="CeltSplit.ComputeTheta"/>, recurses into the mono
+    /// <see cref="QuantBand"/> twice (mid first or side first depending
+    /// on the bit balance), then runs the
+    /// <see cref="StereoMerge"/> inversion to produce left/right
+    /// outputs. Handles the <c>N==1</c> sign-bit special case
+    /// (<see cref="CeltSplit.QuantBandN1"/>) and the <c>N==2</c>
+    /// single-bit-sign special case that exploits mid/side
+    /// orthogonality at width 2. Mirrors libopus
+    /// <c>quant_band_stereo</c> (decoder branch, float build).
+    /// </summary>
+    /// <param name="ctx">Mutable per-band state.</param>
+    /// <param name="dec">Range decoder.</param>
+    /// <param name="X">Left channel output (length ≥ N).</param>
+    /// <param name="Y">Right channel output (length ≥ N).</param>
+    /// <param name="N">Partition size in samples.</param>
+    /// <param name="b">Bit budget (1/8-bit units).</param>
+    /// <param name="blocks">MDCT block count.</param>
+    /// <param name="lowband">Lowband fold source (empty = null).</param>
+    /// <param name="LM">Log-2 of frame size.</param>
+    /// <param name="lowbandOut">√N-scaled output for the next band, or empty.</param>
+    /// <param name="lowbandScratch">Optional lowband scratch (length ≥ N).</param>
+    /// <param name="fill">Per-block fill mask.</param>
+    /// <returns>Combined collapse mask for X and Y.</returns>
+    public static uint QuantBandStereo(
+        ref BandContext ctx,
+        ref OpusRangeDecoder dec,
+        Span<float> X,
+        Span<float> Y,
+        int N,
+        int b,
+        int blocks,
+        Span<float> lowband,
+        int LM,
+        Span<float> lowbandOut,
+        Span<float> lowbandScratch,
+        int fill)
+    {
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(N, 1);
+        if (X.Length < N) throw new System.ArgumentException("X must hold at least N samples.", nameof(X));
+        if (Y.Length < N) throw new System.ArgumentException("Y must hold at least N samples.", nameof(Y));
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(blocks, 1);
+
+        if (N == 1)
+        {
+            return CeltSplit.QuantBandN1(ref dec, ref ctx.RemainingBits, X, Y, lowbandOut);
+        }
+
+        int origFill = fill;
+
+        CeltSplit.ComputeTheta(
+            ref dec,
+            logNAtBand: CeltConstants.LogN400[ctx.Band],
+            bandIndex: ctx.Band,
+            intensity: ctx.Intensity,
+            n: N,
+            b: ref b,
+            blocks: blocks,
+            blocks0: blocks,
+            LM: LM,
+            stereo: true,
+            fill: ref fill,
+            disableInv: ctx.DisableInv,
+            remainingBits: ctx.RemainingBits,
+            sctx: out CeltSplit.BandSplitContext sctx);
+        int inv = sctx.Inv;
+        int imid = sctx.IMid;
+        int iside = sctx.ISide;
+        int delta = sctx.Delta;
+        int itheta = sctx.ITheta;
+        int qalloc = sctx.QAlloc;
+
+        // Float-build mid / side coefficients (Q15 → float).
+        float mid = imid * (1f / 32768f);
+        float side = iside * (1f / 32768f);
+
+        uint cm;
+        int mbits, sbits;
+        if (N == 2)
+        {
+            // N==2 special case: exploit mid/side orthogonality. Side
+            // takes at most one bit (just a sign), mid takes the rest.
+            mbits = b;
+            sbits = 0;
+            if (itheta != 0 && itheta != 16384) sbits = 1 << CeltConstants.BitRes;
+            mbits -= sbits;
+            int c = itheta > 8192 ? 1 : 0;
+            ctx.RemainingBits -= qalloc + sbits;
+
+            Span<float> x2 = c != 0 ? Y : X;
+            Span<float> y2 = c != 0 ? X : Y;
+
+            int sign = 0;
+            if (sbits != 0) sign = (int)dec.DecodeBits(1);
+            sign = 1 - 2 * sign;
+
+            // Decode the mid (x2) as a normal mono band. Use orig_fill —
+            // we want to fold the side too, but ComputeTheta may have
+            // cleared the low bits when itheta hit 16384.
+            cm = QuantBand(ref ctx, ref dec, x2, N, mbits, blocks, lowband, LM,
+                lowbandOut, gain: 1f, lowbandScratch, origFill);
+            // Side is the 90°-rotated mid (the only unit-norm vector
+            // orthogonal to a 2-D unit vector, up to sign).
+            y2[0] = -sign * x2[1];
+            y2[1] = sign * x2[0];
+
+            // Mid/side → L/R 2-point butterfly.
+            X[0] *= mid; X[1] *= mid;
+            Y[0] *= side; Y[1] *= side;
+            float tmp0 = X[0];
+            X[0] = tmp0 - Y[0];
+            Y[0] = tmp0 + Y[0];
+            float tmp1 = X[1];
+            X[1] = tmp1 - Y[1];
+            Y[1] = tmp1 + Y[1];
+        }
+        else
+        {
+            // Normal stereo split: divide bits between mid (X) and side
+            // (Y) per the ComputeTheta delta, decode both with QuantBand,
+            // and rebalance any leftover budget.
+            mbits = System.Math.Max(0, System.Math.Min(b, (b - delta) / 2));
+            sbits = b - mbits;
+            ctx.RemainingBits -= qalloc;
+
+            int rebalance = ctx.RemainingBits;
+            if (mbits >= sbits)
+            {
+                // Mid gets gain 1.0 — we want the normalised mid for folding later.
+                cm = QuantBand(ref ctx, ref dec, X, N, mbits, blocks, lowband, LM,
+                    lowbandOut, gain: 1f, lowbandScratch, fill);
+                rebalance = mbits - (rebalance - ctx.RemainingBits);
+                if (rebalance > 3 << CeltConstants.BitRes && itheta != 0)
+                    sbits += rebalance - (3 << CeltConstants.BitRes);
+                // For a stereo split, the high bits of fill are always
+                // zero, so no folding will be done to the side.
+                cm |= QuantBand(ref ctx, ref dec, Y, N, sbits, blocks, default, LM,
+                    default, gain: side, lowbandScratch: default, fill >> blocks);
+            }
+            else
+            {
+                cm = QuantBand(ref ctx, ref dec, Y, N, sbits, blocks, default, LM,
+                    default, gain: side, lowbandScratch: default, fill >> blocks);
+                rebalance = sbits - (rebalance - ctx.RemainingBits);
+                if (rebalance > 3 << CeltConstants.BitRes && itheta != 16384)
+                    mbits += rebalance - (3 << CeltConstants.BitRes);
+                cm |= QuantBand(ref ctx, ref dec, X, N, mbits, blocks, lowband, LM,
+                    lowbandOut, gain: 1f, lowbandScratch, fill);
+            }
+        }
+
+        // Resynth: re-derive L/R from mid/side. The N==2 path already
+        // ran the inverse butterfly inline above.
+        if (N != 2) StereoMerge(X, Y, mid, N);
+        if (inv != 0)
+        {
+            for (int j = 0; j < N; j++) Y[j] = -Y[j];
+        }
+        return cm;
+    }
 }

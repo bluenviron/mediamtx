@@ -21,7 +21,7 @@ commits.
 | 2c.3b.4 | CELT band shape primitives (`haar1`, `deinterleave_hadamard`, `interleave_hadamard`, `exp_rotation`, `normalise_residual`, `extract_collapse_mask`, `alg_unquant`) | ✅ shipped |
 | 2c.3b.5a | CELT `quant_partition` recursive mono splitter + `renormalise_vector` + `celt_lcg_rand` | ✅ shipped |
 | 2c.3b.5b | CELT `quant_band` mono wrapper (Haar1 recombine / time-divide + Hadamard reorganisation + √N lowband_out scaling) | ✅ shipped |
-| 2c.3b.5c | CELT `quant_band_stereo` (stereo mid/side band wrapper + `stereo_merge`)              | ⏳ planned |
+| 2c.3b.5c | CELT `quant_band_stereo` (stereo mid/side band wrapper + `stereo_merge`)              | ✅ shipped |
 | 2c.3b.5d | CELT `quant_all_bands` top-level band-iteration integration                            | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
@@ -29,6 +29,98 @@ commits.
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.5c behavior (added on top of Phase 2c.3b.5b)
+
+Phase 2c.3b.5c ports `quant_band_stereo` — the **stereo mid/side band
+wrapper** that pairs the Phase 2c.3b.5b mono wrapper with the
+`compute_theta` energy split from Phase 2c.3b.3 to decode coupled
+left/right CELT bands. It also adds `stereo_merge`, the inverse rotation
+that re-derives L/R channel norms from the mid/side pair after the two
+recursive mono decodes return.
+
+`QuantBandStereo(ref BandContext, ref OpusRangeDecoder, Span<float> X,
+Span<float> Y, int N, int b, int blocks, Span<float> lowband, int LM,
+Span<float> lowbandOut, Span<float> lowbandScratch, int fill) → uint`
+follows the libopus float-build decoder branch closely:
+
+1. **N==1 short-circuit** — routes to `CeltSplit.QuantBandN1` (Phase
+   2c.3b.3) with a non-empty Y span, decoding two sign bits.
+2. **`ComputeTheta`** is called with `stereo: true` and `B0 = blocks`
+   (same as B for the stereo wrapper), producing `inv` / `imid` /
+   `iside` / `delta` / `itheta` / `qalloc`. The `mid` and `side`
+   scaling factors are derived as Q15 → float (`imid * 1/32768`,
+   `iside * 1/32768`).
+3. **N==2 special case** — for width-2 bands the side becomes the only
+   unit vector orthogonal to the mid (up to sign), so libopus skips the
+   PVQ recursion for the side and just decodes a 1-bit sign when
+   `itheta != 0 && itheta != 16384`. The wrapper:
+   - splits the budget as `mbits = b; sbits = sign-bit-present ? 1<<BITRES : 0; mbits -= sbits;`
+   - swaps which channel is decoded as the mid based on `c = itheta > 8192`;
+   - decodes the chosen channel via the mono `QuantBand` recursion;
+   - constructs the orthogonal side as `y2[0] = -sign*x2[1]; y2[1] = sign*x2[0]`;
+   - applies an inline 2-point mid/side → L/R butterfly
+     (`X *= mid; Y *= side; tmp = X[i]; X[i] = tmp - Y[i]; Y[i] = tmp + Y[i]`).
+4. **N>2 normal split** — splits the budget between mid and side, with
+   the larger half decoded first. The mid is decoded with `gain = 1.0`
+   (libopus needs the normalised mid for folding), the side is decoded
+   with `gain = side` (the cosine-derived scaling) and `fill >> blocks`
+   (the high bits of fill are always zero for the side, so no folding).
+   The mid keeps the caller's `lowband` / `lowbandOut` /
+   `lowbandScratch`; the side passes empty spans for all three. After
+   the first call, leftover bits above `3<<BITRES` are rolled into the
+   second call's budget (only on the appropriate side of `itheta`).
+5. **Resynth** — for N>2 the wrapper calls `CeltShape.StereoMerge`
+   (which is *not* called for N==2 because the inline butterfly already
+   produced L/R). If `ComputeTheta` set `inv != 0`, every sample of Y
+   is negated as the last step (matches the libopus φ-rotation
+   inversion).
+
+`StereoMerge(Span<float> X, Span<float> Y, float mid, int N)` ports the
+libopus float-build of `stereo_merge` (which is in `celt/bands.c` in
+recent libopus, not `celt/vq.c`):
+
+- Computes `xp = Σ Y[i]·X[i]` and `side = Σ Y[i]²` (the two
+  `celt_inner_prod_norm_shift` calls — degenerate to plain dot products
+  in the float build).
+- Compensates the mid normalisation: `xp = mid · xp`.
+- Reconstructs left/right energies as
+  `El = mid² + side − 2·xp` and `Er = mid² + side + 2·xp`
+  (the libopus `SHR32(mid², 3)` term and the `kl`/`kr` block-floating
+  shifts are no-ops in the float build, so the formula simplifies).
+- Applies the silent-merge guard: when `El < 6e-4f || Er < 6e-4f`,
+  copies X into Y and returns — this matches the libopus
+  near-zero-energy clamp that protects the rsqrt from blowing up to
+  NaN/Inf when the recovered channel is silent.
+- Otherwise computes `lgain = 1/√El`, `rgain = 1/√Er`, and runs the
+  per-sample inverse rotation:
+  `l = mid·X[j]; r = Y[j]; X[j] = lgain·(l−r); Y[j] = rgain·(l+r)`.
+
+The 14 `QuantPartition` LUTs and bit-interleave tables from Phases
+2c.3b.5a / 2c.3b.5b are re-used unchanged.
+
+### Files added this phase
+
+- `csharp-mediar/src/Mediar.Codecs.Opus.Decoder/Celt/CeltBands.cs`:
+  +`StereoMerge` (public static, allocation-free, ~30 lines including
+  the silent-merge guard) and +`QuantBandStereo` (public static,
+  ~120 lines covering N==1, N==2 inline-merge and N>2 normal-split
+  branches) appended to the existing partial class.
+- `csharp-mediar/tests/Mediar.Tests/CeltBandsTests.cs`: 15 new tests
+  covering `StereoMerge` (zero-side / orthogonal mid+side / low-energy
+  clamp / random-input finite-output / two argument validations) and
+  `QuantBandStereo` (N==1 stereo short-circuit, N==2 mid+side decode,
+  N>2 split with and without lowband, disable_inv path, tight-budget
+  path, three argument validations).
+
+### Test results after Phase 2c.3b.5c
+
+Test suite total after Phase 2c.3b.5c: **7762 / 7762 pass**
+(+15 vs. Phase 2c.3b.5b's 7747). The flaky
+`Mp3DecoderPerformanceTests.Repeated_Full_Decode_Passes_Do_Not_Grow_Heap_Unboundedly`
+test (timing-sensitive GC heap measurement, unrelated to Opus) still
+fails on cold-cache runs but passes on retry — its flakiness is
+pre-existing and tracked separately.
 
 ## Phase 2c.3b.5b behavior (added on top of Phase 2c.3b.5a)
 

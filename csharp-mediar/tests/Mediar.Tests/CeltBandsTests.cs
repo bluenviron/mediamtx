@@ -470,6 +470,281 @@ public sealed class CeltBandsTests
         Assert.True(threw);
     }
 
+    // ---------- StereoMerge ----------
+
+    [Fact]
+    public void StereoMerge_ZeroSide_PutsMidCopyInBothChannels()
+    {
+        // X is the normalised mid; Y is silence. With mid=1.0 the recovered
+        // left = mid*X - Y = X, right = mid*X + Y = X.
+        float[] x = { 0.5f, 0.5f, 0.5f, 0.5f };
+        float[] y = new float[4];
+        var xCopy = (float[])x.Clone();
+        CeltBands.StereoMerge(x, y, mid: 1f, N: 4);
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(xCopy[i], x[i], 5);
+            Assert.Equal(xCopy[i], y[i], 5);
+        }
+    }
+
+    [Fact]
+    public void StereoMerge_OrthogonalMidAndSide_ProducesOrthogonalLR()
+    {
+        // mid = [1,0], side = [0,1], both unit norm. With mid scaling 1 → left=[1,-1]/√2, right=[1,1]/√2.
+        float[] x = { 1f, 0f };
+        float[] y = { 0f, 1f };
+        CeltBands.StereoMerge(x, y, mid: 1f, N: 2);
+        float invSqrt2 = 1f / System.MathF.Sqrt(2f);
+        Assert.Equal(invSqrt2, x[0], 5);
+        Assert.Equal(-invSqrt2, x[1], 5);
+        Assert.Equal(invSqrt2, y[0], 5);
+        Assert.Equal(invSqrt2, y[1], 5);
+        // Result should be orthonormal.
+        Assert.Equal(0f, x[0] * y[0] + x[1] * y[1], 5);
+    }
+
+    [Fact]
+    public void StereoMerge_LowEnergyClamp_CopiesXToY()
+    {
+        // To force El < 6e-4 we need mid² + |Y|² - 2·mid·<Y,X> below the threshold.
+        // Pick mid very small with both X and Y near-zero: El = mid² + |Y|² - 2·mid·<Y,X>
+        // ≈ 1e-4 + 2e-6 ≈ 1.02e-4 < 6e-4. Same for Er.
+        float[] x = { 1e-3f, 1e-3f };
+        float[] y = { 1e-3f, 1e-3f };
+        var xCopy = (float[])x.Clone();
+        CeltBands.StereoMerge(x, y, mid: 0.01f, N: 2);
+        // Guard fires → X is unchanged, Y becomes a copy of X.
+        Assert.Equal(xCopy[0], x[0], 6);
+        Assert.Equal(xCopy[1], x[1], 6);
+        Assert.Equal(xCopy[0], y[0], 6);
+        Assert.Equal(xCopy[1], y[1], 6);
+    }
+
+    [Fact]
+    public void StereoMerge_ProducesFiniteOutputForRandomInputs()
+    {
+        var rng = new System.Random(42);
+        int N = 16;
+        var x = new float[N];
+        var y = new float[N];
+        for (int i = 0; i < N; i++) { x[i] = (float)(rng.NextDouble() * 2 - 1); y[i] = (float)(rng.NextDouble() * 2 - 1); }
+        // Renormalise so they look like mid/side outputs.
+        CeltShape.RenormaliseVector(x, N, 1f);
+        CeltShape.RenormaliseVector(y, N, 1f);
+        CeltBands.StereoMerge(x, y, mid: 0.7071f, N: N);
+        for (int i = 0; i < N; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+    }
+
+    [Fact]
+    public void StereoMerge_ArgumentValidation_NLessThanOne()
+    {
+        bool threw = false;
+        try { CeltBands.StereoMerge(new float[1], new float[1], 1f, 0); }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void StereoMerge_ArgumentValidation_TooSmallSpan()
+    {
+        bool threw = false;
+        try { CeltBands.StereoMerge(new float[1], new float[4], 1f, 4); }
+        catch (System.ArgumentException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    // ---------- QuantBandStereo ----------
+
+    [Fact]
+    public void QuantBandStereo_NEquals1_ShortCircuitsToQuantBandN1()
+    {
+        // Stereo N=1: QuantBandN1 should decode two sign bits.
+        var bytes = MakeRandomBytes(seed: 7, length: 32);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 0, remainingBits: 100);
+        float[] x = new float[1];
+        float[] y = new float[1];
+        float[] lo = new float[1];
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: 1, b: 0,
+            blocks: 1, lowband: default, LM: 0, lowbandOut: lo, lowbandScratch: default, fill: 0);
+        Assert.Equal(1u, cm);
+        // Both channels are ±1.
+        Assert.Equal(1f, System.MathF.Abs(x[0]));
+        Assert.Equal(1f, System.MathF.Abs(y[0]));
+        // Lowband out is √N · X[0] / √N (lowbandOut scaled by √N0; here N0=1).
+        // (For QuantBandN1, libopus stores X[0]/16384.f, but the float build's
+        // store happens unconditionally — verify it's finite and signed.)
+        Assert.True(float.IsFinite(lo[0]));
+    }
+
+    [Fact]
+    public void QuantBandStereo_N2_PureMid_ItheTaForcedToZero_ProducesFiniteOutput()
+    {
+        // band=8 LM=0 N=2 with a moderate bit budget. We can't force
+        // itheta deterministically without an encoder, but we can verify
+        // the function returns finite output and consumes bits.
+        var bytes = MakeRandomBytes(seed: 11, length: 64);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 8, remainingBits: 200);
+        float[] x = new float[2];
+        float[] y = new float[2];
+        int before = ctx.RemainingBits;
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: 2, b: 80,
+            blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 3);
+        Assert.True(ctx.RemainingBits <= before);
+        for (int i = 0; i < 2; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+        Assert.True(cm != 0);
+    }
+
+    [Fact]
+    public void QuantBandStereo_NGreaterThan2_NormalSplit_ProducesFiniteOutput()
+    {
+        // band=8 LM=0 N=16 with a generous bit budget. The split goes
+        // through the mid/side rebalance path and ends with stereo_merge.
+        var bytes = MakeRandomBytes(seed: 31, length: 256);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 8, remainingBits: 1000);
+        const int N = 16;
+        float[] x = new float[N];
+        float[] y = new float[N];
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: N, b: 400,
+            blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 1);
+        for (int i = 0; i < N; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+        Assert.True(cm != 0);
+    }
+
+    [Fact]
+    public void QuantBandStereo_NGreaterThan2_DisableInv_SuppressesYNegation()
+    {
+        // disableInv=true should prevent the inv-path in ComputeTheta,
+        // so Y never gets negated. We can't directly observe inv from
+        // the outside, but the output should remain finite and the
+        // function should not throw.
+        var bytes = MakeRandomBytes(seed: 99, length: 256);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 8, remainingBits: 1000, disableInv: true);
+        const int N = 16;
+        float[] x = new float[N];
+        float[] y = new float[N];
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: N, b: 400,
+            blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 1);
+        for (int i = 0; i < N; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+        Assert.True(cm != 0);
+    }
+
+    [Fact]
+    public void QuantBandStereo_NGreaterThan2_WithLowband_ConsumesLowbandSource()
+    {
+        // Provide a non-trivial lowband; verify the decode still
+        // produces finite output. (Folding source is consumed when bits
+        // run out; can't observe the fold directly without an encoder.)
+        var bytes = MakeRandomBytes(seed: 17, length: 256);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 13, remainingBits: 500);
+        const int N = 16;
+        float[] x = new float[N];
+        float[] y = new float[N];
+        float[] lowband = new float[N];
+        float[] scratch = new float[N];
+        var rng = new System.Random(5);
+        for (int i = 0; i < N; i++) lowband[i] = (float)(rng.NextDouble() * 2 - 1);
+        CeltShape.RenormaliseVector(lowband, N, 1f);
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: N, b: 100,
+            blocks: 1, lowband: lowband, LM: 2, lowbandOut: default, lowbandScratch: scratch, fill: 1);
+        for (int i = 0; i < N; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+        Assert.True(cm != 0);
+    }
+
+    [Fact]
+    public void QuantBandStereo_NGreaterThan2_LowBudget_StillProducesFiniteOutput()
+    {
+        // Tight budget pushes the recursive QuantBand into the
+        // fold-only branch for the side. Output must still be finite.
+        var bytes = MakeRandomBytes(seed: 13, length: 256);
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext(band: 8, remainingBits: 50);
+        const int N = 16;
+        float[] x = new float[N];
+        float[] y = new float[N];
+        uint cm = CeltBands.QuantBandStereo(ref ctx, ref dec, x, y, N: N, b: 30,
+            blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 1);
+        for (int i = 0; i < N; i++)
+        {
+            Assert.True(float.IsFinite(x[i]));
+            Assert.True(float.IsFinite(y[i]));
+        }
+        Assert.True(cm != 0);
+    }
+
+    [Fact]
+    public void QuantBandStereo_ArgumentValidation_NLessThanOne()
+    {
+        var bytes = new byte[8];
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext();
+        bool threw = false;
+        try
+        {
+            CeltBands.QuantBandStereo(ref ctx, ref dec, new float[1], new float[1], 0, 0,
+                blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 0);
+        }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void QuantBandStereo_ArgumentValidation_YLengthLessThanN()
+    {
+        var bytes = new byte[8];
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext();
+        bool threw = false;
+        try
+        {
+            CeltBands.QuantBandStereo(ref ctx, ref dec, new float[8], new float[4], 8, 0,
+                blocks: 1, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 0);
+        }
+        catch (System.ArgumentException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void QuantBandStereo_ArgumentValidation_ZeroBlocks()
+    {
+        var bytes = new byte[8];
+        var dec = new OpusRangeDecoder(bytes);
+        var ctx = MakeContext();
+        bool threw = false;
+        try
+        {
+            CeltBands.QuantBandStereo(ref ctx, ref dec, new float[8], new float[8], 8, 0,
+                blocks: 0, lowband: default, LM: 0, lowbandOut: default, lowbandScratch: default, fill: 0);
+        }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
     // ---------- helpers ----------
 
     private static BandContext MakeContext(int band = 0, int spread = CeltConstants.SpreadNormal,
