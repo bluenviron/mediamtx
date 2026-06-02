@@ -277,6 +277,254 @@ public class HevcCodecConfigurationRecordTests
         Assert.False(r.TryGetHevcCodecConfiguration(1, out _));
     }
 
+    [Fact]
+    public void TryParse_Rejects_Truncated_NalUnit_LengthPrefix()
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        // Inject numArrays=1, then a complete array header but no length prefix.
+        var bytes = new byte[payload.Length + 3];
+        Buffer.BlockCopy(payload, 0, bytes, 0, payload.Length);
+        bytes[22] = 1; // numArrays
+        bytes[^3] = 0x80 | 33; // arrayCompleteness=1, nalUnitType=33
+        bytes[^2] = 0;
+        bytes[^1] = 1; // 1 NAL unit declared but no length prefix follows
+        Assert.False(HevcCodecConfigurationRecord.TryParse(bytes, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_NalUnit_Payload()
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        var bytes = new byte[payload.Length + 5];
+        Buffer.BlockCopy(payload, 0, bytes, 0, payload.Length);
+        bytes[22] = 1;
+        bytes[^5] = 0x80 | 33;
+        bytes[^4] = 0; bytes[^3] = 1; // numNalus=1
+        bytes[^2] = 0; bytes[^1] = 10; // naluLength=10, but no body
+        Assert.False(HevcCodecConfigurationRecord.TryParse(bytes, out _));
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Array_With_Zero_NalUnits()
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: new (bool, byte, byte[][])[]
+            {
+                (true, 33, Array.Empty<byte[]>()),
+            });
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Single(rec.Arrays);
+        Assert.Empty(rec.Arrays[0].NalUnits);
+        Assert.True(rec.Arrays[0].ArrayCompleteness);
+        Assert.Equal((byte)33, rec.Arrays[0].NalUnitType);
+    }
+
+    [Fact]
+    public void TryParse_MaxProfileSpace_And_MaxNumTemporalLayers()
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 3, tierFlag: true, profileIdc: 31,
+            profileCompat: 0xFFFFFFFFu, constraints: 0xFFFFFFFFFFFFUL,
+            levelIdc: 255, minSeg: 0xFFF, parallelism: 3,
+            chromaFormatIdc: 3, bdLumaM8: 7, bdChromaM8: 7,
+            avgFps: 0xFFFF, constFps: 3, numTemporalLayers: 7,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal((byte)3, rec.GeneralProfileSpace);
+        Assert.True(rec.GeneralTierFlag);
+        Assert.Equal((byte)31, rec.GeneralProfileIdc);
+        Assert.Equal(0xFFFFFFFFu, rec.GeneralProfileCompatibilityFlags);
+        Assert.Equal(0xFFFFFFFFFFFFUL, rec.GeneralConstraintIndicatorFlags);
+        Assert.Equal((byte)255, rec.GeneralLevelIdc);
+        Assert.Equal((ushort)0xFFF, rec.MinSpatialSegmentationIdc);
+        Assert.Equal((byte)3, rec.ParallelismType);
+        Assert.Equal((byte)3, rec.ChromaFormatIdc);
+        Assert.Equal(15, rec.BitDepthLuma);
+        Assert.Equal(15, rec.BitDepthChroma);
+        Assert.Equal((byte)7, rec.NumTemporalLayers);
+        Assert.Equal((ushort)0xFFFF, rec.AvgFrameRate);
+        Assert.Equal((byte)3, rec.ConstantFrameRate);
+    }
+
+    [Theory]
+    [InlineData((byte)0, 1)]
+    [InlineData((byte)1, 2)]
+    [InlineData((byte)2, 3)]
+    [InlineData((byte)3, 4)]
+    public void LengthSizeMinusOne_Maps_To_NalUnitLengthBytes(byte lsm1, int expected)
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: lsm1,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(lsm1, rec.LengthSizeMinusOne);
+        Assert.Equal(expected, rec.NalUnitLengthBytes);
+    }
+
+    [Theory]
+    [InlineData((byte)0, "4:0:0")]
+    [InlineData((byte)1, "4:2:0")]
+    [InlineData((byte)2, "4:2:2")]
+    [InlineData((byte)3, "4:4:4")]
+    public void ChromaFormat_String_Matches_ChromaFormatIdc(byte idc, string expected)
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: idc, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expected, rec.ChromaFormat);
+    }
+
+    [Fact]
+    public void ChromaFormat_String_Returns_Unknown_For_Out_Of_Range_Idc()
+    {
+        // Parser masks to 2 bits so cannot produce idc>3 from bytes;
+        // exercise the switch's default arm by constructing the record directly.
+        var rec = new HevcCodecConfigurationRecord
+        {
+            ConfigurationVersion = 1,
+            GeneralProfileSpace = 0,
+            GeneralTierFlag = false,
+            GeneralProfileIdc = 1,
+            GeneralProfileCompatibilityFlags = 0,
+            GeneralConstraintIndicatorFlags = 0,
+            GeneralLevelIdc = 120,
+            MinSpatialSegmentationIdc = 0,
+            ParallelismType = 0,
+            ChromaFormatIdc = 4, // out of spec range
+            BitDepthLumaMinus8 = 0,
+            BitDepthChromaMinus8 = 0,
+            AvgFrameRate = 0,
+            ConstantFrameRate = 0,
+            NumTemporalLayers = 1,
+            TemporalIdNested = true,
+            LengthSizeMinusOne = 3,
+            Arrays = System.Collections.Immutable.ImmutableArray<HevcParameterSetArray>.Empty,
+        };
+        Assert.Equal("unknown", rec.ChromaFormat);
+    }
+
+    [Theory]
+    [InlineData(22)]
+    [InlineData(20)]
+    [InlineData(10)]
+    [InlineData(1)]
+    [InlineData(0)]
+    public void TryParse_Rejects_Header_Less_Than_23_Bytes(int length)
+    {
+        Assert.False(HevcCodecConfigurationRecord.TryParse(new byte[length], out _));
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var a));
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { GeneralLevelIdc = 150 };
+        Assert.NotEqual(a, c);
+        Assert.Equal((byte)150, c.GeneralLevelIdc);
+        Assert.Equal((byte)120, a.GeneralLevelIdc);
+    }
+
+    [Fact]
+    public void HevcParameterSetArray_Record_Equality()
+    {
+        var nalu = System.Collections.Immutable.ImmutableArray.Create<byte>(0x40, 0x01);
+        var a = new HevcParameterSetArray
+        {
+            ArrayCompleteness = true,
+            NalUnitType = 32,
+            NalUnits = System.Collections.Immutable.ImmutableArray.Create(nalu),
+        };
+        var b = a with { ArrayCompleteness = false };
+        Assert.NotEqual(a, b);
+        Assert.False(b.ArrayCompleteness);
+        Assert.True(a.ArrayCompleteness);
+    }
+
+    [Theory]
+    [InlineData((byte)0)]
+    [InlineData((byte)1)]
+    [InlineData((byte)2)]
+    [InlineData((byte)3)]
+    public void ParallelismType_RoundTrips_All_Values(byte parallelism)
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: parallelism,
+            chromaFormatIdc: 1, bdLumaM8: 0, bdChromaM8: 0,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(parallelism, rec.ParallelismType);
+    }
+
+    [Theory]
+    [InlineData((byte)0, (byte)0, 8, 8)]
+    [InlineData((byte)2, (byte)2, 10, 10)]
+    [InlineData((byte)4, (byte)4, 12, 12)]
+    [InlineData((byte)6, (byte)6, 14, 14)]
+    [InlineData((byte)7, (byte)0, 15, 8)] // mismatched luma/chroma
+    public void BitDepth_Computed_Properties_Match_Encoded_Values(
+        byte bdLuma, byte bdChroma, int expectedLuma, int expectedChroma)
+    {
+        var payload = BuildHvcCHeader(
+            profileSpace: 0, tierFlag: false, profileIdc: 1,
+            profileCompat: 0u, constraints: 0UL,
+            levelIdc: 120, minSeg: 0, parallelism: 0,
+            chromaFormatIdc: 1, bdLumaM8: bdLuma, bdChromaM8: bdChroma,
+            avgFps: 0, constFps: 0, numTemporalLayers: 1,
+            temporalIdNested: true, lengthSizeMinusOne: 3,
+            arrays: []);
+        Assert.True(HevcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expectedLuma, rec.BitDepthLuma);
+        Assert.Equal(expectedChroma, rec.BitDepthChroma);
+    }
+
     private static byte[] BuildHvcCHeader(
         byte profileSpace, bool tierFlag, byte profileIdc,
         uint profileCompat, ulong constraints, byte levelIdc,

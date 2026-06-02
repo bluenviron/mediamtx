@@ -214,6 +214,344 @@ public class HeifOperatingPointsInformationTests
         Assert.Null(oinf);
     }
 
+    [Fact]
+    public void TryParse_Accepts_Multiple_Ptl_Entries()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0);
+        w.WriteByte(3); // num_ptl=3
+        // PTL 0: space=0, tier=0, idc=1
+        w.WriteByte(0x01); w.WriteUInt32(0x11111111u);
+        w.WriteBytes([0, 0, 0, 0, 0, 0]); w.WriteByte(30);
+        // PTL 1: space=2, tier=1, idc=2
+        w.WriteByte((byte)((2 << 6) | (1 << 5) | 2));
+        w.WriteUInt32(0x22222222u);
+        w.WriteBytes([1, 2, 3, 4, 5, 6]); w.WriteByte(60);
+        // PTL 2: space=3, tier=0, idc=7
+        w.WriteByte((byte)((3 << 6) | 7));
+        w.WriteUInt32(0x33333333u);
+        w.WriteBytes([0xFF, 0xFE, 0xFD, 0xFC, 0xFB, 0xFA]); w.WriteByte(180);
+        w.WriteUInt16(0); // num_ops
+        w.WriteByte(0); // max_layer_count
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        Assert.Equal(3, oinf!.ProfileTierLevels.Length);
+        Assert.Equal((byte)0, oinf.ProfileTierLevels[0].ProfileSpace);
+        Assert.False(oinf.ProfileTierLevels[0].TierFlag);
+        Assert.Equal((byte)1, oinf.ProfileTierLevels[0].ProfileIdc);
+        Assert.Equal((byte)2, oinf.ProfileTierLevels[1].ProfileSpace);
+        Assert.True(oinf.ProfileTierLevels[1].TierFlag);
+        Assert.Equal((byte)2, oinf.ProfileTierLevels[1].ProfileIdc);
+        Assert.Equal((byte)3, oinf.ProfileTierLevels[2].ProfileSpace);
+        Assert.False(oinf.ProfileTierLevels[2].TierFlag);
+        Assert.Equal(0xFFFEFDFCFBFAUL, oinf.ProfileTierLevels[2].ConstraintIndicatorFlags);
+    }
+
+    [Fact]
+    public void TryParse_Ignores_Upper_Two_Reserved_Bits_Of_NumPtl()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0);
+        // num_ptl byte with upper 2 reserved bits set; lower 6 bits = 1
+        w.WriteByte(0xC1);
+        w.WriteByte(0); w.WriteUInt32(0); w.WriteBytes([0, 0, 0, 0, 0, 0]); w.WriteByte(60);
+        w.WriteUInt16(0);
+        w.WriteByte(0);
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        Assert.Single(oinf!.ProfileTierLevels);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Operating_Point_With_BitRate_Only()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(0);
+        w.WriteUInt16(1); w.WriteUInt16(2); w.WriteUInt16(3); w.WriteUInt16(4);
+        // chroma=0 bd=0 reserved=0 frFlag=0 brFlag=1
+        w.WriteByte(0x01);
+        w.WriteUInt32(99u); w.WriteUInt32(55u);
+        w.WriteByte(0);
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        var op = Assert.Single(oinf!.OperatingPoints);
+        Assert.Null(op.AvgFrameRate);
+        Assert.Null(op.ConstantFrameRate);
+        Assert.Equal(99u, op.MaxBitRate);
+        Assert.Equal(55u, op.AvgBitRate);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Operating_Point_With_FrameRate_Only()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(0);
+        w.WriteUInt16(1); w.WriteUInt16(2); w.WriteUInt16(3); w.WriteUInt16(4);
+        // chroma=3 bd=7 reserved=0 frFlag=1 brFlag=0
+        w.WriteByte((byte)((3 << 6) | (7 << 3) | (1 << 1)));
+        w.WriteUInt16(0x1234); w.WriteByte(0xFF); // constFr should mask to lower 2 bits = 0x3
+        w.WriteByte(0);
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        var op = Assert.Single(oinf!.OperatingPoints);
+        Assert.Equal((ushort)0x1234, op.AvgFrameRate);
+        Assert.Equal((byte)0x3, op.ConstantFrameRate); // 0xFF & 0x3 = 0x3
+        Assert.Null(op.MaxBitRate);
+        Assert.Null(op.AvgBitRate);
+        Assert.Equal((byte)3, op.MaxChromaFormat);
+        Assert.Equal((byte)7, op.MaxBitDepth);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Multiple_Operating_Points()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0);
+        w.WriteUInt16(2); // num_ops=2
+
+        // OP 0: layer_count=0
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(0);
+        w.WriteUInt16(100); w.WriteUInt16(101); w.WriteUInt16(200); w.WriteUInt16(201);
+        w.WriteByte(0);
+
+        // OP 1: layer_count=2
+        w.WriteUInt16(7); w.WriteByte(3); w.WriteByte(2);
+        w.WriteByte(0); w.WriteByte((byte)((10 << 2) | (1 << 1)));
+        w.WriteByte(0); w.WriteByte((byte)((20 << 2) | 1));
+        w.WriteUInt16(50); w.WriteUInt16(51); w.WriteUInt16(60); w.WriteUInt16(61);
+        w.WriteByte(0);
+        w.WriteByte(0);
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        Assert.Equal(2, oinf!.OperatingPoints.Length);
+        Assert.Empty(oinf.OperatingPoints[0].Layers);
+        Assert.Equal(2, oinf.OperatingPoints[1].Layers.Length);
+        Assert.Equal((byte)10, oinf.OperatingPoints[1].Layers[0].LayerId);
+        Assert.True(oinf.OperatingPoints[1].Layers[0].IsOutputLayer);
+        Assert.False(oinf.OperatingPoints[1].Layers[0].IsAlternateOutputLayer);
+        Assert.Equal((byte)20, oinf.OperatingPoints[1].Layers[1].LayerId);
+        Assert.False(oinf.OperatingPoints[1].Layers[1].IsOutputLayer);
+        Assert.True(oinf.OperatingPoints[1].Layers[1].IsAlternateOutputLayer);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Multiple_Layer_Dependencies()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0x0001); // popcount=1
+        w.WriteByte(0); w.WriteUInt16(0);
+        w.WriteByte(2); // max_layer_count=2
+        // dep 0
+        w.WriteByte(0x10); w.WriteByte(1); w.WriteByte(0x05); w.WriteByte(0xAA);
+        // dep 1
+        w.WriteByte(0x20); w.WriteByte(0); w.WriteByte(0xBB);
+
+        Assert.True(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out var oinf));
+        Assert.Equal(2, oinf!.LayerDependencies.Length);
+        Assert.Equal((byte)0x10, oinf.LayerDependencies[0].DependentLayerId);
+        Assert.Equal(new byte[] { 0x05 }, oinf.LayerDependencies[0].DependsOnLayerIds.ToArray());
+        Assert.Equal(new byte[] { 0xAA }, oinf.LayerDependencies[0].DimensionIdentifiers.ToArray());
+        Assert.Equal((byte)0x20, oinf.LayerDependencies[1].DependentLayerId);
+        Assert.Empty(oinf.LayerDependencies[1].DependsOnLayerIds);
+        Assert.Equal(new byte[] { 0xBB }, oinf.LayerDependencies[1].DimensionIdentifiers.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Before_Numptl_Byte()
+    {
+        // header (4) + scalabilityMask (2) = 6 bytes, no num_ptl byte
+        byte[] payload = [0, 0, 0, 0, 0, 0];
+        Assert.False(HeifOperatingPointsInformation.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Before_NumOps()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0);
+        w.WriteByte(0); // num_ptl=0
+        // missing num_ops (2 bytes)
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_OperatingPoint_Header()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        // only 3 bytes of the required 4 OP header bytes
+        w.WriteUInt16(0); w.WriteByte(0);
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Layer_Entry()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(1); // layer_count=1
+        w.WriteByte(0); // only ptlIdx, no layer byte
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_OperatingPoint_Dimensions()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(0); // layer_count=0
+        w.WriteUInt16(0); w.WriteUInt16(0); // only 4 of the required 9 bytes
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_BitRate_Block()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(1);
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteByte(0);
+        w.WriteUInt16(0); w.WriteUInt16(0); w.WriteUInt16(0); w.WriteUInt16(0);
+        w.WriteByte(0x01); // brFlag=1
+        // only 4 of the required 8 bit-rate bytes
+        w.WriteUInt32(0u);
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_LayerDep_Header()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(0);
+        w.WriteByte(1); // max_layer_count=1
+        w.WriteByte(0); // only depId, no numDeps byte
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_LayerDep_DepsList()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0); w.WriteByte(0); w.WriteUInt16(0);
+        w.WriteByte(1); // max_layer_count=1
+        w.WriteByte(0); w.WriteByte(2); // depId, numDeps=2
+        w.WriteByte(0); // only 1 of the required 2 dep bytes
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_LayerDep_Dimensions()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0x0007); // popcount=3
+        w.WriteByte(0); w.WriteUInt16(0);
+        w.WriteByte(1);
+        w.WriteByte(0); w.WriteByte(0); // depId, numDeps=0
+        w.WriteByte(0); w.WriteByte(0); // only 2 of the required 3 dimension bytes
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Before_MaxLayerCount()
+    {
+        var w = new PayloadWriter();
+        w.WriteFullBoxHeader();
+        w.WriteUInt16(0);
+        w.WriteByte(0); // num_ptl=0
+        w.WriteUInt16(0); // num_ops=0
+        // missing max_layer_count byte
+        Assert.False(HeifOperatingPointsInformation.TryParse(w.ToSpan(), out _));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(0xFF)]
+    public void TryParse_Rejects_Nonzero_FullBox_Version(byte version)
+    {
+        byte[] payload = [version, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        Assert.False(HeifOperatingPointsInformation.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Flag_Bytes_Are_Ignored()
+    {
+        // FullBox flags should not affect parsing.
+        byte[] payload = [0, 0xAB, 0xCD, 0xEF, 0, 0, 0, 0, 0, 0];
+        Assert.True(HeifOperatingPointsInformation.TryParse(payload, out var oinf));
+        Assert.NotNull(oinf);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        byte[] payload = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        Assert.True(HeifOperatingPointsInformation.TryParse(payload, out var a));
+        Assert.True(HeifOperatingPointsInformation.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+
+        var c = a with { ScalabilityMask = 0xBEEF };
+        Assert.NotEqual(a, c);
+        Assert.Equal((ushort)0xBEEF, c.ScalabilityMask);
+    }
+
+    [Fact]
+    public void HeifLhevcProfileTierLevel_Record_Equality()
+    {
+        var a = new HeifLhevcProfileTierLevel
+        {
+            ProfileSpace = 1, TierFlag = true, ProfileIdc = 2,
+            ProfileCompatibilityFlags = 0xDEAD, ConstraintIndicatorFlags = 0xBEEF, LevelIdc = 30,
+        };
+        var b = a with { LevelIdc = 60 };
+        Assert.NotEqual(a, b);
+        Assert.Equal((byte)60, b.LevelIdc);
+        Assert.Equal((byte)30, a.LevelIdc);
+    }
+
+    [Fact]
+    public void HeifLhevcOpLayer_Record_Equality()
+    {
+        var a = new HeifLhevcOpLayer
+        {
+            PtlIndex = 0, LayerId = 5, IsOutputLayer = true, IsAlternateOutputLayer = false,
+        };
+        var b = a with { IsAlternateOutputLayer = true };
+        Assert.NotEqual(a, b);
+        Assert.True(b.IsAlternateOutputLayer);
+        Assert.False(a.IsAlternateOutputLayer);
+    }
+
+    [Fact]
+    public void HeifLhevcLayerDependency_Record_Equality()
+    {
+        var a = new HeifLhevcLayerDependency
+        {
+            DependentLayerId = 1,
+            DependsOnLayerIds = System.Collections.Immutable.ImmutableArray.Create<byte>(0),
+            DimensionIdentifiers = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+        };
+        var b = a with { DependentLayerId = 2 };
+        Assert.NotEqual(a, b);
+        Assert.Equal((byte)2, b.DependentLayerId);
+    }
+
     // ---------- helpers ----------
 
     private sealed class PayloadWriter : IDisposable
