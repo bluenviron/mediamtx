@@ -198,4 +198,42 @@ internal static class CeltConstants
         _ => throw new ArgumentOutOfRangeException(nameof(samplesPerFrame),
             "CELT frame must be 120, 240, 480, or 960 samples (2.5/5/10/20 ms at 48 kHz)."),
     };
+
+    // ----------------------------------------------------------------
+    // Time-frequency resolution + spread tables (RFC 6716 §4.3.4)
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// TF resolution adjustment lookup. Indexed as
+    /// <c>TfSelectTable[LM][4*isTransient + 2*tf_select + tf_changed]</c>.
+    /// Values are signed; the result is added to the per-band MDCT layer
+    /// offset during synthesis (Phase 2d).
+    /// </summary>
+    public static ReadOnlySpan<sbyte> TfSelectTable => new sbyte[]
+    {
+        0, -1, 0, -1,  0, -1, 0, -1, // LM = 0 (2.5 ms)
+        0, -1, 0, -2,  1,  0, 1, -1, // LM = 1 (5 ms)
+        0, -2, 0, -3,  2,  0, 1, -1, // LM = 2 (10 ms)
+        0, -2, 0, -3,  3,  0, 1, -1, // LM = 3 (20 ms)
+    };
+
+    /// <summary>
+    /// ICDF for the CELT <c>spread</c> symbol — selects how aggressively
+    /// the PVQ decoder spreads pulses across band bins. 4 outcomes
+    /// (NONE=0, LIGHT=1, NORMAL=2, AGGRESSIVE=3); ftb = 5.
+    /// </summary>
+    public static ReadOnlySpan<byte> SpreadIcdf => new byte[] { 25, 23, 2, 0 };
+
+    /// <summary>
+    /// Spread modes selected by <see cref="SpreadIcdf"/>. Values match
+    /// libopus <c>SPREAD_NONE</c> / <c>SPREAD_LIGHT</c> /
+    /// <c>SPREAD_NORMAL</c> / <c>SPREAD_AGGRESSIVE</c>.
+    /// </summary>
+    public const int SpreadNone = 0;
+    /// <inheritdoc cref="SpreadNone"/>
+    public const int SpreadLight = 1;
+    /// <inheritdoc cref="SpreadNone"/>
+    public const int SpreadNormal = 2;
+    /// <inheritdoc cref="SpreadNone"/>
+    public const int SpreadAggressive = 3;
 }

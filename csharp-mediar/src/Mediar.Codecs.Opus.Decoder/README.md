@@ -11,12 +11,35 @@ commits.
 |     1 | Foundation: TOC parser, frame packing, range coder, silence-emitting skeleton | ✅ shipped |
 |    2a | CELT foundation: constants, band-layout `CeltMode`, decoder skeleton, OpusDecoder routing | ✅ shipped |
 |    2b | CELT energy: silence/transient/post-filter/intra flags + coarse energy (Laplace) | ✅ shipped |
-|    2c | CELT PVQ: bit allocation, band shape, anti-collapse, mid-side stereo      | ⏳ planned |
+|  2c.1 | CELT tf_decode + spread decision (front of PVQ block)                      | ✅ shipped |
+|  2c.2 | CELT bit allocation: dyn_alloc, alloc_trim, skip, stereo, compute_allocation | ⏳ planned |
+|  2c.3 | CELT fine energy + PVQ shape decode (`decode_pulses`, `cwrsi`)            | ⏳ planned |
+|  2c.4 | CELT anti-collapse + final energy                                          | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.1 behavior (added on top of Phase 2b)
+
+CELT-only frames now also decode the two symbols that live between
+coarse energy and the bit-allocation block:
+
+- **tf_decode (`LastTfResolution`)** — per-band time-frequency
+  resolution offsets. Each band in `[StartBand, EndBand)` is read as a
+  toggling 1-bit (logp = 2 or 4 depending on transient, then 4 or 5),
+  optionally followed by a reserved `tf_select` bit. The raw 0/1
+  resolution flags are then mapped through `TfSelectTable` into the
+  signed offsets the IMDCT will consume in Phase 2d.
+- **spread decision (`LastSpreadDecision`)** — 4-outcome ICDF
+  (`{25, 23, 2, 0}`, ftb=5) selecting one of `SpreadNone (0)`,
+  `SpreadLight (1)`, `SpreadNormal (2)`, `SpreadAggressive (3)`.
+  Defaults to `SpreadNormal` when the bit budget is exhausted.
+
+Output is still silence — Phases 2c.2 (allocation), 2c.3 (PVQ shape +
+fine energy), 2c.4 (anti-collapse + final energy), and 2d (IMDCT) ship
+the rest.
 
 ## Phase 2b behavior (added on top of Phase 2a)
 

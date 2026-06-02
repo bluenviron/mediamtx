@@ -44,6 +44,11 @@ internal sealed class CeltDecoder
     // Layout: _oldLogE[channel * MaxBands + band].
     private readonly float[] _oldLogE;
 
+    // Per-band TF resolution adjustment from Phase 2c.1. One entry per
+    // band (only [StartBand, EndBand) are meaningful). Values are
+    // signed and feed the MDCT layer offset during synthesis.
+    private readonly sbyte[] _tfRes;
+
     /// <summary>The active band layout for this decoder.</summary>
     public CeltMode Mode { get; }
 
@@ -87,6 +92,20 @@ internal sealed class CeltDecoder
     public CeltPostFilterParams LastPostFilter { get; private set; } = CeltPostFilterParams.Disabled;
 
     /// <summary>
+    /// Decoded spread mode for the most recent frame. One of
+    /// <see cref="CeltConstants.SpreadNone"/>..<see cref="CeltConstants.SpreadAggressive"/>.
+    /// Defaults to <c>SpreadNormal</c> when the budget did not admit the symbol.
+    /// </summary>
+    public int LastSpreadDecision { get; private set; } = CeltConstants.SpreadNormal;
+
+    /// <summary>
+    /// Per-band TF (time-frequency) resolution offset from the most
+    /// recent frame. Only entries in <c>[Mode.StartBand, Mode.EndBand)</c>
+    /// are meaningful; values outside that range read as 0.
+    /// </summary>
+    public ReadOnlySpan<sbyte> LastTfResolution => _tfRes;
+
+    /// <summary>
     /// Read-only view over the per-band log-energy state. Stored in
     /// DB_SHIFT units (multiply by <c>1/1024</c> to recover log2 energy).
     /// Layout matches libopus: <c>channel * MaxBands + band</c>.
@@ -106,6 +125,7 @@ internal sealed class CeltDecoder
         Mode = mode;
         _channels = channels;
         _oldLogE = new float[channels * CeltConstants.MaxBands];
+        _tfRes = new sbyte[CeltConstants.MaxBands];
     }
 
     /// <summary>
@@ -198,14 +218,67 @@ internal sealed class CeltDecoder
         // 5. Coarse band energies (Laplace-coded with linear prediction).
         DecodeCoarseEnergy(ref rangeDecoder, totalBits, intraEnergy, lm);
 
-        // Phase 2c/2d ship tf / spread / skip / allocation / fine energy /
-        // PVQ shape / anti-collapse / final energy and the IMDCT pipeline.
+        // 6. Per-band time-frequency resolution offsets (RFC 6716 §4.3.4.5).
+        Array.Clear(_tfRes);
+        DecodeTfChanges(ref rangeDecoder, totalBits, isTransient, lm);
+
+        // 7. Spread decision (RFC 6716 §4.3.4.3).
+        if (rangeDecoder.Tell() + 4 <= totalBits)
+        {
+            LastSpreadDecision = rangeDecoder.DecodeIcdf(CeltConstants.SpreadIcdf, 5);
+        }
+        else
+        {
+            LastSpreadDecision = CeltConstants.SpreadNormal;
+        }
+
+        // Phase 2c.2+ ships init_caps + dyn_alloc + alloc_trim +
+        // intensity/dual stereo + skip + compute_allocation, then Phase
+        // 2c.3 ships fine energy + PVQ shape decode + anti-collapse +
+        // final energy, and Phase 2d ships the IMDCT pipeline.
         // For now the output remains silent — but the decoded state above
         // is observable for tests.
 
         IsFirstFrame = false;
         SamplesProduced += Mode.SamplesPerFrame;
         return Mode.SamplesPerFrame;
+    }
+
+    private void DecodeTfChanges(ref OpusRangeDecoder rd, int totalBits, bool isTransient, int lm)
+    {
+        // Port of libopus tf_decode (celt/celt_decoder.c).
+        int logp = isTransient ? 2 : 4;
+        bool tfSelectRsv = lm > 0 && rd.Tell() + logp + 1 <= totalBits;
+        int budget = totalBits - (tfSelectRsv ? 1 : 0);
+
+        int curr = 0;
+        bool tfChanged = false;
+        for (int i = Mode.StartBand; i < Mode.EndBand; i++)
+        {
+            if (rd.Tell() + logp <= budget)
+            {
+                curr ^= rd.DecodeBitLogP(logp);
+                if (curr != 0) tfChanged = true;
+            }
+            _tfRes[i] = (sbyte)curr;
+            logp = isTransient ? 4 : 5;
+        }
+
+        int tfSelect = 0;
+        int isT = isTransient ? 1 : 0;
+        int changed = tfChanged ? 1 : 0;
+        if (tfSelectRsv &&
+            CeltConstants.TfSelectTable[lm * 8 + 4 * isT + 0 + changed] !=
+            CeltConstants.TfSelectTable[lm * 8 + 4 * isT + 2 + changed])
+        {
+            tfSelect = rd.DecodeBitLogP(1);
+        }
+
+        for (int i = Mode.StartBand; i < Mode.EndBand; i++)
+        {
+            int tableIdx = lm * 8 + 4 * isT + 2 * tfSelect + _tfRes[i];
+            _tfRes[i] = CeltConstants.TfSelectTable[tableIdx];
+        }
     }
 
     private void DecodeCoarseEnergy(ref OpusRangeDecoder rd, int totalBits, bool intra, int lm)
@@ -268,9 +341,11 @@ internal sealed class CeltDecoder
         IsFirstFrame = true;
         SamplesProduced = 0;
         Array.Clear(_oldLogE);
+        Array.Clear(_tfRes);
         LastFrameWasSilent = false;
         LastFrameWasTransient = false;
         LastFrameUsedIntra = false;
         LastPostFilter = CeltPostFilterParams.Disabled;
+        LastSpreadDecision = CeltConstants.SpreadNormal;
     }
 }

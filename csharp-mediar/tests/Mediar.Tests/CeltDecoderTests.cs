@@ -190,4 +190,75 @@ public sealed class CeltDecoderTests
         for (int i = 0; i < dec.OldLogE.Length; i++)
             Assert.Equal(0f, dec.OldLogE[i]);
     }
+
+    // ---- Phase 2c.1 — tf_decode + spread_decision -----------------------
+
+    [Fact]
+    public void DecodeFrame_Populates_TfResolution_For_NonSilent_Packet()
+    {
+        // tf_res[i] values are mapped through TfSelectTable, whose union of
+        // outputs across all (LM, isTransient, tfSelect, tfChanged) cells is
+        // a small set of small integers. Any populated band must fall inside
+        // that set.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        var tf = dec.LastTfResolution;
+        Assert.Equal(CeltConstants.MaxBands, tf.Length);
+        for (int i = mode.StartBand; i < mode.EndBand; i++)
+        {
+            // TfSelectTable values are all in {-3,-2,-1,0,1,2,3}.
+            Assert.InRange((int)tf[i], -3, 3);
+        }
+        // Bands outside [StartBand, EndBand) are never written and stay zero.
+        for (int i = 0; i < mode.StartBand; i++)
+            Assert.Equal(0, (int)tf[i]);
+        for (int i = mode.EndBand; i < tf.Length; i++)
+            Assert.Equal(0, (int)tf[i]);
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_SpreadDecision_For_NonSilent_Packet()
+    {
+        // Spread decision is a 4-outcome ICDF symbol (ftb=5). Whatever the
+        // payload looks like, the decoded value must be one of the legal
+        // spread modes: None=0, Light=1, Normal=2, Aggressive=3.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        Assert.InRange(dec.LastSpreadDecision,
+            CeltConstants.SpreadNone, CeltConstants.SpreadAggressive);
+    }
+
+    [Fact]
+    public void Reset_Clears_Tf_And_Spread_State()
+    {
+        // After Reset the tf-resolution buffer goes back to all-zero and
+        // the spread decision returns to the documented default (Normal).
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        dec.Reset();
+
+        var tf = dec.LastTfResolution;
+        for (int i = 0; i < tf.Length; i++)
+            Assert.Equal(0, (int)tf[i]);
+        Assert.Equal(CeltConstants.SpreadNormal, dec.LastSpreadDecision);
+    }
 }
