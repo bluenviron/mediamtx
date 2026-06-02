@@ -328,4 +328,104 @@ public sealed class AacLowFrequencyElementTests
         Assert.Equal(AacSingleChannelElement.MaxElementInstanceTag,
             AacLowFrequencyElement.MaxElementInstanceTag);
     }
+
+    [Fact]
+    public void Record_Equality_From_Identical_Bytes_Compare_VisibleFields()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 3, globalGain: 0x21, maxSfb: 6);
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var a));
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var b));
+        Assert.Equal(a!.ElementInstanceTag, b!.ElementInstanceTag);
+        Assert.Equal(a.BitsConsumed, b.BitsConsumed);
+        Assert.Equal(a.Stream.GlobalGain, b.Stream.GlobalGain);
+        Assert.Equal(a.Stream.IcsInfo.MaxSfb, b.Stream.IcsInfo.MaxSfb);
+    }
+
+    [Fact]
+    public void Record_With_Expression_Modifies_Tag_Without_Mutating_Original()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 2, globalGain: 0x00, maxSfb: 4);
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        var modified = lfe! with { ElementInstanceTag = 13 };
+        Assert.Equal(13, modified.ElementInstanceTag);
+        Assert.Equal(2, lfe.ElementInstanceTag);
+        Assert.NotSame(lfe, modified);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(7)]
+    public void TryParse_ShortLfe_MaxSfb_Roundtrips(int maxSfb)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortLfeBytes(tag: 0, globalGain: 0x00, maxSfb: maxSfb, grouping: 0x7F);
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.Equal(maxSfb, lfe!.Stream.IcsInfo.MaxSfb);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void TryParse_TruncatedFromEnd_AlwaysRejected(int trimBytesFromEnd)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var full = BuildCanonicalLfeBytes(tag: 0, globalGain: 0xFF, maxSfb: 10);
+        if (trimBytesFromEnd == 0)
+        {
+            Assert.True(AacLowFrequencyElement.TryParse(full, book, out _));
+            return;
+        }
+        var trimmed = full.AsSpan(0, full.Length - trimBytesFromEnd).ToArray();
+        Assert.False(AacLowFrequencyElement.TryParse(trimmed, book, out var lfe));
+        Assert.Null(lfe);
+    }
+
+    [Fact]
+    public void TryParse_StreamBitsConsumed_Plus_FourTag_Equals_TotalBitsConsumed()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 5, globalGain: 0x37, maxSfb: 7);
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.Equal(4 + lfe!.Stream.BitsConsumed, lfe.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_MaxSfb_Zero_Gives_Empty_Sections_And_Empty_Scale_Factors()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4); w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 0);
+        // No section data needed (maxSfb=0), but flags still required.
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacLowFrequencyElement.TryParse(w.ToArray(), book, out var lfe));
+        Assert.Empty(lfe!.Stream.SectionData.Sections);
+        Assert.Empty(lfe.Stream.ScaleFactorData.Entries);
+    }
+
+    [Fact]
+    public void TryParse_GainControlDataPresent_Reports_PresenceFlag()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(1u, 4); w.Write(0x10u, 8);
+        WriteLongIcsInfo(w, maxSfb: 2);
+        WriteOneZeroSection(w, len: 2);
+        w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(1u, 1); // gain_control_data_present
+        w.Write(0u, 2); // gcd: max_band = 0
+
+        Assert.True(AacLowFrequencyElement.TryParse(w.ToArray(), book, out var lfe));
+        Assert.True(lfe!.Stream.GainControlDataPresent);
+        Assert.False(lfe.Stream.PulseDataPresent);
+        Assert.False(lfe.Stream.TnsDataPresent);
+    }
 }

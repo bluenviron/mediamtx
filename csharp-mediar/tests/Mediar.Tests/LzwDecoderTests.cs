@@ -194,6 +194,133 @@ public sealed class LzwDecoderTests
         Assert.Equal(input, decoded);
     }
 
+    [Fact]
+    public void Decode_EmptySource_ReturnsEmpty()
+    {
+        var decoded = LzwDecoder.Decode(ReadOnlySpan<byte>.Empty, LzwOptions.Tiff());
+        Assert.Empty(decoded);
+    }
+
+    [Theory]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(16)]
+    public void Decode_AcceptsAllMaxBitsBetween9And16(int maxBits)
+    {
+        var input = "MEDIAR-LZW-MAX-BITS"u8.ToArray();
+        var compressed = EncodeTiffLzw(input);
+        var decoded = LzwDecoder.Decode(
+            compressed,
+            new LzwOptions(LzwBitOrder.MsbFirst, InitialBits: 8, MaxBits: maxBits, EarlyChange: true));
+        Assert.Equal(input, decoded);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Decode_InitialBits_BelowTwo_Throws(int initialBits)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LzwDecoder.Decode([0], new LzwOptions(LzwBitOrder.MsbFirst, InitialBits: initialBits, MaxBits: 12)));
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(17)]
+    [InlineData(int.MaxValue)]
+    public void Decode_MaxBits_OutOfRange_Throws(int maxBits)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LzwDecoder.Decode([0], new LzwOptions(LzwBitOrder.MsbFirst, InitialBits: 4, MaxBits: maxBits)));
+    }
+
+    [Fact]
+    public void Decode_InitialBits_EqualsMaxBits_Throws()
+    {
+        // InitialBits must be strictly less than MaxBits per ValidateOptions.
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LzwDecoder.Decode([0], new LzwOptions(LzwBitOrder.MsbFirst, InitialBits: 12, MaxBits: 12)));
+    }
+
+    [Fact]
+    public void DecodeGif_PixelCount_One_ReturnsOneByteWhenAvailable()
+    {
+        var input = "Z"u8.ToArray();
+        var compressed = EncodeGifLzw(input, lzwMinCodeSize: 8);
+        var decoded = LzwDecoder.DecodeGif(compressed, 8, pixelCount: 1);
+        Assert.Single(decoded);
+        Assert.Equal((byte)'Z', decoded[0]);
+    }
+
+    [Fact]
+    public void DecodeGif_HugePixelCount_StopsAtAvailableData()
+    {
+        // Request more pixels than the source can supply — output should
+        // be sized to the request but only contain the decoded prefix
+        // (remaining bytes stay at their default zero values).
+        var input = "ABC"u8.ToArray();
+        var compressed = EncodeGifLzw(input, lzwMinCodeSize: 8);
+        var decoded = LzwDecoder.DecodeGif(compressed, 8, pixelCount: 100);
+        Assert.Equal(100, decoded.Length);
+        Assert.Equal((byte)'A', decoded[0]);
+        Assert.Equal((byte)'B', decoded[1]);
+        Assert.Equal((byte)'C', decoded[2]);
+        for (int i = 3; i < decoded.Length; i++) Assert.Equal((byte)0, decoded[i]);
+    }
+
+    [Fact]
+    public void LzwOptions_RecordStruct_ToString_Contains_All_Fields()
+    {
+        var opts = new LzwOptions(LzwBitOrder.LsbFirst, 4, 12, true);
+        string s = opts.ToString();
+        Assert.Contains("BitOrder", s);
+        Assert.Contains("InitialBits", s);
+        Assert.Contains("MaxBits", s);
+        Assert.Contains("EarlyChange", s);
+    }
+
+    [Fact]
+    public void LzwOptions_Gif_StaticFactory_Various_MinCodeSizes()
+    {
+        for (int n = 2; n <= 8; n++)
+        {
+            var opts = LzwOptions.Gif(n);
+            Assert.Equal(n, opts.InitialBits);
+            Assert.Equal(12, opts.MaxBits);
+            Assert.Equal(LzwBitOrder.LsbFirst, opts.BitOrder);
+            Assert.False(opts.EarlyChange);
+        }
+    }
+
+    [Fact]
+    public void DecodeTiff_RoundTrips_AllByteValues_AsLiteralStream()
+    {
+        var input = new byte[256];
+        for (int i = 0; i < 256; i++) input[i] = (byte)i;
+        var compressed = EncodeTiffLzw(input);
+        var decoded = LzwDecoder.DecodeTiff(compressed);
+        Assert.Equal(input, decoded);
+    }
+
+    [Fact]
+    public void DecodeGif_LongRepetitiveSequence_Roundtrips()
+    {
+        // Many repetitions exercise dictionary growth across code-width boundaries.
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < 2048; i++) sb.Append('A' + (i % 16));
+        var input = System.Text.Encoding.ASCII.GetBytes(sb.ToString());
+        var compressed = EncodeGifLzw(input, lzwMinCodeSize: 8);
+        var decoded = LzwDecoder.DecodeGif(compressed, 8, input.Length);
+        Assert.Equal(input, decoded);
+    }
+
     // ── helpers: minimal correct LZW encoders used only by tests ────────────────────────
 
     private static byte[] EncodeTiffLzw(ReadOnlySpan<byte> input)
