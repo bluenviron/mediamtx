@@ -394,4 +394,71 @@ public sealed class Sr2ReaderTests
         reader.Dispose();
         Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Sr2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalSonySpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = Sr2Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Sr2, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalSonySpec());
+        using var sr2 = Sr2Reader.Open(new MemoryStream(bytes, writable: false));
+        if (!sr2.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in sr2.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Sr2_And_Info_Format_Matches()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalSonySpec());
+        using var sr2 = Sr2Reader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Sr2, sr2.Format);
+        Assert.Equal(ImageFormat.Sr2, sr2.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalSonySpec());
+        using var sr2 = Sr2Reader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(sr2.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalSonySpec());
+        var r = Sr2Reader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestSrwBuilder.IfdSpec MinimalSonySpec() => new()
+    {
+        Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+        Compression = 1, Photometric = 2, NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "SONY",
+    };
 }
