@@ -347,4 +347,112 @@ public sealed class AacDequantizedSpectrumTests
         Assert.Equal(1024, dq.Coefficients.Length);
         Assert.All(dq.Coefficients, c => Assert.Equal(0f, c));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(48001)]
+    [InlineData(192_000)]
+    public void FromFrame_VariousUnsupportedSampleRates_Throw(int sampleRate)
+    {
+        var frame = BuildSimpleFrame(globalGain: 100, sfDiff: 0);
+        Assert.Throws<ArgumentException>(() =>
+            AacDequantizedSpectrum.FromFrame(frame, sampleRate));
+    }
+
+    [Fact]
+    public void FromFrame_TwoSection_IntensityHcb_LeavesCoefficientsZero()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        // cb=15 (IntensityHcb), len=1
+        w.Write(15u, 4); w.Write(1u, 5);
+        // SF stream: intensity uses ordinary SF differential (sym 60 = 0).
+        var (c, l) = EncodeSfDiff(0);
+        w.Write(c, l);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var frame));
+        var dq = AacDequantizedSpectrum.FromFrame(frame!, Sr48k);
+        Assert.All(dq.Coefficients, c2 => Assert.Equal(0f, c2));
+    }
+
+    [Fact]
+    public void FromFrame_IntensityHcb2_LeavesCoefficientsZero()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        // cb=14 (IntensityHcb2), len=1
+        w.Write(14u, 4); w.Write(1u, 5);
+        var (c, l) = EncodeSfDiff(0);
+        w.Write(c, l);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var frame));
+        var dq = AacDequantizedSpectrum.FromFrame(frame!, Sr48k);
+        Assert.All(dq.Coefficients, c2 => Assert.Equal(0f, c2));
+    }
+
+    [Fact]
+    public void FromFrame_Record_Equality_And_With_Expression_Work()
+    {
+        var frame = BuildSimpleFrame(globalGain: 100, sfDiff: 0);
+        var a = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        var b = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        // record .Equals on ImmutableArray<T> uses reference equality,
+        // so two FromFrame calls produce distinct (but equivalent) instances.
+        // The 'with' expression still works.
+        var modified = a with { Coefficients = a.Coefficients };
+        Assert.Same(a.Coefficients.GetType(), modified.Coefficients.GetType());
+        Assert.Equal(a.Coefficients.Length, b.Coefficients.Length);
+        // Element-wise comparison is the meaningful check for two dequantizations of the same frame.
+        for (int i = 0; i < a.Coefficients.Length; i++)
+        {
+            Assert.Equal(a.Coefficients[i], b.Coefficients[i]);
+        }
+    }
+
+    [Fact]
+    public void FromFrame_TransformLength_Constant_Matches_AacSpectralData()
+    {
+        Assert.Equal(AacSpectralData.TransformLength, AacDequantizedSpectrum.TransformLength);
+    }
+
+    [Fact]
+    public void FromFrame_Coefficients_Type_Is_ImmutableArray_With_FixedLength()
+    {
+        var frame = BuildSimpleFrame(globalGain: 100, sfDiff: 0);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        Assert.IsType<System.Collections.Immutable.ImmutableArray<float>>(dq.Coefficients);
+        Assert.Equal(AacDequantizedSpectrum.TransformLength, dq.Coefficients.Length);
+    }
+
+    [Fact]
+    public void FromFrame_SymbolEncoding_FourPositiveOnes_Roundtrips_AtUnityGain()
+    {
+        // Verify the magnitude path through inverse-quantization: |v|^(4/3) for sf=100 yields 1.0.
+        var frame = BuildSimpleFrame(globalGain: 100, sfDiff: 0);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        for (int i = 0; i < 4; i++) Assert.Equal(1f, dq.Coefficients[i], precision: 5);
+    }
+
+    [Fact]
+    public void FromFrame_NegativeSfDiff_HalvesGain()
+    {
+        // sf_diff = -4 → sf = 96 → gain = 0.5
+        var frame = BuildSimpleFrame(globalGain: 100, sfDiff: -4);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        Assert.Equal(0.5f, dq.Coefficients[0], precision: 5);
+        Assert.Equal(0.5f, dq.Coefficients[3], precision: 5);
+    }
 }
