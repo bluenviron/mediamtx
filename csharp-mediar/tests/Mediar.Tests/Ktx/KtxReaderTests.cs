@@ -552,4 +552,84 @@ public sealed class KtxReaderTests
         using var reader = KtxReader.Open(ms);
         Assert.Equal("sRGB", reader.Info.ColorSpace);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => KtxReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => KtxReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = MinimalKtx();
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = KtxReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Ktx, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = MinimalKtx();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = KtxReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Ktx, r.Format);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalKtx();
+        var r = KtxReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Ktx()
+    {
+        byte[] bytes = MinimalKtx();
+        using var r = KtxReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Ktx, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = MinimalKtx();
+        using var r = KtxReader.Open(new MemoryStream(bytes, writable: false));
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    private static byte[] MinimalKtx()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8058, // GL_RGBA8
+            GlBaseInternalFormat = 0x1908, // GL_RGBA
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[4 * 4 * 4]);
+        return b.Build();
+    }
 }

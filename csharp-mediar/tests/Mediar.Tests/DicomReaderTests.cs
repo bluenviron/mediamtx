@@ -437,6 +437,73 @@ public sealed class DicomReaderTests
         frame.Dispose();
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => DicomReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => DicomReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var bytes = BuildExplicitVrLeDicom(2, 2, 8, "MONOCHROME2", new byte[] { 1, 2, 3, 4 });
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = DicomReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Dicom, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var bytes = BuildExplicitVrLeDicom(2, 2, 8, "MONOCHROME2", new byte[] { 1, 2, 3, 4 });
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = DicomReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Dicom, r.Format);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        var bytes = BuildExplicitVrLeDicom(2, 2, 8, "MONOCHROME2", new byte[] { 1, 2, 3, 4 });
+        var r = DicomReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Dicom()
+    {
+        var bytes = BuildExplicitVrLeDicom(2, 2, 8, "MONOCHROME2", new byte[] { 1, 2, 3, 4 });
+        using var r = DicomReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Dicom, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        var bytes = BuildExplicitVrLeDicom(2, 2, 8, "MONOCHROME2", new byte[] { 1, 2, 3, 4 });
+        using var r = DicomReader.Open(new MemoryStream(bytes, writable: false));
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
     // ── fixture builders ────────────────────────────────────────────────────────
 
     private static byte[] BuildExplicitVrLeDicom(
