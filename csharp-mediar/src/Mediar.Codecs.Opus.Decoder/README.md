@@ -17,13 +17,89 @@ commits.
 |  2c.3a | CELT `unquant_fine_energy` (fine-energy refinement of coarse spectrum)    | ✅ shipped |
 | 2c.3b.1 | CELT PVQ math helpers + pulse cache (`bitexact_cos`, `bitexact_log2tan`, `bits2pulses`, `pulses2bits`, `get_pulses`, `cache_index50`/`cache_bits50`) | ✅ shipped |
 | 2c.3b.2 | CELT PVQ shape decode primitives (`decode_pulses`, `cwrsi`, small-footprint `unext`/`uprev` recurrence) | ✅ shipped |
-|  2c.3b | CELT PVQ shape decode (`compute_theta`, `quant_band_n1`, `quant_partition`, `quant_band`, `quant_all_bands` integration) | ⏳ planned |
+| 2c.3b.3 | CELT energy split decoder (`compute_qn`, `compute_theta`, `quant_band_n1`, `isqrt32`) | ✅ shipped |
+|  2c.3b | CELT PVQ shape decode (`quant_partition`, `quant_band`, `quant_all_bands` integration) | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.3 behavior (added on top of Phase 2c.3b.2)
+
+Phase 2c.3b.3 ports the **energy split decoder** that sits in front of
+the recursive `quant_band` / `quant_partition` work: libopus
+`compute_qn`, `compute_theta`, and `quant_band_n1` from `celt/bands.c`.
+Together these decide *how* a band's energy gets split between the
+two halves of a mid/side (or stereo) decomposition before any PVQ
+shape decode happens.
+
+New surface area in `CeltSplit`:
+
+- **`ComputeQn(int n, int b, int offset, int pulseCap, bool stereo) → int`** —
+  pure integer math: given the partition size, the available bit
+  budget, and the band's pulse cap, returns the number of theta
+  quantisation levels `qn` (always 1 or an even value ≤ 256).
+  Reproduces libopus byte-for-byte against an inline reference port
+  in the test suite.
+- **`ComputeTheta(ref OpusRangeDecoder, int logNAtBand, int bandIndex, int intensity, int n, ref int b, int blocks, int blocks0, int LM, bool stereo, ref int fill, bool disableInv, int remainingBits, out BandSplitContext sctx)`** —
+  decoder-side port of libopus `compute_theta`. Decodes `itheta` from
+  one of three pdfs (step / uniform / triangular) depending on the
+  partition's geometry, then derives `imid`, `iside`, and the
+  mid-vs-side bit-allocation `delta`. Updates the caller's bit
+  budget `b` and per-block `fill` mask in-place. The encoder-only
+  branches (`theta_round`, `avoid_split_noise`, `ENABLE_QEXT`) are
+  not ported.
+- **`BandSplitContext`** — public output struct mirroring libopus
+  `struct split_ctx`: `Inv`, `IMid`, `ISide`, `Delta`, `ITheta`,
+  `QAlloc`.
+- **`QuantBandN1(ref OpusRangeDecoder, ref int remainingBits, Span<float> X, Span<float> Y, Span<float> lowbandOut) → uint`** —
+  the degenerate-partition fast path: when `N==1`, the entire band
+  reduces to a single sign bit per channel followed by a `±1.0f`
+  resynth. Optionally writes a 1/16-scaled value to `lowband_out`
+  for the next band's lowband prediction. Returns the codeword
+  mask (always 1).
+- **`FinaliseSplit`** (internal) — the `imid`/`iside`/`delta`
+  computation extracted from `compute_theta` so the pure-math part
+  is independently testable. Identical to libopus' tail of
+  `compute_theta`.
+- **`IsqrtU32`** (internal) — bit-exact port of libopus `isqrt32`
+  (digit-by-digit binary square root) used by the triangular pdf
+  decoder. Returns `floor(sqrt(v))` for any uint input.
+
+Why this slice exists separately: `compute_qn` / `compute_theta` /
+`quant_band_n1` are self-contained — they take a few primitives
+(range decoder, `bitexact_cos`, `bitexact_log2tan`) and return
+caller-consumable results. Shipping them now means the recursive
+`quant_partition` work in Phase 2c.3b.4 can focus on the splitting
+state machine alone, calling these helpers as building blocks.
+
+Test coverage (`CeltSplitTests`, 35 new tests):
+
+- **`ComputeQn_Matches_LibOpus_Reference`** — runs both our port and
+  an inline libopus reference port on shared inputs; any drift fails
+  the test.
+- **`ComputeQn_Always_Returns_Even_Or_One`** — invariant sweep over
+  thousands of `(n, b, offset)` combinations.
+- **`ComputeQn_Caps_At_256`** — qn upper bound.
+- **`FinaliseSplit_With_Middle_Theta_Matches_BitexactCos`** — sweeps
+  itheta over [64, 16320] and verifies `imid`/`iside`/`delta`
+  against the bit-exact cosine helpers from Phase 2c.3b.1.
+- **`QuantBandN1_*`** — sign-bit decode, stereo decode, zero-budget
+  no-op, lowband_out scaling, argument validation.
+- **`ComputeTheta_With_*_Qn_One_*`** — exercises the degenerate qn=1
+  branches (mono and stereo, with and without the `disableInv` mask).
+- **`IsqrtU32_*`** — known-value table plus a 50 000-input sweep
+  asserting the invariant `r² ≤ v < (r+1)²`.
+
+The entropy-pdf branches of `ComputeTheta` (step / uniform /
+triangular) will get end-to-end coverage in Phase 2c.3b.5 once
+`quant_all_bands` is wired against real Opus packets.
+
+Output is still silence — `CeltSplit` is not yet invoked from
+`CeltDecoder.Decode`. That wiring lands once the recursive
+`quant_band` logic ships in Phase 2c.3b.4 / 2c.3b.5.
 
 ## Phase 2c.3b.2 behavior (added on top of Phase 2c.3b.1)
 

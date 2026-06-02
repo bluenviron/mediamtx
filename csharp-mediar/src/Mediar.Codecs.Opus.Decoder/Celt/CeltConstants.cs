@@ -316,6 +316,10 @@ internal static class CeltConstants
     /// <summary>libopus <c>QTHETA_OFFSET</c>.</summary>
     public const int QThetaOffset = 4;
 
+    /// <summary>libopus <c>QTHETA_OFFSET_TWOPHASE</c> — special offset
+    /// applied to the stereo split when <c>N==2</c>.</summary>
+    public const int QThetaOffsetTwoPhase = 16;
+
     /// <summary>
     /// Bit allocation table — 11 quality hypotheses × 21 bands, in units of
     /// 1/32 bit per sample (0.1875 dB SNR). Indexed as
