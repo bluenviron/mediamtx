@@ -275,4 +275,122 @@ public sealed class AacStandardScaleFactorCodebookTests
         Assert.True(hasMin, "Expected at least one 1-bit codeword.");
         Assert.True(hasMax, "Expected at least one 19-bit codeword.");
     }
+
+    [Fact]
+    public void All_121_Symbols_Encode_Decode_Round_Trip()
+    {
+        // Every symbol in the table must encode then decode back to
+        // itself via Book.TryDecode. This is the strongest invariant
+        // the standard codebook can offer.
+        for (int symbol = 0; symbol < AacStandardScaleFactorCodebook.SymbolCount; symbol++)
+        {
+            int bits = AacStandardScaleFactorCodebook.Bits[symbol];
+            uint code = AacStandardScaleFactorCodebook.Codes[symbol];
+            int byteLen = (bits + 7) / 8;
+            byte[] buf = new byte[byteLen];
+            int shift = byteLen * 8 - bits;
+            ulong padded = (ulong)code << shift;
+            for (int i = 0; i < byteLen; i++)
+            {
+                buf[i] = (byte)((padded >> ((byteLen - 1 - i) * 8)) & 0xFF);
+            }
+            var reader = new BitReader(buf);
+            Assert.True(AacStandardScaleFactorCodebook.Book.TryDecode(ref reader, out var decoded),
+                $"Symbol {symbol} ({bits}-bit) failed to decode.");
+            Assert.Equal(symbol, decoded);
+        }
+    }
+
+    [Theory]
+    [InlineData(-60, 0)]
+    [InlineData(-30, 30)]
+    [InlineData(-1, 59)]
+    [InlineData(0, 60)]
+    [InlineData(1, 61)]
+    [InlineData(30, 90)]
+    [InlineData(60, 120)]
+    public void DeltaToSymbol_All_Valid_Deltas_Round_Trip(int delta, int expectedSymbol)
+    {
+        Assert.Equal(expectedSymbol, AacStandardScaleFactorCodebook.DeltaToSymbol(delta));
+        Assert.Equal(delta, AacStandardScaleFactorCodebook.SymbolToDelta(expectedSymbol));
+    }
+
+    [Fact]
+    public void DeltaToSymbol_All_Valid_Range_Round_Trips()
+    {
+        // Cover the entire [-60, 60] delta range.
+        for (int d = -60; d <= 60; d++)
+        {
+            int sym = AacStandardScaleFactorCodebook.DeltaToSymbol(d);
+            Assert.InRange(sym, 0, AacStandardScaleFactorCodebook.SymbolCount - 1);
+            Assert.Equal(d, AacStandardScaleFactorCodebook.SymbolToDelta(sym));
+        }
+    }
+
+    [Fact]
+    public void Codes_Are_Prefix_Free_Across_All_Lengths()
+    {
+        // Stronger than the per-length duplicate check: ensure no
+        // codeword is a prefix of any other codeword. For each pair
+        // (i, j) with bits[i] <= bits[j], verify Codes[j] >>
+        // (bits[j] - bits[i]) != Codes[i].
+        int n = AacStandardScaleFactorCodebook.SymbolCount;
+        for (int i = 0; i < n; i++)
+        {
+            int bi = AacStandardScaleFactorCodebook.Bits[i];
+            uint ci = AacStandardScaleFactorCodebook.Codes[i];
+            for (int j = 0; j < n; j++)
+            {
+                if (i == j) continue;
+                int bj = AacStandardScaleFactorCodebook.Bits[j];
+                if (bj < bi) continue;
+                uint cjShifted = AacStandardScaleFactorCodebook.Codes[j] >> (bj - bi);
+                if (bj == bi && i > j) continue; // covered by duplicates test
+                Assert.False(cjShifted == ci,
+                    $"Codeword {ci:X} ({bi}-bit, sym {i}) is a prefix of {AacStandardScaleFactorCodebook.Codes[j]:X} ({bj}-bit, sym {j}).");
+            }
+        }
+    }
+
+    [Fact]
+    public void TryDecode_Empty_Buffer_Returns_False_Without_Throwing()
+    {
+        var reader = new BitReader(Array.Empty<byte>());
+        // No bits available — Book.TryDecode must fail cleanly.
+        Assert.False(AacStandardScaleFactorCodebook.Book.TryDecode(ref reader, out _));
+    }
+
+    [Fact]
+    public void Decode_Two_Symbols_In_Succession_From_Same_Reader()
+    {
+        // Pack two single-bit "0" codes back-to-back (sym 60 twice) into
+        // one byte and decode them in sequence with state preserved.
+        byte[] data = { 0b0000_0000 };
+        var reader = new BitReader(data);
+        Assert.True(AacStandardScaleFactorCodebook.Book.TryDecode(ref reader, out var s1));
+        Assert.True(AacStandardScaleFactorCodebook.Book.TryDecode(ref reader, out var s2));
+        Assert.Equal(60, s1);
+        Assert.Equal(60, s2);
+    }
+
+    [Fact]
+    public void MaxAbsoluteDelta_Equals_ZeroDeltaSymbolIndex()
+    {
+        // The codebook is centred on symbol 60 with deltas in [-60, +60],
+        // so the two constants must agree.
+        Assert.Equal(
+            AacStandardScaleFactorCodebook.ZeroDeltaSymbolIndex,
+            AacStandardScaleFactorCodebook.MaxAbsoluteDelta);
+    }
+
+    [Fact]
+    public void Codes_And_Bits_Have_Matching_Lengths_For_All_Symbols()
+    {
+        Assert.Equal(
+            AacStandardScaleFactorCodebook.Codes.Length,
+            AacStandardScaleFactorCodebook.Bits.Length);
+        Assert.Equal(
+            AacStandardScaleFactorCodebook.SymbolCount,
+            AacStandardScaleFactorCodebook.Codes.Length);
+    }
 }

@@ -412,6 +412,138 @@ public sealed class TsDemuxerTests
         Assert.Equal(TimeSpan.Zero, dx.Duration);
     }
 
+    [Theory]
+    [InlineData(0x03, CodecId.Mp3)]
+    [InlineData(0x04, CodecId.Mp3)]
+    [InlineData(0x0F, CodecId.Aac)]
+    [InlineData(0x11, CodecId.Aac)]
+    [InlineData(0x1B, CodecId.H264)]
+    [InlineData(0x24, CodecId.H265)]
+    [InlineData(0x81, CodecId.Ac3)]
+    [InlineData(0x87, CodecId.EAc3)]
+    public void StreamTypes_ToCodecId_Recognised(byte streamType, CodecId expected)
+    {
+        Assert.Equal(expected, StreamTypes.ToCodecId(streamType));
+    }
+
+    [Theory]
+    [InlineData((byte)0x00)]
+    [InlineData((byte)0x01)]
+    [InlineData((byte)0x02)]
+    [InlineData((byte)0x05)]
+    [InlineData((byte)0x06)]
+    [InlineData((byte)0x80)]
+    [InlineData((byte)0xFF)]
+    public void StreamTypes_ToCodecId_Unknown(byte streamType)
+    {
+        Assert.Equal(CodecId.Unknown, StreamTypes.ToCodecId(streamType));
+    }
+
+    [Theory]
+    [InlineData(CodecId.H264, true)]
+    [InlineData(CodecId.H265, true)]
+    [InlineData(CodecId.Aac, false)]
+    [InlineData(CodecId.Mp3, false)]
+    [InlineData(CodecId.Ac3, false)]
+    [InlineData(CodecId.EAc3, false)]
+    [InlineData(CodecId.Unknown, false)]
+    public void StreamTypes_IsVideo_ClassifiesCorrectly(CodecId codec, bool expected)
+    {
+        Assert.Equal(expected, StreamTypes.IsVideo(codec));
+    }
+
+    [Fact]
+    public void TsPacket_TryParse_Rejects_Buffer_Smaller_Than_188()
+    {
+        Span<byte> tooSmall = stackalloc byte[100];
+        tooSmall[0] = 0x47;
+        Assert.False(TsPacket.TryParse(tooSmall, out _));
+    }
+
+    [Fact]
+    public void TsPacket_TryParse_NullPid_RecognisedAs0x1FFF()
+    {
+        Span<byte> p = stackalloc byte[188];
+        p[0] = 0x47;
+        p[1] = 0x1F; // PID high = 0x1F
+        p[2] = 0xFF; // PID low = 0xFF; combined 0x1FFF (null PID)
+        p[3] = 0x10; // payload only
+        Assert.True(TsPacket.TryParse(p, out var info));
+        Assert.Equal(0x1FFF, info.Pid);
+    }
+
+    [Fact]
+    public void TsPacket_TryParse_AdaptationOnly_NoPayload()
+    {
+        Span<byte> p = stackalloc byte[188];
+        p[0] = 0x47;
+        p[1] = 0x00;
+        p[2] = 0x00;
+        p[3] = 0x20; // adaptation-field only, no payload
+        p[4] = 0;    // adaptation_field_length = 0
+        Assert.True(TsPacket.TryParse(p, out var info));
+        Assert.True(info.HasAdaptationField);
+        Assert.False(info.HasPayload);
+        Assert.Equal(0, info.PayloadLength);
+    }
+
+    [Fact]
+    public void TsPacket_TryParse_RejectsAdaptationFieldOverflow()
+    {
+        Span<byte> p = stackalloc byte[188];
+        p[0] = 0x47;
+        p[1] = 0x00;
+        p[2] = 0x00;
+        p[3] = 0x30; // AF + payload
+        p[4] = 200;  // adaptation_field_length too large
+        Assert.False(TsPacket.TryParse(p, out _));
+    }
+
+    [Fact]
+    public void TsPacket_TryParse_DecodesTransportPriorityFlag()
+    {
+        Span<byte> p = stackalloc byte[188];
+        p[0] = 0x47;
+        p[1] = 0x20; // TP=1, no PUSI, PID high 0
+        p[2] = 0x10;
+        p[3] = 0x10; // payload only, CC 0
+        Assert.True(TsPacket.TryParse(p, out var info));
+        Assert.True(info.TransportPriority);
+        Assert.False(info.PayloadUnitStartIndicator);
+        Assert.Equal(0x10, info.Pid);
+    }
+
+    [Theory]
+    [InlineData((byte)0x00)] // reserved-zero sync; not 0x47
+    [InlineData((byte)0x46)]
+    [InlineData((byte)0x48)]
+    [InlineData((byte)0xFF)]
+    public void TsPacket_TryParse_Rejects_NonSync_Bytes(byte first)
+    {
+        Span<byte> p = stackalloc byte[188];
+        p[0] = first;
+        Assert.False(TsPacket.TryParse(p, out _));
+    }
+
+    [Fact]
+    public async Task ReadSamplesAsync_NoPesPackets_YieldsNothing()
+    {
+        // Valid PAT/PMT but no PES packets — the async iterator must
+        // complete without producing samples instead of blocking forever.
+        var builder = new TsBuilder();
+        builder.AddPatPacket(programNumber: 1, pmtPid: PmtPid);
+        builder.AddPmtPacket(PmtPid, programNumber: 1, pcrPid: H264Pid,
+            new TsBuilder.PmtEntry(StreamType: 0x1B, ElementaryPid: H264Pid));
+        for (int i = 0; i < 8; i++) builder.AddNullPacket();
+
+        using var src = new MemoryRandomAccessSource(builder.Build());
+        using var dx = TsDemuxer.Open(src);
+
+        int count = 0;
+        await foreach (var _ in dx.ReadSamplesAsync()) count++;
+        Assert.Equal(0, count);
+    }
+
     /// <summary>
     /// Builds a minimal MPEG-TS byte stream out of 188-byte packets carrying
     /// hand-crafted PAT, PMT, PES, and null payloads. Internal helper used
