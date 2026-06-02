@@ -204,4 +204,73 @@ public sealed class AacSpectralDataStandardCodebooksTests
             new byte[] { 0xFF }, ics, sections, Sr48k, out var data));
         Assert.Null(data);
     }
+
+    [Fact]
+    public void StandardCodebookList_Slot1Through11_Are_All_Distinct_Instances()
+    {
+        // The 11 codebooks must each be a different object - the sentinel
+        // slots all collapse to null but slots 1..11 must not alias.
+        var seen = new HashSet<object>();
+        for (int i = 1; i <= 11; i++)
+        {
+            var book = AacStandardSpectralCodebooks.StandardCodebookList[i];
+            Assert.NotNull(book);
+            Assert.True(seen.Add(book!), $"slot {i} aliases another slot");
+        }
+    }
+
+    [Fact]
+    public void StandardCodebookList_Indexer_Returns_Same_Reference_Across_Calls()
+    {
+        // Repeated indexing returns the same cached codebook instance.
+        for (int i = 1; i <= 11; i++)
+        {
+            var a = AacStandardSpectralCodebooks.StandardCodebookList[i];
+            var b = AacStandardSpectralCodebooks.StandardCodebookList[i];
+            Assert.Same(a, b);
+        }
+    }
+
+    [Fact]
+    public void Overload_EmptySectionList_HasCoefficientsLength_Equals_1024()
+    {
+        // Regardless of maxSfb / sample rate, long-window output must be 1024.
+        var ics = LongIcsInfo(maxSfb: 0);
+        var sections = SectionList();
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var data));
+        Assert.Equal(1024, data!.Coefficients.Length);
+    }
+
+    [Fact]
+    public void Overload_TryParse_Idempotent_For_Same_Input()
+    {
+        // Two independent TryParse calls on identical bytes must produce
+        // coefficient arrays with identical content.
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, 1, 0, 1));
+        byte[] bytes = { 0b0000_0000 };
+
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, out var a));
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, out var b));
+        Assert.Equal(a!.BitsConsumed, b!.BitsConsumed);
+        Assert.Equal(a.Coefficients.ToArray(), b.Coefficients.ToArray());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void Overload_SentinelCb_PerSection_Always_Yields_Zero_Bits(int cb)
+    {
+        // cb 0 (ZERO_HCB), 13 (NOISE_HCB), 14/15 (INTENSITY_HCB) are all
+        // skipped without consuming bits.
+        var ics = LongIcsInfo(maxSfb: 49);
+        var sections = SectionList((0, cb, 0, 49));
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var data));
+        Assert.Equal(0, data!.BitsConsumed);
+    }
 }

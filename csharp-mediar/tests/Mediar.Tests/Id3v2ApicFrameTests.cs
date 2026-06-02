@@ -108,6 +108,150 @@ public sealed class Id3v2ApicFrameTests
         Assert.Single(meta.Pictures);
     }
 
+    [Fact]
+    public void Pic_V22_Gif_Maps_To_Image_Gif()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "GIF",
+            pictureType: (byte)MediaPictureType.Media,
+            description: "", data: PngMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("image/gif", picture.MimeType);
+    }
+
+    [Fact]
+    public void Pic_V22_Bmp_Maps_To_Image_Bmp()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "BMP",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("image/bmp", picture.MimeType);
+    }
+
+    [Fact]
+    public void Pic_V22_Unknown_Format_Maps_To_Image_LowerCase()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "XYZ",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("image/xyz", picture.MimeType);
+    }
+
+    [Fact]
+    public void Pic_V22_Jpeg_LowerCase_Maps_To_Image_Jpeg()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "jpg",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        // ToUpperInvariant("jpg") == "JPG" -> image/jpeg.
+        Assert.Equal("image/jpeg", picture.MimeType);
+    }
+
+    [Fact]
+    public void Apic_Boundary_PictureType_20_Maps_To_PublisherLogo()
+    {
+        // PublisherLogo (raw 20) is the last legal enum value - must NOT
+        // fall back to Other.
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "image/jpeg",
+            pictureType: 20, description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(MediaPictureType.PublisherLogo, picture.Type);
+    }
+
+    [Fact]
+    public void Apic_V23_Empty_Description_Yields_Empty_String()
+    {
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "image/jpeg",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(string.Empty, picture.Description);
+    }
+
+    [Fact]
+    public void Apic_V24_Utf16_BE_Description()
+    {
+        var meta = Decode(version: 4, BuildApicFrame(
+            encoding: 2, mime: "image/png",
+            pictureType: (byte)MediaPictureType.Other,
+            description: "Tëst", data: PngMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("Tëst", picture.Description);
+    }
+
+    [Fact]
+    public void Apic_V23_Utf16_BOM_Description()
+    {
+        // encoding 1 uses UTF-16 with a BOM.
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 1, mime: "image/jpeg",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "🎵", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("🎵", picture.Description);
+    }
+
+    [Fact]
+    public void Apic_Two_Frames_Same_Type_Both_Retained()
+    {
+        byte[] frame1 = BuildApicFrame(0, "image/jpeg", (byte)MediaPictureType.CoverFront, "A", JpegMagic);
+        byte[] frame2 = BuildApicFrame(0, "image/jpeg", (byte)MediaPictureType.CoverFront, "B", JpegMagic);
+        var meta = Decode(version: 3, [.. frame1, .. frame2]);
+        Assert.Equal(2, meta.Pictures.Count);
+        Assert.Equal("A", meta.Pictures[0].Description);
+        Assert.Equal("B", meta.Pictures[1].Description);
+    }
+
+    [Fact]
+    public void Apic_All_Roles_Survive_Independently()
+    {
+        // Build pictures across the most-used type values.
+        var types = new[]
+        {
+            MediaPictureType.Other,
+            MediaPictureType.CoverFront,
+            MediaPictureType.CoverBack,
+            MediaPictureType.Artist,
+            MediaPictureType.LeadArtist,
+            MediaPictureType.Band,
+            MediaPictureType.Conductor,
+            MediaPictureType.PublisherLogo,
+        };
+        var frames = new List<byte>();
+        foreach (var t in types)
+        {
+            frames.AddRange(BuildApicFrame(0, "image/jpeg", (byte)t, t.ToString(), JpegMagic));
+        }
+        var meta = Decode(version: 3, frames.ToArray());
+        Assert.Equal(types.Length, meta.Pictures.Count);
+        for (int i = 0; i < types.Length; i++)
+        {
+            Assert.Equal(types[i], meta.Pictures[i].Type);
+        }
+    }
+
+    [Fact]
+    public void Apic_DataBuffer_Is_Independent_Of_Source_Bytes()
+    {
+        byte[] payload = (byte[])JpegMagic.Clone();
+        byte[] frame = BuildApicFrame(0, "image/jpeg", (byte)MediaPictureType.CoverFront, "", payload);
+        var meta = Decode(version: 3, frame);
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(JpegMagic, picture.Data.ToArray());
+        // The picture data should not alias the original payload buffer.
+        // (Mutating payload after the fact must not change the stored picture.)
+        for (int i = 0; i < payload.Length; i++) payload[i] = 0;
+        Assert.Equal(JpegMagic, picture.Data.ToArray());
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata Decode(int version, byte[] frames)
