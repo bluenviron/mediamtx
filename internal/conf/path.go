@@ -420,6 +420,8 @@ func (pconf *Path) validate(
 
 	// General
 
+	hasSourcePlaceholders := strings.Contains(pconf.Source, "$")
+
 	switch {
 	case pconf.Source == "publisher":
 		if pconf.DisablePublisherOverride != nil {
@@ -461,54 +463,64 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		u, err := url.Parse(pconf.Source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-		}
+		if !hasSourcePlaceholders {
+			u, err := url.Parse(pconf.Source)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			}
 
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
-			if user != "" && pass == "" ||
-				user == "" && pass != "" {
-				return fmt.Errorf("username and password must be both provided")
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					return fmt.Errorf("username and password must be both provided")
+				}
 			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		u, err := url.Parse(pconf.Source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-		}
+		if !hasSourcePlaceholders {
+			u, err := url.Parse(pconf.Source)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			}
 
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
-			if user != "" && pass == "" ||
-				user == "" && pass != "" {
-				return fmt.Errorf("username and password must be both provided")
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					return fmt.Errorf("username and password must be both provided")
+				}
 			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+		if !hasSourcePlaceholders {
+			_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+		if !hasSourcePlaceholders {
+			_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
 
 	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
+		if !hasSourcePlaceholders {
+			_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
+			}
 		}
 
 		if pconf.RTPSDP == "" {
@@ -522,16 +534,20 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		_, err := url.Parse(pconf.Source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+		if !hasSourcePlaceholders {
+			_, err := url.Parse(pconf.Source)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		_, err := url.Parse(pconf.Source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+		if !hasSourcePlaceholders {
+			_, err := url.Parse(pconf.Source)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			}
 		}
 
 	case pconf.Source == "redirect":
