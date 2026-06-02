@@ -115,6 +115,91 @@ public class HeifUserDescriptionTests
         Assert.False(r.TryGetUserDescription(1, out _));
     }
 
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        var a = new HeifUserDescription { Lang = "en", Name = "T", Description = "D", Tags = "x" };
+        var b = new HeifUserDescription { Lang = "en", Name = "T", Description = "D", Tags = "x" };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { Lang = "fr" };
+        Assert.NotEqual(a, c);
+        Assert.Equal("fr", c.Lang);
+    }
+
+    [Fact]
+    public void TryParse_EmptyData_Returns_False()
+    {
+        Assert.False(HeifUserDescription.TryParse(ReadOnlySpan<byte>.Empty, out _));
+    }
+
+    [Fact]
+    public void TryParse_OnlyHeader_NoStrings_Returns_False()
+    {
+        // Header present but no string bytes follow.
+        Assert.False(HeifUserDescription.TryParse(new byte[4], out _));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(127)]
+    [InlineData(255)]
+    public void TryParse_NonZero_Version_Rejected(byte version)
+    {
+        var payload = BuildUdesPayload("en", "A", "B", "C");
+        payload[0] = version;
+        Assert.False(HeifUserDescription.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_FlagBytes_Are_Ignored()
+    {
+        var payload = BuildUdesPayload("en", "Name", "Desc", "Tags");
+        payload[1] = 0xAB;
+        payload[2] = 0xCD;
+        payload[3] = 0xEF;
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal("en", rec.Lang);
+        Assert.Equal("Name", rec.Name);
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("fr-FR")]
+    [InlineData("zh-Hant-TW")]
+    [InlineData("x-custom")]
+    public void TryParse_AcceptsCommonBcp47Tags(string lang)
+    {
+        var payload = BuildUdesPayload(lang, "n", "d", "t");
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal(lang, rec.Lang);
+    }
+
+    [Fact]
+    public void TryParse_Long_Description_Roundtrip()
+    {
+        var description = new string('X', 4096);
+        var payload = BuildUdesPayload("en", "Name", description, "tag");
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal(4096, rec.Description.Length);
+        Assert.Equal(description, rec.Description);
+    }
+
+    [Fact]
+    public void TryParse_Ignores_Extra_Bytes_After_Tags_String()
+    {
+        // Build a normal payload, then append junk bytes after the final NUL.
+        var payload = BuildUdesPayload("en", "n", "d", "t");
+        var extended = new byte[payload.Length + 4];
+        payload.CopyTo(extended, 0);
+        extended[^1] = 0xAB;
+        Assert.True(HeifUserDescription.TryParse(extended, out var rec));
+        Assert.Equal("en", rec.Lang);
+        Assert.Equal("t", rec.Tags);
+    }
+
     private static byte[] BuildUdesPayload(string lang, string name, string description, string tags)
     {
         using var ms = new MemoryStream();

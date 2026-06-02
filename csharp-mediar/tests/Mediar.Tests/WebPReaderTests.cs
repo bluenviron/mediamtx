@@ -83,6 +83,188 @@ public class WebPReaderTests
         });
     }
 
+    [Fact]
+    public void Open_NullStream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => WebPReader.Open((Stream)null!, ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_TooShortInput_Throws_ImageFormatException()
+    {
+        Assert.Throws<ImageFormatException>(() =>
+            WebPReader.Open(new MemoryStream(new byte[] { (byte)'R', (byte)'I' }), ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_RiffButWrongMagic_Throws_ImageFormatException()
+    {
+        // First 4 bytes "RIFF" but bytes 8..11 are not "WEBP" → reject.
+        byte[] bytes = new byte[16];
+        bytes[0] = (byte)'R'; bytes[1] = (byte)'I'; bytes[2] = (byte)'F'; bytes[3] = (byte)'F';
+        bytes[8] = (byte)'A'; bytes[9] = (byte)'V'; bytes[10] = (byte)'I'; bytes[11] = (byte)' ';
+        Assert.Throws<ImageFormatException>(() => WebPReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_FromFilePath_Works()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 5, height: 7);
+        string tempPath = Path.Combine(Path.GetTempPath(), $"webp-test-{Guid.NewGuid():N}.webp");
+        try
+        {
+            File.WriteAllBytes(tempPath, bytes);
+            using var r = WebPReader.Open(tempPath);
+            Assert.Equal(5, r.Info.Width);
+            Assert.Equal(7, r.Info.Height);
+            Assert.Equal(ImageFormat.WebP, r.Format);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose(); // should not throw
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_AfterDispose_Throws_ObjectDisposedException()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync()) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public async Task ReadComposedFramesAsync_AfterDispose_Throws_ObjectDisposedException()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        {
+            await foreach (var f in r.ReadComposedFramesAsync()) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honours_Cancellation()
+    {
+        var bytes = BuildAnimatedVp8XContainer(width: 4, height: 4, frames: 3);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Animated_VP8X_Reader_Has_Anim_Chunk_And_LoopCount()
+    {
+        var bytes = BuildAnimatedVp8XContainer(width: 8, height: 8, frames: 1);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Contains(r.Chunks, c => c.FourCC == "ANIM");
+        Assert.Contains(r.Chunks, c => c.FourCC == "VP8X");
+        // Loop count = first 2 bytes after BG in ANIM; our fixture leaves all zeros.
+        Assert.Equal(0, r.LoopCount);
+        Assert.Equal(0u, r.BackgroundColor);
+    }
+
+    [Fact]
+    public void Vp8X_HasAlpha_Flag_Reflected_In_Info()
+    {
+        var bytes = BuildVp8XWithAlphaContainer(width: 8, height: 8);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.HasAlpha);
+        Assert.True(r.Info.HasAlpha);
+        Assert.Equal(4, r.Info.ChannelCount);
+    }
+
+    [Fact]
+    public void Iccp_Chunk_Populates_IccProfile()
+    {
+        byte[] icc = { 0xCA, 0xFE, 0xBA, 0xBE, 0x01, 0x02 };
+        var bytes = BuildWithExtraChunks(width: 4, height: 4, extras: new[] { ("ICCP", icc) });
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(icc.Length, r.Info.IccProfile.Length);
+        Assert.Equal(icc, r.Info.IccProfile.ToArray());
+    }
+
+    [Fact]
+    public void Xmp_Chunk_Surfaces_In_Metadata_Tags()
+    {
+        byte[] xmp = System.Text.Encoding.UTF8.GetBytes("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>");
+        var bytes = BuildWithExtraChunks(width: 4, height: 4, extras: new[] { ("XMP ", xmp) });
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.Metadata.Tags.ContainsKey("XMP"));
+        Assert.Contains("xmpmeta", r.Metadata.Tags["XMP"]);
+    }
+
+    [Fact]
+    public void Exif_Chunk_Marks_Presence_In_Metadata_Tags()
+    {
+        byte[] exif = new byte[42];
+        var bytes = BuildWithExtraChunks(width: 4, height: 4, extras: new[] { ("EXIF", exif) });
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.Metadata.Tags.ContainsKey("EXIF"));
+        Assert.Contains("42", r.Metadata.Tags["EXIF"]);
+    }
+
+    [Fact]
+    public void Vp8_Lossy_Container_CanDecodePixels_Is_False()
+    {
+        var bytes = BuildVp8LossyContainer(width: 4, height: 4);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.CanDecodePixels);
+    }
+
+    [Fact]
+    public void Vp8L_Container_CanDecodePixels_Is_True()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 4, height: 4);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.True(r.CanDecodePixels);
+    }
+
+    private static byte[] BuildVp8XWithAlphaContainer(int width, int height)
+    {
+        var vp8x = new byte[10];
+        vp8x[0] = 0x10; // alpha flag
+        vp8x[4] = (byte)((width - 1) & 0xFF);
+        vp8x[5] = (byte)(((width - 1) >> 8) & 0xFF);
+        vp8x[6] = (byte)(((width - 1) >> 16) & 0xFF);
+        vp8x[7] = (byte)((height - 1) & 0xFF);
+        vp8x[8] = (byte)(((height - 1) >> 8) & 0xFF);
+        vp8x[9] = (byte)(((height - 1) >> 16) & 0xFF);
+        return BuildRiffWebp(new[] { ("VP8X", vp8x) });
+    }
+
+    private static byte[] BuildWithExtraChunks(int width, int height, IEnumerable<(string, byte[])> extras)
+    {
+        var vp8l = new List<byte> { 0x2F };
+        uint hdr = (uint)((width - 1) & 0x3FFF) | (((uint)(height - 1) & 0x3FFF) << 14);
+        vp8l.Add((byte)(hdr & 0xFF));
+        vp8l.Add((byte)((hdr >> 8) & 0xFF));
+        vp8l.Add((byte)((hdr >> 16) & 0xFF));
+        vp8l.Add((byte)((hdr >> 24) & 0xFF));
+        var chunks = new List<(string, byte[])> { ("VP8L", vp8l.ToArray()) };
+        chunks.AddRange(extras);
+        return BuildRiffWebp(chunks);
+    }
+
     private static byte[] BuildAnimatedVp8XLossyContainer(int width, int height, int frames)
     {
         var vp8x = new byte[10];
