@@ -10,6 +10,7 @@ public sealed class AacScaleFactorDataTests
     private static readonly int[] SymbolsExtreme = new[] { 0, 60, 120 };
     private static readonly int[] SymbolsMixed = new[] { 75, 45 };
     private static readonly int[] SymbolsMultiGroup = new[] { 60, 70, 50 };
+    private static readonly int[] SymbolsSingleZero = new[] { 60 };
 
     // Build a synthetic 121-entry scale-factor codebook:
     //   symbol 60 (diff 0) -> "0" (1 bit)
@@ -330,6 +331,233 @@ public sealed class AacScaleFactorDataTests
         var sections = MakeSections((0, 1, 0, 1));
         var reader = new BitReader(new byte[] { 0 });
         Assert.False(AacScaleFactorData.TryRead(ref reader, sections, badBook, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryRead_NullSectionData_Throws()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var reader = new BitReader(new byte[] { 0 });
+        AacScaleFactorData? data;
+        try
+        {
+            AacScaleFactorData.TryRead(ref reader, null!, book, out data);
+            Assert.Fail("Expected ArgumentNullException");
+        }
+        catch (ArgumentNullException) { /* expected */ }
+    }
+
+    [Fact]
+    public void TryRead_NullCodebook_Throws()
+    {
+        var sections = MakeSections();
+        var reader = new BitReader(new byte[] { 0 });
+        AacScaleFactorData? data;
+        try
+        {
+            AacScaleFactorData.TryRead(ref reader, sections, null!, out data);
+            Assert.Fail("Expected ArgumentNullException");
+        }
+        catch (ArgumentNullException) { /* expected */ }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void TryRead_SpectralCodebooks_1To11_Are_SpectralGain(int cb)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, cb, 0, 1));
+        var bytes = EncodeSymbols(SymbolsSingleZero);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Single(data!.Entries);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, data.Entries[0].Kind);
+        Assert.Equal(0, data.Entries[0].Differential);
+    }
+
+    [Theory]
+    [InlineData(16)]
+    [InlineData(31)]
+    [InlineData(99)]
+    public void TryRead_OutOfRangeCodebook_Treated_As_None(int cb)
+    {
+        // The classifier has a catch-all `_ => None` arm for codebooks
+        // outside [0, 15]. Such sections must emit None entries without
+        // consuming any bits.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, cb, 0, 2));
+        var reader = new BitReader(new byte[] { 0xFF });
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Equal(2, data!.Entries.Count);
+        Assert.All(data.Entries, e => Assert.Equal(AacScaleFactorKind.None, e.Kind));
+        Assert.All(data.Entries, e => Assert.Equal(0, e.Differential));
+        Assert.Equal(0, data.BitsConsumed);
+    }
+
+    [Fact]
+    public void Record_AacScaleFactorEntry_Equality_By_Value()
+    {
+        var a = new AacScaleFactorEntry
+        {
+            Group = 0,
+            Sfb = 1,
+            Kind = AacScaleFactorKind.SpectralGain,
+            Differential = -3,
+        };
+        var b = new AacScaleFactorEntry
+        {
+            Group = 0,
+            Sfb = 1,
+            Kind = AacScaleFactorKind.SpectralGain,
+            Differential = -3,
+        };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_AacScaleFactorEntry_With_Expression_Returns_Modified_Copy()
+    {
+        var a = new AacScaleFactorEntry
+        {
+            Group = 0,
+            Sfb = 0,
+            Kind = AacScaleFactorKind.SpectralGain,
+            Differential = 0,
+        };
+        var b = a with { Differential = 42 };
+        Assert.Equal(42, b.Differential);
+        Assert.Equal(0, a.Differential);
+        Assert.NotSame(a, b);
+    }
+
+    [Fact]
+    public void Record_AacScaleFactorData_With_Expression_Modifies_BitsConsumed()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 1, 0, 1));
+        var bytes = EncodeSymbols(SymbolsSingleZero);
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.NotNull(data);
+        var modified = data! with { BitsConsumed = 999 };
+        Assert.Equal(999, modified.BitsConsumed);
+        Assert.Equal(1, data.BitsConsumed);
+        Assert.NotSame(data, modified);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_FirstBand_RawZero_GivesDiff_MinusTwoFiftySix()
+    {
+        // Boundary case: raw 9-bit value 0 maps to differential -256.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 13, 0, 1));
+        var w = new AacBitWriter();
+        w.Write(0u, 9);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Single(data!.Entries);
+        Assert.Equal(-256, data.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_FirstBand_RawMax_GivesDiff_PlusTwoFiftyFive()
+    {
+        // Boundary case: raw 9-bit value 511 maps to differential 255.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 13, 0, 1));
+        var w = new AacBitWriter();
+        w.Write(511u, 9);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Single(data!.Entries);
+        Assert.Equal(255, data.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void TryRead_NoiseCodebook13_PcmFlag_Resets_Across_Calls()
+    {
+        // The first PNS band of *each* scale_factor_data() call uses
+        // 9-bit PCM. Two separate TryRead calls must each see the first
+        // PNS band as 9-bit PCM.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 13, 0, 1));
+
+        var w1 = new AacBitWriter();
+        w1.Write(256u, 9); // first call's PCM band
+        var reader1 = new BitReader(w1.ToArray());
+        Assert.True(AacScaleFactorData.TryRead(ref reader1, sections, book, out var data1));
+        Assert.Equal(9, data1!.BitsConsumed);
+
+        var w2 = new AacBitWriter();
+        w2.Write(266u, 9); // second call's PCM band
+        var reader2 = new BitReader(w2.ToArray());
+        Assert.True(AacScaleFactorData.TryRead(ref reader2, sections, book, out var data2));
+        Assert.Equal(9, data2!.BitsConsumed);
+        Assert.Equal(10, data2.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void TryRead_NoiseEnergy_PnsAfterSpectral_FirstNoiseBand_Uses_NinBit_Pcm()
+    {
+        // PNS comes after a spectral section. The first PNS band is
+        // still the first PNS band overall and uses 9-bit PCM.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 1, 0, 1), (0, 13, 1, 2));
+        var w = new AacBitWriter();
+        var (b1, l1) = EncodeSymbol(60); w.Write(b1, l1);   // spectral: 1 bit
+        w.Write(266u, 9);                                    // first PNS band: 9 bits, diff +10
+        var reader = new BitReader(w.ToArray());
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Equal(2, data!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, data.Entries[0].Kind);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, data.Entries[1].Kind);
+        Assert.Equal(10, data.Entries[1].Differential);
+        Assert.Equal(10, data.BitsConsumed); // 1 + 9
+    }
+
+    [Fact]
+    public void TryRead_BitsConsumed_Equals_Sum_Of_Each_Section_Bits()
+    {
+        // Mix spectral (1+8 bits), PNS first band (9 bits), intensity (8 bits)
+        // -> expected total = 1 + 8 + 9 + 8 = 26.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 1, 0, 2), (0, 13, 2, 3), (0, 14, 3, 4));
+        var w = new AacBitWriter();
+        var (b1, l1) = EncodeSymbol(60); w.Write(b1, l1); // 1 bit
+        var (b2, l2) = EncodeSymbol(70); w.Write(b2, l2); // 8 bits
+        w.Write(256u, 9);                                  // 9 bits PCM
+        var (b3, l3) = EncodeSymbol(50); w.Write(b3, l3); // 8 bits
+        var reader = new BitReader(w.ToArray());
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
+        Assert.Equal(26, data!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_PnsPcm_StreamUnderflow_Returns_False()
+    {
+        // 13 has the 9-bit PCM first-band path, but only 4 bits remain
+        // in the buffer. The decoder must return false rather than
+        // overrun.
+        var book = BuildSyntheticSfCodebook();
+        var sections = MakeSections((0, 13, 0, 1));
+        // 1-byte buffer; advance reader by 4 bits so only 4 are left.
+        var reader = new BitReader(new byte[] { 0x00 });
+        reader.ReadBits(4);
+        Assert.False(AacScaleFactorData.TryRead(ref reader, sections, book, out var data));
         Assert.Null(data);
     }
 }

@@ -338,6 +338,295 @@ public sealed class DdsBcnDecoderTests
         }
     }
 
+    [Fact]
+    public void Open_NullStream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => DdsReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_TruncatedHeader_Throws()
+    {
+        // < 128 bytes is rejected as truncated.
+        var bytes = new byte[64];
+        using var ms = new MemoryStream(bytes);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms, ownsStream: false));
+    }
+
+    [Fact]
+    public void Open_BadMagic_Throws()
+    {
+        // Header is full size but magic isn't "DDS ".
+        var bytes = BuildDdsHeader(4, 4, "DXT1", compressed: true);
+        bytes[0] = (byte)'X'; bytes[1] = (byte)'X'; bytes[2] = (byte)'X'; bytes[3] = (byte)'X';
+        using var ms = new MemoryStream(bytes);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms, ownsStream: false));
+    }
+
+    [Fact]
+    public void Open_BadHeaderSize_Throws()
+    {
+        // Magic is right but size field isn't 124.
+        var bytes = BuildDdsHeader(4, 4, "DXT1", compressed: true);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 100);
+        using var ms = new MemoryStream(bytes);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms, ownsStream: false));
+    }
+
+    [Fact]
+    public async Task Bc1_OpaqueMode_AllIndicesOne_ProducesC1()
+    {
+        // c0=red (0xF800) > c1=black (0x0000) → opaque mode, index 1 = c1 = black.
+        var block = new byte[8];
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(0), 0xF800);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(2), 0x0000);
+        BinaryPrimitives.WriteUInt32LittleEndian(block.AsSpan(4), 0x55555555);
+
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var s = captured!.Pixels.Span;
+            for (int i = 0; i + 3 < s.Length; i += 4)
+            {
+                Assert.Equal(0x00, s[i + 0]); // B
+                Assert.Equal(0x00, s[i + 1]); // G
+                Assert.Equal(0x00, s[i + 2]); // R (c1 = black)
+                Assert.Equal(0xFF, s[i + 3]); // A opaque
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Bc1_AlphaMode_Index3_ProducesTransparentBlack()
+    {
+        // c0 <= c1 → 1-bit-alpha mode. Index 3 yields transparent black
+        // (RGBA = 0, 0, 0, 0).
+        var block = new byte[8];
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(0), 0x0000);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(2), 0xF800);
+        // All-ones index pairs (11 binary = 3) -> 0xFFFFFFFF
+        BinaryPrimitives.WriteUInt32LittleEndian(block.AsSpan(4), 0xFFFFFFFF);
+
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var s = captured!.Pixels.Span;
+            for (int i = 0; i + 3 < s.Length; i += 4)
+            {
+                Assert.Equal(0x00, s[i + 0]);
+                Assert.Equal(0x00, s[i + 1]);
+                Assert.Equal(0x00, s[i + 2]);
+                Assert.Equal(0x00, s[i + 3]); // transparent
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Bc1_EightByEight_Tile_Has_Sixty_Four_Pixels()
+    {
+        // 8x8 -> 2x2 BC1 blocks -> 4 blocks @ 8 bytes each = 32 bytes payload.
+        var blocks = new byte[32];
+        for (int b = 0; b < 4; b++)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(blocks.AsSpan(b * 8 + 0), 0xF800);
+            BinaryPrimitives.WriteUInt16LittleEndian(blocks.AsSpan(b * 8 + 2), 0x0000);
+            // indices = 0 -> every pixel = c0 = red
+        }
+        var file = Concat(BuildDdsHeader(8, 8, "DXT1", compressed: true), blocks);
+
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+        Assert.Equal(8, reader.Info.Width);
+        Assert.Equal(8, reader.Info.Height);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            Assert.Equal(8 * 8 * 4, captured!.Pixels.Length);
+            var s = captured.Pixels.Span;
+            for (int i = 0; i + 3 < s.Length; i += 4)
+            {
+                Assert.Equal(0xFF, s[i + 2]); // R
+                Assert.Equal(0xFF, s[i + 3]); // A
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Bc2_FullyTransparentAlpha_ZeroNibbles()
+    {
+        // All-zero alpha nibbles -> alpha 0 everywhere.
+        var block = new byte[16];
+        // bytes 0..7 = 0 -> alpha = 0
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(8), 0xF800);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(10), 0x0000);
+        var file = Concat(BuildDdsHeader(4, 4, "DXT3", compressed: true), block);
+
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var s = captured!.Pixels.Span;
+            for (int i = 0; i + 3 < s.Length; i += 4)
+            {
+                Assert.Equal(0x00, s[i + 3]);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Bc4_a0EqualsA1_AllPixelsTakeOnSameValue()
+    {
+        // a0 == a1 → 6-step mode but with identical endpoints, every interpolated
+        // value collapses to that single endpoint regardless of indices.
+        var block = new byte[8];
+        block[0] = 128; block[1] = 128;
+        for (int i = 2; i < 8; i++) block[i] = 0xFF;
+        var file = Concat(BuildDdsHeader(4, 4, "ATI1", compressed: true), block);
+
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var s = captured!.Pixels.Span;
+            byte first = s[0];
+            for (int i = 0; i < s.Length; i++)
+            {
+                Assert.Equal(first, s[i]);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Bc5_Different_R_And_G_Endpoints_Surface_Independently()
+    {
+        // Independent red/green endpoints with all-zero indices: every pixel
+        // takes red=a0_red, green=a0_green, blue=0.
+        var block = new byte[16];
+        block[0] = 175; block[1] = 60;
+        for (int i = 2; i < 8; i++) block[i] = 0;
+        block[8] = 25; block[9] = 240;
+        for (int i = 10; i < 16; i++) block[i] = 0;
+
+        var file = Concat(BuildDdsHeader(4, 4, "ATI2", compressed: true), block);
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var s = captured!.Pixels.Span;
+            for (int i = 0; i + 2 < s.Length; i += 3)
+            {
+                Assert.Equal(175, s[i + 0]);
+                Assert.Equal(25, s[i + 1]);
+                Assert.Equal(0, s[i + 2]);
+            }
+        }
+    }
+
+    [Fact]
+    public void OwnsStream_True_Disposes_Underlying_Stream_On_Dispose()
+    {
+        var block = new byte[8];
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(0), 0xF800);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(2), 0x0000);
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+
+        var ms = new MemoryStream(file);
+        var reader = DdsReader.Open(ms, ownsStream: true);
+        reader.Dispose();
+        // Underlying stream must be disposed; Position throws ObjectDisposedException.
+        Assert.Throws<ObjectDisposedException>(() => _ = ms.Position);
+    }
+
+    [Fact]
+    public void OwnsStream_False_Default_Leaves_Stream_Usable()
+    {
+        var block = new byte[8];
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(0), 0xF800);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(2), 0x0000);
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+
+        using var ms = new MemoryStream(file);
+        var reader = DdsReader.Open(ms, ownsStream: false);
+        reader.Dispose();
+        // Stream still usable.
+        Assert.Equal(file.Length, ms.Length);
+    }
+
+    [Fact]
+    public void Format_Property_Is_Dds()
+    {
+        var block = new byte[8];
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+        using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+        Assert.Equal(ImageFormat.Dds, reader.Format);
+    }
+
+    [Fact]
+    public void Metadata_Is_Empty()
+    {
+        var block = new byte[8];
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+        using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+        Assert.Same(ImageMetadata.Empty, reader.Metadata);
+    }
+
+    [Fact]
+    public void Info_Width_Height_Reflect_Header()
+    {
+        var block = new byte[8];
+        var file = Concat(BuildDdsHeader(16, 8, "DXT1", compressed: true),
+            new byte[8 * 8]); // 16x8 -> 4x2 blocks * 8 bytes
+        using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+        Assert.Equal(16, reader.Info.Width);
+        Assert.Equal(8, reader.Info.Height);
+    }
+
+    [Fact]
+    public async Task Bc1_ReadFramesAsync_Yields_Exactly_One_Frame()
+    {
+        var block = new byte[8];
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(0), 0xF800);
+        BinaryPrimitives.WriteUInt16LittleEndian(block.AsSpan(2), 0x0000);
+        var file = Concat(BuildDdsHeader(4, 4, "DXT1", compressed: true), block);
+
+        await using var ms = new MemoryStream(file);
+        using var reader = DdsReader.Open(ms, ownsStream: false);
+
+        int count = 0;
+        await foreach (var f in reader.ReadFramesAsync()) { f.Dispose(); count++; }
+        Assert.Equal(1, count);
+    }
+
     private static byte[] BuildDx10TailLocal(uint dxgiFormat)
     {
         var tail = new byte[20];
