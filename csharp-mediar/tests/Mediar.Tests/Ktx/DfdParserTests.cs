@@ -356,4 +356,99 @@ public class DfdParserTests
         Assert.True(vendor.IsVendorExtension);
         Assert.Equal(0, vendor.RawBytes.Length);
     }
+
+    [Fact]
+    public void Parse_Returns_Null_For_Negative_Offset()
+    {
+        var bytes = new byte[64];
+        Assert.Null(DfdParser.Parse(bytes, -1, 16));
+    }
+
+    [Fact]
+    public void Parse_Returns_Null_When_TotalSize_Below_HeaderSize()
+    {
+        // totalSize=3 < HeaderSize=4 -> reject even if the section is otherwise big enough.
+        var bytes = new byte[32];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, 3);
+        Assert.Null(DfdParser.Parse(bytes, 0, bytes.Length));
+    }
+
+    [Fact]
+    public void Parse_Returns_Null_When_BlockSize_Extends_Past_TotalSize_Even_If_Buffer_Allows()
+    {
+        // totalSize cuts the section short — a block whose size exceeds the
+        // declared endExclusive must be rejected even when the raw buffer is
+        // big enough to contain it.
+        var bytes = new byte[40];
+        // totalSize = 12 (so endExclusive = 12, only 8 bytes available after header)
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, 12);
+        // block at offset 4: vendorId=1, type=2, version=1, size=24 (extends past totalSize)
+        uint word0 = 1u | (2u << 17);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), word0);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(10), 24);
+
+        Assert.Null(DfdParser.Parse(bytes, 0, bytes.Length));
+    }
+
+    [Fact]
+    public void Parse_Ignores_Trailing_Padding_When_TotalSize_Smaller_Than_Length()
+    {
+        // Build a tiny but valid DFD totalSize=4 (header only, no blocks), then
+        // hand Parse a section that is much larger. The trailing padding must
+        // NOT be parsed as a phantom block.
+        var bytes = new byte[64];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, 4);
+        // Garbage in the trailing 60 bytes — must be ignored.
+        for (int i = 4; i < bytes.Length; i++) bytes[i] = 0xCC;
+
+        var parsed = DfdParser.Parse(bytes, 0, bytes.Length);
+        Assert.NotNull(parsed);
+        Assert.Empty(parsed!.Blocks);
+        Assert.Equal(4u, parsed.TotalSize);
+    }
+
+    [Fact]
+    public void Parse_Returns_Null_For_Basic_Block_Below_BasicHeaderSize()
+    {
+        // Basic block size = 20 < 24 (basic header) -> reject.
+        var bytes = new byte[24];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, 24);
+        // vendorId=0, type=0 (basic), version=2, size=20
+        bytes[4] = bytes[5] = bytes[6] = bytes[7] = 0;
+        bytes[8] = 2; bytes[9] = 0;
+        bytes[10] = 20; bytes[11] = 0;
+        // rest zero-filled
+
+        Assert.Null(DfdParser.Parse(bytes, 0, bytes.Length));
+    }
+
+    [Fact]
+    public void Parse_Returns_Null_When_Block_Header_Wraps_TotalSize()
+    {
+        // totalSize=11: the while-loop entry guard (cursor+4<=11) admits us,
+        // but the next read (cursor+8>11) trips the wrap-protection branch.
+        var bytes = new byte[40];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, 11);
+        // Plausible vendorId=1, type=2 to ensure we read past the cursor+4 guard.
+        uint word0 = 1u | (2u << 17);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), word0);
+
+        Assert.Null(DfdParser.Parse(bytes, 0, bytes.Length));
+    }
+
+    [Fact]
+    public void Parse_With_Section_At_NonZero_Offset_Works()
+    {
+        // Build a tiny header-only DFD, then place it inside a larger
+        // buffer at an arbitrary offset and parse from there.
+        var inner = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(inner, 4);
+        var outer = new byte[32];
+        Buffer.BlockCopy(inner, 0, outer, 10, inner.Length);
+
+        var parsed = DfdParser.Parse(outer, 10, 4);
+        Assert.NotNull(parsed);
+        Assert.Equal(4u, parsed!.TotalSize);
+    }
 }

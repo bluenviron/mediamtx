@@ -130,4 +130,78 @@ public class SvgStyleResolverTests
             id => id == "g1" ? gradient : null);
         Assert.Same(gradient, s.Fill);
     }
+
+    [Fact]
+    public void Resolve_Null_Element_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => SvgStyleResolver.Resolve(null!, new SvgStyle()));
+    }
+
+    [Fact]
+    public void Resolve_Null_Parent_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => SvgStyleResolver.Resolve(El("<rect/>"), null!));
+    }
+
+    [Fact]
+    public void Stroke_DashOffset_Cascades_From_Parent()
+    {
+        var parent = new SvgStyle { StrokeDashOffset = 7f };
+        var s = SvgStyleResolver.Resolve(El("<g/>"), parent);
+        Assert.Equal(7f, s.StrokeDashOffset);
+    }
+
+    [Fact]
+    public void Stroke_MiterLimit_Override_Replaces_Parent()
+    {
+        var parent = new SvgStyle { StrokeMiterLimit = 4f };
+        var s = SvgStyleResolver.Resolve(El("<g stroke-miterlimit=\"10\"/>"), parent);
+        Assert.Equal(10f, s.StrokeMiterLimit);
+    }
+
+    [Fact]
+    public void Stroke_DashArray_Parses_Comma_Separated_Values()
+    {
+        var s = SvgStyleResolver.Resolve(El("<rect stroke-dasharray=\"5, 3, 2\"/>"), new SvgStyle());
+        Assert.NotNull(s.StrokeDashArray);
+        Assert.Equal(3, s.StrokeDashArray!.Count);
+        Assert.Equal(5f, s.StrokeDashArray[0]);
+        Assert.Equal(3f, s.StrokeDashArray[1]);
+        Assert.Equal(2f, s.StrokeDashArray[2]);
+    }
+
+    [Fact]
+    public void Fill_Opacity_Independent_From_Cascading_Opacity()
+    {
+        var parent = new SvgStyle { Opacity = 0.5f };
+        var s = SvgStyleResolver.Resolve(El("<rect fill-opacity=\"0.4\"/>"), parent);
+        // Opacity inherits from parent (0.5) since unset on element.
+        Assert.Equal(0.5f, s.Opacity, 3);
+        // fill-opacity is element-local (does NOT inherit per SVG opacity rules).
+        Assert.Equal(0.4f, s.FillOpacity, 3);
+    }
+
+    [Fact]
+    public void Unresolved_Url_Falls_Back_To_Parent_Fill_Paint()
+    {
+        var parentFill = new SolidPaint(RgbaColor.FromBytes(0, 255, 0));
+        var parent = new SvgStyle { Fill = parentFill };
+        var s = SvgStyleResolver.Resolve(
+            El("<rect fill=\"url(#missing)\"/>"),
+            parent,
+            _ => null);
+        Assert.Same(parentFill, s.Fill);
+    }
+
+    [Fact]
+    public void Inline_Style_With_Malformed_Declaration_Is_Skipped()
+    {
+        // The "garbage" entry (no colon) should be ignored; the valid one
+        // ("fill:lime") should win.
+        var s = SvgStyleResolver.Resolve(El("<rect style=\"garbage; fill:lime\"/>"), new SvgStyle());
+        var fill = Assert.IsType<SolidPaint>(s.Fill);
+        Assert.Equal(0f, fill.Color.R);
+        Assert.Equal(1f, fill.Color.G);
+        Assert.Equal(0f, fill.Color.B);
+    }
 }
