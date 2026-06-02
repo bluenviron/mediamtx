@@ -745,6 +745,403 @@ public sealed class CeltBandsTests
         Assert.True(threw);
     }
 
+    // ---------- SpecialHybridFolding ----------
+
+    [Fact]
+    public void SpecialHybridFolding_CeltOnly_StartBand0_IsNoOp()
+    {
+        // For CELT-only frames the band widths give n2 ≤ n1 → no copy.
+        // eBands[0..2] = {0, 1, 2} ⇒ n1 = M, n2 = M, extra = 0.
+        short[] eBands = { 0, 1, 2, 3 };
+        float[] norm = { 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f };
+        var snapshot = (float[])norm.Clone();
+        CeltBands.SpecialHybridFolding(eBands, norm, default, start: 0, M: 4, dualStereo: false);
+        Assert.Equal(snapshot, norm);
+    }
+
+    [Fact]
+    public void SpecialHybridFolding_HybridMode_DuplicatesIntoSecondBandSlot()
+    {
+        // Hybrid mode: start=17 with eBands[17..19] = {68, 72, 80}.
+        // n1 = M·(72-68) = 4M, n2 = M·(80-72) = 8M, extra = 4M.
+        // Copy norm[2*n1 - n2 .. 2*n1 - n2 + extra) = norm[0..4M) → norm[n1..n1+4M) = norm[4M..8M).
+        const int M = 1;
+        short[] eBands = new short[19];
+        eBands[17] = 68; eBands[18] = 72; // only entries needed for this test
+        // But SpecialHybridFolding only reads eBands[start..start+2] — provide [17],[18],[18+1] = need eBands[19].
+        // Adjust: provide a small array starting where the function reads.
+        short[] localBands = { 68, 72, 80 };
+        float[] norm = new float[10];
+        for (int i = 0; i < 10; i++) norm[i] = i;
+        CeltBands.SpecialHybridFolding(localBands, norm, default, start: 0, M: M, dualStereo: false);
+        // n1=4, n2=8, extra=4 → copy norm[0..4) → norm[4..8).
+        Assert.Equal(0f, norm[4]);
+        Assert.Equal(1f, norm[5]);
+        Assert.Equal(2f, norm[6]);
+        Assert.Equal(3f, norm[7]);
+        // Untouched: 8, 9.
+        Assert.Equal(8f, norm[8]);
+        Assert.Equal(9f, norm[9]);
+    }
+
+    [Fact]
+    public void SpecialHybridFolding_DualStereo_AlsoDuplicatesNorm2()
+    {
+        short[] localBands = { 68, 72, 80 };
+        float[] norm = new float[10];
+        float[] norm2 = new float[10];
+        for (int i = 0; i < 10; i++) { norm[i] = i; norm2[i] = i + 100; }
+        CeltBands.SpecialHybridFolding(localBands, norm, norm2, start: 0, M: 1, dualStereo: true);
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(i, norm[4 + i]);
+            Assert.Equal(100 + i, norm2[4 + i]);
+        }
+    }
+
+    [Fact]
+    public void SpecialHybridFolding_DualStereoFalse_LeavesNorm2Untouched()
+    {
+        short[] localBands = { 68, 72, 80 };
+        float[] norm = new float[10];
+        float[] norm2 = new float[10];
+        for (int i = 0; i < 10; i++) { norm[i] = i; norm2[i] = i + 100; }
+        var n2Before = (float[])norm2.Clone();
+        CeltBands.SpecialHybridFolding(localBands, norm, norm2, start: 0, M: 1, dualStereo: false);
+        Assert.Equal(n2Before, norm2);
+    }
+
+    // ---------- QuantAllBands ----------
+
+    [Fact]
+    public void QuantAllBands_MonoFullBand_ProducesFiniteNormalisedOutput()
+    {
+        // FB mono, 20 ms long block (LM=3, M=8). start=0, end=21.
+        const int LM = 3;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 21;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        float[] cm = new float[end];  // unused mono extra
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        // Realistic budgets — give each band a moderate budget.
+        for (int i = 0; i < end; i++) pulses[i] = 40 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 7, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 12345;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 8000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+
+        // All decoded coefficients must be finite.
+        for (int i = 0; i < xLen; i++) Assert.True(float.IsFinite(X[i]));
+        // At least some collapse masks should be non-zero.
+        int nonZeroMasks = 0;
+        for (int i = 0; i < end; i++) if (collapse[i] != 0) nonZeroMasks++;
+        Assert.True(nonZeroMasks > 0);
+    }
+
+    [Fact]
+    public void QuantAllBands_StereoJoint_ProducesFiniteOutputBothChannels()
+    {
+        const int LM = 2;  // 10 ms
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;  // WB
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        float[] Y = new float[xLen];
+        byte[] collapse = new byte[end * 2];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < end; i++) pulses[i] = 60 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 21, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 99;
+        float[] norm = new float[2 * (M * eBands[end - 1] - M * eBands[start])];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, Y, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: end, tfRes,
+            totalBits: 12000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+
+        for (int i = 0; i < xLen; i++)
+        {
+            Assert.True(float.IsFinite(X[i]));
+            Assert.True(float.IsFinite(Y[i]));
+        }
+        int nonZeroMasks = 0;
+        for (int i = 0; i < end * 2; i++) if (collapse[i] != 0) nonZeroMasks++;
+        Assert.True(nonZeroMasks > 0);
+    }
+
+    [Fact]
+    public void QuantAllBands_StereoDualStereo_RunsBothChannelsIndependently()
+    {
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        float[] Y = new float[xLen];
+        byte[] collapse = new byte[end * 2];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < end; i++) pulses[i] = 60 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 33, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[2 * (M * eBands[end - 1] - M * eBands[start])];
+        // dualStereo=true, intensity=end → never crosses, stays in dual-stereo path.
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, Y, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: true, intensity: end, tfRes,
+            totalBits: 12000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        for (int i = 0; i < xLen; i++)
+        {
+            Assert.True(float.IsFinite(X[i]));
+            Assert.True(float.IsFinite(Y[i]));
+        }
+    }
+
+    [Fact]
+    public void QuantAllBands_DualStereoCrossesIntensity_SwitchesToJointStereo()
+    {
+        // dualStereo=true with intensity in the middle → first half is
+        // dual-stereo, second half is joint-stereo after the intensity
+        // crossover. Function must complete without throwing.
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        float[] Y = new float[xLen];
+        byte[] collapse = new byte[end * 2];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < end; i++) pulses[i] = 60 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 51, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[2 * (M * eBands[end - 1] - M * eBands[start])];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, Y, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: true, intensity: 8, tfRes,
+            totalBits: 12000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        for (int i = 0; i < xLen; i++)
+        {
+            Assert.True(float.IsFinite(X[i]));
+            Assert.True(float.IsFinite(Y[i]));
+        }
+    }
+
+    [Fact]
+    public void QuantAllBands_ShortBlocks_UsesBEqualsM()
+    {
+        // Transient frame: B=M=4 (LM=2). Verify no crash and finite output.
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < end; i++) pulses[i] = 40 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 71, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: true, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 8000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        for (int i = 0; i < xLen; i++) Assert.True(float.IsFinite(X[i]));
+    }
+
+    [Fact]
+    public void QuantAllBands_HybridStart_AppliesSpecialHybridFolding()
+    {
+        // Hybrid CELT (start=17, end=21) — second-iteration call to
+        // SpecialHybridFolding must duplicate the previous band's data
+        // so band 18 has a fold source. Smoke test only — finite
+        // output across all CELT bands.
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = CeltConstants.HybridStartBand;  // 17
+        const int end = 21;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = start; i < end; i++) pulses[i] = 80 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 91, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 4000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        // Only X[M*eBands[start] .. M*eBands[end]) is touched.
+        for (int j = M * eBands[start]; j < M * eBands[end]; j++)
+            Assert.True(float.IsFinite(X[j]));
+    }
+
+    [Fact]
+    public void QuantAllBands_AggressiveSpread_NonTransient_SkipsLowbandCollapseAccum()
+    {
+        // spread=SpreadAggressive with B=1 and tf_change=0 means the
+        // lowband fold-mask accumulator is skipped (xCm = (1<<B)-1 = 1).
+        // Verify it still runs cleanly.
+        const int LM = 3;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < end; i++) pulses[i] = 50 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 41, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadAggressive,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 10000, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        for (int i = 0; i < xLen; i++) Assert.True(float.IsFinite(X[i]));
+    }
+
+    [Fact]
+    public void QuantAllBands_LowCodedBands_UnallocatedBandsGetZeroBudget()
+    {
+        // codedBands < end: bands >= codedBands get b=0 and pulse fold-only.
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 17;
+        const int codedBands = 10;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        for (int i = 0; i < codedBands; i++) pulses[i] = 50 << CeltConstants.BitRes;
+        var bytes = MakeRandomBytes(seed: 61, length: 1024);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 1;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 6000, balance: 0, LM, codedBands,
+            ref seed, disableInv: false, normWorkspace: norm);
+        for (int i = 0; i < xLen; i++) Assert.True(float.IsFinite(X[i]));
+    }
+
+    [Fact]
+    public void QuantAllBands_UpdatesSeed()
+    {
+        // The LCG seed should be mutated by the no-pulse fold path.
+        const int LM = 2;
+        const int M = 1 << LM;
+        const int start = 0;
+        const int end = 10;
+        var eBands = CeltConstants.EBands;
+        int xLen = M * eBands[end];
+        float[] X = new float[xLen];
+        byte[] collapse = new byte[end];
+        int[] pulses = new int[end];
+        sbyte[] tfRes = new sbyte[end];
+        // Zero pulses → every band falls through to the fold/LCG path.
+        var bytes = MakeRandomBytes(seed: 81, length: 256);
+        var dec = new OpusRangeDecoder(bytes);
+        uint seedBefore = 0xDEADBEEF;
+        uint seed = seedBefore;
+        float[] norm = new float[M * eBands[end - 1] - M * eBands[start]];
+        CeltBands.QuantAllBands(
+            ref dec, eBands, start, end, X, default, collapse, pulses,
+            shortBlocks: false, spread: CeltConstants.SpreadNormal,
+            dualStereo: false, intensity: 0, tfRes,
+            totalBits: 500, balance: 0, LM, codedBands: end,
+            ref seed, disableInv: false, normWorkspace: norm);
+        Assert.NotEqual(seedBefore, seed);
+    }
+
+    [Fact]
+    public void QuantAllBands_ArgumentValidation_NegativeStart()
+    {
+        var bytes = new byte[8];
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 0;
+        bool threw = false;
+        try
+        {
+            CeltBands.QuantAllBands(
+                ref dec, CeltConstants.EBands, start: -1, end: 1,
+                X: new float[8], Y: default, collapseMasks: new byte[1],
+                pulses: new int[1], shortBlocks: false, spread: 0, dualStereo: false,
+                intensity: 0, tfRes: new sbyte[1], totalBits: 0, balance: 0, LM: 0,
+                codedBands: 1, ref seed, disableInv: false, normWorkspace: new float[1]);
+        }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void QuantAllBands_ArgumentValidation_NormWorkspaceTooSmall()
+    {
+        var bytes = new byte[8];
+        var dec = new OpusRangeDecoder(bytes);
+        uint seed = 0;
+        bool threw = false;
+        try
+        {
+            CeltBands.QuantAllBands(
+                ref dec, CeltConstants.EBands, start: 0, end: 5,
+                X: new float[256], Y: default, collapseMasks: new byte[5],
+                pulses: new int[5], shortBlocks: false, spread: 0, dualStereo: false,
+                intensity: 0, tfRes: new sbyte[5], totalBits: 100, balance: 0, LM: 3,
+                codedBands: 5, ref seed, disableInv: false, normWorkspace: new float[4]);
+        }
+        catch (System.ArgumentException) { threw = true; }
+        Assert.True(threw);
+    }
+
     // ---------- helpers ----------
 
     private static BandContext MakeContext(int band = 0, int spread = CeltConstants.SpreadNormal,

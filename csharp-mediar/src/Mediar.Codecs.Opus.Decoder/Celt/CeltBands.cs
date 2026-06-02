@@ -613,4 +613,254 @@ public static class CeltBands
         }
         return cm;
     }
+
+    /// <summary>
+    /// Duplicates enough of the first band's folding data into the
+    /// second band's slot so the second band has something to fold
+    /// from. Hybrid mode only — for CELT-only frames the band widths
+    /// are such that <c>n2 ≤ n1</c> and the copy is a no-op. Mirrors
+    /// libopus <c>special_hybrid_folding</c>.
+    /// </summary>
+    /// <param name="eBands">Band-edge table (length ≥ start+3).</param>
+    /// <param name="norm">Per-band normalised buffer for X (or merged
+    /// mid in dual-stereo). Indexed from 0 (caller already offset by
+    /// <c>norm_offset</c>).</param>
+    /// <param name="norm2">Per-band normalised buffer for Y when
+    /// dual stereo is active, otherwise an empty span.</param>
+    /// <param name="start">First CELT band.</param>
+    /// <param name="M">Long-block multiplier (<c>1 &lt;&lt; LM</c>).</param>
+    /// <param name="dualStereo">When true the parallel norm2 buffer
+    /// also has its second-band slot duplicated.</param>
+    public static void SpecialHybridFolding(
+        ReadOnlySpan<short> eBands,
+        Span<float> norm,
+        Span<float> norm2,
+        int start,
+        int M,
+        bool dualStereo)
+    {
+        int n1 = M * (eBands[start + 1] - eBands[start]);
+        int n2 = M * (eBands[start + 2] - eBands[start + 1]);
+        int extra = n2 - n1;
+        if (extra <= 0) return;  // CELT-only: nothing to copy.
+
+        // Duplicate norm[2*n1 - n2 .. 2*n1 - n2 + extra) → norm[n1 .. n1 + extra).
+        int srcStart = 2 * n1 - n2;
+        norm.Slice(srcStart, extra).CopyTo(norm.Slice(n1, extra));
+        if (dualStereo && !norm2.IsEmpty)
+            norm2.Slice(srcStart, extra).CopyTo(norm2.Slice(n1, extra));
+    }
+
+    /// <summary>
+    /// Decoder-side band-iteration driver. Walks bands
+    /// <c>start..end</c>, dispatches each band to
+    /// <see cref="QuantBand"/> (mono / dual-stereo) or
+    /// <see cref="QuantBandStereo"/> (joint stereo), threads
+    /// <paramref name="balance"/> through the per-band budget
+    /// calculation, threads <see cref="BandContext.Seed"/> through the
+    /// LCG fold path, and accumulates a conservative collapse mask
+    /// from prior bands for fold-source seeding. Mirrors libopus
+    /// <c>quant_all_bands</c> — decoder branch only, no QEXT, no
+    /// theta_rdo, no encoder resynth paths.
+    /// </summary>
+    /// <param name="dec">Range decoder.</param>
+    /// <param name="eBands">Band-edge table (≥ end+1 entries).</param>
+    /// <param name="start">First band index.</param>
+    /// <param name="end">One past last band index.</param>
+    /// <param name="X">L-channel normalised output, length ≥ M·eBands[end].</param>
+    /// <param name="Y">R-channel normalised output (empty for mono), length ≥ M·eBands[end] when non-empty.</param>
+    /// <param name="collapseMasks">Per-band per-channel collapse mask
+    /// output. Length ≥ <c>end·C</c> where C is 2 when Y is non-empty
+    /// else 1. Indexed as <c>collapseMasks[i*C + c]</c>.</param>
+    /// <param name="pulses">Per-band PVQ pulse budget in 1/8-bit units.</param>
+    /// <param name="shortBlocks">True for transient frames (band split
+    /// into M short blocks); false for one long block per band.</param>
+    /// <param name="spread">Spread mode 0..3.</param>
+    /// <param name="dualStereo">True when stereo is encoded as two
+    /// independent mono streams (allocator output). Switched off when
+    /// the loop crosses the <paramref name="intensity"/> threshold.</param>
+    /// <param name="intensity">Intensity-stereo cut-off band.</param>
+    /// <param name="tfRes">Per-band tf change array (length ≥ end).</param>
+    /// <param name="totalBits">Total bit budget in 1/8-bit units
+    /// (<c>ec_total_bits &lt;&lt; BitRes</c>).</param>
+    /// <param name="balance">Running balance from the allocator.</param>
+    /// <param name="LM">Log-2 of MDCT block size.</param>
+    /// <param name="codedBands">Number of bands receiving non-zero
+    /// allocation (allocator output).</param>
+    /// <param name="seed">LCG seed in/out — updated as the no-pulse
+    /// fold path consumes random numbers.</param>
+    /// <param name="disableInv">True when the bitstream disables the
+    /// qn==1 stereo inversion bit.</param>
+    /// <param name="normWorkspace">Scratch buffer for per-channel
+    /// normalised bands. Must hold ≥
+    /// <c>C * (M·eBands[end-1] − M·eBands[start])</c> floats; sized for
+    /// the worst case the recursion may fold from.</param>
+    public static void QuantAllBands(
+        ref OpusRangeDecoder dec,
+        ReadOnlySpan<short> eBands,
+        int start,
+        int end,
+        Span<float> X,
+        Span<float> Y,
+        Span<byte> collapseMasks,
+        ReadOnlySpan<int> pulses,
+        bool shortBlocks,
+        int spread,
+        bool dualStereo,
+        int intensity,
+        ReadOnlySpan<sbyte> tfRes,
+        int totalBits,
+        int balance,
+        int LM,
+        int codedBands,
+        ref uint seed,
+        bool disableInv,
+        Span<float> normWorkspace)
+    {
+        System.ArgumentOutOfRangeException.ThrowIfNegative(start);
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(end, start + 1);
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(LM, 0);
+        System.ArgumentOutOfRangeException.ThrowIfGreaterThan(LM, 3);
+
+        int M = 1 << LM;
+        int B = shortBlocks ? M : 1;
+        int normOffset = M * eBands[start];
+        int channels = !Y.IsEmpty ? 2 : 1;
+        int normPerChannel = M * eBands[end - 1] - normOffset;
+        // Workspace layout: [norm | norm2] each of length normPerChannel.
+        if (normWorkspace.Length < channels * normPerChannel)
+            throw new System.ArgumentException(
+                $"normWorkspace must hold at least {channels * normPerChannel} samples.",
+                nameof(normWorkspace));
+        normWorkspace.Slice(0, channels * normPerChannel).Clear();
+        Span<float> norm = normWorkspace.Slice(0, normPerChannel);
+        Span<float> norm2 = channels == 2
+            ? normWorkspace.Slice(normPerChannel, normPerChannel)
+            : default;
+        // Use the tail of X as scratch (libopus decoder trick — that
+        // region won't be touched until we decode the last band).
+        Span<float> lowbandScratchBase = X.Slice(M * eBands[end - 1]);
+
+        var ctx = new BandContext
+        {
+            Intensity = intensity,
+            Spread = spread,
+            DisableInv = disableInv,
+            Seed = seed,
+        };
+
+        int lowbandOffset = 0;
+        bool updateLowband = true;
+        bool currentDualStereo = dualStereo;
+
+        for (int i = start; i < end; i++)
+        {
+            bool last = i == end - 1;
+            int N = M * (eBands[i + 1] - eBands[i]);
+            int tell = (int)dec.TellFrac();
+
+            if (i != start) balance -= tell;
+            int remainingBits = totalBits - tell - 1;
+            ctx.RemainingBits = remainingBits;
+
+            int b;
+            if (i <= codedBands - 1)
+            {
+                int currBalance = balance / System.Math.Min(3, codedBands - i);
+                b = System.Math.Max(0,
+                    System.Math.Min(16383,
+                        System.Math.Min(remainingBits + 1, pulses[i] + currBalance)));
+            }
+            else
+            {
+                b = 0;
+            }
+
+            // Update folding source (DISABLE_UPDATE_DRAFT branch from libopus).
+            if ((M * eBands[i] - N >= M * eBands[start] || i == start + 1)
+                && (updateLowband || lowbandOffset == 0))
+            {
+                lowbandOffset = i;
+            }
+            if (i == start + 1)
+                SpecialHybridFolding(eBands, norm, norm2, start, M, currentDualStereo);
+
+            int tfChange = tfRes[i];
+            ctx.Band = i;
+            ctx.TfChange = tfChange;
+
+            Span<float> bandX = X.Slice(M * eBands[i], N);
+            Span<float> bandY = !Y.IsEmpty ? Y.Slice(M * eBands[i], N) : default;
+            Span<float> scratch = last ? default : lowbandScratchBase;
+
+            // Compute conservative collapse masks for fold-source seeding.
+            int effectiveLowband = -1;
+            uint xCm, yCm;
+            if (lowbandOffset != 0 && (spread != CeltConstants.SpreadAggressive || B > 1 || tfChange < 0))
+            {
+                effectiveLowband = System.Math.Max(0, M * eBands[lowbandOffset] - normOffset - N);
+                int foldStart = lowbandOffset;
+                while (M * eBands[--foldStart] > effectiveLowband + normOffset) { }
+                int foldEnd = lowbandOffset - 1;
+                while (++foldEnd < i && M * eBands[foldEnd] < effectiveLowband + normOffset + N) { }
+                xCm = 0; yCm = 0;
+                int foldI = foldStart;
+                do
+                {
+                    xCm |= collapseMasks[foldI * channels + 0];
+                    yCm |= collapseMasks[foldI * channels + channels - 1];
+                } while (++foldI < foldEnd);
+            }
+            else
+            {
+                xCm = yCm = (uint)((1 << B) - 1);
+            }
+
+            // Cross intensity threshold: merge norm2 into norm and stop dual stereo.
+            if (currentDualStereo && i == intensity)
+            {
+                currentDualStereo = false;
+                int merged = M * eBands[i] - normOffset;
+                for (int j = 0; j < merged; j++)
+                    norm[j] = 0.5f * (norm[j] + norm2[j]);
+            }
+
+            // Lowband source slice (norm/norm2 at effectiveLowband, N samples).
+            Span<float> lowbandX = effectiveLowband >= 0 ? norm.Slice(effectiveLowband, N) : default;
+            Span<float> lowbandY = effectiveLowband >= 0 && !norm2.IsEmpty ? norm2.Slice(effectiveLowband, N) : default;
+
+            // Lowband out slice — writes √N · X[..] into norm at i's slot.
+            int outOffset = M * eBands[i] - normOffset;
+            Span<float> lowbandOutX = last ? default : norm.Slice(outOffset, N);
+            Span<float> lowbandOutY = last || norm2.IsEmpty ? default : norm2.Slice(outOffset, N);
+
+            uint xCmOut;
+            uint yCmOut;
+            if (currentDualStereo)
+            {
+                xCmOut = QuantBand(ref ctx, ref dec, bandX, N, b / 2, B,
+                    lowbandX, LM, lowbandOutX, gain: 1f, scratch, (int)xCm);
+                yCmOut = QuantBand(ref ctx, ref dec, bandY, N, b / 2, B,
+                    lowbandY, LM, lowbandOutY, gain: 1f, scratch, (int)yCm);
+            }
+            else if (!bandY.IsEmpty)
+            {
+                xCmOut = QuantBandStereo(ref ctx, ref dec, bandX, bandY, N, b, B,
+                    lowbandX, LM, lowbandOutX, scratch, (int)(xCm | yCm));
+                yCmOut = xCmOut;
+            }
+            else
+            {
+                xCmOut = QuantBand(ref ctx, ref dec, bandX, N, b, B,
+                    lowbandX, LM, lowbandOutX, gain: 1f, scratch, (int)(xCm | yCm));
+                yCmOut = xCmOut;
+            }
+
+            collapseMasks[i * channels + 0] = (byte)xCmOut;
+            collapseMasks[i * channels + channels - 1] = (byte)yCmOut;
+            balance += pulses[i] + tell;
+            updateLowband = b > (N << CeltConstants.BitRes);
+        }
+        seed = ctx.Seed;
+    }
 }

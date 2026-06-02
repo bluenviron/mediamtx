@@ -22,13 +22,107 @@ commits.
 | 2c.3b.5a | CELT `quant_partition` recursive mono splitter + `renormalise_vector` + `celt_lcg_rand` | ✅ shipped |
 | 2c.3b.5b | CELT `quant_band` mono wrapper (Haar1 recombine / time-divide + Hadamard reorganisation + √N lowband_out scaling) | ✅ shipped |
 | 2c.3b.5c | CELT `quant_band_stereo` (stereo mid/side band wrapper + `stereo_merge`)              | ✅ shipped |
-| 2c.3b.5d | CELT `quant_all_bands` top-level band-iteration integration                            | ⏳ planned |
+| 2c.3b.5d | CELT `quant_all_bands` top-level band-iteration integration                            | ✅ shipped |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.5d behavior (added on top of Phase 2c.3b.5c)
+
+Phase 2c.3b.5d ports `quant_all_bands` — the **top-level band-iteration
+driver** that walks every CELT band, computes its per-band bit budget,
+dispatches to the mono or stereo PVQ wrapper, threads the LCG seed
+through the no-pulse fold path, and accumulates the conservative
+collapse-mask source for fold seeding of subsequent bands. With this
+slice the entire PVQ block (Phase 2c.3b) is end-to-end usable; the
+remaining CELT work (anti-collapse + IMDCT + post-filter + window
+overlap-add) builds on top of the normalised band coefficients this
+driver writes.
+
+`QuantAllBands(...)` ports the libopus decoder branch (no QEXT, no
+theta_rdo, no encoder resynth state) of the band-iteration loop:
+
+1. **Per-iteration budget** — `tell = ec_tell_frac(ec)` is captured at
+   the start of every band. After band 0 the running `balance` is
+   adjusted by `balance -= tell` to share leftover bits with later
+   bands. `remaining_bits = total_bits - tell - 1` is written into the
+   `BandContext` for the recursive wrappers. The per-band budget
+   `b = max(0, min(16383, min(remaining_bits + 1, pulses[i] + currBalance)))`
+   uses the `celt_sudiv`-style integer division
+   `currBalance = balance / min(3, codedBands - i)`. Bands beyond
+   `codedBands` get `b = 0` (fold-only).
+2. **Folding source bookkeeping** — `lowband_offset` advances with the
+   loop, but only when (a) the previous lowband has fully crossed the
+   start band edge or we're at `start+1`, and (b) the previous band's
+   budget exceeded `N << BITRES`. At `i == start + 1` libopus calls
+   `special_hybrid_folding`, which duplicates the first band's tail
+   data into the second band's fold-source slot (no-op for CELT-only
+   widths, mandatory for hybrid widths where band-2's width exceeds
+   band-1's).
+3. **Conservative collapse-mask accumulator** — when `lowband_offset != 0`
+   and (`spread != AGGRESSIVE || B > 1 || tf_change < 0`), the wrapper
+   walks back through prior bands' `collapse_masks` and `OR`s them
+   together into the fold seed for both channels. Otherwise both seeds
+   default to `(1<<B)-1` (all blocks treated as non-zero, signalling
+   the LCG-fold path inside the recursive wrappers).
+4. **Dual-stereo intensity crossover** — when `dualStereo == true` and
+   the loop reaches band `intensity`, the two parallel `norm`/`norm2`
+   buffers are averaged in-place over the bands decoded so far
+   (`norm[j] = 0.5·(norm[j] + norm2[j])`) and `dualStereo` is flipped
+   off — subsequent bands use the joint-stereo `quant_band_stereo`
+   path.
+5. **Dispatch** — three branches, all consuming
+   `effectiveLowband = max(0, M·eBands[lowband_offset] - norm_offset - N)`
+   for the fold source slice:
+   - **Dual stereo**: two `QuantBand` calls, one per channel, each with
+     half the budget (`b/2`) and gain 1.0.
+   - **Joint stereo** (`Y` non-empty, not dual): a single
+     `QuantBandStereo` call with `(xCm | yCm)` as the combined fill.
+   - **Mono** (`Y` empty): a single `QuantBand` call.
+6. **Output bookkeeping** — `collapseMasks[i*C + c]` is written for
+   each channel, `balance += pulses[i] + tell` accumulates for the
+   next iteration, `update_lowband = b > (N << BITRES)` controls
+   whether the next band may advance `lowband_offset`.
+
+The decoder branch never touches `theta_round`, `bandE`,
+`avoid_split_noise`, or any `ENABLE_QEXT`-gated state. The
+"`i >= effEBands`" branch from libopus is unreachable in our port
+because our `CeltMode.EndBand` already caps the iteration at the
+bands that produce real output. The encoder-only buffers (`X_save`,
+`Y_save`, `X_save2`, `Y_save2`, `norm_save2`, `bytes_save`) are not
+allocated.
+
+`SpecialHybridFolding(eBands, norm, norm2, start, M, dualStereo)` is
+exposed as a public static helper for unit testing — it just does the
+`OPUS_COPY(&norm[n1], &norm[2*n1 - n2], n2 - n1)` duplication (and
+mirrors it for `norm2` when `dualStereo` is true) when `n2 > n1`.
+
+### Files added this phase
+
+- `csharp-mediar/src/Mediar.Codecs.Opus.Decoder/Celt/CeltBands.cs`:
+  +`SpecialHybridFolding` (public static, ~12 lines) and
+  +`QuantAllBands` (public static, ~150 lines) appended to the
+  existing partial class. The new method's `normWorkspace` parameter
+  takes a caller-allocated scratch span — sized for the worst case as
+  `C * (M·eBands[end-1] - M·eBands[start])` floats. The integration
+  layer (Phase 2c.4 / `CeltDecoder.Decode`) will allocate this once
+  per decoder instance.
+- `csharp-mediar/tests/Mediar.Tests/CeltBandsTests.cs`: 15 new tests
+  covering:
+  - `SpecialHybridFolding`: CELT-only no-op / hybrid duplicate /
+    dual-stereo norm2 mirror / `dualStereo=false` leaves norm2 alone.
+  - `QuantAllBands`: mono FB / joint-stereo WB / dual-stereo (no
+    intensity crossover) / dual-stereo with intensity crossover /
+    short blocks / hybrid start / aggressive spread non-transient /
+    low codedBands / seed mutation / two argument validations.
+
+### Test results after Phase 2c.3b.5d
+
+Test suite total after Phase 2c.3b.5d: **7777 / 7777 pass**
+(+15 vs. Phase 2c.3b.5c's 7762). No flaky failures on this run.
 
 ## Phase 2c.3b.5c behavior (added on top of Phase 2c.3b.5b)
 
