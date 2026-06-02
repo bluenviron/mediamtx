@@ -511,6 +511,7 @@ func TestServerRead(t *testing.T) {
 						Path:               "teststream",
 						Query:              "param=value",
 						User:               "myuser",
+						UserAgent:          list.Items[0].UserAgent,
 						InboundBytes:       list.Items[0].InboundBytes,
 						InboundRTPPackets:  list.Items[0].InboundRTPPackets,
 						OutboundBytes:      list.Items[0].OutboundBytes,

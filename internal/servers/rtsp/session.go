@@ -196,7 +196,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	}
 
 	var userAgent string
-	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) == 1 {
+	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) > 0 {
 		userAgent = ua[0]
 	}
 
@@ -274,6 +274,11 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		}
 	}
 
+	var userAgent string
+	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) > 0 {
+		userAgent = ua[0]
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial: // play
 		res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
@@ -281,6 +286,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			AccessRequest: defs.PathAccessRequest{
 				Name:             ctx.Path,
 				Query:            ctx.Query,
+				UserAgent:        userAgent,
 				Proto:            auth.ProtocolRTSP,
 				ID:               &c.uuid,
 				Credentials:      rtsp.Credentials(ctx.Request),
@@ -312,6 +318,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 		s.mutex.Lock()
 		s.user = res.User
+		s.userAgent = userAgent
 		s.mutex.Unlock()
 
 		return &base.Response{
