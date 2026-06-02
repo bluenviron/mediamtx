@@ -13,7 +13,7 @@ commits.
 |    2b | CELT energy: silence/transient/post-filter/intra flags + coarse energy (Laplace) | ✅ shipped |
 |  2c.1 | CELT tf_decode + spread decision (front of PVQ block)                      | ✅ shipped |
 |  2c.2a | CELT init_caps + dyn_alloc + alloc_trim (pre-compute_allocation block)    | ✅ shipped |
-|  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ⏳ planned |
+|  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ✅ shipped |
 |  2c.3 | CELT fine energy + PVQ shape decode (`decode_pulses`, `cwrsi`)            | ⏳ planned |
 |  2c.4 | CELT anti-collapse + final energy                                          | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
@@ -42,10 +42,52 @@ allocation:
   global trim that biases bit allocation towards low or high bands.
   Defaults to `AllocTrimDefault (5)` when the bit budget is exhausted.
 
-Output is still silence — Phase 2c.2b ships `compute_allocation`
-(multi-pass bit-budget search plus intensity / dual stereo / skip),
-2c.3 ships fine energy + PVQ shape decode, 2c.4 ships anti-collapse +
-final energy, and 2d ships the IMDCT pipeline.
+Output is still silence — Phase 2c.3 ships fine energy + PVQ shape
+decode, 2c.4 ships anti-collapse + final energy, and 2d ships the
+IMDCT pipeline.
+
+## Phase 2c.2b behavior (added on top of Phase 2c.2a)
+
+`compute_allocation` is the multi-pass bit-budget search that converts
+the running entropy budget plus the per-band caps / boosts / trim into
+a concrete pulse / fine-bit allocation. The C# port follows libopus
+`celt/rate.c::clt_compute_allocation` + `interp_bits2pulses`
+byte-for-byte.
+
+Newly observable on `CeltDecoder`:
+
+- **`LastAntiCollapseReserved`** — `true` iff 1 fractional bit was
+  reserved for the anti-collapse flag (transient frames with `LM >= 2`
+  and enough remaining budget).
+- **`LastCodedBands`** — number of bands actually carrying PVQ pulses
+  (between `StartBand+1` and `EndBand`); the skip-flag loop signals
+  high bands away when budget runs out.
+- **`LastIntensity`** — intensity-stereo cutoff band index. For mono
+  this is always `0`; for stereo it lives in
+  `[StartBand, LastCodedBands]` and is read as a uniform integer from
+  the range coder when `intensity_rsv > 0`.
+- **`LastDualStereo`** — single bit decoded only when intensity stereo
+  is active (`LastIntensity > StartBand`) and `dual_stereo_rsv > 0`.
+- **`LastPulses`** — per-band PVQ pulse budget (in 1/8-bit fractional
+  units, post fine-energy subtraction). Bands outside
+  `[StartBand, LastCodedBands)` carry zero.
+- **`LastFineBits`** — per-band fine-energy bit count, in `[0, 8]`. Set
+  for every band in `[StartBand, EndBand)`; skipped bands receive any
+  remaining `pulses[j] >> stereo >> BITRES` budget as fine bits.
+- **`LastFinePriority`** — per-band 0/1 priority used by the unused-bit
+  redistribution loop in Phase 2c.4.
+- **`LastAllocationBalance`** — leftover fractional bits passed to PVQ
+  for inter-band rebalancing.
+
+Tables added to `CeltConstants`: `BandAllocation` (the 11×21
+`band_allocation` matrix), `LogN400` (per-band `log2(N) + log2_frac`
+seed), `Log2FracTable[0..23]` (1/8-bit `log2(1+x/16)` values used to
+size the intensity stereo symbol). Constants: `NbAllocVectors=11`,
+`AllocSteps=6`, `FineOffset=21`, `MaxFineBits=8`, `QThetaOffset=4`.
+
+Output is still silence — Phase 2c.3 ships fine energy + PVQ shape
+decode, 2c.4 ships anti-collapse + final energy, and 2d ships the
+IMDCT pipeline.
 
 ## Phase 2c.1 behavior (added on top of Phase 2b)
 

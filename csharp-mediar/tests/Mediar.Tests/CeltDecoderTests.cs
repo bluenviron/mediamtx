@@ -377,4 +377,129 @@ public sealed class CeltDecoderTests
         }
         Assert.Equal(CeltConstants.AllocTrimDefault, dec.LastAllocTrim);
     }
+
+    [Fact]
+    public void DecodeFrame_Populates_CodedBands_For_NonSilent_Packet()
+    {
+        // compute_allocation must always return a coded band count in
+        // [StartBand+1, EndBand] when the input is non-silent.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        Assert.InRange(dec.LastCodedBands, mode.StartBand + 1, mode.EndBand);
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_Intensity_For_Stereo_NonSilent_Packet()
+    {
+        // Stereo: intensity ∈ [StartBand, codedBands] per libopus
+        // interp_bits2pulses semantics.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        Assert.InRange(dec.LastIntensity, mode.StartBand, dec.LastCodedBands);
+    }
+
+    [Fact]
+    public void DecodeFrame_Mono_HasZero_Intensity()
+    {
+        // Intensity stereo is only signalled for 2-channel frames.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 1);
+        Span<float> output = new float[mode.SamplesPerFrame];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        Assert.Equal(0, dec.LastIntensity);
+        Assert.False(dec.LastDualStereo);
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_Pulses_FineBits_FinePriority_For_NonSilent_Packet()
+    {
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        var pulses = dec.LastPulses;
+        var ebits = dec.LastFineBits;
+        var priority = dec.LastFinePriority;
+        Assert.Equal(CeltConstants.MaxBands, pulses.Length);
+        Assert.Equal(CeltConstants.MaxBands, ebits.Length);
+        Assert.Equal(CeltConstants.MaxBands, priority.Length);
+
+        for (int i = 0; i < mode.StartBand; i++)
+        {
+            Assert.Equal(0, pulses[i]);
+            Assert.Equal(0, ebits[i]);
+        }
+        for (int i = mode.EndBand; i < CeltConstants.MaxBands; i++)
+        {
+            Assert.Equal(0, pulses[i]);
+            Assert.Equal(0, ebits[i]);
+        }
+        for (int i = mode.StartBand; i < mode.EndBand; i++)
+        {
+            Assert.True(pulses[i] >= 0, $"pulses[{i}]={pulses[i]} must be >= 0");
+            Assert.InRange(ebits[i], 0, CeltConstants.MaxFineBits);
+            Assert.InRange(priority[i], 0, 1);
+        }
+    }
+
+    [Fact]
+    public void DecodeFrame_AntiCollapse_Not_Reserved_For_NonTransient_Frame()
+    {
+        // A non-transient frame (LM=3, isTransient=false) must NOT
+        // reserve the anti-collapse bit per libopus rule.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        Assert.False(dec.LastFrameWasTransient);
+        Assert.False(dec.LastAntiCollapseReserved);
+    }
+
+    [Fact]
+    public void Reset_Clears_ComputeAllocation_State()
+    {
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        dec.Reset();
+
+        Assert.Equal(0, dec.LastCodedBands);
+        Assert.Equal(0, dec.LastIntensity);
+        Assert.False(dec.LastDualStereo);
+        Assert.False(dec.LastAntiCollapseReserved);
+        Assert.Equal(0, dec.LastAllocationBalance);
+        var pulses = dec.LastPulses;
+        var ebits = dec.LastFineBits;
+        var priority = dec.LastFinePriority;
+        for (int i = 0; i < pulses.Length; i++)
+        {
+            Assert.Equal(0, pulses[i]);
+            Assert.Equal(0, ebits[i]);
+            Assert.Equal(0, priority[i]);
+        }
+    }
 }

@@ -294,4 +294,72 @@ internal static class CeltConstants
         204, 204, 204, 204, 204, 201, 201, 201, 201, 198, 198, 198, 187, 187, 175,
         140,  66,  40,
     };
+
+    /// <summary>
+    /// Number of allocation hypothesis vectors in <see cref="BandAllocation"/>.
+    /// Matches libopus <c>BITALLOC_SIZE</c>.
+    /// </summary>
+    public const int NbAllocVectors = 11;
+
+    /// <summary>
+    /// Bit-budget binary-search bisection depth used by
+    /// <c>interp_bits2pulses</c>. libopus <c>ALLOC_STEPS</c>.
+    /// </summary>
+    public const int AllocSteps = 6;
+
+    /// <summary>libopus <c>FINE_OFFSET</c> — offset for fine bit allocation.</summary>
+    public const int FineOffset = 21;
+
+    /// <summary>libopus <c>MAX_FINE_BITS</c> — fine bits never exceed 8.</summary>
+    public const int MaxFineBits = 8;
+
+    /// <summary>libopus <c>QTHETA_OFFSET</c>.</summary>
+    public const int QThetaOffset = 4;
+
+    /// <summary>
+    /// Bit allocation table — 11 quality hypotheses × 21 bands, in units of
+    /// 1/32 bit per sample (0.1875 dB SNR). Indexed as
+    /// <c>BandAllocation[quality * MaxBands + band]</c>. The binary search
+    /// in <c>compute_allocation</c> picks the highest quality level that
+    /// still fits in the available bit budget.
+    /// </summary>
+    public static ReadOnlySpan<byte> BandAllocation => new byte[]
+    {
+        // 0   200  400  600  800  1k  1.2  1.4  1.6  2k  2.4  2.8  3.2  4k  4.8  5.6  6.8  8k  9.6  12k 15.6
+          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+         90,  80,  75,  69,  63,  56,  49,  40,  34,  29,  20,  18,  10,   0,   0,   0,   0,   0,   0,   0,   0,
+        110, 100,  90,  84,  78,  71,  65,  58,  51,  45,  39,  32,  26,  20,  12,   0,   0,   0,   0,   0,   0,
+        118, 110, 103,  93,  86,  80,  75,  70,  65,  59,  53,  47,  40,  31,  23,  15,   4,   0,   0,   0,   0,
+        126, 119, 112, 104,  95,  89,  83,  78,  72,  66,  60,  54,  47,  39,  32,  25,  17,  12,   1,   0,   0,
+        134, 127, 120, 114, 103,  97,  91,  85,  78,  72,  66,  60,  54,  47,  41,  35,  29,  23,  16,  10,   1,
+        144, 137, 130, 124, 113, 107, 101,  95,  88,  82,  76,  70,  64,  57,  51,  45,  39,  33,  26,  15,   1,
+        152, 145, 138, 132, 123, 117, 111, 105,  98,  92,  86,  80,  74,  67,  61,  55,  49,  43,  36,  20,   1,
+        162, 155, 148, 142, 133, 127, 121, 115, 108, 102,  96,  90,  84,  77,  71,  65,  59,  53,  46,  30,   1,
+        172, 165, 158, 152, 143, 137, 131, 125, 118, 112, 106, 100,  94,  87,  81,  75,  69,  63,  56,  45,  20,
+        200, 200, 200, 200, 200, 200, 200, 200, 198, 193, 188, 183, 178, 173, 168, 163, 158, 153, 148, 129, 104,
+    };
+
+    /// <summary>
+    /// Per-band log2 of the band width in fractional bits — libopus
+    /// <c>logN400</c>. Used by the fine-bit allocator inside
+    /// <c>interp_bits2pulses</c>.
+    /// </summary>
+    public static ReadOnlySpan<short> LogN400 => new short[]
+    {
+        0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 16, 16, 16, 21, 21, 24, 29, 34, 36,
+    };
+
+    /// <summary>
+    /// libopus <c>LOG2_FRAC_TABLE</c> — encodes
+    /// <c>round(log2(i+1) * 8)</c> for i in 0..23. Used to size the
+    /// intensity-stereo reservation in <c>compute_allocation</c>.
+    /// </summary>
+    public static ReadOnlySpan<byte> Log2FracTable => new byte[]
+    {
+         0,
+         8, 13,
+        16, 19, 21, 23,
+        24, 26, 27, 28, 29, 30, 31, 32,
+        32, 33, 34, 34, 35, 36, 36, 37, 37,
+    };
 }

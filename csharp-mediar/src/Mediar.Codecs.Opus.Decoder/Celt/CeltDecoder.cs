@@ -57,6 +57,15 @@ internal sealed class CeltDecoder
     // Units: fractional bits, same as _caps.
     private readonly int[] _boost;
 
+    // Phase 2c.2b allocator state. All in fractional bits (1/8 bit).
+    private readonly int[] _bits1;
+    private readonly int[] _bits2;
+    private readonly int[] _thresh;
+    private readonly int[] _trimOffset;
+    private readonly int[] _pulses;
+    private readonly int[] _ebits;
+    private readonly int[] _finePriority;
+
     /// <summary>The active band layout for this decoder.</summary>
     public CeltMode Mode { get; }
 
@@ -137,6 +146,58 @@ internal sealed class CeltDecoder
     public int LastAllocTrim { get; private set; } = CeltConstants.AllocTrimDefault;
 
     /// <summary>
+    /// Number of bands actually coded in the most recent frame
+    /// (Phase 2c.2b). Bands in <c>[StartBand, LastCodedBands)</c> get
+    /// PVQ + fine bits; bands in <c>[LastCodedBands, EndBand)</c> are
+    /// skipped and absorb only fine-energy bits.
+    /// </summary>
+    public int LastCodedBands { get; private set; }
+
+    /// <summary>
+    /// Decoded intensity-stereo cutoff band from the most recent frame.
+    /// Bands &lt; <c>LastIntensity</c> use full stereo; bands ≥ are
+    /// intensity-coded. Always 0 for mono.
+    /// </summary>
+    public int LastIntensity { get; private set; }
+
+    /// <summary>
+    /// Whether the most recent frame used dual-stereo coupling. Always
+    /// false for mono.
+    /// </summary>
+    public bool LastDualStereo { get; private set; }
+
+    /// <summary>
+    /// True when the most recent frame reserved one fractional bit for
+    /// the anti-collapse symbol. Only set when
+    /// <c>isTransient AND LM &gt;= 2 AND remaining budget admits it</c>.
+    /// </summary>
+    public bool LastAntiCollapseReserved { get; private set; }
+
+    /// <summary>
+    /// Per-band PVQ pulse count (fractional bits) from the most recent
+    /// frame. Bands outside <c>[StartBand, EndBand)</c> are zero.
+    /// </summary>
+    public ReadOnlySpan<int> LastPulses => _pulses;
+
+    /// <summary>
+    /// Per-band fine-energy bit count from the most recent frame.
+    /// Bands outside <c>[StartBand, EndBand)</c> are zero.
+    /// </summary>
+    public ReadOnlySpan<int> LastFineBits => _ebits;
+
+    /// <summary>
+    /// Per-band fine-energy priority (0 or 1) — bands flagged 1 get a
+    /// second pass of fine-energy refinement if budget remains.
+    /// </summary>
+    public ReadOnlySpan<int> LastFinePriority => _finePriority;
+
+    /// <summary>
+    /// Leftover bit balance (fractional bits) carried into the PVQ
+    /// rebalancing step in Phase 2c.3. Always non-negative.
+    /// </summary>
+    public int LastAllocationBalance { get; private set; }
+
+    /// <summary>
     /// Read-only view over the per-band log-energy state. Stored in
     /// DB_SHIFT units (multiply by <c>1/1024</c> to recover log2 energy).
     /// Layout matches libopus: <c>channel * MaxBands + band</c>.
@@ -159,6 +220,13 @@ internal sealed class CeltDecoder
         _tfRes = new sbyte[CeltConstants.MaxBands];
         _caps = new int[CeltConstants.MaxBands];
         _boost = new int[CeltConstants.MaxBands];
+        _bits1 = new int[CeltConstants.MaxBands];
+        _bits2 = new int[CeltConstants.MaxBands];
+        _thresh = new int[CeltConstants.MaxBands];
+        _trimOffset = new int[CeltConstants.MaxBands];
+        _pulses = new int[CeltConstants.MaxBands];
+        _ebits = new int[CeltConstants.MaxBands];
+        _finePriority = new int[CeltConstants.MaxBands];
     }
 
     /// <summary>
@@ -288,11 +356,32 @@ internal sealed class CeltDecoder
             LastAllocTrim = CeltConstants.AllocTrimDefault;
         }
 
-        // Phase 2c.2b+ ships compute_allocation + intensity/dual stereo +
-        // skip, then 2c.3 ships fine energy + PVQ shape decode, 2c.4
-        // ships anti-collapse + final energy, and Phase 2d ships the
-        // IMDCT pipeline. For now the output remains silent — but the
-        // decoded state above is observable for tests.
+        // 11. anti_collapse reservation (1 frac bit if isTransient and
+        //     LM >= 2 and budget permits). Subtracted from the budget
+        //     handed to compute_allocation.
+        long bitsForAlloc = ((long)rangeDecoder.BufferLength * 8 << CeltConstants.BitRes)
+                            - rangeDecoder.TellFrac() - 1;
+        int antiCollapseRsv = 0;
+        if (isTransient && lm >= 2 && bitsForAlloc >= ((long)(lm + 2) << CeltConstants.BitRes))
+        {
+            antiCollapseRsv = 1 << CeltConstants.BitRes;
+        }
+        bitsForAlloc -= antiCollapseRsv;
+        LastAntiCollapseReserved = antiCollapseRsv != 0;
+
+        // 12. compute_allocation — produces per-band PVQ pulses, fine
+        //     energy bits, intensity/dual stereo flags and the coded
+        //     band count. Also consumes the skip flag(s) and intensity /
+        //     dual-stereo bits in the bitstream.
+        Array.Clear(_pulses);
+        Array.Clear(_ebits);
+        Array.Clear(_finePriority);
+        LastCodedBands = ComputeAllocation(ref rangeDecoder, (int)bitsForAlloc, lm);
+
+        // Phase 2c.3+ ships fine energy + PVQ shape decode, 2c.4 ships
+        // anti-collapse + final energy, and Phase 2d ships the IMDCT
+        // pipeline. For now the output remains silent — but the decoded
+        // state above is observable for tests.
 
         IsFirstFrame = false;
         SamplesProduced += Mode.SamplesPerFrame;
@@ -383,6 +472,303 @@ internal sealed class CeltDecoder
         return totalBitsFrac;
     }
 
+    private int ComputeAllocation(ref OpusRangeDecoder rd, int total, int lm)
+    {
+        // Port of libopus clt_compute_allocation (celt/rate.c). The
+        // function consumes the skip flag(s), intensity, and dual_stereo
+        // bits from the range coder and produces the per-band pulse and
+        // fine-bit allocation handed to PVQ + fine-energy decode.
+        int start = Mode.StartBand;
+        int end = Mode.EndBand;
+        int len = CeltConstants.MaxBands;
+        var eBands = CeltConstants.EBands;
+        var bandAlloc = CeltConstants.BandAllocation;
+        int nbAllocVectors = CeltConstants.NbAllocVectors;
+
+        if (total < 0) total = 0;
+        int skipStart = start;
+
+        // Reserve 1 frac bit to signal end of manually skipped bands.
+        int skipRsv = total >= (1 << CeltConstants.BitRes) ? (1 << CeltConstants.BitRes) : 0;
+        total -= skipRsv;
+
+        int intensityRsv = 0;
+        int dualStereoRsv = 0;
+        if (_channels == 2)
+        {
+            intensityRsv = CeltConstants.Log2FracTable[end - start];
+            if (intensityRsv > total)
+            {
+                intensityRsv = 0;
+            }
+            else
+            {
+                total -= intensityRsv;
+                dualStereoRsv = total >= (1 << CeltConstants.BitRes)
+                    ? (1 << CeltConstants.BitRes) : 0;
+                total -= dualStereoRsv;
+            }
+        }
+
+        Array.Clear(_bits1);
+        Array.Clear(_bits2);
+        Array.Clear(_thresh);
+        Array.Clear(_trimOffset);
+
+        for (int j = start; j < end; j++)
+        {
+            // Below this threshold, we're sure not to allocate any PVQ bits.
+            int threshLow = _channels << CeltConstants.BitRes;
+            int threshHigh = (3 * (eBands[j + 1] - eBands[j]) << lm
+                              << CeltConstants.BitRes) >> 4;
+            _thresh[j] = Math.Max(threshLow, threshHigh);
+            // Tilt of the allocation curve.
+            _trimOffset[j] = (_channels * (eBands[j + 1] - eBands[j])
+                * (LastAllocTrim - 5 - lm) * (end - j - 1)
+                * (1 << (lm + CeltConstants.BitRes))) >> 6;
+            if (((eBands[j + 1] - eBands[j]) << lm) == 1)
+                _trimOffset[j] -= _channels << CeltConstants.BitRes;
+        }
+
+        // Outer binary search: find the lowest quality hypothesis whose
+        // psum exceeds the available total. lo ends 1 past the best fit.
+        int lo = 1;
+        int hi = nbAllocVectors - 1;
+        do
+        {
+            bool done = false;
+            int psum = 0;
+            int mid = (lo + hi) >> 1;
+            for (int j = end; j-- > start;)
+            {
+                int n = eBands[j + 1] - eBands[j];
+                int bitsj = (_channels * n * bandAlloc[mid * len + j] << lm) >> 2;
+                if (bitsj > 0)
+                    bitsj = Math.Max(0, bitsj + _trimOffset[j]);
+                bitsj += _boost[j];
+                if (bitsj >= _thresh[j] || done)
+                {
+                    done = true;
+                    psum += Math.Min(bitsj, _caps[j]);
+                }
+                else
+                {
+                    if (bitsj >= (_channels << CeltConstants.BitRes))
+                        psum += _channels << CeltConstants.BitRes;
+                }
+            }
+            if (psum > total)
+                hi = mid - 1;
+            else
+                lo = mid + 1;
+        } while (lo <= hi);
+        hi = lo--;
+
+        // Build bits1[] / bits2[] for the inner interpolation step.
+        for (int j = start; j < end; j++)
+        {
+            int n = eBands[j + 1] - eBands[j];
+            int bits1j = (_channels * n * bandAlloc[lo * len + j] << lm) >> 2;
+            int bits2j = hi >= nbAllocVectors
+                ? _caps[j]
+                : (_channels * n * bandAlloc[hi * len + j] << lm) >> 2;
+            if (bits1j > 0) bits1j = Math.Max(0, bits1j + _trimOffset[j]);
+            if (bits2j > 0) bits2j = Math.Max(0, bits2j + _trimOffset[j]);
+            if (lo > 0) bits1j += _boost[j];
+            bits2j += _boost[j];
+            if (_boost[j] > 0) skipStart = j;
+            bits2j = Math.Max(0, bits2j - bits1j);
+            _bits1[j] = bits1j;
+            _bits2[j] = bits2j;
+        }
+
+        return InterpBits2Pulses(ref rd, start, end, skipStart, total,
+            skipRsv, intensityRsv, dualStereoRsv, lm);
+    }
+
+    private int InterpBits2Pulses(ref OpusRangeDecoder rd, int start, int end,
+        int skipStart, int total, int skipRsv, int intensityRsv,
+        int dualStereoRsv, int lm)
+    {
+        // Port of libopus interp_bits2pulses (celt/rate.c). Reads
+        // skip flag(s), intensity uniform integer, dual_stereo flag from
+        // the bitstream and produces per-band pulses[], ebits[],
+        // fine_priority[], plus the codedBands return value.
+        int allocFloor = _channels << CeltConstants.BitRes;
+        int stereo = _channels > 1 ? 1 : 0;
+        int logM = lm << CeltConstants.BitRes;
+        var eBands = CeltConstants.EBands;
+
+        // Inner bisection at fractional resolution: find the lo that
+        // satisfies psum <= total, in 1/(2^AllocSteps) increments.
+        int lo = 0;
+        int hi = 1 << CeltConstants.AllocSteps;
+        for (int i = 0; i < CeltConstants.AllocSteps; i++)
+        {
+            int mid = (lo + hi) >> 1;
+            int psum = 0;
+            bool done = false;
+            for (int j = end; j-- > start;)
+            {
+                int tmp = _bits1[j] + ((mid * _bits2[j]) >> CeltConstants.AllocSteps);
+                if (tmp >= _thresh[j] || done)
+                {
+                    done = true;
+                    psum += Math.Min(tmp, _caps[j]);
+                }
+                else if (tmp >= allocFloor)
+                {
+                    psum += allocFloor;
+                }
+            }
+            if (psum > total) hi = mid; else lo = mid;
+        }
+
+        // Final per-band bit allocation at the chosen lo.
+        int psumFinal = 0;
+        bool doneFinal = false;
+        for (int j = end; j-- > start;)
+        {
+            int tmp = _bits1[j] + ((lo * _bits2[j]) >> CeltConstants.AllocSteps);
+            if (tmp < _thresh[j] && !doneFinal)
+                tmp = tmp >= allocFloor ? allocFloor : 0;
+            else
+                doneFinal = true;
+            tmp = Math.Min(tmp, _caps[j]);
+            _pulses[j] = tmp;
+            psumFinal += tmp;
+        }
+
+        // Skip-flag loop (working backwards). Reads 1 bit per skipped band.
+        int codedBands;
+        for (codedBands = end; ; codedBands--)
+        {
+            int j = codedBands - 1;
+            if (j <= skipStart)
+            {
+                total += skipRsv;
+                break;
+            }
+            long left = total - psumFinal;
+            int spanWidth = eBands[codedBands] - eBands[start];
+            int percoeff = spanWidth > 0 ? (int)(left / spanWidth) : 0;
+            left -= (long)spanWidth * percoeff;
+            int rem = (int)Math.Max(left - (eBands[j] - eBands[start]), 0);
+            int bandWidth = eBands[codedBands] - eBands[j];
+            int bandBits = _pulses[j] + percoeff * bandWidth + rem;
+
+            if (bandBits >= Math.Max(_thresh[j], allocFloor + (1 << CeltConstants.BitRes)))
+            {
+                if (rd.DecodeBitLogP(1) != 0) break;
+                psumFinal += 1 << CeltConstants.BitRes;
+                bandBits -= 1 << CeltConstants.BitRes;
+            }
+
+            psumFinal -= _pulses[j] + intensityRsv;
+            if (intensityRsv > 0)
+                intensityRsv = CeltConstants.Log2FracTable[j - start];
+            psumFinal += intensityRsv;
+            if (bandBits >= allocFloor)
+            {
+                psumFinal += allocFloor;
+                _pulses[j] = allocFloor;
+            }
+            else
+            {
+                _pulses[j] = 0;
+            }
+        }
+
+        // Intensity / dual-stereo.
+        if (intensityRsv > 0)
+            LastIntensity = start + (int)rd.DecodeUint((uint)(codedBands + 1 - start));
+        else
+            LastIntensity = 0;
+
+        if (LastIntensity <= start)
+        {
+            total += dualStereoRsv;
+            dualStereoRsv = 0;
+        }
+        LastDualStereo = dualStereoRsv > 0 && rd.DecodeBitLogP(1) != 0;
+
+        // Distribute remaining bits across coded bands.
+        long leftFinal = total - psumFinal;
+        int codedWidth = eBands[codedBands] - eBands[start];
+        int percoeffFinal = codedWidth > 0 ? (int)(leftFinal / codedWidth) : 0;
+        leftFinal -= (long)codedWidth * percoeffFinal;
+        for (int j = start; j < codedBands; j++)
+            _pulses[j] += percoeffFinal * (eBands[j + 1] - eBands[j]);
+        for (int j = start; j < codedBands; j++)
+        {
+            int tmp = (int)Math.Min(leftFinal, (long)(eBands[j + 1] - eBands[j]));
+            _pulses[j] += tmp;
+            leftFinal -= tmp;
+        }
+
+        // Compute fine bits, fine priority, and the final pulse counts
+        // (subtracting fine-bit costs from the PVQ pulse budget).
+        int balance = 0;
+        for (int j = start; j < codedBands; j++)
+        {
+            int n0 = eBands[j + 1] - eBands[j];
+            int n = n0 << lm;
+            int bit = _pulses[j] + balance;
+            int excess;
+            if (n > 1)
+            {
+                excess = Math.Max(bit - _caps[j], 0);
+                _pulses[j] = bit - excess;
+                int den = _channels * n
+                    + ((_channels == 2 && n > 2 && !LastDualStereo && j < LastIntensity) ? 1 : 0);
+                int nClogN = den * (CeltConstants.LogN400[j] + logM);
+                int offset = (nClogN >> 1) - den * CeltConstants.FineOffset;
+                if (n == 2)
+                    offset += (den << CeltConstants.BitRes) >> 2;
+                if (_pulses[j] + offset < (den * 2 << CeltConstants.BitRes))
+                    offset += nClogN >> 2;
+                else if (_pulses[j] + offset < (den * 3 << CeltConstants.BitRes))
+                    offset += nClogN >> 3;
+                int rounded = Math.Max(0, _pulses[j] + offset + (den << (CeltConstants.BitRes - 1)));
+                _ebits[j] = (rounded / den) >> CeltConstants.BitRes;
+                if (_channels * _ebits[j] > (_pulses[j] >> CeltConstants.BitRes))
+                    _ebits[j] = _pulses[j] >> stereo >> CeltConstants.BitRes;
+                _ebits[j] = Math.Min(_ebits[j], CeltConstants.MaxFineBits);
+                _finePriority[j] = (_ebits[j] * (den << CeltConstants.BitRes)) >= _pulses[j] + offset ? 1 : 0;
+                _pulses[j] -= _channels * _ebits[j] << CeltConstants.BitRes;
+            }
+            else
+            {
+                excess = Math.Max(0, bit - (_channels << CeltConstants.BitRes));
+                _pulses[j] = bit - excess;
+                _ebits[j] = 0;
+                _finePriority[j] = 1;
+            }
+
+            if (excess > 0)
+            {
+                int extraFine = Math.Min(excess >> (stereo + CeltConstants.BitRes),
+                    CeltConstants.MaxFineBits - _ebits[j]);
+                _ebits[j] += extraFine;
+                int extraBits = extraFine * _channels << CeltConstants.BitRes;
+                _finePriority[j] = extraBits >= excess - balance ? 1 : 0;
+                excess -= extraBits;
+            }
+            balance = excess;
+        }
+        LastAllocationBalance = balance;
+
+        // Skipped bands: all their (remaining) bits go to fine energy.
+        for (int j = codedBands; j < end; j++)
+        {
+            _ebits[j] = _pulses[j] >> stereo >> CeltConstants.BitRes;
+            _pulses[j] = 0;
+            _finePriority[j] = _ebits[j] < 1 ? 1 : 0;
+        }
+
+        return codedBands;
+    }
+
     private void DecodeCoarseEnergy(ref OpusRangeDecoder rd, int totalBits, bool intra, int lm)
     {
         int alphaCoefQ15 = intra ? 0 : CeltConstants.PredCoef[lm];
@@ -446,11 +832,23 @@ internal sealed class CeltDecoder
         Array.Clear(_tfRes);
         Array.Clear(_caps);
         Array.Clear(_boost);
+        Array.Clear(_bits1);
+        Array.Clear(_bits2);
+        Array.Clear(_thresh);
+        Array.Clear(_trimOffset);
+        Array.Clear(_pulses);
+        Array.Clear(_ebits);
+        Array.Clear(_finePriority);
         LastFrameWasSilent = false;
         LastFrameWasTransient = false;
         LastFrameUsedIntra = false;
         LastPostFilter = CeltPostFilterParams.Disabled;
         LastSpreadDecision = CeltConstants.SpreadNormal;
         LastAllocTrim = CeltConstants.AllocTrimDefault;
+        LastCodedBands = 0;
+        LastIntensity = 0;
+        LastDualStereo = false;
+        LastAntiCollapseReserved = false;
+        LastAllocationBalance = 0;
     }
 }
