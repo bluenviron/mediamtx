@@ -345,6 +345,141 @@ public class AacPulseDataTests
         Assert.Equal(15, data.Pulses[3].Offset);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void TryParse_PulseCount_Maps_To_NumberOfPulses_Plus_One(int countField)
+    {
+        var writer = new AacBitWriter();
+        writer.Write((uint)countField, 2);
+        writer.Write(5u, 6);
+        for (int i = 0; i <= countField; i++)
+        {
+            writer.Write(0u, 5);
+            writer.Write(0u, 4);
+        }
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.NotNull(data);
+        Assert.Equal(countField + 1, data!.Pulses.Length);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(32)]
+    [InlineData(63)]
+    public void TryParse_StartScaleFactorBand_Theory(int startSfb)
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write((uint)startSfb, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.Equal(startSfb, data!.StartScaleFactorBand);
+    }
+
+    [Fact]
+    public void ToBytes_FourPulses_Round_Trips_Exactly()
+    {
+        // Build a 4-pulse value via TryParse, then mutate via `with`.
+        var w = new AacBitWriter();
+        w.Write(3u, 2);
+        w.Write(42u, 6);
+        w.Write(0u, 5); w.Write(1u, 4);
+        w.Write(7u, 5); w.Write(2u, 4);
+        w.Write(15u, 5); w.Write(3u, 4);
+        w.Write(31u, 5); w.Write(15u, 4);
+        Assert.True(AacPulseData.TryParse(w.ToArray(), out var original));
+        Assert.NotNull(original);
+
+        var bytes = original!.ToBytes();
+        Assert.True(AacPulseData.TryParse(bytes, out var roundTripped));
+        Assert.NotNull(roundTripped);
+        Assert.Equal(42, roundTripped!.StartScaleFactorBand);
+        Assert.Equal(4, roundTripped.Pulses.Length);
+        Assert.Equal(new AacPulse(31, 15), roundTripped.Pulses[3]);
+        Assert.Equal(44, roundTripped.BitsConsumed);
+    }
+
+    [Fact]
+    public void ToBytes_StartSfbOutOfRange_Throws()
+    {
+        // start_sfb field is 6 bits → max 63. Setting 64 must fail.
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(0u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var parsed));
+        var bogus = parsed! with { StartScaleFactorBand = 64 };
+        Assert.Throws<InvalidOperationException>(() => bogus.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_NegativeStartSfb_Throws()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(0u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var parsed));
+        var bogus = parsed! with { StartScaleFactorBand = -1 };
+        Assert.Throws<InvalidOperationException>(() => bogus.ToBytes());
+    }
+
+    [Fact]
+    public void TryParse_BitsConsumed_Reflects_Reader_Position_Delta()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(1u, 2);
+        writer.Write(5u, 6);
+        writer.Write(0u, 5); writer.Write(0u, 4);
+        writer.Write(0u, 5); writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.Equal(26, data!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_ZeroOffsetAndAmplitude_Across_Three_Pulses()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(2u, 2);
+        writer.Write(0u, 6);
+        for (int i = 0; i < 3; i++) { writer.Write(0u, 5); writer.Write(0u, 4); }
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.NotNull(data);
+        Assert.Equal(3, data!.Pulses.Length);
+        foreach (var p in data.Pulses)
+        {
+            Assert.Equal(0, p.Offset);
+            Assert.Equal(0, p.Amplitude);
+        }
+    }
+
+    [Fact]
+    public void Pulse_Record_Inequality_Across_Different_Offsets()
+    {
+        var a = new AacPulse(5, 9);
+        var b = new AacPulse(6, 9);
+        Assert.NotEqual(a, b);
+        Assert.NotEqual(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Pulse_With_Expression_Replaces_Amplitude_Only()
+    {
+        var a = new AacPulse(7, 3);
+        var b = a with { Amplitude = 11 };
+        Assert.Equal(7, b.Offset);
+        Assert.Equal(11, b.Amplitude);
+        Assert.NotEqual(a, b);
+    }
+
     private sealed class AacPulseData_ForRoundTrip
     {
         private readonly int _startSfb;

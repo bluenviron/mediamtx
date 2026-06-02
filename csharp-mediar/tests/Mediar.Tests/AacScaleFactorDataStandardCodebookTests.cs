@@ -353,4 +353,144 @@ public sealed class AacScaleFactorDataStandardCodebookTests
             // expected
         }
     }
+
+    [Fact]
+    public void Overload_Mixed_Codebook_Sections_Produce_Distinct_Kinds()
+    {
+        // cb=1 (SpectralGain), cb=13 (NoiseEnergy), cb=14 (IntensityPosition)
+        // back-to-back. Sequence is one band of each, all zero-delta.
+        var sections = MakeSections(
+            (0, 1, 0, 1),
+            (0, 13, 1, 2),
+            (0, 14, 2, 3));
+        // SpectralGain: 1 bit "0" (sym 60)
+        // NoiseEnergy first band: 9 bits 100000000 = 256, diff = 0
+        // IntensityPosition: 1 bit "0" (sym 60)
+        // Total = 1 + 9 + 1 = 11 bits, packed MSB:
+        // bit 0: 0 (SG)
+        // bits 1..9: 100000000 (PNS)
+        // bit 10: 0 (IS)
+        // = 0_100000000_0xxxxx = 0b0100_0000 0b0001_xxxx
+        // Wait: 0 1 0 0 0 0 0 0 0 0 0 = 11 bits
+        // byte 0: bits 0..7 = 0 1 0 0 0 0 0 0 = 0x40
+        // byte 1: bits 8..10 = 0 0 0 (padded) = 0x00
+        byte[] data = { 0x40, 0x00 };
+        var reader = new BitReader(data);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Equal(3, sf!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, sf.Entries[0].Kind);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, sf.Entries[1].Kind);
+        Assert.Equal(AacScaleFactorKind.IntensityPosition, sf.Entries[2].Kind);
+        Assert.Equal(11, sf.BitsConsumed);
+    }
+
+    [Fact]
+    public void Overload_NoiseEnergy_PCM_Boundary_Max_Value()
+    {
+        // PCM value 511 (9-bit max) → diff = 511 - 256 = 255.
+        // 9 bits all-ones = 0b1_1111_1111 → 0xFF 0x80.
+        var sections = MakeSections((0, 13, 0, 1));
+        byte[] data = { 0xFF, 0x80 };
+        var reader = new BitReader(data);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Single(sf!.Entries);
+        Assert.Equal(255, sf.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void Overload_NoiseEnergy_PCM_Boundary_Min_Value()
+    {
+        // PCM value 0 → diff = 0 - 256 = -256. Need ≥9 bits available.
+        var sections = MakeSections((0, 13, 0, 1));
+        byte[] data = { 0x00, 0x00 };
+        var reader = new BitReader(data);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Single(sf!.Entries);
+        Assert.Equal(-256, sf.Entries[0].Differential);
+    }
+
+    [Fact]
+    public void Overload_Multiple_Sections_Total_Entries_Count_Matches_Bands()
+    {
+        // 3 + 2 + 4 = 9 total bands.
+        var sections = MakeSections(
+            (0, 1, 0, 3),
+            (0, 0, 3, 5),
+            (1, 1, 0, 4));
+        var reader = new BitReader(new byte[] { 0, 0 });
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Equal(9, sf!.Entries.Count);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(12)]
+    [InlineData(16)]
+    [InlineData(255)]
+    public void Overload_None_Kind_BitsConsumed_Always_Zero(int cb)
+    {
+        var sections = MakeSections((0, cb, 0, 5));
+        var reader = new BitReader(new byte[] { 0 });
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Equal(0, sf!.BitsConsumed);
+        Assert.Equal(5, sf.Entries.Count);
+    }
+
+    [Fact]
+    public void Overload_Empty_Section_With_StartEqualsEnd_Yields_No_Entries()
+    {
+        // A section spanning no bands (start == end) contributes nothing.
+        var sections = MakeSections((0, 1, 5, 5));
+        var reader = new BitReader(new byte[] { 0 });
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Empty(sf!.Entries);
+        Assert.Equal(0, sf.BitsConsumed);
+    }
+
+    [Fact]
+    public void Overload_Mixed_NonZero_Diffs_From_Huffman_Bytes()
+    {
+        // Encode SF deltas of -2 and +2 sequentially via the standard
+        // codebook. Symbols 58 and 62 have codes 0x0B (4-bit, 1011) and
+        // 0x0C (4-bit, 1100) respectively. Packed: 1011_1100 = 0xBC.
+        var sections = MakeSections((0, 1, 0, 2));
+        byte[] data = { 0xBC };
+        var reader = new BitReader(data);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Equal(2, sf!.Entries.Count);
+        Assert.Equal(-2, sf.Entries[0].Differential);
+        Assert.Equal(2, sf.Entries[1].Differential);
+        Assert.Equal(8, sf.BitsConsumed);
+    }
+
+    [Fact]
+    public void Overload_PNS_FollowedBy_SpectralGain_Bands_Composes()
+    {
+        // PNS first uses 9 bits PCM then subsequent PNS-section calls
+        // use Huffman. A trailing SpectralGain section must read its
+        // own Huffman codes (NOT 9-bit PCM).
+        var sections = MakeSections((0, 13, 0, 1), (0, 1, 1, 3));
+        // 9 bits 100000000 (PCM 256, diff 0)
+        // + bit "0" (sym 60, SG diff 0)
+        // + bit "0" (sym 60, SG diff 0)
+        // = 11 bits: 1_0000_0000 _0 _0
+        // = byte 0: 1000_0000 = 0x80
+        // = byte 1: 000_xxxxx = 0x00
+        byte[] data = { 0x80, 0x00 };
+        var reader = new BitReader(data);
+        Assert.True(AacScaleFactorData.TryRead(ref reader, sections, out var sf));
+        Assert.NotNull(sf);
+        Assert.Equal(3, sf!.Entries.Count);
+        Assert.Equal(AacScaleFactorKind.NoiseEnergy, sf.Entries[0].Kind);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, sf.Entries[1].Kind);
+        Assert.Equal(AacScaleFactorKind.SpectralGain, sf.Entries[2].Kind);
+        Assert.Equal(11, sf.BitsConsumed);
+    }
 }
