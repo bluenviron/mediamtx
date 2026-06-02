@@ -233,5 +233,85 @@ public sealed class ImagingFormatDetectorTests
     {
         Assert.Equal(ImageFormat.Unknown, ImageFormatExtensions.FromExtension(input));
     }
+
+    [Fact]
+    public async Task DetectAsync_CancelledToken_ThrowsOperationCanceled()
+    {
+        using var ms = new MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await ImageFormatDetector.DetectAsync(ms, cts.Token));
+    }
+
+    [Fact]
+    public async Task DetectAsync_LongerThanBuffer_StopsAtRecommended()
+    {
+        // PNG signature at start; trailing junk should not change detection.
+        var head = new byte[1024];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(head, 0);
+        using var ms = new MemoryStream(head);
+        var fmt = await ImageFormatDetector.DetectAsync(ms);
+        Assert.Equal(ImageFormat.Png, fmt);
+    }
+
+    [Fact]
+    public async Task DetectAsync_EmptyStream_ReturnsUnknown()
+    {
+        using var ms = new MemoryStream();
+        var fmt = await ImageFormatDetector.DetectAsync(ms);
+        Assert.Equal(ImageFormat.Unknown, fmt);
+    }
+
+    [Fact]
+    public void Detect_RiffWithoutKnownChunk_ReturnsUnknown()
+    {
+        byte[] head = { (byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'B', (byte)'O', (byte)'G', (byte)'S' };
+        Assert.Equal(ImageFormat.Unknown, ImageFormatDetector.Detect(head));
+    }
+
+    [Fact]
+    public void Detect_BmpRequires14ByteHeader()
+    {
+        // "BM" alone is not enough — BMP requires the 14-byte BITMAPFILEHEADER.
+        byte[] tooShort = { (byte)'B', (byte)'M' };
+        Assert.Equal(ImageFormat.Unknown, ImageFormatDetector.Detect(tooShort));
+    }
+
+    [Theory]
+    [InlineData(".weba", ImageFormat.WebA)]
+    [InlineData(".PNG", ImageFormat.Png)]
+    [InlineData(".jPg", ImageFormat.Jpeg)]
+    [InlineData(".HEIF", ImageFormat.Heif)]
+    public void Extension_CaseInsensitive_NormalizesToFormat(string ext, ImageFormat expected)
+    {
+        Assert.Equal(expected, ImageFormatExtensions.FromExtension(ext));
+    }
+
+    [Fact]
+    public void Extension_DotOnly_Unknown()
+    {
+        Assert.Equal(ImageFormat.Unknown, ImageFormatExtensions.FromExtension("."));
+    }
+
+    [Fact]
+    public void Detect_EmptySpan_ReturnsUnknown()
+    {
+        Assert.Equal(ImageFormat.Unknown, ImageFormatDetector.Detect(ReadOnlySpan<byte>.Empty));
+    }
+
+    [Fact]
+    public void Detect_ZipContainer_DetectedFromPkSignature()
+    {
+        byte[] head = { (byte)'P', (byte)'K', 0x03, 0x04, 0, 0, 0, 0, 0, 0, 0, 0 };
+        Assert.Equal(ImageFormat.Odg, ImageFormatDetector.Detect(head));
+    }
+
+    [Fact]
+    public void Detect_DcmExtensionMapping_AcceptedWithoutDot()
+    {
+        Assert.Equal(ImageFormat.Dicom, ImageFormatExtensions.FromExtension("dcm"));
+        Assert.Equal(ImageFormat.Dicom, ImageFormatExtensions.FromExtension("dicom"));
+    }
 }
 

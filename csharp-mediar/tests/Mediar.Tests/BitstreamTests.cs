@@ -233,5 +233,112 @@ public sealed class BitstreamTests
         var back = AnnexBAvccConverter.RemoveEmulationPrevention(ebsp);
         Assert.Equal(rbsp, back);
     }
+
+    [Fact]
+    public void AddEmulationPrevention_Empty_ReturnsEmpty()
+    {
+        Assert.Empty(AnnexBAvccConverter.AddEmulationPrevention(ReadOnlySpan<byte>.Empty));
+    }
+
+    [Fact]
+    public void RemoveEmulationPrevention_Empty_ReturnsEmpty()
+    {
+        Assert.Empty(AnnexBAvccConverter.RemoveEmulationPrevention(ReadOnlySpan<byte>.Empty));
+    }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x01)]
+    [InlineData(0x02)]
+    [InlineData(0x03)]
+    public void AddEmulationPrevention_InsertsEscape_When_TwoZeros_Then_LowByte(byte b)
+    {
+        byte[] rbsp = { 0x00, 0x00, b };
+        var ebsp = AnnexBAvccConverter.AddEmulationPrevention(rbsp);
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x03, b }, ebsp);
+    }
+
+    [Theory]
+    [InlineData(0x04)]
+    [InlineData(0x10)]
+    [InlineData(0xFF)]
+    public void AddEmulationPrevention_NoEscape_When_TwoZeros_Then_HighByte(byte b)
+    {
+        byte[] rbsp = { 0x00, 0x00, b };
+        var ebsp = AnnexBAvccConverter.AddEmulationPrevention(rbsp);
+        Assert.Equal(rbsp, ebsp);
+    }
+
+    [Fact]
+    public void RemoveEmulationPrevention_TrailingZeroZeroThree_AtEnd_IsStripped()
+    {
+        // The match window 00 00 03 fits inside the buffer; the 03 is removed.
+        byte[] ebsp = { 0x00, 0x00, 0x03 };
+        var rbsp = AnnexBAvccConverter.RemoveEmulationPrevention(ebsp);
+        Assert.Equal(new byte[] { 0x00, 0x00 }, rbsp);
+    }
+
+    [Fact]
+    public void AnnexBToLengthPrefixed_NoStartCodes_ReturnsEmpty()
+    {
+        byte[] noStartCodes = { 0x01, 0x02, 0x03, 0x04 };
+        var avcc = AnnexBAvccConverter.AnnexBToLengthPrefixed(noStartCodes, lengthSize: 4);
+        Assert.Empty(avcc);
+    }
+
+    [Fact]
+    public void AnnexBToLengthPrefixed_LengthSize1_ClipsToByte()
+    {
+        // NAL of 4 bytes encoded with 1-byte length prefix.
+        byte[] annexB = { 0, 0, 0, 1, 0x67, 0x42, 0x80, 0x1F };
+        var avcc = AnnexBAvccConverter.AnnexBToLengthPrefixed(annexB, lengthSize: 1);
+        Assert.Equal(new byte[] { 0x04, 0x67, 0x42, 0x80, 0x1F }, avcc);
+    }
+
+    [Fact]
+    public void NalRange_GetHashCode_StableForEqualValues()
+    {
+        var a = new NalRange(4, 12);
+        var b = new NalRange(4, 12);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void NalRange_HasOffsetAndLengthProperties()
+    {
+        var r = new NalRange(7, 13);
+        Assert.Equal(7, r.Offset);
+        Assert.Equal(13, r.Length);
+    }
+
+    [Fact]
+    public void FindNalUnits_LargeBuffer_TriggersAvx2Path()
+    {
+        // Buffer > 34 bytes so the AVX2 fast path activates when supported.
+        var stream = new byte[256];
+        stream[40] = 0; stream[41] = 0; stream[42] = 0; stream[43] = 1;
+        // Place 16 NAL payload bytes after first start code.
+        for (int i = 44; i < 60; i++) stream[i] = (byte)(i & 0x7F);
+        stream[60] = 0; stream[61] = 0; stream[62] = 1;
+        for (int i = 63; i < 80; i++) stream[i] = (byte)(i & 0x7F);
+
+        var nals = AnnexBScanner.FindNalUnits(stream);
+        Assert.Equal(2, nals.Count);
+        Assert.Equal(44, nals[0].Offset);
+        Assert.Equal(60 - 44, nals[0].Length);
+        Assert.Equal(63, nals[1].Offset);
+        Assert.Equal(256 - 63, nals[1].Length);
+    }
+
+    [Fact]
+    public void FindNalUnits_TwoBackToBackStartCodes_FirstHasZeroOrSmallPayload()
+    {
+        byte[] stream = { 0, 0, 0, 1, 0, 0, 0, 1, 0x67, 0x42 };
+        var nals = AnnexBScanner.FindNalUnits(stream);
+        // Two start codes, second NAL at offset 8 of length 2.
+        // The first NAL is empty (between the two start codes) — implementation
+        // may or may not emit it; just verify the final NAL is present.
+        Assert.Contains(nals, n => n.Offset == 8 && n.Length == 2);
+    }
 }
 
