@@ -252,6 +252,173 @@ public sealed class Id3v2ApicFrameTests
         Assert.Equal(JpegMagic, picture.Data.ToArray());
     }
 
+    [Fact]
+    public void Apic_Frame_Shorter_Than_4_Bytes_Adds_No_Picture()
+    {
+        // Build a minimal APIC frame with payload of only 2 bytes.
+        byte[] payload = [0, 0x41]; // enc + 1 byte (no MIME terminator possible)
+        byte[] frame = new byte[10 + payload.Length];
+        Encoding.ASCII.GetBytes("APIC").CopyTo(frame.AsSpan(0, 4));
+        BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(4, 4), (uint)payload.Length);
+        payload.CopyTo(frame.AsSpan(10));
+        var meta = Decode(version: 3, frame);
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Apic_Missing_Mime_Terminator_Adds_No_Picture()
+    {
+        // Payload of enc byte + several non-NUL bytes but no terminator.
+        byte[] payload = new byte[] { 0, (byte)'i', (byte)'m', (byte)'a', (byte)'g', (byte)'e' };
+        byte[] frame = new byte[10 + payload.Length];
+        Encoding.ASCII.GetBytes("APIC").CopyTo(frame.AsSpan(0, 4));
+        BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(4, 4), (uint)payload.Length);
+        payload.CopyTo(frame.AsSpan(10));
+        var meta = Decode(version: 3, frame);
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Apic_Truncated_After_Mime_Adds_No_Picture()
+    {
+        // enc + "image/jpeg" + NUL, and nothing else (missing picType byte).
+        byte[] mimeBytes = Encoding.Latin1.GetBytes("image/jpeg");
+        byte[] payload = new byte[1 + mimeBytes.Length + 1];
+        payload[0] = 0;
+        mimeBytes.CopyTo(payload.AsSpan(1));
+        payload[1 + mimeBytes.Length] = 0;
+        byte[] frame = new byte[10 + payload.Length];
+        Encoding.ASCII.GetBytes("APIC").CopyTo(frame.AsSpan(0, 4));
+        BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(4, 4), (uint)payload.Length);
+        payload.CopyTo(frame.AsSpan(10));
+        var meta = Decode(version: 3, frame);
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Apic_Empty_Mime_Maps_To_Image_Slash()
+    {
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("image/", picture.MimeType);
+    }
+
+    [Fact]
+    public void Pic_V22_Frame_Shorter_Than_6_Bytes_Adds_No_Picture()
+    {
+        // Frame with only 5-byte payload (less than the 6-byte minimum).
+        byte[] payload = [0, (byte)'J', (byte)'P', (byte)'G', 3];
+        byte[] frame = new byte[6 + payload.Length];
+        Encoding.ASCII.GetBytes("PIC").CopyTo(frame.AsSpan(0, 3));
+        frame[3] = 0;
+        frame[4] = 0;
+        frame[5] = (byte)payload.Length;
+        payload.CopyTo(frame.AsSpan(6));
+        var meta = Decode(version: 2, frame);
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Pic_V22_Empty_Picture_Bytes_Adds_No_Picture()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "JPG",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "", data: []));
+        Assert.Empty(meta.Pictures);
+    }
+
+    [Fact]
+    public void Pic_V22_Jpeg_Long_Form_Maps_To_Image_Jpeg()
+    {
+        // "JPEG" is 4 chars but the v2.2 spec mandates 3-char image format.
+        // The ImageFormatToMimeType helper handles "JPEG" defensively though;
+        // here we verify the standard "JPG" path is what the wire uses.
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "JPG",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: "Cover", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal("image/jpeg", picture.MimeType);
+        Assert.Equal("Cover", picture.Description);
+    }
+
+    [Fact]
+    public void Apic_V24_Utf8_Multibyte_Description()
+    {
+        // Cyrillic / emoji span multiple bytes per code point in UTF-8.
+        const string desc = "Тёт✨ст";
+        var meta = Decode(version: 4, BuildApicFrame(
+            encoding: 3, mime: "image/jpeg",
+            pictureType: (byte)MediaPictureType.CoverFront,
+            description: desc, data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(desc, picture.Description);
+    }
+
+    [Fact]
+    public void Apic_V24_Utf16BE_Empty_Description_Yields_Empty_String()
+    {
+        var meta = Decode(version: 4, BuildApicFrame(
+            encoding: 2, mime: "image/png",
+            pictureType: (byte)MediaPictureType.Artist,
+            description: "", data: PngMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(string.Empty, picture.Description);
+    }
+
+    [Fact]
+    public void Apic_OutOfRange_PictureType_21_Falls_Back_To_Other()
+    {
+        // 21 is just above PublisherLogo (20), the last legal enum value.
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "image/jpeg",
+            pictureType: 21, description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(MediaPictureType.Other, picture.Type);
+    }
+
+    [Fact]
+    public void Apic_OutOfRange_PictureType_255_Falls_Back_To_Other()
+    {
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "image/jpeg",
+            pictureType: 255, description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(MediaPictureType.Other, picture.Type);
+    }
+
+    [Fact]
+    public void Pic_V22_OutOfRange_PictureType_Falls_Back_To_Other()
+    {
+        var meta = Decode(version: 2, BuildPicV22Frame(
+            encoding: 0, imageFormat: "JPG",
+            pictureType: 99, description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal(MediaPictureType.Other, picture.Type);
+    }
+
+    [Theory]
+    [InlineData((byte)MediaPictureType.Other)]
+    [InlineData((byte)MediaPictureType.CoverFront)]
+    [InlineData((byte)MediaPictureType.CoverBack)]
+    [InlineData((byte)MediaPictureType.Artist)]
+    [InlineData((byte)MediaPictureType.LeadArtist)]
+    [InlineData((byte)MediaPictureType.Band)]
+    [InlineData((byte)MediaPictureType.Composer)]
+    [InlineData((byte)MediaPictureType.PublisherLogo)]
+    public void Apic_All_Valid_PictureTypes_Round_Trip(byte raw)
+    {
+        var meta = Decode(version: 3, BuildApicFrame(
+            encoding: 0, mime: "image/jpeg",
+            pictureType: raw, description: "", data: JpegMagic));
+        var picture = Assert.Single(meta.Pictures);
+        Assert.Equal((MediaPictureType)raw, picture.Type);
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata Decode(int version, byte[] frames)

@@ -543,4 +543,194 @@ public sealed class AacIntensityStereoApplierTests
             Assert.Equal(0.5f, right[i], 6);
         }
     }
+
+    [Fact]
+    public void ApplyInPlace_UnknownSampleRate_Throws()
+    {
+        var left = new float[AacDequantizedSpectrum.TransformLength];
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacIntensityStereoApplier.ApplyInPlace(
+                left, right, frame, AacMsMaskPresent.None, EmptyMsUsed(), sampleRate: 7));
+        Assert.Equal("sampleRate", ex.ParamName);
+    }
+
+    [Fact]
+    public void ApplyInPlace_PerBand_NullGroupFlagsRow_Throws()
+    {
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        var left = new float[AacDequantizedSpectrum.TransformLength];
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+        // PerBand requires non-null rows; pass a single null row that will
+        // be reached when the IS section is processed.
+        var msUsed = new IReadOnlyList<bool>?[] { null };
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacIntensityStereoApplier.ApplyInPlace(
+                left, right, frame, AacMsMaskPresent.PerBand, msUsed!, Sr48k));
+        Assert.Equal("msUsed", ex.ParamName);
+    }
+
+    [Fact]
+    public void ApplyInPlace_LeftSpectrumOutsideIsBand_IsNotMutated()
+    {
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        var swbOffsets = AacSwbOffsets.GetLongOffsets(Sr48k);
+        int bandStart = swbOffsets[1];
+        int bandWidth = swbOffsets[2] - swbOffsets[1];
+
+        var left = LeftSpectrumImpulse(bandStart, bandWidth, 2.0f);
+        var leftSnapshot = (float[])left.Clone();
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+
+        AacIntensityStereoApplier.ApplyInPlace(
+            left, right, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        Assert.Equal(leftSnapshot, left);
+    }
+
+    [Fact]
+    public void Apply_NullLeftSpectrum_Throws()
+    {
+        var rightSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacIntensityStereoApplier.Apply(null!, rightSpec, frame,
+                AacMsMaskPresent.None, EmptyMsUsed(), Sr48k));
+    }
+
+    [Fact]
+    public void Apply_NullRightSpectrum_Throws()
+    {
+        var leftSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacIntensityStereoApplier.Apply(leftSpec, null!, frame,
+                AacMsMaskPresent.None, EmptyMsUsed(), Sr48k));
+    }
+
+    [Fact]
+    public void Apply_NullRightFrame_Throws()
+    {
+        var leftSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        var rightSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        Assert.Throws<ArgumentNullException>(() =>
+            AacIntensityStereoApplier.Apply(leftSpec, rightSpec, null!,
+                AacMsMaskPresent.None, EmptyMsUsed(), Sr48k));
+    }
+
+    [Fact]
+    public void Apply_NullMsUsed_Throws()
+    {
+        var leftSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        var rightSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(
+                new float[AacDequantizedSpectrum.TransformLength]),
+        };
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacIntensityStereoApplier.Apply(leftSpec, rightSpec, frame,
+                AacMsMaskPresent.None, null!, Sr48k));
+    }
+
+    [Fact]
+    public void Apply_NegativePolarity_FlipsSign()
+    {
+        var frame = BuildFrameWithIntensityStereo(isCb: 15, isPosition: 0);
+        var swbOffsets = AacSwbOffsets.GetLongOffsets(Sr48k);
+        int bandStart = swbOffsets[1];
+        int bandWidth = swbOffsets[2] - swbOffsets[1];
+
+        var leftArr = LeftSpectrumImpulse(bandStart, bandWidth, 3.0f);
+        var rightArr = new float[AacDequantizedSpectrum.TransformLength];
+        var leftSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(leftArr),
+        };
+        var rightSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(rightArr),
+        };
+
+        var result = AacIntensityStereoApplier.Apply(
+            leftSpec, rightSpec, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        for (int i = 0; i < bandWidth; i++)
+        {
+            Assert.Equal(-3.0f, result.Coefficients[bandStart + i], 5);
+        }
+    }
+
+    [Fact]
+    public void Apply_LeftSpectrum_IsNotMutated()
+    {
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition: 0);
+        var swbOffsets = AacSwbOffsets.GetLongOffsets(Sr48k);
+        int bandStart = swbOffsets[1];
+        int bandWidth = swbOffsets[2] - swbOffsets[1];
+
+        var leftArr = LeftSpectrumImpulse(bandStart, bandWidth, 7.0f);
+        var leftSnapshot = (float[])leftArr.Clone();
+        var rightArr = new float[AacDequantizedSpectrum.TransformLength];
+        var leftSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(leftArr),
+        };
+        var rightSpec = new AacDequantizedSpectrum
+        {
+            Coefficients = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(rightArr),
+        };
+
+        _ = AacIntensityStereoApplier.Apply(
+            leftSpec, rightSpec, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        Assert.Equal(leftSnapshot, leftArr);
+    }
+
+    [Theory]
+    [InlineData(-8, 4.0)]
+    [InlineData(-4, 2.0)]
+    [InlineData(0, 1.0)]
+    [InlineData(4, 0.5)]
+    [InlineData(8, 0.25)]
+    public void ApplyInPlace_PositivePolarity_IsPositionScalesByHalfPowerQuarter(
+        int isPosition, double expectedScale)
+    {
+        var frame = BuildFrameWithIntensityStereo(isCb: 14, isPosition);
+        var swbOffsets = AacSwbOffsets.GetLongOffsets(Sr48k);
+        int bandStart = swbOffsets[1];
+        int bandWidth = swbOffsets[2] - swbOffsets[1];
+
+        var left = LeftSpectrumImpulse(bandStart, bandWidth, 1.0f);
+        var right = new float[AacDequantizedSpectrum.TransformLength];
+
+        AacIntensityStereoApplier.ApplyInPlace(
+            left, right, frame, AacMsMaskPresent.None, EmptyMsUsed(), Sr48k);
+
+        for (int i = 0; i < bandWidth; i++)
+        {
+            Assert.Equal((float)expectedScale, right[bandStart + i], 5);
+        }
+    }
 }
