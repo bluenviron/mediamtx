@@ -191,6 +191,82 @@ public sealed class RafReaderTests
         Assert.Equal(12u, r.Raf.MetaLength);
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => RafReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => RafReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var spec = new TestRafBuilder.RafSpec { JpegBytes = LoadRedJpeg() };
+        var bytes = TestRafBuilder.Build(spec);
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = RafReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Raf, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void OwnsStream_False_Leaves_Underlying_Stream_Open()
+    {
+        var spec = new TestRafBuilder.RafSpec { JpegBytes = LoadRedJpeg() };
+        var bytes = TestRafBuilder.Build(spec);
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = RafReader.Open(inner, ownsStream: false))
+        {
+            Assert.Equal(ImageFormat.Raf, r.Format);
+        }
+        Assert.True(inner.CanRead);
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var spec = new TestRafBuilder.RafSpec { JpegBytes = LoadRedJpeg() };
+        var bytes = TestRafBuilder.Build(spec);
+        var r = RafReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Reader_Format()
+    {
+        var spec = new TestRafBuilder.RafSpec { JpegBytes = LoadRedJpeg() };
+        var bytes = TestRafBuilder.Build(spec);
+        using var r = RafReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        Assert.Equal(ImageFormat.Raf, r.Format);
+        Assert.Equal(ImageFormat.Raf, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        var spec = new TestRafBuilder.RafSpec { JpegBytes = LoadRedJpeg() };
+        var bytes = TestRafBuilder.Build(spec);
+        using var r = RafReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
+
     private static byte[] BuildMinimalTiff(int width, int height)
     {
         // II + 0x2A + uint32 IFD0 offset(8). 8 IFD entries:

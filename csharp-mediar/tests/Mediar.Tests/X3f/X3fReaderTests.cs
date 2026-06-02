@@ -234,4 +234,77 @@ public sealed class X3fReaderTests
         Assert.Equal(major, reader.X3f.VersionMajor);
         Assert.Equal(minor, reader.X3f.VersionMinor);
     }
+
+    private static byte[] MinimalX3f()
+    {
+        var b = new TestX3fBuilder { VersionMajor = 2, VersionMinor = 0 }
+            .AddJpegPreview(LoadRedJpeg(), 16, 16);
+        return b.Build();
+    }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => X3fReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => X3fReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var inner = new MemoryStream(MinimalX3f(), writable: false);
+        using (var r = X3fReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.X3f, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void OwnsStream_False_Leaves_Underlying_Stream_Open()
+    {
+        var inner = new MemoryStream(MinimalX3f(), writable: false);
+        using (var r = X3fReader.Open(inner, ownsStream: false))
+        {
+            Assert.Equal(ImageFormat.X3f, r.Format);
+        }
+        Assert.True(inner.CanRead);
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var r = X3fReader.Open(new MemoryStream(MinimalX3f(), writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Reader_Format()
+    {
+        using var r = X3fReader.Open(new MemoryStream(MinimalX3f(), writable: false), ownsStream: true);
+        Assert.Equal(ImageFormat.X3f, r.Format);
+        Assert.Equal(ImageFormat.X3f, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        using var r = X3fReader.Open(new MemoryStream(MinimalX3f(), writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }
