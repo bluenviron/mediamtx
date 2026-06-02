@@ -139,4 +139,111 @@ public class ScanlineRasterizerTests
         // Buffer unchanged - all zero.
         Assert.All(buf, b => Assert.Equal(0, b));
     }
+
+    [Fact]
+    public void Null_Target_Throws()
+    {
+        var path = new Path2D().MoveTo(0, 0).LineTo(10, 0).LineTo(10, 10).Close();
+        Assert.Throws<ArgumentNullException>(() =>
+            ScanlineRasterizer.Fill(null!, path, Matrix3x2.Identity,
+                new SolidEvaluator(RgbaColor.White)));
+    }
+
+    [Fact]
+    public void Null_Path_Throws()
+    {
+        var (target, _) = NewTarget(10, 10);
+        Assert.Throws<ArgumentNullException>(() =>
+            ScanlineRasterizer.Fill(target, null!, Matrix3x2.Identity,
+                new SolidEvaluator(RgbaColor.White)));
+    }
+
+    [Fact]
+    public void Null_Paint_Throws()
+    {
+        var (target, _) = NewTarget(10, 10);
+        var path = new Path2D().MoveTo(0, 0).LineTo(10, 0).LineTo(10, 10).Close();
+        Assert.Throws<ArgumentNullException>(() =>
+            ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity, null!));
+    }
+
+    [Fact]
+    public void Empty_Clip_Is_NoOp()
+    {
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, 0).LineTo(20, 0).LineTo(20, 20).LineTo(0, 20).Close();
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.White),
+            clipRect: (0, 0, 0, 0));
+        Assert.All(buf, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
+    public void Clip_Outside_Target_Is_Bounded()
+    {
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, 0).LineTo(20, 0).LineTo(20, 20).LineTo(0, 20).Close();
+        // Clip rect extends past target — should clamp without crashing.
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.FromBytes(255, 0, 0)),
+            clipRect: (15, 15, 100, 100));
+        Assert.Equal(255, PixelAt(buf, 20, 17, 17).A);
+        Assert.Equal(0, PixelAt(buf, 20, 5, 5).A);
+    }
+
+    [Fact]
+    public void Negative_Clip_Coordinates_Are_Clamped_To_Zero()
+    {
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, 0).LineTo(20, 0).LineTo(20, 20).LineTo(0, 20).Close();
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.FromBytes(0, 0, 255)),
+            clipRect: (-10, -10, 15, 15));
+        // Pixel (1,1) is inside clamped clip (0..5,0..5).
+        Assert.Equal(255, PixelAt(buf, 20, 1, 1).A);
+    }
+
+    [Fact]
+    public void Path_Entirely_Above_Surface_Renders_Nothing()
+    {
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, -50).LineTo(10, -50).LineTo(10, -40).LineTo(0, -40).Close();
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.FromBytes(255, 0, 0)));
+        Assert.All(buf, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
+    public void Path_Entirely_Below_Surface_Renders_Nothing()
+    {
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, 40).LineTo(10, 40).LineTo(10, 50).LineTo(0, 50).Close();
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.FromBytes(255, 0, 0)));
+        Assert.All(buf, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
+    public void Horizontal_Only_Segments_Produce_No_Fill()
+    {
+        // A path with only horizontal LineTos creates only horizontal
+        // edges which the rasterizer skips (a.Y == b.Y).
+        var (target, buf) = NewTarget(20, 20);
+        var path = new Path2D().MoveTo(0, 5).LineTo(20, 5);
+        ScanlineRasterizer.Fill(target, path, Matrix3x2.Identity,
+            new SolidEvaluator(RgbaColor.White));
+        Assert.All(buf, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
+    public void Translated_Square_Fills_At_Offset()
+    {
+        var (target, buf) = NewTarget(30, 30);
+        var path = new Path2D().MoveTo(0, 0).LineTo(10, 0).LineTo(10, 10).LineTo(0, 10).Close();
+        var m = Matrix3x2.CreateTranslation(10, 10);
+        ScanlineRasterizer.Fill(target, path, m,
+            new SolidEvaluator(RgbaColor.FromBytes(255, 255, 0)));
+        Assert.Equal(255, PixelAt(buf, 30, 15, 15).A);
+        Assert.Equal(0, PixelAt(buf, 30, 5, 5).A);
+    }
 }
