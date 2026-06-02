@@ -20,13 +20,103 @@ commits.
 | 2c.3b.3 | CELT energy split decoder (`compute_qn`, `compute_theta`, `quant_band_n1`, `isqrt32`) | ✅ shipped |
 | 2c.3b.4 | CELT band shape primitives (`haar1`, `deinterleave_hadamard`, `interleave_hadamard`, `exp_rotation`, `normalise_residual`, `extract_collapse_mask`, `alg_unquant`) | ✅ shipped |
 | 2c.3b.5a | CELT `quant_partition` recursive mono splitter + `renormalise_vector` + `celt_lcg_rand` | ✅ shipped |
-| 2c.3b.5b | CELT `quant_band` mono/stereo wrappers + `quant_all_bands` top-level integration | ⏳ planned |
+| 2c.3b.5b | CELT `quant_band` mono wrapper (Haar1 recombine / time-divide + Hadamard reorganisation + √N lowband_out scaling) | ✅ shipped |
+| 2c.3b.5c | CELT `quant_band_stereo` (stereo mid/side band wrapper + `stereo_merge`)              | ⏳ planned |
+| 2c.3b.5d | CELT `quant_all_bands` top-level band-iteration integration                            | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.5b behavior (added on top of Phase 2c.3b.5a)
+
+Phase 2c.3b.5b ports `quant_band` (the **mono band wrapper** around the
+Phase 2c.3b.5a recursive splitter) — everything libopus does to a band
+*before* and *after* calling `quant_partition`, except the stereo
+half (which becomes Phase 2c.3b.5c). With this slice a decoder can
+take the per-band bit allocation produced by Phase 2c.2b, plus the
+shared LM/spread/intensity context, and produce a fully-folded
+unit-norm spectral shape for a mono band — the exact output that
+`anti_collapse` (Phase 2c.4) and the IMDCT (Phase 2d) consume.
+
+Added to `Celt/CeltBands.cs`:
+
+- Two static lookup tables — `BitInterleaveTable` (16 bytes,
+  `{0,1,1,1,2,3,3,3,2,3,3,3,2,3,3,3}`) and `BitDeinterleaveTable`
+  (16 bytes, `{0x00,0x03,0x0C,0x0F,…,0xFF}`) — copied verbatim from
+  libopus `celt/bands.c`. The fill mask runs through the first table
+  during the recombine pass and the collapse mask runs through the
+  second during the inverse.
+- `CeltBands.QuantBand(ref BandContext ctx, ref OpusRangeDecoder dec,
+  Span<float> X, int N, int b, int blocks, Span<float> lowband,
+  int LM, Span<float> lowbandOut, float gain,
+  Span<float> lowbandScratch, int fill) → uint` — full port of the
+  mono decoder branch of libopus `quant_band` (float build). Steps:
+
+  1. **N == 1 short-circuit** routes to `CeltSplit.QuantBandN1`
+     (Phase 2c.3b.3) for the single-sample sign-bit special case.
+  2. **`tf_change > 0` recombine**: for each step, apply `Haar1` to
+     the lowband (if non-empty) and bit-interleave the fill mask.
+     `B >>= recombine` and `N_B <<= recombine` shrink the partition's
+     block count to the post-recombine value.
+  3. **`tf_change < 0` time-divide**: while `N_B` is even and
+     `tf_change < 0`, apply `Haar1` to the lowband, double `fill` with
+     itself shifted by `B`, double `B`, halve `N_B`, and advance
+     `tf_change`. This expands the partition into more, smaller blocks.
+  4. **Block-reorganisation**: when post-transform `B0 > 1`, apply
+     `DeinterleaveHadamard` to the lowband so the partition decoder
+     sees time-ordered samples.
+  5. **`QuantPartition`** decodes the partition recursively.
+  6. **Resynth (always for the decoder)** — invert every transform in
+     reverse order: `InterleaveHadamard` if `B0 > 1`, then per
+     `time_divide` step halve B + double `N_B` + propagate the
+     collapse mask (`cm |= cm >> B`) + inverse `Haar1`, then per
+     `recombine` step bit-deinterleave the collapse mask + inverse
+     `Haar1` at the original strides.
+  7. **`lowband_out` scaling**: if a non-empty output buffer is
+     supplied, write `√N₀ · X[j]` for every sample (libopus's
+     `MULT16_32_Q15(celt_sqrt(N0<<22), X[j])` reduced to its float
+     form). This is the source the *next* band folds against.
+  8. **`cm &= (1<<B)-1`** clamps the returned collapse mask to the
+     per-block range.
+
+  The wrapper is allocation-free — every transform reuses the caller's
+  buffers. The `lowband_scratch` argument lets the caller opt in to
+  the same scratch-copy behaviour libopus uses (avoids mutating the
+  caller's lowband when transforms are applied); passing
+  `Span<float>.Empty` disables it. Both `lowband` and `lowband_out`
+  follow the established empty-span-equals-null convention.
+
+Ten new tests added to `tests/Mediar.Tests/CeltBandsTests.cs`:
+
+- N==1 short-circuit produces ±1 with the `X[0]/16` lowband_out, and
+  the routed `QuantBandN1` mask of 1.
+- No-transform case (tf_change=0, blocks=1) gives identical output to
+  a direct `QuantPartition` call with the same bytes and decoder seed,
+  plus √N-scaled lowband_out.
+- √N scaling assertion (`‖lowband_out‖² == N · ‖X‖²`).
+- Empty `lowband_out` no-ops the scaling step.
+- Scratch-copy isolation — caller's lowband stays untouched when
+  blocks > 1 forces deinterleave_hadamard.
+- `tf_change > 0` recombine path (blocks=2) and `tf_change < 0`
+  time-divide path (blocks=1, N=64) both produce finite unit-norm
+  output without crashing.
+- `blocks=4` triggers the Hadamard reorganisation bracket; the
+  returned collapse mask stays within `(1<<blocks)-1`.
+- Argument validation: `N < 1` and `blocks < 1` both throw.
+
+Test suite total after Phase 2c.3b.5b: **7747 / 7747 pass**
+(+10 vs. Phase 2c.3b.5a's 7737).
+
+The next slice **2c.3b.5c** will deliver `quant_band_stereo` (mid/side
+band wrapper with the N==2 single-bit-sign special case, the
+`stereo_merge` resynth step, and the inversion-disable plumbing).
+Slice **2c.3b.5d** then assembles `quant_all_bands`, which iterates
+over bands, manages the norm / norm2 / prev1 / prev2 buffers that
+feed `special_hybrid_folding` and the anti-collapse step, and routes
+each band to the mono or stereo wrapper.
 
 ## Phase 2c.3b.5a behavior (added on top of Phase 2c.3b.4)
 

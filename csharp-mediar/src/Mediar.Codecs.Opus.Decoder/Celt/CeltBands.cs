@@ -239,4 +239,162 @@ public static class CeltBands
         CeltShape.RenormaliseVector(X, N, gain);
         return resultMask;
     }
+
+    // Bit-interleave / bit-deinterleave tables for the Haar1 recombine
+    // wrapper. Lifted verbatim from libopus celt/bands.c quant_band.
+    private static ReadOnlySpan<byte> BitInterleaveTable => new byte[]
+        { 0, 1, 1, 1, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3 };
+
+    private static ReadOnlySpan<byte> BitDeinterleaveTable => new byte[]
+    {
+        0x00, 0x03, 0x0C, 0x0F, 0x30, 0x33, 0x3C, 0x3F,
+        0xC0, 0xC3, 0xCC, 0xCF, 0xF0, 0xF3, 0xFC, 0xFF,
+    };
+
+    /// <summary>
+    /// Decoder-side mono band wrapper around
+    /// <see cref="QuantPartition"/>. Performs the time/frequency
+    /// recombine / time-divide transforms based on <c>ctx.TfChange</c>
+    /// (Haar1 + bit-interleave for short-block widening, Hadamard
+    /// deinterleave when <paramref name="blocks"/> &gt; 1) before
+    /// decoding the partition, then inverts every transform after the
+    /// PVQ decode so the output sits in the same orientation libopus
+    /// emits. Also produces a √N-scaled copy in
+    /// <paramref name="lowbandOut"/> for the next band's folding
+    /// source. Routes N==1 to <see cref="CeltSplit.QuantBandN1"/>.
+    /// Mirrors libopus <c>quant_band</c> (mono case, decoder branch,
+    /// float build).
+    /// </summary>
+    /// <param name="ctx">Mutable per-band state.</param>
+    /// <param name="dec">Range decoder.</param>
+    /// <param name="X">Output partition vector (length ≥ N).</param>
+    /// <param name="N">Partition size in samples.</param>
+    /// <param name="b">Bit budget (1/8-bit units).</param>
+    /// <param name="blocks">MDCT block count.</param>
+    /// <param name="lowband">Lowband fold source (empty = null).</param>
+    /// <param name="LM">Log-2 of frame size (0..3).</param>
+    /// <param name="lowbandOut">Optional √N-scaled output buffer for the
+    ///   next band's folding, or empty to skip.</param>
+    /// <param name="gain">Output gain.</param>
+    /// <param name="lowbandScratch">Optional scratch buffer (length ≥ N)
+    ///   used to avoid mutating the caller's lowband; pass empty to
+    ///   disable the scratch copy.</param>
+    /// <param name="fill">Per-block fill mask.</param>
+    /// <returns>Collapse mask — bits 0..(blocks-1).</returns>
+    public static uint QuantBand(
+        ref BandContext ctx,
+        ref OpusRangeDecoder dec,
+        Span<float> X,
+        int N,
+        int b,
+        int blocks,
+        Span<float> lowband,
+        int LM,
+        Span<float> lowbandOut,
+        float gain,
+        Span<float> lowbandScratch,
+        int fill)
+    {
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(N, 1);
+        if (X.Length < N) throw new System.ArgumentException("X must hold at least N samples.", nameof(X));
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(blocks, 1);
+
+        if (N == 1)
+        {
+            return CeltSplit.QuantBandN1(ref dec, ref ctx.RemainingBits, X, default, lowbandOut);
+        }
+
+        int N0 = N;
+        int NB = N / blocks;
+        int B0 = blocks;
+        int B = blocks;
+        bool longBlocks = B0 == 1;
+        int timeDivide = 0;
+        int recombine = 0;
+
+        int tfChange = ctx.TfChange;
+        if (tfChange > 0) recombine = tfChange;
+
+        // Optionally route the lowband through a scratch buffer so we
+        // can safely apply Haar1 / deinterleave_hadamard without
+        // mutating the caller's data.
+        bool needScratch = !lowbandScratch.IsEmpty && !lowband.IsEmpty
+            && (recombine != 0 || ((NB & 1) == 0 && tfChange < 0) || B0 > 1);
+        if (needScratch)
+        {
+            lowband.Slice(0, N).CopyTo(lowbandScratch);
+            lowband = lowbandScratch.Slice(0, N);
+        }
+
+        // Recombine — bit-interleave for tf>0.
+        for (int k = 0; k < recombine; k++)
+        {
+            if (!lowband.IsEmpty) CeltShape.Haar1(lowband, N >> k, 1 << k);
+            fill = BitInterleaveTable[fill & 0xF] | (BitInterleaveTable[(fill >> 4) & 0xF] << 2);
+        }
+        B >>= recombine;
+        NB <<= recombine;
+
+        // Time-divide — increase time resolution when tf<0.
+        while ((NB & 1) == 0 && tfChange < 0)
+        {
+            if (!lowband.IsEmpty) CeltShape.Haar1(lowband, NB, B);
+            fill |= fill << B;
+            B <<= 1;
+            NB >>= 1;
+            timeDivide++;
+            tfChange++;
+        }
+        B0 = B;
+        int NB0 = NB;
+
+        // Reorganise lowband from frequency- to time-order so the
+        // partition decoder sees the same layout libopus does.
+        if (B0 > 1 && !lowband.IsEmpty)
+        {
+            CeltShape.DeinterleaveHadamard(lowband, NB >> recombine, B0 << recombine, longBlocks);
+        }
+
+        uint cm = QuantPartition(ref ctx, ref dec, X, N, b, B, lowband, LM, gain, fill);
+
+        // ---- Resynthesis: undo every transform we applied. ----
+
+        // Time-order → frequency-order.
+        if (B0 > 1)
+        {
+            CeltShape.InterleaveHadamard(X, NB >> recombine, B0 << recombine, longBlocks);
+        }
+
+        // Undo time-divide: each step halves B, doubles N_B, copies the
+        // collapse mask down, and applies inverse Haar1.
+        NB = NB0;
+        B = B0;
+        for (int k = 0; k < timeDivide; k++)
+        {
+            B >>= 1;
+            NB <<= 1;
+            cm |= cm >> B;
+            CeltShape.Haar1(X, NB, B);
+        }
+
+        // Undo recombine: deinterleave the collapse mask and apply
+        // inverse Haar1 at the original strides.
+        for (int k = 0; k < recombine; k++)
+        {
+            cm = BitDeinterleaveTable[(int)(cm & 0x0Fu)];
+            CeltShape.Haar1(X, N0 >> k, 1 << k);
+        }
+        B <<= recombine;
+
+        // Produce the √N-scaled lowband copy the next band will fold against.
+        if (!lowbandOut.IsEmpty)
+        {
+            float n = System.MathF.Sqrt(N0);
+            for (int j = 0; j < N0; j++) lowbandOut[j] = n * X[j];
+        }
+
+        // Clamp the collapse mask back into the per-block range.
+        cm &= (uint)((1 << B) - 1);
+        return cm;
+    }
 }

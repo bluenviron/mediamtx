@@ -271,6 +271,205 @@ public sealed class CeltBandsTests
         Assert.True(threw);
     }
 
+    // ---------- QuantBand mono wrapper ----------
+
+    [Fact]
+    public void QuantBand_NEqualsOne_RoutesToQuantBandN1()
+    {
+        // N==1 ⇒ QuantBandN1 short-circuit. Returns mask=1, writes ±1
+        // to X based on the sign bit, and (if lowbandOut is non-empty)
+        // emits X[0]/16 into lowbandOut[0].
+        var ctx = MakeContext(remainingBits: 100);
+        // Sign bit = 0 (first bit of 0x00) ⇒ X[0] = +1.
+        var dec = new OpusRangeDecoder(new byte[] { 0x00, 0x00, 0x00, 0x00 });
+        var X = new float[1];
+        var lowbandOut = new float[1];
+
+        uint cm = CeltBands.QuantBand(ref ctx, ref dec, X, N: 1, b: 0, blocks: 1,
+            lowband: default, LM: 0, lowbandOut: lowbandOut, gain: 1f,
+            lowbandScratch: default, fill: 0);
+
+        Assert.Equal(1u, cm);
+        Assert.Equal(1f, X[0]);
+        Assert.Equal(1f / 16f, lowbandOut[0]);
+    }
+
+    [Fact]
+    public void QuantBand_NoTfNoBlocks_MatchesQuantPartitionDirectly()
+    {
+        // With tf_change=0 and blocks=1, the wrapper applies no
+        // transforms — output must match a direct QuantPartition call
+        // with the same inputs (after the wrapper's lowband-out scaling).
+        var bytes = MakeRandomBytes(seed: 11, length: 32);
+
+        var ctxWrap = MakeContext(band: 13, remainingBits: 5000, seed: 0xDEAD_BEEFu);
+        var decWrap = new OpusRangeDecoder(bytes);
+        var Xwrap = new float[16];
+        var lowbandOut = new float[16];
+        uint cmWrap = CeltBands.QuantBand(ref ctxWrap, ref decWrap, Xwrap, N: 16, b: 400,
+            blocks: 1, lowband: default, LM: 2, lowbandOut: lowbandOut, gain: 1f,
+            lowbandScratch: default, fill: 1);
+
+        var ctxRef = MakeContext(band: 13, remainingBits: 5000, seed: 0xDEAD_BEEFu);
+        var decRef = new OpusRangeDecoder(bytes);
+        var Xref = new float[16];
+        uint cmRef = CeltBands.QuantPartition(ref ctxRef, ref decRef, Xref, N: 16, b: 400,
+            blocks: 1, lowband: default, LM: 2, gain: 1f, fill: 1);
+
+        Assert.Equal(cmRef, cmWrap);
+        for (int i = 0; i < 16; i++) Assert.Equal(Xref[i], Xwrap[i], 5);
+
+        // lowband_out scaled by sqrt(N) = 4.
+        float n = System.MathF.Sqrt(16);
+        for (int i = 0; i < 16; i++) Assert.Equal(n * Xwrap[i], lowbandOut[i], 5);
+    }
+
+    [Fact]
+    public void QuantBand_LowbandOutHasSqrtNScaling()
+    {
+        // After the wrapper, ‖lowbandOut‖² should equal N·‖X‖² because
+        // lowbandOut[j] = √N · X[j]. With QuantPartition emitting a
+        // unit-norm shape, ‖lowbandOut‖² ≈ N.
+        var ctx = MakeContext(band: 13, remainingBits: 5000);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 13, length: 32));
+        var X = new float[16];
+        var lowbandOut = new float[16];
+
+        _ = CeltBands.QuantBand(ref ctx, ref dec, X, N: 16, b: 400, blocks: 1,
+            lowband: default, LM: 2, lowbandOut: lowbandOut, gain: 1f,
+            lowbandScratch: default, fill: 1);
+
+        double normX = 0, normLO = 0;
+        for (int i = 0; i < 16; i++) { normX += X[i] * X[i]; normLO += lowbandOut[i] * lowbandOut[i]; }
+        Assert.Equal(1.0, normX, 4);
+        Assert.Equal(16.0, normLO, 3);
+    }
+
+    [Fact]
+    public void QuantBand_LowbandOutEmpty_DoesNotWrite()
+    {
+        // Passing an empty lowbandOut should be a no-op for that step.
+        var ctx = MakeContext(band: 13, remainingBits: 5000);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 17, length: 32));
+        var X = new float[16];
+
+        // No exception ⇒ the empty lowbandOut branch is exercised correctly.
+        _ = CeltBands.QuantBand(ref ctx, ref dec, X, N: 16, b: 400, blocks: 1,
+            lowband: default, LM: 2, lowbandOut: default, gain: 1f,
+            lowbandScratch: default, fill: 1);
+    }
+
+    [Fact]
+    public void QuantBand_ScratchCopy_PreservesCallerLowband()
+    {
+        // With blocks=2 (B0>1), the wrapper applies deinterleave_hadamard
+        // to the lowband. If a non-empty scratch is supplied, the
+        // caller's lowband array must not be mutated.
+        var lowband = new float[8];
+        for (int i = 0; i < 8; i++) lowband[i] = (i + 1) * 0.1f;
+        var lowbandCopy = (float[])lowband.Clone();
+
+        var ctx = MakeContext(band: 13, remainingBits: 5000);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 19, length: 32));
+        var X = new float[8];
+        var scratch = new float[8];
+
+        _ = CeltBands.QuantBand(ref ctx, ref dec, X, N: 8, b: 100, blocks: 2,
+            lowband: lowband, LM: 1, lowbandOut: default, gain: 1f,
+            lowbandScratch: scratch, fill: 0b_11);
+
+        for (int i = 0; i < 8; i++)
+            Assert.Equal(lowbandCopy[i], lowband[i]);
+    }
+
+    [Fact]
+    public void QuantBand_TfChangePositive_TriggersRecombine_NoCrash()
+    {
+        // tf_change > 0 ⇒ recombine path runs (bit-interleave + Haar1
+        // on lowband). Per libopus semantics tf>0 only occurs on
+        // multi-block bands, so blocks=2 keeps the shifted B valid.
+        var ctx = MakeContext(band: 13, remainingBits: 5000, tfChange: 1);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 23, length: 32));
+        var X = new float[16];
+        var lowband = new float[16];
+        for (int i = 0; i < 16; i++) lowband[i] = ((i & 1) == 0 ? 1f : -1f) * 0.25f;
+        var scratch = new float[16];
+
+        _ = CeltBands.QuantBand(ref ctx, ref dec, X, N: 16, b: 400, blocks: 2,
+            lowband: lowband, LM: 2, lowbandOut: default, gain: 1f,
+            lowbandScratch: scratch, fill: 0b_11);
+
+        double norm = 0;
+        foreach (var v in X) { Assert.True(float.IsFinite(v)); norm += v * v; }
+        Assert.Equal(1.0, norm, 4);
+    }
+
+    [Fact]
+    public void QuantBand_TfChangeNegative_TriggersTimeDivide_NoCrash()
+    {
+        // tf_change < 0 ⇒ time-divide loop runs (Haar1 + fill expand).
+        var ctx = MakeContext(band: 17, remainingBits: 10_000, tfChange: -1);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 29, length: 64));
+        var X = new float[64];
+        var lowband = new float[64];
+        for (int i = 0; i < 64; i++) lowband[i] = (float)System.Math.Sin(i * 0.3) * 0.1f;
+        var scratch = new float[64];
+
+        _ = CeltBands.QuantBand(ref ctx, ref dec, X, N: 64, b: 1000, blocks: 1,
+            lowband: lowband, LM: 3, lowbandOut: default, gain: 1f,
+            lowbandScratch: scratch, fill: 1);
+
+        double norm = 0;
+        foreach (var v in X) { Assert.True(float.IsFinite(v)); norm += v * v; }
+        Assert.Equal(1.0, norm, 4);
+    }
+
+    [Fact]
+    public void QuantBand_MultipleBlocks_TriggersHadamardReorganisation()
+    {
+        // blocks=4 ⇒ B0>1 ⇒ deinterleave_hadamard + interleave_hadamard
+        // bracket the partition decode. Verify output is finite and
+        // collapse mask stays within (1<<blocks) - 1.
+        var ctx = MakeContext(band: 17, remainingBits: 10_000);
+        var dec = new OpusRangeDecoder(MakeRandomBytes(seed: 31, length: 64));
+        var X = new float[32];
+
+        uint cm = CeltBands.QuantBand(ref ctx, ref dec, X, N: 32, b: 600, blocks: 4,
+            lowband: default, LM: 3, lowbandOut: default, gain: 1f,
+            lowbandScratch: default, fill: 0xF);
+
+        Assert.True(cm <= 0xFu, $"Mask {cm} exceeds blocks=4 range.");
+        foreach (var v in X) Assert.True(float.IsFinite(v));
+    }
+
+    [Fact]
+    public void QuantBand_NTooSmall_Throws()
+    {
+        var ctx = MakeContext();
+        var dec = new OpusRangeDecoder(new byte[] { 0 });
+        var X = new float[1];
+        bool threw = false;
+        try { CeltBands.QuantBand(ref ctx, ref dec, X, N: 0, b: 0, blocks: 1,
+            lowband: default, LM: 0, lowbandOut: default, gain: 1f,
+            lowbandScratch: default, fill: 0); }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void QuantBand_BlocksZero_Throws()
+    {
+        var ctx = MakeContext();
+        var dec = new OpusRangeDecoder(new byte[] { 0 });
+        var X = new float[4];
+        bool threw = false;
+        try { CeltBands.QuantBand(ref ctx, ref dec, X, N: 4, b: 0, blocks: 0,
+            lowband: default, LM: 0, lowbandOut: default, gain: 1f,
+            lowbandScratch: default, fill: 0); }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        Assert.True(threw);
+    }
+
     // ---------- helpers ----------
 
     private static BandContext MakeContext(int band = 0, int spread = CeltConstants.SpreadNormal,
