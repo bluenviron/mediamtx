@@ -510,4 +510,74 @@ public sealed class Cr3ReaderTests
         Assert.False(cr3.Cr3.HasCmt3);
         Assert.Null(cr3.Cr3.MakerNote);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Cr3Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Cr3Reader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = TestCr3Builder.Build(new TestCr3Builder.Cr3Spec());
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = Cr3Reader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Cr3, r.Format);
+        }
+        Assert.False(ms.CanRead);
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestCr3Builder.Build(new TestCr3Builder.Cr3Spec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = Cr3Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Cr3, r.Format);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestCr3Builder.Build(new TestCr3Builder.Cr3Spec());
+        var r = Cr3Reader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Cr3()
+    {
+        byte[] bytes = TestCr3Builder.Build(new TestCr3Builder.Cr3Spec());
+        using var r = Cr3Reader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Cr3, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestCr3Builder.Build(new TestCr3Builder.Cr3Spec
+        {
+            ThmbJpeg = LoadRedJpeg(),
+        });
+        using var r = Cr3Reader.Open(new MemoryStream(bytes));
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { }
+        });
+    }
 }

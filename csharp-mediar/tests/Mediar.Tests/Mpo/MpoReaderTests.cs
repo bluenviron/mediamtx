@@ -509,4 +509,28 @@ public sealed class MpoReaderTests
             new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
         ],
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MpoReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestMpoBuilder.Build(MinimalTwoEntrySpec());
+        var r = MpoReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Format_Is_Mpo_And_Info_Format_Matches()
+    {
+        byte[] bytes = TestMpoBuilder.Build(MinimalTwoEntrySpec());
+        using var r = MpoReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Mpo, r.Format);
+        Assert.Equal(ImageFormat.Mpo, r.Info.Format);
+    }
 }
