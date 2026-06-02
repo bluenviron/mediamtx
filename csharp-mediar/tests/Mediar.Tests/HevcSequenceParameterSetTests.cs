@@ -185,6 +185,235 @@ public class HevcSequenceParameterSetTests
         Assert.Equal(720u, sps.PictureHeightInLumaSamples);
     }
 
+    [Fact]
+    public void TryParse_Rejects_ChromaFormat_Above_3()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 4, width: 1920, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_BitDepth_Above_8()
+    {
+        // bit_depth_luma_minus8 > 8 means > 16 bpc → rejected.
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1920, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 9, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Chroma_BitDepth_Above_8()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1920, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 9,
+            maxSubLayersMinus1: 0);
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Zero_Picture_Width()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 0, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Zero_Picture_Height()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1920, height: 0,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Monochrome_ChromaFormatIdc_Zero_HasUnitySubSampling()
+    {
+        // Monochrome (4:0:0) → SubWidthC=SubHeightC=1, no crop reduction.
+        var nalu = SpsBuilder.Build(profileIdc: 4, tierFlag: false, levelIdc: 120,
+            chromaFormat: 0, width: 640, height: 480,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)0, sps!.ChromaFormatIdc);
+        Assert.Equal(640u, sps.DecodedWidth);
+        Assert.Equal(480u, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void TryParse_TooShort_3Bytes_Rejected()
+    {
+        byte[] nalu = [(byte)((33 << 1) & 0x7E), 0x01, 0xFF];
+        Assert.False(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_Empty_Nalu_Rejected()
+    {
+        Assert.False(HevcSequenceParameterSet.TryParse(ReadOnlySpan<byte>.Empty, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void DecodedWidth_Returns_Zero_When_Crop_Exceeds_Picture_Width()
+    {
+        // 4:2:0 has SubWidthC=2, so crop=2*(100+100)=400 > picture width 200.
+        // SpsBuilder uses ue(v) which can encode large offsets without issue,
+        // but practical safer test: build directly with crop offsets equal to
+        // half the picture width plus one.
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 30,
+            chromaFormat: 1, width: 200, height: 200,
+            confLeft: 51, confRight: 50, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        // 2*(51+50)=202 > 200 → DecodedWidth clamps to 0.
+        Assert.Equal(0u, sps!.DecodedWidth);
+    }
+
+    [Fact]
+    public void DecodedHeight_Returns_Zero_When_Crop_Exceeds_Picture_Height()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 30,
+            chromaFormat: 1, width: 200, height: 200,
+            confLeft: 0, confRight: 0, confTop: 50, confBottom: 51,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(0u, sps!.DecodedHeight);
+    }
+
+    [Fact]
+    public void Record_Equality_Holds_For_Two_Identical_Parses()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1920, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var a));
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_With_Expression_Mutates_PictureWidth_Only()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1920, height: 1080,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: 0, bitDepthChromaMinus8: 0,
+            maxSubLayersMinus1: 0);
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        var mutated = sps! with { PictureWidthInLumaSamples = 1280 };
+        Assert.Equal(1280u, mutated.PictureWidthInLumaSamples);
+        Assert.Equal(1080u, mutated.PictureHeightInLumaSamples);
+        Assert.Equal(1920u, sps.PictureWidthInLumaSamples);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_Empty_Returns_Empty()
+    {
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(ReadOnlySpan<byte>.Empty);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_NoEpbs_Preserves_All_Bytes()
+    {
+        ReadOnlySpan<byte> src = stackalloc byte[] { 0x01, 0x02, 0x03, 0xFF, 0x80 };
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(src);
+        Assert.Equal((byte[])[0x01, 0x02, 0x03, 0xFF, 0x80], result);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_Removes_Multiple_Epbs()
+    {
+        // Two EPB sequences: each "00 00 03 xx" → "00 00 xx".
+        ReadOnlySpan<byte> src = stackalloc byte[]
+        {
+            0x00, 0x00, 0x03, 0xAA,
+            0xFF,
+            0x00, 0x00, 0x03, 0xBB,
+        };
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(src);
+        Assert.Equal((byte[])[0x00, 0x00, 0xAA, 0xFF, 0x00, 0x00, 0xBB], result);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_DoesNot_Strip_Without_Two_Leading_Zeros()
+    {
+        // Only the 0x03 after 0x00 0x00 is an EPB; 0x01 0x00 0x03 is left intact.
+        ReadOnlySpan<byte> src = stackalloc byte[] { 0x01, 0x00, 0x03, 0xAA, 0xBB };
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(src);
+        Assert.Equal((byte[])[0x01, 0x00, 0x03, 0xAA, 0xBB], result);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_Trailing_00_00_03_At_End_Is_Stripped()
+    {
+        // i+2 < src.Length is true for i=0 in a 3-byte buffer, so the trailing
+        // 0x03 still qualifies as an emulation prevention byte and is removed.
+        ReadOnlySpan<byte> src = stackalloc byte[] { 0x00, 0x00, 0x03 };
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(src);
+        Assert.Equal((byte[])[0x00, 0x00], result);
+    }
+
+    [Fact]
+    public void StripEmulationPreventionBytes_Trailing_00_00_Without_03_Not_Touched()
+    {
+        // Two-byte tail of zeros with nothing after — must remain intact.
+        ReadOnlySpan<byte> src = stackalloc byte[] { 0xAA, 0x00, 0x00 };
+        var result = HevcSequenceParameterSet.StripEmulationPreventionBytes(src);
+        Assert.Equal((byte[])[0xAA, 0x00, 0x00], result);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(6)]
+    [InlineData(8)]
+    public void TryParse_Accepts_All_Legal_BitDepth_Minus8_Values(int minus8)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 1, tierFlag: false, levelIdc: 120,
+            chromaFormat: 1, width: 1280, height: 720,
+            confLeft: 0, confRight: 0, confTop: 0, confBottom: 0,
+            bitDepthLumaMinus8: (byte)minus8, bitDepthChromaMinus8: (byte)minus8,
+            maxSubLayersMinus1: 0);
+
+        Assert.True(HevcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)(minus8 + 8), sps!.BitDepthLuma);
+        Assert.Equal((byte)(minus8 + 8), sps.BitDepthChroma);
+    }
+
     // ---------- SPS bitstream builder ----------
 
     private static class SpsBuilder
