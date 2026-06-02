@@ -252,6 +252,279 @@ public class VvcSequenceParameterSetTests
         Assert.Null(sps);
     }
 
+    [Theory]
+    [InlineData((byte)0, 32u)]
+    [InlineData((byte)1, 64u)]
+    [InlineData((byte)2, 128u)]
+    [InlineData((byte)3, 256u)]
+    public void CtuSize_Matches_Log2CtuSizeMinus5(byte log2Minus5, uint expected)
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: log2Minus5,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 640, picHeightMax: 360,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(log2Minus5, sps!.Log2CtuSizeMinus5);
+        Assert.Equal(expected, sps.CtuSize);
+    }
+
+    [Theory]
+    [InlineData((byte)0, "4:0:0")]
+    [InlineData((byte)1, "4:2:0")]
+    [InlineData((byte)2, "4:2:2")]
+    [InlineData((byte)3, "4:4:4")]
+    public void ChromaFormat_String_Matches_ChromaFormatIdc(byte idc, string expected)
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: idc, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 640, picHeightMax: 360,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(expected, sps!.ChromaFormat);
+    }
+
+    [Fact]
+    public void ChromaFormat_4_2_2_Applies_Width_Crop_Only()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 2, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 1920, picHeightMax: 1088,
+            confWinFlag: true,
+            confLeft: 0, confRight: 2, confTop: 0, confBottom: 4,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)2, sps!.ChromaFormatIdc);
+        // 4:2:2 -> SubWidthC=2, SubHeightC=1 -> crop = (2*2, 1*4) = (4, 4)
+        Assert.Equal(1916u, sps.DecodedWidth);
+        Assert.Equal(1084u, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void ChromaFormat_4_0_0_Monochrome_Applies_No_Sub_Sampling()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 0, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 1920, picHeightMax: 1088,
+            confWinFlag: true,
+            confLeft: 0, confRight: 4, confTop: 0, confBottom: 8,
+            bitDepthMinus8: 2);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        // 4:0:0 -> SubWidthC=SubHeightC=1 -> crop = (1*4, 1*8) = (4, 8)
+        Assert.Equal(1916u, sps!.DecodedWidth);
+        Assert.Equal(1080u, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void DecodedWidth_Returns_Pic_Max_When_ConformanceWindowFlag_False()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 320, picHeightMax: 240,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.False(sps!.ConformanceWindowFlag);
+        Assert.Equal(320u, sps.DecodedWidth);
+        Assert.Equal(240u, sps.DecodedHeight);
+        Assert.Equal(0u, sps.ConformanceWindowLeftOffset);
+        Assert.Equal(0u, sps.ConformanceWindowRightOffset);
+    }
+
+    [Fact]
+    public void Decoded_Dimensions_Clamp_When_Crop_Exceeds_Picture_Size()
+    {
+        // crop budget exceeds picture dimensions - the getter returns picWidthMax.
+        var sps = new VvcSequenceParameterSet
+        {
+            SequenceParameterSetId = 0,
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            ChromaFormatIdc = 1,
+            Log2CtuSizeMinus5 = 2,
+            PtlDpbHrdParamsPresentFlag = false,
+            GdrEnabledFlag = false,
+            RefPicResamplingEnabledFlag = false,
+            ResChangeInClvsAllowedFlag = false,
+            PictureWidthMaxInLumaSamples = 16,
+            PictureHeightMaxInLumaSamples = 16,
+            ConformanceWindowFlag = true,
+            ConformanceWindowLeftOffset = 100,
+            ConformanceWindowRightOffset = 100,
+            ConformanceWindowTopOffset = 100,
+            ConformanceWindowBottomOffset = 100,
+            SubpicInfoPresentFlag = false,
+            BitDepthMinus8 = 0,
+        };
+        Assert.Equal(16u, sps.DecodedWidth);
+        Assert.Equal(16u, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void RefPicResampling_With_ResChange_False_Is_Preserved()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: true,
+            resChangeInClvsAllowed: false,
+            picWidthMax: 1280, picHeightMax: 720,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.True(sps!.RefPicResamplingEnabledFlag);
+        Assert.False(sps.ResChangeInClvsAllowedFlag);
+    }
+
+    [Fact]
+    public void Ptl_FrameOnly_False_Multilayer_True_Preserved()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: true,
+            profileIdc: 1, tierFlag: false, levelIdc: 51,
+            frameOnly: false, multilayerEnabled: true,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 1920, picHeightMax: 1080,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.True(sps!.PtlDpbHrdParamsPresentFlag);
+        Assert.False(sps.PtlFrameOnlyConstraintFlag);
+        Assert.True(sps.PtlMultilayerEnabledFlag);
+    }
+
+    [Fact]
+    public void MaxSubLayersMinus1_Nonzero_Skips_Sublayer_Level_Present_Bits()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 2,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: true,
+            profileIdc: 1, tierFlag: false, levelIdc: 51,
+            frameOnly: true, multilayerEnabled: false,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 1920, picHeightMax: 1080,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)2, sps!.MaxSubLayersMinus1);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        var nalu = SpsBuilder.Build(
+            spsId: 0, vpsId: 0, maxSubLayersMinus1: 0,
+            chromaFormatIdc: 1, log2CtuSizeMinus5: 2,
+            ptlDpbHrdParamsPresent: false,
+            profileIdc: null, tierFlag: null, levelIdc: null,
+            frameOnly: null, multilayerEnabled: null,
+            gciPresent: false, numSubProfiles: 0,
+            gdrEnabled: false,
+            refPicResamplingEnabled: false,
+            picWidthMax: 1920, picHeightMax: 1080,
+            confWinFlag: false,
+            bitDepthMinus8: 0);
+
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var a));
+        Assert.True(VvcSequenceParameterSet.TryParse(nalu, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+
+        var c = a with { BitDepthMinus8 = 4 };
+        Assert.NotEqual(a, c);
+        Assert.Equal(12u, c.BitDepth);
+    }
+
+    [Fact]
+    public void SpsNalUnitType_Constant_Equals_15()
+    {
+        Assert.Equal(15, VvcSequenceParameterSet.SpsNalUnitType);
+    }
+
+    [Fact]
+    public void ChromaFormat_Reserved_Returns_Bracketed_String_For_Out_Of_Range_Direct_Construction()
+    {
+        // 2-bit field can never decode to >=4 from parse, but direct construction may.
+        var sps = new VvcSequenceParameterSet
+        {
+            SequenceParameterSetId = 0,
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            ChromaFormatIdc = 5,
+            Log2CtuSizeMinus5 = 2,
+            PtlDpbHrdParamsPresentFlag = false,
+            GdrEnabledFlag = false,
+            RefPicResamplingEnabledFlag = false,
+            ResChangeInClvsAllowedFlag = false,
+            PictureWidthMaxInLumaSamples = 16,
+            PictureHeightMaxInLumaSamples = 16,
+            ConformanceWindowFlag = false,
+            ConformanceWindowLeftOffset = 0,
+            ConformanceWindowRightOffset = 0,
+            ConformanceWindowTopOffset = 0,
+            ConformanceWindowBottomOffset = 0,
+            SubpicInfoPresentFlag = false,
+            BitDepthMinus8 = 0,
+        };
+        Assert.Equal("reserved(5)", sps.ChromaFormat);
+    }
+
     // ---------- SPS bitstream builder ----------
 
     private static class SpsBuilder
