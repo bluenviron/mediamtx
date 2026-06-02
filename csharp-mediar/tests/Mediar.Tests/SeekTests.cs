@@ -182,6 +182,130 @@ public sealed class SeekTests
         Assert.True(true);
     }
 
+    [Fact]
+    public async Task Wav_Seek_To_Time_Zero_Yields_First_Frame()
+    {
+        // Seeking to time zero must start at the very first sample.
+        byte[] avi = BuildSimpleWav(8000, totalFrames: 800);
+        using var src = new MemoryRandomAccessSource(avi);
+        using var dem = WavDemuxer.Open(src);
+        await dem.SeekAsync(TimeSpan.Zero);
+        long firstPts = -1;
+        await foreach (var s in dem.ReadSamplesAsync())
+        {
+            firstPts = s.Pts;
+            s.Owner?.Dispose();
+            break;
+        }
+        Assert.Equal(0L, firstPts);
+    }
+
+    [Fact]
+    public async Task Wav_Seek_Past_End_Yields_No_Samples()
+    {
+        byte[] avi = BuildSimpleWav(8000, totalFrames: 800);
+        using var src = new MemoryRandomAccessSource(avi);
+        using var dem = WavDemuxer.Open(src);
+        // 800 frames @ 8 kHz = 100 ms; seek to 1 second is way past.
+        await dem.SeekAsync(TimeSpan.FromSeconds(1));
+        int count = 0;
+        await foreach (var s in dem.ReadSamplesAsync())
+        {
+            count++;
+            s.Owner?.Dispose();
+        }
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task Wav_Seek_Negative_Time_Is_Clamped_To_Zero()
+    {
+        byte[] avi = BuildSimpleWav(8000, totalFrames: 800);
+        using var src = new MemoryRandomAccessSource(avi);
+        using var dem = WavDemuxer.Open(src);
+        await dem.SeekAsync(TimeSpan.FromSeconds(-50));
+        long firstPts = -1;
+        await foreach (var s in dem.ReadSamplesAsync())
+        {
+            firstPts = s.Pts;
+            s.Owner?.Dispose();
+            break;
+        }
+        Assert.Equal(0L, firstPts);
+    }
+
+    [Fact]
+    public async Task Wav_Seek_Honours_Cancellation_During_Enumeration()
+    {
+        byte[] avi = BuildSimpleWav(44100, totalFrames: 44100);
+        using var src = new MemoryRandomAccessSource(avi);
+        using var dem = WavDemuxer.Open(src);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var s in dem.ReadSamplesAsync(cts.Token))
+            {
+                s.Owner?.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Wav_Seek_Multiple_Times_Returns_Different_FirstPts()
+    {
+        byte[] avi = BuildSimpleWav(44100, totalFrames: 44100);
+        using var src = new MemoryRandomAccessSource(avi);
+        using var dem = WavDemuxer.Open(src);
+
+        async Task<long> ReadFirstPts()
+        {
+            await foreach (var s in dem.ReadSamplesAsync())
+            {
+                long pts = s.Pts;
+                s.Owner?.Dispose();
+                return pts;
+            }
+            return -1;
+        }
+
+        await dem.SeekAsync(TimeSpan.FromMilliseconds(100));
+        long a = await ReadFirstPts();
+        await dem.SeekAsync(TimeSpan.FromMilliseconds(500));
+        long b = await ReadFirstPts();
+        await dem.SeekAsync(TimeSpan.FromMilliseconds(900));
+        long c = await ReadFirstPts();
+        Assert.True(a < b && b < c, $"expected a<b<c, got {a}<{b}<{c}");
+    }
+
+    private static byte[] BuildSimpleWav(int sampleRate, int totalFrames)
+    {
+        const int channels = 1;
+        const int bitsPerSample = 16;
+        const int bytesPerSample = 2;
+        var ms = new MemoryStream();
+        WriteAscii(ms, "RIFF");
+        WriteUInt32(ms, (uint)(36 + totalFrames * bytesPerSample));
+        WriteAscii(ms, "WAVE");
+        WriteAscii(ms, "fmt ");
+        WriteUInt32(ms, 16);
+        WriteUInt16(ms, 1);
+        WriteUInt16(ms, channels);
+        WriteUInt32(ms, (uint)sampleRate);
+        WriteUInt32(ms, (uint)(sampleRate * channels * bytesPerSample));
+        WriteUInt16(ms, (ushort)(channels * bytesPerSample));
+        WriteUInt16(ms, bitsPerSample);
+        WriteAscii(ms, "data");
+        WriteUInt32(ms, (uint)(totalFrames * bytesPerSample));
+        for (int i = 0; i < totalFrames; i++)
+        {
+            short v = (short)(i & 0x7FFF);
+            ms.WriteByte((byte)(v & 0xFF));
+            ms.WriteByte((byte)((v >> 8) & 0xFF));
+        }
+        return ms.ToArray();
+    }
+
     private static void WriteAscii(MemoryStream ms, string s)
     {
         foreach (char c in s) ms.WriteByte((byte)c);
