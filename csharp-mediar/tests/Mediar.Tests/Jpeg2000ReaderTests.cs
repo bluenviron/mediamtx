@@ -254,4 +254,143 @@ public class Jpeg2000ReaderTests
         Assert.Equal(0u, r.Size.XOsiz);
         Assert.Equal(0u, r.Size.YOsiz);
     }
+
+    [Fact]
+    public void Components_BitDepth_Variety_Preserved()
+    {
+        // Build a SIZ with 4 components at different bit depths via a custom builder.
+        using var ms = new MemoryStream();
+        ms.WriteByte(0xFF); ms.WriteByte(0x4F); // SOC
+        int components = 4;
+        int contentLen = 36 + 3 * components;
+        int segLen = 2 + contentLen;
+        ms.WriteByte(0xFF); ms.WriteByte(0x51);
+        Span<byte> len = stackalloc byte[2];
+        BinaryPrimitives.WriteUInt16BigEndian(len, (ushort)segLen);
+        ms.Write(len);
+        Span<byte> seg = stackalloc byte[36];
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(2, 4), 100);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(6, 4), 100);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(18, 4), 100);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(22, 4), 100);
+        BinaryPrimitives.WriteUInt16BigEndian(seg.Slice(34, 2), (ushort)components);
+        ms.Write(seg);
+        // Component bit depths: 8, 10, 12, 16
+        int[] bd = { 8, 10, 12, 16 };
+        for (int i = 0; i < components; i++)
+        {
+            ms.WriteByte((byte)(bd[i] - 1));
+            ms.WriteByte(1); ms.WriteByte(1);
+        }
+        ms.WriteByte(0xFF); ms.WriteByte(0xD9);
+        byte[] csBytes = ms.ToArray();
+
+        using var r = Jpeg2000Reader.Open(new MemoryStream(csBytes), ImageFormat.J2k, ownsStream: true);
+        Assert.Equal(4, r.Components.Length);
+        Assert.Equal(8, r.Components[0].BitDepth);
+        Assert.Equal(10, r.Components[1].BitDepth);
+        Assert.Equal(12, r.Components[2].BitDepth);
+        Assert.Equal(16, r.Components[3].BitDepth);
+        Assert.Equal(8 + 10 + 12 + 16, r.Info.BitsPerPixel);
+    }
+
+    [Fact]
+    public void SignedComponent_Flag_IsParsed()
+    {
+        // Build SIZ with Ssiz having signed flag (0x80) set.
+        using var ms = new MemoryStream();
+        ms.WriteByte(0xFF); ms.WriteByte(0x4F);
+        int contentLen = 36 + 3;
+        int segLen = 2 + contentLen;
+        ms.WriteByte(0xFF); ms.WriteByte(0x51);
+        Span<byte> len = stackalloc byte[2];
+        BinaryPrimitives.WriteUInt16BigEndian(len, (ushort)segLen);
+        ms.Write(len);
+        Span<byte> seg = stackalloc byte[36];
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(2, 4), 50);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(6, 4), 50);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(18, 4), 50);
+        BinaryPrimitives.WriteUInt32BigEndian(seg.Slice(22, 4), 50);
+        BinaryPrimitives.WriteUInt16BigEndian(seg.Slice(34, 2), 1);
+        ms.Write(seg);
+        ms.WriteByte(0x80 | 11); // signed + 12-bit (Ssiz = bit_depth - 1)
+        ms.WriteByte(2); ms.WriteByte(2);
+        ms.WriteByte(0xFF); ms.WriteByte(0xD9);
+        byte[] csBytes = ms.ToArray();
+
+        using var r = Jpeg2000Reader.Open(new MemoryStream(csBytes), ImageFormat.J2k, ownsStream: true);
+        Assert.True(r.Components[0].IsSigned);
+        Assert.Equal(12, r.Components[0].BitDepth);
+        Assert.Equal(2, r.Components[0].HorizontalSeparation);
+        Assert.Equal(2, r.Components[0].VerticalSeparation);
+    }
+
+    [Fact]
+    public void EmptyStream_Returns_Default_Geometry()
+    {
+        using var r = Jpeg2000Reader.Open(new MemoryStream(Array.Empty<byte>()),
+            ImageFormat.J2k, ownsStream: true);
+        Assert.Empty(r.Components);
+        Assert.Equal(0, r.Info.Width);
+        Assert.Equal(0, r.Info.Height);
+        Assert.Empty(r.Boxes);
+    }
+
+    [Fact]
+    public void Jp2_Wrapper_Sets_HasJp2Wrapper_True()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        byte[] file = WrapInJp2(cs, enumColorSpace: 16);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(file), ImageFormat.Jp2, ownsStream: true);
+        Assert.True(r.HasJp2Wrapper);
+        Assert.NotEmpty(r.Boxes);
+    }
+
+    [Fact]
+    public void RawJ2k_Has_No_Wrapper_Flag()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.False(r.HasJp2Wrapper);
+    }
+
+    [Fact]
+    public void Info_FrameCount_Is_One()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Equal(1, r.Info.FrameCount);
+    }
+
+    [Fact]
+    public void TileParts_EmptyForCodestreamWithoutSot()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        using var r = Jpeg2000Reader.Open(new MemoryStream(cs), ImageFormat.J2k, ownsStream: true);
+        Assert.Empty(r.TileParts);
+    }
+
+    [Fact]
+    public void Open_FromPath_NullThrows()
+    {
+        Assert.ThrowsAny<ArgumentException>(() => Jpeg2000Reader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_Stream_NullStream_Throws_With_Parameter_Name()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(
+            () => Jpeg2000Reader.Open((Stream)null!));
+        Assert.Equal("stream", ex.ParamName);
+    }
+
+    [Fact]
+    public void OwnsStream_True_DisposesUnderlyingStream()
+    {
+        byte[] cs = BuildCodestream(8, 8, 1, 8);
+        var ms = new MemoryStream(cs);
+        var r = Jpeg2000Reader.Open(ms, ImageFormat.J2k, ownsStream: true);
+        r.Dispose();
+        Assert.False(ms.CanRead);
+    }
 }

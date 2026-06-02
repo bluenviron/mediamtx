@@ -156,6 +156,96 @@ public class Av1AvifPropertiesTests
         Assert.False(r.TryGetAv1LayeredImageIndexing(1, out _));
     }
 
+    [Fact]
+    public void Av1OperatingPoint_TryParse_Decodes_Max_Index()
+    {
+        Assert.True(HeifAv1OperatingPoint.TryParse(new byte[] { 0xFF }, out var op));
+        Assert.Equal(byte.MaxValue, op.OpIndex);
+    }
+
+    [Fact]
+    public void Av1OperatingPoint_TryParse_Ignores_Trailing_Bytes()
+    {
+        Assert.True(HeifAv1OperatingPoint.TryParse(new byte[] { 5, 0xAA, 0xBB }, out var op));
+        Assert.Equal((byte)5, op.OpIndex);
+    }
+
+    [Fact]
+    public void Av1OperatingPoint_Record_Equality_Works()
+    {
+        var a = new HeifAv1OperatingPoint { OpIndex = 3 };
+        var b = new HeifAv1OperatingPoint { OpIndex = 3 };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, a with { OpIndex = 4 });
+    }
+
+    [Fact]
+    public void Av1LayeredImageIndexing_LargeSize_Bit_IsExactlyLowBit()
+    {
+        // 0xFE = 11111110 → low bit clear → LargeSize false
+        var payload = new byte[7];
+        payload[0] = 0xFE;
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload, out var rec1));
+        Assert.False(rec1.LargeSize);
+
+        // 0x01 = 00000001 → low bit set → LargeSize true
+        var payload2 = new byte[13];
+        payload2[0] = 0x01;
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload2, out var rec2));
+        Assert.True(rec2.LargeSize);
+
+        // 0xFF = 11111111 → low bit set → LargeSize true
+        var payload3 = new byte[13];
+        payload3[0] = 0xFF;
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload3, out var rec3));
+        Assert.True(rec3.LargeSize);
+    }
+
+    [Fact]
+    public void Av1LayeredImageIndexing_TryParse_AllZeroSizes()
+    {
+        var payload = new byte[7];
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload, out var rec));
+        Assert.False(rec.LargeSize);
+        Assert.Equal(3, rec.LayerSizes.Length);
+        Assert.All(rec.LayerSizes, sz => Assert.Equal(0u, sz));
+    }
+
+    [Fact]
+    public void Av1LayeredImageIndexing_TryParse_Large_MaxUInt32_Layer()
+    {
+        var payload = new byte[13];
+        payload[0] = 1;
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(1, 4), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(5, 4), 1u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(9, 4), 2u);
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload, out var rec));
+        Assert.Equal(uint.MaxValue, rec.LayerSizes[0]);
+        Assert.Equal(1u, rec.LayerSizes[1]);
+        Assert.Equal(2u, rec.LayerSizes[2]);
+    }
+
+    [Fact]
+    public void Av1LayeredImageIndexing_LayerSizes_IsImmutableArray_NotDefault()
+    {
+        var payload = new byte[7];
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload, out var rec));
+        Assert.False(rec.LayerSizes.IsDefault);
+    }
+
+    [Fact]
+    public void Av1LayeredImageIndexing_OnlyLowBit_IsLargeSize()
+    {
+        // 0x02 (binary 00000010) → LargeSize false (low bit is 0).
+        var payload = new byte[7];
+        payload[0] = 0x02;
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(1, 2), 42);
+        Assert.True(HeifAv1LayeredImageIndexing.TryParse(payload, out var rec));
+        Assert.False(rec.LargeSize);
+        Assert.Equal(42u, rec.LayerSizes[0]);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildIspePayload(uint width, uint height)
