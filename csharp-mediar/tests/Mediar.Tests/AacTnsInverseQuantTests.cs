@@ -256,4 +256,157 @@ public sealed class AacTnsInverseQuantTests
             Assert.Equal(alloc[i], inplace[i], 6);
         }
     }
+
+    [Fact]
+    public void Compute_AllocatingOverload_NullFilter_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => AacTnsInverseQuant.Compute(null!, false));
+    }
+
+    [Fact]
+    public void Compute_AllocatingOverload_RawCountMismatch_Throws()
+    {
+        var f = new AacTnsFilter
+        {
+            Length = 16,
+            Order = 3,
+            Direction = false,
+            CoefCompress = false,
+            CoefBits = 3,
+            Coefficients = ImmutableArray.Create(1, 2), // only 2 raws for order 3
+        };
+        var ex = Assert.Throws<ArgumentException>(() => AacTnsInverseQuant.Compute(f, false));
+        Assert.Equal("filter", ex.ParamName);
+    }
+
+    [Fact]
+    public void Compute_SpanOverload_CoefBitsBelowRange_Throws()
+    {
+        var f = Filter(order: 1, coefBits: 1, 0);
+        float[] parcor = new float[1];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacTnsInverseQuant.Compute(f, coefResHigh: false, parcor));
+        Assert.Equal("filter", ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void Compute_RawZero_AlwaysProducesZero_AcrossAllSupportedWidths(int coefBits)
+    {
+        var f = Filter(order: 1, coefBits: coefBits, 0);
+        Assert.Equal(0f, AacTnsInverseQuant.Compute(f, coefResHigh: false)[0], 6);
+        Assert.Equal(0f, AacTnsInverseQuant.Compute(f, coefResHigh: true)[0], 6);
+    }
+
+    [Fact]
+    public void Compute_4BitMostNegative_ProducesLargestNegativeMagnitude()
+    {
+        // raw=8 (signed=-8) is the most-negative encoding for a 4-bit field.
+        var f = Filter(order: 1, coefBits: 4, 8);
+        float parcor = AacTnsInverseQuant.Compute(f, coefResHigh: true)[0];
+        Assert.True(parcor < 0);
+        // Verify formula: sin(-8 * (π/2) / 8.5)
+        double expected = Math.Sin(-8 * (Math.PI / 2) / 8.5);
+        Assert.Equal((float)expected, parcor, 6);
+        // Still inside the unit interval.
+        Assert.True(Math.Abs(parcor) < 1f);
+    }
+
+    [Fact]
+    public void Compute_4BitMostPositive_ProducesLargestPositiveMagnitude()
+    {
+        // raw=7 (signed=7) is the most-positive encoding for a 4-bit field.
+        var f = Filter(order: 1, coefBits: 4, 7);
+        float parcor = AacTnsInverseQuant.Compute(f, coefResHigh: true)[0];
+        Assert.True(parcor > 0);
+        double expected = Math.Sin(7 * (Math.PI / 2) / 7.5);
+        Assert.Equal((float)expected, parcor, 6);
+        Assert.True(parcor < 1f);
+    }
+
+    [Fact]
+    public void Compute_PositiveMonotonicAcross3BitRange()
+    {
+        // Positive half (raw 0..3) is strictly increasing in parcor[0].
+        float prev = float.NegativeInfinity;
+        for (int raw = 0; raw <= 3; raw++)
+        {
+            var f = Filter(order: 1, coefBits: 3, raw);
+            float val = AacTnsInverseQuant.Compute(f, coefResHigh: false)[0];
+            Assert.True(val > prev, $"raw={raw} val={val} prev={prev}");
+            prev = val;
+        }
+    }
+
+    [Fact]
+    public void Compute_SpanOverload_IsDeterministic()
+    {
+        var f = Filter(order: 3, coefBits: 4, 5, 10, 2);
+        Span<float> first = stackalloc float[3];
+        Span<float> second = stackalloc float[3];
+        AacTnsInverseQuant.Compute(f, coefResHigh: true, first);
+        AacTnsInverseQuant.Compute(f, coefResHigh: true, second);
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(first[i], second[i]);
+        }
+    }
+
+    [Fact]
+    public void Compute_AllocatingOverload_OrderZero_ReturnsEmptyArray()
+    {
+        var f = Filter(order: 0, coefBits: 0);
+        var parcor = AacTnsInverseQuant.Compute(f, coefResHigh: false);
+        Assert.Empty(parcor);
+    }
+
+    [Fact]
+    public void Compute_2BitMostNegative_Sign_Is_Negative()
+    {
+        // 2-bit field: raw=2 (signed=-2) is the most-negative encoding.
+        var f = Filter(order: 1, coefBits: 2, 2);
+        float parcor = AacTnsInverseQuant.Compute(f, coefResHigh: false)[0];
+        Assert.True(parcor < 0);
+        // Formula: sin(-2 * π/2 / 4.5)
+        double expected = Math.Sin(-2 * (Math.PI / 2) / 4.5);
+        Assert.Equal((float)expected, parcor, 6);
+    }
+
+    [Fact]
+    public void Compute_SpanOverload_DoesNotMutate_BeyondOrder()
+    {
+        var f = Filter(order: 2, coefBits: 3, 1, 2);
+        float[] parcor = new float[2];
+        AacTnsInverseQuant.Compute(f, coefResHigh: false, parcor);
+        // Only 2 entries are valid; both should be non-zero finite values.
+        Assert.True(float.IsFinite(parcor[0]));
+        Assert.True(float.IsFinite(parcor[1]));
+        Assert.NotEqual(0f, parcor[0]);
+        Assert.NotEqual(0f, parcor[1]);
+    }
+
+    [Fact]
+    public void Compute_AllocatingOverload_DifferentResolutions_ProduceDifferentMagnitudes()
+    {
+        // Same raw value at different resolution flags must use different step sizes.
+        var f = Filter(order: 1, coefBits: 4, 3);
+        float low = AacTnsInverseQuant.Compute(f, coefResHigh: false)[0];
+        float high = AacTnsInverseQuant.Compute(f, coefResHigh: true)[0];
+        // Low-res uses denominator 3.5 vs high-res 7.5, so low-res parcor
+        // should be LARGER in magnitude (raw 3 maps to bigger angle).
+        Assert.True(Math.Abs(low) > Math.Abs(high), $"low={low} high={high}");
+    }
+
+    [Fact]
+    public void Compute_RawAboveRangeFor4Bit_Throws()
+    {
+        // 4-bit field max raw = 15. 16 is out of range.
+        var f = Filter(order: 1, coefBits: 4, 16);
+        float[] parcor = new float[1];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacTnsInverseQuant.Compute(f, coefResHigh: true, parcor));
+        Assert.Equal("filter", ex.ParamName);
+    }
 }
