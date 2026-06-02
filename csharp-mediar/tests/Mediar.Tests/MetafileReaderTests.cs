@@ -312,4 +312,22 @@ public class MetafileReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MetafileReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] file = BuildEmf(0, 0, 100, 50);
+        var inner = new MemoryStream(file, writable: false);
+        using (var r = MetafileReader.Open(inner, ImageFormat.Emf, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Emf, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
 }

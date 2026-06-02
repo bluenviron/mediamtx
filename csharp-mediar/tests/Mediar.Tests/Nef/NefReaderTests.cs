@@ -500,4 +500,10 @@ public sealed class NefReaderTests
         Assert.Equal(20, nef.Info.Width);
         Assert.Equal(20, nef.Info.Height);
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => NefReader.Open((string)null!));
+    }
 }
