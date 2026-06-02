@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Immutable;
 using System.Text;
 using Mediar.Imaging;
 using Mediar.Imaging.Heif;
@@ -138,6 +139,103 @@ public class HeifLayerAndReferencePropertiesTests
         var bytes = BuildHeifWithProperty("ispe", BuildIspePayload(64, 64));
         using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
         Assert.False(r.TryGetRequiredReference(1, out _));
+    }
+
+    [Fact]
+    public void LayerSelector_TryParse_Decodes_MaxLayerId()
+    {
+        // 0xFFFF means "delegated to embedded operating-point info"
+        Assert.True(HeifLayerSelector.TryParse(new byte[] { 0xFF, 0xFF }, out var rec));
+        Assert.Equal(ushort.MaxValue, rec.LayerId);
+    }
+
+    [Fact]
+    public void LayerSelector_TryParse_Ignores_Trailing_Bytes()
+    {
+        // Reader honours [..2] slice; trailing bytes are not consumed.
+        byte[] payload = [0x00, 0x05, 0xDE, 0xAD, 0xBE, 0xEF];
+        Assert.True(HeifLayerSelector.TryParse(payload, out var rec));
+        Assert.Equal((ushort)5, rec.LayerId);
+    }
+
+    [Fact]
+    public void LayerSelector_Record_Equality_HoldsForSameLayerId()
+    {
+        var a = new HeifLayerSelector { LayerId = 7 };
+        var b = new HeifLayerSelector { LayerId = 7 };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, a with { LayerId = 8 });
+    }
+
+    [Fact]
+    public void RequiredReference_Requires_ReturnsFalse_ForNullString()
+    {
+        var rec = new HeifRequiredReference
+        {
+            ReferenceTypes = ImmutableArray.Create("dimg", "thmb"),
+        };
+        Assert.False(rec.Requires(null!));
+        Assert.False(rec.Requires(""));
+        Assert.True(rec.Requires("dimg"));
+    }
+
+    [Fact]
+    public void RequiredReference_TryParse_ZeroCount_PreservesEmptyImmutableArray()
+    {
+        var payload = new byte[] { 0, 0, 0, 0, 0 };
+        Assert.True(HeifRequiredReference.TryParse(payload, out var rec));
+        Assert.False(rec.ReferenceTypes.IsDefault);
+        Assert.True(rec.ReferenceTypes.IsEmpty);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(255)]
+    public void RequiredReference_TryParse_Rejects_UnknownVersions(byte version)
+    {
+        var payload = new byte[] { version, 0, 0, 0, 0 };
+        Assert.False(HeifRequiredReference.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void RequiredReference_TryParse_ReadsExactlyDeclaredBytes_IgnoresTrailing()
+    {
+        // count=1 → 9 byte payload, but we tack on 8 trailing bytes.
+        var payload = new byte[5 + 4 + 8];
+        payload[4] = 1;
+        Encoding.ASCII.GetBytes("dimg").CopyTo(payload.AsSpan(5));
+        Assert.True(HeifRequiredReference.TryParse(payload, out var rec));
+        Assert.Single(rec.ReferenceTypes);
+        Assert.Equal("dimg", rec.ReferenceTypes[0]);
+    }
+
+    [Fact]
+    public void RequiredReference_TryParse_DuplicateReferenceTypes_AllPreserved()
+    {
+        var payload = BuildRrefPayload("dimg", "dimg", "thmb");
+        Assert.True(HeifRequiredReference.TryParse(payload, out var rec));
+        Assert.Equal(3, rec.ReferenceTypes.Length);
+        Assert.Equal("dimg", rec.ReferenceTypes[0]);
+        Assert.Equal("dimg", rec.ReferenceTypes[1]);
+        Assert.Equal("thmb", rec.ReferenceTypes[2]);
+        Assert.True(rec.Requires("dimg"));
+    }
+
+    [Fact]
+    public void RequiredReference_TryParse_RejectsEmpty()
+    {
+        Assert.False(HeifRequiredReference.TryParse(ReadOnlySpan<byte>.Empty, out _));
+    }
+
+    [Fact]
+    public void RequiredReference_Record_Equality_StrictByReferenceArray()
+    {
+        var arr = ImmutableArray.Create("dimg");
+        var a = new HeifRequiredReference { ReferenceTypes = arr };
+        var b = new HeifRequiredReference { ReferenceTypes = arr };
+        Assert.Equal(a, b);
     }
 
     // ---------- helpers ----------

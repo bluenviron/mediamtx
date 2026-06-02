@@ -249,4 +249,107 @@ public sealed class AacTnsSpecLimitsTests
             Assert.Equal(0, AacTnsSpecLimits.GetMaxBandsLong480(sfi));
         }
     }
+
+    [Fact]
+    public void MaxBandsLong1024_NeverExceeds_SfbLimit_52()
+    {
+        for (int sfi = 0; sfi < AacTnsSpecLimits.SampleRateIndexCount; sfi++)
+        {
+            int v = AacTnsSpecLimits.GetMaxBandsLong1024(sfi);
+            Assert.InRange(v, 1, 52);
+        }
+    }
+
+    [Fact]
+    public void MaxBandsShort128_NeverExceeds_SfbLimit_15()
+    {
+        for (int sfi = 0; sfi < AacTnsSpecLimits.SampleRateIndexCount; sfi++)
+        {
+            int v = AacTnsSpecLimits.GetMaxBandsShort128(sfi);
+            Assert.InRange(v, 1, 15);
+        }
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacMain)]
+    [InlineData(AacAudioObjectType.AacLc)]
+    [InlineData(AacAudioObjectType.AacLtp)]
+    [InlineData(AacAudioObjectType.ErAacLc)]
+    public void GetMaxBands_LongStart_RoutesToLong1024(AacAudioObjectType aot)
+    {
+        for (int sfi = 0; sfi < AacTnsSpecLimits.SampleRateIndexCount; sfi++)
+        {
+            Assert.Equal(
+                AacTnsSpecLimits.GetMaxBandsLong1024(sfi),
+                AacTnsSpecLimits.GetMaxBands(aot, sfi, AacWindowSequence.LongStart));
+        }
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacMain)]
+    [InlineData(AacAudioObjectType.AacLc)]
+    [InlineData(AacAudioObjectType.AacLtp)]
+    [InlineData(AacAudioObjectType.ErAacLc)]
+    public void GetMaxBands_LongStop_RoutesToLong1024(AacAudioObjectType aot)
+    {
+        for (int sfi = 0; sfi < AacTnsSpecLimits.SampleRateIndexCount; sfi++)
+        {
+            Assert.Equal(
+                AacTnsSpecLimits.GetMaxBandsLong1024(sfi),
+                AacTnsSpecLimits.GetMaxBands(aot, sfi, AacWindowSequence.LongStop));
+        }
+    }
+
+    [Fact]
+    public void GetMaxBands_NegativeSfi_Throws()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AacTnsSpecLimits.GetMaxBands(
+                AacAudioObjectType.AacLc, -1, AacWindowSequence.OnlyLong));
+        Assert.Equal("samplingFrequencyIndex", ex.ParamName);
+    }
+
+    [Fact]
+    public void GetMaxOrder_AacMain_LongStart_ReturnsMain()
+    {
+        Assert.Equal(
+            AacTnsSpecLimits.MaxOrderLongMain,
+            AacTnsSpecLimits.GetMaxOrder(
+                AacAudioObjectType.AacMain, AacWindowSequence.LongStart));
+    }
+
+    [Fact]
+    public void GetMaxOrder_AacMain_LongStop_ReturnsMain()
+    {
+        Assert.Equal(
+            AacTnsSpecLimits.MaxOrderLongMain,
+            AacTnsSpecLimits.GetMaxOrder(
+                AacAudioObjectType.AacMain, AacWindowSequence.LongStop));
+    }
+
+    [Fact]
+    public void Long512_Equals_Long480_NonZero_Layout()
+    {
+        // Long512 and Long480 share the same "supported" sfi window
+        // even though the per-band counts differ.
+        for (int sfi = 0; sfi < AacTnsSpecLimits.SampleRateIndexCount; sfi++)
+        {
+            bool a = AacTnsSpecLimits.GetMaxBandsLong512(sfi) > 0;
+            bool b = AacTnsSpecLimits.GetMaxBandsLong480(sfi) > 0;
+            Assert.Equal(a, b);
+        }
+    }
+
+    [Theory]
+    [InlineData(AacAudioObjectType.AacMain)]
+    [InlineData(AacAudioObjectType.AacLc)]
+    [InlineData(AacAudioObjectType.AacLtp)]
+    [InlineData(AacAudioObjectType.ErAacLc)]
+    public void GetMaxOrder_EightShort_ReturnsShort7_ForEverySupportedAot(
+        AacAudioObjectType aot)
+    {
+        Assert.Equal(
+            AacTnsSpecLimits.MaxOrderShort,
+            AacTnsSpecLimits.GetMaxOrder(aot, AacWindowSequence.EightShort));
+    }
 }
