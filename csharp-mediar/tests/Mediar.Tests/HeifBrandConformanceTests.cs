@@ -217,6 +217,188 @@ public class HeifBrandConformanceTests
         Assert.Throws<ArgumentNullException>(() => HeifBrandConformance.ValidateMiaf(null!));
     }
 
+    [Fact]
+    public void ValidateAvif_Reports_Missing_Ispe_On_Av01_Item()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "avif",
+            compatibleBrands: ["mif1", "avif"],
+            itemType: "av01",
+            properties: [("av1C", BuildAv1C())]); // missing ispe
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Avif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateAvif(r);
+        Assert.False(result.IsConformant);
+        Assert.Contains(result.Issues, i => i.Contains("ispe"));
+    }
+
+    [Fact]
+    public void ValidateAvif_Accepts_Grid_Derivation_As_Primary()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "avif",
+            compatibleBrands: ["mif1", "avif"],
+            itemType: "grid",
+            properties: [("ispe", BuildIspe(64, 64))]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Avif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateAvif(r);
+        // No av01 items so per-item checks pass; grid is accepted derivation.
+        Assert.True(result.IsConformant);
+    }
+
+    [Theory]
+    [InlineData("heic")]
+    [InlineData("heix")]
+    [InlineData("mif1")]
+    public void ValidateHeic_Accepts_Any_Of_Three_Brands(string brand)
+    {
+        var bytes = BuildHeif(
+            majorBrand: brand,
+            compatibleBrands: [brand],
+            itemType: "hvc1",
+            properties: [("ispe", BuildIspe(64, 64)), ("hvcC", BuildHvcC())]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateHeic(r);
+        Assert.True(result.IsConformant);
+    }
+
+    [Fact]
+    public void ValidateHeic_Reports_Wrong_Primary_Item_Type()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "heic",
+            compatibleBrands: ["mif1", "heic"],
+            itemType: "av01",
+            properties: [("ispe", BuildIspe(64, 64))]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateHeic(r);
+        Assert.False(result.IsConformant);
+        Assert.Contains(result.Issues, i => i.Contains("Primary item type"));
+    }
+
+    [Fact]
+    public void ValidateHeic_Accepts_Iden_Derivation_As_Primary()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "heic",
+            compatibleBrands: ["mif1", "heic"],
+            itemType: "iden",
+            properties: [("ispe", BuildIspe(64, 64))]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateHeic(r);
+        Assert.True(result.IsConformant);
+    }
+
+    [Theory]
+    [InlineData("mif2")]
+    [InlineData("miaf")]
+    public void ValidateMiaf_Accepts_Either_Of_Two_Brands(string brand)
+    {
+        var bytes = BuildHeif(
+            majorBrand: brand,
+            compatibleBrands: [brand, "heic"],
+            itemType: "hvc1",
+            properties: [("ispe", BuildIspe(64, 64)), ("colr", BuildColrNclx())]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateMiaf(r);
+        Assert.True(result.IsConformant);
+    }
+
+    [Fact]
+    public void ValidateMiaf_Reports_Specific_Item_Id_In_Colour_Info_Issue()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "mif2",
+            compatibleBrands: ["mif2", "heic"],
+            itemType: "hvc1",
+            properties: [("ispe", BuildIspe(64, 64))]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateMiaf(r);
+        Assert.Contains(result.Issues, i => i.Contains("Image item 1") && i.Contains("hvc1"));
+    }
+
+    [Theory]
+    [InlineData("hvc1")]
+    [InlineData("hev1")]
+    [InlineData("av01")]
+    [InlineData("vvc1")]
+    [InlineData("jpeg")]
+    [InlineData("j2ki")]
+    [InlineData("grid")]
+    [InlineData("iden")]
+    [InlineData("iovl")]
+    public void ValidateMiaf_Image_Item_Types_All_Require_Colour_Info(string type)
+    {
+        var bytes = BuildHeif(
+            majorBrand: "mif2",
+            compatibleBrands: ["mif2", "heic"],
+            itemType: type,
+            properties: [("ispe", BuildIspe(64, 64))]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateMiaf(r);
+        Assert.False(result.IsConformant);
+        Assert.Contains(result.Issues, i => i.Contains("colour info"));
+    }
+
+    [Fact]
+    public void ValidateAvif_All_Validators_Set_ProfileName()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "avif",
+            compatibleBrands: ["mif1", "avif", "heic", "mif2", "miaf"],
+            itemType: "av01",
+            properties: [("ispe", BuildIspe(64, 64)), ("av1C", BuildAv1C())]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Avif, ownsStream: true);
+
+        Assert.Equal("AVIF", HeifBrandConformance.ValidateAvif(r).ProfileName);
+        Assert.Equal("HEIC Main", HeifBrandConformance.ValidateHeic(r).ProfileName);
+        Assert.Equal("MIAF", HeifBrandConformance.ValidateMiaf(r).ProfileName);
+    }
+
+    [Fact]
+    public void Conformance_Result_Record_Equality_And_With_Expression()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "avif",
+            compatibleBrands: ["mif1", "avif"],
+            itemType: "av01",
+            properties: [("ispe", BuildIspe(64, 64)), ("av1C", BuildAv1C())]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Avif, ownsStream: true);
+
+        var a = HeifBrandConformance.ValidateAvif(r);
+        var b = HeifBrandConformance.ValidateAvif(r);
+        // Empty Issues uses the ImmutableArray<string>.Empty singleton.
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { ProfileName = "Custom" };
+        Assert.NotEqual(a, c);
+        Assert.Equal("Custom", c.ProfileName);
+        Assert.Equal("AVIF", a.ProfileName);
+    }
+
+    [Fact]
+    public void ValidateHeic_Conformant_Result_Issues_Is_Empty()
+    {
+        var bytes = BuildHeif(
+            majorBrand: "heic",
+            compatibleBrands: ["mif1", "heic"],
+            itemType: "hvc1",
+            properties: [("ispe", BuildIspe(64, 64)), ("hvcC", BuildHvcC())]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        var result = HeifBrandConformance.ValidateHeic(r);
+        Assert.True(result.IsConformant);
+        Assert.Empty(result.Issues);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildIspe(uint width, uint height)

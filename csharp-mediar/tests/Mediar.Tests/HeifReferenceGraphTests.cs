@@ -210,6 +210,209 @@ public class HeifReferenceGraphTests
         Assert.Empty(r.ReferenceGraph.GetThumbnailsFor(1));
     }
 
+    [Fact]
+    public void Thmb_With_Multiple_Masters_Maps_Thumbnail_To_First_Master_Only()
+    {
+        // masterOfThumb uses TryAdd, so the second master is not overwritten.
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("thmb", FromItemId: 2, ToItemIds: [10, 20]),
+        ]);
+
+        Assert.Equal<uint>([2u], graph.GetThumbnailsFor(10));
+        Assert.Equal<uint>([2u], graph.GetThumbnailsFor(20));
+        Assert.Equal(10u, graph.GetMasterOfThumbnail(2));
+    }
+
+    [Fact]
+    public void Auxl_With_Multiple_Masters_Maps_Aux_To_First_Master_Only()
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("auxl", FromItemId: 5, ToItemIds: [10, 11]),
+        ]);
+
+        Assert.Equal<uint>([5u], graph.GetAuxiliariesFor(10));
+        Assert.Equal<uint>([5u], graph.GetAuxiliariesFor(11));
+        // TryAdd preserves the first registration.
+        Assert.Equal(10u, graph.GetMasterOfAuxiliary(5));
+    }
+
+    [Fact]
+    public void Dimg_Repeating_FromItemId_Replaces_Sources_List()
+    {
+        // sources[from] = ToItemIds overwrites — confirm the documented behaviour.
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("dimg", FromItemId: 1, ToItemIds: [10, 11]),
+            new HeifReference("dimg", FromItemId: 1, ToItemIds: [20, 21, 22]),
+        ]);
+
+        Assert.Equal<uint>([20u, 21u, 22u], graph.GetDerivedSourcesOf(1));
+        // Both old and new sources still appear under derived consumers (additive).
+        Assert.Equal<uint>([1u], graph.GetDerivedConsumersOf(10));
+        Assert.Equal<uint>([1u], graph.GetDerivedConsumersOf(20));
+    }
+
+    [Fact]
+    public void Cdsc_With_Multiple_Targets_Maps_Each_Direction()
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("cdsc", FromItemId: 100, ToItemIds: [1, 2, 3]),
+        ]);
+
+        Assert.Equal<uint>([1u, 2u, 3u], graph.GetItemsDescribedBy(100));
+        Assert.Equal<uint>([100u], graph.GetMetadataItemsFor(1));
+        Assert.Equal<uint>([100u], graph.GetMetadataItemsFor(2));
+        Assert.Equal<uint>([100u], graph.GetMetadataItemsFor(3));
+    }
+
+    [Fact]
+    public void Base_Type_Listed_In_Docs_Is_Currently_Ignored()
+    {
+        // The xml docs mention "base" but the switch has no case for it.
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("base", FromItemId: 5, ToItemIds: [1, 2]),
+        ]);
+        Assert.Empty(graph.GetDerivedSourcesOf(5));
+        Assert.Empty(graph.GetDerivedConsumersOf(1));
+    }
+
+    [Theory]
+    [InlineData("THMB")]
+    [InlineData("Thmb")]
+    [InlineData("DIMG")]
+    [InlineData("dimG")]
+    public void Reference_Type_Matching_Is_Case_Sensitive(string type)
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference(type, FromItemId: 2, ToItemIds: [1]),
+        ]);
+        Assert.Empty(graph.GetThumbnailsFor(1));
+        Assert.Empty(graph.GetDerivedSourcesOf(2));
+    }
+
+    [Fact]
+    public void Multiple_Cdsc_Edges_From_Same_Metadata_Accumulate_Targets()
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("cdsc", FromItemId: 100, ToItemIds: [1]),
+            new HeifReference("cdsc", FromItemId: 100, ToItemIds: [2]),
+        ]);
+
+        Assert.Equal<uint>([1u, 2u], graph.GetItemsDescribedBy(100));
+        Assert.Equal<uint>([100u], graph.GetMetadataItemsFor(1));
+        Assert.Equal<uint>([100u], graph.GetMetadataItemsFor(2));
+    }
+
+    [Fact]
+    public void Dimg_Self_Reference_Adds_Item_As_Own_Consumer()
+    {
+        // Pathological but legal: derived item references itself.
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("dimg", FromItemId: 1, ToItemIds: [1, 2]),
+        ]);
+
+        Assert.Equal<uint>([1u, 2u], graph.GetDerivedSourcesOf(1));
+        Assert.Equal<uint>([1u], graph.GetDerivedConsumersOf(1));
+        Assert.Equal<uint>([1u], graph.GetDerivedConsumersOf(2));
+    }
+
+    [Fact]
+    public void Same_Source_Listed_Twice_Is_Counted_Twice_Under_Consumers()
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("dimg", FromItemId: 5, ToItemIds: [1, 1, 1]),
+        ]);
+
+        Assert.Equal<uint>([1u, 1u, 1u], graph.GetDerivedSourcesOf(5));
+        // The implementation appends to the consumers list per source iteration.
+        Assert.Equal<uint>([5u, 5u, 5u], graph.GetDerivedConsumersOf(1));
+    }
+
+    [Fact]
+    public void Mixed_Reference_Types_All_Coexist_Without_Cross_Talk()
+    {
+        var graph = new HeifReferenceGraph(
+        [
+            new HeifReference("thmb", FromItemId: 9, ToItemIds: [1]),
+            new HeifReference("dimg", FromItemId: 1, ToItemIds: [10, 11]),
+            new HeifReference("auxl", FromItemId: 8, ToItemIds: [1]),
+            new HeifReference("cdsc", FromItemId: 7, ToItemIds: [1]),
+        ]);
+
+        Assert.Equal<uint>([9u], graph.GetThumbnailsFor(1));
+        Assert.Equal<uint>([10u, 11u], graph.GetDerivedSourcesOf(1));
+        Assert.Equal<uint>([8u], graph.GetAuxiliariesFor(1));
+        Assert.Equal<uint>([7u], graph.GetMetadataItemsFor(1));
+
+        // Each accessor returns only its own type.
+        Assert.Empty(graph.GetThumbnailsFor(10));
+        Assert.Empty(graph.GetDerivedSourcesOf(9));
+        Assert.Empty(graph.GetAuxiliariesFor(8));
+        Assert.Empty(graph.GetItemsDescribedBy(1));
+    }
+
+    [Fact]
+    public void HeifReader_References_Property_Exposes_Raw_Iref()
+    {
+        var bytes = BuildHeifWithIref(
+            primaryItemId: 1,
+            refs:
+            [
+                ("thmb", 2u, [1u]),
+                ("dimg", 1u, [20u, 21u]),
+                ("auxl", 5u, [1u]),
+            ],
+            extraInfeIds: [2, 5, 20, 21]);
+
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+
+        Assert.Equal(3, r.References.Length);
+        Assert.Contains(r.References, x => x.Type == "thmb" && x.FromItemId == 2 && x.ToItemIds.Length == 1);
+        Assert.Contains(r.References, x => x.Type == "dimg" && x.FromItemId == 1 && x.ToItemIds.Length == 2);
+        Assert.Contains(r.References, x => x.Type == "auxl" && x.FromItemId == 5);
+    }
+
+    [Fact]
+    public void HeifReader_PrimaryThumbnailIds_Empty_When_No_Thumbnails()
+    {
+        var bytes = BuildHeifWithIref(
+            primaryItemId: 1,
+            refs:
+            [
+                ("auxl", 5u, [1u]),
+            ],
+            extraInfeIds: [5]);
+
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.Empty(r.PrimaryThumbnailIds);
+        Assert.Equal<uint>([5u], r.PrimaryAuxiliaryIds);
+    }
+
+    [Fact]
+    public void HeifReader_PrimaryAuxiliaryIds_Lists_All_Aux_Items()
+    {
+        var bytes = BuildHeifWithIref(
+            primaryItemId: 1,
+            refs:
+            [
+                ("auxl", 5u, [1u]),
+                ("auxl", 6u, [1u]),
+                ("auxl", 7u, [1u]),
+            ],
+            extraInfeIds: [5, 6, 7]);
+
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.Equal<uint>([5u, 6u, 7u], r.PrimaryAuxiliaryIds);
+    }
+
     // ---- fixture builder ----
     private static byte[] BuildHeifWithIref(
         uint primaryItemId,
