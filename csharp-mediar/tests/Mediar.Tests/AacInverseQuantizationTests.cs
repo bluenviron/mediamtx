@@ -166,4 +166,122 @@ public sealed class AacInverseQuantizationTests
         Assert.Equal(99f, dst[1]);
         Assert.Equal(-99f, dst[2]);
     }
+
+    [Theory]
+    [InlineData(1, 1.0)]
+    [InlineData(8, 16.0)]
+    [InlineData(27, 81.0)]
+    [InlineData(64, 256.0)]
+    [InlineData(125, 625.0)]
+    [InlineData(216, 1296.0)]
+    [InlineData(343, 2401.0)]
+    [InlineData(512, 4096.0)]
+    [InlineData(729, 6561.0)]
+    [InlineData(1000, 10000.0)]
+    public void Dequantize_PerfectCubes_AreIntegerPower43(int input, double expected)
+    {
+        // For inputs of the form n^3, n^(4/3) = n^4 is exact integer
+        // arithmetic; this is the cleanest way to assert numerical
+        // correctness across the full clip range.
+        float result = AacInverseQuantization.Dequantize(input);
+        Assert.Equal(expected, result, tolerance: Math.Abs(expected) * 1e-5);
+    }
+
+    [Fact]
+    public void Dequantize_MonotonicallyIncreasing_OnPositives()
+    {
+        float prev = AacInverseQuantization.Dequantize(0);
+        for (int i = 1; i <= 8191; i++)
+        {
+            float v = AacInverseQuantization.Dequantize(i);
+            Assert.True(v > prev, $"Dequantize({i}) = {v} should exceed Dequantize({i - 1}) = {prev}.");
+            prev = v;
+        }
+    }
+
+    [Fact]
+    public void Dequantize_IsPure_RepeatedCallsAreStable()
+    {
+        for (int i = -1000; i <= 1000; i += 37)
+        {
+            float a = AacInverseQuantization.Dequantize(i);
+            float b = AacInverseQuantization.Dequantize(i);
+            Assert.Equal(a, b);
+        }
+    }
+
+    [Fact]
+    public void Dequantize_Span_ExactLength_DoesNotThrow()
+    {
+        int[] src = [1, 2, 3];
+        var dst = new float[3];
+        AacInverseQuantization.Dequantize(src, dst);
+        Assert.Equal(1f, dst[0], precision: 5);
+        Assert.Equal(2.519842f, dst[1], precision: 4);
+        Assert.Equal(4.326749f, dst[2], precision: 4);
+    }
+
+    [Fact]
+    public void Dequantize_Span_EmptyDestination_NoThrowOnEmptySource()
+    {
+        AacInverseQuantization.Dequantize(ReadOnlySpan<int>.Empty, Span<float>.Empty);
+        // No assert — verifying it doesn't throw or modify anything is enough.
+    }
+
+    [Fact]
+    public void Dequantize_Span_TooShortBy_One_Throws_With_Destination_ParamName()
+    {
+        int[] src = [1, 2];
+        var dst = new float[1];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacInverseQuantization.Dequantize(src, dst));
+        Assert.Equal("destination", ex.ParamName);
+    }
+
+    [Fact]
+    public void Dequantize_Span_AllocatingOverload_DoesNotShareBuffer()
+    {
+        int[] src = [1, 2, 3];
+        float[] a = AacInverseQuantization.Dequantize(src);
+        float[] b = AacInverseQuantization.Dequantize(src);
+        Assert.NotSame(a, b);
+        // Same numeric content
+        Assert.Equal(a[0], b[0]);
+        Assert.Equal(a[1], b[1]);
+        Assert.Equal(a[2], b[2]);
+    }
+
+    [Fact]
+    public void Dequantize_AllValuesInFullClipRange_AreNonNegativeForNonNegativeInputs()
+    {
+        for (int i = 0; i <= 8191; i++)
+        {
+            float v = AacInverseQuantization.Dequantize(i);
+            Assert.True(v >= 0f);
+        }
+    }
+
+    [Fact]
+    public void Dequantize_IntMinValue_NegatesViaDoubleWithoutOverflow()
+    {
+        // The implementation negates via `-(double)xQuant` so int.MinValue
+        // produces a large finite negative result without overflowing.
+        float v = AacInverseQuantization.Dequantize(int.MinValue);
+        Assert.True(float.IsFinite(v));
+        Assert.True(v < 0f);
+    }
+
+    [Fact]
+    public void Dequantize_IntMaxValue_ProducesLargeFinitePositive()
+    {
+        float v = AacInverseQuantization.Dequantize(int.MaxValue);
+        Assert.True(float.IsFinite(v));
+        Assert.True(v > 0f);
+    }
+
+    [Fact]
+    public void Dequantize_Exponent_Is_Approximately_1_3333()
+    {
+        Assert.InRange(AacInverseQuantization.Exponent, 1.333f, 1.334f);
+    }
 }
