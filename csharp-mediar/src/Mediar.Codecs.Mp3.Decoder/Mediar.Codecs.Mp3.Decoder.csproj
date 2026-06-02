@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Mp3.Decoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Mp3.Decoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native MPEG-1/2/2.5 Audio Layer III ("MP3") decoder for Mediar — patent-free (last MP3 patents expired 2017).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+    <ProjectReference Include="..\Mediar.Containers.Mp3\Mediar.Containers.Mp3.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>

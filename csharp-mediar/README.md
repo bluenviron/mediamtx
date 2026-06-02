@@ -77,7 +77,8 @@ must come with their own licensing analysis.
 | **AV2 transmux (carry-through MP4 / MKV)** | ✅ (`av02` / `V_AV2` codec id; passthrough only — no decoder, spec not yet published) |
 | Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
 | Opus decoder                              | 🟡 (deferred, royalty-free but large) |
-| MP3 / ALAC decoder                       | 🟡 (deferred)         |
+| MP3 decoder                              | 🟢 (pipeline shipped; bit-exact ISO conformance pending: substitute Annex B Table B.4 D-window + full Table B.7 Huffman tables) |
+| ALAC decoder                             | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
 
 ### Imaging — File APIs for ~120 still-image formats
@@ -143,6 +144,7 @@ csharp-mediar/
 │   ├── Mediar.Codecs.Pcm/              PCM sample-format conversion + decoder
 │   ├── Mediar.Codecs.G711/             G.711 µ-law / A-law encode + decode
 │   ├── Mediar.Codecs.Flac.Decoder/     Native FLAC decoder (RFC 9639)
+│   ├── Mediar.Codecs.Mp3.Decoder/      MPEG-1/2/2.5 Layer III decoder (patent-free since 2017)
 │   ├── Mediar.Codecs.Vorbis.Decoder/   Vorbis I foundation (headers + bitstream + IMDCT/TDAC)
 │   ├── Mediar.Bitstream/               H.264 / H.265 Annex-B ↔ AVCC/HVCC helpers
 │   ├── Mediar.Subtitles.Srt/           SRT read + write

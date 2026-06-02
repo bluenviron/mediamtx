@@ -26,6 +26,7 @@
     <Project Path="src/Mediar.Codecs.G711/Mediar.Codecs.G711.csproj" />
     <Project Path="src/Mediar.Codecs.Pcm/Mediar.Codecs.Pcm.csproj" />
     <Project Path="src/Mediar.Codecs.Vorbis.Decoder/Mediar.Codecs.Vorbis.Decoder.csproj" />
+    <Project Path="src/Mediar.Codecs.Mp3.Decoder/Mediar.Codecs.Mp3.Decoder.csproj" />
     <Project Path="src/Mediar.Containers.Adts/Mediar.Containers.Adts.csproj" />
     <Project Path="src/Mediar.Containers.Aiff/Mediar.Containers.Aiff.csproj" />
     <Project Path="src/Mediar.Containers.Amr/Mediar.Containers.Amr.csproj" />
