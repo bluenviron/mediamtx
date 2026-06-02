@@ -195,4 +195,129 @@ public sealed class AacStandardSpectralCodebooksTests
         Assert.NotNull(book);
         Assert.True(book.MaxCodeLength is >= 1 and <= 16);
     }
+
+    [Fact]
+    public void All_Codebooks_SymbolCount_Equals_Capacity()
+    {
+        // The tables in this module are dense (no zero-length entries)
+        // so SymbolCount and Capacity always match.
+        for (int n = 1; n <= 11; n++)
+        {
+            var book = AacStandardSpectralCodebooks.GetCodebook(n);
+            Assert.Equal(book.Capacity, book.SymbolCount);
+        }
+    }
+
+    [Fact]
+    public void All_Codebooks_Combined_Total_Symbol_Count()
+    {
+        // 81 * 6 (cb 1-6) + 64 * 2 (cb 7-8) + 169 * 2 (cb 9-10) + 289 (cb 11) = 1241.
+        int total = 0;
+        for (int n = 1; n <= 11; n++)
+        {
+            total += AacStandardSpectralCodebooks.GetCodebook(n).SymbolCount;
+        }
+        Assert.Equal(1241, total);
+    }
+
+    [Fact]
+    public void Cb1_Decoding_Symbol40_Consumes_Exactly_One_Bit()
+    {
+        var book = AacStandardSpectralCodebooks.Cb1;
+        byte[] data = { 0b0000_0000 };
+        var reader = new BitReader(data);
+        long start = reader.Position;
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.Equal(start + 1, reader.Position);
+    }
+
+    [Fact]
+    public void Cb1_Decoding_Symbol0_Consumes_Exactly_Eleven_Bits()
+    {
+        var book = AacStandardSpectralCodebooks.Cb1;
+        byte[] data = { 0xFF, 0x00 };
+        var reader = new BitReader(data);
+        long start = reader.Position;
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.Equal(start + 11, reader.Position);
+    }
+
+    [Fact]
+    public void Cb7_Decoding_Symbol0_Consumes_Exactly_One_Bit()
+    {
+        var book = AacStandardSpectralCodebooks.Cb7;
+        byte[] data = { 0x00 };
+        var reader = new BitReader(data);
+        long start = reader.Position;
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.Equal(start + 1, reader.Position);
+    }
+
+    [Fact]
+    public void Cb5_Sequential_Decodes_Advance_Position()
+    {
+        var book = AacStandardSpectralCodebooks.Cb5;
+        byte[] data = { 0x00, 0x00 };
+        var reader = new BitReader(data);
+        long start = reader.Position;
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.True(book.TryDecode(ref reader, out _));
+        // Three single-bit decodes -> 3 bits consumed.
+        Assert.Equal(start + 3, reader.Position);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void TryDecode_From_Empty_Buffer_Returns_False(int cbNumber)
+    {
+        var book = AacStandardSpectralCodebooks.GetCodebook(cbNumber);
+        byte[] data = Array.Empty<byte>();
+        var reader = new BitReader(data);
+        Assert.False(book.TryDecode(ref reader, out _));
+    }
+
+    [Fact]
+    public void Cb11_Capacity_And_SymbolCount_Are_289()
+    {
+        var book = AacStandardSpectralCodebooks.Cb11;
+        Assert.Equal(289, book.Capacity);
+        Assert.Equal(289, book.SymbolCount);
+    }
+
+    [Fact]
+    public void All_Codebook_MaxCodeLengths_Match_GetCodebook_For_Same_Number()
+    {
+        for (int n = 1; n <= 11; n++)
+        {
+            var a = AacStandardSpectralCodebooks.GetCodebook(n);
+            // Looking up by Cb1..Cb11 should yield the same MaxCodeLength.
+            var b = n switch
+            {
+                1 => AacStandardSpectralCodebooks.Cb1,
+                2 => AacStandardSpectralCodebooks.Cb2,
+                3 => AacStandardSpectralCodebooks.Cb3,
+                4 => AacStandardSpectralCodebooks.Cb4,
+                5 => AacStandardSpectralCodebooks.Cb5,
+                6 => AacStandardSpectralCodebooks.Cb6,
+                7 => AacStandardSpectralCodebooks.Cb7,
+                8 => AacStandardSpectralCodebooks.Cb8,
+                9 => AacStandardSpectralCodebooks.Cb9,
+                10 => AacStandardSpectralCodebooks.Cb10,
+                11 => AacStandardSpectralCodebooks.Cb11,
+                _ => throw new InvalidOperationException(),
+            };
+            Assert.Equal(a.MaxCodeLength, b.MaxCodeLength);
+        }
+    }
 }
