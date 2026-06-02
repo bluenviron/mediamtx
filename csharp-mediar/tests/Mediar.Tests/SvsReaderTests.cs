@@ -117,6 +117,184 @@ public class SvsReaderTests
             SvsReader.Open(new MemoryStream(new byte[32]), ownsStream: true));
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            SvsReader.Open((Stream)null!, ownsStream: false));
+    }
+
+    [Fact]
+    public void Open_Truncated_Stream_Below_Header_Throws()
+    {
+        Assert.Throws<ImageFormatException>(() =>
+            SvsReader.Open(new MemoryStream(new byte[4]), ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_Missing_Path_Throws_FileNotFound()
+    {
+        var p = Path.Combine(Path.GetTempPath(), "missing-" + Guid.NewGuid().ToString("N") + ".svs");
+        Assert.Throws<FileNotFoundException>(() => SvsReader.Open(p));
+    }
+
+    [Fact]
+    public void Open_BigTiff_Magic_Is_Rejected()
+    {
+        // 'II' byte-order mark + magic 43 (BigTIFF) -> rejected.
+        var bytes = new byte[16];
+        bytes[0] = (byte)'I'; bytes[1] = (byte)'I';
+        bytes[2] = 43; bytes[3] = 0;
+        Assert.Throws<ImageFormatException>(() =>
+            SvsReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_Bad_Byte_Order_Mark_Is_Rejected()
+    {
+        // 'XX' instead of 'II'/'MM'
+        var bytes = new byte[16];
+        bytes[0] = (byte)'X'; bytes[1] = (byte)'X';
+        Assert.Throws<ImageFormatException>(() =>
+            SvsReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Open_Header_With_Zero_IfdOffset_Throws()
+    {
+        // Valid header but ifd offset = 0 -> no IFDs found.
+        var bytes = new byte[8];
+        bytes[0] = (byte)'I'; bytes[1] = (byte)'I';
+        bytes[2] = 42; bytes[3] = 0;
+        // bytes[4..7] = 0
+        Assert.Throws<ImageFormatException>(() =>
+            SvsReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Dispose_Is_Idempotent()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio") });
+        var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose(); // must not throw
+    }
+
+    [Fact]
+    public void OwnsStream_False_Keeps_Underlying_Stream_Open_For_Caller()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio") });
+        var inner = new MemoryStream(bytes, writable: false);
+        var r = SvsReader.Open(inner, ownsStream: false);
+        r.Dispose();
+        Assert.True(inner.CanRead);
+        inner.Dispose();
+    }
+
+    [Fact]
+    public void Empty_Description_Yields_Empty_Metadata()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Null(r.Metadata.Title);
+        Assert.Null(r.Metadata.Author);
+        Assert.Empty(r.Metadata.Tags);
+    }
+
+    [Fact]
+    public void Description_Without_Pipes_Becomes_Title_Only()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Plain Aperio Title") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("Plain Aperio Title", r.Metadata.Title);
+        Assert.Null(r.Metadata.Author);
+    }
+
+    [Fact]
+    public void Tags_Are_Case_Insensitive()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio|AppMag = 40|MPP = 0.25") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("40", r.Metadata.Tags["appmag"]);
+        Assert.Equal("40", r.Metadata.Tags["APPMAG"]);
+        Assert.Equal("0.25", r.Metadata.Tags["mpp"]);
+    }
+
+    [Fact]
+    public void ScanScope_Id_Tag_Becomes_Software_Suffix()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio|ScanScope ID = SS9999") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("Aperio ScanScope SS9999", r.Metadata.Software);
+    }
+
+    [Fact]
+    public void Default_Software_Is_Aperio_ScanScope()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio|AppMag = 20") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("Aperio ScanScope", r.Metadata.Software);
+    }
+
+    [Fact]
+    public void Date_Plus_Time_Produce_Captured_Raw_String()
+    {
+        var bytes = BuildSvsTiff(new[]
+        {
+            (Width: 8, Height: 8, Description: "Aperio|Date = 2024-03-14|Time = 09:30:00"),
+        });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.NotNull(r.Metadata.CapturedAtRaw);
+        Assert.Contains("2024-03-14", r.Metadata.CapturedAtRaw);
+        Assert.Contains("09:30:00", r.Metadata.CapturedAtRaw);
+    }
+
+    [Fact]
+    public void Format_Is_Svs()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(ImageFormat.Svs, r.Format);
+        Assert.Equal(ImageFormat.Svs, r.Info.Format);
+    }
+
+    [Fact]
+    public void Info_FrameCount_Matches_Level_Count()
+    {
+        var bytes = BuildSvsTiff(new[]
+        {
+            (Width: 4096, Height: 3072, Description: "Aperio"),
+            (Width: 1024, Height: 768,  Description: "thumbnail"),
+            (Width: 256,  Height: 192,  Description: "level=2"),
+            (Width: 128,  Height: 96,   Description: "level=3"),
+        });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(4, r.Levels.Count);
+        Assert.Equal(4, r.Info.FrameCount);
+    }
+
+    [Fact]
+    public void Baseline_Without_StripOrTile_Cannot_Decode()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 16, Height: 16, Description: "Aperio") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.CanDecodePixels);
+    }
+
+    [Fact]
+    public void Level_Captures_Description_And_CompressionTag()
+    {
+        var bytes = BuildSvsTiff(new[]
+        {
+            (Width: 4096, Height: 3072, Description: "Aperio|AppMag = 40"),
+            (Width: 1024, Height: 768,  Description: "Aperio|Thumb"),
+        });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal("Aperio|AppMag = 40", r.Levels[0].Description);
+        Assert.Equal("Aperio|Thumb", r.Levels[1].Description);
+        Assert.Equal(1, r.Levels[0].CompressionTag);
+    }
+
     private static byte[] BuildSvsTiff((int Width, int Height, string Description)[] pages)
     {
         using var ms = new MemoryStream();
