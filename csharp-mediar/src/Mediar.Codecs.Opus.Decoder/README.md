@@ -18,6 +18,7 @@ commits.
 | 2c.3b.1 | CELT PVQ math helpers + pulse cache (`bitexact_cos`, `bitexact_log2tan`, `bits2pulses`, `pulses2bits`, `get_pulses`, `cache_index50`/`cache_bits50`) | ✅ shipped |
 | 2c.3b.2 | CELT PVQ shape decode primitives (`decode_pulses`, `cwrsi`, small-footprint `unext`/`uprev` recurrence) | ✅ shipped |
 | 2c.3b.3 | CELT energy split decoder (`compute_qn`, `compute_theta`, `quant_band_n1`, `isqrt32`) | ✅ shipped |
+| 2c.3b.4 | CELT band shape primitives (`haar1`, `deinterleave_hadamard`, `interleave_hadamard`, `exp_rotation`, `normalise_residual`, `extract_collapse_mask`, `alg_unquant`) | ✅ shipped |
 |  2c.3b | CELT PVQ shape decode (`quant_partition`, `quant_band`, `quant_all_bands` integration) | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
@@ -25,6 +26,94 @@ commits.
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.4 behavior (added on top of Phase 2c.3b.3)
+
+Phase 2c.3b.4 ports the **band shape primitives** that sit below the
+recursive `quant_partition` / `quant_band` state machine — everything
+the leaf decoder needs to turn an entropy-coded PVQ codeword into a
+unit-norm spectral shape vector. Together they form the building
+blocks the recursion will call into in Phase 2c.3b.5.
+
+New surface area in `CeltShape`:
+
+- **`Haar1(Span<float> X, int N0, int stride)`** — in-place single
+  level Haar transform on each of `stride` interleaved length-`N0`
+  substreams. Splits adjacent pairs into sum/difference scaled by
+  `1/√2`. Used by the encoder/decoder to "fold" stereo pairs or
+  short-block groups before bit allocation.
+- **`DeinterleaveHadamard(Span<float> X, int N0, int stride, bool hadamard)`**
+  and **`InterleaveHadamard(...)`** — inverse pair that gathers
+  interleaved substreams into contiguous blocks (and back). When
+  `hadamard=true`, applies the inverted Hadamard permutation from
+  libopus' `ordery_table` (covers stride 2/4/8/16). The plain
+  variant is used by stereo coding; the Hadamard variant is used by
+  short-block transient coding.
+- **`ExpRotation(Span<float> X, int len, int dir, int stride, int K, int spread)`** —
+  pseudo-random Givens rotation that "spreads" PVQ pulse energy
+  across the partition dimension to whiten quantisation noise.
+  Mirrors libopus `exp_rotation`; in our float build the inner
+  primitive is a clean cos/sin rotation between adjacent samples.
+  Decoder calls with `dir=-1` to undo what the encoder applied;
+  `dir=1` is provided for round-trip testing.
+- **`NormaliseResidual(ReadOnlySpan<int> iy, Span<float> X, int N, float ryy, float gain)`** —
+  float-build port of libopus `normalise_residual`. Computes
+  `g = gain / √ryy` and writes `X[i] = iy[i] * g`. Fixed-point
+  shifts collapse to no-ops in the float configuration.
+- **`ExtractCollapseMask(ReadOnlySpan<int> iy, int N, int B) → uint`** —
+  per-block collapse mask used by anti-collapse. Each set bit
+  indicates the corresponding MDCT block received at least one
+  non-zero pulse. Returns `1` for the degenerate `B≤1` case.
+- **`AlgUnquant(Span<float> X, int N, int K, int spread, int B, ref OpusRangeDecoder, float gain) → uint`** —
+  the leaf decoder orchestration. Calls `CeltPvq.DecodePulses`,
+  `ExtractCollapseMask`, `NormaliseResidual`, then `ExpRotation`
+  (with `dir=-1`). Returns the collapse mask. Mirrors the
+  float-build, non-QEXT branch of libopus `alg_unquant`.
+
+Why this slice exists separately: each of these helpers is
+self-contained (no entropy decode beyond `AlgUnquant`'s wrap of
+`DecodePulses`), individually testable, and only ~165 lines of code
+together. Shipping them now means the recursive `quant_partition` /
+`quant_band` work in Phase 2c.3b.5 can focus on the splitting state
+machine alone, calling these primitives as black boxes.
+
+Test coverage (`CeltShapeTests`, 34 new tests):
+
+- **Haar1**: explicit sum/difference math at the 1/√2 scale,
+  self-inverse property after two applications, energy preservation,
+  and stride>1 per-substream behavior.
+- **Hadamard helpers**: deinterleave∘interleave round trip identity
+  for both plain and `ordery` permutations across strides 2/4/8/16;
+  explicit byte-level verification of the plain split and the
+  stride-2 ordery permutation against hand-computed expected output.
+- **ExpRotation**: early-out checks (`spread=NONE`, `2K≥len`),
+  forward-then-inverse identity sweep across multiple `(len, stride,
+  K, spread)` configurations, energy preservation (orthonormal
+  rotation invariant), invalid `spread` argument validation.
+- **NormaliseResidual**: unit-norm output for unit gain, gain
+  scaling, sign-preservation, zero-`ryy` guard.
+- **ExtractCollapseMask**: `B=1` returns 1, per-block bits
+  correctly mark sparse / dense slots, signed entries trip their
+  block bit (no `abs()` applied).
+- **AlgUnquant**: side-channel verification — decode a byte
+  stream once with raw `DecodePulses` to learn the integer
+  codeword, then verify `AlgUnquant` over a fresh decoder of the
+  same stream produces the matching `NormaliseResidual` output and
+  collapse mask, both with and without `ExpRotation`.
+
+Implementation gotchas:
+
+- `ref struct OpusRangeDecoder` cannot be captured in lambdas (no
+  `Assert.Throws(() => ...)`), and combining `stackalloc` `Span<int>`
+  with `ref` parameters trips CS8350. `AlgUnquant` therefore
+  heap-allocates its `iy` buffer.
+- Hadamard scratch buffers stack-allocate for `N0·stride ≤ 512`
+  floats (~2 KB) and fall back to the heap above that — CELT's
+  worst case is `176 · 8 = 1408` floats.
+- Float build collapses all fixed-point shifts (`PSHR32`, `SHR16`,
+  `norm_scaledown` / `norm_scaleup`) to no-ops, so `ExpRotation1`
+  is just two Givens-rotation loops with `float` cos/sin
+  coefficients.
 
 ## Phase 2c.3b.3 behavior (added on top of Phase 2c.3b.2)
 
