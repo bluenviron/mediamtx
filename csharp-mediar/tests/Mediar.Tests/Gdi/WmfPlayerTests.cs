@@ -94,6 +94,142 @@ public class WmfPlayerTests
         Assert.True(result.UnsupportedRecordCount >= 1, $"unsupported={result.UnsupportedRecordCount}");
     }
 
+    [Fact]
+    public void Rejects_Zero_Width()
+    {
+        using var w = new WmfWriter();
+        w.SetWindowExt(100, 100);
+        Assert.Throws<ArgumentOutOfRangeException>(() => WmfPlayer.Render(w.Build(), 0, 32));
+    }
+
+    [Fact]
+    public void Rejects_Negative_Height()
+    {
+        using var w = new WmfWriter();
+        w.SetWindowExt(100, 100);
+        Assert.Throws<ArgumentOutOfRangeException>(() => WmfPlayer.Render(w.Build(), 32, -10));
+    }
+
+    [Fact]
+    public void RecordsRead_Counts_Supported_Records()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        w.SetWindowExt(100, 100);
+        var result = WmfPlayer.Render(w.Build(), 32, 32, RgbaColor.FromBytes(255, 255, 255));
+        // SetWindowExt + Eof should both count.
+        Assert.True(result.RecordsRead >= 2, $"records={result.RecordsRead}");
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void Background_Color_Visible_At_Corners()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 100, b: 100);
+        ushort nextSlot = 0;
+        ushort brush = w.CreateSolidBrush(0, 0, 255, ref nextSlot);
+        ushort pen = w.CreatePen(5, 0, 0, 0, 0, ref nextSlot);
+        w.SelectObject(brush);
+        w.SelectObject(pen);
+        w.Rectangle(40, 40, 60, 60);
+        var result = WmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(200, 100, 50));
+        // Corner pixel should be background, not brush color.
+        AssertPixelEquals(result.Frame, 1, 1, 200, 100, 50);
+        AssertPixelEquals(result.Frame, 98, 98, 200, 100, 50);
+    }
+
+    [Fact]
+    public void Ellipse_Fills_Interior_With_Brush()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 100, b: 100);
+        ushort nextSlot = 0;
+        ushort brush = w.CreateSolidBrush(0, 255, 0, ref nextSlot);
+        ushort pen = w.CreatePen(5, 0, 0, 0, 0, ref nextSlot);
+        w.SelectObject(brush);
+        w.SelectObject(pen);
+        // META_ELLIPSE = 0x0418, args = bottom, right, top, left (Int16 each).
+        Span<byte> args = stackalloc byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args[..2], 90);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args.Slice(2, 2), 90);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args.Slice(4, 2), 10);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args.Slice(6, 2), 10);
+        w.RawRecord(0x0418, args);
+        var result = WmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(0, 0, 0));
+        AssertGreenGreater(result.Frame, 50, 50, threshold: 150);
+    }
+
+    [Fact]
+    public void SaveDc_RestoreDc_Counted_As_Supported()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        w.RawRecord(0x001E, []);  // META_SAVEDC
+        w.RawRecord(0x0127, [0xFF, 0xFF]);  // META_RESTOREDC with nSave=-1
+        var result = WmfPlayer.Render(w.Build(), 32, 32);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void SetMapMode_Counted_As_Supported()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        Span<byte> mode = stackalloc byte[2];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(mode, 8); // MM_ANISOTROPIC
+        w.RawRecord(0x0103, mode);  // META_SETMAPMODE
+        var result = WmfPlayer.Render(w.Build(), 32, 32);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void SetPolyFillMode_Counted_As_Supported()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        Span<byte> mode = stackalloc byte[2];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(mode, 1); // WINDING
+        w.RawRecord(0x0106, mode);
+        var result = WmfPlayer.Render(w.Build(), 32, 32);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void SetPixel_Counted_As_Supported()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        Span<byte> args = stackalloc byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(args[..4], 0x00FF0000u); // BGR colorref
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args.Slice(4, 2), 25);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(args.Slice(6, 2), 25);
+        w.RawRecord(0x041F, args);
+        var result = WmfPlayer.Render(w.Build(), 64, 64);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void DeleteObject_Counted_As_Supported()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 50, b: 50);
+        ushort nextSlot = 0;
+        ushort brush = w.CreateSolidBrush(255, 0, 0, ref nextSlot);
+        Span<byte> args = stackalloc byte[2];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(args, brush);
+        w.RawRecord(0x01F0, args); // META_DELETEOBJECT
+        var result = WmfPlayer.Render(w.Build(), 32, 32);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void NullPen_Suppresses_Stroke_Around_Brushed_Rectangle()
+    {
+        using var w = new WmfWriter(placeable: true, l: 0, t: 0, r: 100, b: 100);
+        ushort nextSlot = 0;
+        ushort brush = w.CreateSolidBrush(0, 0, 255, ref nextSlot);
+        ushort pen = w.CreatePen(5, 0, 0, 0, 0, ref nextSlot); // PS_NULL
+        w.SelectObject(brush);
+        w.SelectObject(pen);
+        w.Rectangle(20, 20, 80, 80);
+        var result = WmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(255, 255, 255));
+        // Just outside rectangle should still be background, no stroke leakage.
+        AssertPixelEquals(result.Frame, 10, 10, 255, 255, 255);
+    }
+
     // ---------- pixel-assertion helpers ----------------------------------
 
     private static void AssertPixelEquals(ImageFrame frame, int x, int y, byte r, byte g, byte b)
