@@ -234,6 +234,201 @@ public class HeifDerivationsTests
         Assert.Equal((byte)0, r.GetConstructionMethod(50));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Overlay_TryParse_Rejects_Too_Short_Header(int length)
+    {
+        Assert.False(HeifOverlayDerivation.TryParse(new byte[length], referenceCount: 0, out _));
+    }
+
+    [Fact]
+    public void Overlay_TryParse_Rejects_When_32Bit_Field_Missing_Canvas_Size()
+    {
+        // 32-bit mode requires 2 + 8 + 8 = 18 bytes minimum even with 0 references.
+        byte[] payload = new byte[2 + 8 + 4]; // header + fill but no width/height
+        payload[1] = 1; // flags=1 -> 32-bit
+        Assert.False(HeifOverlayDerivation.TryParse(payload, referenceCount: 0, out _));
+    }
+
+    [Fact]
+    public void Overlay_TryParse_Accepts_Zero_References()
+    {
+        byte[] payload = new byte[2 + 8 + 4];
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(10), 320);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(12), 240);
+        Assert.True(HeifOverlayDerivation.TryParse(payload, referenceCount: 0, out var ov));
+        Assert.Equal(320u, ov.OutputWidth);
+        Assert.Equal(240u, ov.OutputHeight);
+        Assert.Empty(ov.Offsets);
+    }
+
+    [Fact]
+    public void Overlay_TryParse_32Bit_Mode_Preserves_Negative_Offsets()
+    {
+        byte[] payload = new byte[2 + 8 + 8 + 8];
+        payload[1] = 1; // 32-bit
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(10), 1000);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(14), 500);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(18), unchecked((uint)(int)-100));
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(22), unchecked((uint)(int)-50));
+
+        Assert.True(HeifOverlayDerivation.TryParse(payload, referenceCount: 1, out var ov));
+        Assert.Single(ov.Offsets);
+        Assert.Equal((-100, -50), ov.Offsets[0]);
+    }
+
+    [Fact]
+    public void Overlay_TryParse_Preserves_Nonzero_Version_And_Flags()
+    {
+        byte[] payload = new byte[2 + 8 + 4 + 4];
+        payload[0] = 7;       // version
+        payload[1] = 0;       // 16-bit
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(2), 0x1234);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(4), 0x5678);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(6), 0x9ABC);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(8), 0xDEF0);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(10), 16);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(12), 16);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(14), 1);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(16), 2);
+
+        Assert.True(HeifOverlayDerivation.TryParse(payload, referenceCount: 1, out var ov));
+        Assert.Equal((byte)7, ov.Version);
+        Assert.Equal((byte)0, ov.Flags);
+        Assert.Equal((ushort)0x1234, ov.CanvasFill.R);
+        Assert.Equal((ushort)0x5678, ov.CanvasFill.G);
+        Assert.Equal((ushort)0x9ABC, ov.CanvasFill.B);
+        Assert.Equal((ushort)0xDEF0, ov.CanvasFill.A);
+    }
+
+    [Fact]
+    public void Grid_TryParse_Rejects_Wide_Flag_With_Only_Eight_Bytes()
+    {
+        byte[] payload = new byte[8];
+        payload[1] = 1; // wide flag set but only 8 bytes (needs 12)
+        Assert.False(HeifGridDerivation.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void Grid_TryParse_Preserves_Nonzero_Version()
+    {
+        byte[] payload = new byte[8];
+        payload[0] = 5;
+        payload[1] = 0;
+        payload[2] = 0; payload[3] = 0; // 1x1 grid
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(4), 100);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(6), 50);
+        Assert.True(HeifGridDerivation.TryParse(payload, out var g));
+        Assert.Equal((byte)5, g.Version);
+        Assert.Equal((byte)0, g.Flags);
+        Assert.Equal(1, g.Rows);
+        Assert.Equal(1, g.Columns);
+    }
+
+    [Fact]
+    public void Grid_TryParse_Decodes_Max_Rows_And_Columns()
+    {
+        byte[] payload = new byte[8];
+        payload[2] = 255; // rows-1
+        payload[3] = 255; // cols-1
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(4), 1);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(6), 1);
+        Assert.True(HeifGridDerivation.TryParse(payload, out var g));
+        Assert.Equal(256, g.Rows);
+        Assert.Equal(256, g.Columns);
+    }
+
+    [Fact]
+    public void Grid_TryParse_Decodes_32Bit_Output_Max_Values()
+    {
+        byte[] payload = new byte[12];
+        payload[1] = 1;
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8), uint.MaxValue - 1);
+        Assert.True(HeifGridDerivation.TryParse(payload, out var g));
+        Assert.Equal(uint.MaxValue, g.OutputWidth);
+        Assert.Equal(uint.MaxValue - 1, g.OutputHeight);
+    }
+
+    [Fact]
+    public void Grid_Record_Equality_And_With_Expression()
+    {
+        byte[] payload = new byte[8];
+        payload[2] = 1; payload[3] = 2;
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(4), 100);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(6), 80);
+        Assert.True(HeifGridDerivation.TryParse(payload, out var a));
+        Assert.True(HeifGridDerivation.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { OutputWidth = 200 };
+        Assert.NotEqual(a, c);
+        Assert.Equal(200u, c.OutputWidth);
+        Assert.Equal(100u, a.OutputWidth);
+    }
+
+    [Fact]
+    public void Overlay_Record_Equality_And_With_Expression()
+    {
+        // Use zero references so Offsets resolves to ImmutableArray<T>.Empty singleton
+        // (record equality on ImmutableArray<T> uses reference comparison).
+        byte[] payload = new byte[2 + 8 + 4];
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(10), 16);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(12), 16);
+        Assert.True(HeifOverlayDerivation.TryParse(payload, referenceCount: 0, out var a));
+        Assert.True(HeifOverlayDerivation.TryParse(payload, referenceCount: 0, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { OutputWidth = 64 };
+        Assert.NotEqual(a, c);
+        Assert.Equal(64u, c.OutputWidth);
+    }
+
+    [Fact]
+    public void HeifReader_Returns_Empty_Sources_For_NonDerived_Item()
+    {
+        byte[] gridPayload = new byte[8];
+        BinaryPrimitives.WriteUInt16BigEndian(gridPayload.AsSpan(4), 16);
+        BinaryPrimitives.WriteUInt16BigEndian(gridPayload.AsSpan(6), 16);
+
+        var bytes = BuildHeifWithDerivedItem(
+            derivedItemId: 600,
+            derivedItemType: "grid",
+            payload: gridPayload,
+            sourceTileIds: [60, 61],
+            useIdat: true);
+
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        // Tile items themselves are not derived; they have no sources.
+        Assert.Empty(r.ReferenceGraph.GetDerivedSourcesOf(60));
+        Assert.Empty(r.ReferenceGraph.GetDerivedSourcesOf(61));
+        // Non-existent item also returns empty.
+        Assert.Empty(r.ReferenceGraph.GetDerivedSourcesOf(9999));
+    }
+
+    [Fact]
+    public void HeifReader_TryGetItemData_Returns_Grid_Payload_Bytes()
+    {
+        byte[] gridPayload = new byte[8];
+        gridPayload[2] = 1; gridPayload[3] = 1;
+        BinaryPrimitives.WriteUInt16BigEndian(gridPayload.AsSpan(4), 48);
+        BinaryPrimitives.WriteUInt16BigEndian(gridPayload.AsSpan(6), 48);
+
+        var bytes = BuildHeifWithDerivedItem(
+            derivedItemId: 700,
+            derivedItemType: "grid",
+            payload: gridPayload,
+            sourceTileIds: [70, 71, 72, 73],
+            useIdat: true);
+
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.True(r.TryGetItemData(700, out var data));
+        Assert.Equal(gridPayload, data.ToArray());
+    }
+
     // ---- fixture builder ----
     private static byte[] BuildHeifWithDerivedItem(
         uint derivedItemId,

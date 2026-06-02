@@ -281,6 +281,281 @@ public class VvcCodecConfigurationRecordTests
         Assert.False(r.TryGetVvcCodecConfiguration(1, out _));
     }
 
+    [Theory]
+    [InlineData((byte)0, 1)]
+    [InlineData((byte)1, 2)]
+    [InlineData((byte)2, 3)]
+    [InlineData((byte)3, 4)]
+    public void LengthSizeMinusOne_Maps_To_NalUnitLengthBytes(byte lsm1, int expected)
+    {
+        byte[] payload = BuildPtlAbsentWithArrays(
+            lengthSizeMinusOne: lsm1,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(lsm1, rec.LengthSizeMinusOne);
+        Assert.Equal(expected, rec.NalUnitLengthBytes);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_PtlPresent_With_Only_Three_Bytes()
+    {
+        // version + lengthSizeMinusOne byte + ptl_present byte; ptl_present set
+        // but no ols_idx low byte follows.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xE0 };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_PtlPresent_With_NumBytesConstraintInfo_Zero()
+    {
+        // Manually build a header where the PTL block's first byte is 0.
+        var ms = new MemoryStream();
+        ms.WriteByte(0x01);              // version
+        ms.WriteByte(0xC3);              // reserved + lengthSizeMinusOne=3
+        ms.WriteByte(0xE0);              // 0b111 + 5 reserved bits (ptl_present, ols_idx high=0)
+        ms.WriteByte(0x00);              // ols_idx low
+        ms.WriteByte(0x29);              // num_sublayers=1, cfr=0, chroma_idc=1
+        ms.WriteByte(0x00);              // bit_depth_minus8=0, reserved
+        ms.WriteByte(0x00);              // numBytesConstraintInfo = 0 -> reject
+        Assert.False(VvcCodecConfigurationRecord.TryParse(ms.ToArray(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_PtlPresent_Truncated_Mid_PTL_Header()
+    {
+        // Set ptl_present but stop before the PTL's 3-byte header.
+        byte[] payload = new byte[6];
+        payload[0] = 0x01;
+        payload[1] = 0xC3;
+        payload[2] = 0xE0;
+        payload[3] = 0x00;
+        payload[4] = 0x29;
+        payload[5] = 0x00; // bdMinus8+reserved; pos=6, but PTL needs 3 bytes
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_PtlPresent_Constraint_Info_Tail_Truncated()
+    {
+        // numBytesConstraintInfo=5 but only 1 constraint byte present.
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 0,
+            chromaFormatIdc: 1, bitDepthMinus8: 0,
+            ptl: BuildPtl(5, 1, false, 80, true, false,
+                constraintInfoTail: new byte[] { 1, 2, 3, 4 },
+                sublayerLevelPresentFlags: Array.Empty<bool>(),
+                sublayerLevelIdcs: Array.Empty<byte>(),
+                subProfileIdcs: Array.Empty<uint>()),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        // Lop off the last 4 constraint bytes (leaving only ci0).
+        byte[] truncated = payload[..7];
+        Assert.False(VvcCodecConfigurationRecord.TryParse(truncated, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Missing_NumArrays_Byte()
+    {
+        // PTL-absent path; remove final num_of_arrays byte.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xC0 };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Array_Header_Byte_Missing()
+    {
+        // numArrays declared but truncated before array header byte.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xC0, 0x01 };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Array_Truncated_NumNalus()
+    {
+        // Array with NAL unit type 15 (SPS) needs 2-byte num_nalus after header.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xC0, 0x01, (0x80 | 15) };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_NalUnit_LengthPrefix()
+    {
+        // numArrays=1, NUT=15, numNalus=1, then truncated before length prefix.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xC0, 0x01, (0x80 | 15), 0x00, 0x01 };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_NalUnit_Body()
+    {
+        // numArrays=1, NUT=15, numNalus=1, naluLength=10 but no body bytes.
+        byte[] payload = new byte[] { 0x01, 0xC3, 0xC0, 0x01, (0x80 | 15), 0x00, 0x01, 0x00, 0x0A };
+        Assert.False(VvcCodecConfigurationRecord.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_SubProfile_Truncation()
+    {
+        // num_sub_profiles=2 (8 bytes needed) but payload ends with only 4.
+        uint[] subProfiles = new uint[2];
+        subProfiles[0] = 0x11223344u;
+        subProfiles[1] = 0x55667788u;
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 0,
+            chromaFormatIdc: 1, bitDepthMinus8: 0,
+            ptl: BuildPtl(1, 1, false, 80, true, false,
+                Array.Empty<byte>(), Array.Empty<bool>(),
+                Array.Empty<byte>(),
+                subProfiles),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        // Trim 4 trailing bytes to remove the second sub_profile_idc.
+        byte[] truncated = payload[..^4];
+        Assert.False(VvcCodecConfigurationRecord.TryParse(truncated, out _));
+    }
+
+    [Theory]
+    [InlineData((byte)0, "4:0:0")]
+    [InlineData((byte)1, "4:2:0")]
+    [InlineData((byte)2, "4:2:2")]
+    [InlineData((byte)3, "4:4:4")]
+    public void ChromaFormat_String_Matches_ChromaFormatIdc(byte idc, string expected)
+    {
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 0,
+            chromaFormatIdc: idc, bitDepthMinus8: 0,
+            ptl: BuildPtl(1, 1, false, 80, true, false,
+                Array.Empty<byte>(), Array.Empty<bool>(),
+                Array.Empty<byte>(), Array.Empty<uint>()),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expected, rec.ChromaFormat);
+    }
+
+    [Theory]
+    [InlineData((byte)4)]
+    [InlineData((byte)5)]
+    [InlineData((byte)6)]
+    [InlineData((byte)7)]
+    public void ChromaFormat_Returns_Null_For_Out_Of_Range_Idc(byte idc)
+    {
+        // chroma_format_idc field is 3 bits, so 4..7 are reachable from parse.
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 0,
+            chromaFormatIdc: idc, bitDepthMinus8: 0,
+            ptl: BuildPtl(1, 1, false, 80, true, false,
+                Array.Empty<byte>(), Array.Empty<bool>(),
+                Array.Empty<byte>(), Array.Empty<uint>()),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(idc, rec.ChromaFormatIdc);
+        Assert.Null(rec.ChromaFormat);
+    }
+
+    [Theory]
+    [InlineData((byte)0, 8)]
+    [InlineData((byte)2, 10)]
+    [InlineData((byte)4, 12)]
+    [InlineData((byte)6, 14)]
+    [InlineData((byte)7, 15)]
+    public void BitDepth_Matches_Encoded_BitDepthMinus8(byte bdM8, int expected)
+    {
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 0,
+            chromaFormatIdc: 1, bitDepthMinus8: bdM8,
+            ptl: BuildPtl(1, 1, false, 80, true, false,
+                Array.Empty<byte>(), Array.Empty<bool>(),
+                Array.Empty<byte>(), Array.Empty<uint>()),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(bdM8, rec.BitDepthMinus8);
+        Assert.Equal(expected, rec.BitDepth);
+    }
+
+    [Fact]
+    public void BitDepth_Is_Null_When_Ptl_Absent()
+    {
+        byte[] payload = BuildPtlAbsentWithArrays(
+            lengthSizeMinusOne: 3,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Null(rec.BitDepth);
+        Assert.Null(rec.ChromaFormat);
+    }
+
+    [Fact]
+    public void TryParse_Records_Nonzero_AvgFrameRate()
+    {
+        byte[] payload = BuildPtlPresentHeader(
+            olsIdx: 0, numSublayers: 1, constantFrameRate: 1,
+            chromaFormatIdc: 1, bitDepthMinus8: 0,
+            ptl: BuildPtl(1, 1, false, 80, true, false,
+                Array.Empty<byte>(), Array.Empty<bool>(),
+                Array.Empty<byte>(), Array.Empty<uint>()),
+            maxPicWidth: 1920, maxPicHeight: 1080, avgFrameRate: 0xFFFF,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal((ushort)0xFFFF, rec.AvgFrameRate);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        byte[] payload = BuildPtlAbsentWithArrays(
+            lengthSizeMinusOne: 3,
+            arrays: Array.Empty<(bool, byte, byte[][])>());
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var a));
+        Assert.True(VvcCodecConfigurationRecord.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { LengthSizeMinusOne = 1 };
+        Assert.NotEqual(a, c);
+        Assert.Equal((byte)1, c.LengthSizeMinusOne);
+        Assert.Equal(2, c.NalUnitLengthBytes);
+    }
+
+    [Fact]
+    public void VvcProfileTierLevelRecord_With_Expression_Toggles_Tier()
+    {
+        var ptl = new VvcProfileTierLevelRecord
+        {
+            NumBytesConstraintInfo = 1,
+            GeneralProfileIdc = 1,
+            GeneralTierFlag = false,
+            GeneralLevelIdc = 80,
+            PtlFrameOnlyConstraintFlag = true,
+            PtlMultiLayerEnabledFlag = false,
+            GeneralConstraintInfo = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+            SublayerLevelIdcs = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+            GeneralSubProfileIdcs = System.Collections.Immutable.ImmutableArray<uint>.Empty,
+        };
+        var hightier = ptl with { GeneralTierFlag = true, GeneralLevelIdc = 120 };
+        Assert.True(hightier.GeneralTierFlag);
+        Assert.Equal((byte)120, hightier.GeneralLevelIdc);
+        Assert.False(ptl.GeneralTierFlag);
+        Assert.NotEqual(ptl, hightier);
+    }
+
+    [Fact]
+    public void VvcParameterSetArray_With_Expression_Toggles_Completeness()
+    {
+        var nalu = System.Collections.Immutable.ImmutableArray.Create<byte>(0x42, 0x01, 0xAA);
+        var arr = new VvcParameterSetArray
+        {
+            ArrayCompleteness = true,
+            NalUnitType = 15,
+            NalUnits = System.Collections.Immutable.ImmutableArray.Create(nalu),
+        };
+        var flipped = arr with { ArrayCompleteness = false };
+        Assert.False(flipped.ArrayCompleteness);
+        Assert.True(arr.ArrayCompleteness);
+        Assert.NotEqual(arr, flipped);
+    }
+
     private static byte[] BuildPtl(
         byte numBytesConstraintInfo,
         byte generalProfileIdc,
