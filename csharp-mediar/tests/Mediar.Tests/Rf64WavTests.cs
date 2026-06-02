@@ -308,4 +308,269 @@ public sealed class Rf64WavTests
         Assert.Equal(2, a.Channels);
         await Task.CompletedTask;
     }
+
+    [Theory]
+    [InlineData(16, CodecId.PcmS16Le)]
+    [InlineData(24, CodecId.PcmS24Le)]
+    [InlineData(32, CodecId.PcmS32Le)]
+    public async Task Rf64_BitsPerSample_Maps_To_Pcm_Codec(int bits, CodecId expected)
+    {
+        byte[] pcm = new byte[64 * (bits / 8)];
+        byte[] file = BuildRf64(8000, 1, bits, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(expected, a.Codec);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_EightBit_Maps_To_Unknown_Codec()
+    {
+        // The PCM WAV mapping table only enumerates 16/24/32-bit signed
+        // PCM. 8-bit PCM (unsigned per WAV spec) is not in the table and
+        // surfaces as Unknown rather than misreporting a signed codec.
+        byte[] file = BuildRf64(8000, 1, 8, new byte[100]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(CodecId.Unknown, a.Codec);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_Samples_All_Have_TrackIndex_Zero_And_Are_KeyFrames()
+    {
+        byte[] pcm = new byte[8000 * 2]; // 1 second at 8 kHz mono 16-bit
+        byte[] file = BuildRf64(8000, 1, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        int count = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                Assert.Equal(0, s.TrackIndex);
+                Assert.True(s.IsKeyFrame);
+                count++;
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.True(count > 0);
+    }
+
+    [Fact]
+    public async Task Rf64_Sample_Pts_Monotonically_Increases_By_Duration()
+    {
+        byte[] pcm = new byte[8000 * 2];
+        byte[] file = BuildRf64(8000, 1, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        long? prevPts = null;
+        long? prevDuration = null;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                if (prevPts is not null)
+                {
+                    Assert.Equal(prevPts.Value + prevDuration!.Value, s.Pts);
+                }
+                else
+                {
+                    Assert.Equal(0L, s.Pts);
+                }
+                prevPts = s.Pts;
+                prevDuration = s.Duration;
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.NotNull(prevPts);
+    }
+
+    [Fact]
+    public async Task Rf64_Sample_Pts_Equals_Dts()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[8000 * 2]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { Assert.Equal(s.Pts, s.Dts); }
+            finally { s.Owner?.Dispose(); }
+        }
+    }
+
+    [Fact]
+    public async Task Rf64_SeekAsync_Zero_Returns_First_Sample_At_Pts_Zero()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[8000 * 2]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        await dx.SeekAsync(TimeSpan.FromSeconds(0.5));
+        await dx.SeekAsync(TimeSpan.Zero);
+
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { Assert.Equal(0L, s.Pts); }
+            finally { s.Owner?.Dispose(); }
+            break;
+        }
+    }
+
+    [Fact]
+    public async Task Rf64_SeekAsync_Negative_Clamps_To_Zero()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[8000 * 2]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        await dx.SeekAsync(TimeSpan.FromSeconds(-10));
+
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { Assert.Equal(0L, s.Pts); }
+            finally { s.Owner?.Dispose(); }
+            break;
+        }
+    }
+
+    [Fact]
+    public async Task Rf64_SeekAsync_Past_Duration_Yields_No_Samples()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[8000 * 2]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        await dx.SeekAsync(TimeSpan.FromSeconds(999));
+
+        int count = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { count++; } finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task Rf64_SeekAsync_Mid_Stream_Pts_Reflects_Position()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[8000 * 2]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+
+        await dx.SeekAsync(TimeSpan.FromSeconds(0.5));
+
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                // 0.5 s * 8000 Hz = 4000 frames
+                Assert.Equal(4000L, s.Pts);
+            }
+            finally { s.Owner?.Dispose(); }
+            break;
+        }
+    }
+
+    [Fact]
+    public void Rf64_OwnsSource_True_Disposes_Source_On_Dispose()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[200]);
+        var src = new IO.MemoryRandomAccessSource(file);
+        var dx = WavDemuxer.Open(src, ownsSource: true);
+        dx.Dispose();
+        // Subsequent read must throw because the source was disposed.
+        Assert.ThrowsAny<Exception>(() => src.ReadAsync(0, new byte[4]).AsTask().GetAwaiter().GetResult());
+    }
+
+    [Fact]
+    public async Task Rf64_OwnsSource_False_Default_Does_Not_Dispose_Source()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[200]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        var dx = WavDemuxer.Open(src);
+        dx.Dispose();
+        // Source must still be usable; reading the first 4 bytes returns 4.
+        var buf = new byte[4];
+        int read = await src.ReadAsync(0, buf);
+        Assert.Equal(4, read);
+    }
+
+    [Fact]
+    public async Task Bw64_Magic_Eight_Bit_Pcm_Surfaces_As_Unknown_Codec()
+    {
+        // Same mapping as RF64: 8-bit PCM is outside the supported
+        // signed-PCM table. Codec must be Unknown rather than misreported.
+        byte[] pcm = new byte[100];
+        byte[] file = BuildRf64(48000, 1, 8, pcm);
+        file[0] = (byte)'B'; file[1] = (byte)'W'; file[2] = (byte)'6'; file[3] = (byte)'4';
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(CodecId.Unknown, a.Codec);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_EightChannel_Stereo_71_Reads_All_Channels()
+    {
+        byte[] pcm = new byte[64 * 8 * 2]; // 64 frames, 8 channels, 16-bit
+        byte[] file = BuildRf64(48000, 8, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(8, a.Channels);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_Multiple_OpenRead_Cycles_Deterministic()
+    {
+        const int frames = 200;
+        byte[] pcm = new byte[frames * 2];
+        for (int i = 0; i < frames; i++) pcm[i * 2] = (byte)(i & 0xFF);
+        byte[] file = BuildRf64(8000, 1, 16, pcm);
+
+        long firstTotal = 0;
+        using (var src = new IO.MemoryRandomAccessSource(file))
+        using (var dx = WavDemuxer.Open(src))
+        {
+            await foreach (var s in dx.ReadSamplesAsync())
+            {
+                try { firstTotal += s.Data.Length; } finally { s.Owner?.Dispose(); }
+            }
+        }
+
+        long secondTotal = 0;
+        using (var src = new IO.MemoryRandomAccessSource(file))
+        using (var dx = WavDemuxer.Open(src))
+        {
+            await foreach (var s in dx.ReadSamplesAsync())
+            {
+                try { secondTotal += s.Data.Length; } finally { s.Owner?.Dispose(); }
+            }
+        }
+
+        Assert.Equal(firstTotal, secondTotal);
+        Assert.Equal(pcm.Length, firstTotal);
+    }
+
+    [Fact]
+    public async Task Rf64_FmtChunk_Preserves_SampleRate_In_AudioCodecParameters()
+    {
+        foreach (int sr in new[] { 8000, 16000, 22050, 32000, 44100, 48000, 96000 })
+        {
+            byte[] file = BuildRf64(sr, 1, 16, new byte[200]);
+            using var src = new IO.MemoryRandomAccessSource(file);
+            using var dx = WavDemuxer.Open(src);
+            var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+            Assert.Equal(sr, a.SampleRate);
+        }
+        await Task.CompletedTask;
+    }
 }

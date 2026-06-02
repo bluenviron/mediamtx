@@ -330,4 +330,324 @@ public sealed class AacCouplingGainExpansionTests
         Assert.Throws<InvalidOperationException>(() =>
             AacCouplingGainExpansion.ExpandToIndices(gl, sections, 2, 1));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void Expand_NonPositiveWindowGroupCount_Throws(int windowGroupCount)
+    {
+        var gl = CommonGainList(0);
+        var sections = SectionDataLong();
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacCouplingGainExpansion.ExpandToIndices(gl, sections, windowGroupCount, 4));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-5)]
+    public void Expand_NegativeMaxSfb_BoundaryValues_Throw(int maxSfb)
+    {
+        var gl = CommonGainList(0);
+        var sections = SectionDataLong();
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, maxSfb));
+    }
+
+    [Fact]
+    public void Expand_MaxSfb_Zero_ReturnsZeroWidthMatrix()
+    {
+        // maxSfb=0 is the degenerate "no scale-factor bands" case. The
+        // helper must accept it and return a 1x0 matrix without reading
+        // any sections or DPCM entries.
+        var gl = CommonGainList(99);
+        var sections = SectionDataLong();
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 0);
+
+        Assert.Equal(1, indices.GetLength(0));
+        Assert.Equal(0, indices.GetLength(1));
+    }
+
+    [Fact]
+    public void Expand_ReturnsMatrix_With_Expected_Shape()
+    {
+        var gl = CommonGainList(0);
+        var sections = SectionDataLong();
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 4, 7);
+
+        Assert.Equal(4, indices.GetLength(0));
+        Assert.Equal(7, indices.GetLength(1));
+    }
+
+    [Fact]
+    public void Expand_CommonGain_IgnoresNonEmptyDpcmList()
+    {
+        // CommonGainElementPresent=true short-circuits before DPCM is
+        // consulted. Non-empty DpcmGains must not cause a mismatch or
+        // affect the output.
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 99, Sfb = 99, Differential = -1234 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = true,
+            CommonGainDifferential = 11,
+            DpcmGains = dpcm,
+        };
+        var sections = SectionDataLong((1, 0, 2));
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 2);
+
+        Assert.Equal(11, indices[0, 0]);
+        Assert.Equal(11, indices[0, 1]);
+    }
+
+    [Theory]
+    [InlineData(-60)]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(60)]
+    public void Expand_CommonGain_BoundaryDifferentialValues(int common)
+    {
+        var gl = CommonGainList(common);
+        var sections = SectionDataLong();
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 3);
+
+        for (int s = 0; s < 3; s++)
+        {
+            Assert.Equal(common, indices[0, s]);
+        }
+    }
+
+    [Fact]
+    public void Expand_Dpcm_AllZeroHcb_NoDpcmEntries_Required()
+    {
+        // Three bands, all ZERO_HCB -> no DPCM entries are required and
+        // every band inherits the initial running value of 0.
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = Array.Empty<AacCouplingGainEntry>(),
+        };
+        var sections = SectionDataLong((0, 0, 3));
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 3);
+
+        Assert.Equal(0, indices[0, 0]);
+        Assert.Equal(0, indices[0, 1]);
+        Assert.Equal(0, indices[0, 2]);
+    }
+
+    [Fact]
+    public void Expand_Dpcm_NegativeDifferentials_Cumulate()
+    {
+        // Diffs [-2, -3, -1] -> running [-2, -5, -6]; verify negative
+        // index accumulation passes through unchanged.
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 0, Sfb = 0, Differential = -2 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 1, Differential = -3 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 2, Differential = -1 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = SectionDataLong((1, 0, 3));
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 3);
+
+        Assert.Equal(-2, indices[0, 0]);
+        Assert.Equal(-5, indices[0, 1]);
+        Assert.Equal(-6, indices[0, 2]);
+    }
+
+    [Fact]
+    public void Expand_Dpcm_ZeroHcb_AfterNonZero_KeepsLatestRunning()
+    {
+        // Layout: [cb=1, cb=1, cb=0, cb=0]. Diffs [3, 4] -> running 3, 7.
+        // ZERO_HCB bands at sfb=2, 3 inherit 7 (latest running).
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 0, Sfb = 0, Differential = 3 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 1, Differential = 4 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = SectionDataLong((1, 0, 2), (0, 2, 4));
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 4);
+
+        Assert.Equal(3, indices[0, 0]);
+        Assert.Equal(7, indices[0, 1]);
+        Assert.Equal(7, indices[0, 2]);
+        Assert.Equal(7, indices[0, 3]);
+    }
+
+    [Fact]
+    public void Expand_Dpcm_GroupMismatch_Throws()
+    {
+        // DPCM coordinates have right SFB but wrong group.
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 1, Sfb = 0, Differential = 1 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = new AacSectionData
+        {
+            Sections = new[]
+            {
+                new AacSection { Group = 0, CodebookNumber = 1, StartSfb = 0, EndSfb = 1 },
+            },
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            AacCouplingGainExpansion.ExpandToIndices(gl, sections, 2, 1));
+    }
+
+    [Fact]
+    public void Expand_Dpcm_SectionStartSfb_Overruns_MaxSfb_Throws()
+    {
+        // section.StartSfb < maxSfb, but section.EndSfb is past maxSfb.
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 0, Sfb = 0, Differential = 1 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 1, Differential = 1 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 2, Differential = 1 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = SectionDataLong((1, 0, 3));
+        Assert.Throws<InvalidOperationException>(() =>
+            AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 2));
+    }
+
+    [Fact]
+    public void Expand_Dpcm_FullGrid_2Groups_4Sfb()
+    {
+        // 2 groups x 4 cb=1 bands each. Diffs [1,2,3,4,5,6,7,8] -> running
+        // is [1,3,6,10,15,21,28,36] in scan order (g-major, then sfb).
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 0, Sfb = 0, Differential = 1 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 1, Differential = 2 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 2, Differential = 3 },
+            new AacCouplingGainEntry { Group = 0, Sfb = 3, Differential = 4 },
+            new AacCouplingGainEntry { Group = 1, Sfb = 0, Differential = 5 },
+            new AacCouplingGainEntry { Group = 1, Sfb = 1, Differential = 6 },
+            new AacCouplingGainEntry { Group = 1, Sfb = 2, Differential = 7 },
+            new AacCouplingGainEntry { Group = 1, Sfb = 3, Differential = 8 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = new AacSectionData
+        {
+            Sections = new[]
+            {
+                new AacSection { Group = 0, CodebookNumber = 1, StartSfb = 0, EndSfb = 4 },
+                new AacSection { Group = 1, CodebookNumber = 1, StartSfb = 0, EndSfb = 4 },
+            },
+        };
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 2, 4);
+
+        Assert.Equal(1, indices[0, 0]);
+        Assert.Equal(3, indices[0, 1]);
+        Assert.Equal(6, indices[0, 2]);
+        Assert.Equal(10, indices[0, 3]);
+        Assert.Equal(15, indices[1, 0]);
+        Assert.Equal(21, indices[1, 1]);
+        Assert.Equal(28, indices[1, 2]);
+        Assert.Equal(36, indices[1, 3]);
+    }
+
+    [Fact]
+    public void Expand_Dpcm_Section_With_Range_StartSfb_GreaterThan_MaxSfb_Throws()
+    {
+        // section starts at sfb=10 which is already beyond maxSfb=5.
+        var dpcm = new[]
+        {
+            new AacCouplingGainEntry { Group = 0, Sfb = 10, Differential = 1 },
+        };
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = dpcm,
+        };
+        var sections = new AacSectionData
+        {
+            Sections = new[]
+            {
+                new AacSection { Group = 0, CodebookNumber = 1, StartSfb = 10, EndSfb = 11 },
+            },
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 5));
+    }
+
+    [Fact]
+    public void Expand_NoSections_NoDpcm_NonZeroMaxSfb_LeavesAllZeros()
+    {
+        // No sections at all means the loop is a no-op and the freshly
+        // allocated matrix surfaces as all zeros.
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = false,
+            CommonGainDifferential = null,
+            DpcmGains = Array.Empty<AacCouplingGainEntry>(),
+        };
+        var sections = SectionDataLong();
+        int[,] indices = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 2, 3);
+
+        for (int g = 0; g < 2; g++)
+        {
+            for (int s = 0; s < 3; s++)
+            {
+                Assert.Equal(0, indices[g, s]);
+            }
+        }
+    }
+
+    [Fact]
+    public void Expand_Dpcm_Returns_FreshArray_PerCall()
+    {
+        // Sanity check: distinct invocations return distinct arrays so
+        // callers can safely mutate the result without aliasing.
+        var gl = new AacCouplingGainList
+        {
+            CommonGainElementPresent = true,
+            CommonGainDifferential = 0,
+            DpcmGains = Array.Empty<AacCouplingGainEntry>(),
+        };
+        var sections = SectionDataLong();
+        int[,] a = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 2);
+        int[,] b = AacCouplingGainExpansion.ExpandToIndices(gl, sections, 1, 2);
+
+        Assert.NotSame(a, b);
+        a[0, 0] = 999;
+        Assert.Equal(0, b[0, 0]);
+    }
+
+    private static AacCouplingGainList CommonGainList(int differential) => new()
+    {
+        CommonGainElementPresent = true,
+        CommonGainDifferential = differential,
+        DpcmGains = Array.Empty<AacCouplingGainEntry>(),
+    };
 }
