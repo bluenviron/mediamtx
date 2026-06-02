@@ -166,6 +166,152 @@ public class HeifImagePropertiesTests
         Assert.False(r.TryGetContentLightLevel(1, out _));
     }
 
+    [Fact]
+    public void Clli_TryParse_MaxUshortValues_PreservedExactly()
+    {
+        byte[] payload = new byte[4];
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(0), ushort.MaxValue);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(2), ushort.MaxValue);
+        Assert.True(HeifContentLightLevel.TryParse(payload, out var info));
+        Assert.Equal(ushort.MaxValue, info.MaxContentLightLevel);
+        Assert.Equal(ushort.MaxValue, info.MaxPicAverageLightLevel);
+    }
+
+    [Fact]
+    public void Clli_TryParse_AllZero_Yields_Zeros()
+    {
+        Assert.True(HeifContentLightLevel.TryParse(new byte[4], out var info));
+        Assert.Equal((ushort)0, info.MaxContentLightLevel);
+        Assert.Equal((ushort)0, info.MaxPicAverageLightLevel);
+    }
+
+    [Fact]
+    public void Clli_TryParse_TrailingBytes_Ignored()
+    {
+        byte[] payload = new byte[8];
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(0), 100);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(2), 50);
+        payload[4] = 0xDE; payload[5] = 0xAD; payload[6] = 0xBE; payload[7] = 0xEF;
+        Assert.True(HeifContentLightLevel.TryParse(payload, out var info));
+        Assert.Equal((ushort)100, info.MaxContentLightLevel);
+        Assert.Equal((ushort)50, info.MaxPicAverageLightLevel);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Clli_TryParse_TooShort_Rejected(int length)
+    {
+        Assert.False(HeifContentLightLevel.TryParse(new byte[length], out _));
+    }
+
+    [Fact]
+    public void Clli_Record_Equality_AcrossIdenticalParses()
+    {
+        byte[] payload = new byte[4];
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(0), 800);
+        BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(2), 200);
+        Assert.True(HeifContentLightLevel.TryParse(payload, out var a));
+        Assert.True(HeifContentLightLevel.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Mdcv_TryParse_MaxUint32Luminance_Preserved()
+    {
+        byte[] payload = new byte[24];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(16), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(20), uint.MaxValue);
+        Assert.True(HeifMasteringDisplayColourVolume.TryParse(payload, out var info));
+        Assert.Equal(uint.MaxValue, info.MaxDisplayMasteringLuminance);
+        Assert.Equal(uint.MaxValue, info.MinDisplayMasteringLuminance);
+    }
+
+    [Fact]
+    public void Mdcv_Record_With_Expression_Mutates_OnlyChosenField()
+    {
+        byte[] payload = new byte[24];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(16), 1000);
+        Assert.True(HeifMasteringDisplayColourVolume.TryParse(payload, out var rec));
+        var mutated = rec with { MinDisplayMasteringLuminance = 42u };
+        Assert.Equal(42u, mutated.MinDisplayMasteringLuminance);
+        Assert.Equal(rec.MaxDisplayMasteringLuminance, mutated.MaxDisplayMasteringLuminance);
+        Assert.Equal(rec.DisplayPrimaryR, mutated.DisplayPrimaryR);
+    }
+
+    [Fact]
+    public void Mdcv_TryParse_TrailingBytes_Ignored()
+    {
+        byte[] payload = new byte[28];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(16), 1234u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(20), 5u);
+        payload[24] = 0xAA; payload[25] = 0xBB; payload[26] = 0xCC; payload[27] = 0xDD;
+        Assert.True(HeifMasteringDisplayColourVolume.TryParse(payload, out var info));
+        Assert.Equal(1234u, info.MaxDisplayMasteringLuminance);
+        Assert.Equal(5u, info.MinDisplayMasteringLuminance);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(23)]
+    public void Mdcv_TryParse_TooShort_Rejected(int length)
+    {
+        Assert.False(HeifMasteringDisplayColourVolume.TryParse(new byte[length], out _));
+    }
+
+    [Fact]
+    public void Clap_TryParse_NumeratorWraps_Past_IntMaxValue_To_Negative()
+    {
+        // 0x80000000 as uint32 (2_147_483_648) → (int)cast is int.MinValue.
+        byte[] payload = new byte[32];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0), 0x80000000u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4), 1u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8), 100u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12), 1u);
+        Assert.True(HeifCleanAperture.TryParse(payload, out var info));
+        Assert.Equal(int.MinValue, info.Width.Numerator);
+        Assert.Equal(1u, info.Width.Denominator);
+    }
+
+    [Fact]
+    public void Clap_TryParse_MaxDenominator_Preserved()
+    {
+        byte[] payload = new byte[32];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(20), uint.MaxValue);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(28), uint.MaxValue);
+        Assert.True(HeifCleanAperture.TryParse(payload, out var info));
+        Assert.Equal(uint.MaxValue, info.Width.Denominator);
+        Assert.Equal(uint.MaxValue, info.Height.Denominator);
+        Assert.Equal(uint.MaxValue, info.HorizontalOffset.Denominator);
+        Assert.Equal(uint.MaxValue, info.VerticalOffset.Denominator);
+    }
+
+    [Fact]
+    public void Clap_Record_Equality_AcrossIdenticalParses()
+    {
+        byte[] payload = new byte[32];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0), 640u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4), 1u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8), 480u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12), 1u);
+        Assert.True(HeifCleanAperture.TryParse(payload, out var a));
+        Assert.True(HeifCleanAperture.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(31)]
+    public void Clap_TryParse_TooShort_Rejected(int length)
+    {
+        Assert.False(HeifCleanAperture.TryParse(new byte[length], out _));
+    }
+
     private static byte[] BuildIspePayload(uint width, uint height)
     {
         byte[] payload = new byte[12];

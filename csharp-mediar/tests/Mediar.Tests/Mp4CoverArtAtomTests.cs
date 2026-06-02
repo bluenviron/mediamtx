@@ -199,6 +199,95 @@ public sealed class Mp4CoverArtAtomTests
         Assert.Equal(tiny, pic.Data.ToArray());
     }
 
+    [Fact]
+    public void Covr_DataType_Unknown_Nonzero_Falls_Back_To_OctetStream()
+    {
+        // 99 isn't 13/14/27 - it should still surface with octet-stream MIME.
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 99, JpegPayload)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        Assert.Equal("application/octet-stream", pic.MimeType);
+    }
+
+    [Fact]
+    public void Covr_Multiple_Atoms_With_Mixed_Single_And_Multi_Data_Accumulate_In_Order()
+    {
+        byte[] ilst = BuildIlst([
+            BuildCovrAtom(dataType: 13, JpegPayload),
+            BuildCovrAtomMulti((14, PngPayload), (27, BmpPayload)),
+            BuildCovrAtom(dataType: 14, PngPayload),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(4, meta.Pictures.Count);
+        Assert.Equal("image/jpeg", meta.Pictures[0].MimeType);
+        Assert.Equal("image/png", meta.Pictures[1].MimeType);
+        Assert.Equal("image/bmp", meta.Pictures[2].MimeType);
+        Assert.Equal("image/png", meta.Pictures[3].MimeType);
+    }
+
+    [Fact]
+    public void Covr_Large_Payload_256_Bytes_Surfaced_Exactly()
+    {
+        byte[] big = new byte[256];
+        for (int i = 0; i < big.Length; i++) big[i] = (byte)(i ^ 0xAA);
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 13, big)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        Assert.Equal(big, pic.Data.ToArray());
+    }
+
+    [Fact]
+    public void Covr_Picture_Source_Is_Mp4_Cover_Art()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType: 13, JpegPayload)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        // Cover art always surfaces as the front-cover variant regardless of dataType.
+        Assert.Equal(MediaPictureType.CoverFront, pic.Type);
+    }
+
+    [Fact]
+    public void Covr_With_Text_Atoms_Before_And_After_Coexists()
+    {
+        byte[] ilst = BuildIlst([
+            BuildTextAtom("\u00A9nam", "Track Name"),
+            BuildCovrAtom(dataType: 13, JpegPayload),
+            BuildTextAtom("\u00A9ART", "Track Artist"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("Track Name", meta.Title);
+        Assert.Equal("Track Artist", meta.Artist);
+        Assert.Single(meta.Pictures);
+    }
+
+    [Theory]
+    [InlineData((uint)13, "image/jpeg")]
+    [InlineData((uint)14, "image/png")]
+    [InlineData((uint)27, "image/bmp")]
+    public void Covr_DataType_To_MimeType_Mapping(uint dataType, string expectedMime)
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtom(dataType, JpegPayload)]);
+        var meta = ParseIlstAndBuild(ilst);
+        var pic = Assert.Single(meta.Pictures);
+        Assert.Equal(expectedMime, pic.MimeType);
+    }
+
+    [Fact]
+    public void Covr_All_DataTypes_From_Same_Atom_Surface_Distinctly()
+    {
+        byte[] ilst = BuildIlst([BuildCovrAtomMulti(
+            (13, JpegPayload),
+            (14, PngPayload),
+            (27, BmpPayload),
+            (0, JpegPayload))]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(4, meta.Pictures.Count);
+        Assert.Equal("image/jpeg", meta.Pictures[0].MimeType);
+        Assert.Equal("image/png", meta.Pictures[1].MimeType);
+        Assert.Equal("image/bmp", meta.Pictures[2].MimeType);
+        Assert.Equal("application/octet-stream", meta.Pictures[3].MimeType);
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata ParseIlstAndBuild(byte[] ilstBytes)
