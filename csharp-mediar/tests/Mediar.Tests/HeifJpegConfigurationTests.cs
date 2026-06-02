@@ -223,6 +223,120 @@ public class HeifJpegConfigurationTests
         Assert.Equal(3, b.JpegPrefix.Length);
     }
 
+    [Fact]
+    public void TryParse_Long_Realistic_Prefix_Round_Trips()
+    {
+        // SOI + DQT block + DHT block + 4 KB of canned table content.
+        var ms = new MemoryStream();
+        ms.WriteByte(0xFF); ms.WriteByte(0xD8);
+        ms.WriteByte(0xFF); ms.WriteByte(0xDB);
+        for (int i = 0; i < 64; i++) ms.WriteByte((byte)i);
+        ms.WriteByte(0xFF); ms.WriteByte(0xC4);
+        for (int i = 0; i < 4096; i++) ms.WriteByte((byte)((i * 31) & 0xFF));
+        byte[] payload = ms.ToArray();
+
+        Assert.True(HeifJpegConfiguration.TryParse(payload, out var cfg));
+        Assert.Equal(payload.Length, cfg.JpegPrefix.Length);
+        for (int i = 0; i < payload.Length; i++)
+            Assert.Equal(payload[i], cfg.JpegPrefix[i]);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_First_Bytes_Match_Prefix_Order()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43]),
+        };
+        byte[] payload = [0x11, 0x22, 0x33];
+        var bits = cfg.BuildJpegBitstream(payload);
+        for (int i = 0; i < cfg.JpegPrefix.Length; i++)
+            Assert.Equal(cfg.JpegPrefix[i], bits[i]);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_Last_Bytes_Match_Payload()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8]),
+        };
+        byte[] payload = [0xAA, 0xBB, 0xCC, 0xDD];
+        var bits = cfg.BuildJpegBitstream(payload);
+        int offset = cfg.JpegPrefix.Length;
+        for (int i = 0; i < payload.Length; i++)
+            Assert.Equal(payload[i], bits[offset + i]);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_Large_Payload_Roundtrips()
+    {
+        var prefixBytes = new byte[16];
+        for (int i = 0; i < prefixBytes.Length; i++) prefixBytes[i] = (byte)i;
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>(prefixBytes),
+        };
+        var payload = new byte[8192];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i * 13);
+        var bits = cfg.BuildJpegBitstream(payload);
+        Assert.Equal(prefixBytes.Length + payload.Length, bits.Length);
+        Assert.Equal(prefixBytes[0], bits[0]);
+        Assert.Equal(payload[^1], bits[^1]);
+    }
+
+    [Fact]
+    public void HeifReader_TryGetJpegConfiguration_Returns_False_For_Unknown_Item()
+    {
+        byte[] prefix = [0xFF, 0xD8];
+        var bytes = BuildHeifWithProperty("jpgC", prefix);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.False(r.TryGetJpegConfiguration(99, out _));
+    }
+
+    [Fact]
+    public void HeifReader_TryGetJpegConfiguration_Returns_False_For_Empty_JpgC_Box()
+    {
+        // 0-byte jpgC payload → property parser rejects, reader surfaces false.
+        var bytes = BuildHeifWithProperty("jpgC", Array.Empty<byte>());
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.False(r.TryGetJpegConfiguration(1, out _));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(32)]
+    [InlineData(512)]
+    public void TryParse_VariousLengths_Roundtrip(int length)
+    {
+        var data = new byte[length];
+        for (int i = 0; i < length; i++) data[i] = (byte)i;
+        Assert.True(HeifJpegConfiguration.TryParse(data, out var cfg));
+        Assert.Equal(length, cfg.JpegPrefix.Length);
+        Assert.Equal(data[0], cfg.JpegPrefix[0]);
+        Assert.Equal(data[^1], cfg.JpegPrefix[^1]);
+    }
+
+    [Fact]
+    public void Record_ToString_Includes_JpegPrefix_Member_Name()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8]),
+        };
+        Assert.Contains("JpegPrefix", cfg.ToString());
+    }
+
+    [Fact]
+    public void TryParse_Single_Zero_Byte_Still_Decodes()
+    {
+        // Even a single 0x00 byte is allowed; the parser only fails on
+        // a fully empty span.
+        Assert.True(HeifJpegConfiguration.TryParse(new byte[] { 0 }, out var cfg));
+        Assert.Single(cfg.JpegPrefix);
+        Assert.Equal((byte)0, cfg.JpegPrefix[0]);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildIspePayload(uint width, uint height)

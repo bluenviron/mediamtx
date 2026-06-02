@@ -200,6 +200,112 @@ public class HeifUserDescriptionTests
         Assert.Equal("t", rec.Tags);
     }
 
+    [Fact]
+    public void TryParse_Header_With_Only_Lang_String_Returns_False()
+    {
+        // Header + "en\0" → lang OK, but name string is missing.
+        using var ms = new MemoryStream();
+        ms.Write(new byte[] { 0, 0, 0, 0 });
+        ms.Write(Encoding.UTF8.GetBytes("en")); ms.WriteByte(0);
+        Assert.False(HeifUserDescription.TryParse(ms.ToArray(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Header_With_Three_Strings_But_No_Tags_Returns_False()
+    {
+        using var ms = new MemoryStream();
+        ms.Write(new byte[] { 0, 0, 0, 0 });
+        ms.Write(Encoding.UTF8.GetBytes("en")); ms.WriteByte(0);
+        ms.Write(Encoding.UTF8.GetBytes("Name")); ms.WriteByte(0);
+        ms.Write(Encoding.UTF8.GetBytes("Description")); ms.WriteByte(0);
+        // No tags string at all.
+        Assert.False(HeifUserDescription.TryParse(ms.ToArray(), out _));
+    }
+
+    [Fact]
+    public void TryParse_Header_With_Three_Strings_Plus_Unterminated_Tags_Returns_False()
+    {
+        using var ms = new MemoryStream();
+        ms.Write(new byte[] { 0, 0, 0, 0 });
+        ms.Write(Encoding.UTF8.GetBytes("en")); ms.WriteByte(0);
+        ms.Write(Encoding.UTF8.GetBytes("Name")); ms.WriteByte(0);
+        ms.Write(Encoding.UTF8.GetBytes("Desc")); ms.WriteByte(0);
+        // Tags bytes but missing terminating null.
+        ms.Write(Encoding.UTF8.GetBytes("tags"));
+        Assert.False(HeifUserDescription.TryParse(ms.ToArray(), out _));
+    }
+
+    [Fact]
+    public void TryParse_FullNul_Block_Yields_Four_Empty_Strings()
+    {
+        // Header + four bare NULs.
+        byte[] payload = [0, 0, 0, 0, 0, 0, 0, 0];
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal("", rec.Lang);
+        Assert.Equal("", rec.Name);
+        Assert.Equal("", rec.Description);
+        Assert.Equal("", rec.Tags);
+    }
+
+    [Fact]
+    public void HeifReader_TryGetUserDescription_Returns_False_For_Malformed_Udes()
+    {
+        // Truncated udes payload (just version byte) → property parser fails.
+        var bytes = BuildHeifWithProperty("udes", [0]);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.False(r.TryGetUserDescription(1, out _));
+    }
+
+    [Fact]
+    public void HeifReader_TryGetUserDescription_Returns_False_For_Wrong_Version_Udes()
+    {
+        var udes = BuildUdesPayload("en", "n", "d", "t");
+        udes[0] = 1; // bogus version
+        var bytes = BuildHeifWithProperty("udes", udes);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
+        Assert.False(r.TryGetUserDescription(1, out _));
+    }
+
+    [Fact]
+    public void Record_ToString_Includes_All_Four_String_Fields()
+    {
+        var rec = new HeifUserDescription
+        {
+            Lang = "L",
+            Name = "N",
+            Description = "D",
+            Tags = "T",
+        };
+        var s = rec.ToString();
+        Assert.Contains("Lang", s);
+        Assert.Contains("Name", s);
+        Assert.Contains("Description", s);
+        Assert.Contains("Tags", s);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(16)]
+    [InlineData(256)]
+    [InlineData(8192)]
+    public void TryParse_VariousSizes_Round_Trip(int nameLength)
+    {
+        var name = new string('a', nameLength);
+        var payload = BuildUdesPayload("en", name, "d", "t");
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal(nameLength, rec.Name.Length);
+        Assert.Equal(name, rec.Name);
+    }
+
+    [Fact]
+    public void TryParse_Lang_Embedded_NonAscii_Is_Still_Returned()
+    {
+        // The parser does not validate BCP-47; arbitrary UTF-8 is allowed.
+        var payload = BuildUdesPayload("デタラメ-XX", "Name", "Desc", "Tags");
+        Assert.True(HeifUserDescription.TryParse(payload, out var rec));
+        Assert.Equal("デタラメ-XX", rec.Lang);
+    }
+
     private static byte[] BuildUdesPayload(string lang, string name, string description, string tags)
     {
         using var ms = new MemoryStream();
