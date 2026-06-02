@@ -320,4 +320,103 @@ public sealed class AacStandardSpectralCodebooksTests
             Assert.Equal(a.MaxCodeLength, b.MaxCodeLength);
         }
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void TryDecode_FromZeroBuffer_Always_Succeeds_With_LikelyZeroSymbol(int cbNumber)
+    {
+        // Most-likely symbol always sits at the centre of each codebook
+        // and tends to have the shortest code. With 4 bytes of zeros
+        // the decoder must successfully read at least one symbol.
+        var book = AacStandardSpectralCodebooks.GetCodebook(cbNumber);
+        var reader = new BitReader(new byte[] { 0, 0, 0, 0 });
+        Assert.True(book.TryDecode(ref reader, out var sym));
+        Assert.InRange(sym, 0, book.SymbolCount - 1);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void Codebook_Position_After_Decode_Strictly_Increases(int cbNumber)
+    {
+        var book = AacStandardSpectralCodebooks.GetCodebook(cbNumber);
+        var reader = new BitReader(new byte[] { 0, 0, 0, 0 });
+        long before = reader.Position;
+        Assert.True(book.TryDecode(ref reader, out _));
+        Assert.True(reader.Position > before);
+    }
+
+    [Fact]
+    public void GetCodebook_DifferentNumbers_AreDifferentInstances()
+    {
+        var c1 = AacStandardSpectralCodebooks.GetCodebook(1);
+        var c2 = AacStandardSpectralCodebooks.GetCodebook(2);
+        var c11 = AacStandardSpectralCodebooks.GetCodebook(11);
+        Assert.NotSame(c1, c2);
+        Assert.NotSame(c1, c11);
+        Assert.NotSame(c2, c11);
+    }
+
+    [Fact]
+    public void Codebook_Capacity_Is_PowerOf2_Or_FlatSymbolCount()
+    {
+        // For every codebook the Capacity equals SymbolCount (dense table).
+        for (int n = 1; n <= 11; n++)
+        {
+            var book = AacStandardSpectralCodebooks.GetCodebook(n);
+            Assert.Equal(book.SymbolCount, book.Capacity);
+            Assert.True(book.Capacity > 0);
+        }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    public void Codebook_MaxCodeLength_AtLeastOne(int cbNumber)
+    {
+        var book = AacStandardSpectralCodebooks.GetCodebook(cbNumber);
+        Assert.True(book.MaxCodeLength >= 1);
+    }
+
+    [Fact]
+    public void Cb9_MaxCodeLength_Matches_FFmpeg_Spec()
+    {
+        // bits9 max = 15 in libavcodec/aactab.c.
+        Assert.Equal(15, AacStandardSpectralCodebooks.Cb9.MaxCodeLength);
+    }
+
+    [Fact]
+    public void Cb11_MaxCodeLength_Matches_FFmpeg_Spec()
+    {
+        // bits11 max = 12 in libavcodec/aactab.c.
+        Assert.Equal(12, AacStandardSpectralCodebooks.Cb11.MaxCodeLength);
+    }
 }

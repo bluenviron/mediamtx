@@ -458,4 +458,147 @@ public sealed class AacSpectralDataTests
         Assert.NotNull(data);
         Assert.All(data!.Coefficients, c => Assert.Equal(0, c));
     }
+
+    [Theory]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void TryParse_SentinelCodebook_Theory_LeavesCoefficientsAtZero(int sentinelCb)
+    {
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, sentinelCb, 0, 1));
+        var books = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSpectralData.TryParse(
+            new byte[] { 0xFF }, ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(0, data!.Coefficients[0]);
+        Assert.Equal(0, data.Coefficients[1]);
+        Assert.Equal(0, data.Coefficients[2]);
+        Assert.Equal(0, data.Coefficients[3]);
+    }
+
+    [Fact]
+    public void TryParse_TwoZeroSections_Consume_NoBits()
+    {
+        var ics = LongIcsInfo(maxSfb: 4);
+        var sections = SectionList(
+            (0, 0, 0, 2),
+            (0, 0, 2, 4));
+        var books = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(0, data!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_LongBlock_Cb7_AllZeros_TwoTuples_NoSignBits()
+    {
+        // Symbol 0 in cb 7 -> (0, 0). No sign bits for zero components.
+        var book = BuildFixed7BitCodebook(64);
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, 7, 0, 1));
+        var books = CodebooksWith(7, book);
+
+        var w = new AacBitWriter();
+        w.Write(0u, 7);
+        w.Write(0u, 7);
+        var bytes = w.ToArray();
+
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(14, data!.BitsConsumed); // 7 + 7, no sign bits
+        for (int i = 0; i < 4; i++) Assert.Equal(0, data.Coefficients[i]);
+    }
+
+    [Fact]
+    public void TryParse_ShortBlock_FourGroups_OffsetsRespectGroupBoundaries()
+    {
+        // Four groups of [2, 2, 2, 2] = 8 windows total, base offsets at
+        // 0, 256, 512, 768.
+        var book = BuildFixed7BitCodebook(81);
+        var ics = ShortIcsInfo(maxSfb: 1, windowsPerGroup: new byte[] { 2, 2, 2, 2 });
+        var sections = SectionList(
+            (0, 1, 0, 1),
+            (1, 1, 0, 1),
+            (2, 1, 0, 1),
+            (3, 1, 0, 1));
+        var books = CodebooksWith(1, book);
+
+        var w = new AacBitWriter();
+        // 2 tuples per group (since cb 1 dim=4, SWB width 4*2=8 → 2 tuples).
+        for (int g = 0; g < 4; g++)
+        {
+            for (int t = 0; t < 2; t++) w.Write(80u, 7); // (1, 1, 1, 1) each
+        }
+        var bytes = w.ToArray();
+
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(4 * 2 * 7, data!.BitsConsumed);
+        // Check base offsets - first slot of each group should be 1.
+        Assert.Equal(1, data.Coefficients[0]);
+        Assert.Equal(1, data.Coefficients[256]);
+        Assert.Equal(1, data.Coefficients[512]);
+        Assert.Equal(1, data.Coefficients[768]);
+    }
+
+    [Fact]
+    public void TryParse_BitsConsumed_Tracks_Multiple_Symbol_Decodes()
+    {
+        // 4 tuples of cb 1 in a section spanning 4 SWBs (one tuple per SWB
+        // because each long48 SWB at index 0..3 has width 4).
+        var book = BuildFixed7BitCodebook(81);
+        var ics = LongIcsInfo(maxSfb: 4);
+        var sections = SectionList((0, 1, 0, 4));
+        var books = CodebooksWith(1, book);
+
+        var w = new AacBitWriter();
+        for (int i = 0; i < 4; i++) w.Write(40u, 7); // all-zero tuples
+        var bytes = w.ToArray();
+
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(4 * 7, data!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_Coefficients_Length_Always_1024_Regardless_Of_MaxSfb()
+    {
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, 0, 0, 1));
+        var books = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, books, out var data));
+        Assert.Equal(1024, data!.Coefficients.Length);
+    }
+
+    [Fact]
+    public void TryParse_ShortBlock_AllZeroSections_LeavesAllCoefficientsAtZero()
+    {
+        var ics = ShortIcsInfo(maxSfb: 1, windowsPerGroup: new byte[] { 8 });
+        var sections = SectionList((0, 0, 0, 1));
+        var books = new AacHuffmanCodebook?[16];
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, books, out var data));
+        Assert.NotNull(data);
+        Assert.All(data!.Coefficients, c => Assert.Equal(0, c));
+        Assert.Equal(128 * 8, data.Coefficients.Length);
+    }
+
+    [Fact]
+    public void TryParse_ReservedCodebook16_Rejected()
+    {
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, 16, 0, 1));
+        var books = new AacHuffmanCodebook?[16];
+
+        Assert.False(AacSpectralData.TryParse(
+            new byte[] { 0 }, ics, sections, Sr48k, books, out var data));
+        Assert.Null(data);
+    }
 }
