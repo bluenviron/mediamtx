@@ -255,6 +255,146 @@ public sealed class TransmuxTests
         Assert.IsType<WavMuxer>(mux);
     }
 
+    [Theory]
+    [InlineData(".oga", typeof(OggMuxer))]
+    [InlineData(".ogv", typeof(OggMuxer))]
+    [InlineData(".opus", typeof(OggMuxer))]
+    [InlineData(".m4v", typeof(Mediar.Containers.IsoBmff.Mp4Muxer))]
+    [InlineData(".mov", typeof(Mediar.Containers.IsoBmff.Mp4Muxer))]
+    [InlineData(".3gp", typeof(Mediar.Containers.IsoBmff.Mp4Muxer))]
+    [InlineData(".mkv", typeof(Mediar.Containers.Matroska.MatroskaMuxer))]
+    [InlineData(".svx", typeof(Mediar.Containers.Iff8Svx.Iff8SvxMuxer))]
+    [InlineData(".8svx", typeof(Mediar.Containers.Iff8Svx.Iff8SvxMuxer))]
+    [InlineData(".iff", typeof(Mediar.Containers.Iff8Svx.Iff8SvxMuxer))]
+    [InlineData(".awb", typeof(Mediar.Containers.Amr.AmrMuxer))]
+    public void CreateMuxer_Recognizes_AdditionalExtensions(string ext, Type expected)
+    {
+        using var ms = new MemoryStream();
+        using var mux = MediarOperations.CreateMuxer($"x{ext}", ms);
+        Assert.IsType(expected, mux);
+    }
+
+    [Fact]
+    public void CreateMuxer_Empty_Extension_Throws_NotSupported()
+    {
+        using var ms = new MemoryStream();
+        Assert.Throws<NotSupportedException>(() => MediarOperations.CreateMuxer("file_no_ext", ms));
+    }
+
+    [Fact]
+    public async Task ProbeAsync_Null_Path_Throws()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await MediarOperations.ProbeAsync(null!));
+    }
+
+    [Fact]
+    public async Task Open_MixedCase_Wav_Extension_Recognised()
+    {
+        var src = await WriteWavPcm16Async(8000, 1, new byte[16]);
+        var renamed = src + ".RENAMED.WAV";
+        File.Move(src, renamed);
+        try
+        {
+            using var dx = MediarOperations.Open(renamed);
+            Assert.Equal("wav", dx.FormatName);
+        }
+        finally { DeleteSafe(renamed); }
+    }
+
+    [Fact]
+    public async Task Open_MixedCase_Ogg_Extension_Recognised()
+    {
+        var src = await WriteOggOpusAsync(BuildPayloads(1, 16));
+        var renamed = src + ".RENAMED.OGG";
+        File.Move(src, renamed);
+        try
+        {
+            using var dx = MediarOperations.Open(renamed);
+            Assert.Equal("ogg", dx.FormatName);
+        }
+        finally { DeleteSafe(renamed); }
+    }
+
+    [Fact]
+    public async Task Probe_Ogg_Reports_Opus_Codec()
+    {
+        var src = await WriteOggOpusAsync(BuildPayloads(1, 16));
+        try
+        {
+            var info = await MediarOperations.ProbeAsync(src);
+            Assert.Equal("ogg", info.Format);
+            Assert.Single(info.Tracks);
+            Assert.Equal(CodecId.Opus, info.Tracks[0].Codec);
+            Assert.Equal(StreamKind.Audio, info.Tracks[0].Kind);
+        }
+        finally { DeleteSafe(src); }
+    }
+
+    [Fact]
+    public async Task Transmux_Wav_Stereo_To_Wav_Preserves_Channel_Count()
+    {
+        const int sr = 8000;
+        byte[] pcm = new byte[sr * 2 * 2]; // 1s stereo S16
+        for (int i = 0; i < pcm.Length; i++) pcm[i] = (byte)(i & 0xFF);
+        var src = await WriteWavPcm16Async(sr, ch: 2, pcm);
+        var dst = TempPath(".wav");
+        try
+        {
+            await MediarOperations.TransmuxAsync(src, dst);
+            await using var dem = WavDemuxer.Open(dst);
+            var a = (AudioCodecParameters)dem.Tracks[0].Codec;
+            Assert.Equal(2, a.Channels);
+            Assert.Equal(sr, a.SampleRate);
+        }
+        finally { DeleteSafe(src, dst); }
+    }
+
+    [Fact]
+    public async Task Transmux_Wav_To_Caf_Round_Trips_To_Caf_Sample_Data()
+    {
+        const int sr = 8000;
+        byte[] pcm = new byte[200];
+        for (int i = 0; i < pcm.Length; i++) pcm[i] = (byte)(i ^ 0xAA);
+        var src = await WriteWavPcm16Async(sr, 1, pcm);
+        var dst = TempPath(".caf");
+        try
+        {
+            await MediarOperations.TransmuxAsync(src, dst);
+            await using var dem = CafDemuxer.Open(dst);
+            long total = 0;
+            await foreach (var s in dem.ReadSamplesAsync())
+            {
+                try { total += s.Data.Length; }
+                finally { s.Owner?.Dispose(); }
+            }
+            Assert.Equal(pcm.Length, total);
+        }
+        finally { DeleteSafe(src, dst); }
+    }
+
+    [Fact]
+    public async Task Probe_Wav_With_Mono_Reports_One_Channel()
+    {
+        var src = await WriteWavPcm16Async(16000, 1, new byte[800]);
+        try
+        {
+            var info = await MediarOperations.ProbeAsync(src);
+            Assert.Single(info.Tracks);
+            Assert.Equal(StreamKind.Audio, info.Tracks[0].Kind);
+        }
+        finally { DeleteSafe(src); }
+    }
+
+    [Fact]
+    public void CreateMuxer_Lowercase_Mka_Returns_NonWebm_Matroska()
+    {
+        using var ms = new MemoryStream();
+        using var mux = MediarOperations.CreateMuxer("x.mka", ms);
+        var matroska = Assert.IsType<Mediar.Containers.Matroska.MatroskaMuxer>(mux);
+        Assert.NotNull(matroska);
+    }
+
     // ---------- helpers ----------
 
     private static byte[][] BuildPayloads(int count, int size)

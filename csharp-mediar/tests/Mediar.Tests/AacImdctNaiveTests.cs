@@ -320,4 +320,122 @@ public sealed class AacImdctNaiveTests
             Assert.False(float.IsInfinity(v));
         }
     }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(16)]
+    public void Inverse_AllZeroInput_OutputIsAllZero_Any_M(int m)
+    {
+        var coefs = new float[m];
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2 * m, samples.Length);
+        foreach (var v in samples) Assert.Equal(0f, v);
+    }
+
+    [Fact]
+    public void Inverse_BadOutputLength_TooShort_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+        {
+            float[] coefs = new float[8];
+            float[] samples = new float[15]; // not 2*8
+            AacImdctNaive.Inverse(coefs.AsSpan(), samples.AsSpan());
+        });
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(5)]
+    public void Inverse_AllocatingOverload_Various_M_ProducesDoubleLength(int m)
+    {
+        var coefs = new float[m];
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2 * m, samples.Length);
+    }
+
+    [Fact]
+    public void Inverse_SuperpositionOfThree_Impulses_Adds_Linearly()
+    {
+        // IMDCT(a + b + c) = IMDCT(a) + IMDCT(b) + IMDCT(c).
+        const int m = 4;
+        var a = new float[m]; a[0] = 1f;
+        var b = new float[m]; b[1] = 0.5f;
+        var c = new float[m]; c[2] = -0.25f;
+        var sum = new float[m];
+        for (int i = 0; i < m; i++) sum[i] = a[i] + b[i] + c[i];
+
+        var ya = AacImdctNaive.Inverse(a.AsSpan());
+        var yb = AacImdctNaive.Inverse(b.AsSpan());
+        var yc = AacImdctNaive.Inverse(c.AsSpan());
+        var ysum = AacImdctNaive.Inverse(sum.AsSpan());
+
+        for (int i = 0; i < ysum.Length; i++)
+        {
+            Assert.Equal(ya[i] + yb[i] + yc[i], ysum[i], 5);
+        }
+    }
+
+    [Fact]
+    public void Inverse_Linearity_FractionalScalar()
+    {
+        // IMDCT(0.25 * x) = 0.25 * IMDCT(x).
+        var refY = AacImdctNaive.Inverse(LinearityInputA.AsSpan());
+
+        var scaled = new float[LinearityInputA.Length];
+        for (int i = 0; i < LinearityInputA.Length; i++) scaled[i] = LinearityInputA[i] * 0.25f;
+        var got = AacImdctNaive.Inverse(scaled.AsSpan());
+
+        for (int i = 0; i < refY.Length; i++)
+        {
+            Assert.Equal(0.25f * refY[i], got[i], 5);
+        }
+    }
+
+    [Fact]
+    public void Inverse_ShortInputLength_Produces_256_Samples_Finite()
+    {
+        var coefs = new float[AacImdctNaive.ShortInputLength];
+        for (int i = 0; i < coefs.Length; i++) coefs[i] = (float)(0.001 * (i - 64));
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2 * AacImdctNaive.ShortInputLength, samples.Length);
+        foreach (var v in samples)
+        {
+            Assert.False(float.IsNaN(v));
+            Assert.False(float.IsInfinity(v));
+        }
+    }
+
+    [Fact]
+    public void Inverse_AllocatingOverload_Returns_Correct_Length_For_Long_Window()
+    {
+        var coefs = new float[AacImdctNaive.LongInputLength];
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2 * AacImdctNaive.LongInputLength, samples.Length);
+    }
+
+    [Fact]
+    public void Inverse_AllocatingOverload_Returns_Correct_Length_For_Short_Window()
+    {
+        var coefs = new float[AacImdctNaive.ShortInputLength];
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2 * AacImdctNaive.ShortInputLength, samples.Length);
+    }
+
+    [Fact]
+    public void Inverse_SpanOverload_WritesIntoProvidedBuffer()
+    {
+        var coefs = new float[] { 1f, 0f, 0f, 0f };
+        var samples = new float[8];
+        for (int i = 0; i < samples.Length; i++) samples[i] = 999f; // poison.
+        AacImdctNaive.Inverse(coefs.AsSpan(), samples.AsSpan());
+        // After writing, every poisoned value must have been overwritten
+        // with something other than 999f.
+        for (int i = 0; i < samples.Length; i++)
+        {
+            Assert.NotEqual(999f, samples[i]);
+        }
+    }
 }
