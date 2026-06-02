@@ -82,4 +82,92 @@ public class ArcTests
         var ccw = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, false, false, new Vector2(0, 10));
         Assert.NotEqual(cw.Segments[1].P0, ccw.Segments[1].P0);
     }
+
+    [Fact]
+    public void Negative_Radii_Are_Treated_As_Positive()
+    {
+        // SVG F.6.6.1: signs on radii are stripped.
+        var pPos = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, false, true, new Vector2(0, 10));
+        var pNeg = new Path2D().MoveTo(10, 0).ArcTo(-10, -10, 0, false, true, new Vector2(0, 10));
+        Assert.Equal(pPos.Segments.Count, pNeg.Segments.Count);
+        for (int i = 0; i < pPos.Segments.Count; i++)
+        {
+            Assert.Equal(pPos.Segments[i].P0, pNeg.Segments[i].P0);
+            Assert.Equal(pPos.Segments[i].P1, pNeg.Segments[i].P1);
+            Assert.Equal(pPos.Segments[i].P2, pNeg.Segments[i].P2);
+        }
+    }
+
+    [Fact]
+    public void OutOfRange_Radii_Are_Scaled_Up_To_Span_Chord()
+    {
+        // Chord (10,0)->(-10,0) has length 20 but rx=ry=1 cannot span it.
+        // The arc must still reach the endpoint after radius correction.
+        var path = new Path2D().MoveTo(10, 0).ArcTo(1, 1, 0, false, true, new Vector2(-10, 0));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.1f).ToList();
+        var last = segs[^1];
+        Assert.Equal(-10f, last.P1.X, 1);
+        Assert.Equal(0f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void Implicit_MoveTo_When_No_Current_Point()
+    {
+        // ArcTo without an explicit MoveTo should call EnsureCurrent which
+        // adds an implicit MoveTo at origin.
+        var path = new Path2D().ArcTo(10, 10, 0, false, true, new Vector2(10, 10));
+        Assert.Equal(PathVerb.MoveTo, path.Segments[0].Verb);
+        Assert.Equal(Vector2.Zero, path.Segments[0].P0);
+        Assert.True(path.Segments.Count > 1);
+    }
+
+    [Fact]
+    public void Rotated_Ellipse_Still_Reaches_Endpoint()
+    {
+        // Same arc with 45° rotation — endpoint must still land where specified.
+        var path = new Path2D().MoveTo(10, 0).ArcTo(10, 5, 45f, false, true, new Vector2(0, 10));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.1f).ToList();
+        var last = segs[^1];
+        Assert.Equal(0f, last.P1.X, 1);
+        Assert.Equal(10f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void Three_Sequential_Arcs_Each_Append_Segments()
+    {
+        var path = new Path2D()
+            .MoveTo(0, 0)
+            .ArcTo(5, 5, 0, false, true, new Vector2(10, 0))
+            .ArcTo(5, 5, 0, false, true, new Vector2(20, 0))
+            .ArcTo(5, 5, 0, false, true, new Vector2(30, 0));
+        // Each arc emits at least one CubicTo (90° = single cubic, 180° = two cubics).
+        int cubics = path.Segments.Count(s => s.Verb == PathVerb.CubicTo);
+        Assert.True(cubics >= 3);
+    }
+
+    [Fact]
+    public void Large_Arc_Together_With_Large_Sweep_Gives_LargeArc()
+    {
+        // largeArc == sweep is one branch of the sign selection logic; ensure
+        // the chosen sign produces a valid centre and the arc reaches end.
+        var path = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, true, true, new Vector2(0, 10));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.2f).ToList();
+        var last = segs[^1];
+        Assert.Equal(0f, last.P1.X, 1);
+        Assert.Equal(10f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void NonCircular_Ellipse_Stays_On_Ellipse()
+    {
+        // Quarter ellipse rx=20, ry=5, axis-aligned, from (20,0) to (0,5).
+        var path = new Path2D().MoveTo(20, 0).ArcTo(20, 5, 0f, false, true, new Vector2(0, 5));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.05f).ToList();
+        foreach (var s in segs)
+        {
+            // (x/20)^2 + (y/5)^2 ≈ 1
+            float v = (s.P0.X * s.P0.X) / 400f + (s.P0.Y * s.P0.Y) / 25f;
+            Assert.InRange(v, 0.85f, 1.15f);
+        }
+    }
 }
