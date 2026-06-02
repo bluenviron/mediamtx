@@ -76,7 +76,7 @@ must come with their own licensing analysis.
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope — multi-month implementation) |
 | **AV2 transmux (carry-through MP4 / MKV)** | ✅ (`av02` / `V_AV2` codec id; passthrough only — no decoder, spec not yet published) |
 | Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
-| Opus decoder                              | 🟢 (Phase 1 + Phase 2a/2b/2c.1/2c.2a/2c.2b/2c.3a — framing, range coder, CELT foundation + coarse energy + tf/spread + init_caps/dyn_alloc/alloc_trim + compute_allocation (intensity/dual stereo/skip) + unquant_fine_energy shipped; see [`src/Mediar.Codecs.Opus.Decoder/README.md`](src/Mediar.Codecs.Opus.Decoder/README.md). Phases 2c.3b–6 deliver CELT PVQ shape / anti-collapse / IMDCT, SILK, hybrid, resampler, multistream.) |
+| Opus decoder                              | 🟢 (Phase 1 + Phase 2a/2b/2c.1/2c.2a/2c.2b/2c.3a/2c.3b.1 — framing, range coder, CELT foundation + coarse energy + tf/spread + init_caps/dyn_alloc/alloc_trim + compute_allocation (intensity/dual stereo/skip) + unquant_fine_energy + PVQ math helpers (`bitexact_cos`, `bitexact_log2tan`, `bits2pulses`, `pulses2bits`, `get_pulses`) + pulse cache shipped; see [`src/Mediar.Codecs.Opus.Decoder/README.md`](src/Mediar.Codecs.Opus.Decoder/README.md). Phases 2c.3b.2–6 deliver CELT PVQ shape / anti-collapse / IMDCT, SILK, hybrid, resampler, multistream.) |
 | MP3 decoder                              | 🟢 (pipeline shipped; full status, performance baseline, and conformance/perf TODOs in [`src/Mediar.Codecs.Mp3.Decoder/README.md`](src/Mediar.Codecs.Mp3.Decoder/README.md)) |
 | ALAC decoder                             | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |

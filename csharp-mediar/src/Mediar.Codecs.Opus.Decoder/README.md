@@ -15,13 +15,55 @@ commits.
 |  2c.2a | CELT init_caps + dyn_alloc + alloc_trim (pre-compute_allocation block)    | ✅ shipped |
 |  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ✅ shipped |
 |  2c.3a | CELT `unquant_fine_energy` (fine-energy refinement of coarse spectrum)    | ✅ shipped |
-|  2c.3b | CELT PVQ shape decode (`decode_pulses`, `cwrsi`, `bitexact_cos`)          | ⏳ planned |
+| 2c.3b.1 | CELT PVQ math helpers + pulse cache (`bitexact_cos`, `bitexact_log2tan`, `bits2pulses`, `pulses2bits`, `get_pulses`, `cache_index50`/`cache_bits50`) | ✅ shipped |
+|  2c.3b | CELT PVQ shape decode (`decode_pulses`, `cwrsi`, `quant_all_bands`)       | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.1 behavior (added on top of Phase 2c.3a)
+
+Phase 2c.3b ports the CELT PVQ shape decoder, the largest single block
+in the CELT layer. We split it into five sub-phases (`2c.3b.1` …
+`2c.3b.5`); this commit ships the foundational math + cache helpers
+that every later sub-phase depends on. Output is still silence — the
+helpers are only invoked by the upcoming `quant_all_bands` integration.
+
+New surface area in `CeltPvqMath`:
+
+- **`BitexactCos(short x)`** — bit-exact `cos(x * π/16384)` approximation
+  returning a Q15 value. Reproduces libopus `bitexact_cos` byte-for-byte
+  (verified against the self-test vectors `cos(64) == 32767`,
+  `cos(8192) == 23171`, `cos(16320) == 200`). Valid for `x ∈ [64, 16320]`.
+- **`BitexactLog2Tan(int isin, int icos)`** — bit-exact
+  `(11-bit-scaled) log2(tan(asin(isin) - acos(icos)))` approximation.
+  Antisymmetric: `BitexactLog2Tan(a, b) == -BitexactLog2Tan(b, a)`.
+  Zero when `isin == icos`. Used by the PVQ split decoder to price
+  intensity / theta angles.
+- **`GetPulses(int i)`** — maps pseudo-pulse index `i ∈ [0, 40]` to the
+  real pulse count. Linear in `[0, 8)`, then geometric
+  `(8 + i&7) << ((i>>3) - 1)`. Tops out at 128 (= `CeltMaxPulses`)
+  at `i == 40` (= `MaxPseudo`).
+- **`Bits2Pulses(int band, int lm, int bits)`** — 6-iteration binary
+  search over the per-band pulse-cost cache; returns the pseudo-pulse
+  index whose cost is closest to the requested bit budget.
+- **`Pulses2Bits(int band, int lm, int pulses)`** — inverse lookup:
+  cost-in-bits of a given pseudo-pulse count. Returns 0 for `pulses==0`.
+- **`CacheIndex50[105]` / `CacheBits50[392]`** — exact copies of the
+  libopus 48 kHz pulse-cost cache from
+  `celt/static_modes_float.h`. Indexed by
+  `(LM+1) * MaxBands + band`; a `-1` cache-index means the band is too
+  narrow (`N==1`) for PVQ pulses at that LM.
+
+Why this matters: every `quant_band` / `quant_partition` call in the
+remaining sub-phases needs `Bits2Pulses` to convert its bit budget into
+a PVQ codeword index space, `BitexactCos` / `BitexactLog2Tan` to split
+energy between stereo / theta halves, and `GetPulses` to recover the
+actual codebook size. Centralising these here means the recursive
+quantiser doesn't have to track any state — it's pure math.
 
 ## Phase 2c.3a behavior (added on top of Phase 2c.2b)
 
