@@ -196,4 +196,149 @@ public sealed class AacSbrExtensionDataTests
         Assert.Null(fil.FillExtension.Sbr);
         Assert.Null(fil.FillExtension.DynamicRange);
     }
+
+    [Fact]
+    public void CrcBitWidth_Is_Ten()
+    {
+        Assert.Equal(10, AacSbrExtensionData.CrcBitWidth);
+    }
+
+    [Theory]
+    [InlineData(AacFillExtensionType.Fill)]
+    [InlineData(AacFillExtensionType.FillData)]
+    [InlineData(AacFillExtensionType.DataElement)]
+    [InlineData(AacFillExtensionType.DynamicRange)]
+    [InlineData(AacFillExtensionType.SacData)]
+    public void TryParse_Rejects_All_Non_Sbr_Types(AacFillExtensionType type)
+    {
+        // Only SbrData and SbrDataCrc are accepted; every other enum value
+        // (including reserved gaps not in the enum) must yield false.
+        Assert.False(AacSbrExtensionData.TryParse(type, new byte[4], 16, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Reserved_Extension_Type_Numbers()
+    {
+        // Values like 0x3..0xA aren't named in the enum but are still
+        // legal byte values - the parser must reject them all.
+        Assert.False(AacSbrExtensionData.TryParse((AacFillExtensionType)0x3, new byte[4], 16, out var data));
+        Assert.Null(data);
+        Assert.False(AacSbrExtensionData.TryParse((AacFillExtensionType)0xA, new byte[4], 16, out data));
+        Assert.Null(data);
+        Assert.False(AacSbrExtensionData.TryParse((AacFillExtensionType)0xF, new byte[4], 16, out data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_SbrData_HasCrc_Is_False()
+    {
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, new byte[2], 16, out var data));
+        Assert.False(data!.HasCrc);
+        Assert.Equal(AacFillExtensionType.SbrData, data.ExtensionType);
+    }
+
+    [Fact]
+    public void TryParse_SbrDataCrc_HasCrc_Is_True()
+    {
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrDataCrc, new byte[2], 10, out var data));
+        Assert.True(data!.HasCrc);
+        Assert.Equal(AacFillExtensionType.SbrDataCrc, data.ExtensionType);
+    }
+
+    [Fact]
+    public void TryParse_SbrData_Partial_Byte_Single_Bit()
+    {
+        // bodyBitLength = 1 -> ceil(1/8) = 1 byte, all but MSB are padding.
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, new byte[] { 0b1000_0000 }, 1, out var data));
+        Assert.Equal(1, data!.PayloadBitLength);
+        Assert.Single(data.Payload.ToArray());
+        Assert.Equal((byte)0b1000_0000, data.Payload.Span[0]);
+    }
+
+    [Fact]
+    public void TryParse_SbrData_Zero_Length_Body_Span()
+    {
+        // Empty span + bodyBitLength=0 succeeds (valid empty SbrData).
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, ReadOnlySpan<byte>.Empty, 0, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(0, data!.PayloadBitLength);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    [InlineData(int.MinValue)]
+    public void TryParse_Rejects_Any_Negative_BitLength(int badBitLength)
+    {
+        Assert.False(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, new byte[8], badBitLength, out var data));
+        Assert.Null(data);
+        Assert.False(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrDataCrc, new byte[8], badBitLength, out data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_TwoCalls_Produce_Distinct_Payload_Buffers()
+    {
+        // Each successful TryParse should allocate a fresh payload array so
+        // that mutation in one result doesn't bleed into another.
+        byte[] body = [0x11, 0x22, 0x33];
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, body, 24, out var a));
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, body, 24, out var b));
+        Assert.NotSame(a, b);
+        Assert.False(a!.Payload.Equals(b!.Payload));
+    }
+
+    [Fact]
+    public void Record_Equality_Compares_All_Fields()
+    {
+        byte[] payload = [0x10, 0x20];
+        var a = new AacSbrExtensionData
+        {
+            ExtensionType = AacFillExtensionType.SbrData,
+            SbrCrc = 0,
+            Payload = payload,
+            PayloadBitLength = 16,
+        };
+        var b = new AacSbrExtensionData
+        {
+            ExtensionType = AacFillExtensionType.SbrData,
+            SbrCrc = 0,
+            Payload = payload,
+            PayloadBitLength = 16,
+        };
+        var c = a with { PayloadBitLength = 8 };
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void TryParse_BodyBitLength_Exactly_Matches_Body_Bytes()
+    {
+        // bodyBitLength = body.Length * 8 should succeed (boundary).
+        byte[] body = [0xFF, 0x00, 0xAA, 0x55];
+        Assert.True(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, body, body.Length * 8, out var data));
+        Assert.Equal(32, data!.PayloadBitLength);
+        Assert.Equal(body, data.Payload.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_BodyBitLength_One_Above_Available_Returns_False()
+    {
+        byte[] body = [0x00, 0x00];
+        Assert.False(AacSbrExtensionData.TryParse(
+            AacFillExtensionType.SbrData, body, body.Length * 8 + 1, out var data));
+        Assert.Null(data);
+    }
 }
