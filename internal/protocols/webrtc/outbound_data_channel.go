@@ -4,14 +4,14 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// OutgoingDataChannel is an outgoing data channel.
-type OutgoingDataChannel struct {
+// OutboundDataChannel is an outgoing data channel.
+type OutboundDataChannel struct {
 	Label string
 
 	dataChan *webrtc.DataChannel
 }
 
-func (c *OutgoingDataChannel) setup(p *PeerConnection) error {
+func (c *OutboundDataChannel) setup(p *PeerConnection) error {
 	var err error
 	c.dataChan, err = p.wr.CreateDataChannel(c.Label, &webrtc.DataChannelInit{
 		Ordered: new(false),
@@ -24,6 +24,6 @@ func (c *OutgoingDataChannel) setup(p *PeerConnection) error {
 }
 
 // Write writes data to the channel.
-func (c *OutgoingDataChannel) Write(data []byte) {
+func (c *OutboundDataChannel) Write(data []byte) {
 	c.dataChan.Send(data) //nolint:errcheck
 }

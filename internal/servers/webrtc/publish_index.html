@@ -159,7 +159,6 @@
       const controls = document.getElementById("controls");
       const message = document.getElementById("message");
       const publishButton = document.getElementById("publish-button");
-      let publisher = null;
 
       const videoForm = {
         device: document.getElementById("video-device"),
@@ -176,6 +175,8 @@
         bitrate: document.getElementById("audio-bitrate"),
         voice: document.getElementById("audio-voice"),
       };
+
+      let publisher = null;
 
       const setMessage = (str) => {
         message.innerText = str;
@@ -209,6 +210,8 @@
         const videoId = videoForm.device.value;
         const audioId = audioForm.device.value;
 
+        let mediaPromise;
+
         if (videoId !== "screen") {
           let videoOpts = false;
 
@@ -236,31 +239,27 @@
             }
           }
 
-          navigator.mediaDevices
-            .getUserMedia({
-              video: videoOpts,
-              audio: audioOpts,
-            })
-            .then((stream) => onStream(stream))
-            .catch((err) => {
-              setMessage(err.toString());
-            });
+          mediaPromise = navigator.mediaDevices.getUserMedia({
+            video: videoOpts,
+            audio: audioOpts,
+          });
         } else {
-          navigator.mediaDevices
-            .getDisplayMedia({
-              video: {
-                width: { ideal: videoForm.width.value },
-                height: { ideal: videoForm.height.value },
-                frameRate: { ideal: videoForm.framerate.value },
-                cursor: "always",
-              },
-              audio: true,
-            })
-            .then((stream) => onStream(stream))
-            .catch((err) => {
-              setMessage(err.toString());
-            });
+          mediaPromise = navigator.mediaDevices.getDisplayMedia({
+            video: {
+              width: { ideal: videoForm.width.value },
+              height: { ideal: videoForm.height.value },
+              frameRate: { ideal: videoForm.framerate.value },
+              cursor: "always",
+            },
+            audio: true,
+          });
         }
+
+        mediaPromise
+          .then((stream) => onStream(stream))
+          .catch((err) => {
+            setMessage(err.toString());
+          });
       };
 
       const selectHasOption = (select, option) => {
@@ -350,29 +349,18 @@
         });
       };
 
-      const populateOptions = () => {
+      const loadDevices = () => {
         setMessage("loading devices");
 
-        navigator.mediaDevices
+        return navigator.mediaDevices
           .getUserMedia({ video: true, audio: true })
           .then((tempStream) => {
             return Promise.all([populateDevices(), populateCodecs()]).then(
               () => {
                 // free the webcam to prevent 'NotReadableError' on Android
                 tempStream.getTracks().forEach((track) => track.stop());
-
-                setMessage("");
-
-                loadValuesFromQuery();
-                setupEventListeners();
-
-                video.style.display = "none";
-                controls.style.display = "flex";
               },
             );
-          })
-          .catch((err) => {
-            setMessage(err.toString());
           });
       };
 
@@ -439,8 +427,18 @@
           return;
         }
 
-        publishButton.addEventListener("click", onPublish);
-        populateOptions();
+        loadDevices()
+          .then(() => {
+            loadValuesFromQuery();
+            setupEventListeners();
+            video.style.display = "none";
+            controls.style.display = "flex";
+            publishButton.addEventListener("click", onPublish);
+            setMessage("");
+          })
+          .catch((err) => {
+            setMessage(err.toString());
+          });
       });
 
       window.addEventListener("beforeunload", () => {

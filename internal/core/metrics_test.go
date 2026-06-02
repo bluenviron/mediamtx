@@ -370,7 +370,7 @@ webrtc_sessions_rtcp_packets_sent 0
 			defer tr2.CloseIdleConnections()
 			hc2 := &http.Client{Transport: tr2}
 
-			track := &webrtc.OutgoingTrack{
+			track := &webrtc.OutboundTrack{
 				Caps: pwebrtc.RTPCodecCapability{
 					MimeType:    pwebrtc.MimeTypeH264,
 					ClockRate:   90000,
@@ -383,7 +383,7 @@ webrtc_sessions_rtcp_packets_sent 0
 				URL:            su,
 				Log:            test.NilLogger,
 				Publish:        true,
-				OutgoingTracks: []*webrtc.OutgoingTrack{track},
+				OutboundTracks: []*webrtc.OutboundTrack{track},
 			}
 
 			err2 = s.Initialize(context.Background())

@@ -40,7 +40,7 @@ func ToStream(
 	timeDecoder := &rtptime.GlobalDecoder{}
 	timeDecoder.Initialize()
 
-	for _, track := range pc.incomingTracks {
+	for _, track := range pc.inboundTracks {
 		var typ description.MediaType
 		var forma format.Format
 

@@ -18,7 +18,7 @@ const (
 	mimeTypeL16       = "audio/L16"
 )
 
-func incomingTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
+func inboundTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
 	for _, ext := range params.HeaderExtensions {
 		if ext.URI == twccExtensionURI {
 			return uint8(ext.ID)
@@ -243,8 +243,8 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 }
 
-// IncomingTrack is an incoming track.
-type IncomingTrack struct {
+// InboundTrack is an incoming track.
+type InboundTrack struct {
 	OnPacketRTP func(*rtp.Packet)
 
 	track     *webrtc.TrackRemote
@@ -258,12 +258,12 @@ type IncomingTrack struct {
 	rtpReceiver           *rtpreceiver.Receiver
 }
 
-func (t *IncomingTrack) initialize() {
+func (t *InboundTrack) initialize() {
 	t.OnPacketRTP = func(*rtp.Packet) {}
-	t.twccExtID = incomingTrackTWCCExtensionID(t.receiver.GetParameters())
+	t.twccExtID = inboundTrackTWCCExtensionID(t.receiver.GetParameters())
 }
 
-func (t *IncomingTrack) stripTWCCExtension(pkt *rtp.Packet) {
+func (t *InboundTrack) stripTWCCExtension(pkt *rtp.Packet) {
 	if t.twccExtID == 0 || pkt.GetExtension(t.twccExtID) == nil {
 		return
 	}
@@ -280,21 +280,21 @@ func (t *IncomingTrack) stripTWCCExtension(pkt *rtp.Packet) {
 }
 
 // Codec returns the track codec.
-func (t *IncomingTrack) Codec() webrtc.RTPCodecParameters {
+func (t *InboundTrack) Codec() webrtc.RTPCodecParameters {
 	return t.track.Codec()
 }
 
 // ClockRate returns the clock rate. Needed by rtptime.GlobalDecoder
-func (t *IncomingTrack) ClockRate() int {
+func (t *InboundTrack) ClockRate() int {
 	return int(t.track.Codec().ClockRate)
 }
 
 // PTSEqualsDTS returns whether PTS equals DTS. Needed by rtptime.GlobalDecoder
-func (*IncomingTrack) PTSEqualsDTS(*rtp.Packet) bool {
+func (*InboundTrack) PTSEqualsDTS(*rtp.Packet) bool {
 	return true
 }
 
-func (t *IncomingTrack) start() {
+func (t *InboundTrack) start() {
 	t.inboundRTPPacketsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			t.log.Log(logger.Warn, "%d RTP %s lost",
@@ -393,11 +393,11 @@ func (t *IncomingTrack) start() {
 }
 
 // PacketNTP returns the packet NTP.
-func (t *IncomingTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
+func (t *InboundTrack) PacketNTP(pkt *rtp.Packet) (time.Time, bool) {
 	return t.rtpReceiver.PacketNTP(pkt.Timestamp)
 }
 
-func (t *IncomingTrack) close() {
+func (t *InboundTrack) close() {
 	if t.inboundRTPPacketsLost != nil {
 		t.inboundRTPPacketsLost.Stop()
 	}

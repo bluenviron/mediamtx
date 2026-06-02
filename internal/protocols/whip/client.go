@@ -77,7 +77,7 @@ func offerAndCandidateToSDPFragment(
 type Client struct {
 	URL                *url.URL
 	Publish            bool
-	OutgoingTracks     []*webrtc.OutgoingTrack
+	OutboundTracks     []*webrtc.OutboundTrack
 	HTTPClient         *http.Client
 	BearerToken        string
 	UDPReadBufferSize  uint
@@ -114,7 +114,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 		IPsFromInterfaces: true,
 		Publish:           c.Publish,
 		STUNGatherTimeout: c.STUNGatherTimeout,
-		OutgoingTracks:    c.OutgoingTracks,
+		OutboundTracks:    c.OutboundTracks,
 		Log:               c.Log,
 	}
 	err = c.pc.Start()
@@ -199,7 +199,7 @@ func (c *Client) initializeInner(ctx context.Context) error {
 	}
 
 	if !c.Publish {
-		err = c.pc.GatherIncomingTracks(c.TrackGatherTimeout)
+		err = c.pc.GatherInboundTracks(c.TrackGatherTimeout)
 		if err != nil {
 			c.deleteSession(context.Background()) //nolint:errcheck
 			return err
@@ -247,9 +247,9 @@ func (c *Client) PeerConnection() *webrtc.PeerConnection {
 	return c.pc
 }
 
-// IncomingTracks returns incoming tracks.
-func (c *Client) IncomingTracks() []*webrtc.IncomingTrack {
-	return c.pc.IncomingTracks()
+// InboundTracks returns incoming tracks.
+func (c *Client) InboundTracks() []*webrtc.InboundTrack {
+	return c.pc.InboundTracks()
 }
 
 // StartReading starts reading all incoming tracks.

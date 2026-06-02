@@ -422,7 +422,7 @@ func TestServerPublish(t *testing.T) {
 	su, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whip?param=value")
 	require.NoError(t, err)
 
-	track := &webrtc.OutgoingTrack{
+	track := &webrtc.OutboundTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
 			ClockRate:   90000,
@@ -434,7 +434,7 @@ func TestServerPublish(t *testing.T) {
 		HTTPClient:     hc,
 		URL:            su,
 		Publish:        true,
-		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		OutboundTracks: []*webrtc.OutboundTrack{track},
 		Log:            test.NilLogger,
 	}
 
@@ -737,7 +737,7 @@ func TestServerRead(t *testing.T) {
 
 			done := make(chan struct{})
 
-			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
+			wc.InboundTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
 				select {
 				case <-done:
 				default:
@@ -990,7 +990,7 @@ func TestServerICERestart(t *testing.T) {
 	su, err := url.Parse("http://localhost:8886/teststream/whip")
 	require.NoError(t, err)
 
-	track := &webrtc.OutgoingTrack{
+	track := &webrtc.OutboundTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
 			ClockRate:   90000,
@@ -1002,7 +1002,7 @@ func TestServerICERestart(t *testing.T) {
 		HTTPClient:     hc,
 		URL:            su,
 		Publish:        true,
-		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		OutboundTracks: []*webrtc.OutboundTrack{track},
 		Log:            test.NilLogger,
 	}
 

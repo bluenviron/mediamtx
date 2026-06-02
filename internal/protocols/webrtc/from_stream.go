@@ -64,12 +64,12 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
-) (*OutgoingTrack, error) {
+) (*OutboundTrack, error) {
 	var av1Format *format.AV1
 	media := desc.FindFormat(&av1Format)
 
 	if av1Format != nil { //nolint:dupl
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeAV1,
 				ClockRate: 90000,
@@ -114,7 +114,7 @@ func setupVideoTrack(
 	media = desc.FindFormat(&vp9Format)
 
 	if vp9Format != nil {
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeVP9,
 				ClockRate:   90000,
@@ -161,7 +161,7 @@ func setupVideoTrack(
 	media = desc.FindFormat(&vp8Format)
 
 	if vp8Format != nil { //nolint:dupl
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeVP8,
 				ClockRate: 90000,
@@ -206,7 +206,7 @@ func setupVideoTrack(
 	media = desc.FindFormat(&h265Format)
 
 	if h265Format != nil { //nolint:dupl
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeH265,
 				ClockRate:   90000,
@@ -262,7 +262,7 @@ func setupVideoTrack(
 	media = desc.FindFormat(&h264Format)
 
 	if h264Format != nil { //nolint:dupl
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeH264,
 				ClockRate:   90000,
@@ -320,7 +320,7 @@ func setupVideoTrack(
 func setupAudioTrack(
 	desc *description.Session,
 	r *stream.Reader,
-) (*OutgoingTrack, error) {
+) (*OutboundTrack, error) {
 	var opusFormat *format.Opus
 	media := desc.FindFormat(&opusFormat)
 
@@ -354,7 +354,7 @@ func setupAudioTrack(
 			return nil, fmt.Errorf("unsupported channel count: %d", opusFormat.ChannelCount)
 		}
 
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: caps,
 		}
 
@@ -395,7 +395,7 @@ func setupAudioTrack(
 	media = desc.FindFormat(&g722Format)
 
 	if g722Format != nil {
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeG722,
 				ClockRate: 8000,
@@ -470,7 +470,7 @@ func setupAudioTrack(
 			}
 		}
 
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: caps,
 		}
 
@@ -583,7 +583,7 @@ func setupAudioTrack(
 			return nil, fmt.Errorf("unsupported channel count: %d", lpcmFormat.ChannelCount)
 		}
 
-		track := &OutgoingTrack{
+		track := &OutboundTrack{
 			Caps: webrtc.RTPCodecCapability{
 				MimeType:  mimeTypeL16,
 				ClockRate: uint32(lpcmFormat.ClockRate()),
@@ -644,12 +644,12 @@ func setupAudioTrack(
 func setupKLVDataChannel(
 	desc *description.Session,
 	r *stream.Reader,
-) (*OutgoingDataChannel, error) {
+) (*OutboundDataChannel, error) {
 	var klvFormat *format.KLV
 	media := desc.FindFormat(&klvFormat)
 
 	if klvFormat != nil {
-		dataChan := &OutgoingDataChannel{
+		dataChan := &OutboundDataChannel{
 			Label: "KLV",
 		}
 
@@ -683,7 +683,7 @@ func FromStream(
 	}
 
 	if videoTrack != nil {
-		pc.OutgoingTracks = append(pc.OutgoingTracks, videoTrack)
+		pc.OutboundTracks = append(pc.OutboundTracks, videoTrack)
 	}
 
 	audioTrack, err := setupAudioTrack(desc, r)
@@ -692,7 +692,7 @@ func FromStream(
 	}
 
 	if audioTrack != nil {
-		pc.OutgoingTracks = append(pc.OutgoingTracks, audioTrack)
+		pc.OutboundTracks = append(pc.OutboundTracks, audioTrack)
 	}
 
 	klvDataChan, err := setupKLVDataChannel(desc, r)
@@ -701,10 +701,10 @@ func FromStream(
 	}
 
 	if klvDataChan != nil {
-		pc.OutgoingDataChannels = append(pc.OutgoingDataChannels, klvDataChan)
+		pc.OutboundDataChannels = append(pc.OutboundDataChannels, klvDataChan)
 	}
 
-	if len(pc.OutgoingTracks) == 0 && len(pc.OutgoingDataChannels) == 0 {
+	if len(pc.OutboundTracks) == 0 && len(pc.OutboundDataChannels) == 0 {
 		return errNoSupportedCodecsFrom
 	}
 

@@ -10,8 +10,8 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// OutgoingTrack is an outgoing track.
-type OutgoingTrack struct {
+// OutboundTrack is an outgoing track.
+type OutboundTrack struct {
 	Caps webrtc.RTPCodecCapability
 
 	track      *webrtc.TrackLocalStaticRTP
@@ -19,11 +19,11 @@ type OutgoingTrack struct {
 	rtcpSender *rtpsender.Sender
 }
 
-func (t *OutgoingTrack) isVideo() bool {
+func (t *OutboundTrack) isVideo() bool {
 	return strings.Split(t.Caps.MimeType, "/")[0] == "video"
 }
 
-func (t *OutgoingTrack) setup(p *PeerConnection) error {
+func (t *OutboundTrack) setup(p *PeerConnection) error {
 	var trackID string
 	if t.isVideo() {
 		trackID = "video"
@@ -77,19 +77,19 @@ func (t *OutgoingTrack) setup(p *PeerConnection) error {
 	return nil
 }
 
-func (t *OutgoingTrack) close() {
+func (t *OutboundTrack) close() {
 	if t.rtcpSender != nil {
 		t.rtcpSender.Close()
 	}
 }
 
 // WriteRTP writes a RTP packet.
-func (t *OutgoingTrack) WriteRTP(pkt *rtp.Packet) error {
+func (t *OutboundTrack) WriteRTP(pkt *rtp.Packet) error {
 	return t.WriteRTPWithNTP(pkt, time.Now())
 }
 
 // WriteRTPWithNTP writes a RTP packet.
-func (t *OutgoingTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
+func (t *OutboundTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
 	// use right SSRC in packet to make rtcpSender work
 	pkt.SSRC = t.ssrc
 
