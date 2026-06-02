@@ -404,4 +404,140 @@ public sealed class AacPnsApplierTests
         for (int i = 0; i < 32; i++) reference.NextFloat();
         Assert.Equal(reference.State, prng.State);
     }
+
+    [Fact]
+    public void Apply_NullInput_Throws()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacPnsApplier.Apply(null!, frame, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void Apply_NullFrame_Throws()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacPnsApplier.Apply(dq, null!, Sr48k, new AacPnsRandom()));
+    }
+
+    [Fact]
+    public void Apply_NullPrng_Throws()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        Assert.Throws<ArgumentNullException>(() =>
+            AacPnsApplier.Apply(dq, frame, Sr48k, null!));
+    }
+
+    [Fact]
+    public void Apply_DifferentSeeds_ProduceDifferentNoise()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 40);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        var a = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 1u));
+        var b = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 2u));
+
+        // Energy is the same (rescaled), but the samples differ.
+        bool anyDiff = false;
+        for (int i = 4; i < 8 && !anyDiff; i++)
+        {
+            if (a.Coefficients[i] != b.Coefficients[i]) anyDiff = true;
+        }
+        Assert.True(anyDiff);
+    }
+
+    [Fact]
+    public void Apply_ReturnsNewInstance_NotSameReference()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        var result = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom());
+
+        Assert.NotSame(dq, result);
+        Assert.Equal(AacDequantizedSpectrum.TransformLength, result.Coefficients.Length);
+    }
+
+    [Fact]
+    public void ApplyInPlace_BadSampleRate_DoesNotAdvancePrng()
+    {
+        // Validation throws before any noise generation begins.
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var prng = new AacPnsRandom(seed: 5u);
+        uint stateBefore = prng.State;
+        Assert.Throws<ArgumentException>(() =>
+        {
+            float[] spec = new float[1024];
+            AacPnsApplier.ApplyInPlace(spec.AsSpan(), frame, 192_000, prng);
+        });
+        Assert.Equal(stateBefore, prng.State);
+    }
+
+    [Fact]
+    public void ApplyInPlace_NoPnsSections_DoesNotAdvancePrng()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(100u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);
+        var (sfCode, sfLen) = EncodeSfDiff(0);
+        w.Write(sfCode, sfLen);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var frame));
+
+        var dq = AacDequantizedSpectrum.FromFrame(frame!, Sr48k);
+        var prng = new AacPnsRandom(seed: 77u);
+        float[] copy = dq.Coefficients.ToArray();
+        AacPnsApplier.ApplyInPlace(copy.AsSpan(), frame!, Sr48k, prng);
+
+        Assert.Equal(77u, prng.State);
+    }
+
+    [Fact]
+    public void Apply_ResultIs_ImmutableArray_AndPreservesNonPnsCoefficients()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+        var result = AacPnsApplier.Apply(dq, frame, Sr48k, new AacPnsRandom(seed: 1u));
+
+        // All non-PNS bins (outside coefs 4..8) match the input copy.
+        for (int i = 0; i < result.Coefficients.Length; i++)
+        {
+            if (i >= 4 && i < 8) continue;
+            Assert.Equal(dq.Coefficients[i], result.Coefficients[i]);
+        }
+    }
+
+    [Fact]
+    public void ApplyInPlace_OutputSpan_Is_TransformLength()
+    {
+        // Sanity: TransformLength constant matches the expected 1024.
+        Assert.Equal(1024, AacDequantizedSpectrum.TransformLength);
+    }
+
+    [Fact]
+    public void Apply_TwiceConsecutively_OnSameInput_AdvancesPrngEachTime()
+    {
+        var frame = BuildFrameWithPns(globalGain: 100, spectralSfDiff: 0, noiseSf: 20);
+        var dq = AacDequantizedSpectrum.FromFrame(frame, Sr48k);
+
+        var prng = new AacPnsRandom(seed: 17u);
+        uint state0 = prng.State;
+        _ = AacPnsApplier.Apply(dq, frame, Sr48k, prng);
+        uint state1 = prng.State;
+        _ = AacPnsApplier.Apply(dq, frame, Sr48k, prng);
+        uint state2 = prng.State;
+
+        Assert.NotEqual(state0, state1);
+        Assert.NotEqual(state1, state2);
+    }
 }

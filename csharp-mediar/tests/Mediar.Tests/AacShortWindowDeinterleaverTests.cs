@@ -398,4 +398,239 @@ public sealed class AacShortWindowDeinterleaverTests
 
         for (int i = 0; i < T; i++) Assert.Equal(-1f, windowMajor[i]);
     }
+
+    [Fact]
+    public void Constants_Have_Expected_Values()
+    {
+        Assert.Equal(8, AacShortWindowDeinterleaver.WindowCount);
+        Assert.Equal(128, AacShortWindowDeinterleaver.WindowLength);
+        Assert.Equal(1024, AacShortWindowDeinterleaver.TotalLength);
+    }
+
+    [Fact]
+    public void ToGroupMajor_NullIcs_Throws()
+    {
+        var grouped = new float[T];
+        var windowMajor = new float[T];
+        Assert.Throws<ArgumentNullException>(() =>
+            AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, null!, new int[] { 0, 4 }, grouped));
+    }
+
+    [Fact]
+    public void ToGroupMajor_WrongWindowSequence_Throws()
+    {
+        var ics = MakeIcsLong(maxSfb: 1);
+        var grouped = new float[T];
+        var windowMajor = new float[T];
+        Assert.Throws<ArgumentException>(() =>
+            AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, new int[] { 0, 4 }, grouped));
+    }
+
+    [Fact]
+    public void ToGroupMajor_WrongGroupedLength_Throws()
+    {
+        var ics = MakeIcsShort(maxSfb: 1, 1, 1, 1, 1, 1, 1, 1, 1);
+        var grouped = new float[T - 1];
+        var windowMajor = new float[T];
+        Assert.Throws<ArgumentException>(() =>
+            AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, new int[] { 0, 4 }, grouped));
+    }
+
+    [Fact]
+    public void ToGroupMajor_WrongWindowMajorLength_Throws()
+    {
+        var ics = MakeIcsShort(maxSfb: 1, 1, 1, 1, 1, 1, 1, 1, 1);
+        var grouped = new float[T];
+        var windowMajor = new float[T + 1];
+        Assert.Throws<ArgumentException>(() =>
+            AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, new int[] { 0, 4 }, grouped));
+    }
+
+    [Fact]
+    public void ToGroupMajor_SwbOffsetsTooShort_Throws()
+    {
+        var ics = MakeIcsShort(maxSfb: 3, 1, 1, 1, 1, 1, 1, 1, 1);
+        var grouped = new float[T];
+        var windowMajor = new float[T];
+        Assert.Throws<ArgumentException>(() =>
+            AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, new int[] { 0, 4, 8 }, grouped));
+    }
+
+    [Fact]
+    public void Validate_WindowsPerGroup_Shorter_Than_WindowGroupCount_Throws()
+    {
+        // WindowGroupCount=3 but only 2 entries in WindowsPerGroup.
+        var ics = new AacIcsInfo
+        {
+            WindowSequence = AacWindowSequence.EightShort,
+            WindowShape = AacWindowShape.Sine,
+            MaxSfb = 1,
+            WindowGroupCount = 3,
+            WindowsPerGroup = new byte[] { 4, 4 }.AsMemory(),
+        };
+        var grouped = new float[T];
+        var windowMajor = new float[T];
+        Assert.Throws<ArgumentException>(() =>
+            AacShortWindowDeinterleaver.ToWindowMajor(grouped, ics, new int[] { 0, 4 }, windowMajor));
+    }
+
+    [Fact]
+    public void Validate_SwbOffsetAtMaxSfbEqualsWindowLength_Accepted()
+    {
+        // Boundary: shortSwbOffsets[MaxSfb] == WindowLength is allowed (>=, not >).
+        var ics = MakeIcsShort(maxSfb: 1, 1, 1, 1, 1, 1, 1, 1, 1);
+        var grouped = new float[T];
+        var windowMajor = new float[T];
+        AacShortWindowDeinterleaver.ToWindowMajor(grouped, ics, new int[] { 0, W }, windowMajor);
+        // No exception means boundary accepted.
+    }
+
+    [Fact]
+    public void ToWindowMajor_ZeroWidthBand_Skipped_NoCopy()
+    {
+        // Two SFBs both at offset 0 - second band width 0; should be skipped.
+        var ics = MakeIcsShort(maxSfb: 2, 1, 1, 1, 1, 1, 1, 1, 1);
+        int[] offsets = new int[] { 0, 0, 4 };
+
+        var grouped = new float[T];
+        for (int w = 0; w < 8; w++)
+        {
+            int gbase = w * W;
+            for (int b = 0; b < 4; b++) grouped[gbase + b] = w * 10 + b;
+        }
+
+        var windowMajor = new float[T];
+        for (int i = 0; i < T; i++) windowMajor[i] = -1f;
+
+        AacShortWindowDeinterleaver.ToWindowMajor(grouped, ics, offsets, windowMajor);
+
+        // Only bins [0..4) should be written per window.
+        for (int w = 0; w < 8; w++)
+        {
+            int wbase = w * W;
+            for (int b = 0; b < 4; b++) Assert.Equal(w * 10 + b, windowMajor[wbase + b]);
+            for (int b = 4; b < W; b++) Assert.Equal(-1f, windowMajor[wbase + b]);
+        }
+    }
+
+    [Fact]
+    public void ToWindowMajor_FourGroupsOfTwo_DeinterleavesCorrectly()
+    {
+        var ics = MakeIcsShort(maxSfb: 2, 2, 2, 2, 2);
+        int[] offsets = BuildUniformOffsets(bandsCount: 2, bandWidth: 8);   // 0,8,16
+
+        var grouped = new float[T];
+        // Encode: groupedValue(group, wInGroup, sfb, b) = group*1000 + wInGroup*100 + sfb*10 + b
+        for (int g = 0; g < 4; g++)
+        {
+            int groupBase = g * 2 * W;
+            for (int sfb = 0; sfb < 2; sfb++)
+            {
+                int sfbBase = groupBase + offsets[sfb] * 2;
+                for (int wInGroup = 0; wInGroup < 2; wInGroup++)
+                {
+                    int wBase = sfbBase + wInGroup * 8;
+                    for (int b = 0; b < 8; b++) grouped[wBase + b] = g * 1000 + wInGroup * 100 + sfb * 10 + b;
+                }
+            }
+        }
+
+        var windowMajor = new float[T];
+        AacShortWindowDeinterleaver.ToWindowMajor(grouped, ics, offsets, windowMajor);
+
+        // Verify per-window de-interleaved layout.
+        for (int g = 0; g < 4; g++)
+        {
+            for (int wInGroup = 0; wInGroup < 2; wInGroup++)
+            {
+                int absoluteWindow = g * 2 + wInGroup;
+                for (int sfb = 0; sfb < 2; sfb++)
+                {
+                    for (int b = 0; b < 8; b++)
+                    {
+                        int idx = absoluteWindow * W + offsets[sfb] + b;
+                        Assert.Equal(g * 1000 + wInGroup * 100 + sfb * 10 + b, windowMajor[idx]);
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void ToGroupMajor_DoesNotReadOutsideMaxSfbRange()
+    {
+        // Verify only bins in [0..bandsRange) drive the output - bins above
+        // are untouched by both directions.
+        var ics = MakeIcsShort(maxSfb: 1, 1, 1, 1, 1, 1, 1, 1, 1);
+        int[] offsets = new int[] { 0, 8 };
+
+        var windowMajor = new float[T];
+        // Fill out-of-range bins with sentinel values that must not leak.
+        for (int w = 0; w < 8; w++)
+        {
+            int wbase = w * W;
+            for (int b = 0; b < 8; b++) windowMajor[wbase + b] = w * 10 + b;
+            for (int b = 8; b < W; b++) windowMajor[wbase + b] = -999f;
+        }
+
+        var grouped = new float[T];
+        for (int i = 0; i < T; i++) grouped[i] = -1f;
+
+        AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, offsets, grouped);
+
+        for (int w = 0; w < 8; w++)
+        {
+            int gbase = w * W;
+            for (int b = 0; b < 8; b++) Assert.Equal(w * 10 + b, grouped[gbase + b]);
+            // Bins outside the band range must remain at the sentinel.
+            for (int b = 8; b < W; b++) Assert.Equal(-1f, grouped[gbase + b]);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_TwoGroups_Asymmetric_OneAndSeven()
+    {
+        // Groups of sizes (1, 7) - tests the boundary where a group has
+        // exactly one window.
+        var ics = MakeIcsShort(maxSfb: 2, 1, 7);
+        int[] offsets = BuildUniformOffsets(bandsCount: 2, bandWidth: 8);
+
+        var grouped = new float[T];
+        var rnd = new Random(7);
+        int groupBase = 0;
+        foreach (byte windowsInGroup in new byte[] { 1, 7 })
+        {
+            for (int sfb = 0; sfb < 2; sfb++)
+            {
+                int sfbBase = groupBase + offsets[sfb] * windowsInGroup;
+                for (int wInGroup = 0; wInGroup < windowsInGroup; wInGroup++)
+                {
+                    int wBase = sfbBase + wInGroup * 8;
+                    for (int b = 0; b < 8; b++) grouped[wBase + b] = (float)rnd.NextDouble();
+                }
+            }
+            groupBase += windowsInGroup * W;
+        }
+
+        var windowMajor = new float[T];
+        AacShortWindowDeinterleaver.ToWindowMajor(grouped, ics, offsets, windowMajor);
+
+        var roundTrip = new float[T];
+        AacShortWindowDeinterleaver.ToGroupMajor(windowMajor, ics, offsets, roundTrip);
+
+        groupBase = 0;
+        foreach (byte windowsInGroup in new byte[] { 1, 7 })
+        {
+            for (int sfb = 0; sfb < 2; sfb++)
+            {
+                int sfbBase = groupBase + offsets[sfb] * windowsInGroup;
+                for (int wInGroup = 0; wInGroup < windowsInGroup; wInGroup++)
+                {
+                    int wBase = sfbBase + wInGroup * 8;
+                    for (int b = 0; b < 8; b++) Assert.Equal(grouped[wBase + b], roundTrip[wBase + b]);
+                }
+            }
+            groupBase += windowsInGroup * W;
+        }
+    }
 }
