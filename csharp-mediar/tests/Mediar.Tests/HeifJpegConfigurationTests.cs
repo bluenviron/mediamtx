@@ -96,6 +96,133 @@ public class HeifJpegConfigurationTests
         Assert.False(r.TryGetJpegConfiguration(1, out _));
     }
 
+    [Fact]
+    public void TryParse_Empty_Yields_Null_Out()
+    {
+        Assert.False(HeifJpegConfiguration.TryParse(ReadOnlySpan<byte>.Empty, out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x42)]
+    [InlineData(0xFF)]
+    public void TryParse_Single_Byte_Round_Trips(byte b)
+    {
+        Assert.True(HeifJpegConfiguration.TryParse(new[] { b }, out var cfg));
+        Assert.Single(cfg.JpegPrefix);
+        Assert.Equal(b, cfg.JpegPrefix[0]);
+    }
+
+    [Fact]
+    public void TryParse_Long_Prefix_Round_Trips()
+    {
+        var data = new byte[1024];
+        for (int i = 0; i < data.Length; i++) data[i] = (byte)((i * 7) & 0xFF);
+        Assert.True(HeifJpegConfiguration.TryParse(data, out var cfg));
+        Assert.Equal(data.Length, cfg.JpegPrefix.Length);
+        for (int i = 0; i < data.Length; i++)
+        {
+            Assert.Equal(data[i], cfg.JpegPrefix[i]);
+        }
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_Length_Equals_Sum_Of_Inputs()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8, 0xAA]),
+        };
+        byte[] payload = new byte[37];
+        var bits = cfg.BuildJpegBitstream(payload);
+        Assert.Equal(cfg.JpegPrefix.Length + payload.Length, bits.Length);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_With_Empty_Prefix_Returns_Payload_Copy()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+        };
+        byte[] payload = [0xFF, 0xDA, 0x42, 0xFF, 0xD9];
+        var bits = cfg.BuildJpegBitstream(payload);
+        Assert.Equal(payload.Length, bits.Length);
+        for (int i = 0; i < payload.Length; i++) Assert.Equal(payload[i], bits[i]);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_With_Empty_Prefix_And_Empty_Payload_Yields_Empty()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+        };
+        var bits = cfg.BuildJpegBitstream(ReadOnlySpan<byte>.Empty);
+        Assert.Empty(bits);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_Returns_Fresh_Array_Each_Call()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8]),
+        };
+        byte[] payload = [0xAA, 0xBB];
+        var a = cfg.BuildJpegBitstream(payload);
+        var b = cfg.BuildJpegBitstream(payload);
+        Assert.NotSame(a, b);
+        Assert.Equal(a.Length, b.Length);
+        for (int i = 0; i < a.Length; i++) Assert.Equal(a[i], b[i]);
+    }
+
+    [Fact]
+    public void BuildJpegBitstream_Mutation_Does_Not_Affect_Prefix()
+    {
+        var cfg = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8, 0x11, 0x22]),
+        };
+        byte[] payload = [0x33, 0x44];
+        var bits = cfg.BuildJpegBitstream(payload);
+        bits[0] = 0; bits[^1] = 0;
+        // Prefix is immutable so a fresh build must still produce 0xFF.
+        var bits2 = cfg.BuildJpegBitstream(payload);
+        Assert.Equal((byte)0xFF, bits2[0]);
+        Assert.Equal((byte)0x44, bits2[^1]);
+    }
+
+    [Fact]
+    public void Records_With_Equal_Prefix_Compare_Equal()
+    {
+        // ImmutableArray<byte> equality is by reference; explicitly
+        // confirm that record .Equals follows that ImmutableArray
+        // semantics (two arrays built from the same bytes share the
+        // underlying buffer only when constructed via Create).
+        var prefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8]);
+        var a = new HeifJpegConfiguration { JpegPrefix = prefix };
+        var b = new HeifJpegConfiguration { JpegPrefix = prefix };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_With_Expression_Replaces_Prefix()
+    {
+        var a = new HeifJpegConfiguration
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0xFF, 0xD8]),
+        };
+        var b = a with
+        {
+            JpegPrefix = System.Collections.Immutable.ImmutableArray.Create<byte>([0x11, 0x22, 0x33]),
+        };
+        Assert.NotEqual(a, b);
+        Assert.Equal(3, b.JpegPrefix.Length);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildIspePayload(uint width, uint height)
