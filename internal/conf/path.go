@@ -20,6 +20,9 @@ import (
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
+var reSourcePlaceholderPort = regexp.MustCompile(`:\$G[0-9]+`)
+var reSourcePlaceholderHost = regexp.MustCompile(`(//|@)\$G[0-9]+`)
+var reSourcePlaceholder = regexp.MustCompile(`\$G[0-9]+`)
 
 // IsValidPathName checks whether the path name is valid.
 func IsValidPathName(name string) error {
@@ -73,6 +76,28 @@ func checkRedirect(v string) error {
 	}
 
 	return nil
+}
+
+func sanitizeSourceForValidation(source string) string {
+	s := strings.ReplaceAll(source, "$MTX_QUERY", "x=1")
+	s = reSourcePlaceholderPort.ReplaceAllString(s, ":1935")
+	s = reSourcePlaceholderHost.ReplaceAllString(s, "${1}example.com")
+	s = reSourcePlaceholder.ReplaceAllString(s, "x")
+	return s
+}
+
+func validateSourceWithPlaceholders(source string) (*url.URL, error) {
+	s := sanitizeSourceForValidation(source)
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, fmt.Errorf("'%s' is not a valid URL", source)
+	}
+
+	if u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("'%s' is not a valid URL", source)
+	}
+
+	return u, nil
 }
 
 func checkMP4MagicBytes(f io.ReadSeeker) error {
@@ -443,8 +468,13 @@ func (pconf *Path) validate(
 		strings.HasPrefix(pconf.Source, "rtsps+http://") ||
 		strings.HasPrefix(pconf.Source, "rtsp+ws://") ||
 		strings.HasPrefix(pconf.Source, "rtsps+ws://"):
-		// Allow placeholders like $1, $G1, $MTX_QUERY in the source URL
-		if !strings.Contains(pconf.Source, "$") {
+		// Allow placeholders like $G1, $MTX_QUERY in the source URL and validate the resulting structure.
+		if strings.Contains(pconf.Source, "$") {
+			_, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+		} else {
 			_, err := url.Parse(pconf.Source)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -463,7 +493,24 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		if !hasSourcePlaceholders {
+		var (
+			u   *url.URL
+			err error
+		)
+		if hasSourcePlaceholders {
+			u, err = validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					return fmt.Errorf("username and password must be both provided")
+				}
+			}
+		} else {
 			u, err := url.Parse(pconf.Source)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -481,7 +528,24 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		if !hasSourcePlaceholders {
+		var (
+			u   *url.URL
+			err error
+		)
+		if hasSourcePlaceholders {
+			u, err = validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					return fmt.Errorf("username and password must be both provided")
+				}
+			}
+		} else {
 			u, err := url.Parse(pconf.Source)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -498,7 +562,17 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
-		if !hasSourcePlaceholders {
+		if hasSourcePlaceholders {
+			u, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+
+			_, _, err = net.SplitHostPort(u.Host)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			}
+		} else {
 			_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
@@ -506,7 +580,17 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
-		if !hasSourcePlaceholders {
+		if hasSourcePlaceholders {
+			u, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+
+			_, _, err = net.SplitHostPort(u.Host)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			}
+		} else {
 			_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
@@ -516,7 +600,17 @@ func (pconf *Path) validate(
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
 
 	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
-		if !hasSourcePlaceholders {
+		if hasSourcePlaceholders {
+			u, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+
+			_, _, err = net.SplitHostPort(u.Host)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
+			}
+		} else {
 			_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
@@ -534,7 +628,12 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		if !hasSourcePlaceholders {
+		if hasSourcePlaceholders {
+			_, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+		} else {
 			_, err := url.Parse(pconf.Source)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -543,7 +642,12 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		if !hasSourcePlaceholders {
+		if hasSourcePlaceholders {
+			_, err := validateSourceWithPlaceholders(pconf.Source)
+			if err != nil {
+				return err
+			}
+		} else {
 			_, err := url.Parse(pconf.Source)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)

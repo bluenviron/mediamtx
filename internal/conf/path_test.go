@@ -75,35 +75,35 @@ func TestPathValidateAllowsPlaceholdersForAllSourceProtocols(t *testing.T) {
 	}{
 		{
 			name:   "rtmp_with_placeholders",
-			source: "rtmp://$1:$2/live?token=$3",
+			source: "rtmp://$G1:$G2/live?token=$G3",
 		},
 		{
 			name:   "https_with_placeholders",
-			source: "https://$1/$2/index.m3u8",
+			source: "https://$G1/$G2/index.m3u8",
 		},
 		{
 			name:   "srt_with_placeholders",
-			source: "srt://$1:$2/$3",
+			source: "srt://$G1:$G2/$G3",
 		},
 		{
 			name:   "whep_with_placeholders",
-			source: "whep://$1:$2/$3",
+			source: "whep://$G1:$G2/$G3",
 		},
 		{
 			name:   "wheps_with_placeholders",
-			source: "wheps://$1:$2/$3",
+			source: "wheps://$G1:$G2/$G3",
 		},
 		{
 			name:   "udp_with_placeholders",
-			source: "udp://$1:$2",
+			source: "udp://$G1:$G2",
 		},
 		{
 			name:   "udp_mpegts_with_placeholders",
-			source: "udp+mpegts://$1:$2",
+			source: "udp+mpegts://$G1:$G2",
 		},
 		{
 			name:   "udp_rtp_with_placeholders",
-			source: "udp+rtp://$1:$2",
+			source: "udp+rtp://$G1:$G2",
 			rtpSDP: "v=0...",
 		},
 	}
@@ -118,6 +118,34 @@ func TestPathValidateAllowsPlaceholdersForAllSourceProtocols(t *testing.T) {
 			}
 			err := pconf.validate(&Conf{}, "test", false, testNilLogger)
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestPathValidateRejectsInvalidPlaceholderSources(t *testing.T) {
+	testCases := []struct {
+		name   string
+		source string
+	}{
+		{
+			name:   "rtmp_missing_authority",
+			source: "rtmp://$G1:$G2@",
+		},
+		{
+			name:   "udp_missing_port",
+			source: "udp://$G1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pconf := &Path{
+				Source:     tc.source,
+				Name:       "test",
+				RecordPath: "/tmp/%path/%s",
+			}
+			err := pconf.validate(&Conf{}, "test", false, testNilLogger)
+			require.Error(t, err)
 		})
 	}
 }

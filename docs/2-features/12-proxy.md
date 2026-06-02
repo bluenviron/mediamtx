@@ -22,7 +22,7 @@ The server supports dynamic proxy paths with regex capture groups for all suppor
 ```yml
 paths:
   "~^mycam/([^/]+)/([^/]+)/(.+)$":
-    source: rtsp://$1:$2/$3
+    source: rtsp://$G1:$G2/$G3
     sourceOnDemand: yes
 ```
 
@@ -31,7 +31,7 @@ In this example:
 - incoming request: `rtsp://proxy:8555/mycam/192.168.1.35/8554/stream1`
 - resolved source: `rtsp://192.168.1.35:8554/stream1`
 
-The placeholders `$1`, `$2`, etc. are replaced with the regex capture groups from the path.
+The placeholders `$G1`, `$G2`, etc. are replaced with the regex capture groups from the path.
 
 ### Other protocols
 
@@ -40,17 +40,17 @@ The same mechanism works for all other protocols:
 ```yml
 paths:
   "~^rtmp_(.+)$":
-    source: rtmp://backend.example.com:1935/$1
+    source: rtmp://backend.example.com:1935/$G1
     sourceOnDemand: yes
     
   "~^hls_(.+)_(.+)$":
-    source: http://$1/$2/index.m3u8
+    source: http://$G1/$G2/index.m3u8
     sourceOnDemand: yes
     
   "~^srt_([^_]+)_([^_]+)_(.+)$":
-    source: srt://$1:$2/$3
+    source: srt://$G1:$G2/$G3
     sourceOnDemand: yes
 ```
 
-Both `$G1` (group) and `$1` (numeric) formats are supported for specifying capture groups. You can also use `$MTX_QUERY` to include the query string from the incoming request in the proxied source.
+Use `$G1`, `$G2`, ... to reference regex capture groups. You can also use `$MTX_QUERY` to include the query string from the incoming request in the proxied source.
 

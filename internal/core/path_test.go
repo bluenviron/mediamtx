@@ -905,7 +905,6 @@ func TestPathResolveSource(t *testing.T) {
 
 	for name, source := range map[string]string{
 		"G1": "rtsp://127.0.0.1:8555/$G1?$MTX_QUERY",
-		"1":  "rtsp://127.0.0.1:8555/$1?$MTX_QUERY",
 	} {
 		t.Run(name, func(t *testing.T) {
 			p, ok := newInstance(t,
@@ -939,7 +938,7 @@ func TestPathResolveSource(t *testing.T) {
 		p, ok := newInstance(t,
 			"paths:\n"+
 				"  '~^mycam/([^/]+)/([^/]+)/(.+)$':\n"+
-				"    source: rtsp://$1:$2/$3\n"+
+				"    source: rtsp://$G1:$G2/$G3\n"+
 				"    sourceOnDemand: yes\n"+
 				"  'all':\n")
 		require.Equal(t, true, ok)

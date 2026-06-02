@@ -36,7 +36,6 @@ func resolveSource(s string, matches []string, query string) string {
 		for i := len(matches) - 1; i >= 1; i-- {
 			ma := matches[i]
 			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i), 10), ma)
-			s = strings.ReplaceAll(s, "$"+strconv.FormatInt(int64(i), 10), ma)
 		}
 	}
 
