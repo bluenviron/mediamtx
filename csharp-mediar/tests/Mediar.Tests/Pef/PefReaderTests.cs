@@ -280,4 +280,122 @@ public sealed class PefReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => PefReader.Open(ms));
+    }
+
+    [Fact]
+    public void Lowercase_Pentax_Make_Is_Rejected()
+    {
+        var spec = new TestPefBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "pentax",
+        };
+        byte[] bytes = TestPefBuilder.Build(spec);
+        Assert.Throws<ImageFormatException>(() =>
+            PefReader.Open(new MemoryStream(bytes, writable: false)));
+    }
+
+    [Fact]
+    public void MakerNote_Absent_Length_Is_Zero()
+    {
+        var spec = new TestPefBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "PENTAX",
+        };
+        byte[] bytes = TestPefBuilder.Build(spec);
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(0, pef.Raw.MakerNoteLength);
+    }
+
+    [Fact]
+    public void Software_Absent_Field_Is_Null()
+    {
+        var spec = new TestPefBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "PENTAX",
+        };
+        byte[] bytes = TestPefBuilder.Build(spec);
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(pef.Raw.Software);
+    }
+
+    [Fact]
+    public void Multiple_SubIfds_All_Surfaced_As_SubImages()
+    {
+        var sub1 = new TestPefBuilder.IfdSpec
+        {
+            Width = 8, Height = 6, BitsPerSample = 16, SamplesPerPixel = 1,
+            Compression = 1, Photometric = 32803, NewSubFileType = 0,
+            StripPayload = new byte[8 * 6 * 2],
+        };
+        var sub2 = new TestPefBuilder.IfdSpec
+        {
+            Width = 4, Height = 3, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[4 * 3 * 3],
+        };
+        var root = new TestPefBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[12],
+            Make = "PENTAX",
+            SubIfds = [sub1, sub2],
+        };
+        byte[] bytes = TestPefBuilder.Build(root);
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(3, pef.SubImages.Count);
+    }
+
+    [Fact]
+    public async Task Multi_Row_Rgb_Strip_Preserved_In_Output()
+    {
+        int w = 3, h = 3;
+        byte[] payload = new byte[w * h * 3];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)((i * 23) & 0xFF);
+        var spec = new TestPefBuilder.IfdSpec
+        {
+            Width = w, Height = h, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = payload,
+            Make = "PENTAX",
+        };
+        byte[] bytes = TestPefBuilder.Build(spec);
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        ImageFrame? captured = null;
+        await foreach (var f in pef.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured) { Assert.Equal(payload, captured!.Pixels.ToArray()); }
+    }
+
+    [Fact]
+    public void Reader_Disposes_OwnedStream_On_Dispose()
+    {
+        var spec = new TestPefBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "PENTAX",
+        };
+        byte[] bytes = TestPefBuilder.Build(spec);
+        var ms = new MemoryStream(bytes);
+        var pef = PefReader.Open(ms, ownsStream: true);
+        pef.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
 }

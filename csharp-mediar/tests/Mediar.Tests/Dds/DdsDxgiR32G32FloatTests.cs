@@ -100,4 +100,114 @@ public sealed class DdsDxgiR32G32FloatTests
         Assert.Equal(2, PixelFormat.Rg64Float.ChannelCount());
         Assert.False(PixelFormat.Rg64Float.HasAlpha());
     }
+
+    [Fact]
+    public async Task R32G32_FLOAT_Roundtrips_Zero_Pixel()
+    {
+        var payload = new byte[8];
+        var file = Concat(BuildDx10Dds(1, 1, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(0f, BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4)));
+        Assert.Equal(0f, BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(4, 4)));
+    }
+
+    [Fact]
+    public async Task R32G32_FLOAT_Roundtrips_PositiveInfinity_Channel()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), float.PositiveInfinity);
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(4, 4), 0f);
+        var file = Concat(BuildDx10Dds(1, 1, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.True(float.IsPositiveInfinity(
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4))));
+    }
+
+    [Fact]
+    public async Task R32G32_FLOAT_Roundtrips_NegativeInfinity_Channel()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), 0f);
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(4, 4), float.NegativeInfinity);
+        var file = Concat(BuildDx10Dds(1, 1, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.True(float.IsNegativeInfinity(
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(4, 4))));
+    }
+
+    [Fact]
+    public async Task R32G32_FLOAT_Roundtrips_NaN_Channel()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), float.NaN);
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(4, 4), 1.0f);
+        var file = Concat(BuildDx10Dds(1, 1, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.True(float.IsNaN(
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4))));
+        Assert.Equal(1.0f,
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(4, 4)));
+    }
+
+    [Fact]
+    public async Task R32G32_FLOAT_MultiRow_Stride_And_Pixels_Preserved()
+    {
+        const int w = 2, h = 3;
+        var payload = new byte[w * h * 8];
+        for (int i = 0; i < w * h; i++)
+        {
+            BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(i * 8, 4), i * 0.5f);
+            BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(i * 8 + 4, 4), i * -0.25f);
+        }
+        var file = Concat(BuildDx10Dds(w, h, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(w * 8, frame!.Stride);
+        Assert.Equal(h, frame!.Height);
+        for (int i = 0; i < w * h; i++)
+        {
+            Assert.Equal(i * 0.5f,
+                BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(i * 8, 4)));
+            Assert.Equal(i * -0.25f,
+                BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(i * 8 + 4, 4)));
+        }
+    }
+
+    [Fact]
+    public async Task R32G32_FLOAT_Roundtrips_Largest_And_Smallest_Finite()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), float.MaxValue);
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(4, 4), float.Epsilon);
+        var file = Concat(BuildDx10Dds(1, 1, 16), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(float.MaxValue,
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4)));
+        Assert.Equal(float.Epsilon,
+            BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(4, 4)));
+    }
+
+    [Fact]
+    public void R32G32_FLOAT_Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms));
+    }
 }
