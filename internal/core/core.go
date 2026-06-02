@@ -970,6 +970,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
 		closePathManager ||
 		closeLogger
 
@@ -989,6 +990,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
+		closeRTMPSServer ||
 		closeHLSServer ||
 		closeWebRTCServer ||
 		closeSRTServer ||
