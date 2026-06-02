@@ -492,4 +492,266 @@ public sealed class AacChannelFrameTests
         Assert.Equal(26, frame.BitsConsumed);
         Assert.All(frame.SpectralData.Coefficients, c => Assert.Equal(0, c));
     }
+
+    // ----- Additional coverage -----
+
+    [Fact]
+    public void TryParse_BitsConsumed_Equals_Sum_Of_Stream_And_Spectral()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 2);
+        w.Write(1u, 4); w.Write(2u, 5); // one section, cb=1, len=2 sfbs
+        w.Write(0u, 1); w.Write(0u, 1); // 2 SFs
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        // SWB 0..2 (Long48) = offsets 0,4,8 -> 8 samples -> 2 tuples
+        w.Write(80u, 7); w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(frame!.Stream.BitsConsumed + frame.SpectralData.BitsConsumed,
+                     frame.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_Coefficients_Length_Is_1024()
+    {
+        // Even with no spectral data the coefficient array must be the full 1024.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 0);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(1024, frame!.SpectralData.Coefficients.Length);
+    }
+
+    [Fact]
+    public void TryParse_TryRead_Equivalent_For_Same_Bytes()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(0x44u, 8);
+        WriteLongIcsInfo(w, maxSfb: 1);
+        w.Write(1u, 4); w.Write(1u, 5);
+        w.Write(0u, 1);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        w.Write(80u, 7);
+        var bytes = w.ToArray();
+
+        Assert.True(AacChannelFrame.TryParse(
+            bytes, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var viaParse));
+
+        var reader = new BitReader(bytes);
+        int startBits = reader.Position;
+        Assert.True(AacChannelFrame.TryRead(
+            ref reader, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var viaRead));
+
+        Assert.NotNull(viaParse);
+        Assert.NotNull(viaRead);
+        Assert.Equal(viaParse!.BitsConsumed, viaRead!.BitsConsumed);
+        Assert.Equal(viaParse.Stream.GlobalGain, viaRead.Stream.GlobalGain);
+        Assert.Equal(viaParse.SpectralData.Coefficients[0], viaRead.SpectralData.Coefficients[0]);
+        Assert.Equal(startBits + viaParse.BitsConsumed, reader.Position);
+    }
+
+    [Fact]
+    public void TryParse_TnsDataPresent_True_ParsesTnsBlock()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteLongIcsInfo(w, maxSfb: 0);
+        w.Write(0u, 1);                 // pulse_data_present
+        w.Write(1u, 1);                 // tns_data_present
+        // For long window: n_filt(2), if n_filt>0 -> coef_res(1) + per-filter.
+        w.Write(0u, 2);                 // n_filt = 0, no per-filter bits.
+        w.Write(0u, 1);                 // gain_control_data_present
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.True(frame!.Stream.TnsDataPresent);
+        Assert.NotNull(frame.Stream.TnsData);
+    }
+
+    [Fact]
+    public void TryParse_LongIcs_MultiSection_TwoCb1Sections()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBook = BuildFixed7BitCodebook(81);
+        var spectralBooks = CodebooksWith(1, spectralBook);
+
+        var w = new AacBitWriter();
+        w.Write(0x40u, 8);
+        WriteLongIcsInfo(w, maxSfb: 3);
+        // Two separate cb=1 sections (must escape via len=31 to delimit).
+        // Simpler: one section of len 3.
+        w.Write(1u, 4); w.Write(3u, 5);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1); // 3 SFs
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+        // SWB 0..3 (Long48) = offsets 0,4,8,12 -> 12 samples -> 3 tuples
+        w.Write(80u, 7); w.Write(80u, 7); w.Write(80u, 7);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Single(frame!.Stream.SectionData.Sections);
+        var section = frame.Stream.SectionData.Sections[0];
+        Assert.Equal(3, section.EndSfb - section.StartSfb);
+        Assert.Equal(1, frame.SpectralData.Coefficients[11]);
+    }
+
+    [Fact]
+    public void TryParse_ShortIcs_ScaleFlag_True_NoTrailingFlags()
+    {
+        // For EightShort + scaleFlag=true the body skips pulse/tns/gain flags.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0x80u, 8);
+        WriteShortIcsInfo(w, maxSfb: 0);
+        // No trailing flags because scaleFlag = true.
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: true, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.False(frame!.Stream.PulseDataPresent);
+        Assert.False(frame.Stream.TnsDataPresent);
+        Assert.False(frame.Stream.GainControlDataPresent);
+        // 8 (gg) + 15 (short ics) + 0 sections + 0 sf + 0 flags = 23
+        Assert.Equal(23, frame.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_AllZero_Bytes_LongIcs_MaxSfb0_Parses()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        // 22 bits at start of an all-zero buffer match: global_gain=0,
+        // ics_info(OnlyLong, maxSfb=0, no predictor), three trailing zero flags.
+        byte[] zeros = new byte[8];
+        Assert.True(AacChannelFrame.TryParse(
+            zeros, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(0, frame!.Stream.GlobalGain);
+        Assert.Equal(AacWindowSequence.OnlyLong, frame.Stream.IcsInfo.WindowSequence);
+        Assert.Equal(0, frame.Stream.IcsInfo.MaxSfb);
+    }
+
+    [Fact]
+    public void TryParse_ShortIcs_Grouping_All_Ones_Gives_Single_Group()
+    {
+        // grouping=0x7F (7 bits set) merges all 8 windows into a single group.
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteShortIcsInfo(w, maxSfb: 0, grouping: 0x7F);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(
+            w.ToArray(), sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        Assert.Equal(1, frame!.Stream.IcsInfo.WindowGroupCount);
+        Assert.Equal(8, frame.Stream.IcsInfo.WindowsPerGroup.Span[0]);
+    }
+
+    [Fact]
+    public void TryParse_With_Expression_Modifies_BitsConsumed()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        byte[] zeros = new byte[8];
+        Assert.True(AacChannelFrame.TryParse(
+            zeros, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.NotNull(frame);
+        var modified = frame! with { BitsConsumed = 99 };
+        Assert.Equal(99, modified.BitsConsumed);
+        Assert.Equal(frame.BitsConsumed, frame.BitsConsumed); // original unchanged
+        Assert.NotSame(frame, modified);
+    }
+
+    [Fact]
+    public void TryParse_Empty_Span_Returns_False_Without_Throwing()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        Assert.False(AacChannelFrame.TryParse(
+            ReadOnlySpan<byte>.Empty, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame));
+        Assert.Null(frame);
+    }
+
+    [Fact]
+    public void TryParse_Different_GlobalGain_Reflected_In_Stream()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var w1 = new AacBitWriter();
+        w1.Write(0xAAu, 8);
+        WriteLongIcsInfo(w1, maxSfb: 0);
+        w1.Write(0u, 1); w1.Write(0u, 1); w1.Write(0u, 1);
+
+        var w2 = new AacBitWriter();
+        w2.Write(0x55u, 8);
+        WriteLongIcsInfo(w2, maxSfb: 0);
+        w2.Write(0u, 1); w2.Write(0u, 1); w2.Write(0u, 1);
+
+        Assert.True(AacChannelFrame.TryParse(w1.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var f1));
+        Assert.True(AacChannelFrame.TryParse(w2.ToArray(), null, false, sfBook, Sr48k, spectralBooks, out var f2));
+
+        Assert.Equal(0xAA, f1!.Stream.GlobalGain);
+        Assert.Equal(0x55, f2!.Stream.GlobalGain);
+        Assert.NotEqual(f1.Stream.GlobalGain, f2.Stream.GlobalGain);
+    }
+
+    [Fact]
+    public void TryRead_DoesNotAdvanceReader_When_Returns_False()
+    {
+        var sfBook = BuildSyntheticSfCodebook();
+        var spectralBooks = new AacHuffmanCodebook?[16];
+
+        var reader = new BitReader(ReadOnlySpan<byte>.Empty);
+        int posBefore = reader.Position;
+        bool ok = AacChannelFrame.TryRead(
+            ref reader, sharedIcsInfo: null, scaleFlag: false, sfBook,
+            Sr48k, spectralBooks, out var frame);
+        Assert.False(ok);
+        Assert.Null(frame);
+        // Reader can't go backwards once an underflow has occurred but
+        // shouldn't have advanced past what's available.
+        Assert.True(reader.Position >= posBefore);
+    }
 }

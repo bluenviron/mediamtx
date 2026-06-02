@@ -289,6 +289,262 @@ public class AvcPictureParameterSetTests
         Assert.Equal(4, pps.PicInitQpMinus26);
     }
 
+    [Fact]
+    public void PpsNalUnitType_Constant_Is_Eight()
+    {
+        Assert.Equal(8, AvcPictureParameterSet.PpsNalUnitType);
+    }
+
+    [Theory]
+    [InlineData(1)]  // slice_layer_without_partitioning_rbsp
+    [InlineData(5)]  // IDR
+    [InlineData(6)]  // SEI
+    [InlineData(7)]  // SPS
+    [InlineData(9)]  // access_unit_delimiter
+    [InlineData(10)] // end_of_sequence
+    [InlineData(12)] // filler_data
+    public void TryParse_Rejects_Various_NonPps_Nal_Types(int nalType)
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicParameterSetId = 0,
+            NalUnitTypeOverride = (byte)nalType,
+        });
+        Assert.False(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Null(pps);
+    }
+
+    [Fact]
+    public void TryParse_Record_Equality_For_Identical_Bytes()
+    {
+        var spec = new PpsSpec
+        {
+            PicParameterSetId = 2,
+            SeqParameterSetId = 1,
+            EntropyCodingModeFlag = true,
+            PicInitQpMinus26 = -3,
+        };
+        var nalu = PpsBuilder.Build(spec);
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var a));
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var b));
+
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+    }
+
+    [Fact]
+    public void TryParse_With_Expression_Returns_Modified_Copy()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec { PicParameterSetId = 3 });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        var modified = pps! with { PicParameterSetId = 99 };
+
+        Assert.Equal(99u, modified.PicParameterSetId);
+        Assert.Equal(3u, pps.PicParameterSetId); // original unchanged
+        Assert.NotSame(pps, modified);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void TryParse_Decodes_All_WeightedBipredIdc_Values(byte idc)
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec { WeightedBipredIdc = idc });
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(idc, pps!.WeightedBipredIdc);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_ChromaFormatIdc3_With_Transform8x8_TwelveLists()
+    {
+        // chroma_format_idc == 3 (4:4:4) with transform_8x8_mode_flag set
+        // expands the scaling list count from 6+2=8 to 6+6=12. Verify the
+        // parser walks all 12 list_present_flag bits and still finds
+        // second_chroma_qp_index_offset where expected.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            IncludePostTail = true,
+            Transform8x8ModeFlag = true,
+            PicScalingMatrixPresentFlag = true,
+            BuilderChromaFormatIdc = 3,
+            SecondChromaQpIndexOffset = 8,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps, chromaFormatIdc: 3));
+        Assert.True(pps!.Transform8x8ModeFlag);
+        Assert.True(pps.PicScalingMatrixPresentFlag);
+        Assert.Equal(8, pps.SecondChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_ChromaFormatIdc3_Without_Transform8x8_SixLists()
+    {
+        // chroma_format_idc == 3 but transform_8x8_mode_flag = 0:
+        // still only 6 lists (the per-format extras gate on t8x8).
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            IncludePostTail = true,
+            Transform8x8ModeFlag = false,
+            PicScalingMatrixPresentFlag = true,
+            BuilderChromaFormatIdc = 3,
+            SecondChromaQpIndexOffset = -4,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps, chromaFormatIdc: 3));
+        Assert.False(pps!.Transform8x8ModeFlag);
+        Assert.True(pps.PicScalingMatrixPresentFlag);
+        Assert.Equal(-4, pps.SecondChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_ScalingMatrix_With_NonZero_ListPresent_4x4_AllZeroDeltas()
+    {
+        // Exercise the SkipScalingList path with a real 4x4 list. All
+        // delta_scale=0 means nextScale stays at 8 and the parser reads
+        // all 16 deltas, then continues to the remaining 7 lists
+        // (flag=0 each) and second_chroma_qp_index_offset.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            IncludePostTail = true,
+            Transform8x8ModeFlag = true,
+            PicScalingMatrixPresentFlag = true,
+            ScalingListIndexWithDeltas = 0,
+            ScalingListDeltas = new int[16],
+            SecondChromaQpIndexOffset = 6,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.PicScalingMatrixPresentFlag);
+        Assert.Equal(6, pps.SecondChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_ScalingMatrix_With_NonZero_ListPresent_8x8_AllZeroDeltas()
+    {
+        // Same path as above but for an 8x8 list at index 6 (the first
+        // 8x8 list). Exercises the size=64 branch of SkipScalingList.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            IncludePostTail = true,
+            Transform8x8ModeFlag = true,
+            PicScalingMatrixPresentFlag = true,
+            ScalingListIndexWithDeltas = 6,
+            ScalingListDeltas = new int[64],
+            SecondChromaQpIndexOffset = 0,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.PicScalingMatrixPresentFlag);
+        Assert.Equal(0, pps.SecondChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_ScalingList_EarlyTermination_When_NextScale_Hits_Zero()
+    {
+        // delta_scale = -8 at j=0 gives nextScale = (8 + (-8) + 256) & 0xFF = 0.
+        // After that the loop stops reading further deltas. The remaining
+        // 7 list_present_flags (all 0) and second_chroma_qp_index_offset
+        // must still align to where the parser expects them.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            IncludePostTail = true,
+            Transform8x8ModeFlag = true,
+            PicScalingMatrixPresentFlag = true,
+            ScalingListIndexWithDeltas = 0,
+            ScalingListDeltas = new[] { -8 }, // only one delta needs to be present
+            SecondChromaQpIndexOffset = -1,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.PicScalingMatrixPresentFlag);
+        Assert.Equal(-1, pps.SecondChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Large_Ids()
+    {
+        // pic_parameter_set_id is uint, but the typical encoder range is
+        // small. Sanity-check that a few non-trivial values roundtrip.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicParameterSetId = 200,
+            SeqParameterSetId = 16,
+        });
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(200u, pps!.PicParameterSetId);
+        Assert.Equal(16u, pps.SeqParameterSetId);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Large_NumRefIdx_Values()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            NumRefIdxL0DefaultActiveMinus1 = 30,
+            NumRefIdxL1DefaultActiveMinus1 = 30,
+        });
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(30u, pps!.NumRefIdxL0DefaultActiveMinus1);
+        Assert.Equal(30u, pps.NumRefIdxL1DefaultActiveMinus1);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_All_Baseline_Flags_On_Combined()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicParameterSetId = 1,
+            SeqParameterSetId = 1,
+            EntropyCodingModeFlag = true,
+            BottomFieldPicOrderInFramePresentFlag = true,
+            NumRefIdxL0DefaultActiveMinus1 = 4,
+            NumRefIdxL1DefaultActiveMinus1 = 4,
+            WeightedPredFlag = true,
+            WeightedBipredIdc = 2,
+            PicInitQpMinus26 = -10,
+            PicInitQsMinus26 = 10,
+            ChromaQpIndexOffset = -5,
+            DeblockingFilterControlPresentFlag = true,
+            ConstrainedIntraPredFlag = true,
+            RedundantPicCntPresentFlag = true,
+        });
+
+        Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.EntropyCodingModeFlag);
+        Assert.True(pps.BottomFieldPicOrderInFramePresentFlag);
+        Assert.True(pps.WeightedPredFlag);
+        Assert.Equal(2, pps.WeightedBipredIdc);
+        Assert.True(pps.DeblockingFilterControlPresentFlag);
+        Assert.True(pps.ConstrainedIntraPredFlag);
+        Assert.True(pps.RedundantPicCntPresentFlag);
+        Assert.Equal(-10, pps.PicInitQpMinus26);
+        Assert.Equal(10, pps.PicInitQsMinus26);
+        Assert.Equal(-5, pps.ChromaQpIndexOffset);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Range_Of_Signed_Qp_Values()
+    {
+        foreach (int qp in new[] { -26, -1, 0, 1, 25 })
+        {
+            var nalu = PpsBuilder.Build(new PpsSpec
+            {
+                PicInitQpMinus26 = qp,
+                PicInitQsMinus26 = qp,
+                ChromaQpIndexOffset = qp,
+            });
+            Assert.True(AvcPictureParameterSet.TryParse(nalu, out var pps),
+                $"PPS with QP fields = {qp} must parse");
+            Assert.Equal(qp, pps!.PicInitQpMinus26);
+            Assert.Equal(qp, pps.PicInitQsMinus26);
+            Assert.Equal(qp, pps.ChromaQpIndexOffset);
+        }
+    }
+
     // -----------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------
@@ -319,6 +575,18 @@ public class AvcPictureParameterSetTests
         public byte NalRefIdc { get; init; } = 3;
         public bool ForbiddenZeroBit { get; init; }
         public byte NalUnitTypeOverride { get; init; } = 8;
+
+        // Test-only: chroma_format_idc the parser will be told to use.
+        // The builder uses it to write the right number of
+        // pic_scaling_list_present_flag bits when
+        // pic_scaling_matrix_present_flag = 1.
+        public int BuilderChromaFormatIdc { get; init; } = 1;
+
+        // Test-only: when set, emit pic_scaling_list_present_flag = 1
+        // for the list at this index and write the supplied deltas
+        // (zero-padded to the list's size).
+        public int? ScalingListIndexWithDeltas { get; init; }
+        public int[]? ScalingListDeltas { get; init; }
     }
 
     private static class PpsBuilder
@@ -354,11 +622,39 @@ public class AvcPictureParameterSetTests
                 w.WriteBit(spec.PicScalingMatrixPresentFlag);
                 if (spec.PicScalingMatrixPresentFlag)
                 {
-                    // chroma_format_idc != 3: 6 + 2 * transform_8x8 lists.
-                    int numLists = 6 + (spec.Transform8x8ModeFlag ? 2 : 0);
+                    int extraLists = (spec.BuilderChromaFormatIdc == 3 ? 6 : 2)
+                                     * (spec.Transform8x8ModeFlag ? 1 : 0);
+                    int numLists = 6 + extraLists;
                     for (int i = 0; i < numLists; i++)
                     {
-                        w.WriteBit(false); // pic_scaling_list_present_flag = 0 — skipped
+                        bool listPresent = spec.ScalingListIndexWithDeltas == i;
+                        w.WriteBit(listPresent);
+                        if (listPresent && spec.ScalingListDeltas != null)
+                        {
+                            // Mirror the parser's SkipScalingList loop: it only
+                            // reads delta_scale while nextScale != 0 (per
+                            // ITU-T H.264 7.3.2.1.1.1). Emit exactly that many
+                            // deltas so the bit stream stays aligned with what
+                            // the parser will consume.
+                            int size = i < 6 ? 16 : 64;
+                            int lastScale = 8;
+                            int nextScale = 8;
+                            for (int j = 0; j < size; j++)
+                            {
+                                if (nextScale != 0)
+                                {
+                                    int delta = j < spec.ScalingListDeltas.Length
+                                        ? spec.ScalingListDeltas[j]
+                                        : 0;
+                                    w.WriteSe(delta);
+                                    nextScale = (lastScale + delta + 256) & 0xFF;
+                                }
+                                if (nextScale != 0)
+                                {
+                                    lastScale = nextScale;
+                                }
+                            }
+                        }
                     }
                 }
                 w.WriteSe(spec.SecondChromaQpIndexOffset);
