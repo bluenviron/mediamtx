@@ -192,6 +192,38 @@ public class SvsReaderTests
     }
 
     [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => SvsReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio") });
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = SvsReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Svs, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "Aperio") });
+        using var r = SvsReader.Open(new MemoryStream(bytes), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
     public void Empty_Description_Yields_Empty_Metadata()
     {
         var bytes = BuildSvsTiff(new[] { (Width: 8, Height: 8, Description: "") });

@@ -284,6 +284,73 @@ public class MngReaderTests
 
     // ---------- additional builders ----------
 
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MngReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MngReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var mng = BuildSimpleMng(width: 2, height: 2, frames: 1, ticks: 10);
+        var ms = new MemoryStream(mng, writable: false);
+        using (var r = MngReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Mng, r.Format);
+        }
+        Assert.False(ms.CanRead);
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var mng = BuildSimpleMng(width: 2, height: 2, frames: 1, ticks: 10);
+        using var ms = new MemoryStream(mng, writable: false);
+        using (var r = MngReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Mng, r.Format);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        var mng = BuildSimpleMng(width: 2, height: 2, frames: 1, ticks: 10);
+        var r = MngReader.Open(new MemoryStream(mng, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Mng()
+    {
+        var mng = BuildSimpleMng(width: 2, height: 2, frames: 1, ticks: 10);
+        using var r = MngReader.Open(new MemoryStream(mng, writable: false));
+        Assert.Equal(ImageFormat.Mng, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        var mng = BuildSimpleMng(width: 2, height: 2, frames: 1, ticks: 10);
+        using var r = MngReader.Open(new MemoryStream(mng, writable: false));
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
     private static byte[] BuildMngWithMhdr(int width, int height, int ticks, int layers,
                                            int frames, int playTime, uint profile, int embedCount)
     {
