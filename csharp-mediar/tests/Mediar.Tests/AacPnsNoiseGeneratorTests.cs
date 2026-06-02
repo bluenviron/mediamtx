@@ -298,4 +298,113 @@ public sealed class AacPnsNoiseGeneratorTests
             Assert.NotEqual(0f, band[i]);
         }
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(16)]
+    [InlineData(64)]
+    [InlineData(128)]
+    [InlineData(256)]
+    public void FillBand_VariousBandSizes_HitTargetEnergy(int len)
+    {
+        var prng = new AacPnsRandom(seed: 31u);
+        float[] band = new float[len];
+        AacPnsNoiseGenerator.FillBand(band, 100, prng);
+        AssertRelativeEqual(AacPnsNoiseGenerator.TargetBandEnergy(100), EnergyOf(band));
+    }
+
+    [Fact]
+    public void TargetBandEnergy_Sf6_Equals_8()
+    {
+        // 2^(6/2) = 2^3 = 8
+        Assert.Equal(8.0, AacPnsNoiseGenerator.TargetBandEnergy(6), 12);
+    }
+
+    [Fact]
+    public void TargetBandEnergy_Sf10_Equals_32()
+    {
+        // 2^(10/2) = 32
+        Assert.Equal(32.0, AacPnsNoiseGenerator.TargetBandEnergy(10), 12);
+    }
+
+    [Fact]
+    public void FillBand_PrngState_DiffersBetween_NegatedAndNot()
+    {
+        // Both consume the same number of PRNG draws, so state ends at
+        // the same value regardless of negate flag.
+        var a = new AacPnsRandom(seed: 1234u);
+        var b = new AacPnsRandom(seed: 1234u);
+        Span<float> sa = stackalloc float[32];
+        Span<float> sb = stackalloc float[32];
+        AacPnsNoiseGenerator.FillBand(sa, 100, a, negate: false);
+        AacPnsNoiseGenerator.FillBand(sb, 100, b, negate: true);
+        Assert.Equal(a.State, b.State);
+    }
+
+    [Fact]
+    public void FillBand_DefaultNegate_IsFalse()
+    {
+        var prngA = new AacPnsRandom(seed: 50u);
+        var prngB = new AacPnsRandom(seed: 50u);
+        Span<float> a = stackalloc float[16];
+        Span<float> b = stackalloc float[16];
+        AacPnsNoiseGenerator.FillBand(a, 100, prngA);
+        AacPnsNoiseGenerator.FillBand(b, 100, prngB, negate: false);
+        for (int i = 0; i < a.Length; i++) Assert.Equal(a[i], b[i]);
+    }
+
+    [Fact]
+    public void FillBand_SequentialBands_AdvancePrngContinuously()
+    {
+        var prng = new AacPnsRandom(seed: 555u);
+        Span<float> bandA = stackalloc float[8];
+        Span<float> bandB = stackalloc float[8];
+        AacPnsNoiseGenerator.FillBand(bandA, 50, prng);
+        uint stateAfterA = prng.State;
+        AacPnsNoiseGenerator.FillBand(bandB, 50, prng);
+        // After second call the state must be different (not reset).
+        Assert.NotEqual(stateAfterA, prng.State);
+    }
+
+    [Fact]
+    public void TargetBandEnergy_EvenSf_IsIntegerPowerOfTwo()
+    {
+        // sf=14 -> 2^7 = 128
+        Assert.Equal(128.0, AacPnsNoiseGenerator.TargetBandEnergy(14), 9);
+        // sf=16 -> 2^8 = 256
+        Assert.Equal(256.0, AacPnsNoiseGenerator.TargetBandEnergy(16), 9);
+        // sf=18 -> 2^9 = 512
+        Assert.Equal(512.0, AacPnsNoiseGenerator.TargetBandEnergy(18), 9);
+    }
+
+    [Theory]
+    [InlineData(-100)]
+    [InlineData(-50)]
+    [InlineData(-10)]
+    [InlineData(0)]
+    [InlineData(50)]
+    [InlineData(100)]
+    [InlineData(200)]
+    public void FillBand_ScaleFactorTheory_TargetEnergyHolds(int sf)
+    {
+        var prng = new AacPnsRandom(seed: 1u);
+        Span<float> band = stackalloc float[32];
+        AacPnsNoiseGenerator.FillBand(band, sf, prng);
+        AssertRelativeEqual(AacPnsNoiseGenerator.TargetBandEnergy(sf), EnergyOf(band));
+    }
+
+    [Fact]
+    public void FillBand_AllSamples_AreFinite_ForLargeScaleFactor()
+    {
+        var prng = new AacPnsRandom(seed: 42u);
+        Span<float> band = stackalloc float[32];
+        AacPnsNoiseGenerator.FillBand(band, 250, prng);
+        for (int i = 0; i < band.Length; i++)
+        {
+            Assert.True(float.IsFinite(band[i]), $"sample[{i}]={band[i]}");
+        }
+    }
 }

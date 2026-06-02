@@ -221,6 +221,114 @@ public sealed class Mp4FreeFormAtomTests
         Assert.Equal("Calm", meta.Mood);
     }
 
+    [Fact]
+    public void FreeForm_EmptyValue_DoesNotProduceTag()
+    {
+        // Empty payloads are ignored: the atom parser drops zero-length data.
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", "CUSTOMKEY", "")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.False(meta.Tags.ContainsKey("CUSTOMKEY"));
+    }
+
+    [Fact]
+    public void FreeForm_MultipleDistinctKeys_AllFlow_To_Tags()
+    {
+        byte[] ilst = BuildIlst([
+            BuildFreeFormAtom("com.apple.iTunes", "CUSTOM_A", "AAA"),
+            BuildFreeFormAtom("com.apple.iTunes", "CUSTOM_B", "BBB"),
+            BuildFreeFormAtom("com.apple.iTunes", "CUSTOM_C", "CCC"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("AAA", meta.Tags["CUSTOM_A"]);
+        Assert.Equal("BBB", meta.Tags["CUSTOM_B"]);
+        Assert.Equal("CCC", meta.Tags["CUSTOM_C"]);
+    }
+
+    [Theory]
+    [InlineData("BARCODE")]
+    [InlineData("barcode")]
+    [InlineData("BarCode")]
+    public void FreeForm_BarcodeKey_CaseInsensitive_MapsToCanonical(string keyCasing)
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", keyCasing, "1234567890123")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("1234567890123", meta.Barcode);
+    }
+
+    [Fact]
+    public void FreeForm_Mood_UppercaseKey_Wins_Over_LowercaseDuplicate()
+    {
+        // First-write-wins semantics: the first MOOD entry persists.
+        byte[] ilst = BuildIlst([
+            BuildFreeFormAtom("com.apple.iTunes", "MOOD", "First"),
+            BuildFreeFormAtom("com.apple.iTunes", "mood", "Second"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("First", meta.Mood);
+    }
+
+    [Theory]
+    [InlineData("REPLAYGAIN_TRACK_GAIN")]
+    [InlineData("REPLAYGAIN_TRACK_PEAK")]
+    [InlineData("REPLAYGAIN_ALBUM_GAIN")]
+    [InlineData("REPLAYGAIN_ALBUM_PEAK")]
+    [InlineData("REPLAYGAIN_REFERENCE_LOUDNESS")]
+    public void FreeForm_AnyReplayGainKey_FlowsToTags(string key)
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", key, "-3.21 dB")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("-3.21 dB", meta.Tags[key]);
+    }
+
+    [Fact]
+    public void FreeForm_Unicode_NonAscii_ValueRoundTripsUTF8()
+    {
+        // Mediar metadata is UTF-8 across the wire; ensure non-ASCII content
+        // (Japanese + emoji) survives parsing intact.
+        string original = "ジャズ 🎷";
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", "GENRE_HINT", original)]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(original, meta.Tags["GENRE_HINT"]);
+    }
+
+    [Fact]
+    public void FreeForm_Sony_Namespace_Mood_Ignored()
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.sony.preview", "MOOD", "Calm")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Null(meta.Mood);
+    }
+
+    [Fact]
+    public void FreeForm_WhitespaceOnlyValue_FlowsToTags()
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", "CUSTOMKEY", "   ")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("   ", meta.Tags["CUSTOMKEY"]);
+    }
+
+    [Fact]
+    public void FreeForm_LongFreeformKey_FlowsThroughVerbatim()
+    {
+        // Long custom keys not specifically normalised end up under the
+        // raw key in Tags.
+        const string key = "ARTIST_SORT_KEY_LONG";
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", key, "ZZZ")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("ZZZ", meta.Tags[key]);
+    }
+
+    [Fact]
+    public void FreeForm_MixedNamespaces_ItunesAndSonyKeys_OnlyItunesParsed()
+    {
+        byte[] ilst = BuildIlst([
+            BuildFreeFormAtom("com.apple.iTunes", "BARCODE", "0001"),
+            BuildFreeFormAtom("com.sony.preview", "BARCODE", "FFFF"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("0001", meta.Barcode);
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata ParseIlstAndBuild(byte[] ilstBytes)
