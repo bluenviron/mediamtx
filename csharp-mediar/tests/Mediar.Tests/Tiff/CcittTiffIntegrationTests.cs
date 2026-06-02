@@ -250,4 +250,147 @@ public sealed class CcittTiffIntegrationTests
         // direct CCITT decoder test instead.)
         Assert.True(reader.CanDecodePixels);
     }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G4_All_White_Image()
+    {
+        const int W = 32, H = 8;
+        var src = BuildPacked(W, H, (_, _) => 0);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 4, Photometric = 0, RowsPerStrip = H,
+            StripPayloads = [encoded],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try { AssertPackedEqual(src, frame.Pixels.Span, W, H); }
+        finally { frame.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G4_All_Black_Image()
+    {
+        const int W = 24, H = 6;
+        var src = BuildPacked(W, H, (_, _) => 1);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 4, Photometric = 0, RowsPerStrip = H,
+            StripPayloads = [encoded],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try { AssertPackedEqual(src, frame.Pixels.Span, W, H); }
+        finally { frame.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G4_NonByteAligned_Width()
+    {
+        const int W = 13, H = 4; // 13 % 8 = 5 -> tail bits exercised
+        var src = BuildPacked(W, H, (x, y) => (x + y) & 1);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 4, Photometric = 0, RowsPerStrip = H,
+            StripPayloads = [encoded],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try
+        {
+            Assert.Equal(W, frame.Width);
+            Assert.Equal(H, frame.Height);
+            AssertPackedEqual(src, frame.Pixels.Span, W, H);
+        }
+        finally { frame.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G4_Single_Row_Strip()
+    {
+        const int W = 16, H = 1;
+        var src = BuildPacked(W, H, (x, _) => (x / 2) & 1);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 4, Photometric = 0, RowsPerStrip = H,
+            StripPayloads = [encoded],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try { AssertPackedEqual(src, frame.Pixels.Span, W, H); }
+        finally { frame.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G3_T4_With_Rtc_Trailer()
+    {
+        const int W = 32, H = 6;
+        var src = BuildPacked(W, H, (x, y) => ((x + y * 5) & 7) < 3 ? 1 : 0);
+        var opts = new CcittG3Encoder.Options(EmitEolMarkers: true, EolByteAlign: false, EmitRtc: true);
+        var encoded = CcittG3Encoder.Encode(src, W, H, opts);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 3, Photometric = 0, RowsPerStrip = H,
+            StripPayloads = [encoded],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try { AssertPackedEqual(src, frame.Pixels.Span, W, H); }
+        finally { frame.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TiffReader_Decodes_G3_1D_MultipleStrips_Independently()
+    {
+        const int W = 24, H = 8;
+        var src = BuildPacked(W, H, (x, y) => ((x ^ y) & 1));
+        var opts = new CcittG3Encoder.Options(EmitEolMarkers: false, EolByteAlign: false, EmitRtc: false);
+        int rowBytes = (W + 7) / 8;
+        var strip0 = src.AsSpan(0, 4 * rowBytes).ToArray();
+        var strip1 = src.AsSpan(4 * rowBytes, 4 * rowBytes).ToArray();
+        var enc0 = CcittG3Encoder.Encode(strip0, W, 4, opts);
+        var enc1 = CcittG3Encoder.Encode(strip1, W, 4, opts);
+
+        var tiff = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = W, Height = H, BitsPerSample = 1, SamplesPerPixel = 1,
+            Compression = 2, Photometric = 0, RowsPerStrip = 4,
+            StripPayloads = [enc0, enc1],
+        });
+
+        using var reader = TiffReader.Open(new MemoryStream(tiff), ownsStream: true);
+        await using var en = reader.ReadFramesAsync().GetAsyncEnumerator();
+        Assert.True(await en.MoveNextAsync());
+        var frame = en.Current;
+        try { AssertPackedEqual(src, frame.Pixels.Span, W, H); }
+        finally { frame.Dispose(); }
+    }
 }

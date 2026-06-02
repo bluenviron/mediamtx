@@ -240,4 +240,130 @@ public sealed class DdsDxgiPackedFormatsTests
         Assert.Equal(0.0f, g);
         Assert.Equal(0.0f, b);
     }
+
+    [Theory]
+    [InlineData(0u, 0)]
+    [InlineData(1u, 85)]
+    [InlineData(2u, 170)]
+    [InlineData(3u, 255)]
+    public async Task R10G10B10A2_UNORM_Alpha_Quantization_Matches_Spec(uint a2, int expectedByte)
+    {
+        uint packed = a2 << 30;
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(data, packed);
+
+        var file = Concat(BuildDx10Dds(1, 1, 24), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        Assert.Equal(expectedByte, frame!.Pixels.Span[3]);
+    }
+
+    [Fact]
+    public async Task R10G10B10A2_UNORM_Zero_Word_Yields_Zero_Pixels()
+    {
+        var data = new byte[4];
+        var file = Concat(BuildDx10Dds(1, 1, 24), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        Assert.Equal(0, frame!.Pixels.Span[0]);
+        Assert.Equal(0, frame.Pixels.Span[1]);
+        Assert.Equal(0, frame.Pixels.Span[2]);
+        Assert.Equal(0, frame.Pixels.Span[3]);
+    }
+
+    [Fact]
+    public async Task R10G10B10A2_UNORM_Channel_Order_Is_R_G_B_A()
+    {
+        // R=1023 (red full), G=0, B=0, A=0 -> first byte is full red.
+        uint packed = 1023u;
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(data, packed);
+        var file = Concat(BuildDx10Dds(1, 1, 24), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        Assert.Equal(255, frame!.Pixels.Span[0]);
+        Assert.Equal(0, frame.Pixels.Span[1]);
+        Assert.Equal(0, frame.Pixels.Span[2]);
+        Assert.Equal(0, frame.Pixels.Span[3]);
+    }
+
+    [Fact]
+    public async Task R11G11B10_FLOAT_R_Channel_Infinity_When_Exp_Saturated_Mantissa_Zero()
+    {
+        // F11 R: exp=0x1F (5 high bits), mant=0 -> +infinity.
+        ushort rEnc = (ushort)(0x1Fu << 6);
+        uint packed = rEnc;
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(data, packed);
+        var file = Concat(BuildDx10Dds(1, 1, 26), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        float r = BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4));
+        Assert.True(float.IsPositiveInfinity(r));
+    }
+
+    [Fact]
+    public async Task R11G11B10_FLOAT_G_Channel_NaN_When_Exp_Saturated_Mantissa_NonZero()
+    {
+        // F11 G: shift up by 11. exp=0x1F mant=1 -> NaN.
+        ushort gEnc = (ushort)((0x1Fu << 6) | 1u);
+        uint packed = (uint)gEnc << 11;
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(data, packed);
+        var file = Concat(BuildDx10Dds(1, 1, 26), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        float g = BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(4, 4));
+        Assert.True(float.IsNaN(g));
+    }
+
+    [Fact]
+    public async Task R11G11B10_FLOAT_B_Channel_Infinity_When_Exp_Saturated_Mantissa_Zero()
+    {
+        // F10 B: exp=0x1F (5 high bits), mant=0 -> +infinity. Shifted by 22.
+        ushort bEnc = (ushort)(0x1Fu << 5);
+        uint packed = (uint)bEnc << 22;
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(data, packed);
+        var file = Concat(BuildDx10Dds(1, 1, 26), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        float b = BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(8, 4));
+        Assert.True(float.IsPositiveInfinity(b));
+    }
+
+    [Fact]
+    public async Task R9G9B9E5_SHAREDEXP_Two_Pixels_Decoded_Independently()
+    {
+        // Pixel 0: rm=gm=bm=256 with exp=24 -> 256.0.
+        // Pixel 1: rm=gm=bm=128 with exp=24 -> 128.0.
+        uint p0 = 256u | (256u << 9) | (256u << 18) | (24u << 27);
+        uint p1 = 128u | (128u << 9) | (128u << 18) | (24u << 27);
+        var data = new byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(0, 4), p0);
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(4, 4), p1);
+
+        var file = Concat(BuildDx10Dds(2, 1, 67), data);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) frame = f;
+        Assert.NotNull(frame);
+        // Each pixel is 12 bytes (3 floats).
+        float r0 = BinaryPrimitives.ReadSingleLittleEndian(frame!.Pixels.Span.Slice(0, 4));
+        float r1 = BinaryPrimitives.ReadSingleLittleEndian(frame.Pixels.Span.Slice(12, 4));
+        Assert.Equal(256.0f, r0, 3);
+        Assert.Equal(128.0f, r1, 3);
+    }
 }
