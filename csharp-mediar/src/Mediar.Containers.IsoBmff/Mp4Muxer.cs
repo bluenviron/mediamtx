@@ -393,6 +393,15 @@ public sealed class Mp4Muxer : IMediaMuxer
                 b.WriteBytes(a.ExtraData.Span);
                 b.EndBox();
             }
+            else if (!a.ExtraData.IsEmpty && entry.Track.Codec.Codec == CodecId.Alac)
+            {
+                // alac child box: 4-byte FullBox header (version 0, flags 0)
+                // followed by the 24-byte ALACSpecificConfig body.
+                b.StartBox(BoxTypes.Alac);
+                b.WriteZeros(4);
+                b.WriteBytes(a.ExtraData.Span);
+                b.EndBox();
+            }
         }
         else if (entry.Track.Kind == StreamKind.Subtitle)
         {

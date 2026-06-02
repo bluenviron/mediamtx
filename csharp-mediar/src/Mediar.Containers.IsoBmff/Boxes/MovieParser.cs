@@ -275,7 +275,8 @@ internal static class MovieParser
                 if (cType.Value == BoxTypes.AvcC.Value ||
                     cType.Value == BoxTypes.HvcC.Value ||
                     cType.Value == BoxTypes.Av1C.Value ||
-                    cType.Value == BoxTypes.EsDs.Value)
+                    cType.Value == BoxTypes.EsDs.Value ||
+                    cType.Value == BoxTypes.Alac.Value)
                 {
                     extra = cPayload.ToArray();
                     break;

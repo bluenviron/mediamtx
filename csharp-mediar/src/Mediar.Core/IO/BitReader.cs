@@ -87,6 +87,19 @@ public ref struct BitReader
         _bitPos = (int)(pos % 8);
     }
 
+    /// <summary>
+    /// Seek the cursor to an absolute bit position. Position must be in
+    /// <c>[0, TotalBits]</c>. Useful for codecs that occasionally rewind a
+    /// few bits (e.g. ALAC's truncated-binary suffix puts back the LSB).
+    /// </summary>
+    public void SeekToBit(long bitPosition)
+    {
+        if (bitPosition < 0 || bitPosition > TotalBits)
+            throw new ArgumentOutOfRangeException(nameof(bitPosition));
+        _bytePos = (int)(bitPosition / 8);
+        _bitPos = (int)(bitPosition % 8);
+    }
+
     /// <summary>Align the cursor to the next byte boundary.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AlignToByte()

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Alac.Decoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Alac.Decoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native Apple Lossless (ALAC) decoder for Mediar — clean-room implementation of the format documented by Apple's Apache-2.0 reference.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>

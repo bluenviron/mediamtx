@@ -77,6 +77,7 @@ public sealed class CafDemuxer : IMediaDemuxer
         long dataLength = 0;
         long[]? packetTable = null;
         int packetFrames = 0;
+        byte[]? cookie = null;
 
         long pos = 8;
         Span<byte> chunkHdr = stackalloc byte[12];
@@ -124,6 +125,11 @@ public sealed class CafDemuxer : IMediaDemuxer
                 }
                 finally { ArrayPool<byte>.Shared.Return(buf); }
             }
+            else if (id == ChunkIds.Kuki && size > 0 && size < 1 << 16)
+            {
+                cookie = new byte[(int)size];
+                if (source.Read(pos, cookie) != (int)size) cookie = null;
+            }
 
             pos += size;
         }
@@ -146,6 +152,7 @@ public sealed class CafDemuxer : IMediaDemuxer
                 SampleRate = d.SampleRate,
                 Channels = (int)d.ChannelsPerFrame,
                 BitsPerSample = (int)d.BitsPerChannel,
+                ExtraData = cookie ?? Array.Empty<byte>(),
             },
             DurationTicks = packetFrames > 0 ? packetFrames :
                 (bytesPerFrame > 0 ? dataLength / bytesPerFrame : 0),
@@ -350,5 +357,6 @@ public sealed class CafDemuxer : IMediaDemuxer
         public const uint Data = 0x64617461; // 'data'
         public const uint Info = 0x696E666F; // 'info'
         public const uint Pakt = 0x70616B74; // 'pakt'
+        public const uint Kuki = 0x6B756B69; // 'kuki' (magic cookie, e.g. ALAC)
     }
 }
