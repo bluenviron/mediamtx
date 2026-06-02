@@ -151,4 +151,100 @@ public sealed class Cr2ReaderTests
         var detected = ImageFormatDetector.Detect(bytes.AsSpan(0, 16));
         Assert.Equal(ImageFormat.Cr2, detected);
     }
+
+    [Fact]
+    public void Without_Raw_Ifd_Has_Only_Chain_SubImages()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4), MakeRgbStrip(8, 8)],
+            raw: null);
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+
+        Assert.Equal(2, cr2.SubImages.Count);
+        Assert.Equal(0u, cr2.Cr2.RawIfdOffset);
+        Assert.DoesNotContain(cr2.SubImages, s => s.Role == Cr2IfdRole.RawSensor);
+    }
+
+    [Fact]
+    public void Without_Camera_Make_And_Model_Metadata_Is_Null()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+
+        Assert.Null(cr2.Metadata.CameraMake);
+        Assert.Null(cr2.Metadata.CameraModel);
+    }
+
+    [Fact]
+    public void Version_Major_Minor_Persists_In_Metadata_Tag()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null,
+            majorVersion: 1, minorVersion: 3);
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+
+        Assert.Equal(1, cr2.Cr2.MajorVersion);
+        Assert.Equal(3, cr2.Cr2.MinorVersion);
+        Assert.Equal("1.3", cr2.Metadata.Tags["CR2:Version"]);
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => Cr2Reader.Open(ms));
+    }
+
+    [Fact]
+    public void Single_Chain_Ifd_Sets_Primary_To_It()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(12, 6)],
+            raw: null);
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+
+        Assert.Single(cr2.SubImages);
+        Assert.Equal(12, cr2.Info.Width);
+        Assert.Equal(6, cr2.Info.Height);
+        Assert.Equal(Cr2IfdRole.Thumbnail, cr2.SubImages[0].Role);
+    }
+
+    [Fact]
+    public void Detector_Does_Not_Recognize_Cr2_Without_Sentinel()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        bytes[8] = 0; bytes[9] = 0;
+        var detected = ImageFormatDetector.Detect(bytes.AsSpan(0, 16));
+        Assert.NotEqual(ImageFormat.Cr2, detected);
+    }
+
+    [Fact]
+    public void RawIfdOffset_Points_To_Valid_Section_When_Raw_Present()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(2, 2)],
+            raw: MakeRgbStrip(16, 16));
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+
+        Assert.NotEqual(0u, cr2.Cr2.RawIfdOffset);
+        Assert.True(cr2.Cr2.RawIfdOffset < bytes.Length);
+        var rawSub = Assert.Single(cr2.SubImages, s => s.Role == Cr2IfdRole.RawSensor);
+        Assert.Equal(16, rawSub.Width);
+        Assert.Equal(16, rawSub.Height);
+    }
 }

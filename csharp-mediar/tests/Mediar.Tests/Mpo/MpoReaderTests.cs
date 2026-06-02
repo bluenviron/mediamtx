@@ -248,4 +248,172 @@ public sealed class MpoReaderTests
         Assert.True(mpo.SubImages[1].IsRepresentative);
         Assert.Equal(MpoImageKind.MultiAngle, mpo.SubImages[1].Kind);
     }
+
+    [Fact]
+    public void LargeThumbnail_Kinds_Parsed_Correctly()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.BaselineMpPrimary,
+                },
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.LargeThumbnailClass1,
+                },
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.LargeThumbnailClass2,
+                },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        Assert.Equal(MpoImageKind.LargeThumbnailClass1, mpo.SubImages[1].Kind);
+        Assert.Equal(MpoImageKind.LargeThumbnailClass2, mpo.SubImages[2].Kind);
+    }
+
+    [Fact]
+    public void MultiFramePanorama_Kind_Parsed_Correctly()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.BaselineMpPrimary,
+                },
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.MultiFramePanorama,
+                },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        Assert.Equal(MpoImageKind.MultiFramePanorama, mpo.SubImages[1].Kind);
+    }
+
+    [Fact]
+    public void DependentImage2_Field_Is_Preserved()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.BaselineMpPrimary,
+                    DependentImage1 = 2,
+                    DependentImage2 = 7,
+                },
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.MultiFrameDisparity,
+                },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        Assert.Equal((ushort)2, mpo.SubImages[0].DependentImage1);
+        Assert.Equal((ushort)7, mpo.SubImages[0].DependentImage2);
+    }
+
+    [Fact]
+    public void SubImage_Indexes_Increment_Sequentially_From_Zero()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.BaselineMpPrimary },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiAngle },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        for (int i = 0; i < mpo.SubImages.Count; i++)
+        {
+            Assert.Equal(i, mpo.SubImages[i].Index);
+        }
+    }
+
+    [Fact]
+    public void Unknown_Kind_Code_Falls_Back_To_Unknown_Enum()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = (uint)MpoImageKind.BaselineMpPrimary,
+                },
+                new TestMpoBuilder.MpoEntrySpec
+                {
+                    JpegBytes = LoadRedJpeg(),
+                    Attribute = 0xAB1234u, // unknown image-kind code in low 24 bits
+                },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        // 0xAB1234 isn't defined in the MpoImageKind enum - cast to a value
+        // not in the enum is still legal but won't match any named member.
+        Assert.False(Enum.IsDefined<MpoImageKind>(mpo.SubImages[1].Kind));
+    }
+
+    [Fact]
+    public void Mpo_Info_Dimensions_Match_Primary_SubImage_Width_Height()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.BaselineMpPrimary },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        Assert.Equal(mpo.SubImages[0].Width, mpo.Info.Width);
+        Assert.Equal(mpo.SubImages[0].Height, mpo.Info.Height);
+    }
+
+    [Fact]
+    public void First_SubImage_Offset_Is_Zero()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.BaselineMpPrimary },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+
+        Assert.Equal(0L, mpo.SubImages[0].Offset);
+        Assert.True(mpo.SubImages[1].Offset > 0);
+    }
 }
