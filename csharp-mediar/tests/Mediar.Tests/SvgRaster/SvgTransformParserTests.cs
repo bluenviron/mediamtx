@@ -101,4 +101,63 @@ public class SvgTransformParserTests
         Assert.Equal(102f, p.X, 3);
         Assert.Equal(0f, p.Y, 3);
     }
+
+    [Fact]
+    public void Whitespace_Only_Returns_Identity()
+    {
+        Assert.Equal(Matrix3x2.Identity, SvgTransformParser.Parse("   \t\n  "));
+    }
+
+    [Fact]
+    public void Unknown_Function_Name_Yields_Identity_Contribution()
+    {
+        // 'foo' isn't recognised; parser returns Identity for that piece.
+        var m = SvgTransformParser.Parse("foo(1,2,3)");
+        Assert.Equal(Matrix3x2.Identity, m);
+    }
+
+    [Fact]
+    public void Translate_Accepts_Negative_Values()
+    {
+        var m = SvgTransformParser.Parse("translate(-5, -7)");
+        var p = Vector2.Transform(Vector2.Zero, m);
+        Assert.Equal(new Vector2(-5, -7), p);
+    }
+
+    [Fact]
+    public void Scale_Negative_Reflects_Coordinates()
+    {
+        var m = SvgTransformParser.Parse("scale(-1, 1)");
+        var p = Vector2.Transform(new Vector2(3, 4), m);
+        Assert.Equal(-3f, p.X, 4);
+        Assert.Equal(4f, p.Y, 4);
+    }
+
+    [Fact]
+    public void Rotate_Negative_90_Maps_X_To_Negative_Y()
+    {
+        var m = SvgTransformParser.Parse("rotate(-90)");
+        var p = Vector2.Transform(new Vector2(1, 0), m);
+        Assert.Equal(0f, p.X, 4);
+        Assert.Equal(-1f, p.Y, 4);
+    }
+
+    [Fact]
+    public void Three_Transforms_Compose_Right_To_Left()
+    {
+        // translate(10,0) rotate(90) scale(2)
+        // Applied to (1,0): scale -> (2,0); rotate90 -> (0,2); translate -> (10,2).
+        var m = SvgTransformParser.Parse("translate(10, 0) rotate(90) scale(2)");
+        var p = Vector2.Transform(new Vector2(1, 0), m);
+        Assert.Equal(10f, p.X, 3);
+        Assert.Equal(2f, p.Y, 3);
+    }
+
+    [Fact]
+    public void Matrix_Form_Accepts_Comma_Separators()
+    {
+        var m = SvgTransformParser.Parse("matrix(1, 0, 0, 1, 7, 9)");
+        var p = Vector2.Transform(Vector2.Zero, m);
+        Assert.Equal(new Vector2(7, 9), p);
+    }
 }

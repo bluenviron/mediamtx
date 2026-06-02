@@ -287,6 +287,71 @@ public sealed class ApngCompositorTests
         AssertPixel(canvas, 3, 3, 4, 0xAA, 0x00, 0x00, 0xFF);
     }
 
+    [Fact]
+    public void Compositor_Constructor_Sets_Width_Height_Stride_And_Canvas_Length()
+    {
+        var c = new ApngCompositor(5, 7);
+        Assert.Equal(5, c.Width);
+        Assert.Equal(7, c.Height);
+        Assert.Equal(5 * 4, c.Stride);
+        Assert.Equal(5 * 7 * 4, c.Canvas.Length);
+    }
+
+    [Fact]
+    public void Compositor_Constructor_Rejects_Zero_Width()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ApngCompositor(0, 4));
+    }
+
+    [Fact]
+    public void Compositor_Constructor_Rejects_Zero_Height()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ApngCompositor(4, 0));
+    }
+
+    [Fact]
+    public void Compositor_Render_Rejects_Negative_Offset()
+    {
+        var c = new ApngCompositor(4, 4);
+        var src = new byte[4 * 4 * 4];
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            c.Render(src, 4 * 4, 4, 4, offsetX: -1, offsetY: 0,
+                ApngBlendOp.Source, ApngDisposeOp.None));
+    }
+
+    [Fact]
+    public void Compositor_Render_Rejects_Stride_Too_Small()
+    {
+        var c = new ApngCompositor(4, 4);
+        var src = new byte[4 * 4 * 4];
+        Assert.Throws<ArgumentException>(() =>
+            c.Render(src, srcStride: 4, 4, 4, 0, 0,
+                ApngBlendOp.Source, ApngDisposeOp.None));
+    }
+
+    [Fact]
+    public void Compositor_Render_Rejects_Source_Too_Short()
+    {
+        var c = new ApngCompositor(4, 4);
+        var src = new byte[4]; // way too small
+        Assert.Throws<ArgumentException>(() =>
+            c.Render(src, srcStride: 4 * 4, 4, 4, 0, 0,
+                ApngBlendOp.Source, ApngDisposeOp.None));
+    }
+
+    [Fact]
+    public void Compositor_Snapshot_Returns_Independent_Copy()
+    {
+        var c = new ApngCompositor(2, 2);
+        var src = TestApngBuilder.FillRgba32(2, 2, 0xAB, 0xCD, 0xEF, 0xFF);
+        c.Render(src, 2 * 4, 2, 2, 0, 0, ApngBlendOp.Source, ApngDisposeOp.None);
+        byte[] snap = c.Snapshot();
+        Assert.Equal(2 * 2 * 4, snap.Length);
+        // Mutate the snapshot and confirm the canvas remains intact.
+        snap[0] = 0xFF;
+        Assert.Equal(0xAB, c.Canvas[0]);
+    }
+
     private static void AssertPixel(ReadOnlySpan<byte> rgba, int x, int y, int width, byte r, byte g, byte b, byte a)
     {
         int o = (y * width + x) * 4;
