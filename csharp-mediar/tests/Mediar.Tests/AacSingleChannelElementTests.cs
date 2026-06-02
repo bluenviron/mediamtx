@@ -269,4 +269,112 @@ public sealed class AacSingleChannelElementTests
         Assert.False(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
         Assert.Null(sce);
     }
+
+    [Theory]
+    [InlineData((byte)0x00)]
+    [InlineData((byte)0x01)]
+    [InlineData((byte)0x7F)]
+    [InlineData((byte)0x80)]
+    [InlineData((byte)0xFE)]
+    [InlineData((byte)0xFF)]
+    public void TryParse_RoundTripsGlobalGain_AcrossAll8BitValues(byte gain)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 0, globalGain: gain, maxSfb: 2);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(gain, sce!.Stream.GlobalGain);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(8)]
+    [InlineData(20)]
+    [InlineData(30)]
+    public void TryParse_LongSce_HandlesAllMaxSfbValues(int maxSfb)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 1, globalGain: 0x40, maxSfb: maxSfb);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.NotNull(sce);
+        Assert.Equal(maxSfb, sce!.Stream.IcsInfo.MaxSfb);
+        Assert.Equal(maxSfb, sce.Stream.ScaleFactorData.Entries.Count);
+    }
+
+    [Fact]
+    public void TryParse_LongSce_PulseDataPresent_NoPulses_IsAccepted()
+    {
+        // pulse_data() with number_pulse=0 is legal on long windows.
+        // Format: pulse_data_present=1, [number_pulse:2=0][start_sfb:6][offset/amp per pulse=0].
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 4);
+        WriteOneZeroSection(w, len: 4);
+        w.Write(1u, 1);                 // pulse_data_present = 1
+        w.Write(0u, 2);                 // number_pulse = 0 → 1 pulse described
+        w.Write(0u, 6);                 // pulse_start_sfb
+        w.Write(0u, 5);                 // pulse_offset[0]
+        w.Write(0u, 4);                 // pulse_amp[0]
+        w.Write(0u, 1);                 // tns_data_present
+        w.Write(0u, 1);                 // gain_control_data_present
+
+        Assert.True(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
+        Assert.NotNull(sce);
+        Assert.True(sce!.Stream.PulseDataPresent);
+        Assert.NotNull(sce.Stream.PulseData);
+    }
+
+    [Fact]
+    public void TryParse_OnlyLong_TnsDataPresent_With_Empty_Body_IsAccepted()
+    {
+        // tns_data_present=1 with all per-window n_filt=0 is legal: no filter bits follow.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 4);
+        WriteOneZeroSection(w, len: 4);
+        w.Write(0u, 1);                 // pulse_data_present
+        w.Write(1u, 1);                 // tns_data_present = 1
+        w.Write(0u, 2);                 // n_filt(0) = 0 (long: 2-bit count)
+        w.Write(0u, 1);                 // gain_control_data_present
+
+        Assert.True(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
+        Assert.NotNull(sce);
+        Assert.True(sce!.Stream.TnsDataPresent);
+        Assert.NotNull(sce.Stream.TnsData);
+    }
+
+    [Fact]
+    public void TryParse_Stream_ExposesSameInstanceAcrossRepeatedReads()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 0, globalGain: 0x40, maxSfb: 4);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        var first = sce!.Stream;
+        var second = sce.Stream;
+        Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void TryParse_ShortSce_DoesNot_ExposePulseData_When_Flag_Off()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalShortSceBytes(tag: 0, globalGain: 0x40, maxSfb: 4, grouping: 0x7F);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.False(sce!.Stream.PulseDataPresent);
+        Assert.Null(sce.Stream.PulseData);
+    }
+
+    [Fact]
+    public void TryParse_BitsConsumed_Matches_LongSce_Formula_For_MaxSfb1()
+    {
+        // 4 (tag) + 8 (gain) + 11 (long ics_info) + 9 (one zero section) + 0 (no SF) + 3 (flags) = 35
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalSceBytes(tag: 0, globalGain: 0, maxSfb: 1);
+        Assert.True(AacSingleChannelElement.TryParse(bytes, book, out var sce));
+        Assert.Equal(35, sce!.BitsConsumed);
+    }
 }

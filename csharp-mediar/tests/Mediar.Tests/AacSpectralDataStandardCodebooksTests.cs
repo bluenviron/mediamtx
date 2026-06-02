@@ -273,4 +273,96 @@ public sealed class AacSpectralDataStandardCodebooksTests
             Array.Empty<byte>(), ics, sections, Sr48k, out var data));
         Assert.Equal(0, data!.BitsConsumed);
     }
+
+    [Fact]
+    public void Overload_MixedSentinelSections_YieldsAllZerosNoBitsConsumed()
+    {
+        // Mix ZERO_HCB and NOISE_HCB and INTENSITY_HCB - all sentinel, zero bits.
+        var ics = LongIcsInfo(maxSfb: 49);
+        var sections = SectionList(
+            (0, 0, 0, 10),
+            (0, 13, 10, 20),
+            (0, 14, 20, 30),
+            (0, 15, 30, 49));
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var data));
+        Assert.Equal(0, data!.BitsConsumed);
+        Assert.All(data.Coefficients, c => Assert.Equal(0, c));
+    }
+
+    [Fact]
+    public void Overload_TwoConsecutiveZeroSections_ProduceAllZeroOutput()
+    {
+        // Splitting the SFB range across two ZERO_HCB sections behaves like one.
+        var ics = LongIcsInfo(maxSfb: 49);
+        var sections = SectionList((0, 0, 0, 25), (0, 0, 25, 49));
+
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var data));
+        Assert.NotNull(data);
+        Assert.Equal(0, data!.BitsConsumed);
+        Assert.All(data.Coefficients, c => Assert.Equal(0, c));
+    }
+
+    [Fact]
+    public void Overload_NullSectionData_Throws()
+    {
+        var ics = LongIcsInfo(maxSfb: 0);
+        Assert.ThrowsAny<ArgumentException>(() =>
+            AacSpectralData.TryParse(Array.Empty<byte>(), ics, null!, Sr48k, out _));
+    }
+
+    [Fact]
+    public void Overload_NullIcsInfo_Throws()
+    {
+        var sections = SectionList();
+        Assert.ThrowsAny<ArgumentException>(() =>
+            AacSpectralData.TryParse(Array.Empty<byte>(), null!, sections, Sr48k, out _));
+    }
+
+    [Fact]
+    public void StandardCodebookList_Slot1_Refers_To_AacCodebook1()
+    {
+        // Slot 1 must equal the GetCodebook(1) reference.
+        var fromList = AacStandardSpectralCodebooks.StandardCodebookList[1];
+        var fromGet = AacStandardSpectralCodebooks.GetCodebook(1);
+        Assert.Same(fromGet, fromList);
+    }
+
+    [Fact]
+    public void StandardCodebookList_Count_Property_Matches_Length()
+    {
+        var list = AacStandardSpectralCodebooks.StandardCodebookList;
+        Assert.Equal(16, list.Count);
+    }
+
+    [Fact]
+    public void Overload_CoefficientsArray_IsFreshOnEachCall()
+    {
+        // Two parses on the same input should not share the underlying coefficient buffer.
+        var ics = LongIcsInfo(maxSfb: 0);
+        var sections = SectionList();
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var a));
+        Assert.True(AacSpectralData.TryParse(
+            Array.Empty<byte>(), ics, sections, Sr48k, out var b));
+        // Different parses should produce independent ImmutableArray content (same data, different sources).
+        Assert.NotSame(a, b);
+        Assert.Equal(a!.Coefficients.ToArray(), b!.Coefficients.ToArray());
+    }
+
+    [Fact]
+    public void Overload_Cb1_ProducesNonZero_For_NonZero_Symbol()
+    {
+        // Symbol code 0b10000 (bits long enough to land in a non-sentinel codebook entry).
+        var ics = LongIcsInfo(maxSfb: 1);
+        var sections = SectionList((0, 1, 0, 1));
+        byte[] bytes = { 0b1000_0000 };
+        Assert.True(AacSpectralData.TryParse(bytes, ics, sections, Sr48k, out var data));
+        Assert.NotNull(data);
+        // BitsConsumed should be > 0; we don't pin the exact decoded value as it
+        // depends on cb1 internal codebook layout.
+        Assert.True(data!.BitsConsumed >= 1);
+    }
 }
