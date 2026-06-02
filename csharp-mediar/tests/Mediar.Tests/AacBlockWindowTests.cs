@@ -341,4 +341,137 @@ public sealed class AacBlockWindowTests
         }
         Assert.Equal(448, zeroCount);
     }
+
+    [Fact]
+    public void ComposeLongBlock_ReturnsFresh_Array_Each_Call()
+    {
+        var a = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.OnlyLong, AacWindowShape.Sine, AacWindowShape.Sine);
+        var b = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.OnlyLong, AacWindowShape.Sine, AacWindowShape.Sine);
+        // Two calls with identical inputs must produce element-equal
+        // ImmutableArrays of the same length backed by distinct buffers.
+        Assert.Equal(a.Length, b.Length);
+        for (int i = 0; i < a.Length; i++)
+        {
+            Assert.Equal(a[i], b[i]);
+        }
+    }
+
+    [Fact]
+    public void ComposeShortWindow_ReturnsFresh_Array_Each_Call()
+    {
+        var a = AacBlockWindow.ComposeShortWindow(AacWindowShape.Sine, AacWindowShape.Sine);
+        var b = AacBlockWindow.ComposeShortWindow(AacWindowShape.Sine, AacWindowShape.Sine);
+        Assert.Equal(a.Length, b.Length);
+        for (int i = 0; i < a.Length; i++)
+        {
+            Assert.Equal(a[i], b[i]);
+        }
+    }
+
+    [Fact]
+    public void ComposeShortWindow_AlwaysReturns256Samples()
+    {
+        var win = AacBlockWindow.ComposeShortWindow(
+            AacWindowShape.KaiserBesselDerived, AacWindowShape.Sine);
+        Assert.Equal(2 * AacBlockWindow.ShortHalfLength, win.Length);
+        Assert.Equal(256, win.Length);
+    }
+
+    [Fact]
+    public void WriteLongBlock_EightShort_Throws_ArgumentException_On_Sequence()
+    {
+        var buf = new float[AacBlockWindow.LongBlockLength];
+        var ex = Assert.Throws<ArgumentException>(() =>
+            AacBlockWindow.WriteLongBlock(
+                buf.AsSpan(), AacWindowSequence.EightShort,
+                AacWindowShape.Sine, AacWindowShape.Sine));
+        Assert.Equal("sequence", ex.ParamName);
+    }
+
+    [Fact]
+    public void WriteLongBlock_LongStart_FillsExpectedShape()
+    {
+        var buf = new float[AacBlockWindow.LongBlockLength];
+        AacBlockWindow.WriteLongBlock(
+            buf.AsSpan(), AacWindowSequence.LongStart,
+            AacWindowShape.Sine, AacWindowShape.Sine);
+        var heap = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.LongStart, AacWindowShape.Sine, AacWindowShape.Sine);
+        for (int i = 0; i < buf.Length; i++) Assert.Equal(heap[i], buf[i], 6);
+    }
+
+    [Fact]
+    public void WriteLongBlock_LongStop_FillsExpectedShape()
+    {
+        var buf = new float[AacBlockWindow.LongBlockLength];
+        AacBlockWindow.WriteLongBlock(
+            buf.AsSpan(), AacWindowSequence.LongStop,
+            AacWindowShape.KaiserBesselDerived, AacWindowShape.Sine);
+        var heap = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.LongStop, AacWindowShape.KaiserBesselDerived, AacWindowShape.Sine);
+        for (int i = 0; i < buf.Length; i++) Assert.Equal(heap[i], buf[i], 6);
+    }
+
+    [Theory]
+    [InlineData(AacWindowShape.Sine, AacWindowShape.Sine)]
+    [InlineData(AacWindowShape.Sine, AacWindowShape.KaiserBesselDerived)]
+    [InlineData(AacWindowShape.KaiserBesselDerived, AacWindowShape.Sine)]
+    [InlineData(AacWindowShape.KaiserBesselDerived, AacWindowShape.KaiserBesselDerived)]
+    public void ComposeLongBlock_LongStart_AllShapeCombinations_HasFlatPlateauAndZeroTail(
+        AacWindowShape leftShape, AacWindowShape rightShape)
+    {
+        var win = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.LongStart, leftShape, rightShape);
+
+        // Plateau [1024..1471] is 1.0 regardless of shape.
+        for (int n = 0; n < AacBlockWindow.TransitionPlateauLength; n++)
+        {
+            Assert.Equal(1.0f, win[AacBlockWindow.LongHalfLength + n]);
+        }
+        // Zero tail [1600..2047] regardless of shape.
+        int zeroStart = AacBlockWindow.LongHalfLength
+            + AacBlockWindow.TransitionPlateauLength
+            + AacBlockWindow.ShortHalfLength;
+        for (int n = zeroStart; n < AacBlockWindow.LongBlockLength; n++)
+        {
+            Assert.Equal(0.0f, win[n]);
+        }
+    }
+
+    [Theory]
+    [InlineData(AacWindowShape.Sine, AacWindowShape.Sine)]
+    [InlineData(AacWindowShape.Sine, AacWindowShape.KaiserBesselDerived)]
+    [InlineData(AacWindowShape.KaiserBesselDerived, AacWindowShape.Sine)]
+    [InlineData(AacWindowShape.KaiserBesselDerived, AacWindowShape.KaiserBesselDerived)]
+    public void ComposeLongBlock_LongStop_AllShapeCombinations_HasZeroHeadAndFlatPlateau(
+        AacWindowShape leftShape, AacWindowShape rightShape)
+    {
+        var win = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.LongStop, leftShape, rightShape);
+
+        // Zero head [0..447] regardless of shape.
+        for (int n = 0; n < AacBlockWindow.TransitionPlateauLength; n++)
+        {
+            Assert.Equal(0.0f, win[n]);
+        }
+        // Flat plateau [576..1023] regardless of shape.
+        int flatStart = AacBlockWindow.TransitionPlateauLength + AacBlockWindow.ShortHalfLength;
+        for (int n = 0; n < AacBlockWindow.TransitionPlateauLength; n++)
+        {
+            Assert.Equal(1.0f, win[flatStart + n]);
+        }
+    }
+
+    [Fact]
+    public void ComposeLongBlock_OnlyLong_HasNoFlatPlateau()
+    {
+        var win = AacBlockWindow.ComposeLongBlock(
+            AacWindowSequence.OnlyLong, AacWindowShape.Sine, AacWindowShape.Sine);
+        // The center samples (around the half-point boundary) should
+        // strictly differ from 1.0 for a sine-shaped OnlyLong block.
+        Assert.NotEqual(1.0f, win[AacBlockWindow.LongHalfLength - 1]);
+        Assert.NotEqual(1.0f, win[AacBlockWindow.LongHalfLength]);
+    }
 }

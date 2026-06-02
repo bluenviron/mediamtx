@@ -333,6 +333,159 @@ public class VvcVideoParameterSetTests
         Assert.Equal(0x00000003u, vps.SubProfileIdcs[3]);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(15)]
+    public void TryParse_VpsId_Roundtrips(byte vpsId)
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = vpsId,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 0,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(vpsId, vps!.VideoParameterSetId);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(31)]
+    [InlineData(63)]
+    public void TryParse_LayerId_Roundtrips(byte layerId)
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            LayerId = layerId,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(layerId, vps!.LayerId);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(120)]
+    [InlineData(255)]
+    public void TryParse_GeneralLevelIdc_Roundtrips(byte level)
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 0,
+            GeneralLevelIdc = level,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(level, vps!.GeneralLevelIdc);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(33)]
+    [InlineData(127)]
+    public void TryParse_GeneralProfileIdc_Roundtrips(byte profileIdc)
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 0,
+            GeneralProfileIdc = profileIdc,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(profileIdc, vps!.GeneralProfileIdc);
+    }
+
+    [Fact]
+    public void TryParse_All_SubLayer_Levels_Present()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 4,
+            LayerId = 0,
+            SubLayerLevelPresentFlags = ImmutableArray.Create(true, true, true, true),
+            SubLayerLevelIdcs = ImmutableArray.Create<byte?>(60, 70, 80, 90),
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(4, vps!.SubLayerLevelPresentFlags.Length);
+        Assert.All(vps.SubLayerLevelPresentFlags, f => Assert.True(f));
+    }
+
+    [Fact]
+    public void TryParse_All_SubLayer_Levels_Absent()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 4,
+            LayerId = 0,
+            SubLayerLevelPresentFlags = ImmutableArray.Create(false, false, false, false),
+            SubLayerLevelIdcs = ImmutableArray.Create<byte?>(null, null, null, null),
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(4, vps!.SubLayerLevelPresentFlags.Length);
+        Assert.All(vps.SubLayerLevelPresentFlags, f => Assert.False(f));
+        Assert.All(vps.SubLayerLevelIdcs, idc => Assert.Null(idc));
+    }
+
+    [Fact]
+    public void Record_Equality_From_Identical_Bytes_Matches_VisibleFields()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 3,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 7,
+            GeneralProfileIdc = 65,
+            GeneralLevelIdc = 99,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var a));
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var b));
+        Assert.Equal(a!.VideoParameterSetId, b!.VideoParameterSetId);
+        Assert.Equal(a.LayerId, b.LayerId);
+        Assert.Equal(a.GeneralProfileIdc, b.GeneralProfileIdc);
+        Assert.Equal(a.GeneralLevelIdc, b.GeneralLevelIdc);
+        Assert.Equal(a.NumSubProfiles, b.NumSubProfiles);
+    }
+
+    [Fact]
+    public void TryParse_FrameOnly_False_And_Multilayer_False_Defaults()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 0,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.False(vps!.FrameOnlyConstraintFlag);
+        Assert.False(vps.MultilayerEnabledFlag);
+        Assert.False(vps.GeneralTierFlag);
+    }
+
+    [Fact]
+    public void TryParse_Exactly_8_SubProfiles_Accepted()
+    {
+        var subProfiles = ImmutableArray.Create<uint>(0x1u, 0x2u, 0x3u, 0x4u, 0x5u, 0x6u, 0x7u, 0x8u);
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            VideoParameterSetId = 0,
+            MaxSubLayersMinus1 = 0,
+            LayerId = 0,
+            SubProfileIdcs = subProfiles,
+        });
+        Assert.True(VvcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(8, vps!.NumSubProfiles);
+    }
+
     // --- Test bitstream construction helpers ---
 
     private sealed record VpsSpec
