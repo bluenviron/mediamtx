@@ -34,6 +34,9 @@ public sealed class MatroskaMuxer : IMediaMuxer
     private readonly bool _leaveOpen;
     private readonly bool _webm;
     private readonly List<MediaTrack> _tracks = new();
+    private readonly Dictionary<int, LacingConfig> _lacing = new();
+    private readonly Dictionary<int, List<MediaSample>> _pendingLace = new();
+    private readonly Dictionary<int, TimeSpan> _defaultDurations = new();
 
     private bool _started;
     private bool _finished;
@@ -41,6 +44,17 @@ public sealed class MatroskaMuxer : IMediaMuxer
     // Current cluster state.
     private EbmlWriter? _clusterWriter;
     private long _clusterTimecodeMs = -1;
+
+    private readonly struct LacingConfig
+    {
+        public LacingConfig(MatroskaLacing mode, int maxFrames)
+        {
+            Mode = mode;
+            MaxFrames = maxFrames;
+        }
+        public MatroskaLacing Mode { get; }
+        public int MaxFrames { get; }
+    }
 
     public MatroskaMuxer(Stream output, bool webm = false, bool leaveOpen = false)
     {
@@ -68,6 +82,60 @@ public sealed class MatroskaMuxer : IMediaMuxer
             throw new ArgumentException($"WebM does not support codec {track.Codec.Codec}.", nameof(track));
         }
         _tracks.Add(track);
+    }
+
+    /// <summary>
+    /// Enable Block / SimpleBlock lacing for the given track. Must be called
+    /// after <see cref="AddTrack"/> and before <see cref="StartAsync"/>.
+    /// </summary>
+    /// <param name="trackIndex">Index returned by <see cref="AddTrack"/> order.</param>
+    /// <param name="mode">Lacing dialect to use. <see cref="MatroskaLacing.None"/> disables lacing.</param>
+    /// <param name="maxFramesPerBlock">
+    /// Soft cap on the number of frames per laced block. Matroska's lacing
+    /// header stores <c>frame_count - 1</c> in one byte, so the hard ceiling
+    /// is 256. Practical values are typically 4-16 for audio.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// Laced SimpleBlocks only record the timestamp of the first frame. To
+    /// recover per-frame PTS, downstream demuxers rely on the track's
+    /// <c>DefaultDuration</c>. Configure that via
+    /// <see cref="SetDefaultDuration(int, TimeSpan)"/> for any laced track —
+    /// otherwise the demuxer will assign identical PTS to every frame in the
+    /// lace, which usually breaks playback.
+    /// </para>
+    /// </remarks>
+    public void SetLacing(int trackIndex, MatroskaLacing mode, int maxFramesPerBlock = 8)
+    {
+        if (_started) throw new InvalidOperationException("Cannot configure lacing after Start.");
+        if (trackIndex < 0 || trackIndex >= _tracks.Count)
+            throw new ArgumentOutOfRangeException(nameof(trackIndex));
+        if (maxFramesPerBlock < 1 || maxFramesPerBlock > MatroskaLacingCodec.MaxFrames)
+            throw new ArgumentOutOfRangeException(nameof(maxFramesPerBlock),
+                $"Must be 1..{MatroskaLacingCodec.MaxFrames}.");
+        if (mode == MatroskaLacing.None)
+        {
+            _lacing.Remove(trackIndex);
+        }
+        else
+        {
+            _lacing[trackIndex] = new LacingConfig(mode, maxFramesPerBlock);
+        }
+    }
+
+    /// <summary>
+    /// Set the <c>DefaultDuration</c> element for a track. Required by the
+    /// Matroska spec for any track that uses lacing on SimpleBlock; otherwise
+    /// downstream demuxers cannot derive per-frame PTS within a lace.
+    /// </summary>
+    public void SetDefaultDuration(int trackIndex, TimeSpan duration)
+    {
+        if (_started) throw new InvalidOperationException("Cannot configure default duration after Start.");
+        if (trackIndex < 0 || trackIndex >= _tracks.Count)
+            throw new ArgumentOutOfRangeException(nameof(trackIndex));
+        if (duration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(duration), "Must be > 0.");
+        _defaultDurations[trackIndex] = duration;
     }
 
     /// <inheritdoc/>
@@ -111,8 +179,10 @@ public sealed class MatroskaMuxer : IMediaMuxer
         var tracks = new EbmlWriter();
         tracks.WriteMaster(MatroskaIds.Tracks, ww =>
         {
-            foreach (var t in _tracks)
+            for (int i = 0; i < _tracks.Count; i++)
             {
+                var t = _tracks[i];
+                int idx = i;
                 ww.WriteMaster(MatroskaIds.TrackEntry, te =>
                 {
                     te.WriteUInt(MatroskaIds.TrackNumber, t.Id);
@@ -124,7 +194,8 @@ public sealed class MatroskaMuxer : IMediaMuxer
                         StreamKind.Subtitle => 0x11UL,
                         _ => 0x20UL,
                     });
-                    te.WriteUInt(0x9C, 1);          // FlagLacing = 1
+                    bool tracksLaced = _lacing.ContainsKey(idx);
+                    te.WriteUInt(0x9C, tracksLaced ? 1UL : 0UL); // FlagLacing
                     te.WriteString(MatroskaIds.CodecId, MapCodecId(t.Codec.Codec)!);
                     if (t.Codec.ExtraData.Length > 0)
                     {
@@ -132,6 +203,12 @@ public sealed class MatroskaMuxer : IMediaMuxer
                     }
                     if (!string.IsNullOrEmpty(t.Name)) te.WriteString(0x536E, t.Name); // Name
                     if (!string.IsNullOrEmpty(t.Language)) te.WriteString(0x22B59C, t.Language); // Language
+                    if (_defaultDurations.TryGetValue(idx, out var dd))
+                    {
+                        // DefaultDuration is in nanoseconds and the spec disallows zero.
+                        ulong ns = (ulong)Math.Max(1, dd.Ticks * 100L);
+                        te.WriteUInt(MatroskaIds.DefaultDuration, ns);
+                    }
 
                     if (t.Codec is AudioCodecParameters audio)
                     {
@@ -165,24 +242,58 @@ public sealed class MatroskaMuxer : IMediaMuxer
             throw new ArgumentOutOfRangeException(nameof(sample), "TrackIndex out of range.");
 
         var track = _tracks[sample.TrackIndex];
-
-        // Convert PTS in track timebase to milliseconds.
         long ptsMs = checked(sample.Pts * 1000L * track.TimeBase.Numerator / track.TimeBase.Denominator);
 
-        // Start a new cluster if needed.
-        if (_clusterWriter is null ||
-            ptsMs - _clusterTimecodeMs > MaxClusterSpanMs ||
-            ptsMs - _clusterTimecodeMs < 0)
+        // EnsureClusterForPtsAsync is the ONLY place that can flush pending
+        // laces and roll a cluster. It flushes pending laces into the OLD
+        // cluster before opening the new one, so by the time we return any
+        // pending lace whose first PTS belongs to a now-closed cluster has
+        // already been written. FlushLace itself never recurses here — it
+        // simply writes into the currently open cluster.
+        await EnsureClusterForPtsAsync(ptsMs, cancellationToken).ConfigureAwait(false);
+
+        if (!_lacing.TryGetValue(sample.TrackIndex, out var cfg))
         {
-            await FlushClusterAsync(cancellationToken).ConfigureAwait(false);
-            _clusterTimecodeMs = ptsMs;
-            _clusterWriter = new EbmlWriter(8192);
-            _clusterWriter.WriteUInt(MatroskaIds.Timecode, (ulong)ptsMs);
+            EmitSingleBlock(sample, ptsMs);
+            return;
         }
+
+        if (!_pendingLace.TryGetValue(sample.TrackIndex, out var buf))
+        {
+            buf = new List<MediaSample>(cfg.MaxFrames);
+            _pendingLace[sample.TrackIndex] = buf;
+        }
+        if (buf.Count > 0 && !CanLaceWithExisting(buf, sample, cfg.Mode))
+        {
+            FlushLace(sample.TrackIndex);
+        }
+        buf.Add(sample);
+        if (buf.Count >= cfg.MaxFrames)
+        {
+            FlushLace(sample.TrackIndex);
+        }
+    }
+
+    private static bool CanLaceWithExisting(List<MediaSample> buf, MediaSample candidate, MatroskaLacing mode)
+    {
+        var head = buf[0];
+        if (head.TrackIndex != candidate.TrackIndex) return false;
+        // All frames in a lace must share the keyframe / discardable flag of
+        // the block — otherwise the demuxer cannot reconstruct per-frame
+        // metadata. Conservatively require IsKeyFrame parity.
+        if (head.IsKeyFrame != candidate.IsKeyFrame) return false;
+        // PTS must be monotonically increasing within a lace.
+        if (candidate.Pts < buf[^1].Pts) return false;
+        if (mode == MatroskaLacing.Fixed && candidate.Data.Length != head.Data.Length) return false;
+        return true;
+    }
+
+    private void EmitSingleBlock(MediaSample sample, long ptsMs)
+    {
+        var track = _tracks[sample.TrackIndex];
 
         short relative = (short)(ptsMs - _clusterTimecodeMs);
 
-        // SimpleBlock payload: VINT trackNum + 16-bit BE relative ts + 1 byte flags + data.
         var sbw = new EbmlWriter(sample.Data.Length + 16);
         sbw.WriteVintLength(track.Id);
         Span<byte> tsFlags = stackalloc byte[3];
@@ -196,11 +307,98 @@ public sealed class MatroskaMuxer : IMediaMuxer
         _clusterWriter!.WriteBinary(MatroskaIds.SimpleBlock, sbw.Written);
     }
 
+    private async ValueTask EnsureClusterForPtsAsync(long ptsMs, CancellationToken cancellationToken)
+    {
+        if (_clusterWriter is null ||
+            ptsMs - _clusterTimecodeMs > MaxClusterSpanMs ||
+            ptsMs - _clusterTimecodeMs < 0)
+        {
+            // Flush every pending lace whose first PTS belongs to the cluster
+            // we're about to close, in chronological order. This prevents a
+            // pending audio lace from leaking into the next cluster (which
+            // would corrupt block ordering). FlushAllPendingLaces is purely
+            // synchronous in-memory work — it cannot recurse here.
+            FlushAllPendingLaces();
+            await FlushClusterAsync(cancellationToken).ConfigureAwait(false);
+            _clusterTimecodeMs = ptsMs;
+            _clusterWriter = new EbmlWriter(8192);
+            _clusterWriter.WriteUInt(MatroskaIds.Timecode, (ulong)ptsMs);
+        }
+    }
+
+    private void FlushAllPendingLaces()
+    {
+        if (_pendingLace.Count == 0) return;
+        // Drain in chronological order of first sample to keep block order sane.
+        var ordered = _pendingLace
+            .Where(kv => kv.Value.Count > 0)
+            .OrderBy(kv => kv.Value[0].Pts * 1000L * _tracks[kv.Key].TimeBase.Numerator / _tracks[kv.Key].TimeBase.Denominator)
+            .Select(kv => kv.Key)
+            .ToArray();
+        foreach (var trackIndex in ordered)
+        {
+            FlushLace(trackIndex);
+        }
+    }
+
+    private void FlushLace(int trackIndex)
+    {
+        if (!_pendingLace.TryGetValue(trackIndex, out var buf) || buf.Count == 0) return;
+        // INVARIANT: _clusterWriter is non-null. Established by the caller
+        // (either WriteSampleAsync after EnsureClusterForPtsAsync, or
+        // FlushAllPendingLaces during a roll where the OLD cluster is still
+        // open). The lace's first PTS must therefore yield a non-negative
+        // signed 16-bit relative timestamp within that cluster.
+        var first = buf[0];
+        var track = _tracks[trackIndex];
+        long firstPtsMs = checked(first.Pts * 1000L * track.TimeBase.Numerator / track.TimeBase.Denominator);
+        short relative = (short)(firstPtsMs - _clusterTimecodeMs);
+
+        var cfg = _lacing[trackIndex];
+        var sbw = new EbmlWriter(SumBytes(buf) + 32);
+        sbw.WriteVintLength(track.Id);
+        Span<byte> tsFlags = stackalloc byte[3];
+        BinaryPrimitives.WriteInt16BigEndian(tsFlags, relative);
+        byte flags = 0;
+        if (first.IsKeyFrame) flags |= 0x80;
+        if (buf.Count > 1)
+        {
+            // Set lacing bits 1-2 only if we have something to lace.
+            flags |= (byte)(((int)cfg.Mode & 0x03) << 1);
+        }
+        tsFlags[2] = flags;
+        sbw.WriteRaw(tsFlags);
+
+        if (buf.Count == 1)
+        {
+            sbw.WriteRaw(first.Data.Span);
+        }
+        else
+        {
+            int[] sizes = new int[buf.Count];
+            for (int i = 0; i < buf.Count; i++) sizes[i] = buf[i].Data.Length;
+            MatroskaLacingCodec.EncodeSizes(cfg.Mode, sizes, out byte[] header);
+            sbw.WriteRaw(header);
+            for (int i = 0; i < buf.Count; i++) sbw.WriteRaw(buf[i].Data.Span);
+        }
+
+        _clusterWriter!.WriteBinary(MatroskaIds.SimpleBlock, sbw.Written);
+        buf.Clear();
+    }
+
+    private static int SumBytes(List<MediaSample> buf)
+    {
+        int total = 0;
+        foreach (var s in buf) total += s.Data.Length;
+        return total;
+    }
+
     /// <inheritdoc/>
     public async ValueTask FinishAsync(CancellationToken cancellationToken = default)
     {
         if (_finished) return;
         _finished = true;
+        FlushAllPendingLaces();
         await FlushClusterAsync(cancellationToken).ConfigureAwait(false);
         await _output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }

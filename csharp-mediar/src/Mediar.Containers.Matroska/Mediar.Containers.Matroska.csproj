@@ -4,11 +4,15 @@
     <RootNamespace>Mediar.Containers.Matroska</RootNamespace>
     <AssemblyName>Mediar.Containers.Matroska</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>Matroska / WebM demuxer (EBML + Segment/Cluster) for Mediar.</Description>
+    <Description>Matroska / WebM demuxer (EBML + Segment/Cluster, Xiph/EBML/Fixed lacing) plus a streaming Matroska/WebM muxer with opt-in Block lacing for Mediar.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
   </ItemGroup>
 
 </Project>

@@ -1,15 +1,14 @@
-using System.Buffers;
 using Mediar.IO;
 
 namespace Mediar.Containers.Matroska;
 
 /// <summary>
 /// Matroska / WebM container demuxer. Parses the EBML header, the Segment's
-/// Info and Tracks elements, then walks Clusters and emits SimpleBlock samples
-/// as <see cref="MediaSample"/>. Lacing (XIPH / EBML / FIXED) and BlockGroup
-/// reference frames are not yet supported — these are rare in WebM and modern
-/// MKV files but consumers should expect <see cref="InvalidDataException"/>
-/// if they appear.
+/// Info and Tracks elements, then walks Clusters and emits SimpleBlock and
+/// BlockGroup samples as <see cref="MediaSample"/>. Xiph, Fixed and EBML
+/// lacing are decoded — laced blocks emit one <see cref="MediaSample"/> per
+/// frame with PTS values derived from <c>BlockDuration / N</c> (BlockGroup)
+/// or the track's <c>DefaultDuration</c> (SimpleBlock).
 /// </summary>
 public sealed class MatroskaDemuxer : IMediaDemuxer
 {
@@ -17,6 +16,8 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
     private readonly bool _ownsSource;
     private readonly List<MediaTrack> _tracks = new();
     private readonly Dictionary<int, int> _trackNumberToIndex = new();
+    /// <summary>DefaultDuration per track-index, in cluster-tick units (TimecodeScaleNs).</summary>
+    private readonly Dictionary<int, long> _defaultDurationTicks = new();
     private readonly MediaMetadataBuilder _metaBuilder = new();
     private MediaMetadata? _metadata;
     private long _segmentStart;
@@ -166,6 +167,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         byte[] codecPrivate = [];
         int sampleRate = 0, channels = 0, bitDepth = 0;
         int width = 0, height = 0;
+        ulong defaultDurationNs = 0;
 
         while (r.Position < end)
         {
@@ -178,6 +180,7 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                 case MatroskaIds.TrackType: trackType = (int)r.ReadUInt((int)size); break;
                 case MatroskaIds.CodecId: codecId = r.ReadString((long)size); break;
                 case MatroskaIds.CodecPrivate: codecPrivate = r.ReadBytes((long)size); break;
+                case MatroskaIds.DefaultDuration: defaultDurationNs = r.ReadUInt((int)size); break;
                 case MatroskaIds.Audio:
                     ParseAudio(r, elemEnd, ref sampleRate, ref channels, ref bitDepth);
                     break;
@@ -238,6 +241,15 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
         };
         _tracks.Add(track);
         _trackNumberToIndex[trackNumber] = trackIndex;
+        if (defaultDurationNs > 0 && _timecodeScaleNs > 0)
+        {
+            // Convert ns → cluster ticks. Rounding to nearest gives best lace
+            // PTS spacing for codecs whose frame duration is not an integer
+            // number of cluster ticks (e.g. AAC 1024/48000 ≈ 21.333 ms with a
+            // 1 ms TimecodeScale).
+            long ticks = (long)((defaultDurationNs + (_timecodeScaleNs / 2)) / _timecodeScaleNs);
+            if (ticks > 0) _defaultDurationTicks[trackIndex] = ticks;
+        }
     }
 
     private static void ParseAudio(EbmlReader r, long end, ref int sampleRate, ref int channels, ref int bitDepth)
@@ -446,7 +458,11 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
     private List<MediaSample> DecodeBlockGroup(EbmlReader r, long end, long clusterTimecode)
     {
         long blockDuration = 0;
-        var pendingSamples = new List<MediaSample>();
+        // Buffer the raw Block bytes first so we can apply BlockDuration (which
+        // may appear AFTER Block in element order) when computing per-frame
+        // PTS spacing for laced blocks.
+        byte[]? pendingBlock = null;
+        int pendingSize = 0;
         while (r.Position < end)
         {
             ulong id = r.ReadElementId(out _);
@@ -454,10 +470,8 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
             switch (id)
             {
                 case MatroskaIds.Block:
-                    foreach (var s in DecodeBlock(r, (int)size, clusterTimecode, isSimple: false, blockDuration: 0))
-                    {
-                        pendingSamples.Add(s);
-                    }
+                    pendingBlock = r.ReadBytes((long)size);
+                    pendingSize = (int)size;
                     break;
                 case MatroskaIds.BlockDuration:
                     blockDuration = (long)r.ReadUInt((int)size);
@@ -467,63 +481,104 @@ public sealed class MatroskaDemuxer : IMediaDemuxer
                     break;
             }
         }
-        if (blockDuration > 0)
+        var samples = new List<MediaSample>();
+        if (pendingBlock is null) return samples;
+        foreach (var s in DecodeBlockBytes(pendingBlock, pendingSize, clusterTimecode, isSimple: false, blockDuration))
         {
-            for (int i = 0; i < pendingSamples.Count; i++)
-            {
-                pendingSamples[i] = pendingSamples[i] with { Duration = (int)blockDuration };
-            }
+            samples.Add(s);
         }
-        return pendingSamples;
+        return samples;
     }
 
     private IEnumerable<MediaSample> DecodeBlock(
         EbmlReader r, int size, long clusterTimecode, bool isSimple, long blockDuration)
     {
-        long bodyStart = r.Position;
-        byte[] body = ArrayPool<byte>.Shared.Rent(size);
-        try
+        // SimpleBlock (and Block when no BlockDuration is provided): read the
+        // raw payload once and hand to the shared per-byte decoder.
+        byte[] data = r.ReadBytes(size);
+        return DecodeBlockBytes(data, size, clusterTimecode, isSimple, blockDuration);
+    }
+
+    private IEnumerable<MediaSample> DecodeBlockBytes(
+        byte[] data, int size, long clusterTimecode, bool isSimple, long blockDuration)
+    {
+        int offset = 0;
+        ulong trackNumber = ReadVarIntFromBuffer(data, offset, out int idLen);
+        offset += idLen;
+        if (offset + 3 > size)
+            throw new InvalidDataException("Block header truncated.");
+        short relTimecode = (short)((data[offset] << 8) | data[offset + 1]);
+        offset += 2;
+        byte flags = data[offset++];
+        bool isKeyFrame = isSimple ? (flags & 0x80) != 0 : true;
+        int lacingBits = (flags >> 1) & 0x03;
+        var lacing = (MatroskaLacing)lacingBits;
+
+        if (!_trackNumberToIndex.TryGetValue((int)trackNumber, out int trackIndex))
+            yield break;
+
+        long basePts = clusterTimecode + relTimecode;
+
+        if (lacing == MatroskaLacing.None)
         {
-            r.Position = bodyStart;
-            int n = r.ReadBytes(size).Length;
-            _ = n;
-            r.Position = bodyStart;
-            byte[] data = r.ReadBytes(size);
-
-            int offset = 0;
-            ulong trackNumber = ReadVarIntFromBuffer(data, offset, out int idLen);
-            offset += idLen;
-            short relTimecode = (short)((data[offset] << 8) | data[offset + 1]);
-            offset += 2;
-            byte flags = data[offset++];
-            bool isKeyFrame = isSimple ? (flags & 0x80) != 0 : true;
-            int lacing = (flags >> 1) & 0x03;
-            if (lacing != 0)
-            {
-                throw new InvalidDataException("Matroska lacing is not yet supported.");
-            }
-
-            if (!_trackNumberToIndex.TryGetValue((int)trackNumber, out int trackIndex))
-            {
-                yield break;
-            }
-            long pts = clusterTimecode + relTimecode;
             int payloadLen = size - offset;
             byte[] payload = new byte[payloadLen];
             Array.Copy(data, offset, payload, 0, payloadLen);
             yield return new MediaSample
             {
                 TrackIndex = trackIndex,
-                Pts = pts,
-                Dts = pts,
+                Pts = basePts,
+                Dts = basePts,
                 Duration = (int)blockDuration,
                 IsKeyFrame = isKeyFrame,
                 Data = payload,
             };
+            yield break;
         }
-        finally
+
+        // Decode the lacing size table; everything after the header is frame bytes.
+        var bodyAfterFlags = new ReadOnlySpan<byte>(data, offset, size - offset);
+        int payloadStart = MatroskaLacingCodec.DecodeSizes(lacing, bodyAfterFlags, out int[] sizes);
+        int frameDataStart = offset + payloadStart;
+
+        // Per-frame PTS spacing: prefer the block's own BlockDuration (split
+        // evenly), then fall back to the track's DefaultDuration, finally 0.
+        long step;
+        if (blockDuration > 0 && sizes.Length > 0)
         {
-            ArrayPool<byte>.Shared.Return(body);
+            step = blockDuration / sizes.Length;
+        }
+        else if (_defaultDurationTicks.TryGetValue(trackIndex, out long dd))
+        {
+            step = dd;
+        }
+        else
+        {
+            step = 0;
+        }
+
+        int cursor = frameDataStart;
+        for (int i = 0; i < sizes.Length; i++)
+        {
+            int len = sizes[i];
+            if (cursor + len > size)
+                throw new InvalidDataException("Laced frame extends past block payload.");
+            byte[] payload = new byte[len];
+            Array.Copy(data, cursor, payload, 0, len);
+            cursor += len;
+            long pts = basePts + i * step;
+            int dur = blockDuration > 0 && sizes.Length > 0
+                ? (int)(blockDuration / sizes.Length)
+                : (int)step;
+            yield return new MediaSample
+            {
+                TrackIndex = trackIndex,
+                Pts = pts,
+                Dts = pts,
+                Duration = dur,
+                IsKeyFrame = isKeyFrame,
+                Data = payload,
+            };
         }
     }
 

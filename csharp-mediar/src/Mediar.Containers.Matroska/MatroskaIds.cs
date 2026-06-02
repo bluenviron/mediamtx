@@ -28,6 +28,7 @@ internal static class MatroskaIds
     public const ulong BlockGroup = 0xA0;
     public const ulong Block = 0xA1;
     public const ulong BlockDuration = 0x9B;
+    public const ulong DefaultDuration = 0x23E383;
     public const ulong Void = 0xEC;
     public const ulong Crc32 = 0xBF;
 
