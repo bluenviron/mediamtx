@@ -388,4 +388,70 @@ public sealed class MosReaderTests
         reader.Dispose();
         Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MosReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalLeafSpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = MosReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Mos, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalLeafSpec());
+        using var mos = MosReader.Open(new MemoryStream(bytes, writable: false));
+        if (!mos.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in mos.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Mos()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalLeafSpec());
+        using var mos = MosReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Mos, mos.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalLeafSpec());
+        using var mos = MosReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(mos.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalLeafSpec());
+        var r = MosReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestSrwBuilder.IfdSpec MinimalLeafSpec() => new()
+    {
+        Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+        Compression = 1, Photometric = 2, NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "Leaf",
+    };
 }
