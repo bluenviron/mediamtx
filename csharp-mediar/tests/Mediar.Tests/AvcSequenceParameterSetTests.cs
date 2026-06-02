@@ -189,6 +189,219 @@ public class AvcSequenceParameterSetTests
         Assert.Equal(368u, sps.PictureHeightInSamples);
     }
 
+    [Fact]
+    public void TryParse_Rejects_Empty_NalUnit()
+    {
+        Assert.False(AvcSequenceParameterSet.TryParse(ReadOnlySpan<byte>.Empty, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void TryParse_Rejects_Sub_Four_Byte_NalUnit(int length)
+    {
+        var nalu = new byte[length];
+        if (length > 0) nalu[0] = 0x67;
+        Assert.False(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void TryParse_Rejects_HighProfile_With_Invalid_ChromaFormatIdc(byte invalidCf)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 100, constraintSet: 0x00, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: invalidCf);
+        Assert.False(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Theory]
+    [InlineData(7)]
+    [InlineData(10)]
+    [InlineData(20)]
+    public void TryParse_Rejects_HighProfile_With_BitDepth_Above_Limit(byte invalidBitDepthMinus8)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 100, constraintSet: 0x00, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: 1,
+            bitDepthLumaMinus8: invalidBitDepthMinus8);
+        Assert.False(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Theory]
+    [InlineData(3u)]
+    [InlineData(4u)]
+    [InlineData(5u)]
+    public void TryParse_Rejects_Out_Of_Range_PicOrderCntType(uint badPocType)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            picOrderCntType: badPocType);
+        Assert.False(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Null(sps);
+    }
+
+    [Fact]
+    public void TryParse_HighProfile_Monochrome_ChromaFormat0_Accepted()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 100, constraintSet: 0x00, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: 0);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)0, sps!.ChromaFormatIdc);
+        // ChromaArrayType=0 -> CropUnitX=1, CropUnitY=1.
+        Assert.Equal(640u, sps.DecodedWidth);
+        Assert.Equal(368u, sps.DecodedHeight);
+    }
+
+    [Theory]
+    [InlineData(1)] // 4:2:0
+    [InlineData(2)] // 4:2:2
+    [InlineData(3)] // 4:4:4
+    public void TryParse_HighProfile_All_Valid_ChromaFormats_Accepted(byte cf)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 100, constraintSet: 0x00, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: cf);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(cf, sps!.ChromaFormatIdc);
+    }
+
+    [Theory]
+    [InlineData(0)] // 8-bit
+    [InlineData(2)] // 10-bit
+    [InlineData(4)] // 12-bit
+    [InlineData(6)] // 14-bit
+    public void TryParse_HighProfile_All_Valid_BitDepths_Accepted(byte bdMinus8)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 100, constraintSet: 0x00, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: 1,
+            bitDepthLumaMinus8: bdMinus8, bitDepthChromaMinus8: bdMinus8);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)(bdMinus8 + 8), sps!.BitDepthLuma);
+        Assert.Equal((byte)(bdMinus8 + 8), sps.BitDepthChroma);
+    }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x3F)]
+    [InlineData(0xC0)]
+    [InlineData(0xFC)]
+    [InlineData(0xFF)]
+    public void TryParse_Preserves_ConstraintSetFlags(byte flags)
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: flags, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(flags, sps!.ConstraintSetFlags);
+    }
+
+    [Fact]
+    public void DecodedWidth_Clamps_To_Zero_When_Crop_Exceeds_Width()
+    {
+        // 1 MB wide picture (16 luma samples) with right crop 10 chroma samples
+        // (= 20 luma samples in 4:2:0). After crop: 16 - 20 = -4 → clamped to 0.
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 0, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 10, cropTop: 0, cropBottom: 0);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(16u, sps!.PictureWidthInSamples);
+        Assert.Equal(0u, sps.DecodedWidth);
+    }
+
+    [Fact]
+    public void DecodedHeight_Clamps_To_Zero_When_Crop_Exceeds_Height()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 0, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 10);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal(16u, sps!.PictureHeightInSamples);
+        Assert.Equal(0u, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void Decoded_Width_Equals_Picture_Width_When_No_Crop()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 9, heightMapUnitsMinus1: 9, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.False(sps!.FrameCroppingFlag);
+        Assert.Equal(sps.PictureWidthInSamples, sps.DecodedWidth);
+        Assert.Equal(sps.PictureHeightInSamples, sps.DecodedHeight);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var a));
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+
+        var c = a with { LevelIdc = 41 };
+        Assert.NotEqual(a, c);
+        Assert.Equal((byte)41, c.LevelIdc);
+        Assert.Equal(a.ProfileIdc, c.ProfileIdc);
+    }
+
+    [Fact]
+    public void Baseline_Profile_Does_Not_Read_Chroma_Format_Bits()
+    {
+        // For baseline (66), the SPS doesn't carry chroma_format_idc; the
+        // parser must default to 1 and skip the high-profile block entirely.
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0,
+            chromaFormatIdc: 3); // builder parameter ignored for baseline
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.Equal((byte)1, sps!.ChromaFormatIdc); // default, not 3
+        Assert.Equal((byte)8, sps.BitDepthLuma);
+        Assert.Equal((byte)8, sps.BitDepthChroma);
+        Assert.False(sps.SeparateColourPlaneFlag);
+    }
+
+    [Fact]
+    public void Crop_Offsets_Preserved_In_Output()
+    {
+        var nalu = SpsBuilder.Build(profileIdc: 66, constraintSet: 0xC0, levelIdc: 30,
+            widthMbsMinus1: 39, heightMapUnitsMinus1: 22, frameMbsOnlyFlag: true,
+            cropLeft: 1, cropRight: 2, cropTop: 3, cropBottom: 4);
+        Assert.True(AvcSequenceParameterSet.TryParse(nalu, out var sps));
+        Assert.True(sps!.FrameCroppingFlag);
+        Assert.Equal(1u, sps.FrameCropLeftOffset);
+        Assert.Equal(2u, sps.FrameCropRightOffset);
+        Assert.Equal(3u, sps.FrameCropTopOffset);
+        Assert.Equal(4u, sps.FrameCropBottomOffset);
+    }
+
+    [Fact]
+    public void SpsNalUnitType_Constant_Equals_Seven()
+    {
+        Assert.Equal(7, AvcSequenceParameterSet.SpsNalUnitType);
+    }
+
     // ---------- SPS bitstream builder ----------
 
     private static class SpsBuilder
