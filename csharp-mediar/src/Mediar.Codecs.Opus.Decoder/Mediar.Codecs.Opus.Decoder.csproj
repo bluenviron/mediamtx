@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Mediar.Tests" />
+    <InternalsVisibleTo Include="Mediar.Codecs.Opus.Encoder" />
   </ItemGroup>
 
 </Project>

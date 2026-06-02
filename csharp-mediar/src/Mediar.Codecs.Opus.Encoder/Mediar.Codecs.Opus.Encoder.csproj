@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Opus.Encoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Opus.Encoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native Opus audio encoder for Mediar. Clean-room implementation of RFC 6716 — phased delivery: Phase B1 ships the framing layer (range encoder + TOC + frame assembler + encoder skeleton); Phase B2 adds the CELT layer (forward MDCT, energy quantiser, PVQ search, per-band quantiser); subsequent phases add SILK, hybrid mode, and multistream.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Opus.Decoder\Mediar.Codecs.Opus.Decoder.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>
