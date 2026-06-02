@@ -284,6 +284,32 @@ public class HeifReaderTests
         Assert.Equal(ImageFormat.Avif, r.Format);
     }
 
+    [Fact]
+    public void Open_NullPath_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => HeifReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void OwnsStreamTrue_Disposes_Underlying_Stream()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = HeifReader.Open(inner, ImageFormat.Heif, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Heic, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Reader_Format()
+    {
+        var bytes = BuildMinimalHeif("heic", 8, 8);
+        using var r = HeifReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(r.Format, r.Info.Format);
+    }
+
     // ---- fixture builder ----
     private static byte[] BuildMinimalHeif(string brand, int widthDim, int heightDim, uint primaryItemId = 1)
     {

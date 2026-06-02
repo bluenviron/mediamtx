@@ -767,4 +767,84 @@ public sealed class Ktx2ReaderTests
 
         Assert.Equal("BT.2020 PQ", reader.Info.ColorSpace);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Ktx2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Ktx2Reader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = MinimalKtx2();
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = Ktx2Reader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Ktx2, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = MinimalKtx2();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = Ktx2Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Ktx2, r.Format);
+        }
+        Assert.True(ms.CanRead);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalKtx2();
+        var r = Ktx2Reader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Format_Is_Ktx2_And_Info_Format_Matches()
+    {
+        byte[] bytes = MinimalKtx2();
+        using var r = Ktx2Reader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Ktx2, r.Format);
+        Assert.Equal(ImageFormat.Ktx2, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = MinimalKtx2();
+        using var r = Ktx2Reader.Open(new MemoryStream(bytes, writable: false));
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    private static byte[] MinimalKtx2()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 37, // VK_FORMAT_R8G8B8A8_UNORM
+            PixelWidth = 4,
+            PixelHeight = 4,
+        };
+        b.MipPayloads.Add(new byte[4 * 4 * 4]);
+        return b.Build();
+    }
 }
