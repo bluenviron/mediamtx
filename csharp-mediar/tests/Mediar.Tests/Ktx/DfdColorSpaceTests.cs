@@ -181,4 +181,70 @@ public sealed class DfdColorSpaceTests
         // GL_COMPRESSED_RGB8_ETC2 (linear)
         Assert.False(KtxFormat.IsSrgbGlInternalFormat(0x9274));
     }
+
+    [Fact]
+    public void Describe_Returns_Bt601Pal_With_Linear_Transfer()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.Bt601Ebu, KhrTransferFunction.Linear);
+        Assert.Equal("BT.601 PAL Linear", DfdColorSpace.Describe(dfd));
+    }
+
+    [Fact]
+    public void Describe_Returns_CieXyz_When_Transfer_Unknown()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.CieXyz, KhrTransferFunction.Unspecified);
+        Assert.Equal("CIE XYZ", DfdColorSpace.Describe(dfd));
+    }
+
+    [Fact]
+    public void Describe_Returns_Aces_With_AcesCc_Transfer()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.Aces, KhrTransferFunction.AcesCc);
+        Assert.Equal("ACES ACEScc", DfdColorSpace.Describe(dfd));
+    }
+
+    [Fact]
+    public void Describe_Returns_Bt2020_HLG_For_HlgEotf_Variant()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.Bt2020, KhrTransferFunction.HlgEotf);
+        Assert.Equal("BT.2020 HLG", DfdColorSpace.Describe(dfd));
+    }
+
+    [Fact]
+    public void Describe_Returns_Bt2020_PQ_For_PqOetf_Variant()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.Bt2020, KhrTransferFunction.PqOetf);
+        Assert.Equal("BT.2020 PQ", DfdColorSpace.Describe(dfd));
+    }
+
+    [Fact]
+    public void DescribeBlock_Can_Be_Called_Directly()
+    {
+        var dfd = BuildDfd(KhrColorPrimaries.AdobeRgb, KhrTransferFunction.AdobeRgb);
+        Assert.NotNull(dfd!.Basic);
+        Assert.Equal("Adobe RGB Adobe RGB", DfdColorSpace.DescribeBlock(dfd.Basic!));
+    }
+
+    [Fact]
+    public void Describe_Returns_Null_When_Both_Primaries_And_Transfer_Are_Unknown_Enum_Values()
+    {
+        // Out-of-spec enum values land in the `_ => null` branches of both
+        // PrimariesName and TransferName, leaving Describe with nothing to say.
+        var dfd = BuildDfd((KhrColorPrimaries)0xFE, (KhrTransferFunction)0xFE);
+        Assert.Null(DfdColorSpace.Describe(dfd));
+    }
+
+    private static KtxDfd BuildDfd(KhrColorPrimaries primaries, KhrTransferFunction transfer)
+    {
+        var builder = new TestKtxDfdBuilder
+        {
+            ColorPrimaries = primaries,
+            TransferFunction = transfer,
+        };
+        builder.AddSample(0, 8, 0);
+        var bytes = builder.Build();
+        var dfd = DfdParser.Parse(bytes, 0, bytes.Length);
+        Assert.NotNull(dfd);
+        return dfd!;
+    }
 }

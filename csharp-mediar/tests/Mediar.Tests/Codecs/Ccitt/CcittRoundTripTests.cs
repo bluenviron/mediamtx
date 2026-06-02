@@ -163,6 +163,80 @@ public sealed class CcittRoundTripTests
             CcittG4Decoder.Decode(new byte[] { 0 }, width: 0, height: 1));
     }
 
+    [Fact]
+    public void Decoder_Height_Zero_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CcittG4Decoder.Decode(new byte[] { 0 }, width: 8, height: 0));
+    }
+
+    [Fact]
+    public void G4_Single_Black_Pixel_RoundTrips()
+    {
+        const int W = 1, H = 1;
+        var src = BuildPacked(W, H, (_, _) => 1);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+        var decoded = CcittG4Decoder.Decode(encoded, W, H);
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
+    [Fact]
+    public void G4_Tall_Single_Column_Stripes_RoundTrip()
+    {
+        const int W = 1, H = 17;
+        var src = BuildPacked(W, H, (_, y) => y & 1);
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+        var decoded = CcittG4Decoder.Decode(encoded, W, H);
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
+    [Fact]
+    public void G3_1D_VerticalStripes_RoundTrips()
+    {
+        const int W = 64, H = 8;
+        var src = BuildPacked(W, H, (x, _) => (x / 4) & 1);
+        var opts = new CcittG3Encoder.Options(EmitEolMarkers: false, EolByteAlign: false, EmitRtc: false);
+        var encoded = CcittG3Encoder.Encode(src, W, H, opts);
+        var decoded = CcittG3Decoder.Decode(encoded, W, H,
+            new CcittG3Decoder.Options(HasEolMarkers: false, EolByteAligned: false));
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
+    [Fact]
+    public void G3_T4_With_EolByteAlign_RoundTrips()
+    {
+        const int W = 48, H = 6;
+        var src = BuildPacked(W, H, (x, y) => ((x + y) / 5) & 1);
+        var opts = new CcittG3Encoder.Options(EmitEolMarkers: true, EolByteAlign: true, EmitRtc: false);
+        var encoded = CcittG3Encoder.Encode(src, W, H, opts);
+        var decoded = CcittG3Decoder.Decode(encoded, W, H,
+            new CcittG3Decoder.Options(HasEolMarkers: true, EolByteAligned: true));
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
+    [Fact]
+    public void G3_T4_With_RTC_RoundTrips()
+    {
+        const int W = 40, H = 8;
+        var src = BuildPacked(W, H, (x, y) => ((x + y) / 2) & 1);
+        var opts = new CcittG3Encoder.Options(EmitEolMarkers: true, EolByteAlign: false, EmitRtc: true);
+        var encoded = CcittG3Encoder.Encode(src, W, H, opts);
+        var decoded = CcittG3Decoder.Decode(encoded, W, H,
+            new CcittG3Decoder.Options(HasEolMarkers: true, EolByteAligned: false));
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
+    [Fact]
+    public void G4_Random_Pattern_RoundTrips()
+    {
+        const int W = 80, H = 24;
+        var rng = new Random(12345);
+        var src = BuildPacked(W, H, (_, _) => rng.Next(2));
+        var encoded = CcittG4Encoder.Encode(src, W, H);
+        var decoded = CcittG4Decoder.Decode(encoded, W, H);
+        AssertPixelsEqual(src, decoded, W, H);
+    }
+
     private static void AssertPixelsEqual(byte[] expected, byte[] actual, int width, int height)
     {
         Assert.Equal(expected.Length, actual.Length);
