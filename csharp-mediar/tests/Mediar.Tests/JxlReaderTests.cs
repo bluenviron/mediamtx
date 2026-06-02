@@ -373,4 +373,18 @@ public class JxlReaderTests
         Assert.Equal(5, b.PayloadLength);
         Assert.Equal(b, new JxlBox("jxlc", 20, 5));
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => JxlReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Jxl()
+    {
+        byte[] file = SmallCodestream(heightIdx: 0, ratio: 1);
+        using var r = JxlReader.Open(new MemoryStream(file), ownsStream: true);
+        Assert.Equal(ImageFormat.Jxl, r.Info.Format);
+    }
 }

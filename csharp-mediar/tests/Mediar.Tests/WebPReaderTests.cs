@@ -351,6 +351,32 @@ public class WebPReaderTests
         Assert.Contains(r.Chunks, c => c.FourCC == "EXIF");
     }
 
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => WebPReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        var inner = new MemoryStream(bytes, writable: false);
+        using (var r = WebPReader.Open(inner, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.WebP, r.Format);
+        }
+        Assert.False(inner.CanRead);
+    }
+
+    [Fact]
+    public void Info_Format_Equals_WebP()
+    {
+        var bytes = BuildSimpleVp8LContainer(width: 2, height: 2);
+        using var r = WebPReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(ImageFormat.WebP, r.Info.Format);
+    }
+
     private static byte[] BuildVp8XWithAlphaContainer(int width, int height)
     {
         var vp8x = new byte[10];
