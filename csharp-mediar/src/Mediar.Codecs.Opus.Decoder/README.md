@@ -1,0 +1,150 @@
+# Mediar.Codecs.Opus.Decoder
+
+A native-C# Opus audio decoder (RFC 6716) for the Mediar pipeline. **Phased
+delivery** — Phase 1 is in this commit; Phases 2–6 will land in subsequent
+commits.
+
+## Status
+
+| Phase | Scope                                                                     | Status   |
+|------:|---------------------------------------------------------------------------|----------|
+|     1 | Foundation: TOC parser, frame packing, range coder, silence-emitting skeleton | ✅ shipped |
+|     2 | CELT path: energy quant, PVQ, IMDCT, anti-collapse, stereo, post-filter   | ⏳ planned |
+|     3 | SILK path: NLSF / LPC stability, LTP scaling, sub-frame gains             | ⏳ planned |
+|     4 | SILK excitation + synthesis: pulse decoding, signs, sub-frame LPC         | ⏳ planned |
+|     5 | Hybrid + stereo bit-allocation + 8/12/16/24/48 kHz resampler              | ⏳ planned |
+|     6 | Polish: multistream, PLC / FEC, perf tuning, RFC test vectors             | ⏳ planned |
+
+## Phase 1 behavior
+
+The current decoder parses the bit-stream structure of every Opus packet,
+constructs a range decoder for each frame (so any malformed entropy header
+surfaces immediately), and returns a correctly-shaped
+`DecodedAudioFrame`:
+
+- Output sample rate: always 48 000 Hz (Opus's internal rate).
+- Channels: derived from the TOC stereo bit, or from an `OpusHead` channel
+  mapping when `ChannelMappingFamily != 0`.
+- Samples per channel: `SamplesPerFrameAt48k × FrameCount`, e.g. a 20 ms
+  packet → 960 samples, a code-3 packet with 3 × 10 ms frames → 1440
+  samples.
+- PTS: passed through unchanged.
+- Sample data: zero-filled silence. Phase 2 onwards replaces this with real
+  decoded audio without touching the public API.
+
+This is enough for upstream code to wire up the full Mediar pipeline
+(probe → demux → transmux → write) on Opus tracks today; downstream code
+will see real audio as soon as CELT and SILK ship.
+
+## Pipeline overview (target architecture)
+
+```
+                 ┌────────────────────────────────────┐
+encoded packet → │ OpusToc.Parse  (1 byte)            │
+                 └────────────────┬───────────────────┘
+                                  ▼
+                 ┌────────────────────────────────────┐
+                 │ OpusFramePacker.Unpack             │
+                 │   codes 0 / 1 / 2 / 3 (+ padding)  │
+                 └────────────────┬───────────────────┘
+                                  ▼ per-frame payload
+                 ┌────────────────────────────────────┐
+                 │ OpusRangeDecoder   (RFC 6716 §4.1) │
+                 └────────────────┬───────────────────┘
+                                  ▼
+        ┌─────────────────────────┴──────────────────────────┐
+        ▼                                                    ▼
+┌───────────────────┐                              ┌───────────────────┐
+│ SILK              │ ── hybrid mode ──►           │ CELT              │
+│ Phases 3, 4       │                              │ Phase 2           │
+└─────────┬─────────┘                              └─────────┬─────────┘
+          │                                                  │
+          └──────────────────────┬───────────────────────────┘
+                                 ▼
+                 ┌──────────────────────────────────┐
+                 │ Resampler  (Phase 5)             │
+                 │   48 kHz → 8/12/16/24/48 kHz     │
+                 └────────────────┬─────────────────┘
+                                  ▼
+                       DecodedAudioFrame
+```
+
+## What's implemented today
+
+### `OpusToc`
+
+Parses RFC 6716 §3.1 — the 1-byte Table of Contents — into a record struct
+exposing `Mode`, `Bandwidth`, `FrameSizeMicroseconds`, `IsStereo` and
+`FrameCountCode`. The 32-entry config table is the canonical Table 2 from
+the spec.
+
+### `OpusFramePacker`
+
+Walks the 4 framing codes:
+
+| Code | Layout                                              |
+|------|-----------------------------------------------------|
+|  0   | 1 frame of size `packetSize − 1`                    |
+|  1   | 2 equal-size frames; payload size must be even (R3) |
+|  2   | 2 frames; first frame's length is byte-encoded      |
+|  3   | M ∈ [1, 48] frames, optional padding, VBR or CBR    |
+
+All seven structural rejection rules (R1..R7) are enforced. Frame lengths
+are encoded with the 1-byte / 2-byte split documented in §3.2.1 (boundary
+at 252).
+
+### `OpusRangeDecoder`
+
+A `ref struct` implementation of the range coder shared by both SILK and
+CELT. Lives entirely on the caller's stack — no allocations per packet.
+Supports the full libopus interface:
+
+- `Decode` / `Update` — primary range-coded path
+- `DecodeBin` — power-of-two convenience
+- `DecodeBitLogP` — single-bit with probability `2^-logp`
+- `DecodeIcdf` — inverse-CDF table lookup (the form CELT/SILK use)
+- `DecodeUint` — uniform integer (small or split-coarse-plus-fine)
+- `DecodeBits` — raw bits read from the END of the buffer
+- `Tell` / `TellFrac` — consumed-bit accounting (1-bit and 1/8-bit)
+
+### `OpusDecoder` / `OpusDecoderFactory`
+
+`IAudioDecoder` skeleton. Accepts either empty `ExtraData` or the
+canonical Ogg-form `OpusHead` (via `Mediar.OpusHead.TryReadOgg`). Wires
+into `DecoderRegistry` via the factory; register manually if you want
+Opus packets resolved by codec id.
+
+## Roadmap
+
+Each subsequent phase adds a self-contained module that the existing
+skeleton calls into:
+
+- **Phase 2 – CELT**: `CeltDecoder` → energy dequant, PVQ → IMDCT → output
+  buffer. Replaces the zero-fill in `OpusDecoder.Decode` for CELT-only
+  configs (16..31).
+- **Phase 3 – SILK NLSF / LPC**: `SilkLpc` → NLSF stage 1/2 → LSF→LPC
+  conversion with bandwidth expansion and stability fix-up.
+- **Phase 4 – SILK excitation / synthesis**: `SilkExcitation` → pulse +
+  sign decoding, sub-frame LPC synthesis with LTP. Together with Phase 3,
+  this lights up SILK-only configs (0..11).
+- **Phase 5 – Hybrid + resampler**: SILK + CELT band split for hybrid
+  configs (12..15), `OpusResampler` to deliver 8/12/16/24 kHz output as
+  well as native 48 kHz.
+- **Phase 6 – Polish**: multistream coupling (`OpusHead.ChannelMappingFamily`
+  ≠ 0), packet-loss concealment, forward-error-correction, performance
+  tuning (SIMD where it matters), end-to-end tests against the official
+  RFC 6716 test vectors.
+
+## References
+
+- IETF RFC 6716 — *Definition of the Opus Audio Codec*
+- IETF RFC 8251 — *Updates to the Opus Audio Codec*
+- IETF RFC 7845 — *Ogg Encapsulation for the Opus Audio Codec*
+- Xiph libopus (BSD-3-Clause) — algorithm reference
+
+## License
+
+Same as the rest of Mediar — see the root `LICENSE`. No third-party Opus
+code is statically linked or copied; this is a clean-room port from the
+RFC, with libopus consulted only for clarification of ambiguous spec
+wording.

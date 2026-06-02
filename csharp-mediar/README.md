@@ -76,7 +76,7 @@ must come with their own licensing analysis.
 | H.264 / H.265 / AV1 decoder              | ❌ (out of scope — multi-month implementation) |
 | **AV2 transmux (carry-through MP4 / MKV)** | ✅ (`av02` / `V_AV2` codec id; passthrough only — no decoder, spec not yet published) |
 | Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
-| Opus decoder                              | 🟡 (deferred, royalty-free but large) |
+| Opus decoder                              | 🟢 (Phase 1 — framing + range coder shipped; see [`src/Mediar.Codecs.Opus.Decoder/README.md`](src/Mediar.Codecs.Opus.Decoder/README.md). Phases 2–6 deliver CELT / SILK / hybrid / resampler / multistream.) |
 | MP3 decoder                              | 🟢 (pipeline shipped; full status, performance baseline, and conformance/perf TODOs in [`src/Mediar.Codecs.Mp3.Decoder/README.md`](src/Mediar.Codecs.Mp3.Decoder/README.md)) |
 | ALAC decoder                             | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
@@ -119,7 +119,9 @@ ground-up FFmpeg replacement. The decoders that ship (PCM, G.711, FLAC, Vorbis
 I) cover the patent-clean audio codecs that fit a single-person engineering
 budget. Patent-encumbered codecs (AAC, AC-3, H.264/H.265/H.266) are
 **permanently** out of scope. Royalty-free-but-massive codecs (Opus, AV1, VP9,
-AV2) are deferred — each is an independent multi-month project. AV2 in
+AV2) are each an independent multi-month project — Opus is being delivered
+incrementally in 6 phases (Phase 1 — framing + range coder — has landed).
+AV2 in
 particular has **no published bitstream specification** as of 2026; AOM is
 still finalising the format and there are no AV2 files in the wild to test
 against. Mediar carries AV2 samples opaquely through MP4 and Matroska so the
