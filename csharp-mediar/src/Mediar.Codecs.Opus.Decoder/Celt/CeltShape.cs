@@ -206,6 +206,36 @@ public static class CeltShape
     }
 
     /// <summary>
+    /// Re-normalises a partition vector to unit norm and scales by
+    /// <paramref name="gain"/>. Float-build port of libopus
+    /// <c>renormalise_vector</c> — used by the no-pulse fill path in
+    /// <c>quant_partition</c> after noise / folded-spectrum injection.
+    /// Differs from <see cref="NormaliseResidual"/> in that it operates
+    /// on existing <see cref="float"/> samples rather than an integer
+    /// codeword, and adds the libopus <c>EPSILON</c> guard against
+    /// divide-by-zero on silent partitions.
+    /// </summary>
+    public static void RenormaliseVector(Span<float> X, int N, float gain)
+    {
+        System.ArgumentOutOfRangeException.ThrowIfLessThan(N, 1);
+        if (X.Length < N) throw new System.ArgumentException("X must hold at least N samples.", nameof(X));
+
+        const float EPSILON = 1e-15f;
+        double e = EPSILON;
+        for (int i = 0; i < N; i++) e += (double)X[i] * X[i];
+        float g = (float)(gain / System.Math.Sqrt(e));
+        for (int i = 0; i < N; i++) X[i] = g * X[i];
+    }
+
+    /// <summary>
+    /// Linear-congruential PRNG used by CELT to fill bands that the
+    /// bit allocator left without any pulses. Mirrors libopus
+    /// <c>celt_lcg_rand</c> — Numerical Recipes' classic
+    /// <c>1664525·seed + 1013904223</c>.
+    /// </summary>
+    public static uint LcgRand(uint seed) => unchecked(1664525u * seed + 1013904223u);
+
+    /// <summary>
     /// Builds the per-block collapse mask from the decoded integer
     /// codeword. Each set bit indicates the corresponding MDCT block
     /// received at least one pulse. Mirrors libopus

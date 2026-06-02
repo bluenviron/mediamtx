@@ -19,7 +19,8 @@ commits.
 | 2c.3b.2 | CELT PVQ shape decode primitives (`decode_pulses`, `cwrsi`, small-footprint `unext`/`uprev` recurrence) | ✅ shipped |
 | 2c.3b.3 | CELT energy split decoder (`compute_qn`, `compute_theta`, `quant_band_n1`, `isqrt32`) | ✅ shipped |
 | 2c.3b.4 | CELT band shape primitives (`haar1`, `deinterleave_hadamard`, `interleave_hadamard`, `exp_rotation`, `normalise_residual`, `extract_collapse_mask`, `alg_unquant`) | ✅ shipped |
-|  2c.3b | CELT PVQ shape decode (`quant_partition`, `quant_band`, `quant_all_bands` integration) | ⏳ planned |
+| 2c.3b.5a | CELT `quant_partition` recursive mono splitter + `renormalise_vector` + `celt_lcg_rand` | ✅ shipped |
+| 2c.3b.5b | CELT `quant_band` mono/stereo wrappers + `quant_all_bands` top-level integration | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
@@ -27,7 +28,113 @@ commits.
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
 
-## Phase 2c.3b.4 behavior (added on top of Phase 2c.3b.3)
+## Phase 2c.3b.5a behavior (added on top of Phase 2c.3b.4)
+
+Phase 2c.3b.5a ports `quant_partition`, the **recursive mono PVQ
+partition splitter** at the heart of CELT band-shape decoding, plus the
+two small primitives it leans on: `renormalise_vector` and
+`celt_lcg_rand`. With this slice the decoder can take a band's bit
+budget, descend the binary energy-split tree it shares with the
+encoder, decode a PVQ codeword at each leaf, and assemble a normalised
+spectral shape vector for the band — everything *between* the
+`compute_theta` energy split (Phase 2c.3b.3) and the per-band
+post-processing (`quant_band` Hadamard recombination, anti-collapse) that
+the next slice will deliver.
+
+The new pieces (`Celt/CeltBands.cs` and additions to `Celt/CeltShape.cs`)
+are pure, allocation-free static functions:
+
+- `CeltShape.RenormaliseVector(Span<float> X, int N, float gain)` —
+  float-build port of libopus `renormalise_vector` (`celt/vq.c`).
+  Computes `E = EPSILON + Σ X²` with EPSILON = 1e-15f, then scales
+  every coefficient by `gain / √E`. The EPSILON guard prevents a
+  divide-by-zero on silent partitions: the result is still well-defined
+  (gain · zero-vector = zero-vector), no NaNs.
+
+- `CeltShape.LcgRand(uint seed) → uint` — Numerical-Recipes linear
+  congruential generator (`1664525·seed + 1013904223` mod 2³²).
+  Drives the noise-fill / dither paths in the leaf below. Unchecked
+  arithmetic matches the C wrap-around exactly.
+
+- `CeltBands.BandContext` — public mutable struct carrying the
+  per-band state that flows through the recursion: `Band`, `Spread`,
+  `Intensity`, `TfChange`, `RemainingBits`, `Seed`, `DisableInv`. The
+  struct is deliberately passed `ref` so the recursive callee can
+  decrement `RemainingBits` and advance `Seed` in place, just like
+  libopus mutates `ctx` through the pointer it passes.
+
+- `CeltBands.QuantPartition(ref BandContext ctx, ref OpusRangeDecoder
+  dec, Span<float> X, int N, int b, int blocks, ReadOnlySpan<float>
+  lowband, int LM, float gain, int fill) → uint` — full port of the
+  decoder branch of libopus `quant_partition` (`celt/bands.c`). It
+  has two paths:
+
+  **Split path** (`LM != -1 && b > cache[cache[0]] + 12 && N > 2`):
+  the partition is divided in half, an angle/sign split is decoded via
+  `CeltSplit.ComputeTheta` (Phase 2c.3b.3), the bit budget and fill
+  mask are partitioned between the mid and side halves with libopus's
+  rebalance heuristic, and the two halves are decoded recursively at
+  `LM-1` with `gain * mid` and `gain * side`. The pre-echo / forward-
+  masking delta adjustment that libopus applies when a partition spans
+  multiple MDCT blocks (`B0 > 1 && (itheta & 0x3FFF) != 0`) is
+  reproduced bit-for-bit (`delta -= delta >> (4 - splitLM)` above the
+  90° mark, additive clamp below).
+
+  **Leaf path**: the bit budget is converted to a pulse count via
+  `CeltPvqMath.Bits2Pulses`, the bit-busting prevention loop shrinks
+  the pulse count until `RemainingBits >= 0`, and the result is either
+  decoded with `CeltShape.AlgUnquant` (q ≠ 0), filled with renormalised
+  noise from `LcgRand` (q = 0, no lowband), filled with the lowband
+  plus ±1/256 dither and renormalised (q = 0, lowband present), or
+  zeroed (q = 0, fill = 0 after masking by `(1<<blocks)-1`). The
+  function returns the **collapse mask** of the partition: in the
+  split case the recursive submasks are OR-combined with the side mask
+  shifted by `blocks0 >> 1`; in the leaf case it's either the AlgUnquant
+  result, `(1<<blocks)-1`, the masked fill, or 0.
+
+The function is allocation-free — `Span<float>` slicing and
+`stackalloc` inside `AlgUnquant` handle all scratch. `OpusRangeDecoder`
+is passed by `ref` because it's a `ref struct`. The lowband-null
+sentinel from libopus (`celt_norm *lowband == NULL`) is modelled as
+`ReadOnlySpan<float>.IsEmpty`, which both `default` and a true empty
+span satisfy.
+
+Sixteen new tests in `tests/Mediar.Tests/CeltBandsTests.cs` cover:
+
+- `RenormaliseVector` unit-norm output (3-4-5 right triangle), gain
+  scaling at arbitrary norms, EPSILON guard on the all-zero vector,
+  and direction-preservation (signs / ratios unchanged).
+- `LcgRand` matching the libopus constants on seeds 0, 1, and
+  0xFFFFFFFF (wrap-around), plus a 1000-iteration uniqueness sanity
+  check (no early cycle).
+- `QuantPartition` leaf no-pulse paths: zero output when
+  `fill & ((1<<blocks)-1) == 0`, gain·unit-norm noise injection when
+  `fill ≠ 0` and lowband is empty (with seed advancement verified),
+  folded-lowband injection when both `fill ≠ 0` and lowband is
+  populated (direction preservation), and the `blocks=2` fill-masking
+  edge case where `fill = 0b1100` clears the partition.
+- `QuantPartition` leaf with pulses: unit-norm output on a tight `N=2,
+  LM=0, band=8` configuration; bit-busting guard tolerated when
+  `RemainingBits` starts negative.
+- `QuantPartition` recursive split: smoke tests at `LM=2, N=16,
+  band=13, b=400` (recursion descends to LM=-1) and `LM=3, N=64,
+  band=17, b=800, blocks=2` (deep recursion, two-block fill). The
+  collapse mask is validated against `(1<<blocks0) - 1` and every
+  output sample is verified to be finite.
+- Argument validation: `N < 1` and `X.Length < N` throw
+  `ArgumentOutOfRangeException` / `ArgumentException`.
+
+Test suite total after Phase 2c.3b.5a: 7737 / 7737 pass (+16 vs.
+Phase 2c.3b.4's 7721).
+
+The remaining Phase 2c.3b slice is **2c.3b.5b**: the `quant_band`
+mono/stereo wrappers (which add the Hadamard time-recombination
+around `QuantPartition` and the `quant_band_stereo` mid/side merge),
+plus `quant_all_bands` (which iterates over bands, manages norm
+buffers and the `prev1` / `prev2` tracking that feeds the
+`anti-collapse` step).
+
+
 
 Phase 2c.3b.4 ports the **band shape primitives** that sit below the
 recursive `quant_partition` / `quant_band` state machine — everything
