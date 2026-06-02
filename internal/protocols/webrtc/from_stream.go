@@ -271,8 +271,9 @@ func setupVideoTrack(
 		}
 
 		encoder := &rtph264.Encoder{
-			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
+			PayloadType:       96,
+			PayloadMaxSize:    webrtcPayloadMaxSize,
+			PacketizationMode: 1,
 		}
 		err := encoder.Init()
 		if err != nil {

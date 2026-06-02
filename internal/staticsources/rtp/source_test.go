@@ -122,7 +122,8 @@ func TestSourceUDP(t *testing.T) {
 			defer conn.Close() //nolint:errcheck
 
 			enc := &rtph264.Encoder{
-				PayloadType: 96,
+				PayloadType:       96,
+				PacketizationMode: 1,
 			}
 			err = enc.Init()
 			require.NoError(t, err)
@@ -206,7 +207,8 @@ func TestSourceUnixSocket(t *testing.T) {
 				defer conn.Close()
 
 				enc := &rtph264.Encoder{
-					PayloadType: 96,
+					PayloadType:       96,
+					PacketizationMode: 1,
 				}
 				err = enc.Init()
 				require.NoError(t, err)
