@@ -192,4 +192,147 @@ public sealed class AacScaleFactorGainTests
             Assert.Equal(src[i], roundTrip[i], precision: 4);
         }
     }
+
+    [Fact]
+    public void Gain_Is_Monotonically_Increasing_In_ScaleFactor()
+    {
+        float prev = AacScaleFactorGain.Gain(0);
+        for (int sf = 1; sf <= 255; sf++)
+        {
+            float current = AacScaleFactorGain.Gain(sf);
+            Assert.True(current > prev, $"Gain({sf}) = {current} not greater than Gain({sf - 1}) = {prev}");
+            prev = current;
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(50)]
+    [InlineData(100)]
+    [InlineData(150)]
+    [InlineData(200)]
+    [InlineData(255)]
+    public void Gain_Matches_Pow_Formula_For_Sample_Values(int sf)
+    {
+        double expected = Math.Pow(2.0, (sf - 100) / 4.0);
+        Assert.Equal(expected, AacScaleFactorGain.Gain(sf),
+            tolerance: Math.Max(expected * 1e-5, 1e-37));
+    }
+
+    [Fact]
+    public void Gain_Always_Positive_Across_Full_Range()
+    {
+        for (int sf = 0; sf <= 255; sf++)
+        {
+            float g = AacScaleFactorGain.Gain(sf);
+            Assert.True(g > 0f, $"Gain({sf}) = {g} is not positive");
+            Assert.True(float.IsFinite(g), $"Gain({sf}) = {g} is not finite");
+        }
+    }
+
+    [Fact]
+    public void Gain_Doubles_When_Sf_Increases_By_Four()
+    {
+        for (int sf = 100; sf < 200; sf++)
+        {
+            float a = AacScaleFactorGain.Gain(sf);
+            float b = AacScaleFactorGain.Gain(sf + 4);
+            Assert.Equal(2.0, b / a, tolerance: 1e-4);
+        }
+    }
+
+    [Fact]
+    public void Apply_NaN_Source_Yields_NaN_Destination()
+    {
+        var src = new float[] { float.NaN, 1f };
+        var dst = new float[2];
+        AacScaleFactorGain.Apply(src, dst, absoluteScaleFactor: 104);
+        Assert.True(float.IsNaN(dst[0]));
+        Assert.Equal(2f, dst[1], precision: 5);
+    }
+
+    [Fact]
+    public void Apply_Inf_Source_Stays_Positive_Infinity()
+    {
+        var src = new float[] { float.PositiveInfinity };
+        var dst = new float[1];
+        AacScaleFactorGain.Apply(src, dst, absoluteScaleFactor: 100);
+        Assert.True(float.IsPositiveInfinity(dst[0]));
+    }
+
+    [Fact]
+    public void Apply_Destination_Exactly_Same_Length_Works()
+    {
+        var src = new float[] { 1f, 2f, 3f };
+        var dst = new float[3];
+        AacScaleFactorGain.Apply(src, dst, absoluteScaleFactor: 100);
+        Assert.Equal(1f, dst[0], precision: 5);
+        Assert.Equal(2f, dst[1], precision: 5);
+        Assert.Equal(3f, dst[2], precision: 5);
+    }
+
+    [Fact]
+    public void ApplyTo_Length_One_Band_Scales_Single_Value()
+    {
+        var band = new float[] { 5f };
+        AacScaleFactorGain.ApplyTo(band, absoluteScaleFactor: 108); // gain=4
+        Assert.Equal(20f, band[0], precision: 5);
+    }
+
+    [Fact]
+    public void Gain_Multiplicative_Property_Holds()
+    {
+        // Gain(a) * Gain(b) == Gain(a + b - SfOffset) since both reduce
+        // to 2^((a - 100)/4 + (b - 100)/4) == 2^((a + b - 200)/4).
+        int a = 120, b = 84;
+        float product = AacScaleFactorGain.Gain(a) * AacScaleFactorGain.Gain(b);
+        float combined = AacScaleFactorGain.Gain(a + b - AacScaleFactorGain.SfOffset);
+        Assert.Equal(product, combined, tolerance: product * 1e-4f);
+    }
+
+    [Fact]
+    public void Apply_Source_Empty_With_NonEmpty_Destination_Untouched()
+    {
+        var dst = new float[] { 1f, 2f, 3f };
+        AacScaleFactorGain.Apply(ReadOnlySpan<float>.Empty, dst, absoluteScaleFactor: 200);
+        Assert.Equal(1f, dst[0], precision: 5);
+        Assert.Equal(2f, dst[1], precision: 5);
+        Assert.Equal(3f, dst[2], precision: 5);
+    }
+
+    [Fact]
+    public void ApplyTo_Zero_Length_Band_NoOp_Any_Sf()
+    {
+        Span<float> band = Span<float>.Empty;
+        AacScaleFactorGain.ApplyTo(band, absoluteScaleFactor: 0);
+        AacScaleFactorGain.ApplyTo(band, absoluteScaleFactor: 255);
+    }
+
+    [Fact]
+    public void Apply_Destination_Shorter_By_One_Throws()
+    {
+        var src = new float[] { 1f, 2f, 3f, 4f };
+        var dst = new float[3];
+        Assert.Throws<ArgumentException>(() =>
+            AacScaleFactorGain.Apply(src, dst, absoluteScaleFactor: 108));
+    }
+
+    [Fact]
+    public void Gain_Zero_Sf_Below_Negative_Sf_Magnitude_Limit_Still_Finite()
+    {
+        // Even at int.MinValue/+1 (well below the spec range) the result
+        // should be a representable float (0 or a finite tiny value).
+        float g = AacScaleFactorGain.Gain(-1000);
+        Assert.True(g >= 0f);
+        Assert.False(float.IsNaN(g));
+    }
+
+    [Fact]
+    public void Gain_Max_ScaleFactor_Is_Finite_Float()
+    {
+        // sf = 255 -> exponent 38.75 -> ~4.6e11; well within single-precision range.
+        float g = AacScaleFactorGain.Gain(255);
+        Assert.True(float.IsFinite(g));
+        Assert.True(g > 1e10f);
+    }
 }
