@@ -398,4 +398,71 @@ public sealed class PefReaderTests
         pef.Dispose();
         Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PefReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestPefBuilder.Build(MinimalPentaxSpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = PefReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Pef, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestPefBuilder.Build(MinimalPentaxSpec());
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        if (!pef.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in pef.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Pef_And_Info_Format_Matches()
+    {
+        byte[] bytes = TestPefBuilder.Build(MinimalPentaxSpec());
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Pef, pef.Format);
+        Assert.Equal(ImageFormat.Pef, pef.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = TestPefBuilder.Build(MinimalPentaxSpec());
+        using var pef = PefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(pef.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestPefBuilder.Build(MinimalPentaxSpec());
+        var r = PefReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestPefBuilder.IfdSpec MinimalPentaxSpec() => new()
+    {
+        Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+        Compression = 1, Photometric = 2, NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "PENTAX",
+    };
 }

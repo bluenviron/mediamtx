@@ -307,4 +307,68 @@ public sealed class Rw2ReaderTests
         rw2.Dispose();
         Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Rw2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestRw2Builder.Build(MinimalPanasonicSpec());
+        using var ms = new MemoryStream(bytes);
+        using (var r = Rw2Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Rw2, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Format_Property_Equals_Rw2()
+    {
+        byte[] bytes = TestRw2Builder.Build(MinimalPanasonicSpec());
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Rw2, rw2.Format);
+        Assert.Equal(ImageFormat.Rw2, rw2.Info.Format);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestRw2Builder.Build(MinimalPanasonicSpec());
+        var r = Rw2Reader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException_From_Header_Check()
+    {
+        Assert.Throws<ImageFormatException>(() => Rw2Reader.Open(new MemoryStream(Array.Empty<byte>())));
+    }
+
+    [Fact]
+    public void Single_Byte_Stream_Throws_ImageFormatException()
+    {
+        Assert.Throws<ImageFormatException>(() => Rw2Reader.Open(new MemoryStream([0x49])));
+    }
+
+    [Fact]
+    public void Without_Software_Tag_Field_Is_Null()
+    {
+        byte[] bytes = TestRw2Builder.Build(MinimalPanasonicSpec());
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Null(rw2.Rw2.Software);
+    }
+
+    private static TestRw2Builder.Rw2Spec MinimalPanasonicSpec() => new()
+    {
+        Make = "Panasonic",
+        SensorWidth = 100,
+        SensorHeight = 100,
+    };
 }
