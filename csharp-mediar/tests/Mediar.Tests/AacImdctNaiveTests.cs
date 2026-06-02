@@ -229,4 +229,95 @@ public sealed class AacImdctNaiveTests
             Assert.Equal(expected, samples[n], 5);
         }
     }
+
+    [Fact]
+    public void Inverse_AllocatingOverload_EmptyInput_ReturnsEmpty()
+    {
+        var samples = AacImdctNaive.Inverse(ReadOnlySpan<float>.Empty);
+        Assert.Empty(samples);
+    }
+
+    [Fact]
+    public void Inverse_NegativeImpulse_K0_ProducesNegatedCosine()
+    {
+        const int m = 4;
+        var coefs = new float[m];
+        coefs[0] = -1f;
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+
+        double scale = 2.0 / (2 * m);
+        for (int n = 0; n < 2 * m; n++)
+        {
+            double expected = -scale * Cosine(n, 0, m);
+            Assert.Equal(expected, samples[n], 5);
+        }
+    }
+
+    [Fact]
+    public void Inverse_Linearity_ScalarNegativeOne()
+    {
+        // IMDCT(-x) = -IMDCT(x).
+        var refY = AacImdctNaive.Inverse(LinearityInputA.AsSpan());
+
+        var negated = new float[LinearityInputA.Length];
+        for (int i = 0; i < LinearityInputA.Length; i++) negated[i] = -LinearityInputA[i];
+        var got = AacImdctNaive.Inverse(negated.AsSpan());
+
+        for (int i = 0; i < refY.Length; i++)
+        {
+            Assert.Equal(-refY[i], got[i], 5);
+        }
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(7)]
+    [InlineData(9)]
+    public void Inverse_NonDoubleOutput_Length_Throws(int sampleLen)
+    {
+        Assert.Throws<ArgumentException>(() =>
+        {
+            float[] coefs = new float[4];
+            float[] samples = new float[sampleLen];
+            AacImdctNaive.Inverse(coefs.AsSpan(), samples.AsSpan());
+        });
+    }
+
+    [Fact]
+    public void Inverse_AllocatingOverload_AllocatesFreshArray_PerCall()
+    {
+        var coefs = new float[] { 1f, 0.5f, -0.25f, 0.125f };
+        var a = AacImdctNaive.Inverse(coefs.AsSpan());
+        var b = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.NotSame(a, b);
+        for (int i = 0; i < a.Length; i++)
+        {
+            Assert.Equal(a[i], b[i], precision: 5);
+        }
+    }
+
+    [Fact]
+    public void Inverse_DoesNotMutate_Coefficient_Input()
+    {
+        var coefs = new float[] { 0.5f, -1f, 0.25f, 0.75f };
+        var copy = (float[])coefs.Clone();
+        var samples = new float[2 * coefs.Length];
+        AacImdctNaive.Inverse(coefs.AsSpan(), samples.AsSpan());
+        Assert.Equal(copy, coefs);
+    }
+
+    [Fact]
+    public void Inverse_LongInputLength_Produces_Finite_Samples()
+    {
+        var coefs = new float[AacImdctNaive.LongInputLength];
+        for (int i = 0; i < coefs.Length; i++) coefs[i] = (float)(0.01 * Math.Sin(i * 0.03));
+        var samples = AacImdctNaive.Inverse(coefs.AsSpan());
+        Assert.Equal(2048, samples.Length);
+        foreach (var v in samples)
+        {
+            Assert.False(float.IsNaN(v));
+            Assert.False(float.IsInfinity(v));
+        }
+    }
 }

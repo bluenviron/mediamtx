@@ -227,4 +227,103 @@ public sealed class AacSpectralCodebookGeometryTests
             }
         }
     }
+
+    [Fact]
+    public void Get_Returns_Same_Instance_For_Same_Codebook()
+    {
+        var a = AacSpectralCodebookGeometry.Get(5);
+        var b = AacSpectralCodebookGeometry.Get(5);
+        Assert.Same(a, b);
+    }
+
+    [Fact]
+    public void Get_Returns_Different_Instances_For_Different_Codebooks()
+    {
+        var a = AacSpectralCodebookGeometry.Get(1);
+        var b = AacSpectralCodebookGeometry.Get(2);
+        Assert.NotSame(a, b);
+        Assert.Equal(1, a!.CodebookNumber);
+        Assert.Equal(2, b!.CodebookNumber);
+    }
+
+    [Theory]
+    [InlineData(1, 2)]
+    [InlineData(3, 4)]
+    [InlineData(5, 6)]
+    [InlineData(7, 8)]
+    [InlineData(9, 10)]
+    public void Sibling_Codebooks_Have_Same_Geometry(int cbA, int cbB)
+    {
+        var a = AacSpectralCodebookGeometry.Get(cbA)!;
+        var b = AacSpectralCodebookGeometry.Get(cbB)!;
+        Assert.Equal(a.Dimension, b.Dimension);
+        Assert.Equal(a.IsSigned, b.IsSigned);
+        Assert.Equal(a.LargestAbsoluteValue, b.LargestAbsoluteValue);
+        Assert.Equal(a.SymbolCount, b.SymbolCount);
+        Assert.Equal(a.HasEscape, b.HasEscape);
+    }
+
+    [Theory]
+    [InlineData(1, 81)]
+    [InlineData(2, 81)]
+    [InlineData(3, 81)]
+    [InlineData(4, 81)]
+    [InlineData(5, 81)]
+    [InlineData(6, 81)]
+    [InlineData(7, 64)]
+    [InlineData(8, 64)]
+    [InlineData(9, 169)]
+    [InlineData(10, 169)]
+    [InlineData(11, 289)]
+    public void SymbolCount_Theory_Per_Codebook(int cb, int expected)
+    {
+        var g = AacSpectralCodebookGeometry.Get(cb)!;
+        Assert.Equal(expected, g.SymbolCount);
+    }
+
+    [Fact]
+    public void Decompose_OversizedBuffer_Only_First_Dimension_Entries_Written()
+    {
+        // Pair codebook with dim=2 + buffer of 5; ensure entries beyond dim are untouched.
+        var g = AacSpectralCodebookGeometry.Get(7)!;
+        int[] buf = { 99, 99, 99, 99, 99 };
+        g.Decompose(15, buf);
+        Assert.Equal(1, buf[0]);
+        Assert.Equal(7, buf[1]);
+        Assert.Equal(99, buf[2]);
+        Assert.Equal(99, buf[3]);
+        Assert.Equal(99, buf[4]);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        var a = AacSpectralCodebookGeometry.Get(3)!;
+        var b = new AacSpectralCodebookGeometry
+        {
+            CodebookNumber = 3,
+            Dimension = 4,
+            IsSigned = false,
+            LargestAbsoluteValue = 2,
+            HasEscape = false,
+            SymbolCount = 81,
+        };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { CodebookNumber = 99 };
+        Assert.NotEqual(a, c);
+        Assert.Equal(99, c.CodebookNumber);
+    }
+
+    [Fact]
+    public void Decompose_Cb11_Symbol_NotAtEscape_Yields_Both_Components_Under_16()
+    {
+        var g = AacSpectralCodebookGeometry.Get(11)!;
+        Span<int> comp = stackalloc int[2];
+        g.Decompose(100, comp);
+        // 100 / 17 = 5, 100 % 17 = 15.
+        Assert.Equal(5, comp[0]);
+        Assert.Equal(15, comp[1]);
+    }
 }
