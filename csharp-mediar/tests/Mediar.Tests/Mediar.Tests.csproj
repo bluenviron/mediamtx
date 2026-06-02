@@ -102,4 +102,10 @@
     <ProjectReference Include="..\..\src\Mediar.Codecs.Gdi\Mediar.Codecs.Gdi.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="TestData\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
