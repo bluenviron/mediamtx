@@ -215,4 +215,140 @@ public sealed class Mp3FrameHeaderTests
         Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
         Assert.Equal(expectedSampleRate, hdr.SampleRate);
     }
+
+    [Fact]
+    public void TryParse_EmptySpan_Returns_False()
+    {
+        Assert.False(Mp3FrameHeader.TryParse(ReadOnlySpan<byte>.Empty, out _));
+    }
+
+    [Fact]
+    public void TryParse_ExtraBytes_Ignored()
+    {
+        // 6 bytes - parser only uses the first 4.
+        byte[] header = { 0xFF, 0xFB, 0x90, 0x00, 0xAB, 0xCD };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(128000, hdr.Bitrate);
+        Assert.Equal(417, hdr.FrameSize);
+    }
+
+    [Fact]
+    public void Mpeg2_Layer1_32kbps_24000_Stereo_Parses()
+    {
+        // M2 L1: b[1] = 111_10_11_1 = 0xF7. b[2] = 0001_0100 (br=1=32 kbps M2L1, sr=1=24000, pad=0).
+        byte[] header = { 0xFF, 0xF7, 0x14, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(2, hdr.Version);
+        Assert.Equal(1, hdr.Layer);
+        Assert.Equal(32000, hdr.Bitrate);
+        Assert.Equal(24000, hdr.SampleRate);
+        Assert.Equal(384, hdr.SamplesPerFrame);
+        Assert.Equal(2, hdr.Channels);
+        // (12 * 32000 / 24000 + 0) * 4 = 16 * 4 = 64.
+        Assert.Equal(64, hdr.FrameSize);
+    }
+
+    [Fact]
+    public void ProtectionBit_Cleared_Does_Not_Affect_Parse()
+    {
+        // Same as baseline (0xFB) but with protection bit cleared → 0xFA.
+        byte[] header = { 0xFF, 0xFA, 0x90, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(1, hdr.Version);
+        Assert.Equal(3, hdr.Layer);
+        Assert.Equal(417, hdr.FrameSize);
+    }
+
+    [Fact]
+    public void PrivateBit_Set_Does_Not_Affect_Parse()
+    {
+        // Set the private bit (low bit of b[2]): 0x90 | 0x01 = 0x91.
+        byte[] header = { 0xFF, 0xFB, 0x91, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(128000, hdr.Bitrate);
+        Assert.Equal(417, hdr.FrameSize);
+    }
+
+    [Theory]
+    [InlineData(0x10, 32000)]
+    [InlineData(0x20, 40000)]
+    [InlineData(0x30, 48000)]
+    [InlineData(0x40, 56000)]
+    [InlineData(0x50, 64000)]
+    [InlineData(0x60, 80000)]
+    [InlineData(0x70, 96000)]
+    [InlineData(0x80, 112000)]
+    [InlineData(0x90, 128000)]
+    [InlineData(0xA0, 160000)]
+    [InlineData(0xB0, 192000)]
+    [InlineData(0xC0, 224000)]
+    [InlineData(0xD0, 256000)]
+    [InlineData(0xE0, 320000)]
+    public void Mpeg1Layer3_AllValidBitrateIndices_Parse(byte byte2, int expectedBitrate)
+    {
+        byte[] header = { 0xFF, 0xFB, byte2, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(expectedBitrate, hdr.Bitrate);
+    }
+
+    [Theory]
+    [InlineData(0x10, 8000)]
+    [InlineData(0x20, 16000)]
+    [InlineData(0x30, 24000)]
+    [InlineData(0x40, 32000)]
+    [InlineData(0x50, 40000)]
+    [InlineData(0x60, 48000)]
+    [InlineData(0x70, 56000)]
+    [InlineData(0x80, 64000)]
+    [InlineData(0x90, 80000)]
+    [InlineData(0xA0, 96000)]
+    [InlineData(0xB0, 112000)]
+    [InlineData(0xC0, 128000)]
+    [InlineData(0xD0, 144000)]
+    [InlineData(0xE0, 160000)]
+    public void Mpeg2Layer3_AllValidBitrateIndices_Parse(byte byte2, int expectedBitrate)
+    {
+        // M2L3: b[1] = 0xF3.
+        byte[] header = { 0xFF, 0xF3, byte2, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(expectedBitrate, hdr.Bitrate);
+    }
+
+    [Theory]
+    [InlineData(0x00, 11025)]
+    [InlineData(0x04, 12000)]
+    [InlineData(0x08, 8000)]
+    public void Mpeg25SampleRateIndices_Parse(byte byte2Low, int expectedSampleRate)
+    {
+        // M2.5 L3: b[1] = 0xE3, br=8 (64kbps M2L3).
+        byte b2 = (byte)(0x80 | byte2Low);
+        byte[] header = { 0xFF, 0xE3, b2, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(expectedSampleRate, hdr.SampleRate);
+    }
+
+    [Theory]
+    [InlineData(0xFF, 0x90, 384)]   // M1 L1
+    [InlineData(0xFD, 0xA0, 1152)]  // M1 L2
+    [InlineData(0xFB, 0x90, 1152)]  // M1 L3
+    [InlineData(0xF7, 0x14, 384)]   // M2 L1
+    [InlineData(0xF5, 0x80, 1152)]  // M2 L2
+    [InlineData(0xF3, 0x80, 576)]   // M2 L3
+    [InlineData(0xE3, 0x80, 576)]   // M2.5 L3
+    public void SamplesPerFrame_Matches_VersionLayer_Combination(byte byte1, byte byte2, int expectedSamples)
+    {
+        byte[] header = { 0xFF, byte1, byte2, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(expectedSamples, hdr.SamplesPerFrame);
+    }
+
+    [Fact]
+    public void Layer2_Padding_AddsOneByte()
+    {
+        // M1L2 192kbps/44100 with padding=1: 144*192000/44100 + 1 = 626 + 1.
+        byte[] header = { 0xFF, 0xFD, 0xA2, 0x00 };
+        Assert.True(Mp3FrameHeader.TryParse(header, out var hdr));
+        Assert.Equal(1, hdr.Padding);
+        Assert.Equal(627, hdr.FrameSize);
+    }
 }
