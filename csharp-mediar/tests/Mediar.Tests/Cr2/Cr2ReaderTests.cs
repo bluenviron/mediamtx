@@ -247,4 +247,93 @@ public sealed class Cr2ReaderTests
         Assert.Equal(16, rawSub.Width);
         Assert.Equal(16, rawSub.Height);
     }
+
+    [Fact]
+    public void Open_With_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => Cr2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var cr2 = Cr2Reader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Cr2, cr2.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var cr2 = Cr2Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Cr2, cr2.Format);
+        }
+        // Stream is still usable after the reader disposes.
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Rejects_Invalid_Tiff_Magic()
+    {
+        // II byte-order mark but a magic word != 42.
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        bytes[2] = 99; bytes[3] = 0;
+        using var ms = new MemoryStream(bytes, writable: false);
+        var ex = Assert.Throws<ImageFormatException>(() => Cr2Reader.Open(ms));
+        Assert.Contains("magic", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Rejects_Zero_Ifd0_Offset()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        bytes[4] = 0; bytes[5] = 0; bytes[6] = 0; bytes[7] = 0;
+        using var ms = new MemoryStream(bytes, writable: false);
+        var ex = Assert.Throws<ImageFormatException>(() => Cr2Reader.Open(ms));
+        Assert.Contains("no IFD", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Largest_Sub_Image_Becomes_Primary_When_Preview_Is_Larger_Than_Raw()
+    {
+        // Preview (32x32 = 1024 px) is larger than the raw IFD (8x8 = 64 px).
+        // The preview should still be selected as the primary.
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4), MakeRgbStrip(32, 32)],
+            raw: MakeRgbStrip(8, 8));
+
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+        Assert.Equal(32, cr2.Info.Width);
+        Assert.Equal(32, cr2.Info.Height);
+    }
+
+    [Fact]
+    public void Info_ColorSpace_Is_RAW()
+    {
+        byte[] bytes = TestCr2Builder.Build(
+            chain: [MakeRgbStrip(4, 4)],
+            raw: null);
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var cr2 = Cr2Reader.Open(ms);
+        Assert.Equal("RAW", cr2.Info.ColorSpace);
+        Assert.Equal(ImageFormat.Cr2, cr2.Info.Format);
+        Assert.False(cr2.Info.HasAlpha);
+    }
 }
