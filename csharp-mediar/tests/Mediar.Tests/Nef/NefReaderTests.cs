@@ -376,6 +376,96 @@ public sealed class NefReaderTests
     }
 
     [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => NefReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = NefReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Nef, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = NefReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Nef, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token_For_Decodable_File()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.True(nef.CanDecodePixels);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in nef.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Nef_And_Info_Format_Matches()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Nef, nef.Format);
+        Assert.Equal(ImageFormat.Nef, nef.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_Is_False_For_Rgb_Strip()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(nef.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Open_Then_Dispose_Twice_Does_Not_Throw()
+    {
+        var spec = MinimalNikonSpec();
+        byte[] bytes = TestNefBuilder.Build(spec);
+        var r = NefReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestNefBuilder.IfdSpec MinimalNikonSpec() => new()
+    {
+        Width = 4,
+        Height = 4,
+        BitsPerSample = 8,
+        SamplesPerPixel = 3,
+        Compression = 1,
+        Photometric = 2,
+        NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "NIKON CORPORATION",
+    };
+
+    [Fact]
     public void NewSubFileType_Two_Treated_As_Non_Primary()
     {
         // NewSubFileType bit 1 = reduced-resolution preview, bit 0 = thumbnail.

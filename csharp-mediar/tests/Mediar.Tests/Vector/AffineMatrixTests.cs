@@ -149,4 +149,76 @@ public class AffineMatrixTests
         Assert.Equal(7f, p.X, 3);
         Assert.Equal(11f, p.Y, 3);
     }
+
+    [Fact]
+    public void Compose_With_Identity_Parent_Returns_Child()
+    {
+        var child = Matrix3x2.CreateRotation(0.7f) * Matrix3x2.CreateTranslation(5f, 6f);
+        var composed = AffineMatrix.Compose(Matrix3x2.Identity, child);
+        var p1 = AffineMatrix.TransformPoint(new Vector2(2, 3), composed);
+        var p2 = AffineMatrix.TransformPoint(new Vector2(2, 3), child);
+        Assert.Equal(p2.X, p1.X, 4);
+        Assert.Equal(p2.Y, p1.Y, 4);
+    }
+
+    [Fact]
+    public void Compose_With_Identity_Child_Returns_Parent()
+    {
+        var parent = Matrix3x2.CreateScale(2f, 3f) * Matrix3x2.CreateTranslation(1f, -1f);
+        var composed = AffineMatrix.Compose(parent, Matrix3x2.Identity);
+        var p1 = AffineMatrix.TransformPoint(new Vector2(4, 5), composed);
+        var p2 = AffineMatrix.TransformPoint(new Vector2(4, 5), parent);
+        Assert.Equal(p2.X, p1.X, 4);
+        Assert.Equal(p2.Y, p1.Y, 4);
+    }
+
+    [Fact]
+    public void TransformPoint_90Deg_CCW_Rotation_Maps_X_To_Y()
+    {
+        var m = Matrix3x2.CreateRotation(MathF.PI / 2f);
+        var p = AffineMatrix.TransformPoint(new Vector2(1, 0), m);
+        Assert.Equal(0f, p.X, 4);
+        Assert.Equal(1f, p.Y, 4);
+    }
+
+    [Fact]
+    public void MaxScale_Of_Shear_Is_Greater_Than_One()
+    {
+        // Horizontal shear: x' = x + k*y, y' = y. Operator norm > 1 for k>0.
+        var shear = new Matrix3x2(1f, 0f, 2f, 1f, 0f, 0f);
+        Assert.True(AffineMatrix.MaxScale(shear) > 1f);
+    }
+
+    [Fact]
+    public void MaxScale_Large_Uniform_Scale_Returns_Magnitude()
+    {
+        Assert.Equal(100f, AffineMatrix.MaxScale(Matrix3x2.CreateScale(100f)), 3);
+    }
+
+    [Fact]
+    public void InvertOrIdentity_RoundTrips_Shear()
+    {
+        var shear = new Matrix3x2(1f, 0f, 0.5f, 1f, 0f, 0f);
+        var inv = AffineMatrix.InvertOrIdentity(shear);
+        var p = AffineMatrix.TransformPoint(
+            AffineMatrix.TransformPoint(new Vector2(3, 7), shear), inv);
+        Assert.Equal(3f, p.X, 3);
+        Assert.Equal(7f, p.Y, 3);
+    }
+
+    [Fact]
+    public void Compose_Three_Transforms_Applies_Right_To_Left()
+    {
+        // Apply T then S then R to point (1,0). Compose builds R*(S*T) under
+        // SVG cascade order (parent first, then child); a point at (1,0)
+        // should first be translated, then scaled, then rotated.
+        var t = Matrix3x2.CreateTranslation(1f, 0f);  // (1,0) -> (2,0)
+        var s = Matrix3x2.CreateScale(3f);            // (2,0) -> (6,0)
+        var r = Matrix3x2.CreateRotation(MathF.PI / 2f); // (6,0) -> (0,6)
+
+        var combined = AffineMatrix.Compose(AffineMatrix.Compose(r, s), t);
+        var p = AffineMatrix.TransformPoint(new Vector2(1, 0), combined);
+        Assert.Equal(0f, p.X, 3);
+        Assert.Equal(6f, p.Y, 3);
+    }
 }
