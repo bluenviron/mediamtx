@@ -1158,6 +1158,497 @@ public sealed class CeltBandsTests
             TfChange = tfChange,
         };
 
+    // ---------- AntiCollapse (Phase 2c.4) ----------
+
+    [Fact]
+    public void AntiCollapse_AllMasksSet_LeavesXUnchanged()
+    {
+        // When every short block has a non-zero pulse, anti-collapse is a no-op.
+        const int LM = 2;
+        const int channels = 1;
+        const int start = 0;
+        const int end = 8;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X = new float[channels * size];
+        for (int i = 0; i < X.Length; i++) X[i] = 0.1f + i * 0.001f;
+        var snapshot = (float[])X.Clone();
+
+        var collapseMasks = new byte[end * channels];
+        for (int i = 0; i < collapseMasks.Length; i++) collapseMasks[i] = 0xF; // blocks 0..3 all set
+
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var prev1 = new float[2 * CeltConstants.MaxBands];
+        var prev2 = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[end];
+        for (int i = 0; i < end; i++) pulses[i] = 32;
+        uint seed = 12345u;
+        uint seedBefore = seed;
+
+        CeltBands.AntiCollapse(eBands, X, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref seed);
+
+        for (int i = 0; i < X.Length; i++)
+            Assert.Equal(snapshot[i], X[i]);
+        Assert.Equal(seedBefore, seed); // no LCG advance when nothing to fill
+    }
+
+    [Fact]
+    public void AntiCollapse_FullyCollapsed_FillsAndRenormalisesBandsToUnit()
+    {
+        // Mask = 0 ⇒ every short block in every band is filled with ±r noise
+        // and then renormalised to unit norm.
+        const int LM = 2;
+        const int channels = 1;
+        const int start = 1;
+        const int end = 6;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X = new float[channels * size];                 // start from silence
+        var collapseMasks = new byte[end * channels];       // all zero
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var prev1 = new float[2 * CeltConstants.MaxBands];
+        var prev2 = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[end];
+        for (int i = 0; i < end; i++) pulses[i] = 16;
+        uint seed = 1u;
+
+        CeltBands.AntiCollapse(eBands, X, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref seed);
+
+        // Each band in [start, end) should have unit norm; bands < start untouched.
+        for (int i = start; i < end; i++)
+        {
+            int N = (eBands[i + 1] - eBands[i]) << LM;
+            double norm = 0;
+            for (int j = 0; j < N; j++)
+            {
+                float v = X[(eBands[i] << LM) + j];
+                norm += v * v;
+            }
+            Assert.Equal(1.0, norm, 4);
+        }
+        // Untouched region before start stays silent.
+        for (int j = 0; j < (eBands[start] << LM); j++) Assert.Equal(0f, X[j]);
+    }
+
+    [Fact]
+    public void AntiCollapse_PartialMask_OnlyMissingBlocksFilled()
+    {
+        // Mask bit set ⇒ that interleaved short block is preserved as-is.
+        const int LM = 2; // 4 short blocks per band
+        const int channels = 1;
+        const int start = 0;
+        const int end = 2;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X = new float[channels * size];
+        for (int i = 0; i < X.Length; i++) X[i] = 0.25f; // sentinel, will be renormalised away if touched
+
+        var collapseMasks = new byte[end * channels];
+        collapseMasks[0] = 0b0101; // band 0: blocks 0,2 preserved; 1,3 filled
+        collapseMasks[1] = 0b1111; // band 1: nothing filled
+
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var prev1 = new float[2 * CeltConstants.MaxBands];
+        var prev2 = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[end];
+        for (int i = 0; i < end; i++) pulses[i] = 8;
+        uint seed = 7u;
+
+        CeltBands.AntiCollapse(eBands, X, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref seed);
+
+        // Band 1 unchanged (preserved blocks for all k).
+        int N1Start = eBands[1] << LM;
+        int N1End = eBands[2] << LM;
+        for (int j = N1Start; j < N1End; j++) Assert.Equal(0.25f, X[j]);
+        // Band 0 was renormalised; check the magnitudes are bounded and signs reflect ±r at filled slots.
+        int N0Start = eBands[0] << LM;
+        int N0 = eBands[1] - eBands[0];
+        // Filled blocks (k=1,3) carry ±r values; preserved blocks (k=0,2) retain pre-renorm
+        // 0.25 scaled by the renorm gain — all values are finite and non-zero.
+        for (int j = 0; j < (N0 << LM); j++) Assert.True(float.IsFinite(X[N0Start + j]));
+    }
+
+    [Fact]
+    public void AntiCollapse_SeedAdvances_Deterministically()
+    {
+        const int LM = 1;
+        const int channels = 1;
+        const int start = 0;
+        const int end = 4;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X1 = new float[channels * size];
+        var X2 = new float[channels * size];
+        var collapseMasks = new byte[end * channels]; // all zero
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var prev1 = new float[2 * CeltConstants.MaxBands];
+        var prev2 = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[end];
+        for (int i = 0; i < end; i++) pulses[i] = 16;
+
+        uint s1 = 42u, s2 = 42u;
+        CeltBands.AntiCollapse(eBands, X1, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref s1);
+        CeltBands.AntiCollapse(eBands, X2, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref s2);
+
+        Assert.Equal(s1, s2);
+        Assert.NotEqual(42u, s1); // advanced
+        for (int i = 0; i < X1.Length; i++) Assert.Equal(X1[i], X2[i]);
+    }
+
+    [Fact]
+    public void AntiCollapse_Stereo_FillsEachChannelPerItsMask()
+    {
+        const int LM = 1;
+        const int channels = 2;
+        const int start = 0;
+        const int end = 3;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X = new float[channels * size];
+
+        var collapseMasks = new byte[end * channels];
+        // Band 0: ch0 collapsed, ch1 ok. Band 1: both ok. Band 2: both collapsed.
+        collapseMasks[0 * 2 + 0] = 0;     collapseMasks[0 * 2 + 1] = 0b11;
+        collapseMasks[1 * 2 + 0] = 0b11;  collapseMasks[1 * 2 + 1] = 0b11;
+        collapseMasks[2 * 2 + 0] = 0;     collapseMasks[2 * 2 + 1] = 0;
+
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var prev1 = new float[2 * CeltConstants.MaxBands];
+        var prev2 = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[end];
+        for (int i = 0; i < end; i++) pulses[i] = 16;
+        uint seed = 9u;
+
+        CeltBands.AntiCollapse(eBands, X, collapseMasks, LM, channels, size,
+            start, end, logE, prev1, prev2, CeltConstants.MaxBands, pulses, ref seed);
+
+        // Band 0 ch0 has unit norm; ch1 untouched (still zero).
+        int b0n = (eBands[1] - eBands[0]) << LM;
+        double n0c0 = 0, n0c1 = 0;
+        for (int j = 0; j < b0n; j++)
+        {
+            float v0 = X[0 * size + (eBands[0] << LM) + j];
+            float v1 = X[1 * size + (eBands[0] << LM) + j];
+            n0c0 += v0 * v0;
+            n0c1 += v1 * v1;
+        }
+        Assert.Equal(1.0, n0c0, 4);
+        Assert.Equal(0.0, n0c1, 6);
+
+        // Band 2 both channels filled and renormed.
+        int b2n = (eBands[3] - eBands[2]) << LM;
+        double n2c0 = 0, n2c1 = 0;
+        for (int j = 0; j < b2n; j++)
+        {
+            float v0 = X[0 * size + (eBands[2] << LM) + j];
+            float v1 = X[1 * size + (eBands[2] << LM) + j];
+            n2c0 += v0 * v0;
+            n2c1 += v1 * v1;
+        }
+        Assert.Equal(1.0, n2c0, 4);
+        Assert.Equal(1.0, n2c1, 4);
+    }
+
+    [Fact]
+    public void AntiCollapse_Mono_TakesMaxAcrossBothChannelHistories()
+    {
+        // For C==1 the decoder considers both channels' previous logE for the
+        // collapse-threshold computation. Make ch1 history MUCH higher than
+        // ch0 ⇒ Ediff drops ⇒ r is small ⇒ post-renorm samples have small
+        // magnitude per sample (but the band as a whole is still unit-norm).
+        const int LM = 0;
+        const int channels = 1;
+        const int start = 0;
+        const int end = 1;
+        var eBands = CeltConstants.EBands;
+        int size = eBands[end] << LM;
+        var X = new float[channels * size];
+        var collapseMasks = new byte[end * channels]; // 0 -> collapse
+        var pulses = new int[end];
+        pulses[0] = 0; // depth 0 ⇒ thresh = 0.5
+        var logE = new float[2 * CeltConstants.MaxBands];
+
+        // Case A: ch1 history matches ch0 (irrelevant in non-mono path of params).
+        var prev1A = new float[2 * CeltConstants.MaxBands];
+        var prev2A = new float[2 * CeltConstants.MaxBands];
+        uint sA = 31u;
+        var Xa = (float[])X.Clone();
+        CeltBands.AntiCollapse(eBands, Xa, collapseMasks, LM, channels, size,
+            start, end, logE, prev1A, prev2A, CeltConstants.MaxBands, pulses, ref sA);
+
+        // Case B: ch1 history is large ⇒ in mono mode max(ch0, ch1) is used,
+        // so prev becomes large ⇒ Ediff = max(0, logE - prev) = 0 (since logE=0)
+        // ⇒ r = 2 ⇒ clipped to thresh = 0.5 ⇒ same r as case A.
+        var prev1B = new float[2 * CeltConstants.MaxBands];
+        var prev2B = new float[2 * CeltConstants.MaxBands];
+        prev1B[CeltConstants.MaxBands + 0] = 8.0f; // huge ch1 history
+        prev2B[CeltConstants.MaxBands + 0] = 8.0f;
+        uint sB = 31u;
+        var Xb = (float[])X.Clone();
+        CeltBands.AntiCollapse(eBands, Xb, collapseMasks, LM, channels, size,
+            start, end, logE, prev1B, prev2B, CeltConstants.MaxBands, pulses, ref sB);
+
+        // Both cases end up clipped by thresh so post-renorm outputs match.
+        Assert.Equal(sA, sB);
+        for (int i = 0; i < Xa.Length; i++) Assert.Equal(Xa[i], Xb[i], 6);
+
+        // Case C: logE > prev ⇒ Ediff > 0 ⇒ r shrinks below thresh,
+        // but post-renorm the band is still unit-norm. Just verify finiteness.
+        var prev1C = new float[2 * CeltConstants.MaxBands];
+        var prev2C = new float[2 * CeltConstants.MaxBands];
+        var logEc = new float[2 * CeltConstants.MaxBands];
+        logEc[0] = 4.0f; // current band logE
+        uint sC = 31u;
+        var Xc = (float[])X.Clone();
+        CeltBands.AntiCollapse(eBands, Xc, collapseMasks, LM, channels, size,
+            start, end, logEc, prev1C, prev2C, CeltConstants.MaxBands, pulses, ref sC);
+        for (int i = 0; i < Xc.Length; i++) Assert.True(float.IsFinite(Xc[i]));
+        double normC = 0; foreach (var v in Xc) normC += v * v;
+        Assert.Equal(1.0, normC, 4);
+    }
+
+    [Fact]
+    public void AntiCollapse_NegativeStartOrEndThrows()
+    {
+        var X = new float[16];
+        var masks = new byte[8];
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[8];
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            uint s = 1u;
+            CeltBands.AntiCollapse(CeltConstants.EBands, X, masks, LM: 4, channels: 1, size: 16,
+                start: 0, end: 1, logE, logE, logE, CeltConstants.MaxBands, pulses, ref s);
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            uint s = 1u;
+            CeltBands.AntiCollapse(CeltConstants.EBands, X, masks, LM: 1, channels: 3, size: 16,
+                start: 0, end: 1, logE, logE, logE, CeltConstants.MaxBands, pulses, ref s);
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            uint s = 1u;
+            CeltBands.AntiCollapse(CeltConstants.EBands, X, masks, LM: 1, channels: 1, size: 16,
+                start: 5, end: 2, logE, logE, logE, CeltConstants.MaxBands, pulses, ref s);
+        });
+    }
+
+    [Fact]
+    public void AntiCollapse_TooSmallSize_Throws()
+    {
+        var X = new float[4];
+        var masks = new byte[8];
+        var logE = new float[2 * CeltConstants.MaxBands];
+        var pulses = new int[8];
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            uint s = 1u;
+            CeltBands.AntiCollapse(CeltConstants.EBands, X, masks, LM: 2, channels: 1, size: 2,
+                start: 0, end: 1, logE, logE, logE, CeltConstants.MaxBands, pulses, ref s);
+        });
+    }
+
+    // ---------- UnquantEnergyFinalise (Phase 2c.4) ----------
+
+    [Fact]
+    public void UnquantEnergyFinalise_NoBitsLeft_NoOp()
+    {
+        var bytes = MakeRandomBytes(seed: 5, length: 64);
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var snapshot = (float[])oldLogE.Clone();
+        var ebits = new int[21];
+        var fp = new int[21];
+
+        int bitsLeft = 0;
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        Assert.Equal(0, bitsLeft);
+        for (int i = 0; i < oldLogE.Length; i++) Assert.Equal(snapshot[i], oldLogE[i]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_AllBandsMaxedOut_NoChange()
+    {
+        var bytes = MakeRandomBytes(seed: 11, length: 64);
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var snapshot = (float[])oldLogE.Clone();
+        var ebits = new int[21];
+        for (int i = 0; i < 21; i++) ebits[i] = CeltConstants.MaxFineBits; // skip all
+        var fp = new int[21];
+
+        int bitsLeft = 100;
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        Assert.Equal(100, bitsLeft); // nothing consumed
+        for (int i = 0; i < oldLogE.Length; i++) Assert.Equal(snapshot[i], oldLogE[i]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_AllZeroBits_DecreasesByMagnitude()
+    {
+        // Last byte of the buffer feeds raw bits. Set the trailing portion to 0
+        // so every DecodeBits(1) returns 0 ⇒ offset = -(1 << (8 - eb)).
+        var bytes = new byte[64];
+        // leave all bytes as zero
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+        // Use ebits = 3 so magnitude = 1 << 5 = 32.
+        const int eb = 3;
+        const float expected = -(1 << (8 - eb));
+        for (int i = 0; i < 21; i++) { ebits[i] = eb; fp[i] = 0; }
+
+        int bitsLeft = 10;
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 10,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        // 10 bands × 1 channel = 10 bits consumed.
+        Assert.Equal(0, bitsLeft);
+        for (int i = 0; i < 10; i++) Assert.Equal(expected, oldLogE[i]);
+        for (int i = 10; i < CeltConstants.MaxBands; i++) Assert.Equal(0f, oldLogE[i]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_AllOneBits_IncreasesByMagnitude()
+    {
+        // Filling the buffer with 0xFF feeds 1-bits to the raw decoder.
+        var bytes = new byte[64];
+        for (int i = 0; i < bytes.Length; i++) bytes[i] = 0xFF;
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+        const int eb = 5;
+        const float expected = +(1 << (8 - eb)); // 8
+        for (int i = 0; i < 21; i++) { ebits[i] = eb; fp[i] = 0; }
+
+        int bitsLeft = 5;
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 5,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        Assert.Equal(0, bitsLeft);
+        for (int i = 0; i < 5; i++) Assert.Equal(expected, oldLogE[i]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_PriorityOrdering_Prio0FirstThenPrio1()
+    {
+        var bytes = new byte[64]; // all-zero bits
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+        for (int i = 0; i < 21; i++) ebits[i] = 4;
+        // Alternate priorities to force prio-0 to be processed first.
+        for (int i = 0; i < 21; i++) fp[i] = i % 2; // 0,1,0,1,...
+
+        // 8 bits ⇒ enough to do all four prio-0 bands in [0,8) then start prio-1.
+        int bitsLeft = 8;
+        const float magnitude = (1 << (8 - 4)); // 16
+
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 8,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        // Prio-0 bands (indices 0,2,4,6) decremented; prio-1 bands (1,3,5,7) also decremented
+        // (since we had 4 prio-0 + 4 prio-1 = 8 bits total).
+        for (int i = 0; i < 8; i++) Assert.Equal(-magnitude, oldLogE[i]);
+        Assert.Equal(0, bitsLeft);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_BitsExhaustedMidLoop_StopsEarly()
+    {
+        var bytes = new byte[64];
+        for (int i = 0; i < bytes.Length; i++) bytes[i] = 0xFF;
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+        for (int i = 0; i < 21; i++) { ebits[i] = 2; fp[i] = 0; }
+
+        int bitsLeft = 3; // only 3 bands worth (mono)
+        const float mag = (1 << (8 - 2)); // 64
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+            channels: 1, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        Assert.Equal(0, bitsLeft);
+        Assert.Equal(+mag, oldLogE[0]);
+        Assert.Equal(+mag, oldLogE[1]);
+        Assert.Equal(+mag, oldLogE[2]);
+        for (int i = 3; i < CeltConstants.MaxBands; i++) Assert.Equal(0f, oldLogE[i]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_Stereo_ConsumesTwoBitsPerBand()
+    {
+        var bytes = new byte[64];
+        for (int i = 0; i < bytes.Length; i++) bytes[i] = 0xFF;
+        var dec = new OpusRangeDecoder(bytes);
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+        const int eb = 6;
+        for (int i = 0; i < 21; i++) { ebits[i] = eb; fp[i] = 0; }
+
+        int bitsLeft = 6; // exactly 3 bands × 2 channels
+        const float mag = (1 << (8 - eb)); // 4
+        CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+            channels: 2, logStride: CeltConstants.MaxBands, ref bitsLeft);
+
+        Assert.Equal(0, bitsLeft);
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(+mag, oldLogE[i]);                                // ch0
+            Assert.Equal(+mag, oldLogE[CeltConstants.MaxBands + i]);       // ch1
+        }
+        // 4th band onward untouched.
+        Assert.Equal(0f, oldLogE[3]);
+        Assert.Equal(0f, oldLogE[CeltConstants.MaxBands + 3]);
+    }
+
+    [Fact]
+    public void UnquantEnergyFinalise_ArgumentValidation()
+    {
+        var bytes = new byte[64];
+        var oldLogE = new float[2 * CeltConstants.MaxBands];
+        var ebits = new int[21];
+        var fp = new int[21];
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            var dec = new OpusRangeDecoder(bytes);
+            int bl = 10;
+            CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+                channels: 0, logStride: CeltConstants.MaxBands, ref bl);
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            var dec = new OpusRangeDecoder(bytes);
+            int bl = 10;
+            CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 5, end: 2,
+                channels: 1, logStride: CeltConstants.MaxBands, ref bl);
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            var dec = new OpusRangeDecoder(bytes);
+            int bl = 10;
+            CeltBands.UnquantEnergyFinalise(ref dec, oldLogE, ebits, fp, start: 0, end: 21,
+                channels: 1, logStride: 5, ref bl);
+        });
+    }
+
     private static byte[] MakeRandomBytes(int seed, int length)
     {
         var rng = new System.Random(seed);

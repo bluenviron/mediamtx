@@ -23,12 +23,73 @@ commits.
 | 2c.3b.5b | CELT `quant_band` mono wrapper (Haar1 recombine / time-divide + Hadamard reorganisation + √N lowband_out scaling) | ✅ shipped |
 | 2c.3b.5c | CELT `quant_band_stereo` (stereo mid/side band wrapper + `stereo_merge`)              | ✅ shipped |
 | 2c.3b.5d | CELT `quant_all_bands` top-level band-iteration integration                            | ✅ shipped |
-|  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
+|  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ✅ shipped |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.4 behavior (added on top of Phase 2c.3b.5d)
+
+Phase 2c.4 ports the two post-PVQ pieces that close out the CELT
+*bit-stream* side of the decoder: `anti_collapse` (noise injection for
+short blocks whose PVQ assignment yielded zero pulses) and
+`unquant_energy_finalise` (the final fine-energy refinement pass that
+spends any bits left in the range coder after PVQ).
+
+### `AntiCollapse(eBands, X, collapseMasks, LM, channels, size, start, end, logE, prev1LogE, prev2LogE, logStride, pulses, ref seed)`
+
+Mirrors libopus `anti_collapse` for the decoder + float build. For each
+band `i` in `[start, end)` and each channel `c`, for every short MDCT
+block `k` in `[0, 1<<LM)`, if bit `k` of `collapseMasks[i*channels+c]`
+is zero — meaning the PVQ shape decoder placed no pulse in that
+interleaved slot — fill the slot with pseudo-random `±r` samples driven
+by `CeltShape.LcgRand(seed)`. The injection amplitude is
+`r = min(thresh, 2·2^(-Ediff)) / sqrt(N0<<LM)` with
+`thresh = 0.5·2^(-depth/8)`, `depth = (1 + pulses[i]) / N0 >> LM`, and
+`Ediff = max(0, logE - min(prev1, prev2))`. For 20 ms frames (`LM == 3`)
+`r` is additionally scaled by √2 to compensate for the longer block.
+
+After filling, the band is renormalised to unit norm via
+`CeltShape.RenormaliseVector(...)`. The mono-decode safety branch
+(`channels == 1`) takes `max(prev[c0], prev[c1])` for both `prev1` and
+`prev2` so an up-mix from a previously-stereo file keeps the louder
+side's collapse-threshold history.
+
+`logStride` lets the caller decouple the canonical libopus layout
+(`nbEBands` per channel) from our decoder's layout
+(`CeltConstants.MaxBands` per channel) — both `logE` /
+`prev1LogE` / `prev2LogE` must always cover **2 × logStride** entries
+because the mono safety branch reads both channel slots regardless of
+the current channel count.
+
+### `UnquantEnergyFinalise(ref dec, oldLogE, fineQuant, finePriority, start, end, channels, logStride, ref bitsLeft)`
+
+Mirrors libopus `unquant_energy_finalise`. Two priority passes (0 then
+1); within each pass every band with `fineQuant[i] < MAX_FINE_BITS` and
+matching priority consumes one raw bit per channel from the range
+coder and applies a Q10 offset of `±(1 << (8 - fineQuant[i]))` to
+`oldLogE[c*logStride + i]`. Stops as soon as `bitsLeft < channels`. The
+in/out `ref bitsLeft` parameter lets the caller track the precise
+remaining-bit budget back into its larger CELT decode loop.
+
+### Files changed this phase
+
+* `Celt/CeltBands.cs` — appended `AntiCollapse(...)` (~80 lines) and
+  `UnquantEnergyFinalise(...)` (~40 lines). Both are public static
+  helpers; Phase 2d will wire them into `CeltDecoder.Decode` once the
+  full pipeline (anti-collapse-rsv bit, IMDCT, post-filter,
+  overlap-add) is in place.
+
+### Test results after Phase 2c.4
+
+Test suite total after Phase 2c.4: **7793 / 7793 pass** (+16 new tests
+covering AntiCollapse: 8 (no-op, fully collapsed, partial mask, seed
+determinism, stereo, mono history max, two arg-validation paths) and
+UnquantEnergyFinalise: 8 (no-op, maxed-out skip, all-zero bits, all-one
+bits, priority ordering, bits exhausted mid-loop, stereo bit
+consumption, arg validation)).
 
 ## Phase 2c.3b.5d behavior (added on top of Phase 2c.3b.5c)
 

@@ -863,4 +863,202 @@ public static class CeltBands
         }
         seed = ctx.Seed;
     }
+
+    /// <summary>
+    /// Detect bands that collapsed to zero energy in any short MDCT block
+    /// and inject pseudo-random noise so the post-IMDCT signal does not lose
+    /// its high-frequency content. Mirrors libopus <c>anti_collapse</c> for
+    /// the decoder + float build only (no encoder, no fixed-point).
+    /// </summary>
+    /// <param name="eBands">Critical-band boundary table (length end + 1).</param>
+    /// <param name="X">Decoded normalised PVQ samples. Layout
+    /// <c>X[c * size + (eBands[i] &lt;&lt; LM) .. + (N0 &lt;&lt; LM))</c>.</param>
+    /// <param name="collapseMasks">Per-band collapse bitmask written by the
+    /// PVQ shape decoder. One byte per band per channel; bit <c>k</c> is set
+    /// when short block <c>k</c> received any non-zero pulse. Layout
+    /// <c>collapseMasks[i * channels + c]</c>.</param>
+    /// <param name="LM">Frame-size log2 multiplier (0..3).</param>
+    /// <param name="channels">1 (mono) or 2 (stereo).</param>
+    /// <param name="size">Per-channel stride into <paramref name="X"/>
+    /// (must be at least <c>eBands[end] &lt;&lt; LM</c>).</param>
+    /// <param name="start">First band processed by this frame.</param>
+    /// <param name="end">One past last band processed by this frame.</param>
+    /// <param name="logE">Current frame's coarse+fine log2 band energy, Q10,
+    /// indexed <c>logE[c * stride + i]</c> where <c>stride</c> spans both
+    /// channels (i.e. always 2 × stride entries).</param>
+    /// <param name="prev1LogE">Previous frame's band energy (Q10, same
+    /// layout as <paramref name="logE"/>).</param>
+    /// <param name="prev2LogE">Frame-before-previous band energy (Q10).</param>
+    /// <param name="logStride">Per-channel stride for <paramref name="logE"/>,
+    /// <paramref name="prev1LogE"/> and <paramref name="prev2LogE"/>
+    /// (libopus uses <c>nbEBands</c>; our decoder uses
+    /// <see cref="CeltConstants.MaxBands"/>).</param>
+    /// <param name="pulses">Per-band pulse count (libopus <c>pulses[i]</c>)
+    /// in 1/1 pulse units, length at least <paramref name="end"/>.</param>
+    /// <param name="seed">LCG state for the noise generator (libopus
+    /// <c>dec->rng</c>). Updated in place.</param>
+    public static void AntiCollapse(
+        ReadOnlySpan<short> eBands,
+        Span<float> X,
+        ReadOnlySpan<byte> collapseMasks,
+        int LM,
+        int channels,
+        int size,
+        int start,
+        int end,
+        ReadOnlySpan<float> logE,
+        ReadOnlySpan<float> prev1LogE,
+        ReadOnlySpan<float> prev2LogE,
+        int logStride,
+        ReadOnlySpan<int> pulses,
+        ref uint seed)
+    {
+        if (channels is not (1 or 2))
+            throw new ArgumentOutOfRangeException(nameof(channels), channels, "Channels must be 1 or 2.");
+        if (LM is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(LM), LM, "LM must be 0..3.");
+        if (start < 0 || end < start)
+            throw new ArgumentOutOfRangeException(nameof(end), end, "end must be >= start >= 0.");
+        if (eBands.Length < end + 1)
+            throw new ArgumentException("eBands must have at least end + 1 entries.", nameof(eBands));
+        if (pulses.Length < end)
+            throw new ArgumentException("pulses must have at least end entries.", nameof(pulses));
+        if (collapseMasks.Length < end * channels)
+            throw new ArgumentException("collapseMasks must have at least end * channels entries.", nameof(collapseMasks));
+        if (logStride < end)
+            throw new ArgumentOutOfRangeException(nameof(logStride), logStride, "logStride must be at least end.");
+        int logMin = 2 * logStride;
+        if (logE.Length < logMin || prev1LogE.Length < logMin || prev2LogE.Length < logMin)
+            throw new ArgumentException("logE / prev1LogE / prev2LogE must each cover 2 * logStride entries.");
+        if (size < (eBands[end] << LM))
+            throw new ArgumentOutOfRangeException(nameof(size), size, "size must cover eBands[end] << LM.");
+        if (X.Length < channels * size)
+            throw new ArgumentException("X must hold channels * size samples.", nameof(X));
+
+        for (int i = start; i < end; i++)
+        {
+            int N0 = eBands[i + 1] - eBands[i];
+
+            // depth is in units of 1/8 bits per sample (libopus celt_udiv).
+            int depth = ((1 + pulses[i]) / N0) >> LM;
+
+            // thresh = 0.5 * 2^(-depth/8); float-build matches libopus.
+            float thresh = 0.5f * MathF.Pow(2.0f, -0.125f * depth);
+
+            int Nshift = N0 << LM;
+            float sqrt1 = 1.0f / MathF.Sqrt(Nshift);
+
+            for (int c = 0; c < channels; c++)
+            {
+                float prev1 = prev1LogE[c * logStride + i];
+                float prev2 = prev2LogE[c * logStride + i];
+                if (channels == 1)
+                {
+                    // Mono-decode safety: an up-mixed-from-stereo file may carry
+                    // history for both channels. Take the louder side.
+                    prev1 = MathF.Max(prev1, prev1LogE[logStride + i]);
+                    prev2 = MathF.Max(prev2, prev2LogE[logStride + i]);
+                }
+
+                float Ediff = logE[c * logStride + i] - MathF.Min(prev1, prev2);
+                if (Ediff < 0.0f) Ediff = 0.0f;
+
+                // float build: r = 2 * 2^(-Ediff); for 20ms frames the extra
+                // sqrt(2) compensates for the longer block having less energy
+                // per short slot.
+                float r = 2.0f * MathF.Pow(2.0f, -Ediff);
+                if (LM == 3)
+                    r *= 1.41421356f;
+                if (r > thresh) r = thresh;
+                r *= sqrt1;
+
+                Span<float> Xc = X.Slice(c * size + (eBands[i] << LM), Nshift);
+                byte mask = collapseMasks[i * channels + c];
+                bool renormalize = false;
+
+                int blocks = 1 << LM;
+                for (int k = 0; k < blocks; k++)
+                {
+                    if ((mask & (1 << k)) != 0)
+                        continue;
+
+                    // Block k is empty — fill its interleaved slots with ±r noise.
+                    for (int j = 0; j < N0; j++)
+                    {
+                        seed = CeltShape.LcgRand(seed);
+                        Xc[(j << LM) + k] = (seed & 0x8000u) != 0 ? r : -r;
+                    }
+                    renormalize = true;
+                }
+
+                if (renormalize)
+                    CeltShape.RenormaliseVector(Xc, Nshift, 1.0f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Spend any bits left in the range coder after PVQ + anti-collapse on
+    /// extra fine-energy precision. Mirrors libopus
+    /// <c>unquant_energy_finalise</c> for the decoder + float build.
+    /// </summary>
+    /// <param name="dec">Live range decoder.</param>
+    /// <param name="oldLogE">Per-band energy (Q10) to refine. Layout
+    /// <c>oldLogE[c * logStride + i]</c>.</param>
+    /// <param name="fineQuant">Per-band fine-energy bit count already
+    /// decoded (libopus <c>fine_quant[i]</c>).</param>
+    /// <param name="finePriority">Per-band priority (0 first, 1 second).</param>
+    /// <param name="start">First band processed by this frame.</param>
+    /// <param name="end">One past last band processed by this frame.</param>
+    /// <param name="channels">1 (mono) or 2 (stereo).</param>
+    /// <param name="logStride">Per-channel stride for <paramref name="oldLogE"/>.</param>
+    /// <param name="bitsLeft">Remaining bits available for finalise; consumed in place.</param>
+    public static void UnquantEnergyFinalise(
+        ref OpusRangeDecoder dec,
+        Span<float> oldLogE,
+        ReadOnlySpan<int> fineQuant,
+        ReadOnlySpan<int> finePriority,
+        int start,
+        int end,
+        int channels,
+        int logStride,
+        ref int bitsLeft)
+    {
+        if (channels is not (1 or 2))
+            throw new ArgumentOutOfRangeException(nameof(channels), channels, "Channels must be 1 or 2.");
+        if (start < 0 || end < start)
+            throw new ArgumentOutOfRangeException(nameof(end), end, "end must be >= start >= 0.");
+        if (logStride < end)
+            throw new ArgumentOutOfRangeException(nameof(logStride), logStride, "logStride must be at least end.");
+        if (fineQuant.Length < end || finePriority.Length < end)
+            throw new ArgumentException("fineQuant / finePriority must each have at least end entries.");
+        if (oldLogE.Length < channels * logStride)
+            throw new ArgumentException("oldLogE must hold channels * logStride entries.", nameof(oldLogE));
+
+        for (int prio = 0; prio < 2; prio++)
+        {
+            for (int i = start; i < end && bitsLeft >= channels; i++)
+            {
+                int eb = fineQuant[i];
+                if (eb >= CeltConstants.MaxFineBits || finePriority[i] != prio)
+                    continue;
+
+                for (int c = 0; c < channels; c++)
+                {
+                    int q2 = (int)dec.DecodeBits(1);
+                    // libopus float build:
+                    //   offset = (q2 - 0.5) * (1 << (14 - eb - 1)) / 16384
+                    //          = (q2 - 0.5) / (1 << (eb + 1))
+                    // In our Q10 layout that becomes:
+                    //   offset_q10 = (q2 - 0.5) * DbUnit / (1 << (eb + 1))
+                    //              = (q2 == 1 ? +1 : -1) * (1 << (8 - eb))
+                    // and 8 - eb is always >= 1 because eb < MaxFineBits == 8.
+                    int magnitude = 1 << (8 - eb);
+                    float offset = q2 == 1 ? magnitude : -magnitude;
+                    oldLogE[c * logStride + i] += offset;
+                    bitsLeft--;
+                }
+            }
+        }
+    }
 }
