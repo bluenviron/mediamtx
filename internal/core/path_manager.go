@@ -2,9 +2,15 @@ package core
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"maps"
+	"net/http"
+	"net/url"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -78,8 +84,12 @@ type pathManager struct {
 	writeQueueSize    int
 	udpReadBufferSize uint
 	rtpMaxPayloadSize int
-	pathConfs         map[string]*conf.Path
-	authManager       pathManagerAuthManager
+	pathConfs                map[string]*conf.Path
+	pathDefaults             conf.Path
+	pathExternalConfEnabled  bool
+	pathExternalConfURL      string
+	authMethod               conf.AuthMethod
+	authManager              pathManagerAuthManager
 	externalCmdPool   *externalcmd.Pool
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
@@ -103,6 +113,99 @@ type pathManager struct {
 	chAddPublisher    chan defs.PathAddPublisherReq
 	chAPIPathsList    chan pathAPIPathsListReq
 	chAPIPathsGet     chan pathAPIPathsGetReq
+}
+
+const (
+	externalPathConfTimeout     = 10 // seconds
+	externalPathConfMaxBodySize = 1 << 20 // 1 MB
+)
+
+var externalPathConfClient = &http.Client{
+	Timeout: externalPathConfTimeout * 1e9,
+}
+
+func (pm *pathManager) fetchExternalPathConf(name, query string, creds *auth.Credentials) (*conf.Path, error) {
+	params := url.Values{"path": {name}}
+	if query != "" {
+		if parsed, err := url.ParseQuery(query); err == nil {
+			for k, v := range parsed {
+				if k != "path" {
+					params[k] = v
+				}
+			}
+		}
+	}
+	rawURL := strings.TrimRight(pm.pathExternalConfURL, "/") + "?" + params.Encode()
+
+	req, err := http.NewRequestWithContext(pm.ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("external path conf: %w", err)
+	}
+
+	if creds != nil {
+		switch pm.authMethod {
+		case conf.AuthMethodInternal, conf.AuthMethodHTTP:
+			if creds.User != "" || creds.Pass != "" {
+				req.SetBasicAuth(creds.User, creds.Pass)
+			}
+		case conf.AuthMethodJWT:
+			if creds.Token != "" {
+				req.Header.Set("Authorization", "Bearer "+creds.Token)
+			}
+		}
+	}
+
+	resp, err := externalPathConfClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("external path conf: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errExternalPathNotFound
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("external path conf: status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, externalPathConfMaxBodySize))
+	if err != nil {
+		return nil, fmt.Errorf("external path conf: %w", err)
+	}
+
+	var op conf.OptionalPath
+	if err := json.Unmarshal(body, &op); err != nil {
+		return nil, fmt.Errorf("external path conf: decode: %w", err)
+	}
+
+	pathConf := conf.NewPath(&pm.pathDefaults, &op)
+	pathConf.Name = name
+	return pathConf, nil
+}
+
+var errExternalPathNotFound = errors.New("external path not found")
+
+// findPathConf resolves a path config. If FindPathConf returns a catch-all
+// (all/all_others) and external conf is enabled, the external source is tried
+// first; on any failure the catch-all is returned unchanged.
+func (pm *pathManager) findPathConf(name, query string, creds *auth.Credentials) (*conf.Path, []string, error) {
+	pathConf, matches, err := conf.FindPathConf(pm.pathConfs, name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if pm.pathExternalConfEnabled && (pathConf.Name == "all" || pathConf.Name == "all_others") {
+		external, fetchErr := pm.fetchExternalPathConf(name, query, creds)
+		if fetchErr == nil {
+			return external, nil, nil
+		}
+		if !errors.Is(fetchErr, errExternalPathNotFound) {
+			pm.Log(logger.Warn, "external path conf fetch failed: %v", fetchErr)
+		}
+	}
+
+	return pathConf, matches, nil
 }
 
 func (pm *pathManager) initialize() {
@@ -320,7 +423,7 @@ func (pm *pathManager) doSetPathNotReady(pa *path) {
 }
 
 func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
-	pathConf, _, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, _, err := pm.findPathConf(req.AccessRequest.Name, req.AccessRequest.Query, req.AccessRequest.Credentials)
 	if err != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err}
 		return
@@ -339,7 +442,7 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 }
 
 func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
-	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := pm.findPathConf(req.AccessRequest.Name, req.AccessRequest.Query, req.AccessRequest.Credentials)
 	if err != nil {
 		req.Res <- defs.PathDescribeRes{Err: err}
 		return
@@ -364,7 +467,7 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 }
 
 func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
-	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := pm.findPathConf(req.AccessRequest.Name, req.AccessRequest.Query, req.AccessRequest.Credentials)
 	if err != nil {
 		req.Res <- defs.PathAddReaderRes{Err: err}
 		return
@@ -397,7 +500,7 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 }
 
 func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
-	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.AccessRequest.Name)
+	pathConf, pathMatches, err := pm.findPathConf(req.AccessRequest.Name, req.AccessRequest.Query, req.AccessRequest.Credentials)
 	if err != nil {
 		req.Res <- defs.PathAddPublisherRes{Err: err}
 		return
