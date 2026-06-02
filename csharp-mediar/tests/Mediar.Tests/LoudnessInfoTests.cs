@@ -207,4 +207,123 @@ public sealed class LoudnessInfoTests
         Assert.False(new LoudnessInfo { R128AlbumGainDb = -9.0 }.IsEmpty);
         Assert.False(new LoudnessInfo { TrackPeak = 0.5 }.IsEmpty);
     }
+
+    [Fact]
+    public void LoudnessInfo_IsEmpty_False_For_Every_Field_Independently()
+    {
+        // Each individual field flips IsEmpty to false.
+        Assert.False(new LoudnessInfo { TrackGainDb = -1 }.IsEmpty);
+        Assert.False(new LoudnessInfo { AlbumGainDb = -1 }.IsEmpty);
+        Assert.False(new LoudnessInfo { TrackPeak = 1 }.IsEmpty);
+        Assert.False(new LoudnessInfo { AlbumPeak = 1 }.IsEmpty);
+        Assert.False(new LoudnessInfo { TrackRangeDb = 5 }.IsEmpty);
+        Assert.False(new LoudnessInfo { AlbumRangeDb = 5 }.IsEmpty);
+        Assert.False(new LoudnessInfo { ReferenceLoudnessDb = -18 }.IsEmpty);
+        Assert.False(new LoudnessInfo { R128TrackGainDb = -9 }.IsEmpty);
+        Assert.False(new LoudnessInfo { R128AlbumGainDb = -9 }.IsEmpty);
+    }
+
+    [Fact]
+    public void LoudnessInfo_Record_Equality_And_WithExpression()
+    {
+        var a = new LoudnessInfo { TrackGainDb = -7.89, TrackPeak = 0.95 };
+        var b = new LoudnessInfo { TrackGainDb = -7.89, TrackPeak = 0.95 };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { TrackPeak = 1.0 };
+        Assert.NotEqual(a, c);
+        Assert.Equal(-7.89, c.TrackGainDb!.Value, 4);
+    }
+
+    [Theory]
+    [InlineData("-60 dB", -60.0)]
+    [InlineData("60 dB", 60.0)]
+    [InlineData("0 dB", 0.0)]
+    public void TryParseReplayGainDb_Accepts_Boundary_Values(string input, double expected)
+    {
+        Assert.True(LoudnessInfo.TryParseReplayGainDb(input, out var db));
+        Assert.Equal(expected, db, 6);
+    }
+
+    [Theory]
+    [InlineData("-60.001 dB")]
+    [InlineData("60.001 dB")]
+    [InlineData("Infinity dB")]
+    [InlineData("-Infinity dB")]
+    public void TryParseReplayGainDb_Rejects_Out_Of_Range_Or_Infinite(string input)
+    {
+        Assert.False(LoudnessInfo.TryParseReplayGainDb(input, out _));
+    }
+
+    [Theory]
+    [InlineData("10")]
+    [InlineData("0")]
+    public void TryParseReplayGainPeak_Accepts_Boundary_Values(string input)
+    {
+        Assert.True(LoudnessInfo.TryParseReplayGainPeak(input, out _));
+    }
+
+    [Theory]
+    [InlineData("10.001")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    public void TryParseReplayGainPeak_Rejects_OutOfRange_Or_Infinite(string input)
+    {
+        Assert.False(LoudnessInfo.TryParseReplayGainPeak(input, out _));
+    }
+
+    [Fact]
+    public void Builder_R128_Q78_First_Wins_For_TrackGain()
+    {
+        // R128_TRACK_GAIN follows the same first-wins semantics as
+        // REPLAYGAIN_TRACK_GAIN.
+        var b = new MediaMetadataBuilder();
+        b.Set("R128_TRACK_GAIN", "-2304");
+        b.Set("R128_TRACK_GAIN", "0");
+        var meta = b.Build();
+        Assert.Equal(-9.0, meta.Loudness!.R128TrackGainDb!.Value, 6);
+    }
+
+    [Fact]
+    public void Builder_R128_Q78_Boundary_Values_Round_Trip()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("R128_TRACK_GAIN", "32767");
+        b.Set("R128_ALBUM_GAIN", "-32768");
+        var meta = b.Build();
+        Assert.Equal(127.99609375, meta.Loudness!.R128TrackGainDb!.Value, 6);
+        Assert.Equal(-128.0, meta.Loudness.R128AlbumGainDb!.Value, 6);
+    }
+
+    [Fact]
+    public void Builder_R128_Q78_OutOfRange_Falls_Back_To_Tag_Only()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("R128_TRACK_GAIN", "99999");
+        var meta = b.Build();
+        Assert.Null(meta.Loudness);
+        Assert.Equal("99999", meta.Tags["R128_TRACK_GAIN"]);
+    }
+
+    [Fact]
+    public void Builder_ReplayGain_Casing_Is_Tolerated()
+    {
+        // ReplayGain key casing is normalised by the builder, so a
+        // lower-case key should still populate the Loudness record.
+        var b = new MediaMetadataBuilder();
+        b.Set("replaygain_track_gain", "-3.5 dB");
+        var meta = b.Build();
+        Assert.NotNull(meta.Loudness);
+        Assert.Equal(-3.5, meta.Loudness!.TrackGainDb!.Value, 4);
+    }
+
+    [Fact]
+    public void Builder_Negative_ReferenceLoudness_Parsed()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("REPLAYGAIN_REFERENCE_LOUDNESS", "-23.0 dB");
+        var meta = b.Build();
+        Assert.Equal(-23.0, meta.Loudness!.ReferenceLoudnessDb!.Value, 4);
+    }
 }

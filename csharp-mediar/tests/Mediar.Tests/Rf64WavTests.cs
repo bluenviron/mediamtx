@@ -206,4 +206,106 @@ public sealed class Rf64WavTests
         using var src = new IO.MemoryRandomAccessSource(file);
         Assert.Throws<InvalidDataException>(() => WavDemuxer.Open(src));
     }
+
+    [Fact]
+    public async Task Rf64_Pcm_Bytes_Roundtrip_Identical()
+    {
+        // Verify the actual PCM bytes (not just total length) survive
+        // demuxing intact.
+        const int frames = 1000;
+        byte[] pcm = new byte[frames * 2];
+        for (int i = 0; i < frames; i++)
+        {
+            short v = (short)((i * 7) & 0x7FFF);
+            pcm[i * 2] = (byte)v;
+            pcm[i * 2 + 1] = (byte)(v >> 8);
+        }
+        byte[] file = BuildRf64(44100, 1, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var collected = new MemoryStream();
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { collected.Write(s.Data.Span); }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(pcm, collected.ToArray());
+    }
+
+    [Fact]
+    public void Rf64_Truncated_Header_Throws()
+    {
+        // RF64 magic without WAVE or ds64 chunk should fail to open.
+        byte[] head = new byte[12];
+        head[0] = (byte)'R'; head[1] = (byte)'F'; head[2] = (byte)'6'; head[3] = (byte)'4';
+        head[4] = 0xFF; head[5] = 0xFF; head[6] = 0xFF; head[7] = 0xFF;
+        head[8] = (byte)'W'; head[9] = (byte)'A'; head[10] = (byte)'V'; head[11] = (byte)'E';
+        using var src = new IO.MemoryRandomAccessSource(head);
+        Assert.ThrowsAny<Exception>(() => WavDemuxer.Open(src));
+    }
+
+    [Fact]
+    public async Task Rf64_Dispose_Idempotent()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[200]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        var dx = WavDemuxer.Open(src);
+        dx.Dispose();
+        dx.Dispose();
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_Track_Has_Index_0_And_Default_Language()
+    {
+        byte[] file = BuildRf64(48000, 2, 16, new byte[400]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        Assert.Single(dx.Tracks);
+        Assert.Equal(0, dx.Tracks[0].Index);
+        Assert.NotNull(dx.Tracks[0].Language);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_Metadata_Is_Non_Null_When_No_Info_Chunk()
+    {
+        byte[] file = BuildRf64(8000, 1, 16, new byte[16]);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        // No LIST INFO -> empty metadata, but the property itself must be
+        // non-null.
+        Assert.NotNull(dx.Metadata);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Rf64_ReadSamplesAsync_Honours_Cancellation()
+    {
+        byte[] pcm = new byte[44100 * 2];
+        byte[] file = BuildRf64(44100, 1, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var s in dx.ReadSamplesAsync(cts.Token))
+            {
+                s.Owner?.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Rf64_TwoByteFmt_With_Mismatched_Channels_Detected_Correctly()
+    {
+        byte[] pcm = new byte[16 * 4]; // 16 frames of 32-bit stereo? 4 bytes/frame
+        byte[] file = BuildRf64(44100, 2, 16, pcm);
+        using var src = new IO.MemoryRandomAccessSource(file);
+        using var dx = WavDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(2, a.Channels);
+        await Task.CompletedTask;
+    }
 }
