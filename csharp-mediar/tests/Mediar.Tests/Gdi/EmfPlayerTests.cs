@@ -136,6 +136,140 @@ public class EmfPlayerTests
         AssertRedGreater(result.Frame, 75, 75, threshold: 150);
     }
 
+    [Fact]
+    public void RejectsZeroWidth()
+    {
+        var emf = new EmfWriter(0, 0, 64, 64).Eof().Build();
+        Assert.Throws<ArgumentOutOfRangeException>(() => EmfPlayer.Render(emf, 0, 32));
+    }
+
+    [Fact]
+    public void RejectsNegativeHeight()
+    {
+        var emf = new EmfWriter(0, 0, 64, 64).Eof().Build();
+        Assert.Throws<ArgumentOutOfRangeException>(() => EmfPlayer.Render(emf, 32, -1));
+    }
+
+    [Fact]
+    public void RecordsRead_Counts_All_Records_Including_Eof()
+    {
+        var w = new EmfWriter(0, 0, 50, 50);
+        uint brush = w.CreateSolidBrush(255, 0, 0);
+        w.SelectObject(brush);
+        w.Rectangle(10, 10, 40, 40);
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 50, 50);
+        // Header + CreateBrushIndirect + SelectObject + Rectangle + Eof = 5
+        Assert.Equal(5, result.RecordsRead);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void Stock_NullBrush_Suppresses_Fill()
+    {
+        var w = new EmfWriter(0, 0, 100, 100);
+        uint pen = w.CreatePen(0, 1, 0, 0, 0);
+        w.SelectObject(pen);
+        w.SelectStockObject(5); // NULL_BRUSH
+        w.Rectangle(20, 20, 80, 80);
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(255, 255, 255));
+        // Interior should remain white because brush is null.
+        AssertPixelEquals(result.Frame, 50, 50, 255, 255, 255);
+    }
+
+    [Fact]
+    public void Ellipse_Record_Fills_Center()
+    {
+        var w = new EmfWriter(0, 0, 100, 100);
+        uint brush = w.CreateSolidBrush(255, 0, 0);
+        w.SelectObject(brush);
+        w.SelectStockObject(8); // NULL_PEN
+
+        // EMR_Ellipse payload = RectL(l,t,r,b) as four int32s.
+        var payload = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(0), 20);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4), 20);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8), 80);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(12), 80);
+        w.RawRecord(42, payload); // EmfRecordType.Ellipse = 42
+        w.Eof();
+
+        var result = EmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(255, 255, 255));
+        AssertRedGreater(result.Frame, 50, 50, threshold: 200);
+        AssertPixelEquals(result.Frame, 5, 5, 255, 255, 255);
+    }
+
+    [Fact]
+    public void RoundRect_Record_Fills_Center()
+    {
+        var w = new EmfWriter(0, 0, 100, 100);
+        uint brush = w.CreateSolidBrush(0, 0, 255);
+        w.SelectObject(brush);
+        w.SelectStockObject(8); // NULL_PEN
+
+        // EMR_RoundRect payload = RectL(l,t,r,b) + cw + ch as six int32s.
+        var payload = new byte[24];
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(0), 10);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4), 10);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8), 90);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(12), 90);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(16), 20); // corner width
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(20), 20); // corner height
+        w.RawRecord(44, payload); // EmfRecordType.RoundRect = 44
+        w.Eof();
+
+        var result = EmfPlayer.Render(w.Build(), 100, 100, RgbaColor.FromBytes(255, 255, 255));
+        AssertBlueGreater(result.Frame, 50, 50, threshold: 200);
+    }
+
+    [Fact]
+    public void SetPolyFillMode_Record_Is_Counted_Supported()
+    {
+        var w = new EmfWriter(0, 0, 50, 50);
+        var payload = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload, 2u); // WINDING / NonZero
+        w.RawRecord(19, payload); // EmfRecordType.SetPolyFillMode = 19
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 50, 50);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void SetMapMode_Record_Is_Counted_Supported()
+    {
+        var w = new EmfWriter(0, 0, 50, 50);
+        var payload = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload, 1u); // MM_TEXT
+        w.RawRecord(17, payload); // EmfRecordType.SetMapMode = 17
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 50, 50);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void DeleteObject_Record_Is_Counted_Supported()
+    {
+        var w = new EmfWriter(0, 0, 50, 50);
+        uint brush = w.CreateSolidBrush(255, 0, 0);
+        var payload = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload, brush);
+        w.RawRecord(40, payload); // EmfRecordType.DeleteObject = 40
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 50, 50);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
+    [Fact]
+    public void RestoreDc_Without_SaveDc_Does_Not_Throw()
+    {
+        var w = new EmfWriter(0, 0, 50, 50);
+        w.RestoreDc(-1);
+        w.Eof();
+        var result = EmfPlayer.Render(w.Build(), 50, 50);
+        Assert.Equal(0, result.UnsupportedRecordCount);
+    }
+
     // ---------- pixel-assertion helpers ----------------------------------
 
     private static void AssertPixelEquals(ImageFrame frame, int x, int y, byte r, byte g, byte b)
