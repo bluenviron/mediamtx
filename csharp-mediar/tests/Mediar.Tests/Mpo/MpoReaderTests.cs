@@ -416,4 +416,97 @@ public sealed class MpoReaderTests
         Assert.Equal(0L, mpo.SubImages[0].Offset);
         Assert.True(mpo.SubImages[1].Offset > 0);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MpoReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var spec = MinimalTwoEntrySpec();
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = MpoReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Mpo, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var spec = MinimalTwoEntrySpec();
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = MpoReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Mpo, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal(0xFF, ms.ReadByte());
+    }
+
+    [Fact]
+    public void ByteOrder_Defaults_To_II_LittleEndian()
+    {
+        var spec = MinimalTwoEntrySpec();
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal("II", mpo.Mpo.ByteOrder);
+    }
+
+    [Fact]
+    public void Default_Version_Is_0100_When_Not_Overridden()
+    {
+        var spec = MinimalTwoEntrySpec();
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal("0100", mpo.Mpo.Version);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        var spec = MinimalTwoEntrySpec();
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in mpo.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Sub_Image_Count_Matches_Builder_Entries()
+    {
+        var spec = new TestMpoBuilder.MpoSpec
+        {
+            Entries =
+            [
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.BaselineMpPrimary },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiAngle },
+                new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFramePanorama },
+            ],
+        };
+        byte[] bytes = TestMpoBuilder.Build(spec);
+        using var mpo = MpoReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(4u, mpo.Mpo.NumberOfImages);
+        Assert.Equal(4, mpo.SubImages.Count);
+    }
+
+    private static TestMpoBuilder.MpoSpec MinimalTwoEntrySpec() => new()
+    {
+        Entries =
+        [
+            new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.BaselineMpPrimary },
+            new TestMpoBuilder.MpoEntrySpec { JpegBytes = LoadRedJpeg(), Attribute = (uint)MpoImageKind.MultiFrameDisparity },
+        ],
+    };
 }

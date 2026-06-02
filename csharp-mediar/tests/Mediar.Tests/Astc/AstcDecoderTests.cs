@@ -230,6 +230,62 @@ public sealed class AstcDecoderTests
         Assert.Equal(0xAA, rgba[0]);
         Assert.Equal(0x11, rgba[(0 * 5 + 4) * 4 + 0]);
     }
+
+    [Fact]
+    public void BlockDimensions_None_Throws_ArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => AstcDecoder.BlockDimensions(AstcFormat.None));
+    }
+
+    [Fact]
+    public void BytesPerBlock_None_Returns_Zero()
+    {
+        Assert.Equal(0, AstcDecoder.BytesPerBlock(AstcFormat.None));
+    }
+
+    [Fact]
+    public void TryDecodeBlock_None_Format_Returns_False()
+    {
+        var block = TestAstcBuilder.LdrVoidExtent(0xFF00, 0xFF00, 0xFF00, 0xFF00);
+        var rgba = new byte[16 * 4];
+        Assert.False(AstcDecoder.TryDecodeBlock(block, AstcFormat.None, rgba));
+    }
+
+    [Fact]
+    public void TryDecodeBlock_Block_Shorter_Than_16_Throws()
+    {
+        var rgba = new byte[4 * 4 * 4];
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AstcDecoder.TryDecodeBlock(new byte[15], AstcFormat.Astc4x4Unorm, rgba));
+    }
+
+    [Fact]
+    public void DecodeImage_None_Format_Throws()
+    {
+        var rgba = new byte[16 * 4];
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AstcDecoder.DecodeImage(new byte[16], AstcFormat.None, 4, 4, rgba, out _));
+    }
+
+    [Fact]
+    public void DecodeImage_Throws_For_Non_Positive_Dimensions()
+    {
+        var rgba = new byte[16 * 4];
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AstcDecoder.DecodeImage(new byte[16], AstcFormat.Astc4x4Unorm, 0, 4, rgba, out _));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AstcDecoder.DecodeImage(new byte[16], AstcFormat.Astc4x4Unorm, 4, -1, rgba, out _));
+    }
+
+    [Fact]
+    public void TryDecodeVoidExtentHdr_Returns_False_For_Non_VoidExtent_Block()
+    {
+        var block = new byte[16];
+        block[0] = 0x42;
+        block[1] = 0x00;
+        Span<ushort> rgba = stackalloc ushort[4];
+        Assert.False(AstcDecoder.TryDecodeVoidExtentHdr(block, rgba));
+    }
 }
 
 /// <summary>
