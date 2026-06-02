@@ -496,4 +496,157 @@ public sealed class AacGainControlDataTests
         Assert.Single(bytes);
         Assert.Equal(0x00, bytes[0]);
     }
+
+    [Fact]
+    public void Adjustment_Record_Equality_ByValue()
+    {
+        var a = new AacGainControlAdjustment(5, 7);
+        var b = new AacGainControlAdjustment(5, 7);
+        var c = new AacGainControlAdjustment(5, 8);
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void Adjustment_WithExpression_ReplacesAlevCode()
+    {
+        var a = new AacGainControlAdjustment(5, 7);
+        var b = a with { AlevCode = 10 };
+        Assert.Equal(5, a.AlevCode);
+        Assert.Equal(10, b.AlevCode);
+        Assert.Equal(7, b.AlocCode);
+    }
+
+    [Theory]
+    [InlineData(AacWindowSequence.OnlyLong)]
+    [InlineData(AacWindowSequence.LongStart)]
+    [InlineData(AacWindowSequence.EightShort)]
+    [InlineData(AacWindowSequence.LongStop)]
+    public void ToBytes_MaxBandZero_AllSequences_ProducesSingleZeroByte(AacWindowSequence sequence)
+    {
+        var data = new AacGainControlData
+        {
+            WindowSequence = sequence,
+            MaxBand = 0,
+            Bands = ImmutableArray<AacGainControlBand>.Empty,
+            BitsConsumed = 2,
+        };
+        var bytes = data.ToBytes();
+        Assert.Single(bytes);
+        Assert.Equal(0x00, bytes[0]);
+    }
+
+    [Fact]
+    public void TryParse_OnlyLong_MaxBand3_AllAdjustNumZero_BitsConsumed_11()
+    {
+        // 2 (max_band) + 3 * 3 (adjust_num=0 for each band) = 11 bits.
+        var w = new AacBitWriter();
+        w.Write(3u, 2);
+        for (int bd = 0; bd < 3; bd++) w.Write(0u, 3);
+        w.AlignToByte();
+
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), AacWindowSequence.OnlyLong, out var data));
+        Assert.Equal(11, data!.BitsConsumed);
+        Assert.Equal(3, data.Bands.Length);
+        foreach (var band in data.Bands)
+        {
+            Assert.Equal(0, band.Windows[0].AdjustNum);
+            Assert.Empty(band.Windows[0].Adjustments);
+        }
+    }
+
+    [Fact]
+    public void TryParse_EightShort_MaxBand1_AllAdjustNumZero_BitsConsumed_26()
+    {
+        // 2 (max_band) + 8 windows * 3 (adjust_num=0) = 26 bits.
+        var w = new AacBitWriter();
+        w.Write(1u, 2);
+        for (int wd = 0; wd < 8; wd++) w.Write(0u, 3);
+        w.AlignToByte();
+
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), AacWindowSequence.EightShort, out var data));
+        Assert.Equal(26, data!.BitsConsumed);
+        Assert.Single(data.Bands);
+        Assert.Equal(8, data.Bands[0].Windows.Length);
+    }
+
+    [Theory]
+    [InlineData(AacWindowSequence.LongStart)]
+    [InlineData(AacWindowSequence.LongStop)]
+    public void TryParse_TwoWindowSeq_MaxBand1_AllAdjustNumZero_BitsConsumed_8(AacWindowSequence sequence)
+    {
+        // 2 (max_band) + 2 windows * 3 (adjust_num=0) = 8 bits.
+        var w = new AacBitWriter();
+        w.Write(1u, 2);
+        w.Write(0u, 3);
+        w.Write(0u, 3);
+        w.AlignToByte();
+
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), sequence, out var data));
+        Assert.Equal(8, data!.BitsConsumed);
+        Assert.Equal(2, data.Bands[0].Windows.Length);
+    }
+
+    [Fact]
+    public void With_Expression_Replaces_MaxBand_LeavesOthersUnchanged()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 2);
+        w.AlignToByte();
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), AacWindowSequence.OnlyLong, out var data));
+        var mutated = data! with { MaxBand = 2 };
+        Assert.Equal(0, data!.MaxBand);
+        Assert.Equal(2, mutated.MaxBand);
+        Assert.Equal(data.WindowSequence, mutated.WindowSequence);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(7)]
+    public void TryParse_OnlyLong_AdjustNumValues_AcceptsAllInRange(int adjustNum)
+    {
+        var w = new AacBitWriter();
+        w.Write(1u, 2);
+        w.Write((uint)adjustNum, 3);
+        for (int i = 0; i < adjustNum; i++)
+        {
+            w.Write(0u, 4);
+            w.Write(0u, 5);
+        }
+        w.AlignToByte();
+
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), AacWindowSequence.OnlyLong, out var data));
+        Assert.Equal(adjustNum, data!.Bands[0].Windows[0].AdjustNum);
+        Assert.Equal(adjustNum, data.Bands[0].Windows[0].Adjustments.Length);
+        // 2 + 3 + adjustNum * 9
+        Assert.Equal(5 + adjustNum * 9, data.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_Adjustments_PreserveOrderingByInsertion()
+    {
+        // Two adjustments with distinct alev values must be returned in
+        // the same order they appear in the bitstream.
+        var w = new AacBitWriter();
+        w.Write(1u, 2);
+        w.Write(2u, 3);
+        w.Write(0x1u, 4); w.Write(0u, 5);   // adjustment 0 alev=1
+        w.Write(0xEu, 4); w.Write(0u, 5);   // adjustment 1 alev=14
+        w.AlignToByte();
+
+        Assert.True(AacGainControlData.TryParse(w.ToArray(), AacWindowSequence.OnlyLong, out var data));
+        Assert.Equal(1, data!.Bands[0].Windows[0].Adjustments[0].AlevCode);
+        Assert.Equal(14, data.Bands[0].Windows[0].Adjustments[1].AlevCode);
+    }
+
+    [Fact]
+    public void AacGainControlAdjustment_Default_Constructed_Has_Zero_Fields()
+    {
+        var a = new AacGainControlAdjustment(0, 0);
+        Assert.Equal(0, a.AlevCode);
+        Assert.Equal(0, a.AlocCode);
+    }
 }

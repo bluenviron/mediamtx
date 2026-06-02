@@ -246,6 +246,129 @@ public sealed class FlacPictureBlockTests
         Assert.NotEqual(a, c);
     }
 
+    [Fact]
+    public void TryParse_PictureType_MaxUint_FallsBackToOther()
+    {
+        byte[] block = BuildPictureBlock(
+            type: uint.MaxValue,
+            mime: "image/png",
+            description: "",
+            width: 0, height: 0, depth: 0, palette: 0,
+            data: PngMagic);
+        var picture = FlacPictureBlock.TryParse(block);
+        Assert.NotNull(picture);
+        Assert.Equal(MediaPictureType.Other, picture!.Type);
+    }
+
+    [Fact]
+    public void TryParse_LargeWidthHeight_Roundtrip()
+    {
+        byte[] block = BuildPictureBlock(
+            type: (uint)MediaPictureType.CoverFront,
+            mime: "image/png",
+            description: "",
+            width: 7680, height: 4320, depth: 30, palette: 0,
+            data: PngMagic);
+        var picture = FlacPictureBlock.TryParse(block);
+        Assert.NotNull(picture);
+        Assert.Equal(7680, picture!.Width);
+        Assert.Equal(4320, picture.Height);
+        Assert.Equal(30, picture.ColorDepth);
+    }
+
+    [Fact]
+    public void TryParse_TruncatedBetweenWidthAndDataLength_ReturnsNull()
+    {
+        // mime=0, desc=0, then only width+height before EOF — needs all five trailing uint32s.
+        byte[] block = new byte[8 + 4 + 4 + 4 + 4];
+        BinaryPrimitives.WriteUInt32BigEndian(block.AsSpan(0, 4), 3u);
+        BinaryPrimitives.WriteUInt32BigEndian(block.AsSpan(4, 4), 0u);
+        BinaryPrimitives.WriteUInt32BigEndian(block.AsSpan(8, 4), 0u);
+        BinaryPrimitives.WriteUInt32BigEndian(block.AsSpan(12, 4), 100);
+        BinaryPrimitives.WriteUInt32BigEndian(block.AsSpan(16, 4), 100);
+        Assert.Null(FlacPictureBlock.TryParse(block));
+    }
+
+    [Fact]
+    public void TryParse_VeryLongDescription_Roundtrip()
+    {
+        string longDesc = new string('a', 4096);
+        byte[] block = BuildPictureBlock(
+            type: (uint)MediaPictureType.CoverFront,
+            mime: "image/jpeg",
+            description: longDesc,
+            width: 0, height: 0, depth: 0, palette: 0,
+            data: JpegMagic);
+        var picture = FlacPictureBlock.TryParse(block);
+        Assert.NotNull(picture);
+        Assert.Equal(4096, picture!.Description.Length);
+        Assert.All(picture.Description, c => Assert.Equal('a', c));
+    }
+
+    [Fact]
+    public void MediaPicture_With_Expression_Replaces_MimeType()
+    {
+        var data = new ReadOnlyMemory<byte>(JpegMagic);
+        var a = new MediaPicture { MimeType = "image/jpeg", Description = "x", Data = data };
+        var b = a with { MimeType = "image/png" };
+        Assert.Equal("image/jpeg", a.MimeType);
+        Assert.Equal("image/png", b.MimeType);
+        Assert.Equal(a.Description, b.Description);
+    }
+
+    [Fact]
+    public void MediaPicture_With_Expression_Replaces_Type()
+    {
+        var data = new ReadOnlyMemory<byte>(JpegMagic);
+        var a = new MediaPicture { MimeType = "image/jpeg", Description = "x", Data = data, Type = MediaPictureType.CoverFront };
+        var b = a with { Type = MediaPictureType.CoverBack };
+        Assert.Equal(MediaPictureType.CoverFront, a.Type);
+        Assert.Equal(MediaPictureType.CoverBack, b.Type);
+    }
+
+    [Fact]
+    public void MediaPicture_With_Expression_Replaces_Data()
+    {
+        var d1 = new ReadOnlyMemory<byte>(JpegMagic);
+        var d2 = new ReadOnlyMemory<byte>(PngMagic);
+        var a = new MediaPicture { MimeType = "image/jpeg", Description = "x", Data = d1 };
+        var b = a with { Data = d2 };
+        Assert.Equal(JpegMagic, a.Data.ToArray());
+        Assert.Equal(PngMagic, b.Data.ToArray());
+    }
+
+    [Theory]
+    [InlineData(22)]
+    [InlineData(50)]
+    [InlineData(0x7FFFFFFF)]
+    public void TryParse_PictureType_OutOfRange_AllFallToOther(uint type)
+    {
+        byte[] block = BuildPictureBlock(
+            type: type,
+            mime: "image/png",
+            description: "",
+            width: 0, height: 0, depth: 0, palette: 0,
+            data: PngMagic);
+        var picture = FlacPictureBlock.TryParse(block);
+        Assert.NotNull(picture);
+        Assert.Equal(MediaPictureType.Other, picture!.Type);
+    }
+
+    [Fact]
+    public void TryParse_NoData_PalettedAtMaxIndexedColors_Roundtrip()
+    {
+        byte[] block = BuildPictureBlock(
+            type: (uint)MediaPictureType.CoverFront,
+            mime: "image/png",
+            description: "",
+            width: 16, height: 16, depth: 8, palette: 65536,
+            data: Array.Empty<byte>());
+        var picture = FlacPictureBlock.TryParse(block);
+        Assert.NotNull(picture);
+        Assert.Equal(65536, picture!.IndexedColors);
+        Assert.Equal(0, picture.Data.Length);
+    }
+
     internal static byte[] BuildPictureBlock(
         uint type, string mime, string description,
         uint width, uint height, uint depth, uint palette,
