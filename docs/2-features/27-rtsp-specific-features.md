@@ -1,6 +1,6 @@
 # RTSP-specific features
 
-RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish with RTSP clients](../3-publish/05-rtsp-clients.md) and [Read with RTSP clients](../4-read/03-rtsp.md). Features in this page are shared among both tasks.
+RTSP is a protocol that can be used for publishing and reading streams. Regarding specific tasks, check out [Publish with RTSP clients](../3-publish/07-rtsp-clients.md) and [Read with RTSP clients](../4-read/04-rtsp.md). Features in this page are shared among both tasks.
 
 ## Transport protocols
 
@@ -107,4 +107,4 @@ There are also the `rtsps+http`, `rtsp+ws`, `rtsps+ws` schemas to handle any var
 
 ## MPEG-TS inside RTSP
 
-read [MPEG-TS inside RTSP](../3-publish/05-rtsp-clients.md#mpeg-ts-inside-rtsp) in the "Publish with RTSP clients" page.
+read [MPEG-TS inside RTSP](../3-publish/07-rtsp-clients.md#mpeg-ts-inside-rtsp) in the "Publish with RTSP clients" page.

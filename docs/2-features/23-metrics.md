@@ -149,13 +149,18 @@ webrtc_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]"
 webrtc_sessions_outbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 webrtc_sessions_outbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
 webrtc_sessions_outbound_frames_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 12
+
+# MoQ sessions
+moq_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
+moq_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
+moq_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
 ```
 
 Bitrates are not provided directly as metrics because they can be computed from received and sent bytes by any metrics analyzer (i.e. Grafana).
 
 Metrics can be filtered by using HTTP query parameters:
 
-- `type=[TYPE]`: show metrics of a certain type only. TYPE can be `paths`, `hls_sessions`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`.
+- `type=[TYPE]`: show metrics of a certain type only. TYPE can be `paths`, `hls_sessions`, `hls_muxers`, `rtsp_conns`, `rtsp_sessions`, `rtsps_conns`, `rtsps_sessions`, `rtmp_conns`, `rtmps_conns`, `srt_conns`, `webrtc_sessions`, `moq_sessions`.
 - `path=[PATH]`: show metrics belonging to a specific path only
 - `hls_muxer=[PATH]`: show metrics belonging to a specific HLS muxer only
 - `hls_session=[ID]`: show metrics belonging to a specific HLS session only
@@ -167,3 +172,4 @@ Metrics can be filtered by using HTTP query parameters:
 - `rtmps_conn=[ID]` show metrics belonging to a specific RTMPS connection only
 - `srt_conn=[ID]` show metrics belonging to a specific SRT connection only
 - `webrtc_session=[ID]` show metrics belonging to a specific WebRTC session only
+- `moq_session=[ID]` show metrics belonging to a specific MoQ session only

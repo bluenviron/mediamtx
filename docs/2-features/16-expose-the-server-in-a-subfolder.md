@@ -1,12 +1,14 @@
 # Expose the server in a subfolder
 
-HTTP-based services (WebRTC, HLS, Control API, Playback Server, Metrics, pprof) can be exposed in a subfolder of an existing HTTP server or reverse proxy. The reverse proxy must be able to intercept HTTP requests addressed to _MediaMTX_ and corresponding responses, and perform the following changes:
+HTTP-based services (Media-over-QUIC, WebRTC, HLS, Control API, Playback Server, Metrics, pprof) can be exposed in a subfolder of an external HTTP server or reverse proxy. The reverse proxy must be able to intercept HTTP requests addressed to _MediaMTX_ and corresponding responses, and must perform the following changes:
 
 - The subfolder path must be stripped from request paths. For instance, if the server is exposed behind `/subpath` and the reverse proxy receives a request with path `/subpath/mystream/index.m3u8`, this has to be changed into `/mystream/index.m3u8`.
 
 - Any `Location` header in responses must be prefixed with the subfolder path. For instance, if the server is exposed behind `/subpath` and the server sends a response with `Location: /mystream/index.m3u8`, this has to be changed into `Location: /subfolder/mystream/index.m3u8`.
 
-If _nginx_ is the reverse proxy, this can be achieved with the following configuration:
+## Nginx
+
+When _Nginx_ is the reverse proxy, rules described above can be implemented with the following configuration:
 
 ```
 location /subpath/ {
@@ -15,7 +17,9 @@ location /subpath/ {
 }
 ```
 
-If _Apache HTTP Server_ is the reverse proxy, this can be achieved with the following configuration:
+## Apache HTTP Server
+
+When _Apache HTTP Server_ is the reverse proxy, rules described above can be implemented with the following configuration:
 
 ```
 <Location /subpath>
@@ -25,7 +29,9 @@ If _Apache HTTP Server_ is the reverse proxy, this can be achieved with the foll
 </Location>
 ```
 
-If _Caddy_ is the reverse proxy, this can be achieved with the following configuration:
+## Caddy
+
+When _Caddy_ is the reverse proxy, rules described above can be implemented with the following configuration:
 
 ```
 :80 {
