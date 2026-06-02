@@ -147,6 +147,80 @@ public sealed class Mp4FreeFormAtomTests
         Assert.Equal("0888072462533", meta.Barcode);
     }
 
+    [Fact]
+    public void FreeForm_Mood_LowercaseKey_AliasesToCanonical()
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", "mood", "Reflective")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("Reflective", meta.Mood);
+    }
+
+    [Theory]
+    [InlineData("REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_TRACK_GAIN")]
+    [InlineData("REPLAYGAIN_TRACK_PEAK", "REPLAYGAIN_TRACK_PEAK")]
+    [InlineData("REPLAYGAIN_ALBUM_GAIN", "REPLAYGAIN_ALBUM_GAIN")]
+    [InlineData("REPLAYGAIN_ALBUM_PEAK", "REPLAYGAIN_ALBUM_PEAK")]
+    public void FreeForm_AllReplayGainKeys_FlowToTags(string key, string canonicalKey)
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", key, "0.000000 dB")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("0.000000 dB", meta.Tags[canonicalKey]);
+    }
+
+    [Theory]
+    [InlineData("MusicBrainz Album Id", "MUSICBRAINZ_ALBUMID")]
+    [InlineData("MusicBrainz Artist Id", "MUSICBRAINZ_ARTISTID")]
+    [InlineData("MusicBrainz Album Artist Id", "MUSICBRAINZ_ALBUMARTISTID")]
+    [InlineData("MusicBrainz Release Track Id", "MUSICBRAINZ_RELEASETRACKID")]
+    [InlineData("MusicBrainz Release Group Id", "MUSICBRAINZ_RELEASEGROUPID")]
+    [InlineData("Acoustid Id", "ACOUSTID_ID")]
+    public void FreeForm_MusicBrainz_AndAcoustId_KeyNormalisation(string source, string canonical)
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", source, "guid-value")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("guid-value", meta.Tags[canonical]);
+    }
+
+    [Fact]
+    public void FreeForm_MissingMean_Atom_StillAccepted()
+    {
+        // If the mean sub-atom is empty/missing, the parser treats the
+        // namespace as the default (Apple) and accepts the value.
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("", "MOOD", "Quiet")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("Quiet", meta.Mood);
+    }
+
+    [Fact]
+    public void FreeForm_LongValue_NotTruncated()
+    {
+        string longValue = new string('x', 4096);
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("com.apple.iTunes", "CUSTOMKEY", longValue)]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal(longValue, meta.Tags["CUSTOMKEY"]);
+        Assert.Equal(4096, meta.Tags["CUSTOMKEY"].Length);
+    }
+
+    [Fact]
+    public void FreeForm_TwoFreeFormAtomsForSameKey_FirstValueWins()
+    {
+        byte[] ilst = BuildIlst([
+            BuildFreeFormAtom("com.apple.iTunes", "BARCODE", "1111111111111"),
+            BuildFreeFormAtom("com.apple.iTunes", "BARCODE", "2222222222222"),
+        ]);
+        var meta = ParseIlstAndBuild(ilst);
+        // MediaMetadataBuilder.Set is first-write-wins, so the first BARCODE persists.
+        Assert.Equal("1111111111111", meta.Barcode);
+    }
+
+    [Fact]
+    public void FreeForm_QuickTime_Namespace_CaseInsensitive()
+    {
+        byte[] ilst = BuildIlst([BuildFreeFormAtom("COM.APPLE.QUICKTIME", "MOOD", "Calm")]);
+        var meta = ParseIlstAndBuild(ilst);
+        Assert.Equal("Calm", meta.Mood);
+    }
+
     // ----- helpers -----
 
     private static MediaMetadata ParseIlstAndBuild(byte[] ilstBytes)
