@@ -14,13 +14,38 @@ commits.
 |  2c.1 | CELT tf_decode + spread decision (front of PVQ block)                      | ✅ shipped |
 |  2c.2a | CELT init_caps + dyn_alloc + alloc_trim (pre-compute_allocation block)    | ✅ shipped |
 |  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ✅ shipped |
-|  2c.3 | CELT fine energy + PVQ shape decode (`decode_pulses`, `cwrsi`)            | ⏳ planned |
-|  2c.4 | CELT anti-collapse + final energy                                          | ⏳ planned |
+|  2c.3a | CELT `unquant_fine_energy` (fine-energy refinement of coarse spectrum)    | ✅ shipped |
+|  2c.3b | CELT PVQ shape decode (`decode_pulses`, `cwrsi`, `bitexact_cos`)          | ⏳ planned |
+|  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3a behavior (added on top of Phase 2c.2b)
+
+`unquant_fine_energy` (libopus `celt/quant_bands.c`) consumes the
+`fine_quant[i]` bits computed by Phase 2c.2b's allocator and folds
+each band's per-channel refinement into the coarse log-energy
+spectrum.
+
+Newly observable on `CeltDecoder`:
+
+- **`LastFineEnergyOffsets`** — per-`(channel, band)` Q10 offset
+  applied to `_oldLogE`. Layout: `channel * MaxBands + band`. Bands
+  with `LastFineBits[i] == 0` keep offset 0; bands with a non-zero
+  fine-bit count store an offset in `[-512, 511]` (i.e. `[-0.5, +0.5)`
+  log2 units) computed as
+  `(((q2 << DB_SHIFT) + 512) >> ebits) - 512` for the raw `q2 ∈
+  [0, 2^ebits)` integer read from the range coder. The same offset is
+  also added to `OldLogE` in place, so the refined log-energy is
+  immediately consumed by downstream stages.
+
+Output is still silence — Phase 2c.3b ships PVQ shape decode
+(`decode_pulses`, `cwrsi`), 2c.4 ships anti-collapse +
+`unquant_energy_finalise` (final energy), and 2d ships the IMDCT
+pipeline.
 
 ## Phase 2c.2a behavior (added on top of Phase 2c.1)
 
@@ -42,9 +67,10 @@ allocation:
   global trim that biases bit allocation towards low or high bands.
   Defaults to `AllocTrimDefault (5)` when the bit budget is exhausted.
 
-Output is still silence — Phase 2c.3 ships fine energy + PVQ shape
-decode, 2c.4 ships anti-collapse + final energy, and 2d ships the
-IMDCT pipeline.
+Output is still silence — Phase 2c.2b ships `compute_allocation` (the
+multi-pass bit-budget search plus intensity / dual stereo / skip),
+Phase 2c.3 ships fine energy + PVQ shape decode, 2c.4 ships
+anti-collapse + final energy, and 2d ships the IMDCT pipeline.
 
 ## Phase 2c.2b behavior (added on top of Phase 2c.2a)
 

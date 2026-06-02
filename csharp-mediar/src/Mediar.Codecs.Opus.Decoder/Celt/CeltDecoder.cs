@@ -66,6 +66,12 @@ internal sealed class CeltDecoder
     private readonly int[] _ebits;
     private readonly int[] _finePriority;
 
+    // Phase 2c.3a fine-energy refinement. One entry per (channel, band)
+    // in DB_SHIFT (Q10) units, same scale as _oldLogE. Captures the
+    // delta applied by unquant_fine_energy so callers can inspect how
+    // much each band's coarse energy was refined.
+    private readonly float[] _fineEnergyOffsets;
+
     /// <summary>The active band layout for this decoder.</summary>
     public CeltMode Mode { get; }
 
@@ -198,6 +204,15 @@ internal sealed class CeltDecoder
     public int LastAllocationBalance { get; private set; }
 
     /// <summary>
+    /// Per-(channel, band) fine-energy offset applied by Phase 2c.3a
+    /// <c>unquant_fine_energy</c>. Layout matches <see cref="OldLogE"/>:
+    /// <c>channel * MaxBands + band</c>. Units: DB_SHIFT (Q10) — divide
+    /// by <c>DbUnit</c> to recover log2 energy. Bands with zero
+    /// <see cref="LastFineBits"/> always read as 0.
+    /// </summary>
+    public ReadOnlySpan<float> LastFineEnergyOffsets => _fineEnergyOffsets;
+
+    /// <summary>
     /// Read-only view over the per-band log-energy state. Stored in
     /// DB_SHIFT units (multiply by <c>1/1024</c> to recover log2 energy).
     /// Layout matches libopus: <c>channel * MaxBands + band</c>.
@@ -227,6 +242,7 @@ internal sealed class CeltDecoder
         _pulses = new int[CeltConstants.MaxBands];
         _ebits = new int[CeltConstants.MaxBands];
         _finePriority = new int[CeltConstants.MaxBands];
+        _fineEnergyOffsets = new float[channels * CeltConstants.MaxBands];
     }
 
     /// <summary>
@@ -378,10 +394,16 @@ internal sealed class CeltDecoder
         Array.Clear(_finePriority);
         LastCodedBands = ComputeAllocation(ref rangeDecoder, (int)bitsForAlloc, lm);
 
-        // Phase 2c.3+ ships fine energy + PVQ shape decode, 2c.4 ships
-        // anti-collapse + final energy, and Phase 2d ships the IMDCT
-        // pipeline. For now the output remains silent — but the decoded
-        // state above is observable for tests.
+        // 13. unquant_fine_energy — per-band fine-energy refinement.
+        //     Reads ebits[i] bits per coded band per channel and folds
+        //     them into _oldLogE in DB_SHIFT units.
+        Array.Clear(_fineEnergyOffsets);
+        UnquantFineEnergy(ref rangeDecoder);
+
+        // Phase 2c.3b+ ships PVQ shape decode, 2c.4 ships anti-collapse
+        // + final energy, and Phase 2d ships the IMDCT pipeline. For now
+        // the output remains silent — but the decoded state above is
+        // observable for tests.
 
         IsFirstFrame = false;
         SamplesProduced += Mode.SamplesPerFrame;
@@ -769,6 +791,32 @@ internal sealed class CeltDecoder
         return codedBands;
     }
 
+    private void UnquantFineEnergy(ref OpusRangeDecoder rd)
+    {
+        // Port of libopus unquant_fine_energy (celt/quant_bands.c).
+        // For each coded band with non-zero ebits, read ebits raw bits
+        // per channel and convert to a Q10 log-energy offset:
+        //   offset = (((q2 << DB_SHIFT) + 0.5*DbUnit) >> ebits) - 0.5*DbUnit
+        // which maps q2 ∈ [0, 2^ebits) onto [-0.5, +0.5) log2 units.
+        // Bands with zero ebits are skipped entirely (no entropy read).
+        int start = Mode.StartBand;
+        int end = Mode.EndBand;
+        const int Half = 1 << (CeltConstants.DbShift - 1); // 0.5 * DbUnit = 512
+        for (int i = start; i < end; i++)
+        {
+            int eb = _ebits[i];
+            if (eb <= 0) continue;
+            for (int c = 0; c < _channels; c++)
+            {
+                int q2 = (int)rd.DecodeBits(eb);
+                int offsetI = (((q2 << CeltConstants.DbShift) + Half) >> eb) - Half;
+                int bandIdx = c * CeltConstants.MaxBands + i;
+                _fineEnergyOffsets[bandIdx] = offsetI;
+                _oldLogE[bandIdx] += offsetI;
+            }
+        }
+    }
+
     private void DecodeCoarseEnergy(ref OpusRangeDecoder rd, int totalBits, bool intra, int lm)
     {
         int alphaCoefQ15 = intra ? 0 : CeltConstants.PredCoef[lm];
@@ -839,6 +887,7 @@ internal sealed class CeltDecoder
         Array.Clear(_pulses);
         Array.Clear(_ebits);
         Array.Clear(_finePriority);
+        Array.Clear(_fineEnergyOffsets);
         LastFrameWasSilent = false;
         LastFrameWasTransient = false;
         LastFrameUsedIntra = false;
