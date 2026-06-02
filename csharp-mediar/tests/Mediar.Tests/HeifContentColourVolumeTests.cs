@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Immutable;
 using System.Text;
 using Mediar.Imaging;
 using Mediar.Imaging.Heif;
@@ -162,6 +163,189 @@ public class HeifContentColourVolumeTests
         var bytes = BuildHeifWithProperty("ispe", BuildIspePayload(64, 64));
         using var r = HeifReader.Open(new MemoryStream(bytes), ImageFormat.Heif, ownsStream: true);
         Assert.False(r.TryGetContentColourVolume(1, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Min_Luminance()
+    {
+        // min_present set but only 3 of 4 luminance bytes supplied.
+        var payload = new byte[5 + 3];
+        payload[4] = 0x10;
+        Assert.False(HeifContentColourVolume.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_Avg_Luminance()
+    {
+        var payload = new byte[5 + 1];
+        payload[4] = 0x04;
+        Assert.False(HeifContentColourVolume.TryParse(payload, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Empty_Payload()
+    {
+        Assert.False(HeifContentColourVolume.TryParse(ReadOnlySpan<byte>.Empty, out _));
+    }
+
+    [Fact]
+    public void TryParse_Rejects_4_Byte_Payload()
+    {
+        Assert.False(HeifContentColourVolume.TryParse(new byte[4], out _));
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Min_Only()
+    {
+        var payload = BuildCclv(false, false, null, 123u, null, null);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.Equal(123u, v.MinLuminanceValue);
+        Assert.Null(v.MaxLuminanceValue);
+        Assert.Null(v.AvgLuminanceValue);
+        Assert.True(v.Primaries.IsEmpty);
+        Assert.Equal(0.0123, v.MinLuminanceCdM2!.Value, precision: 12);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Avg_Only()
+    {
+        var payload = BuildCclv(false, false, null, null, null, 4_500_000u);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.Null(v.MinLuminanceValue);
+        Assert.Null(v.MaxLuminanceValue);
+        Assert.Equal(4_500_000u, v.AvgLuminanceValue);
+        Assert.Equal(450.0, v.AvgLuminanceCdM2!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Max_And_Avg_Without_Primaries()
+    {
+        var payload = BuildCclv(false, false, null, null, 5_000_000u, 2_500_000u);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.True(v.Primaries.IsEmpty);
+        Assert.Equal(500.0, v.MaxLuminanceCdM2!.Value, precision: 6);
+        Assert.Equal(250.0, v.AvgLuminanceCdM2!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Max_Uint32_Luminance()
+    {
+        var payload = BuildCclv(false, false, null, null, uint.MaxValue, null);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.Equal(uint.MaxValue, v.MaxLuminanceValue);
+        Assert.Equal(uint.MaxValue * 0.0001, v.MaxLuminanceCdM2!.Value, precision: 4);
+    }
+
+    [Fact]
+    public void TryParse_Cancel_With_PersistenceFlag_Preserves_Persistence()
+    {
+        var payload = new byte[5];
+        payload[4] = 0x80 | 0x40; // cancel + persistence
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.True(v.CcvCancelFlag);
+        Assert.True(v.CcvPersistenceFlag);
+        Assert.True(v.Primaries.IsEmpty);
+    }
+
+    [Fact]
+    public void TryParse_Cancel_Suppresses_Min_Max_Avg_Luminance()
+    {
+        // Cancel set; all luminance flags also set — the parser must NOT
+        // advance into the conditional body.
+        var payload = new byte[5];
+        payload[4] = 0x80 | 0x10 | 0x08 | 0x04;
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.True(v.CcvCancelFlag);
+        Assert.Null(v.MinLuminanceValue);
+        Assert.Null(v.MaxLuminanceValue);
+        Assert.Null(v.AvgLuminanceValue);
+    }
+
+    [Fact]
+    public void TryParse_Tolerates_Trailing_Bytes_After_Final_Field()
+    {
+        // Valid payload with max_lum present, plus 8 trailing junk bytes.
+        var payload = BuildCclv(false, false, null, null, 100u, null);
+        var padded = new byte[payload.Length + 8];
+        Array.Copy(payload, padded, payload.Length);
+        for (int i = payload.Length; i < padded.Length; i++) padded[i] = 0xFF;
+        Assert.True(HeifContentColourVolume.TryParse(padded, out var v));
+        Assert.Equal(100u, v.MaxLuminanceValue);
+    }
+
+    [Fact]
+    public void Record_Equality_Compares_All_Fields()
+    {
+        var a = new HeifContentColourVolume
+        {
+            CcvCancelFlag = false,
+            CcvPersistenceFlag = true,
+            Primaries = ImmutableArray<int>.Empty,
+            MinLuminanceValue = 1u,
+            MaxLuminanceValue = 2u,
+            AvgLuminanceValue = 3u,
+        };
+        var b = new HeifContentColourVolume
+        {
+            CcvCancelFlag = false,
+            CcvPersistenceFlag = true,
+            Primaries = ImmutableArray<int>.Empty,
+            MinLuminanceValue = 1u,
+            MaxLuminanceValue = 2u,
+            AvgLuminanceValue = 3u,
+        };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_With_Expression_Mutates_MaxLuminance_Only()
+    {
+        var a = new HeifContentColourVolume
+        {
+            CcvCancelFlag = false,
+            CcvPersistenceFlag = false,
+            Primaries = ImmutableArray<int>.Empty,
+            MinLuminanceValue = null,
+            MaxLuminanceValue = 100u,
+            AvgLuminanceValue = null,
+        };
+        var b = a with { MaxLuminanceValue = 500u };
+        Assert.Equal(500u, b.MaxLuminanceValue);
+        Assert.Equal(100u, a.MaxLuminanceValue);
+        Assert.Null(b.MinLuminanceValue);
+        Assert.Null(b.AvgLuminanceValue);
+    }
+
+    [Fact]
+    public void TryParse_Primaries_Preserves_Extreme_Int32_Values()
+    {
+        int[] primariesIn = [int.MinValue, int.MaxValue, 0, -1, 1, 0];
+        var payload = BuildCclv(false, false, primariesIn, null, null, null);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.Equal(primariesIn, v.Primaries);
+    }
+
+    [Fact]
+    public void TryParse_Primaries_Six_Entries_Preserves_Order()
+    {
+        int[] primariesIn = [10, 20, 30, 40, 50, 60];
+        var payload = BuildCclv(false, false, primariesIn, null, null, null);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        for (int i = 0; i < 6; i++) Assert.Equal(primariesIn[i], v.Primaries[i]);
+    }
+
+    [Theory]
+    [InlineData(0, 0.0)]
+    [InlineData(1, 0.0001)]
+    [InlineData(10_000, 1.0)]
+    [InlineData(1_000_000, 100.0)]
+    [InlineData(40_000_000u, 4000.0)]
+    public void TryParse_MaxLuminance_CdM2_Conversion_Theory(long valueInUnits, double expectedNits)
+    {
+        var payload = BuildCclv(false, false, null, null, (uint)valueInUnits, null);
+        Assert.True(HeifContentColourVolume.TryParse(payload, out var v));
+        Assert.Equal(expectedNits, v.MaxLuminanceCdM2!.Value, precision: 6);
     }
 
     // ---------- helpers ----------

@@ -298,4 +298,224 @@ public sealed class AudioSpecificConfigTests
         Assert.Equal(0b1111_0000u, reader.ReadBits(8));
         Assert.Equal(0b01u, reader.ReadBits(2));
     }
+
+    [Fact]
+    public void TryParse_ExplicitSbr_With_Inline_Extension_SampleRate()
+    {
+        // AOT=5 (SBR), sfIndex=4 (44100), chConfig=2, extSfIndex=15(escape), ext rate=12345, core AOT=2
+        var writer = new AacBitWriter();
+        writer.Write(5, 5);
+        writer.Write(4, 4);
+        writer.Write(2, 4);
+        writer.Write(AacSampleRates.EscapeIndex, 4);
+        writer.Write(12_345u, 24);
+        writer.Write(2, 5);
+        Assert.True(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.NotNull(cfg);
+        Assert.True(cfg!.SbrPresent);
+        Assert.Equal(AacSampleRates.EscapeIndex, cfg.ExtensionSamplingFrequencyIndex);
+        Assert.Equal(12_345, cfg.ExtensionSamplingFrequency);
+        Assert.Equal(2, cfg.AudioObjectType);
+    }
+
+    [Fact]
+    public void TryParse_ExplicitSbr_Rejects_ReservedExtensionSfIndex()
+    {
+        // AOT=5, sfIndex=4 (44100), chConfig=2, extSfIndex=13 (reserved)
+        var writer = new AacBitWriter();
+        writer.Write(5, 5);
+        writer.Write(4, 4);
+        writer.Write(2, 4);
+        writer.Write(13, 4);
+        writer.Write(2, 5);
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_ExplicitSbr_Truncated_After_AOT_Marker()
+    {
+        // AOT=5 then immediately end-of-stream — must fail.
+        var writer = new AacBitWriter();
+        writer.Write(5, 5);
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_AacLc_Inline_Frequency_Zero_Rejected()
+    {
+        // AOT=2, sfIndex=15 (escape), inline=0 → reject (sampleRate <= 0).
+        var writer = new AacBitWriter();
+        writer.Write(2, 5);
+        writer.Write(AacSampleRates.EscapeIndex, 4);
+        writer.Write(0u, 24);
+        writer.Write(2, 4);
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_ChannelConfig_8()
+    {
+        // AOT=2, sfIndex=4 (44100), chConfig=8 → SpeakerCount=0, but chConfig!=0 → reject.
+        var writer = new AacBitWriter();
+        writer.Write(2, 5);
+        writer.Write(4, 4);
+        writer.Write(8, 4);
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_PCE_Described_ChannelConfig_0()
+    {
+        // AOT=2, sfIndex=4 (44100), chConfig=0 (PCE-described) → ChannelCount=0 accepted.
+        var writer = new AacBitWriter();
+        writer.Write(2, 5);
+        writer.Write(4, 4);
+        writer.Write(0, 4);
+        Assert.True(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.NotNull(cfg);
+        Assert.Equal(0, cfg!.ChannelConfiguration);
+        Assert.Equal(0, cfg.ChannelCount);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Inline_Frequency_Truncated_After_EscapeMarker()
+    {
+        // AOT=2, sfIndex=15 (escape), but no inline 24 bits.
+        var writer = new AacBitWriter();
+        writer.Write(2, 5);
+        writer.Write(AacSampleRates.EscapeIndex, 4);
+        // No 24 bits follow.
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_Rejects_Truncated_After_SfIndex_No_ChannelConfig()
+    {
+        // AOT=2, sfIndex=4, then end-of-stream → can't read 4-bit channelConfig.
+        var writer = new AacBitWriter();
+        writer.Write(2, 5);
+        writer.Write(4, 4);
+        // Stop before chConfig — but writer pads to byte boundary so we need
+        // to truncate the resulting array to <2 bytes manually.
+        var bytes = writer.ToArray();
+        // The actual 9 bits use only 2 bytes; truncate to 1 byte (8 bits)
+        // which leaves only 8 bits — AOT(5)+sfIndex(4)=9 bits won't fit in 1 byte
+        // so this would already trigger underflow. Better: truncate to length 1.
+        Assert.False(AudioSpecificConfig.TryParse(bytes.AsSpan(0, 1), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void TryParse_ExtendedAot_NeedingEscape_Truncated_After_5_Bit_Marker()
+    {
+        // AOT=31 marker requires 6 extra bits; supply only the 5-bit marker.
+        var writer = new AacBitWriter();
+        writer.Write(31, 5);
+        Assert.False(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.Null(cfg);
+    }
+
+    [Fact]
+    public void ToBytes_RoundTrips_ExtensionAot_Escape()
+    {
+        // SBR present, with ext-rate-index escape; round-trip via TryParse.
+        var cfg = new AudioSpecificConfig
+        {
+            AudioObjectType = 2,
+            SamplingFrequencyIndex = 8,
+            SamplingFrequency = 16_000,
+            ChannelConfiguration = 2,
+            ChannelCount = 2,
+            SbrPresent = true,
+            ExtensionAudioObjectType = 5,
+            ExtensionSamplingFrequencyIndex = AacSampleRates.EscapeIndex,
+            ExtensionSamplingFrequency = 30_000,
+        };
+        var bytes = cfg.ToBytes();
+        Assert.True(AudioSpecificConfig.TryParse(bytes, out var parsed));
+        Assert.NotNull(parsed);
+        Assert.True(parsed!.SbrPresent);
+        Assert.Equal(AacSampleRates.EscapeIndex, parsed.ExtensionSamplingFrequencyIndex);
+        Assert.Equal(30_000, parsed.ExtensionSamplingFrequency);
+    }
+
+    [Fact]
+    public void ObjectTypeEnum_OutOfRange_Returns_Null()
+    {
+        // AOT=39 is outside 0..31, so ObjectTypeEnum must clamp to Null sentinel.
+        var writer = new AacBitWriter();
+        writer.Write(31, 5);
+        writer.Write(7, 6); // 32+7 = 39
+        writer.Write(4, 4);
+        writer.Write(2, 4);
+        Assert.True(AudioSpecificConfig.TryParse(writer.ToArray(), out var cfg));
+        Assert.NotNull(cfg);
+        Assert.Equal(39, cfg!.AudioObjectType);
+        Assert.Equal(AacAudioObjectType.Null, cfg.ObjectTypeEnum);
+    }
+
+    [Fact]
+    public void Record_Equality_Holds_For_Two_Identical_Configs()
+    {
+        byte[] bytes = [0x12, 0x10];
+        Assert.True(AudioSpecificConfig.TryParse(bytes, out var a));
+        Assert.True(AudioSpecificConfig.TryParse(bytes, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a!.GetHashCode(), b!.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_With_Expression_Mutates_ChannelConfiguration()
+    {
+        byte[] bytes = [0x12, 0x10];
+        Assert.True(AudioSpecificConfig.TryParse(bytes, out var a));
+        var b = a! with { ChannelConfiguration = 6, ChannelCount = 6 };
+        Assert.Equal(6, b.ChannelConfiguration);
+        Assert.Equal(6, b.ChannelCount);
+        Assert.Equal(2, a.ChannelConfiguration);
+    }
+
+    [Fact]
+    public void AacSampleRates_FromIndex_NegativeIndex_ReturnsZero()
+    {
+        Assert.Equal(0, AacSampleRates.FromIndex(-1));
+        Assert.Equal(0, AacSampleRates.FromIndex(int.MinValue));
+    }
+
+    [Fact]
+    public void AacChannelConfigurations_NegativeIndex_ReturnsZero()
+    {
+        Assert.Equal(0, AacChannelConfigurations.SpeakerCount(-1));
+        Assert.Equal(0, AacChannelConfigurations.SpeakerCount(99));
+    }
+
+    [Theory]
+    [InlineData(0, 96_000)]
+    [InlineData(1, 88_200)]
+    [InlineData(2, 64_000)]
+    [InlineData(5, 32_000)]
+    [InlineData(6, 24_000)]
+    [InlineData(7, 22_050)]
+    [InlineData(9, 12_000)]
+    [InlineData(10, 11_025)]
+    [InlineData(12, 7_350)]
+    public void AacSampleRates_FromIndex_AllStandardRates(int index, int expectedRate)
+    {
+        Assert.Equal(expectedRate, AacSampleRates.FromIndex(index));
+    }
+
+    [Fact]
+    public void AacAdtsBridge_FromAdts_Profile_0_To_3_Maps_To_AOT()
+    {
+        // ADTS profile 0 = MAIN (AOT=1), 1=LC (AOT=2), 2=SSR (AOT=3), 3=LTP (AOT=4).
+        Assert.Equal(1, AacAdtsBridge.FromAdts(0, 4, 2).AudioObjectType);
+        Assert.Equal(2, AacAdtsBridge.FromAdts(1, 4, 2).AudioObjectType);
+        Assert.Equal(3, AacAdtsBridge.FromAdts(2, 4, 2).AudioObjectType);
+        Assert.Equal(4, AacAdtsBridge.FromAdts(3, 4, 2).AudioObjectType);
+    }
 }
