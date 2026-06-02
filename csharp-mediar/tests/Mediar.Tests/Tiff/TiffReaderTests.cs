@@ -489,4 +489,83 @@ public sealed class TiffReaderTests
         Assert.True(gAvg < 40, $"expected low green, got R={rAvg} G={gAvg} B={bAvg}");
         Assert.True(bAvg < 40, $"expected low blue, got R={rAvg} G={gAvg} B={bAvg}");
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => TiffReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = TiffReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Tiff, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = TiffReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Tiff, r.Format);
+        }
+        ms.Position = 0;
+        // II little-endian byte-order marker
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        using var r = TiffReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.True(r.CanDecodePixels);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Tiff_And_Info_Format_Matches()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        using var r = TiffReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Tiff, r.Format);
+        Assert.Equal(ImageFormat.Tiff, r.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        using var r = TiffReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(r.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalRgbTiff();
+        var r = TiffReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static byte[] MinimalRgbTiff() => TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+    {
+        Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+        Compression = 1, Photometric = 2, RowsPerStrip = 2,
+        StripPayloads = [new byte[2 * 2 * 3]],
+    });
 }

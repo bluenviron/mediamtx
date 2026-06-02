@@ -415,4 +415,88 @@ public sealed class DngReaderTests
         using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
         Assert.Equal([0, 1, 1, 2], dng.Dng.CfaPattern.ToArray());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => DngReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = DngReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Dng, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = DngReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Dng, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.True(dng.CanDecodePixels);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in dng.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Dng_And_Info_Format_Matches()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Dng, dng.Format);
+        Assert.Equal(ImageFormat.Dng, dng.Info.Format);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        var r = DngReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_HasAlpha_Is_False_For_Rgb_Strip()
+    {
+        byte[] bytes = TestDngBuilder.Build(MinimalDngSpec());
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(dng.Info.HasAlpha);
+    }
+
+    private static TestDngBuilder.IfdSpec MinimalDngSpec() => new()
+    {
+        Width = 4,
+        Height = 4,
+        BitsPerSample = 8,
+        SamplesPerPixel = 3,
+        Compression = 1,
+        Photometric = 2,
+        NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        DngVersion = [1, 7, 0, 0],
+    };
 }
