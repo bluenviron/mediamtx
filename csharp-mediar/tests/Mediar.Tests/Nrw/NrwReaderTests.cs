@@ -271,4 +271,128 @@ public sealed class NrwReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => NrwReader.Open(ms));
+    }
+
+    [Fact]
+    public void Lowercase_Nikon_Make_Is_Rejected()
+    {
+        var spec = new TestSrwBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "nikon",
+            Model = "COOLPIX P7800",
+        };
+        byte[] bytes = TestSrwBuilder.Build(spec);
+        Assert.Throws<ImageFormatException>(() =>
+            NrwReader.Open(new MemoryStream(bytes, writable: false)));
+    }
+
+    [Fact]
+    public void MakerNote_Absent_Length_Is_Zero()
+    {
+        var spec = new TestSrwBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "NIKON",
+            Model = "COOLPIX P7800",
+        };
+        byte[] bytes = TestSrwBuilder.Build(spec);
+        using var reader = NrwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(0, reader.Raw.MakerNoteLength);
+    }
+
+    [Fact]
+    public void Software_Absent_Field_Is_Null()
+    {
+        var spec = new TestSrwBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "NIKON",
+            Model = "COOLPIX P7800",
+        };
+        byte[] bytes = TestSrwBuilder.Build(spec);
+        using var reader = NrwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(reader.Raw.Software);
+    }
+
+    [Fact]
+    public void Multiple_SubIfds_All_Surfaced_As_SubImages()
+    {
+        var sub1 = new TestSrwBuilder.IfdSpec
+        {
+            Width = 8, Height = 6, BitsPerSample = 16, SamplesPerPixel = 1,
+            Compression = 1, Photometric = 32803, NewSubFileType = 0,
+            StripPayload = new byte[8 * 6 * 2],
+        };
+        var sub2 = new TestSrwBuilder.IfdSpec
+        {
+            Width = 4, Height = 3, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[4 * 3 * 3],
+        };
+        var root = new TestSrwBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[12],
+            Make = "NIKON",
+            Model = "COOLPIX P7800",
+            SubIfds = [sub1, sub2],
+        };
+        byte[] bytes = TestSrwBuilder.Build(root);
+        using var reader = NrwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(3, reader.SubImages.Count);
+    }
+
+    [Fact]
+    public async Task Multi_Row_Rgb_Strip_Preserved_In_Output()
+    {
+        int w = 3, h = 3;
+        byte[] payload = new byte[w * h * 3];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)((i * 29) & 0xFF);
+        var spec = new TestSrwBuilder.IfdSpec
+        {
+            Width = w, Height = h, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = payload,
+            Make = "NIKON",
+            Model = "COOLPIX P7800",
+        };
+        byte[] bytes = TestSrwBuilder.Build(spec);
+        using var reader = NrwReader.Open(new MemoryStream(bytes, writable: false));
+        ImageFrame? captured = null;
+        await foreach (var f in reader.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured) { Assert.Equal(payload, captured!.Pixels.ToArray()); }
+    }
+
+    [Fact]
+    public void Reader_Disposes_OwnedStream_On_Dispose()
+    {
+        var spec = new TestSrwBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "NIKON",
+            Model = "COOLPIX P7800",
+        };
+        byte[] bytes = TestSrwBuilder.Build(spec);
+        var ms = new MemoryStream(bytes);
+        var reader = NrwReader.Open(ms, ownsStream: true);
+        reader.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
 }
