@@ -245,4 +245,119 @@ public sealed class PackBitsCodecTests
         // 4096 bytes / 128 = 32 RLE chunks * 2 bytes each = 64 bytes
         Assert.Equal(64, encoded.Length);
     }
+
+    [Fact]
+    public void Decode_Negative128_Control_Byte_Is_NoOp()
+    {
+        // -128 is the no-op marker; it consumes no further input.
+        byte[] encoded = { 0x80, 0x80, 0x80, 0x00, 0x42 };
+        Assert.Equal(new byte[] { 0x42 }, PackBitsCodec.Decode(encoded));
+    }
+
+    [Fact]
+    public void Decode_RleOf2_Single_Repeat()
+    {
+        // count = -(-1)+1 = 2 → 0xFF
+        byte[] encoded = { 0xFF, 0x77 };
+        Assert.Equal(new byte[] { 0x77, 0x77 }, PackBitsCodec.Decode(encoded));
+    }
+
+    [Fact]
+    public void Decode_With_ExpectedLength_Beyond_Source_Pads_With_Zeros()
+    {
+        // Encoded stream produces 3 bytes; expected = 8 → trailing 5 zeros.
+        byte[] encoded = { 0xFE, 0xAA }; // 3 × 0xAA
+        byte[] decoded = PackBitsCodec.Decode(encoded, expectedLength: 8);
+        Assert.Equal(8, decoded.Length);
+        Assert.Equal(new byte[] { 0xAA, 0xAA, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00 }, decoded);
+    }
+
+    [Fact]
+    public void Decode_Literal_Single_Byte()
+    {
+        // Control 0 → 1 literal byte.
+        byte[] encoded = { 0x00, 0x42 };
+        Assert.Equal(new byte[] { 0x42 }, PackBitsCodec.Decode(encoded));
+    }
+
+    [Fact]
+    public void Encode_TwoByte_Run_Followed_By_Literal_Becomes_Literal_Run()
+    {
+        // 2 same bytes don't form an RLE (encoder requires runLen >= 3);
+        // it folds into the literal that follows.
+        byte[] input = { 0x55, 0x55, 0x11, 0x22, 0x33 };
+        byte[] encoded = PackBitsCodec.Encode(input);
+        // All 5 bytes go literal: control = 4, then 5 bytes
+        Assert.Equal(new byte[] { 0x04, 0x55, 0x55, 0x11, 0x22, 0x33 }, encoded);
+    }
+
+    [Fact]
+    public void Encode_LongMixedPattern_RoundTrips()
+    {
+        // Mix RLE-eligible runs with literal runs of various lengths.
+        var input = new byte[1024];
+        var rng = new Random(12345);
+        for (int i = 0; i < input.Length; i++)
+        {
+            input[i] = (i % 13 == 0) ? (byte)0x77 : (byte)rng.Next(0, 256);
+        }
+        byte[] encoded = PackBitsCodec.Encode(input);
+        byte[] decoded = PackBitsCodec.Decode(encoded);
+        Assert.Equal(input, decoded);
+    }
+
+    [Fact]
+    public void Decode_ExpectedLength_Stops_Mid_Literal_Chunk()
+    {
+        // Literal chunk of 4 bytes, but expectedLength = 2 → only first 2 written.
+        byte[] encoded = { 0x03, 0xAA, 0xBB, 0xCC, 0xDD };
+        byte[] decoded = PackBitsCodec.Decode(encoded, expectedLength: 2);
+        Assert.Equal(new byte[] { 0xAA, 0xBB }, decoded);
+    }
+
+    [Fact]
+    public void Decode_ExpectedLength_Stops_Mid_Rle_Chunk()
+    {
+        // RLE of 5 bytes, but expectedLength = 3.
+        byte[] encoded = { 0xFC, 0x99 }; // -4 → 5 copies
+        byte[] decoded = PackBitsCodec.Decode(encoded, expectedLength: 3);
+        Assert.Equal(new byte[] { 0x99, 0x99, 0x99 }, decoded);
+    }
+
+    [Fact]
+    public void Encode_127_Identical_Bytes_Single_Rle_Chunk()
+    {
+        byte[] input = new byte[127];
+        Array.Fill(input, (byte)0x33);
+        byte[] encoded = PackBitsCodec.Encode(input);
+        // RLE: count = -(127-1) = -126 → 0x82
+        Assert.Equal(new byte[] { 0x82, 0x33 }, encoded);
+    }
+
+    [Fact]
+    public void Encode_128_Identical_Bytes_Single_Max_Rle_Chunk()
+    {
+        byte[] input = new byte[128];
+        Array.Fill(input, (byte)0x44);
+        byte[] encoded = PackBitsCodec.Encode(input);
+        // RLE: count = -(128-1) = -127 → 0x81
+        Assert.Equal(new byte[] { 0x81, 0x44 }, encoded);
+    }
+
+    [Fact]
+    public void Decode_ExpectedLength_Negative_Acts_As_Unspecified()
+    {
+        // expectedLength < 0 is treated as "unknown" (resizable buffer).
+        byte[] encoded = { 0xFE, 0xAA };
+        Assert.Equal(new byte[] { 0xAA, 0xAA, 0xAA }, PackBitsCodec.Decode(encoded, expectedLength: -1));
+    }
+
+    [Fact]
+    public void Encode_Single_NonRepeating_Byte_Sequence_Stays_Literal()
+    {
+        byte[] input = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+        byte[] encoded = PackBitsCodec.Encode(input);
+        Assert.Equal(new byte[] { 0x04, 0x01, 0x02, 0x03, 0x04, 0x05 }, encoded);
+        Assert.Equal(input, PackBitsCodec.Decode(encoded));
+    }
 }

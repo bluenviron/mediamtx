@@ -243,4 +243,81 @@ public sealed class AacSacExtensionDataTests
         Assert.Equal(AacFillExtensionType.FillData, fil.FillExtension!.ExtensionType);
         Assert.Null(fil.FillExtension.Sac);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(24)]
+    public void Payload_ByteCount_RoundsUp_From_BitLength(int bits)
+    {
+        // Buffer always large enough.
+        byte[] buffer = new byte[8];
+        Assert.True(AacSacExtensionData.TryParse(buffer, bits, out var data));
+        int expectedBytes = (bits + 7) >> 3;
+        Assert.Equal(expectedBytes, data!.Payload.Length);
+        Assert.Equal(bits, data.PayloadBitLength);
+    }
+
+    [Fact]
+    public void TryParse_Pattern_Of_All_0xFF_Pads_With_Zero()
+    {
+        // 10 bits of 0xFF span two bytes; final 6 bits of byte 1 must be 0.
+        Assert.True(AacSacExtensionData.TryParse(new byte[] { 0xFF, 0xFF }, 10, out var data));
+        Assert.Equal(0xFF, data!.Payload.Span[0]);
+        Assert.Equal(0xC0, data.Payload.Span[1]);
+    }
+
+    [Fact]
+    public void TryParse_Honors_Source_Span_Length_Exactly()
+    {
+        // Bit length matches buffer length * 8 - 1 (succeeds);
+        // bit length exceeds buffer length * 8 (fails).
+        Assert.True(AacSacExtensionData.TryParse(new byte[] { 0xFF, 0xFF }, 15, out var ok));
+        Assert.NotNull(ok);
+        Assert.False(AacSacExtensionData.TryParse(new byte[] { 0xFF, 0xFF }, 17, out var bad));
+        Assert.Null(bad);
+    }
+
+    [Fact]
+    public void Record_With_Expression_Preserves_Payload()
+    {
+        byte[] backing = [0x42];
+        var original = new AacSacExtensionData { Payload = backing, PayloadBitLength = 8 };
+        var mutated = original with { PayloadBitLength = 6 };
+        Assert.Equal(6, mutated.PayloadBitLength);
+        Assert.Equal(backing, mutated.Payload.ToArray());
+        Assert.NotEqual(original, mutated);
+    }
+
+    [Fact]
+    public void TryParse_Single_Byte_All_Ones()
+    {
+        Assert.True(AacSacExtensionData.TryParse(new byte[] { 0xFF }, 8, out var data));
+        Assert.Equal(new byte[] { 0xFF }, data!.Payload.ToArray());
+        Assert.Equal(8, data.PayloadBitLength);
+    }
+
+    [Fact]
+    public void TryParse_Oversized_Buffer_Is_Allowed()
+    {
+        // Buffer is much bigger than declared bit length: the parser only
+        // reads the leading bits and leaves the tail untouched.
+        byte[] buffer = new byte[16];
+        Array.Fill(buffer, (byte)0xAA);
+        Assert.True(AacSacExtensionData.TryParse(buffer, 4, out var data));
+        Assert.Single(data!.Payload.ToArray());
+        Assert.Equal(0xA0, data.Payload.Span[0]);
+    }
+
+    [Fact]
+    public void TryParse_NegativeBitLength_DoesNotConsumeBuffer()
+    {
+        Assert.False(AacSacExtensionData.TryParse(new byte[] { 0xFF, 0xFF }, -100, out var data));
+        Assert.Null(data);
+    }
 }
