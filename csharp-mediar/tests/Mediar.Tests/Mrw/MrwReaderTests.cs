@@ -460,4 +460,20 @@ public sealed class MrwReaderTests
             TtwBytes = ttw,
         });
     }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        using var r = MrwReader.Open(new MemoryStream(MinimalMrwBytes(), writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }

@@ -394,4 +394,21 @@ public sealed class CrwReaderTests
         var data = frame.Pixels.Span;
         return (data[off], data[off + 1], data[off + 2]);
     }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        using var r = CrwReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }
