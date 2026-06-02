@@ -206,4 +206,140 @@ public sealed class JpegBaselineDecoderTests
         using var reader = JpegReader.Open(ms);
         Assert.Equal(1, reader.Info.FrameCount);
     }
+
+    [Fact]
+    public async Task Info_BitsPerPixel_Is_24_For_Rgb24()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb24, reader.Info.PixelFormat);
+        Assert.Equal(24, reader.Info.BitsPerPixel);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honours_Cancellation()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var frame in reader.ReadFramesAsync(cts.Token))
+            {
+                frame.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task All_Pixels_Are_Solid_Red_Within_Tolerance()
+    {
+        // Tighter than the average test: every individual pixel should be
+        // red-dominant, not just the global average.
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync())
+        {
+            frame = f;
+            break;
+        }
+        Assert.NotNull(frame);
+        using (frame)
+        {
+            var px = frame!.Pixels.Span;
+            for (int i = 0; i + 2 < px.Length; i += 3)
+            {
+                Assert.True(px[i] >= px[i + 1], $"pixel {i/3}: R<G ({px[i]}<{px[i+1]})");
+                Assert.True(px[i] >= px[i + 2], $"pixel {i/3}: R<B ({px[i]}<{px[i+2]})");
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExifTags_Is_Empty_For_Plain_Jpeg()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.NotNull(reader.ExifTags);
+        // A no-EXIF JPEG should produce zero EXIF entries.
+        Assert.Empty(reader.ExifTags);
+    }
+
+    [Fact]
+    public void Open_Empty_Stream_Throws()
+    {
+        using var ms = new MemoryStream();
+        Assert.ThrowsAny<Exception>(() => JpegReader.Open(ms));
+    }
+
+    [Fact]
+    public void Open_AsciiOnly_Throws()
+    {
+        // Plain ASCII text should be rejected as non-JPEG.
+        using var ms = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("HELLO WORLD"));
+        Assert.ThrowsAny<Exception>(() => JpegReader.Open(ms));
+    }
+
+    [Fact]
+    public async Task Reading_All_Frames_Yields_Exactly_One()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        int count = 0;
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            count++;
+            frame.Dispose();
+        }
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Pixels_Length_Matches_Width_Times_Height_Times_3()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            using (frame)
+            {
+                Assert.Equal(reader.Info.Width * reader.Info.Height * 3, frame.Pixels.Length);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Format_Selected_Via_Extension_Is_Reflected_On_Reader()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        var tmp = Path.Combine(Path.GetTempPath(), $"mediar-jpeg-fmt-{Guid.NewGuid():N}.thm");
+        try
+        {
+            await File.WriteAllBytesAsync(tmp, bytes);
+            using var reader = JpegReader.Open(tmp);
+            Assert.Equal(ImageFormat.Thm, reader.Format);
+            Assert.Equal(16, reader.Info.Width);
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+    }
+
+    [Fact]
+    public async Task Metadata_Is_Always_Present()
+    {
+        var bytes = Convert.FromBase64String(RedJpegBase64);
+        await using var ms = new MemoryStream(bytes);
+        using var reader = JpegReader.Open(ms);
+        Assert.NotNull(reader.Metadata);
+    }
 }

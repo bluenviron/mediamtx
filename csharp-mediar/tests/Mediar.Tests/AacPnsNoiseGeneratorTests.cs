@@ -205,4 +205,97 @@ public sealed class AacPnsNoiseGeneratorTests
             Assert.False(float.IsNaN(band[i]));
         }
     }
+
+    [Fact]
+    public void TargetBandEnergy_NegativeSf_LessThanOne()
+    {
+        // sf=-2 -> 2^(-1) = 0.5; sf=-4 -> 2^(-2) = 0.25
+        Assert.Equal(0.5, AacPnsNoiseGenerator.TargetBandEnergy(-2), 12);
+        Assert.Equal(0.25, AacPnsNoiseGenerator.TargetBandEnergy(-4), 12);
+    }
+
+    [Fact]
+    public void TargetBandEnergy_OddSf_Matches_Pow_Formula()
+    {
+        // sf=1 -> 2^0.5 = sqrt(2); sf=3 -> 2^1.5
+        Assert.Equal(Math.Sqrt(2.0), AacPnsNoiseGenerator.TargetBandEnergy(1), 12);
+        Assert.Equal(Math.Pow(2.0, 1.5), AacPnsNoiseGenerator.TargetBandEnergy(3), 12);
+    }
+
+    [Fact]
+    public void FillBand_NullBandAndNullPrng_ReportsPrngFirst()
+    {
+        // The PRNG null-check happens before band emptiness handling.
+        var ex = Assert.Throws<ArgumentNullException>(() =>
+        {
+            float[] heap = Array.Empty<float>();
+            AacPnsNoiseGenerator.FillBand(heap, 0, null!);
+        });
+        Assert.Equal("prng", ex.ParamName);
+    }
+
+    [Fact]
+    public void FillBand_Length1Band_HitsTargetEnergy()
+    {
+        // A 1-sample band's |sample| must end up as sqrt(target).
+        var prng = new AacPnsRandom(seed: 9u);
+        Span<float> band = stackalloc float[1];
+        AacPnsNoiseGenerator.FillBand(band, 100, prng);
+        AssertRelativeEqual(AacPnsNoiseGenerator.TargetBandEnergy(100), EnergyOf(band));
+    }
+
+    [Fact]
+    public void FillBand_EmptyBand_DoesNotThrow_WithExplicitNonNullPrng()
+    {
+        var prng = new AacPnsRandom(seed: 1u);
+        // Empty span + valid prng must be a no-op and not throw.
+        AacPnsNoiseGenerator.FillBand(Span<float>.Empty, 0, prng, negate: true);
+        Assert.Equal(1u, prng.State);
+    }
+
+    [Fact]
+    public void FillBand_NegateAndPositive_AreReflectionsAcrossZero()
+    {
+        // For every pair (a, b) with same seed, a[i] should equal -b[i],
+        // and energies must match.
+        var prngA = new AacPnsRandom(seed: 99u);
+        var prngB = new AacPnsRandom(seed: 99u);
+        Span<float> a = stackalloc float[64];
+        Span<float> b = stackalloc float[64];
+        AacPnsNoiseGenerator.FillBand(a, 50, prngA);
+        AacPnsNoiseGenerator.FillBand(b, 50, prngB, negate: true);
+        Assert.Equal(EnergyOf(a), EnergyOf(b), 9);
+        for (int i = 0; i < a.Length; i++)
+        {
+            Assert.Equal(a[i], -b[i]);
+        }
+    }
+
+    [Theory]
+    [InlineData(1u)]
+    [InlineData(2u)]
+    [InlineData(100u)]
+    [InlineData(uint.MaxValue)]
+    public void FillBand_AnySeed_TargetEnergyHolds(uint seed)
+    {
+        var prng = new AacPnsRandom(seed);
+        Span<float> band = stackalloc float[32];
+        AacPnsNoiseGenerator.FillBand(band, 100, prng);
+        AssertRelativeEqual(AacPnsNoiseGenerator.TargetBandEnergy(100), EnergyOf(band));
+    }
+
+    [Fact]
+    public void FillBand_NoSampleIsExactlyZero_ForReasonableSeed()
+    {
+        // PRNG output is essentially full int32 range -> 0 only happens
+        // with probability 2^-32 per sample. With seed 7 and 64 samples
+        // we expect no exact zeros.
+        var prng = new AacPnsRandom(seed: 7u);
+        Span<float> band = stackalloc float[64];
+        AacPnsNoiseGenerator.FillBand(band, 100, prng);
+        for (int i = 0; i < band.Length; i++)
+        {
+            Assert.NotEqual(0f, band[i]);
+        }
+    }
 }
