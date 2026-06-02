@@ -389,4 +389,70 @@ public sealed class ErfReaderTests
         reader.Dispose();
         Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ErfReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalEpsonSpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = ErfReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Erf, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalEpsonSpec());
+        using var erf = ErfReader.Open(new MemoryStream(bytes, writable: false));
+        if (!erf.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in erf.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Erf()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalEpsonSpec());
+        using var erf = ErfReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Erf, erf.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalEpsonSpec());
+        using var erf = ErfReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(erf.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestSrwBuilder.Build(MinimalEpsonSpec());
+        var r = ErfReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestSrwBuilder.IfdSpec MinimalEpsonSpec() => new()
+    {
+        Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+        Compression = 1, Photometric = 2, NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "EPSON",
+    };
 }
