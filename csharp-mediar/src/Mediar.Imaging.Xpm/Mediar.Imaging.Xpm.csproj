@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Xpm</RootNamespace>
     <AssemblyName>Mediar.Imaging.Xpm</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>X11 XPM3 reader for the Mediar toolkit.</Description>
+    <Description>X11 XPM3 reader + writer for the Mediar toolkit.</Description>
   </PropertyGroup>
 
   <ItemGroup>

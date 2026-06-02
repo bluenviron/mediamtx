@@ -92,7 +92,7 @@ and an `ImageFormat` enum spans every requested format.
 | --- | --- | --- |
 | Full pixel decode | demux + decode + metadata | BMP / DIB, PNG (+ APNG), GIF (LZW + animation), TIFF (uncompressed / PackBits / Deflate / LZW), TGA (types 1/2/3/9/10/11 + 2.0 footer), PCX (1 / 8 / 24 bpp), HDR (Radiance RGBE), PNM (P1-P6), XPM3, ICNS (sub-image enumerator), DDS (uncompressed + BC1/BC2/BC3/BC4/BC5/BC6H **all 14 modes per Khronos KDF spec 1.4**/BC7), JPEG (baseline SOF0 + progressive SOF2 + lossless SOF3, grayscale + 4:4:4 / 4:2:2 / 4:2:0 YCbCr) |
 | Header + metadata only | dimensions / channels / EXIF without pixel decode | HEIF / HEIC / AVIF / CR3 (ISO-BMFF box walker), JP2 / J2K (codestream + container), JXR, BPG, FLIF, MNG, EMF, WMF / APM, DICOM, DJVU, SVS (Aperio TIFF), gzipped vector wrappers |
-| Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG) |
+| Writer | encode | BMP (1 / 4 / 8 / 24 / 32 bpp), PNG (Gray8 / Rgba32 / Palette + APNG), PNM (P4 / P5 / P6, 8 + 16 bpc), TGA (uncompressed + RLE, Gray8 / Rgb24 / Rgba32), HDR (Radiance RGBE + scanline RLE), PCX (version 5, byte RLE), XPM3 (C-array text), ICNS (icp4 / icp5 / icp6 / ic07-ic10, PNG sub-images), TIFF (single-strip baseline; None / Deflate / PackBits / LZW; Gray8 / Gray16 / Rgb24 / Rgba32), GIF89a (single-image Indexed8) |
 
 Pixel decoding is intentionally **never** wired to a third-party codec
 binary. JPEG arithmetic-coded variants remain deferred;

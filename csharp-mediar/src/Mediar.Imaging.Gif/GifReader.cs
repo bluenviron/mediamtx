@@ -230,8 +230,10 @@ public sealed class GifReader : IImageReader
 
             byte[] copy = new byte[canvas.Length];
             Buffer.BlockCopy(canvas, 0, copy, 0, canvas.Length);
+            // copy is not rented from ArrayPool — pass pooledOwner: null so
+            // ImageFrame.Dispose doesn't try to return it.
             yield return new ImageFrame(canvasW, canvasH, PixelFormat.Rgba32,
-                canvasW * 4, copy, copy)
+                canvasW * 4, copy, pooledOwner: null)
             {
                 Duration = TimeSpan.FromMilliseconds(delayCs * 10),
             };

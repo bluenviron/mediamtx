@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Icns</RootNamespace>
     <AssemblyName>Mediar.Imaging.Icns</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>Apple ICNS icon container reader for the Mediar toolkit.</Description>
+    <Description>Apple ICNS icon container reader + writer (icp4 / icp5 / icp6 / ic07-ic10 with PNG sub-images) for the Mediar toolkit.</Description>
   </PropertyGroup>
 
   <ItemGroup>

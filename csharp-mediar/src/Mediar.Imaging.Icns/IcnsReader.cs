@@ -136,9 +136,10 @@ public sealed class IcnsReader : IImageReader
         var buf = new byte[Math.Max(1, payload.Length)];
         payload.CopyTo(buf);
         // Width/height = encoded payload size in a 1-row layout — caller is
-        // expected to inspect via the metadata channel.
+        // expected to inspect via the metadata channel. buf is a fresh
+        // allocation, not pooled, so leave pooledOwner null.
         return new ImageFrame(payload.Length, 1, PixelFormat.Unknown,
-            payload.Length, buf, buf)
+            payload.Length, buf, pooledOwner: null)
         {
             OffsetX = 0,
             OffsetY = (int)subFmt,

@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Hdr</RootNamespace>
     <AssemblyName>Mediar.Imaging.Hdr</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>Radiance HDR / RGBE reader for the Mediar toolkit.</Description>
+    <Description>Radiance HDR / RGBE reader + writer for the Mediar toolkit.</Description>
   </PropertyGroup>
 
   <ItemGroup>

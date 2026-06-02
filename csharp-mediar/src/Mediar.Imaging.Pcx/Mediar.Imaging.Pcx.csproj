@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Pcx</RootNamespace>
     <AssemblyName>Mediar.Imaging.Pcx</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>ZSoft PCX + DCX (multi-page PCX) reader for the Mediar toolkit.</Description>
+    <Description>ZSoft PCX + DCX (multi-page PCX) reader plus single-page PCX writer for the Mediar toolkit.</Description>
   </PropertyGroup>
 
   <ItemGroup>

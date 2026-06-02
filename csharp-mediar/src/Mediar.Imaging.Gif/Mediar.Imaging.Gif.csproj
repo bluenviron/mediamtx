@@ -4,7 +4,7 @@
     <RootNamespace>Mediar.Imaging.Gif</RootNamespace>
     <AssemblyName>Mediar.Imaging.Gif</AssemblyName>
     <IsPackable>true</IsPackable>
-    <Description>GIF87a / GIF89a / animated GIF reader for the Mediar toolkit. LZW decompression is delegated to Mediar.Codecs.Lzw so the same codec is shared with TIFF and any future PostScript / PDF reader.</Description>
+    <Description>GIF87a / GIF89a / animated GIF reader plus a GIF89a single-image Indexed8 writer for the Mediar toolkit. LZW compression is delegated to Mediar.Codecs.Lzw so the same codec is shared with TIFF and any future PostScript / PDF reader.</Description>
   </PropertyGroup>
 
   <ItemGroup>
