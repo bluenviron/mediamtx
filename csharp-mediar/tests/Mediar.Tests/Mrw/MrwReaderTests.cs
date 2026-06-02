@@ -427,4 +427,37 @@ public sealed class MrwReaderTests
         };
         return TestSrwBuilder.Build(spec);
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MrwReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalMrwBytes();
+        var r = MrwReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Mrw()
+    {
+        byte[] bytes = MinimalMrwBytes();
+        using var r = MrwReader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Mrw, r.Info.Format);
+    }
+
+    private static byte[] MinimalMrwBytes()
+    {
+        var ttw = BuildKonicaMinoltaTtw("KONICA MINOLTA CAMERA, INC.", "DYNAX 7D", emitStrip: false);
+        return TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+        });
+    }
 }

@@ -339,4 +339,69 @@ public sealed class PvrReaderTests
         using var ms = new MemoryStream(bytes, writable: false);
         Assert.Throws<ImageFormatException>(() => PvrReader.Open(ms));
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PvrReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PvrReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = MinimalRgbaPvr();
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = PvrReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Pvr, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = MinimalRgbaPvr();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = PvrReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Pvr, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'P', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalRgbaPvr();
+        var r = PvrReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Pvr()
+    {
+        byte[] bytes = MinimalRgbaPvr();
+        using var r = PvrReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Pvr, r.Info.Format);
+    }
+
+    private static byte[] MinimalRgbaPvr()
+    {
+        var b = new TestPvrBuilder
+        {
+            PixelFormatWord = TestPvrBuilder.PackChannelDescriptor("rgba", new byte[] { 8, 8, 8, 8 }),
+            Width = 2, Height = 2,
+        };
+        b.Payloads.Add(new byte[2 * 2 * 4]);
+        return b.Build();
+    }
 }
