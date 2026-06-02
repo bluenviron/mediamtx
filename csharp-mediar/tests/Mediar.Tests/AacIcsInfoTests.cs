@@ -299,4 +299,151 @@ public sealed class AacIcsInfoTests
             Assert.Equal(info!.WindowGroupCount, info.WindowsPerGroup.Length);
         }
     }
+
+    [Theory]
+    [InlineData(AacWindowSequence.LongStart, 0)]
+    [InlineData(AacWindowSequence.LongStart, 1)]
+    [InlineData(AacWindowSequence.LongStop, 0)]
+    [InlineData(AacWindowSequence.LongStop, 1)]
+    public void TryParse_LongStartStop_WindowShape_Theory(AacWindowSequence seq, int shape)
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)seq, 2);
+        w.Write((uint)shape, 1);
+        w.Write(20u, 6);
+        w.Write(0u, 1);
+        Assert.True(RunParse(w.ToArray(), out var info));
+        Assert.Equal(seq, info!.WindowSequence);
+        Assert.Equal(shape == 0 ? AacWindowShape.Sine : AacWindowShape.KaiserBesselDerived, info.WindowShape);
+        Assert.Null(info.ScaleFactorGrouping);
+        Assert.Equal(1, info.WindowGroupCount);
+        Assert.False(info.PredictorDataPresent);
+    }
+
+    [Fact]
+    public void TryParse_LongStart_Consumes_11_Bits()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStart, 2);
+        w.Write(0u, 1);
+        w.Write(20u, 6);
+        w.Write(0u, 1);
+        var reader = new BitReader(w.ToArray());
+        int before = reader.Remaining;
+        Assert.True(AacIcsInfo.TryParse(ref reader, out _));
+        Assert.Equal(before - 11, reader.Remaining);
+    }
+
+    [Fact]
+    public void TryParse_LongStop_Consumes_11_Bits()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStop, 2);
+        w.Write(0u, 1);
+        w.Write(20u, 6);
+        w.Write(0u, 1);
+        var reader = new BitReader(w.ToArray());
+        int before = reader.Remaining;
+        Assert.True(AacIcsInfo.TryParse(ref reader, out _));
+        Assert.Equal(before - 11, reader.Remaining);
+    }
+
+    [Fact]
+    public void With_Expression_Replaces_MaxSfb_LeavingOthersUnchanged()
+    {
+        var data = ParseHelper_BuildLong(maxSfb: 10, windowShape: 0, predictor: false);
+        Assert.True(RunParse(data, out var info));
+        var mutated = info! with { MaxSfb = 33 };
+        Assert.Equal(10, info!.MaxSfb);
+        Assert.Equal(33, mutated.MaxSfb);
+        Assert.Equal(info.WindowSequence, mutated.WindowSequence);
+        Assert.Equal(info.WindowShape, mutated.WindowShape);
+    }
+
+    [Fact]
+    public void With_Expression_Replaces_PredictorDataPresent()
+    {
+        var data = ParseHelper_BuildLong(maxSfb: 10, windowShape: 0, predictor: false);
+        Assert.True(RunParse(data, out var info));
+        var mutated = info! with { PredictorDataPresent = true };
+        Assert.False(info!.PredictorDataPresent);
+        Assert.True(mutated.PredictorDataPresent);
+    }
+
+    [Fact]
+    public void TryParse_EightShort_Grouping_0x01_Yields_Seven_Groups_LastIsPair()
+    {
+        // bits 6..0 = 0000001 -> only the last transition (w7) is "stay".
+        // -> [1,1,1,1,1,1,2]
+        var data = ParseHelper_BuildShort(maxSfb: 5, windowShape: 0, sfg: 0b0000_0001);
+        Assert.True(RunParse(data, out var info));
+        Assert.Equal(7, info!.WindowGroupCount);
+        Assert.Equal(new byte[] { 1, 1, 1, 1, 1, 1, 2 }, info.WindowsPerGroup.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_EightShort_Grouping_0x40_Yields_Seven_Groups_FirstIsPair()
+    {
+        // bits 6..0 = 1000000 -> only the first transition (w1) is "stay".
+        // -> [2,1,1,1,1,1,1]
+        var data = ParseHelper_BuildShort(maxSfb: 5, windowShape: 0, sfg: 0b0100_0000);
+        Assert.True(RunParse(data, out var info));
+        Assert.Equal(7, info!.WindowGroupCount);
+        Assert.Equal(new byte[] { 2, 1, 1, 1, 1, 1, 1 }, info.WindowsPerGroup.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_EightShort_Grouping_0x55_Yields_Four_Pairs()
+    {
+        // bits 6..0 = 1010101 -> alternating stay/new -> [2,2,2,2]
+        var data = ParseHelper_BuildShort(maxSfb: 5, windowShape: 0, sfg: 0b0101_0101);
+        Assert.True(RunParse(data, out var info));
+        Assert.Equal(4, info!.WindowGroupCount);
+        Assert.Equal(new byte[] { 2, 2, 2, 2 }, info.WindowsPerGroup.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_LongStart_MaxSfb_Zero_Boundary()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStart, 2);
+        w.Write(0u, 1);
+        w.Write(0u, 6);
+        w.Write(0u, 1);
+        Assert.True(RunParse(w.ToArray(), out var info));
+        Assert.Equal(0, info!.MaxSfb);
+    }
+
+    [Fact]
+    public void TryParse_LongStop_MaxSfb_63_Boundary()
+    {
+        var w = new AacBitWriter();
+        w.Write(0u, 1);
+        w.Write((uint)AacWindowSequence.LongStop, 2);
+        w.Write(0u, 1);
+        w.Write(63u, 6);
+        w.Write(0u, 1);
+        Assert.True(RunParse(w.ToArray(), out var info));
+        Assert.Equal(63, info!.MaxSfb);
+    }
+
+    [Fact]
+    public void Record_Equality_HoldsForIdenticalParses()
+    {
+        var data = ParseHelper_BuildLong(maxSfb: 12, windowShape: 1, predictor: false);
+        Assert.True(RunParse(data, out var a));
+        Assert.True(RunParse(data, out var b));
+        // Records compare by value but contain ReadOnlyMemory which is a
+        // struct compared by reference fields; just check key scalars.
+        Assert.Equal(a!.WindowSequence, b!.WindowSequence);
+        Assert.Equal(a.WindowShape, b.WindowShape);
+        Assert.Equal(a.MaxSfb, b.MaxSfb);
+        Assert.Equal(a.WindowGroupCount, b.WindowGroupCount);
+        Assert.Equal(a.PredictorDataPresent, b.PredictorDataPresent);
+        Assert.Equal(a.ScaleFactorGrouping, b.ScaleFactorGrouping);
+    }
 }

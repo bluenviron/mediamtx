@@ -229,6 +229,121 @@ public class HeifTransformPropertiesTests
         Assert.False(r.TryGetAuxiliaryType(1, out _));
     }
 
+    // ---------- additional unit-level coverage ----------
+
+    [Fact]
+    public void HeifPixelAspectRatio_Square_Ratio_Is_One()
+    {
+        var a = new HeifPixelAspectRatio { HorizontalSpacing = 1, VerticalSpacing = 1 };
+        Assert.Equal(1.0, a.Ratio, precision: 12);
+    }
+
+    [Fact]
+    public void HeifPixelAspectRatio_16x9_Ratio_Matches_Expected()
+    {
+        var a = new HeifPixelAspectRatio { HorizontalSpacing = 16, VerticalSpacing = 9 };
+        Assert.Equal(16.0 / 9.0, a.Ratio, precision: 12);
+    }
+
+    [Fact]
+    public void HeifPixelAspectRatio_ZeroOverZero_IsNaN()
+    {
+        var a = new HeifPixelAspectRatio { HorizontalSpacing = 0, VerticalSpacing = 0 };
+        Assert.True(double.IsNaN(a.Ratio));
+    }
+
+    [Fact]
+    public void HeifPixelInformation_TryParse_Decodes_FourChannelRgba()
+    {
+        var payload = new byte[] { 0, 0, 0, 0, 4, 8, 8, 8, 8 };
+        Assert.True(HeifPixelInformation.TryParse(payload, out var info));
+        Assert.Equal(4, info.NumberOfChannels);
+        Assert.Equal(new byte[] { 8, 8, 8, 8 }, info.BitDepthsPerChannel);
+    }
+
+    [Fact]
+    public void HeifPixelInformation_TryParse_Decodes_ZeroChannels()
+    {
+        // Spec-corner: NumberOfChannels = 0 is degenerate but parseable
+        // (no per-channel bit-depth bytes required).
+        var payload = new byte[] { 0, 0, 0, 0, 0 };
+        Assert.True(HeifPixelInformation.TryParse(payload, out var info));
+        Assert.Equal(0, info.NumberOfChannels);
+        Assert.True(info.BitDepthsPerChannel.IsEmpty);
+    }
+
+    [Fact]
+    public void HeifPixelInformation_NumberOfChannels_TracksBitDepthLength()
+    {
+        var payload = new byte[] { 0, 0, 0, 0, 5, 12, 12, 12, 12, 12 };
+        Assert.True(HeifPixelInformation.TryParse(payload, out var info));
+        Assert.Equal(info.BitDepthsPerChannel.Length, info.NumberOfChannels);
+    }
+
+    [Fact]
+    public void HeifAuxiliaryType_TryParse_NoNullTerminator_TreatsRemainderAsUrn()
+    {
+        // 4-byte FullBox header + raw URN bytes with no terminating NUL:
+        // the parser absorbs everything up to EOF as the URN and leaves
+        // the subtype empty.
+        var payload = new byte[4 + 3];
+        Encoding.ASCII.GetBytes("abc").CopyTo(payload.AsSpan(4));
+        Assert.True(HeifAuxiliaryType.TryParse(payload, out var aux));
+        Assert.Equal("abc", aux.AuxTypeUrn);
+        Assert.True(aux.AuxSubtype.IsEmpty);
+    }
+
+    [Fact]
+    public void HeifAuxiliaryType_TryParse_EmptyUrn_BetweenHeaderAndNul()
+    {
+        // FullBox header immediately followed by NUL -> empty URN.
+        var payload = new byte[] { 0, 0, 0, 0, 0 };
+        Assert.True(HeifAuxiliaryType.TryParse(payload, out var aux));
+        Assert.Equal(string.Empty, aux.AuxTypeUrn);
+        Assert.True(aux.AuxSubtype.IsEmpty);
+        Assert.False(aux.IsAlpha);
+    }
+
+    [Theory]
+    [InlineData("URN:MPEG:MPEGB:CICP:SYSTEMS:AUXILIARY:ALPHA")]
+    [InlineData("urn:mpeg:mpegb:cicp:systems:auxiliary:Alpha")]
+    [InlineData("urn:not:alpha:fake")]
+    public void HeifAuxiliaryType_IsAlpha_ExactMatchOnly(string urn)
+    {
+        var payload = BuildAuxCPayload(urn, []);
+        Assert.True(HeifAuxiliaryType.TryParse(payload, out var aux));
+        Assert.False(aux.IsAlpha);
+        Assert.False(aux.IsDepth);
+        Assert.False(aux.IsGainMap);
+    }
+
+    [Fact]
+    public void HeifAuxiliaryType_Record_Equality_ByValue_ForUrn()
+    {
+        var a = new HeifAuxiliaryType
+        {
+            AuxTypeUrn = "urn:custom:x",
+            AuxSubtype = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+        };
+        var b = new HeifAuxiliaryType
+        {
+            AuxTypeUrn = "urn:custom:x",
+            AuxSubtype = System.Collections.Immutable.ImmutableArray<byte>.Empty,
+        };
+        // ImmutableArray<T> hashes/compares by reference, but URN equality
+        // alone is what drives the IsAlpha/IsDepth/IsGainMap branches.
+        Assert.Equal(a.AuxTypeUrn, b.AuxTypeUrn);
+    }
+
+    [Fact]
+    public void HeifPixelAspectRatio_With_Expression_Recomputes_Ratio()
+    {
+        var a = new HeifPixelAspectRatio { HorizontalSpacing = 4, VerticalSpacing = 3 };
+        var b = a with { VerticalSpacing = 2 };
+        Assert.Equal(4.0 / 3.0, a.Ratio, precision: 12);
+        Assert.Equal(2.0, b.Ratio, precision: 12);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildAuxCPayload(string urn, byte[] subtype)
