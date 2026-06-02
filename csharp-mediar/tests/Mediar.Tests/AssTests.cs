@@ -232,5 +232,212 @@ public sealed class AssTests
         Assert.Contains("0:00:02.00", s);
         Assert.Contains("hi", s);
     }
+
+    [Fact]
+    public void Event_HasExpectedDefaults()
+    {
+        var ev = new AssEvent();
+        Assert.Equal("Dialogue", ev.Kind);
+        Assert.Equal(0, ev.Layer);
+        Assert.Equal(TimeSpan.Zero, ev.Start);
+        Assert.Equal(TimeSpan.Zero, ev.End);
+        Assert.Equal("Default", ev.Style);
+        Assert.Equal(string.Empty, ev.Name);
+        Assert.Equal(0, ev.MarginL);
+        Assert.Equal(0, ev.MarginR);
+        Assert.Equal(0, ev.MarginV);
+        Assert.Equal(string.Empty, ev.Effect);
+        Assert.Equal(string.Empty, ev.Text);
+    }
+
+    [Fact]
+    public void Event_Record_Equality_HoldsForEquivalentInstances()
+    {
+        var a = new AssEvent { Layer = 1, Text = "hi", Start = TimeSpan.FromSeconds(1) };
+        var b = new AssEvent { Layer = 1, Text = "hi", Start = TimeSpan.FromSeconds(1) };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { Text = "bye" };
+        Assert.NotEqual(a, c);
+        Assert.Equal("bye", c.Text);
+    }
+
+    [Fact]
+    public void Script_Constructor_StartsWithEmptyCollections()
+    {
+        var s = new AssScript();
+        Assert.Empty(s.ScriptInfo);
+        Assert.Empty(s.StyleSection);
+        Assert.Empty(s.EventFields);
+        Assert.Empty(s.Events);
+    }
+
+    [Fact]
+    public void Reader_AcceptsEmptyDocument()
+    {
+        var script = AssReader.ReadString(string.Empty);
+        Assert.Empty(script.Events);
+        Assert.Empty(script.ScriptInfo);
+        Assert.Empty(script.StyleSection);
+    }
+
+    [Fact]
+    public void Reader_TextWithManyCommas_FullyPreserved()
+    {
+        const string s =
+            "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n" +
+            "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0000,0000,0000,,a,b,c,d,e,f,g\n";
+        var script = AssReader.ReadString(s);
+        var ev = Assert.Single(script.Events);
+        Assert.Equal("a,b,c,d,e,f,g", ev.Text);
+    }
+
+    [Fact]
+    public void Reader_LayerNotAnInt_DefaultsToZero()
+    {
+        const string s =
+            "[Events]\nFormat: Layer, Start, End, Text\n" +
+            "Dialogue: not-a-number,0:00:01.00,0:00:02.00,hello\n";
+        var script = AssReader.ReadString(s);
+        var ev = Assert.Single(script.Events);
+        Assert.Equal(0, ev.Layer);
+        Assert.Equal("hello", ev.Text);
+    }
+
+    [Theory]
+    [InlineData("MarginL")]
+    [InlineData("MarginR")]
+    [InlineData("MarginV")]
+    public void Reader_MalformedMargin_DefaultsToZero(string marginField)
+    {
+        string s =
+            "[Events]\nFormat: Layer, Start, End, " + marginField + ", Text\n" +
+            "Dialogue: 0,0:00:01.00,0:00:02.00,not-a-num,hello\n";
+        var script = AssReader.ReadString(s);
+        var ev = Assert.Single(script.Events);
+        Assert.Equal(0, marginField switch
+        {
+            "MarginL" => ev.MarginL,
+            "MarginR" => ev.MarginR,
+            _ => ev.MarginV,
+        });
+    }
+
+    [Fact]
+    public void Reader_UnknownFieldName_IgnoredButLineStillParses()
+    {
+        const string s =
+            "[Events]\nFormat: Layer, Start, End, Bogus, Text\n" +
+            "Dialogue: 5,0:00:01.00,0:00:02.00,ignored,line one\n";
+        var script = AssReader.ReadString(s);
+        var ev = Assert.Single(script.Events);
+        Assert.Equal(5, ev.Layer);
+        Assert.Equal("line one", ev.Text);
+    }
+
+    [Fact]
+    public void Reader_ScriptInfo_ColonInValue_KeepsAfterFirstColon()
+    {
+        const string s = "[Script Info]\nTitle: Foo: with colon\n";
+        var script = AssReader.ReadString(s);
+        var kv = Assert.Single(script.ScriptInfo);
+        Assert.Equal("Title", kv.Key);
+        Assert.Equal("Foo: with colon", kv.Value);
+    }
+
+    [Fact]
+    public void Reader_RejectsNullForReadFile()
+    {
+        // ReadFile uses StreamReader(path, ...) which itself throws.
+        Assert.Throws<ArgumentNullException>(() => AssReader.ReadFile(null!));
+    }
+
+    [Fact]
+    public void Reader_LineWithoutFormat_ThrowsOnEventLine()
+    {
+        // Events section but no Format line — ParseEvent can't size the parts
+        // array correctly; current implementation throws when encountering an
+        // event line without a preceding Format directive.
+        const string s =
+            "[Events]\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0000,0000,0000,,hello\n";
+        Assert.ThrowsAny<Exception>(() => AssReader.ReadString(s));
+    }
+
+    [Fact]
+    public void Writer_PreservesCustomEventFieldsInFormatLine()
+    {
+        var script = new AssScript();
+        script.EventFields.Add("Start");
+        script.EventFields.Add("End");
+        script.EventFields.Add("Text");
+        script.Events.Add(new AssEvent
+        {
+            Start = TimeSpan.FromSeconds(1),
+            End = TimeSpan.FromSeconds(2),
+            Text = "hi",
+        });
+        var text = AssWriter.WriteString(script);
+        Assert.Contains("Format: Start, End, Text", text);
+        Assert.Contains("Dialogue: 0:00:01.00,0:00:02.00,hi", text);
+    }
+
+    [Fact]
+    public void Writer_NegativeStart_FormattedAsZero()
+    {
+        var script = new AssScript();
+        script.Events.Add(new AssEvent
+        {
+            Start = TimeSpan.FromSeconds(-5),
+            End = TimeSpan.FromSeconds(1),
+            Text = "x",
+        });
+        var text = AssWriter.WriteString(script);
+        Assert.Contains(",0:00:00.00,", text);
+    }
+
+    [Fact]
+    public void Writer_TimeFormat_CentisecondsFloorOfMilliseconds()
+    {
+        var script = new AssScript();
+        script.Events.Add(new AssEvent
+        {
+            Start = new TimeSpan(0, 0, 0, 0, 999),
+            End = new TimeSpan(0, 0, 0, 0, 100),
+            Text = "x",
+        });
+        var text = AssWriter.WriteString(script);
+        Assert.Contains("0:00:00.99", text);
+        Assert.Contains("0:00:00.10", text);
+    }
+
+    [Fact]
+    public void Writer_StyleSection_EmitsSectionWhenPopulated()
+    {
+        var script = new AssScript();
+        script.StyleSection.Add("Format: Name, Fontname");
+        script.StyleSection.Add("Style: Default,Arial");
+        var text = AssWriter.WriteString(script);
+        Assert.Contains("[V4+ Styles]", text);
+        Assert.Contains("Format: Name, Fontname", text);
+        Assert.Contains("Style: Default,Arial", text);
+    }
+
+    [Fact]
+    public void Reader_BomPrefixedFile_RoundTrips()
+    {
+        // ReadFile detects BOM; sanity check that BOM-prefixed UTF-8 files load.
+        var path = Path.Combine(Path.GetTempPath(), $"ass-bom-{Guid.NewGuid():N}.ass");
+        try
+        {
+            File.WriteAllText(path, Sample, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            var script = AssReader.ReadFile(path);
+            Assert.Equal(2, script.Events.Count);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }
 
