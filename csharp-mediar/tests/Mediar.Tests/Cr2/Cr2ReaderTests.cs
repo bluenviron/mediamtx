@@ -373,4 +373,10 @@ public sealed class Cr2ReaderTests
             await foreach (var f in cr2.ReadFramesAsync(cts.Token)) { f.Dispose(); }
         });
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Cr2Reader.Open((string)null!));
+    }
 }

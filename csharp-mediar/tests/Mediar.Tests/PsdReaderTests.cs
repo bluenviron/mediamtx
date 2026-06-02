@@ -416,4 +416,10 @@ public class PsdReaderTests
         }
         return ms.ToArray();
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PsdReader.Open((string)null!));
+    }
 }
