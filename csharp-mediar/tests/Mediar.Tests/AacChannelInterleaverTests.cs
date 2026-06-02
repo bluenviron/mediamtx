@@ -237,6 +237,132 @@ public class AacChannelInterleaverTests
         Assert.Contains("shorter than required", ex.Message);
     }
 
+    [Fact]
+    public void Interleave_Mono_AllocatingOverload_Works()
+    {
+        var ch = new[] { BuildChannel([1f, 2f, 3f]) };
+        var result = AacChannelInterleaver.Interleave(ch);
+        Assert.Equal((float[])[1f, 2f, 3f], result);
+    }
+
+    [Fact]
+    public void Interleave_NullSamples_Throws()
+    {
+        var ch = new[] { new AacChannelOutput
+        {
+            Speaker = AacSpeaker.FrontCentre,
+            Samples = null!,
+        }};
+        var ex = Assert.Throws<ArgumentException>(
+            () => AacChannelInterleaver.Interleave(ch, new float[1]));
+        Assert.Contains("Samples is null", ex.Message);
+    }
+
+    [Fact]
+    public void Interleave_AllocatingOverload_ReturnsExactlySizedArray()
+    {
+        var ch = new[]
+        {
+            BuildChannel([1f, 2f]),
+            BuildChannel([3f, 4f]),
+            BuildChannel([5f, 6f]),
+        };
+        var result = AacChannelInterleaver.Interleave(ch);
+        Assert.Equal(6, result.Length);
+    }
+
+    [Fact]
+    public void Interleave_DestinationLargerThanRequired_Succeeds()
+    {
+        var ch = new[]
+        {
+            BuildChannel([1f, 3f]),
+            BuildChannel([2f, 4f]),
+        };
+        var dest = new float[8];
+        AacChannelInterleaver.Interleave(ch, dest);
+        Assert.Equal(1f, dest[0]);
+        Assert.Equal(2f, dest[1]);
+        Assert.Equal(3f, dest[2]);
+        Assert.Equal(4f, dest[3]);
+        // tail remains zero
+        Assert.Equal(0f, dest[4]);
+    }
+
+    [Fact]
+    public void Interleave_SingleSample_PerChannel()
+    {
+        var ch = new[]
+        {
+            BuildChannel([10f]),
+            BuildChannel([20f]),
+            BuildChannel([30f]),
+        };
+        Assert.Equal((float[])[10f, 20f, 30f], AacChannelInterleaver.Interleave(ch));
+    }
+
+    [Fact]
+    public void Interleave_AllocatingOverload_NullThrows()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => AacChannelInterleaver.Interleave((IReadOnlyList<AacChannelOutput>)null!));
+    }
+
+    [Fact]
+    public void Interleave_AllocatingOverload_EmptyThrows()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => AacChannelInterleaver.Interleave(Array.Empty<AacChannelOutput>()));
+        Assert.Contains("empty", ex.Message);
+    }
+
+    [Fact]
+    public void Interleave_Pce_EmptyThrows()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => AacChannelInterleaver.Interleave(
+                Array.Empty<AacPceChannelOutput>(), new float[8]));
+        Assert.Contains("empty", ex.Message);
+    }
+
+    [Fact]
+    public void Interleave_Pce_AllocatingOverload_EmptyThrows()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => AacChannelInterleaver.Interleave(Array.Empty<AacPceChannelOutput>()));
+        Assert.Contains("empty", ex.Message);
+    }
+
+    [Fact]
+    public void Interleave_Pce_NullChannels_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => AacChannelInterleaver.Interleave(
+                (IReadOnlyList<AacPceChannelOutput>)null!, new float[8]));
+    }
+
+    [Fact]
+    public void Interleave_Pce_AllocatingNullChannels_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => AacChannelInterleaver.Interleave(
+                (IReadOnlyList<AacPceChannelOutput>)null!));
+    }
+
+    [Fact]
+    public void Interleave_DecodedRawDataBlock_NullSpanOverload_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => AacChannelInterleaver.Interleave((AacDecodedRawDataBlock)null!, new float[4]));
+    }
+
+    [Fact]
+    public void Interleave_Pce_DecodedBlock_NullSpanOverload_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => AacChannelInterleaver.Interleave((AacPceDecodedRawDataBlock)null!, new float[4]));
+    }
+
     // ---- helpers ----
 
     private static AacChannelOutput BuildChannel(float[] samples) => new()

@@ -251,4 +251,108 @@ public class AacPcmFrameConverterTests
         Assert.Equal(16384, dst.Samples[2]);
         Assert.Equal(-16384, dst.Samples[3]);
     }
+
+    [Fact]
+    public void ToInt16Sample_ExactlyMinusOne_Returns_Minus32768()
+    {
+        // -1f * 32768 == -32768 exactly → short.MinValue.
+        var result = AacPcmFrameConverter.ToInt16Samples(stackalloc float[] { -1f });
+        Assert.Equal(short.MinValue, result[0]);
+    }
+
+    [Fact]
+    public void ToInt16Sample_NegativeZero_Returns_Zero()
+    {
+        // -0f maps via the positive branch (>= 0f), result still 0.
+        var result = AacPcmFrameConverter.ToInt16Samples(stackalloc float[] { -0f });
+        Assert.Equal((short)0, result[0]);
+    }
+
+    [Fact]
+    public void ToInt16Sample_Epsilon_Returns_Zero()
+    {
+        var result = AacPcmFrameConverter.ToInt16Samples(stackalloc float[] { float.Epsilon });
+        Assert.Equal((short)0, result[0]);
+    }
+
+    [Fact]
+    public void ToInt16Samples_AllocatingOverload_AllocatesFreshArray()
+    {
+        ReadOnlySpan<float> src = stackalloc float[] { 0.1f, 0.2f };
+        var a = AacPcmFrameConverter.ToInt16Samples(src);
+        var b = AacPcmFrameConverter.ToInt16Samples(src);
+        Assert.NotSame(a, b);
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void ToInt16Samples_DestinationOverload_DoesNotMutateSource()
+    {
+        var src = new float[] { 0.5f, -0.5f, 1f };
+        var copy = (float[])src.Clone();
+        var dst = new short[3];
+        AacPcmFrameConverter.ToInt16Samples(src, dst);
+        Assert.Equal(copy, src);
+    }
+
+    [Fact]
+    public void ToInt16Sample_PositiveJustUnderOne_DoesNotSaturate()
+    {
+        // 0.9999f * 32767 ≈ 32763.6 → rounds to nearest valid sample
+        var result = AacPcmFrameConverter.ToInt16Samples(stackalloc float[] { 0.9999f });
+        Assert.InRange(result[0], (short)32750, (short)32766);
+    }
+
+    [Fact]
+    public void ToInt16Sample_NegativeJustOverMinusOne_DoesNotSaturate()
+    {
+        // -0.9999f * 32768 ≈ -32764.7
+        var result = AacPcmFrameConverter.ToInt16Samples(stackalloc float[] { -0.9999f });
+        Assert.InRange(result[0], (short)-32766, (short)-32750);
+    }
+
+    [Fact]
+    public void ToInt16Frame_FreshSamplesArray_DoesNotAliasSource()
+    {
+        var source = new AacPcmFrame
+        {
+            Samples = new[] { 0.5f, -0.5f },
+            ChannelCount = 2,
+            SamplesPerChannel = 1,
+            SampleRate = 48000,
+            Speakers = new[] { AacSpeaker.FrontLeft, AacSpeaker.FrontRight },
+        };
+        var first = AacPcmFrameConverter.ToInt16Frame(source);
+        var second = AacPcmFrameConverter.ToInt16Frame(source);
+        Assert.NotSame(first.Samples, second.Samples);
+        Assert.Equal(first.Samples, second.Samples);
+    }
+
+    [Fact]
+    public void ToInt16Frame_PassesSpeakersByReference()
+    {
+        // Speakers is IReadOnlyList<AacSpeaker> — converter just hands
+        // the reference through, not a copy.
+        var speakers = new[] { AacSpeaker.FrontCentre };
+        var source = new AacPcmFrame
+        {
+            Samples = new[] { 0f },
+            ChannelCount = 1,
+            SamplesPerChannel = 1,
+            SampleRate = 48000,
+            Speakers = speakers,
+        };
+        var dst = AacPcmFrameConverter.ToInt16Frame(source);
+        Assert.Same(speakers, dst.Speakers);
+    }
+
+    [Fact]
+    public void ToInt16Samples_NamedDestinationArgument_ThrowsOnUndersized()
+    {
+        var src = new float[8];
+        var dst = new short[7];
+        var ex = Assert.Throws<ArgumentException>(
+            () => AacPcmFrameConverter.ToInt16Samples(src, dst));
+        Assert.Equal("destination", ex.ParamName);
+    }
 }
