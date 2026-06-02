@@ -116,4 +116,135 @@ public sealed class KtxIntegerFormatsTests
         Assert.NotNull(frame);
         Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
     }
+
+    [Fact]
+    public async Task Ktx1_Decodes_GL_R32UI_Round_Trip()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8236, // GL_R32UI
+            PixelWidth = 2, PixelHeight = 1,
+        };
+        var pixels = new byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(pixels.AsSpan(0, 4), 0xDEADBEEF);
+        BinaryPrimitives.WriteUInt32LittleEndian(pixels.AsSpan(4, 4), 0xCAFEBABE);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Gray32UInt, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Ktx1_Decodes_GL_R32I_Round_Trip_With_Negative()
+    {
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8235, // GL_R32I
+            PixelWidth = 2, PixelHeight = 1,
+        };
+        var pixels = new byte[8];
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(0, 4), int.MinValue);
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(4, 4), -1);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Gray32SInt, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Ktx2_Decodes_VK_FORMAT_R32G32B32_UINT_Round_Trip()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 104, // VK_FORMAT_R32G32B32_UINT
+            PixelWidth = 1, PixelHeight = 1,
+        };
+        var pixels = new byte[12];
+        BinaryPrimitives.WriteUInt32LittleEndian(pixels.AsSpan(0, 4), 0x11111111);
+        BinaryPrimitives.WriteUInt32LittleEndian(pixels.AsSpan(4, 4), 0x22222222);
+        BinaryPrimitives.WriteUInt32LittleEndian(pixels.AsSpan(8, 4), 0x33333333);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb96UInt, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Ktx2_Decodes_VK_FORMAT_R32G32B32A32_SINT_Round_Trip_With_Negative()
+    {
+        var b = new TestKtx2Builder
+        {
+            VkFormat = 108, // VK_FORMAT_R32G32B32A32_SINT
+            PixelWidth = 1, PixelHeight = 1,
+        };
+        var pixels = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(0, 4), int.MinValue);
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(4, 4), -1);
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(8, 4), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(pixels.AsSpan(12, 4), int.MaxValue);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = Ktx2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba128SInt, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public async Task Ktx1_Decodes_GL_RGB32UI_MultiRow_Stride()
+    {
+        const int w = 2, h = 3;
+        var b = new TestKtxBuilder
+        {
+            GlInternalFormat = 0x8D71, // GL_RGB32UI
+            PixelWidth = w, PixelHeight = h,
+        };
+        var pixels = new byte[w * h * 12];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = (byte)((i * 11) & 0xFF);
+        b.MipPayloads.Add(pixels);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = KtxReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgb96UInt, reader.Info.PixelFormat);
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        Assert.Equal(w * 12, frame!.Stride);
+        Assert.Equal(h, frame!.Height);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(pixels));
+    }
+
+    [Fact]
+    public void Integer_PixelFormats_Report_Correct_Bits_And_Channels()
+    {
+        Assert.Equal(32, PixelFormat.Gray32UInt.BitsPerPixel());
+        Assert.Equal(1, PixelFormat.Gray32UInt.ChannelCount());
+        Assert.Equal(32, PixelFormat.Gray32SInt.BitsPerPixel());
+        Assert.Equal(64, PixelFormat.Rg64UInt.BitsPerPixel());
+        Assert.Equal(2, PixelFormat.Rg64UInt.ChannelCount());
+        Assert.Equal(96, PixelFormat.Rgb96UInt.BitsPerPixel());
+        Assert.Equal(3, PixelFormat.Rgb96UInt.ChannelCount());
+        Assert.Equal(128, PixelFormat.Rgba128UInt.BitsPerPixel());
+        Assert.Equal(4, PixelFormat.Rgba128UInt.ChannelCount());
+        Assert.Equal(128, PixelFormat.Rgba128SInt.BitsPerPixel());
+        Assert.Equal(4, PixelFormat.Rgba128SInt.ChannelCount());
+    }
 }
