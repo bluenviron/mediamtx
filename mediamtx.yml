@@ -94,18 +94,7 @@ authInternalUsers:
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
 # to authenticate, the server calls this URL with the POST method
-# and a body containing:
-# {
-#   "user": "user",
-#   "password": "password",
-#   "token": "token",
-#   "ip": "ip",
-#   "action": "publish|read|playback|api|metrics|pprof",
-#   "path": "path",
-#   "protocol": "rtsp|rtmp|hls|webrtc|srt",
-#   "id": "id",
-#   "query": "query"
-# }
+# and a payload described in the documentation.
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
 authHTTPAddress:
