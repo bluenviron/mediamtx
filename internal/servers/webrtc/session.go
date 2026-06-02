@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pion/ice/v4"
 	"github.com/pion/sdp/v3"
+	"github.com/pion/transport/v4"
 	pwebrtc "github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -235,7 +236,7 @@ type sessionParent interface {
 }
 
 type session struct {
-	udpReadBufferSize     uint
+	net                   transport.Net
 	parentCtx             context.Context
 	ipsFromInterfaces     bool
 	ipsFromInterfacesList []string
@@ -362,7 +363,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		UDPReadBufferSize:     s.udpReadBufferSize,
+		Net:                   s.net,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,
@@ -512,7 +513,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		UDPReadBufferSize:     s.udpReadBufferSize,
+		Net:                   s.net,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
 		ICEServers:            iceServers,

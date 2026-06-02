@@ -214,6 +214,7 @@ type Server struct {
 	httpServer       *httpServer
 	udpMuxLn         net.PacketConn
 	tcpMuxLn         net.Listener
+	net              *webrtc.Net
 	iceUDPMux        ice.UDPMux
 	iceTCPMux        *webrtc.TCPMuxWrapper
 	sessions         map[*session]struct{}
@@ -268,6 +269,8 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
+	s.net = &webrtc.Net{UDPReadBufferSize: int(s.UDPReadBufferSize)}
+
 	if s.LocalUDPAddress != "" {
 		s.udpMuxLn, err = net.ListenPacket(restrictnetwork.Restrict("udp", s.LocalUDPAddress))
 		if err != nil {
@@ -286,7 +289,11 @@ func (s *Server) Initialize() error {
 			}
 		}
 
-		s.iceUDPMux = pwebrtc.NewICEUDPMux(webrtcNilLogger, s.udpMuxLn)
+		s.iceUDPMux = ice.NewUDPMuxDefault(ice.UDPMuxParams{
+			UDPConn: s.udpMuxLn,
+			Logger:  webrtcNilLogger,
+			Net:     s.net,
+		})
 	}
 
 	if s.LocalTCPAddress != "" {
@@ -356,7 +363,7 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
-				udpReadBufferSize:     s.UDPReadBufferSize,
+				net:                   s.net,
 				parentCtx:             s.ctx,
 				ipsFromInterfaces:     s.IPsFromInterfaces,
 				ipsFromInterfacesList: s.IPsFromInterfacesList,

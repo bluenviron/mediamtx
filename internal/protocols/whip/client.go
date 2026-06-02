@@ -108,7 +108,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	c.pc = &webrtc.PeerConnection{
-		UDPReadBufferSize: c.UDPReadBufferSize,
+		Net:               &webrtc.Net{UDPReadBufferSize: int(c.UDPReadBufferSize)},
 		LocalRandomUDP:    true,
 		ICEServers:        iceServers,
 		IPsFromInterfaces: true,
