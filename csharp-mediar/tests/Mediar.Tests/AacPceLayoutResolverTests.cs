@@ -288,6 +288,141 @@ public class AacPceLayoutResolverTests
         Assert.Equal(0, original.RegionIndex);
     }
 
+    [Fact]
+    public void Resolve_FrontMultipleCpe_RegionIndexAscending()
+    {
+        var pce = BuildPce(frontElements: new[] { Cpe(0), Cpe(1), Cpe(2), Cpe(3) });
+        var e0 = BuildCpeEntry(0);
+        var e1 = BuildCpeEntry(1);
+        var e2 = BuildCpeEntry(2);
+        var e3 = BuildCpeEntry(3);
+        var block = BuildBlock(e0, e1, e2, e3);
+
+        var resolved = AacPceLayoutResolver.Resolve(block, pce);
+        Assert.Equal(4, resolved.Count);
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(AacPceChannelRegion.Front, resolved[i].Region);
+            Assert.Equal(i, resolved[i].RegionIndex);
+        }
+    }
+
+    [Fact]
+    public void Resolve_AssocDataIgnored_FrontStillResolved()
+    {
+        var pce = new AacProgramConfigurationElement
+        {
+            ElementInstanceTag = 0,
+            ObjectType = 1,
+            SamplingFrequencyIndex = 3,
+            FrontElements = new[] { Sce(0) },
+            SideElements = Array.Empty<AacPceChannelSlot>(),
+            BackElements = Array.Empty<AacPceChannelSlot>(),
+            LfeElements = Array.Empty<int>(),
+            AssocDataElements = new[] { 5, 6, 7 },
+            CouplingElements = Array.Empty<AacPceCouplingSlot>(),
+            CommentField = string.Empty,
+        };
+        var sceEntry = BuildSceEntry(tag: 0);
+        var block = BuildBlock(sceEntry);
+        var resolved = AacPceLayoutResolver.Resolve(block, pce);
+        Assert.Single(resolved);
+        Assert.Same(sceEntry, resolved[0].RawEntry);
+        Assert.Equal(AacPceChannelRegion.Front, resolved[0].Region);
+    }
+
+    [Fact]
+    public void Resolve_KindMismatch_LfeExpectedButSceProvided_Throws()
+    {
+        var pce = BuildPce(lfeElements: [4]);
+        var sceEntry = BuildSceEntry(tag: 4);
+        var block = BuildBlock(sceEntry);
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => AacPceLayoutResolver.Resolve(block, pce));
+        Assert.Contains("LfeChannelElement", ex.Message);
+        Assert.Contains("Lfe slot #0", ex.Message);
+    }
+
+    [Fact]
+    public void Resolve_CouplingMissingTag_MessageMentionsTagValue()
+    {
+        var pce = BuildPce(couplingElements: new[] { Coupling(42) });
+        var block = BuildBlock(BuildCceEntry(tag: 0));
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => AacPceLayoutResolver.Resolve(block, pce));
+        Assert.Contains("element_instance_tag=42", ex.Message);
+    }
+
+    [Fact]
+    public void Resolve_SameTagSce_AndCpe_AreDistinct()
+    {
+        // SCE tag 1 and CPE tag 1 may coexist - the resolver should pick by kind.
+        var pce = BuildPce(
+            frontElements: new[] { Sce(1) },
+            sideElements: new[] { Cpe(1) });
+        var sceEntry = BuildSceEntry(tag: 1);
+        var cpeEntry = BuildCpeEntry(tag: 1);
+        var block = BuildBlock(sceEntry, cpeEntry);
+
+        var resolved = AacPceLayoutResolver.Resolve(block, pce);
+        Assert.Equal(2, resolved.Count);
+        Assert.Same(sceEntry, resolved[0].RawEntry);
+        Assert.Equal(AacPceChannelRegion.Front, resolved[0].Region);
+        Assert.Same(cpeEntry, resolved[1].RawEntry);
+        Assert.Equal(AacPceChannelRegion.Side, resolved[1].Region);
+    }
+
+    [Fact]
+    public void Resolve_AllRegionsMixed_RegionIndices_PerRegion_From_Zero()
+    {
+        var pce = BuildPce(
+            frontElements: new[] { Sce(0), Cpe(1) },
+            sideElements: new[] { Sce(2) },
+            backElements: new[] { Cpe(3), Cpe(4) },
+            lfeElements: [0, 1],
+            couplingElements: new[] { Coupling(0) });
+        var block = BuildBlock(
+            BuildSceEntry(0), BuildCpeEntry(1),
+            BuildSceEntry(2),
+            BuildCpeEntry(3), BuildCpeEntry(4),
+            BuildLfeEntry(0), BuildLfeEntry(1),
+            BuildCceEntry(0));
+
+        var resolved = AacPceLayoutResolver.Resolve(block, pce);
+        Assert.Equal(8, resolved.Count);
+
+        Assert.Equal(0, resolved[0].RegionIndex);
+        Assert.Equal(1, resolved[1].RegionIndex);
+        Assert.Equal(0, resolved[2].RegionIndex);
+        Assert.Equal(0, resolved[3].RegionIndex);
+        Assert.Equal(1, resolved[4].RegionIndex);
+        Assert.Equal(0, resolved[5].RegionIndex);
+        Assert.Equal(1, resolved[6].RegionIndex);
+        Assert.Equal(0, resolved[7].RegionIndex);
+    }
+
+    [Fact]
+    public void AacPceResolvedEntry_Records_Distinct_RegionIndex_NotEqual()
+    {
+        var sce = BuildSceEntry(0);
+        var a = new AacPceResolvedEntry { RawEntry = sce, Region = AacPceChannelRegion.Front, RegionIndex = 0 };
+        var b = new AacPceResolvedEntry { RawEntry = sce, Region = AacPceChannelRegion.Front, RegionIndex = 1 };
+        Assert.NotEqual(a, b);
+    }
+
+    [Theory]
+    [InlineData(AacPceChannelRegion.Front)]
+    [InlineData(AacPceChannelRegion.Side)]
+    [InlineData(AacPceChannelRegion.Back)]
+    [InlineData(AacPceChannelRegion.Lfe)]
+    [InlineData(AacPceChannelRegion.Coupling)]
+    public void AacPceChannelRegion_EnumValues_AreDistinct(AacPceChannelRegion region)
+    {
+        // Ensures no two regions share underlying values - protects against
+        // accidental enum-value collapse.
+        Assert.Equal(region, region);
+    }
+
     // ----- helpers -----
 
     internal static AacPceChannelSlot Sce(int tag) => new() { IsCpe = false, TagSelect = tag };

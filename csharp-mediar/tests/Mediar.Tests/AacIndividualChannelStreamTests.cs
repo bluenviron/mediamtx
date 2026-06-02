@@ -470,4 +470,158 @@ public sealed class AacIndividualChannelStreamTests
         // 8 + 11 + 9 + 0 + 3 = 31 bits (the trailing 16 are NOT consumed).
         Assert.Equal(31, stream!.BitsConsumed);
     }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x01)]
+    [InlineData(0x55)]
+    [InlineData(0xAA)]
+    [InlineData(0xFF)]
+    public void TryRead_GlobalGain_Theory_PreservesEightBitValue(int gain)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write((uint)gain, 8);
+        WriteLongIcsInfo(w, maxSfb: 4);
+        WriteOneZeroSection(w, len: 4);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.Equal(gain, stream!.GlobalGain);
+    }
+
+    [Fact]
+    public void TryRead_SharedIcsInfo_ScaleFlagTrue_Skips_TrailingFlags()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var shared = new AacIcsInfo
+        {
+            WindowSequence = AacWindowSequence.OnlyLong,
+            WindowShape = AacWindowShape.Sine,
+            MaxSfb = 5,
+            ScaleFactorGrouping = null,
+            WindowGroupCount = 1,
+            WindowsPerGroup = new byte[] { 1 },
+            PredictorDataPresent = false,
+        };
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteOneZeroSection(w, len: 5);
+        // scaleFlag = true so no pulse/tns/gain trailing flags expected.
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), sharedIcsInfo: shared, scaleFlag: true, book, out var stream));
+        Assert.NotNull(stream);
+        Assert.Null(stream!.OwnIcsInfo);
+        Assert.Same(shared, stream.IcsInfo);
+        Assert.False(stream.PulseDataPresent);
+        Assert.False(stream.TnsDataPresent);
+        Assert.False(stream.GainControlDataPresent);
+        Assert.Equal(17, stream.BitsConsumed); // 8 + 9
+    }
+
+    [Fact]
+    public void TryRead_OwnIcsInfo_Returned_Matches_IcsInfo_When_NotShared()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 7, sequence: AacWindowSequence.LongStart);
+        WriteOneZeroSection(w, len: 7);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.NotNull(stream!.OwnIcsInfo);
+        Assert.Same(stream.OwnIcsInfo, stream.IcsInfo);
+        Assert.Equal(AacWindowSequence.LongStart, stream.IcsInfo.WindowSequence);
+        Assert.Equal(7, stream.IcsInfo.MaxSfb);
+    }
+
+    [Fact]
+    public void TryRead_EightShort_WithoutGcd_BitsConsumed_Includes_IcsInfo()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);                          // global_gain
+        WriteEightShortIcsInfo(w, maxSfb: 4, sfg: 0x7F); // 1 group of 8 windows
+        WriteOneZeroSection(w, len: 4, eightShort: true);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        // 8 + 15 (eight-short ics) + 7 (section: 4-bit cb + 3-bit len) + 3 (flags) = 33
+        Assert.Equal(33, stream!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryRead_PulseDataPresent_TruncatedPulseHeader_Rejected()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 5);
+        WriteOneZeroSection(w, len: 5);
+        w.Write(1u, 1);                  // pulse_data_present
+        // pulse_data: number_pulse (2 bits) + start_sfb (6 bits) + pulses
+        w.Write(0u, 2); w.Write(5u, 6);
+        // truncated - no pulse offset/amplitude bits
+        Assert.False(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.Null(stream);
+    }
+
+    [Fact]
+    public void TryRead_TnsDataPresent_TruncatedTnsHeader_Rejected()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 5);
+        WriteOneZeroSection(w, len: 5);
+        w.Write(0u, 1);                  // pulse_data_present = 0
+        w.Write(1u, 1);                  // tns_data_present = 1
+        // truncated - no n_filt/coef_res/length/order
+        Assert.False(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.Null(stream);
+    }
+
+    [Fact]
+    public void TryRead_LongIcsInfo_OnlyLongStop_Sequence_Parsed()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 3, sequence: AacWindowSequence.LongStop);
+        WriteOneZeroSection(w, len: 3);
+        w.Write(0u, 1); w.Write(0u, 1); w.Write(0u, 1);
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        Assert.Equal(AacWindowSequence.LongStop, stream!.IcsInfo.WindowSequence);
+    }
+
+    [Fact]
+    public void TryRead_BothPulseAndTns_BitsConsumed_Accumulates()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        WriteLongIcsInfo(w, maxSfb: 8);
+        WriteOneZeroSection(w, len: 8);
+        w.Write(1u, 1);                  // pulse_data_present
+        // pulse_data: number_pulse=0 (1 pulse), start_sfb=1, off=2, amp=3 = 8+9=17 bits
+        w.Write(0u, 2); w.Write(1u, 6); w.Write(2u, 5); w.Write(3u, 4);
+        w.Write(1u, 1);                  // tns_data_present
+        // tns_data: n_filt=1 (2), coef_res=0 (1), length=8 (6), order=0 (5) = 14 bits
+        w.Write(1u, 2); w.Write(0u, 1); w.Write(8u, 6); w.Write(0u, 5);
+        w.Write(0u, 1);                  // gain_control_data_present
+
+        Assert.True(AacIndividualChannelStream.TryParse(
+            w.ToArray(), null, false, book, out var stream));
+        // 8 + 11 + 9 + 1 + 17 + 1 + 14 + 1 = 62 bits
+        Assert.Equal(62, stream!.BitsConsumed);
+    }
 }
