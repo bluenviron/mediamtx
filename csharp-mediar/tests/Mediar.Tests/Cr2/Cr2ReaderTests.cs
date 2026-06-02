@@ -336,4 +336,41 @@ public sealed class Cr2ReaderTests
         Assert.Equal(ImageFormat.Cr2, cr2.Info.Format);
         Assert.False(cr2.Info.HasAlpha);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Cr2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestCr2Builder.Build(chain: [MakeRgbStrip(4, 4)], raw: null);
+        var r = Cr2Reader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Format_Is_Cr2()
+    {
+        byte[] bytes = TestCr2Builder.Build(chain: [MakeRgbStrip(4, 4)], raw: null);
+        using var cr2 = Cr2Reader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Cr2, cr2.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestCr2Builder.Build(chain: [MakeRgbStrip(4, 4)], raw: null);
+        using var cr2 = Cr2Reader.Open(new MemoryStream(bytes, writable: false));
+        if (!cr2.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in cr2.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
 }

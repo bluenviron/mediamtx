@@ -290,6 +290,68 @@ public class PsdReaderTests
         return ms.ToArray();
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PsdReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 3, depth: 8, mode: PsdColorMode.Rgb, version: 1);
+        var ms = new MemoryStream(psd);
+        using (var r = PsdReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Psd, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 3, depth: 8, mode: PsdColorMode.Rgb, version: 1);
+        using var ms = new MemoryStream(psd);
+        using (var r = PsdReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Psd, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'8', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 3, depth: 8, mode: PsdColorMode.Rgb, version: 1);
+        var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Psd()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 3, depth: 8, mode: PsdColorMode.Rgb, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        Assert.Equal(ImageFormat.Psd, r.Info.Format);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        var psd = BuildPsd(width: 2, height: 2, channels: 3, depth: 8, mode: PsdColorMode.Rgb, version: 1);
+        using var r = PsdReader.Open(new MemoryStream(psd), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
     private static byte[] BuildPsd(int width, int height, int channels, int depth, PsdColorMode mode,
                                     int version, int compression = 0, byte[][]? channelData = null,
                                     byte[]? imageResources = null)
