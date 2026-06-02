@@ -16,13 +16,68 @@ commits.
 |  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ✅ shipped |
 |  2c.3a | CELT `unquant_fine_energy` (fine-energy refinement of coarse spectrum)    | ✅ shipped |
 | 2c.3b.1 | CELT PVQ math helpers + pulse cache (`bitexact_cos`, `bitexact_log2tan`, `bits2pulses`, `pulses2bits`, `get_pulses`, `cache_index50`/`cache_bits50`) | ✅ shipped |
-|  2c.3b | CELT PVQ shape decode (`decode_pulses`, `cwrsi`, `quant_all_bands`)       | ⏳ planned |
+| 2c.3b.2 | CELT PVQ shape decode primitives (`decode_pulses`, `cwrsi`, small-footprint `unext`/`uprev` recurrence) | ✅ shipped |
+|  2c.3b | CELT PVQ shape decode (`compute_theta`, `quant_band_n1`, `quant_partition`, `quant_band`, `quant_all_bands` integration) | ⏳ planned |
 |  2c.4 | CELT anti-collapse + `unquant_energy_finalise` (final energy)              | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.3b.2 behavior (added on top of Phase 2c.3b.1)
+
+Phase 2c.3b.2 ports the **PVQ shape codeword decoder** itself —
+libopus `cwrsi` plus its `decode_pulses` range-coder wrapper. Given a
+codeword index `i ∈ [0, V(N, K))` the decoder reconstructs the unique
+N-dimensional signed integer vector whose absolute values sum to K.
+This is the inverse of CELT's spherical-vector quantiser and runs
+once per band on every CELT frame.
+
+New surface area in `CeltPvq`:
+
+- **`DecodePulses(ref OpusRangeDecoder, int n, int k, Span<int> y) → int yy`** —
+  reads `ceil(log2(V(n,k)))` bits from the range coder via
+  `ec_dec_uint`, decodes the resulting index into `y[0..n)`, and
+  returns the sum-of-squares `yy = Σ y[j]²`. Pure stack allocations;
+  no GC pressure.
+- **`ComputeV(int n, int k) → uint`** — returns the codebook size
+  `V(N, K) = U(N, K) + U(N, K+1)`, i.e. the number of length-N integer
+  vectors with `Σ |y| = K`. Used by both the decoder and the bit
+  allocator. Cross-checked against the closed forms
+  `V(2,K)=4K`, `V(3,K)=4K²+2`, `V(4,K)=8K(K²+2)/3`, and against the
+  libopus static `U_DATA` table at the upper edge (`V(5,5)=1002`,
+  `V(6,6)=5336`).
+- **`Cwrsi`** (internal) — small-footprint port of libopus `cwrsi`.
+  Uses two `O(K)` recurrences (`Unext`, `Uprev`) instead of the 1272-
+  entry static `U` table, trading a few kilocycles per band for ~5 KB
+  of binary size.
+
+Why the small-footprint variant: the production libopus `cwrsi` reads
+from a precomputed `CELT_PVQ_U_DATA` array (`U[NMAX=11][KMAX=128+1]`),
+which would balloon this decoder's data segment. The recurrence
+variant produces bit-identical output (verified by an exhaustive
+visit-every-codeword test for all `(n, k)` with `n ∈ [2, 6]`,
+`k ∈ [1, 6]`) and a decode-then-encode round-trip test over
+the same grid.
+
+Test coverage (`CeltPvqTests`, 26 new tests):
+
+- **`DecodePulses_Visits_Every_Codeword_Exactly_Once`** — enumerates
+  `i ∈ [0, V(n, k))`, decodes each, and asserts that the resulting
+  `V(n,k)` vectors are all distinct, all have `Σ |y| == k`, and all
+  have `yy == Σ y[j]²`.
+- **`Decode_Then_Encode_Round_Trips_For_All_Indices`** — pairs each
+  decoder output with a test-only `IcwrsEncode` (small-footprint
+  `icwrs` port) and confirms `encode(decode(i)) == i`.
+- **`DecodePulses_Reads_From_Range_Coder_And_Produces_Valid_Vector`** —
+  smoke test that confirms the range-coder integration is wired
+  correctly end-to-end.
+- Boundary checks: `n < 2`, `k < 1`, undersized `y` span, and `i ≥ V(n,k)`
+  all throw the expected exceptions.
+
+Output is still silence — `CeltPvq.DecodePulses` won't be invoked from
+`CeltDecoder.Decode` until `quant_all_bands` lands in Phase 2c.3b.5.
 
 ## Phase 2c.3b.1 behavior (added on top of Phase 2c.3a)
 
