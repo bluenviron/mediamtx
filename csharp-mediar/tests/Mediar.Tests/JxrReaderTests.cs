@@ -303,4 +303,10 @@ public class JxrReaderTests
         BinaryPrimitives.WriteUInt32LittleEndian(entry.Slice(8, 4), value);
         s.Write(entry);
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => JxrReader.Open((string)null!));
+    }
 }

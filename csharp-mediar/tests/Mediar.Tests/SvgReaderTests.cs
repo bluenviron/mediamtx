@@ -349,4 +349,10 @@ public class SvgReaderTests
         Assert.Equal(1, r.Info.Width);
         Assert.Equal(3, r.Info.Height);
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => SvgReader.Open((string)null!));
+    }
 }

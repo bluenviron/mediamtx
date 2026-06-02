@@ -368,4 +368,10 @@ public class BpgReaderTests
             s.WriteByte(by);
         }
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => BpgReader.Open((string)null!));
+    }
 }
