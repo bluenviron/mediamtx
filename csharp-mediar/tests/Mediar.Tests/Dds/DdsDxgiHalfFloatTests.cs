@@ -112,4 +112,105 @@ public sealed class DdsDxgiHalfFloatTests
         Assert.False(PixelFormat.Rgb48Float.HasAlpha());
         Assert.True(PixelFormat.Rgba64Float.HasAlpha());
     }
+
+    [Fact]
+    public async Task R16_FLOAT_Round_Trips_Half_Bytes()
+    {
+        const int w = 2, h = 1;
+        var payload = new byte[w * h * 2];
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(0, 2), (Half)1.5f);
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(2, 2), (Half)(-0.25f));
+        var file = Concat(BuildDx10Dds(w, h, 54), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R16G16_FLOAT_Round_Trips_Half_Bytes()
+    {
+        const int w = 1, h = 1;
+        var payload = new byte[w * h * 4];
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(0, 2), (Half)2.0f);
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(2, 2), (Half)(-2.0f));
+        var file = Concat(BuildDx10Dds(w, h, 34), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R16_FLOAT_Preserves_PositiveInfinity_Bit_Pattern()
+    {
+        var payload = new byte[2];
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(0, 2), Half.PositiveInfinity);
+        var file = Concat(BuildDx10Dds(1, 1, 54), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        var roundTrip = BinaryPrimitives.ReadHalfLittleEndian(frame!.Pixels.Span.Slice(0, 2));
+        Assert.True(Half.IsPositiveInfinity(roundTrip));
+    }
+
+    [Fact]
+    public async Task R16_FLOAT_Preserves_NegativeInfinity_Bit_Pattern()
+    {
+        var payload = new byte[2];
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(0, 2), Half.NegativeInfinity);
+        var file = Concat(BuildDx10Dds(1, 1, 54), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        var roundTrip = BinaryPrimitives.ReadHalfLittleEndian(frame!.Pixels.Span.Slice(0, 2));
+        Assert.True(Half.IsNegativeInfinity(roundTrip));
+    }
+
+    [Fact]
+    public async Task R16_FLOAT_Preserves_NaN_Bit_Pattern()
+    {
+        var payload = new byte[2];
+        BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(0, 2), Half.NaN);
+        var file = Concat(BuildDx10Dds(1, 1, 54), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        var roundTrip = BinaryPrimitives.ReadHalfLittleEndian(frame!.Pixels.Span.Slice(0, 2));
+        Assert.True(Half.IsNaN(roundTrip));
+    }
+
+    [Fact]
+    public async Task R16G16B16A16_FLOAT_MultiRow_Stride_And_Bytes_Preserved()
+    {
+        const int w = 2, h = 3;
+        var payload = new byte[w * h * 8];
+        for (int i = 0; i < w * h; i++)
+        {
+            BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(i * 8 + 0, 2), (Half)(i * 0.5f));
+            BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(i * 8 + 2, 2), (Half)(i * 0.25f));
+            BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(i * 8 + 4, 2), (Half)(i * 0.125f));
+            BinaryPrimitives.WriteHalfLittleEndian(payload.AsSpan(i * 8 + 6, 2), (Half)1.0f);
+        }
+        var file = Concat(BuildDx10Dds(w, h, 10), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(w * 8, frame!.Stride);
+        Assert.Equal(h, frame!.Height);
+        Assert.True(frame!.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public void HalfFloat_Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms));
+    }
 }

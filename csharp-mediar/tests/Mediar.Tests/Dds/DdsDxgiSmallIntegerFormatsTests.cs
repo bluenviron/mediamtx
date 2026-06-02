@@ -82,6 +82,112 @@ public sealed class DdsDxgiSmallIntegerFormatsTests
         Assert.Fail("expected one frame");
     }
 
+    [Fact]
+    public async Task DxgiR8_UINT_Round_Trips_Pixels_Byte_For_Byte()
+    {
+        const uint dxgi = 62u; // R8_UINT
+        var pixels = new byte[] { 0x00, 0x7F, 0x80, 0xFF };
+        var dds = BuildDx10Dds(4, 1, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        Assert.Equal(PixelFormat.Gray8, reader.Info.PixelFormat);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
+    [Fact]
+    public async Task DxgiR8G8_SINT_Round_Trips_Signed_Bytes()
+    {
+        const uint dxgi = 52u; // R8G8_SINT
+        var pixels = new byte[] { 0x80, 0x7F, 0xFF, 0x01 }; // -128, 127, -1, 1
+        var dds = BuildDx10Dds(2, 1, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        Assert.Equal(PixelFormat.GrayAlpha16, reader.Info.PixelFormat);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
+    [Fact]
+    public async Task DxgiR16G16_UINT_Round_Trips_Pixels_Byte_For_Byte()
+    {
+        const uint dxgi = 36u; // R16G16_UINT
+        var pixels = new byte[] { 0x00, 0x00, 0xFF, 0xFF, 0x34, 0x12, 0xCD, 0xAB };
+        var dds = BuildDx10Dds(2, 1, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        Assert.Equal(PixelFormat.Rg32, reader.Info.PixelFormat);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
+    [Fact]
+    public async Task DxgiR16G16B16A16_UINT_Round_Trips_Pixels_Byte_For_Byte()
+    {
+        const uint dxgi = 12u; // R16G16B16A16_UINT
+        var pixels = new byte[16];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = (byte)(i * 17);
+        var dds = BuildDx10Dds(2, 1, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba64, reader.Info.PixelFormat);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
+    [Fact]
+    public async Task DxgiR8G8B8A8_SINT_Round_Trips_Bytes_Verbatim()
+    {
+        const uint dxgi = 32u; // R8G8B8A8_SINT
+        var pixels = new byte[] { 0x80, 0x7F, 0xFF, 0x01, 0x00, 0x00, 0xFF, 0xFF };
+        var dds = BuildDx10Dds(2, 1, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        Assert.Equal(PixelFormat.Rgba32, reader.Info.PixelFormat);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
+    [Fact]
+    public async Task DxgiR16G16_UINT_MultiRow_Stride_Is_Correct()
+    {
+        const int w = 2, h = 3;
+        const uint dxgi = 36u; // R16G16_UINT, 4 bpp
+        var pixels = new byte[w * h * 4];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = (byte)((i * 7) & 0xFF);
+        var dds = BuildDx10Dds(w, h, dxgi, pixels);
+        using var ms = new MemoryStream(dds, writable: false);
+        using var reader = DdsReader.Open(ms);
+        await foreach (var frame in reader.ReadFramesAsync())
+        {
+            Assert.Equal(w * 4, frame.Stride);
+            Assert.Equal(h, frame.Height);
+            Assert.Equal(pixels, frame.Pixels.ToArray());
+            return;
+        }
+        Assert.Fail("expected one frame");
+    }
+
     private static byte[] BuildDx10Dds(int width, int height, uint dxgi, byte[]? payload = null)
     {
         var bpp = dxgi switch
