@@ -168,6 +168,166 @@ public class Av1CodecConfigurationRecordTests
         Assert.False(r.TryGetAv1CodecConfiguration(1, out _));
     }
 
+    [Theory]
+    [InlineData((byte)0, Av1ChromaSamplePosition.Unknown)]
+    [InlineData((byte)1, Av1ChromaSamplePosition.Vertical)]
+    [InlineData((byte)2, Av1ChromaSamplePosition.Colocated)]
+    [InlineData((byte)3, Av1ChromaSamplePosition.Reserved)]
+    public void TryParse_AllChromaSamplePositions_Map(byte raw, Av1ChromaSamplePosition expected)
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        // chroma_x=1, chroma_y=1 so chroma_sample_position bits are meaningful.
+        payload[2] = (byte)((1 << 3) | (1 << 2) | raw);
+        payload[3] = 0;
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expected, rec.ChromaSamplePosition);
+    }
+
+    [Theory]
+    [InlineData(false, false, 8)]
+    [InlineData(true, false, 10)]
+    [InlineData(true, true, 12)]
+    [InlineData(false, true, 12)]
+    public void BitDepth_Property_Matches_HighBitDepth_And_TwelveBit(
+        bool highBitDepth, bool twelveBit, int expected)
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        int b2 = 0;
+        if (highBitDepth) b2 |= 1 << 6;
+        if (twelveBit) b2 |= 1 << 5;
+        b2 |= (1 << 3) | (1 << 2); // 4:2:0
+        payload[2] = (byte)b2;
+        payload[3] = 0;
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expected, rec.BitDepth);
+    }
+
+    [Theory]
+    [InlineData(0, 0, "4:4:4")]
+    [InlineData(1, 0, "4:2:2")]
+    [InlineData(1, 1, "4:2:0")]
+    [InlineData(0, 1, "unknown")]
+    public void ChromaFormat_Property_Matches_Subsampling_Combinations(
+        int chromaX, int chromaY, string expected)
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        int b2 = 0;
+        // mono = 0
+        if (chromaX == 1) b2 |= 1 << 3;
+        if (chromaY == 1) b2 |= 1 << 2;
+        payload[2] = (byte)b2;
+        payload[3] = 0;
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal(expected, rec.ChromaFormat);
+    }
+
+    [Fact]
+    public void ChromaFormat_Monochrome_Overrides_Subsampling_To_4_0_0()
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        // monochrome=1, chroma_x=0, chroma_y=0 → still "4:0:0".
+        payload[2] = (byte)(1 << 4);
+        payload[3] = 0;
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.True(rec.Monochrome);
+        Assert.Equal("4:0:0", rec.ChromaFormat);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(7, 8)]
+    [InlineData(15, 16)]
+    public void TryParse_InitialPresentationDelay_MinusOne_RoundTrip(int rawMinusOne, int expectedIpd)
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        payload[2] = 0x0C;
+        payload[3] = (byte)((1 << 4) | (rawMinusOne & 0x0F));
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal((byte)expectedIpd, rec.InitialPresentationDelay);
+    }
+
+    [Fact]
+    public void TryParse_InitialPresentationDelay_AbsentLeavesNull()
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = 0;
+        payload[2] = 0x0C;
+        payload[3] = 0x07; // ipd_present=0 but low nibble set → still null.
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Null(rec.InitialPresentationDelay);
+    }
+
+    [Fact]
+    public void TryParse_Exact4Bytes_HasEmptyConfigObus()
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.True(rec.ConfigObus.IsEmpty);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void TryParse_BufferShorterThan4Bytes_Rejected(int length)
+    {
+        Assert.False(Av1CodecConfigurationRecord.TryParse(new byte[length], out _));
+    }
+
+    [Fact]
+    public void TryParse_PreservesAllSevenVersionBits()
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x7F; // version = 127
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal((byte)0x7F, rec.Version);
+    }
+
+    [Fact]
+    public void TryParse_MaxSeqProfileAndLevel()
+    {
+        byte[] payload = new byte[4];
+        payload[0] = 0x80 | 0x01;
+        payload[1] = (byte)((7 << 5) | 31); // profile=7, level=31
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        Assert.Equal((byte)7, rec.SeqProfile);
+        Assert.Equal((byte)31, rec.SeqLevelIdx0);
+    }
+
+    [Fact]
+    public void Record_Equality_HoldsForIdenticalPayloads()
+    {
+        byte[] payload = new byte[] { 0x81, (0 << 5) | 4, 0x0C, 0x00 };
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var a));
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var b));
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Record_With_Expression_Mutates_OnlyChosenField()
+    {
+        byte[] payload = new byte[] { 0x81, (0 << 5) | 4, 0x0C, 0x00 };
+        Assert.True(Av1CodecConfigurationRecord.TryParse(payload, out var rec));
+        var mutated = rec with { Monochrome = true };
+        Assert.True(mutated.Monochrome);
+        Assert.Equal(rec.BitDepth, mutated.BitDepth);
+        Assert.Equal("4:0:0", mutated.ChromaFormat);
+        Assert.False(rec.Monochrome);
+    }
+
     private static byte[] BuildIspePayload(uint width, uint height)
     {
         byte[] payload = new byte[12];

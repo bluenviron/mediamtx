@@ -264,4 +264,97 @@ public sealed class AacFillExtensionPayloadTests
         // assert ExtensionType resolved and exposing a value did not throw.
         _ = payload.DataElement;
     }
+
+    [Theory]
+    [InlineData((byte)0x0)]
+    [InlineData((byte)0x1)]
+    [InlineData((byte)0x2)]
+    [InlineData((byte)0x3)]
+    [InlineData((byte)0xB)]
+    [InlineData((byte)0xC)]
+    [InlineData((byte)0xD)]
+    [InlineData((byte)0xE)]
+    [InlineData((byte)0xF)]
+    public void TryParse_AllRawTypes_PreservesNibble(byte type)
+    {
+        byte[] data = [(byte)(type << 4)];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Equal(type, payload!.RawType);
+        Assert.Equal((AacFillExtensionType)type, payload.ExtensionType);
+    }
+
+    [Fact]
+    public void TryParse_NonDynamicRange_LeavesDynamicRangeNull()
+    {
+        byte[] data = [0xD0, 0x00, 0x00];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Null(payload!.DynamicRange);
+    }
+
+    [Fact]
+    public void TryParse_NonSbr_LeavesSbrNull()
+    {
+        byte[] data = [0xB0, 0x00, 0x00];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Null(payload!.Sbr);
+    }
+
+    [Fact]
+    public void TryParse_NonFillData_LeavesFillDataNull()
+    {
+        byte[] data = [0xC0, 0x10];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Null(payload!.FillData);
+    }
+
+    [Fact]
+    public void TryParse_NonSac_LeavesSacNull()
+    {
+        byte[] data = [0xB0, 0x10];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Null(payload!.Sac);
+    }
+
+    [Fact]
+    public void TryParse_NonDataElement_LeavesDataElementNull()
+    {
+        byte[] data = [0xD0, 0x10];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Null(payload!.DataElement);
+    }
+
+    [Fact]
+    public void Record_With_Expression_Preserves_OtherFields()
+    {
+        byte[] data = [0xD3];
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var original));
+        var mutated = original! with { RawType = 0xB };
+        Assert.Equal((byte)0xB, mutated.RawType);
+        Assert.Equal(AacFillExtensionType.DynamicRange, mutated.ExtensionType);
+        Assert.Equal(original.BodyBitLength, mutated.BodyBitLength);
+        Assert.Equal(original.Body, mutated.Body);
+    }
+
+    [Fact]
+    public void IsKnownExtensionType_Mirrors_Static_IsKnown_Method()
+    {
+        for (byte t = 0; t <= 0xF; t++)
+        {
+            byte[] data = [(byte)(t << 4)];
+            Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+            Assert.Equal(AacFillExtensionPayload.IsKnown(t), payload!.IsKnownExtensionType);
+        }
+    }
+
+    [Fact]
+    public void TryParse_LongBuffer_BodyContainsAllShiftedBytes()
+    {
+        byte[] data = [0xD1, 0x23, 0x45, 0x67, 0x89];
+        // Body bits: 5*8 - 4 = 36. body bytes: ceil(36/8) = 5.
+        // Shift content left 4 bits: 0x1, 0x23, 0x45, 0x67, 0x89 → packed bytes:
+        // 0x12, 0x34, 0x56, 0x78, 0x90.
+        Assert.True(AacFillExtensionPayload.TryParse(data, out var payload));
+        Assert.Equal(36, payload!.BodyBitLength);
+        Assert.Equal(new byte[] { 0x12, 0x34, 0x56, 0x78, 0x90 }, payload.Body.ToArray());
+    }
 }
