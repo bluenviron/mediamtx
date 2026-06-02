@@ -322,4 +322,203 @@ public sealed class AacSpectralValueDecoderTests
         Span<int> values = stackalloc int[2];
         Assert.False(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
     }
+
+    [Fact]
+    public void MaxEscapePrefix_Constant_Is_8()
+    {
+        Assert.Equal(8, AacSpectralValueDecoder.MaxEscapePrefix);
+    }
+
+    [Fact]
+    public void TryRead_Cb11_EscapeAtMaxPrefix_8_Accepted()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(11)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 9;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 16 -> (0, 16). Prefix = 8 means 12-bit extension follows.
+        var w = new AacBitWriter();
+        w.Write(16u, 9);
+        w.Write(0u, 1); // sign positive
+        for (int i = 0; i < 8; i++) w.Write(1u, 1); // 8 unary 1s
+        w.Write(0u, 1); // terminator
+        w.Write(0u, 12); // 12-bit extension = 0
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[2];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        Assert.Equal(0, values[0]);
+        // magnitude = (1 << (8+4)) + 0 = 4096
+        Assert.Equal(4096, values[1]);
+    }
+
+    [Fact]
+    public void TryRead_Cb11_EscapeMaxExtension_DecodesMaxMagnitude()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(11)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 9;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 16 -> (0, 16). Prefix = 8, extension = 0xFFF (12 bits all ones)
+        var w = new AacBitWriter();
+        w.Write(16u, 9);
+        w.Write(0u, 1); // sign positive
+        for (int i = 0; i < 8; i++) w.Write(1u, 1);
+        w.Write(0u, 1);
+        w.Write(0xFFFu, 12); // extension = 4095
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[2];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        // magnitude = 4096 + 4095 = 8191
+        Assert.Equal(8191, values[1]);
+    }
+
+    [Fact]
+    public void TryRead_Cb11_EscapeExtensionUnderflow_Rejected()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(11)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 9;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 16 -> (0, 16). prefix=0 means 4-bit extension; provide only 2 bits.
+        var w = new AacBitWriter();
+        w.Write(16u, 9);
+        w.Write(0u, 1); // sign positive
+        w.Write(0u, 1); // escape prefix terminator
+        // truncate by emitting nothing more; BitWriter pads to next byte so we have 5 unread bits left
+        // need to manually craft buffer to underflow.
+        // After 9-bit symbol + 1-bit sign + 1-bit terminator = 11 bits = 2 bytes. Only 5 bits remain in pad.
+        // Need ext_bits = 4 (>= 5? actually 4 <= 5 so it succeeds).
+        // Instead, use single-byte buffer truncated so codeword can't even fit (8 bits < 9-bit codeword).
+        var bytes = new byte[] { 0x00 };
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[2];
+        Assert.False(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+    }
+
+    [Fact]
+    public void TryRead_Cb11_NoEscape_BothComponentsNonZero_OnlySignBitsRead()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(11)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 9;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 18 -> Get geometry to confirm magnitudes are not 16; pick small magnitudes.
+        // 18 with quantizer of 17 = row 1, col 1 -> (1, 1). Actually geometry depends on impl.
+        // Use sym 1 (0, 1) for guaranteed no-escape.
+        var w = new AacBitWriter();
+        w.Write(1u, 9);
+        w.Write(0u, 1); // sign for y positive
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[2];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        Assert.Equal(0, values[0]);
+        Assert.Equal(1, values[1]);
+        Assert.Equal(10, reader.Position);
+    }
+
+    [Fact]
+    public void TryRead_NullGeometry_Throws()
+    {
+        int[] lengths = new int[81];
+        for (int i = 0; i < 81; i++) lengths[i] = 7;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            var reader = new BitReader(new byte[] { 0 });
+            Span<int> values = stackalloc int[4];
+            AacSpectralValueDecoder.TryRead(ref reader, null!, book, values);
+        });
+    }
+
+    [Fact]
+    public void TryRead_NullCodebook_Throws()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(1)!;
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            var reader = new BitReader(new byte[] { 0 });
+            Span<int> values = stackalloc int[4];
+            AacSpectralValueDecoder.TryRead(ref reader, geom, null!, values);
+        });
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void TryRead_SignedCodebooks_ReadOnlyCodeword(int cb)
+    {
+        var geom = AacSpectralCodebookGeometry.Get(cb)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 7;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        var w = new AacBitWriter();
+        // Decode symbol 0 - signed codebooks need no sign bits.
+        w.Write(0u, 7);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[geom.Dimension];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        Assert.Equal(7, reader.Position);
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void TryRead_UnsignedCodebooks_HappyPath(int cb)
+    {
+        var geom = AacSpectralCodebookGeometry.Get(cb)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 8;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 0 -> all-zero component tuple - no sign bits, no escape.
+        var w = new AacBitWriter();
+        w.Write(0u, 8);
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[geom.Dimension];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        for (int i = 0; i < geom.Dimension; i++) Assert.Equal(0, values[i]);
+    }
+
+    [Fact]
+    public void TryRead_Cb3_SingleNonZeroSign_Negative()
+    {
+        var geom = AacSpectralCodebookGeometry.Get(3)!;
+        int[] lengths = new int[geom.SymbolCount];
+        for (int i = 0; i < geom.SymbolCount; i++) lengths[i] = 7;
+        var book = AacHuffmanCodebook.FromCanonicalLengths(lengths);
+
+        // Symbol 1 -> (0, 0, 0, 1): single sign bit for last component.
+        var w = new AacBitWriter();
+        w.Write(1u, 7);
+        w.Write(1u, 1); // negative
+        var bytes = w.ToArray();
+        var reader = new BitReader(bytes);
+
+        Span<int> values = stackalloc int[4];
+        Assert.True(AacSpectralValueDecoder.TryRead(ref reader, geom, book, values));
+        Assert.Equal(0, values[0]);
+        Assert.Equal(0, values[1]);
+        Assert.Equal(0, values[2]);
+        Assert.Equal(-1, values[3]);
+        Assert.Equal(8, reader.Position);
+    }
 }

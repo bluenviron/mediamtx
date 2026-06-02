@@ -328,4 +328,179 @@ public sealed class AacProgramConfigurationElementTests
         CouplingElements = [],
         CommentField = string.Empty,
     };
+
+    [Fact]
+    public void ToBytes_ElementInstanceTag_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with { ElementInstanceTag = 16 };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_ObjectType_Over_3_Throws()
+    {
+        var pce = MinimalStereo() with { ObjectType = 4 };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_SamplingFrequencyIndex_15_Throws()
+    {
+        var pce = MinimalStereo() with { SamplingFrequencyIndex = 15 };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_LfeElements_Count_Over_3_Throws()
+    {
+        var pce = MinimalStereo() with { LfeElements = [0, 1, 2, 3] };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_AssocDataElements_Count_Over_7_Throws()
+    {
+        var pce = MinimalStereo() with { AssocDataElements = [0, 1, 2, 3, 4, 5, 6, 7] };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_MonoMixdown_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with { MonoMixdownElementNumber = 16 };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_StereoMixdown_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with { StereoMixdownElementNumber = 16 };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_MatrixMixdown_Index_Over_3_Throws()
+    {
+        var pce = MinimalStereo() with
+        {
+            MatrixMixdown = new AacPceMatrixMixdown { Index = 4, PseudoSurroundEnable = false },
+        };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_ChannelSlot_TagSelect_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with
+        {
+            FrontElements = [new AacPceChannelSlot { IsCpe = true, TagSelect = 16 }],
+        };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_LfeTag_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with { LfeElements = [16] };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_CouplingSlot_TagSelect_Over_15_Throws()
+    {
+        var pce = MinimalStereo() with
+        {
+            CouplingElements = [new AacPceCouplingSlot { IsIndependentlySwitched = true, TagSelect = 16 }],
+        };
+        Assert.Throws<InvalidOperationException>(() => pce.ToBytes());
+    }
+
+    [Theory]
+    [InlineData(0, AacAudioObjectType.AacMain)] // 0 + 1 = 1
+    [InlineData(1, AacAudioObjectType.AacLc)]   // 1 + 1 = 2
+    [InlineData(2, AacAudioObjectType.AacSsr)]  // 2 + 1 = 3
+    [InlineData(3, AacAudioObjectType.AacLtp)]  // 3 + 1 = 4
+    public void ObjectTypeEnum_Computes_AOT(int objectType, AacAudioObjectType expected)
+    {
+        var pce = MinimalStereo() with { ObjectType = objectType };
+        Assert.Equal(expected, pce.ObjectTypeEnum);
+    }
+
+    [Theory]
+    [InlineData(0, 96000)]
+    [InlineData(3, 48000)]
+    [InlineData(4, 44100)]
+    [InlineData(11, 8000)]
+    public void SamplingFrequency_Resolves_From_Index(int sfIndex, int expectedHz)
+    {
+        var pce = MinimalStereo() with { SamplingFrequencyIndex = sfIndex };
+        Assert.Equal(expectedHz, pce.SamplingFrequency);
+    }
+
+    [Fact]
+    public void AacPceChannelSlot_ChannelCount_Sce_IsOne_Cpe_IsTwo()
+    {
+        var sce = new AacPceChannelSlot { IsCpe = false, TagSelect = 0 };
+        var cpe = new AacPceChannelSlot { IsCpe = true, TagSelect = 0 };
+        Assert.Equal(1, sce.ChannelCount);
+        Assert.Equal(2, cpe.ChannelCount);
+    }
+
+    [Fact]
+    public void AacPceChannelSlot_Equality_Works()
+    {
+        var a = new AacPceChannelSlot { IsCpe = true, TagSelect = 1 };
+        var b = new AacPceChannelSlot { IsCpe = true, TagSelect = 1 };
+        var c = new AacPceChannelSlot { IsCpe = false, TagSelect = 1 };
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void AacPceMatrixMixdown_Equality_Works()
+    {
+        var a = new AacPceMatrixMixdown { Index = 2, PseudoSurroundEnable = true };
+        var b = new AacPceMatrixMixdown { Index = 2, PseudoSurroundEnable = true };
+        var c = new AacPceMatrixMixdown { Index = 1, PseudoSurroundEnable = true };
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void AacPceCouplingSlot_Equality_Works()
+    {
+        var a = new AacPceCouplingSlot { IsIndependentlySwitched = true, TagSelect = 3 };
+        var b = new AacPceCouplingSlot { IsIndependentlySwitched = true, TagSelect = 3 };
+        var c = new AacPceCouplingSlot { IsIndependentlySwitched = false, TagSelect = 3 };
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void Pce_Record_With_Expression_Modifies_Single_Property()
+    {
+        var pce = MinimalStereo();
+        var modified = pce with { ElementInstanceTag = 5 };
+        Assert.Equal(5, modified.ElementInstanceTag);
+        Assert.Equal(pce.ObjectType, modified.ObjectType);
+        Assert.NotEqual(pce.ElementInstanceTag, modified.ElementInstanceTag);
+    }
+
+    [Fact]
+    public void ToBytes_Then_TryParse_All_Mixdowns_Combined_RoundTrips()
+    {
+        var pce = MinimalStereo() with
+        {
+            MonoMixdownElementNumber = 3,
+            StereoMixdownElementNumber = 7,
+            MatrixMixdown = new AacPceMatrixMixdown { Index = 1, PseudoSurroundEnable = false },
+        };
+        byte[] bytes = pce.ToBytes();
+        Assert.True(AacProgramConfigurationElement.TryParse(bytes, out var decoded));
+        Assert.Equal(3, decoded!.MonoMixdownElementNumber);
+        Assert.Equal(7, decoded.StereoMixdownElementNumber);
+        Assert.NotNull(decoded.MatrixMixdown);
+        Assert.Equal(1, decoded.MatrixMixdown!.Value.Index);
+        Assert.False(decoded.MatrixMixdown.Value.PseudoSurroundEnable);
+    }
 }
