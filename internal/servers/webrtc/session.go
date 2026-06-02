@@ -218,6 +218,16 @@ func fullAnswerToSDPFragment(answerSDP string) (*whip.SDPFragment, error) {
 	return frag, nil
 }
 
+type initialRequestRes struct {
+	answer        []byte
+	err           error
+	errStatusCode int
+}
+
+type initialRequestReq struct {
+	res chan initialRequestRes
+}
+
 type sessionParent interface {
 	closeSession(sx *session)
 	generateICEServers(clientConfig bool) ([]pwebrtc.ICEServer, error)
@@ -235,7 +245,11 @@ type session struct {
 	stunGatherTimeout     conf.Duration
 	handshakeTimeout      conf.Duration
 	trackGatherTimeout    conf.Duration
-	req                   webRTCNewSessionReq
+	pathName              string
+	remoteAddr            string
+	offer                 []byte
+	publish               bool
+	httpRequest           *http.Request
 	wg                    *sync.WaitGroup
 	externalCmdPool       *externalcmd.Pool
 	pathManager           serverPathManager
@@ -251,22 +265,19 @@ type session struct {
 	pc        *webrtc.PeerConnection
 	user      string
 
-	chNew           chan webRTCNewSessionReq
-	chAddCandidates chan webRTCAddSessionCandidatesReq
+	chInitialRequest chan initialRequestReq
+	chAddCandidates  chan addSessionCandidatesReq
 }
 
 func (s *session) initialize() {
-	ctx, ctxCancel := context.WithCancel(s.parentCtx)
-
-	s.ctx = ctx
-	s.ctxCancel = ctxCancel
+	s.ctx, s.ctxCancel = context.WithCancel(s.parentCtx)
 	s.created = time.Now()
 	s.uuid = uuid.New()
 	s.secret = uuid.New()
-	s.chNew = make(chan webRTCNewSessionReq)
-	s.chAddCandidates = make(chan webRTCAddSessionCandidatesReq)
+	s.chInitialRequest = make(chan initialRequestReq)
+	s.chAddCandidates = make(chan addSessionCandidatesReq)
 
-	s.Log(logger.Info, "created by %s", s.req.remoteAddr)
+	s.Log(logger.Info, "created by %s", s.remoteAddr)
 
 	s.wg.Add(1)
 
@@ -296,16 +307,17 @@ func (s *session) run() {
 }
 
 func (s *session) runInner() error {
+	var req initialRequestReq
 	select {
-	case <-s.chNew:
+	case req = <-s.chInitialRequest:
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
 
-	errStatusCode, err := s.runInner2()
+	errStatusCode, err := s.runInner2(&req)
 
 	if errStatusCode != 0 {
-		s.req.res <- webRTCNewSessionRes{
+		req.res <- initialRequestRes{
 			errStatusCode: errStatusCode,
 			err:           err,
 		}
@@ -314,24 +326,24 @@ func (s *session) runInner() error {
 	return err
 }
 
-func (s *session) runInner2() (int, error) {
-	if s.req.publish {
-		return s.runPublish()
+func (s *session) runInner2(req *initialRequestReq) (int, error) {
+	if s.publish {
+		return s.runPublish(req)
 	}
-	return s.runRead()
+	return s.runRead(req)
 }
 
-func (s *session) runPublish() (int, error) {
-	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
+func (s *session) runPublish(req *initialRequestReq) (int, error) {
+	ip, _, _ := net.SplitHostPort(s.remoteAddr)
 
 	res1, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			Query:       s.req.httpRequest.URL.RawQuery,
+			Name:        s.pathName,
+			Query:       s.httpRequest.URL.RawQuery,
 			Publish:     true,
 			Proto:       auth.ProtocolWebRTC,
 			ID:          &s.uuid,
-			Credentials: httpp.Credentials(s.req.httpRequest),
+			Credentials: httpp.Credentials(s.httpRequest),
 			IP:          net.ParseIP(ip),
 		},
 	})
@@ -380,7 +392,7 @@ func (s *session) runPublish() (int, error) {
 		pc.Close()
 	}()
 
-	offer := whipOffer(s.req.offer)
+	offer := whipOffer(s.offer)
 
 	var sdp sdp.SessionDescription
 	err = sdp.Unmarshal([]byte(offer.SDP))
@@ -403,9 +415,11 @@ func (s *session) runPublish() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	s.writeAnswer(answer)
+	req.res <- initialRequestRes{
+		answer: []byte(answer.SDP),
+	}
 
-	go s.readRemoteCandidates(pc)
+	go s.readRemoteCandidates(s.offer, pc)
 
 	err = pc.WaitUntilConnected(time.Duration(s.handshakeTimeout))
 	if err != nil {
@@ -416,7 +430,7 @@ func (s *session) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	err = pc.GatherIncomingTracks(time.Duration(s.trackGatherTimeout))
+	err = pc.GatherInboundTracks(time.Duration(s.trackGatherTimeout))
 	if err != nil {
 		return 0, err
 	}
@@ -435,8 +449,8 @@ func (s *session) runPublish() (int, error) {
 		ReplaceNTP:    !res1.Conf.UseAbsoluteTimestamp,
 		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:     s.req.pathName,
-			Query:    s.req.httpRequest.URL.RawQuery,
+			Name:     s.pathName,
+			Query:    s.httpRequest.URL.RawQuery,
 			Publish:  true,
 			SkipAuth: true,
 		},
@@ -460,17 +474,17 @@ func (s *session) runPublish() (int, error) {
 	}
 }
 
-func (s *session) runRead() (int, error) {
-	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
+func (s *session) runRead(req *initialRequestReq) (int, error) {
+	ip, _, _ := net.SplitHostPort(s.remoteAddr)
 
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:        s.req.pathName,
-			Query:       s.req.httpRequest.URL.RawQuery,
+			Name:        s.pathName,
+			Query:       s.httpRequest.URL.RawQuery,
 			Proto:       auth.ProtocolWebRTC,
 			ID:          &s.uuid,
-			Credentials: httpp.Credentials(s.req.httpRequest),
+			Credentials: httpp.Credentials(s.httpRequest),
 			IP:          net.ParseIP(ip),
 		},
 	})
@@ -534,16 +548,18 @@ func (s *session) runRead() (int, error) {
 		pc.Close()
 	}()
 
-	offer := whipOffer(s.req.offer)
+	offer := whipOffer(s.offer)
 
 	answer, err := pc.CreateFullAnswer(offer, false)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	s.writeAnswer(answer)
+	req.res <- initialRequestRes{
+		answer: []byte(answer.SDP),
+	}
 
-	go s.readRemoteCandidates(pc)
+	go s.readRemoteCandidates(s.offer, pc)
 
 	err = pc.WaitUntilConnected(time.Duration(s.handshakeTimeout))
 	if err != nil {
@@ -563,7 +579,7 @@ func (s *session) runRead() (int, error) {
 		Conf:            res.Path.SafeConf(),
 		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
 		Reader:          *s.APIReaderDescribe(),
-		Query:           s.req.httpRequest.URL.RawQuery,
+		Query:           s.httpRequest.URL.RawQuery,
 	})
 	defer onUnreadHook()
 
@@ -586,15 +602,8 @@ func (s *session) runRead() (int, error) {
 	}
 }
 
-func (s *session) writeAnswer(answer *pwebrtc.SessionDescription) {
-	s.req.res <- webRTCNewSessionRes{
-		sx:     s,
-		answer: []byte(answer.SDP),
-	}
-}
-
-func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
-	remoteUfrag := parseOfferUfrag(s.req.offer)
+func (s *session) readRemoteCandidates(offer []byte, pc *webrtc.PeerConnection) {
+	remoteUfrag := parseOfferUfrag(offer)
 
 	for {
 		select {
@@ -604,18 +613,18 @@ func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 
 			candidates, err := sdpFragmentToCandidates(req.fragment)
 			if err != nil {
-				req.res <- webRTCAddSessionCandidatesRes{err: err}
+				req.res <- addSessionCandidatesRes{err: err}
 				continue
 			}
 
 			// ICE restart: client sent new credentials
 			var answer *pwebrtc.SessionDescription
 			if ufrag != "" && ufrag != remoteUfrag {
-				sdp := replaceICECredentials(s.req.offer, ufrag, pwd)
+				sdp := replaceICECredentials(offer, ufrag, pwd)
 
 				answer, err = pc.CreateFullAnswer(whipOffer(sdp), true)
 				if err != nil {
-					req.res <- webRTCAddSessionCandidatesRes{err: err}
+					req.res <- addSessionCandidatesRes{err: err}
 					continue
 				}
 			}
@@ -628,7 +637,7 @@ func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 				}
 			}
 			if addErr != nil {
-				req.res <- webRTCAddSessionCandidatesRes{err: addErr}
+				req.res <- addSessionCandidatesRes{err: addErr}
 				continue
 			}
 
@@ -636,14 +645,14 @@ func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 				var frag *whip.SDPFragment
 				frag, err = fullAnswerToSDPFragment(answer.SDP)
 				if err != nil {
-					req.res <- webRTCAddSessionCandidatesRes{err: err}
+					req.res <- addSessionCandidatesRes{err: err}
 					continue
 				}
 
 				remoteUfrag = ufrag
-				req.res <- webRTCAddSessionCandidatesRes{answer: frag}
+				req.res <- addSessionCandidatesRes{answer: frag}
 			} else {
-				req.res <- webRTCAddSessionCandidatesRes{}
+				req.res <- addSessionCandidatesRes{}
 			}
 
 		case <-s.ctx.Done():
@@ -652,27 +661,28 @@ func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 	}
 }
 
-// new is called by webRTCHTTPServer through Server.
-func (s *session) new(req webRTCNewSessionReq) webRTCNewSessionRes {
+func (s *session) initialRequest(req initialRequestReq) initialRequestRes {
+	req.res = make(chan initialRequestRes)
+
 	select {
-	case s.chNew <- req:
+	case s.chInitialRequest <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
-		return webRTCNewSessionRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
+		return initialRequestRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
 	}
 }
 
 // addCandidates is called by webRTCHTTPServer through Server.
 func (s *session) addCandidates(
-	req webRTCAddSessionCandidatesReq,
-) webRTCAddSessionCandidatesRes {
+	req addSessionCandidatesReq,
+) addSessionCandidatesRes {
 	select {
 	case s.chAddCandidates <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
-		return webRTCAddSessionCandidatesRes{err: fmt.Errorf("terminated")}
+		return addSessionCandidatesRes{err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -731,18 +741,18 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	return &defs.APIWebRTCSession{
 		ID:                        s.uuid,
 		Created:                   s.created,
-		RemoteAddr:                s.req.remoteAddr,
+		RemoteAddr:                s.remoteAddr,
 		PeerConnectionEstablished: peerConnectionEstablished,
 		LocalCandidate:            localCandidate,
 		RemoteCandidate:           remoteCandidate,
 		State: func() defs.APIWebRTCSessionState {
-			if s.req.publish {
+			if s.publish {
 				return defs.APIWebRTCSessionStatePublish
 			}
 			return defs.APIWebRTCSessionStateRead
 		}(),
-		Path:                    s.req.pathName,
-		Query:                   s.req.httpRequest.URL.RawQuery,
+		Path:                    s.pathName,
+		Query:                   s.httpRequest.URL.RawQuery,
 		User:                    s.user,
 		InboundBytes:            bytesReceived,
 		InboundRTPPackets:       rtpPacketsReceived,

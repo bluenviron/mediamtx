@@ -1231,7 +1231,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err := url.Parse("http://localhost:8889/mypath/whip")
 				require.NoError(t, err)
 
-				track := &webrtc.OutgoingTrack{
+				track := &webrtc.OutboundTrack{
 					Caps: pwebrtc.RTPCodecCapability{
 						MimeType:    pwebrtc.MimeTypeH264,
 						ClockRate:   90000,
@@ -1244,7 +1244,7 @@ func TestAPIProtocolKick(t *testing.T) {
 					URL:            u,
 					Log:            test.NilLogger,
 					Publish:        true,
-					OutgoingTracks: []*webrtc.OutgoingTrack{track},
+					OutboundTracks: []*webrtc.OutboundTrack{track},
 				}
 
 				err = c.Initialize(context.Background())

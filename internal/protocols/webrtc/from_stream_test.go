@@ -80,7 +80,7 @@ func TestFromStream(t *testing.T) {
 			err := FromStream(desc, r, pc)
 			require.NoError(t, err)
 
-			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
+			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
 		})
 	}
 }
@@ -186,10 +186,10 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	err = pc1.GatherIncomingTracks(2 * time.Second)
+	err = pc1.GatherInboundTracks(2 * time.Second)
 	require.NoError(t, err)
 
-	tracks := pc1.IncomingTracks()
+	tracks := pc1.InboundTracks()
 
 	done := make(chan struct{})
 	n := 0
@@ -302,10 +302,10 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 		}},
 	})
 
-	err = pcReader.GatherIncomingTracks(2 * time.Second)
+	err = pcReader.GatherInboundTracks(2 * time.Second)
 	require.NoError(t, err)
 
-	tracks := pcReader.IncomingTracks()
+	tracks := pcReader.InboundTracks()
 	require.Len(t, tracks, 1)
 
 	done := make(chan struct{})
