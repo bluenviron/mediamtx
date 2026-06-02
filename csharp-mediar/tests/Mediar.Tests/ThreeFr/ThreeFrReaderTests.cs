@@ -451,4 +451,10 @@ public sealed class ThreeFrReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "Hasselblad",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ThreeFrReader.Open((string)null!));
+    }
 }

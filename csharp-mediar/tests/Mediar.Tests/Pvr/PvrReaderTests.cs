@@ -404,4 +404,21 @@ public sealed class PvrReaderTests
         b.Payloads.Add(new byte[2 * 2 * 4]);
         return b.Build();
     }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        byte[] bytes = MinimalRgbaPvr();
+        using var r = PvrReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }

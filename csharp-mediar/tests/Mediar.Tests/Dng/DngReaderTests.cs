@@ -208,7 +208,7 @@ public sealed class DngReaderTests
     [Fact]
     public void Reports_Unsupported_Compression_As_CanDecodePixels_False()
     {
-        // Compression 34892 = "Lossy JPEG" — not on TiffReader's supported list.
+        // Compression 34892 = "Lossy JPEG" â€” not on TiffReader's supported list.
         var spec = new TestDngBuilder.IfdSpec
         {
             Width = 4,
@@ -499,4 +499,10 @@ public sealed class DngReaderTests
         StripPayload = new byte[4 * 4 * 3],
         DngVersion = [1, 7, 0, 0],
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => DngReader.Open((string)null!));
+    }
 }

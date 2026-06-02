@@ -366,4 +366,27 @@ public sealed class OrfReaderTests
         TiffWidth = 100,
         TiffHeight = 100,
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => OrfReader.Open((string)null!));
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        byte[] bytes = TestOrfBuilder.Build(MinimalOlympusSpec());
+        using var r = OrfReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }

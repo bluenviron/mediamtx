@@ -462,4 +462,10 @@ public sealed class MefReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "Mamiya",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => MefReader.Open((string)null!));
+    }
 }

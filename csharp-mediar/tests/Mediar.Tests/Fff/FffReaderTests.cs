@@ -454,4 +454,10 @@ public sealed class FffReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "Hasselblad",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => FffReader.Open((string)null!));
+    }
 }

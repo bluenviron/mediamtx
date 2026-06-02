@@ -231,7 +231,7 @@ public sealed class PefReaderTests
     [Fact]
     public void Reports_Pentax_Compressed_As_CanDecodePixels_False()
     {
-        // Compression 65535 = "Pentax PEF compressed" — proprietary, not yet supported.
+        // Compression 65535 = "Pentax PEF compressed" â€” proprietary, not yet supported.
         var spec = new TestPefBuilder.IfdSpec
         {
             Width = 4,
@@ -465,4 +465,10 @@ public sealed class PefReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "PENTAX",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PefReader.Open((string)null!));
+    }
 }

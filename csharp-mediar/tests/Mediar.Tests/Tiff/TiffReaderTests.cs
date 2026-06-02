@@ -10,7 +10,7 @@ namespace Mediar.Tests.Tiff;
 /// </summary>
 public sealed class TiffReaderTests
 {
-    // Tiny 16×16 solid-red baseline JPEG re-used from JpegBaselineDecoderTests.
+    // Tiny 16Ã—16 solid-red baseline JPEG re-used from JpegBaselineDecoderTests.
     // It contains a complete self-contained baseline-DCT bitstream (SOF0).
     private const string RedJpegBase64 =
         "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAQCAwMDAgQDAwMEBAQEBQkGBQUFBQsICAYJDQsNDQ0LDAwOEBQRDg8TDwwMEhgSExUWFxcXDhEZGxkWGhQWFxb/" +
@@ -25,7 +25,7 @@ public sealed class TiffReaderTests
     [Fact]
     public async Task UncompressedRgbStrip_Decodes_ExactPixels()
     {
-        // 4×4 RGB image, one strip, uncompressed. Pixel value = (row*16+col, 0, 0).
+        // 4Ã—4 RGB image, one strip, uncompressed. Pixel value = (row*16+col, 0, 0).
         var payload = new byte[4 * 4 * 3];
         for (int y = 0; y < 4; y++)
         {
@@ -67,12 +67,12 @@ public sealed class TiffReaderTests
     [Fact]
     public async Task TiledUncompressedRgb_4x4_TwoByTwoTiles_Decodes()
     {
-        // 4×4 image with 2×2 tiles → 2 tiles across × 2 tiles down = 4 tiles total.
-        // Each tile is 2×2×3 = 12 bytes. Fill each tile with a distinct solid color.
-        byte[] tile00 = BuildSolidRgbTile(2, 2, 255, 0, 0);   // red   – top-left
-        byte[] tile01 = BuildSolidRgbTile(2, 2, 0, 255, 0);   // green – top-right
-        byte[] tile10 = BuildSolidRgbTile(2, 2, 0, 0, 255);   // blue  – bottom-left
-        byte[] tile11 = BuildSolidRgbTile(2, 2, 255, 255, 0); // yellow – bottom-right
+        // 4Ã—4 image with 2Ã—2 tiles â†’ 2 tiles across Ã— 2 tiles down = 4 tiles total.
+        // Each tile is 2Ã—2Ã—3 = 12 bytes. Fill each tile with a distinct solid color.
+        byte[] tile00 = BuildSolidRgbTile(2, 2, 255, 0, 0);   // red   â€“ top-left
+        byte[] tile01 = BuildSolidRgbTile(2, 2, 0, 255, 0);   // green â€“ top-right
+        byte[] tile10 = BuildSolidRgbTile(2, 2, 0, 0, 255);   // blue  â€“ bottom-left
+        byte[] tile11 = BuildSolidRgbTile(2, 2, 255, 255, 0); // yellow â€“ bottom-right
         var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
         {
             Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
@@ -113,7 +113,7 @@ public sealed class TiffReaderTests
     [Fact]
     public async Task TiledUncompressed_WithEdgeClipping_DoesNotOverrun()
     {
-        // 6×6 image with 4×4 tiles → 2×2 = 4 tiles. Right + bottom edge tiles
+        // 6Ã—6 image with 4Ã—4 tiles â†’ 2Ã—2 = 4 tiles. Right + bottom edge tiles
         // are partial (only 2 valid columns/rows out of the 4 tile dimension).
         byte[] tile00 = BuildSolidRgbTile(4, 4, 10, 20, 30);
         byte[] tile01 = BuildSolidRgbTile(4, 4, 40, 50, 60);
@@ -149,7 +149,7 @@ public sealed class TiffReaderTests
             // Tile (1,0) covers rows 4..5 in cols 0..3 (only 2 visible rows).
             AssertRgb(px, 0, 4, stride, 70, 80, 90);
             AssertRgb(px, 3, 5, stride, 70, 80, 90);
-            // Tile (1,1) covers the 2×2 corner.
+            // Tile (1,1) covers the 2Ã—2 corner.
             AssertRgb(px, 4, 4, stride, 100, 110, 120);
             AssertRgb(px, 5, 5, stride, 100, 110, 120);
         }
@@ -215,8 +215,8 @@ public sealed class TiffReaderTests
     [Fact]
     public async Task JpegInTiff_FourTiles_MosaicedDecode()
     {
-        // 32×32 image with four 16×16 JPEG tiles. Each tile is the same red
-        // JPEG; the resulting 32×32 image should still be red-dominant
+        // 32Ã—32 image with four 16Ã—16 JPEG tiles. Each tile is the same red
+        // JPEG; the resulting 32Ã—32 image should still be red-dominant
         // everywhere, and crucially exercise the multi-tile JPEG dispatch.
         byte[] jpeg = Convert.FromBase64String(RedJpegBase64);
         var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
@@ -568,4 +568,10 @@ public sealed class TiffReaderTests
         Compression = 1, Photometric = 2, RowsPerStrip = 2,
         StripPayloads = [new byte[2 * 2 * 3]],
     });
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => TiffReader.Open((string)null!));
+    }
 }

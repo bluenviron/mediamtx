@@ -371,4 +371,27 @@ public sealed class Rw2ReaderTests
         SensorWidth = 100,
         SensorHeight = 100,
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Rw2Reader.Open((string)null!));
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_PreCancelled_Token()
+    {
+        byte[] bytes = TestRw2Builder.Build(MinimalPanasonicSpec());
+        using var r = Rw2Reader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        if (!r.CanDecodePixels) return;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token))
+            {
+                f.Dispose();
+            }
+        });
+    }
 }

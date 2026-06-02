@@ -457,4 +457,10 @@ public sealed class IiqReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "Phase One",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => IiqReader.Open((string)null!));
+    }
 }

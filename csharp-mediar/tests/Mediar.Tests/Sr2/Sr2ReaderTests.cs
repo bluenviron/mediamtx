@@ -461,4 +461,10 @@ public sealed class Sr2ReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "SONY",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => Sr2Reader.Open((string)null!));
+    }
 }

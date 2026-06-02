@@ -202,7 +202,7 @@ public sealed class ArwReaderTests
     [Fact]
     public void Reports_Unsupported_Sony_Compression_As_CanDecodePixels_False()
     {
-        // Compression 32767 = "Sony ARW v1 8-bit packed" — proprietary, not yet supported.
+        // Compression 32767 = "Sony ARW v1 8-bit packed" â€” proprietary, not yet supported.
         var spec = new TestArwBuilder.IfdSpec
         {
             Width = 4,
@@ -226,7 +226,7 @@ public sealed class ArwReaderTests
     [Fact]
     public async Task ReadFramesAsync_Throws_When_Pixels_Cannot_Be_Decoded()
     {
-        // Compression 32769 = "Sony ARW v2 lossless" — proprietary, not yet supported.
+        // Compression 32769 = "Sony ARW v2 lossless" â€” proprietary, not yet supported.
         var spec = new TestArwBuilder.IfdSpec
         {
             Width = 4,
@@ -498,4 +498,10 @@ public sealed class ArwReaderTests
         StripPayload = new byte[4 * 4 * 3],
         Make = "SONY",
     };
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ArwReader.Open((string)null!));
+    }
 }
