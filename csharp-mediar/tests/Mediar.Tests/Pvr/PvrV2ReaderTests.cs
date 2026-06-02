@@ -370,4 +370,52 @@ public class PvrV2ReaderTests
             await foreach (var f in reader.ReadFramesAsync(cts.Token)) { }
         });
     }
+
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PvrV2Reader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = MinimalRgbaPvrV2();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = PvrV2Reader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Pvr, r.Format);
+        }
+        Assert.True(ms.CanRead);
+        ms.Position = 0;
+        // First byte of PVR v2 is header-size (52 = 0x34).
+        Assert.Equal(0x34, ms.ReadByte());
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = MinimalRgbaPvrV2();
+        var r = PvrV2Reader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Pvr()
+    {
+        byte[] bytes = MinimalRgbaPvrV2();
+        using var r = PvrV2Reader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Pvr, r.Info.Format);
+    }
+
+    private static byte[] MinimalRgbaPvrV2()
+    {
+        var b = new TestPvrV2Builder
+        {
+            Width = 4, Height = 4, FormatId = PvrV2FormatId.GlRgba8888,
+        };
+        b.Payloads.Add(new byte[4 * 4 * 4]);
+        return b.Build();
+    }
 }

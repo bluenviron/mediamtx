@@ -363,6 +363,29 @@ public sealed class CrwReaderTests
         Assert.False(r.CanDecodePixels);
     }
 
+    [Fact]
+    public void Open_Null_Path_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => CrwReader.Open((string)null!));
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        var r = CrwReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Info_Format_Equals_Crw()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        using var r = CrwReader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Crw, r.Info.Format);
+    }
+
     private static (byte R, byte G, byte B) ReadPixel(ImageFrame frame, int x, int y)
     {
         // Frame data is row-major Rgb24 (8 bpc) per CrwReader's contract.
