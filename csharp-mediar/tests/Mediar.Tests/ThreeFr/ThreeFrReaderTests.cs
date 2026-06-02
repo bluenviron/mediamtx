@@ -267,4 +267,122 @@ public sealed class ThreeFrReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => ThreeFrReader.Open(ms));
+    }
+
+    [Fact]
+    public void Lowercase_Hasselblad_Make_Is_Rejected()
+    {
+        var spec = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "hasselblad",
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(spec);
+        Assert.Throws<ImageFormatException>(() =>
+            ThreeFrReader.Open(new MemoryStream(bytes, writable: false)));
+    }
+
+    [Fact]
+    public void MakerNote_Absent_Length_Is_Zero()
+    {
+        var spec = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "Hasselblad",
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(spec);
+        using var tfr = ThreeFrReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(0, tfr.Raw.MakerNoteLength);
+    }
+
+    [Fact]
+    public void Software_Absent_Field_Is_Null()
+    {
+        var spec = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "Hasselblad",
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(spec);
+        using var tfr = ThreeFrReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(tfr.Raw.Software);
+    }
+
+    [Fact]
+    public void Multiple_SubIfds_All_Surfaced_As_SubImages()
+    {
+        var sub1 = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 8, Height = 6, BitsPerSample = 16, SamplesPerPixel = 1,
+            Compression = 1, Photometric = 32803, NewSubFileType = 0,
+            StripPayload = new byte[8 * 6 * 2],
+        };
+        var sub2 = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 4, Height = 3, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[4 * 3 * 3],
+        };
+        var root = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 1,
+            StripPayload = new byte[12],
+            Make = "Hasselblad",
+            SubIfds = [sub1, sub2],
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(root);
+        using var tfr = ThreeFrReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(3, tfr.SubImages.Count);
+    }
+
+    [Fact]
+    public async Task Multi_Row_Rgb_Strip_Preserved_In_Output()
+    {
+        int w = 3, h = 3;
+        byte[] payload = new byte[w * h * 3];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)((i * 29) & 0xFF);
+        var spec = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = w, Height = h, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = payload,
+            Make = "Hasselblad",
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(spec);
+        using var tfr = ThreeFrReader.Open(new MemoryStream(bytes, writable: false));
+        ImageFrame? captured = null;
+        await foreach (var f in tfr.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured) { Assert.Equal(payload, captured!.Pixels.ToArray()); }
+    }
+
+    [Fact]
+    public void Reader_Disposes_OwnedStream_On_Dispose()
+    {
+        var spec = new TestThreeFrBuilder.IfdSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, NewSubFileType = 0,
+            StripPayload = new byte[12],
+            Make = "Hasselblad",
+        };
+        byte[] bytes = TestThreeFrBuilder.Build(spec);
+        var ms = new MemoryStream(bytes);
+        var tfr = ThreeFrReader.Open(ms, ownsStream: true);
+        tfr.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
 }

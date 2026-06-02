@@ -126,4 +126,102 @@ public sealed class DdsDxgiIntegerFormatsTests
         // Note: HasAlpha for Rgba128UInt/SInt is determined at the DDS layer
         // (it sets the flag explicitly), not via the PixelFormat extension.
     }
+
+    [Fact]
+    public async Task R32_SINT_Round_Trips_Negative_Bytes()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(0, 4), -1);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4, 4), int.MinValue);
+        var file = Concat(BuildDx10Dds(2, 1, 43), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(PixelFormat.Gray32SInt, frame!.PixelFormat);
+        Assert.True(frame.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R32G32_UINT_Round_Trips_Bytes()
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), 0xFFFFFFFFu);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), 0x80000000u);
+        var file = Concat(BuildDx10Dds(1, 1, 17), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(PixelFormat.Rg64UInt, frame!.PixelFormat);
+        Assert.True(frame.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R32G32B32_SINT_Round_Trips_Negative_Bytes()
+    {
+        var payload = new byte[12];
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(0, 4), int.MinValue);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4, 4), -1);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8, 4), int.MaxValue);
+        var file = Concat(BuildDx10Dds(1, 1, 8), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(PixelFormat.Rgb96SInt, frame!.PixelFormat);
+        Assert.True(frame.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R32G32B32A32_UINT_Round_Trips_Bytes()
+    {
+        var payload = new byte[16];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), 0xDEADBEEFu);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), 0xCAFEBABEu);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(8, 4), 0x12345678u);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(12, 4), 0xFFFFFFFFu);
+        var file = Concat(BuildDx10Dds(1, 1, 1), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(PixelFormat.Rgba128UInt, frame!.PixelFormat);
+        Assert.True(frame.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public async Task R32_UINT_MultiRow_Stride_And_Bytes_Preserved()
+    {
+        const int w = 2, h = 3;
+        var payload = new byte[w * h * 4];
+        for (int i = 0; i < w * h; i++)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(i * 4, 4), (uint)(i * 0x01020304));
+        }
+        var file = Concat(BuildDx10Dds(w, h, 42), payload);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in reader.ReadFramesAsync()) { frame = f; }
+        Assert.NotNull(frame);
+        Assert.Equal(w * 4, frame!.Stride);
+        Assert.Equal(h, frame!.Height);
+        Assert.True(frame.Pixels.Span.SequenceEqual(payload));
+    }
+
+    [Fact]
+    public void Integer_Format_ColorSpace_Is_Null_For_R32G32B32_UINT()
+    {
+        var file = Concat(BuildDx10Dds(1, 1, 7), new byte[12]);
+        using var reader = DdsReader.Open(new MemoryStream(file, writable: false));
+        Assert.Null(reader.Info.ColorSpace);
+        Assert.Equal(PixelFormat.Rgb96UInt, reader.Info.PixelFormat);
+    }
+
+    [Fact]
+    public void Integer_Format_Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => DdsReader.Open(ms));
+    }
 }
