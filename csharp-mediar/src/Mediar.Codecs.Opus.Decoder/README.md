@@ -12,7 +12,8 @@ commits.
 |    2a | CELT foundation: constants, band-layout `CeltMode`, decoder skeleton, OpusDecoder routing | ✅ shipped |
 |    2b | CELT energy: silence/transient/post-filter/intra flags + coarse energy (Laplace) | ✅ shipped |
 |  2c.1 | CELT tf_decode + spread decision (front of PVQ block)                      | ✅ shipped |
-|  2c.2 | CELT bit allocation: dyn_alloc, alloc_trim, skip, stereo, compute_allocation | ⏳ planned |
+|  2c.2a | CELT init_caps + dyn_alloc + alloc_trim (pre-compute_allocation block)    | ✅ shipped |
+|  2c.2b | CELT compute_allocation + intensity / dual stereo + skip flag             | ⏳ planned |
 |  2c.3 | CELT fine energy + PVQ shape decode (`decode_pulses`, `cwrsi`)            | ⏳ planned |
 |  2c.4 | CELT anti-collapse + final energy                                          | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
@@ -20,6 +21,31 @@ commits.
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2c.2a behavior (added on top of Phase 2c.1)
+
+CELT-only frames now also decode the three symbols that lead into bit
+allocation:
+
+- **init_caps (`LastBandCaps`)** — pure table lookup, no entropy. Per
+  band, in fractional bits (1/8 bit units), computed as
+  `(cache.caps[idx] + 64) * C * N >> 2` from libopus
+  `cache_caps50[168]`.
+- **dyn_alloc (`LastBandBoost`)** — per-band boost loop. Each band
+  decodes 1-bit flags at probability `2^-dynalloc_logp` (starts at 6,
+  drops to 1 once one bit is paid for a given band, and to a global
+  minimum of 2 between bands once any boost has been allocated).
+  Boost units are fractional bits, capped at `LastBandCaps[i]`. Stops
+  consuming bits as soon as a flag reads 0 or the cap is hit.
+- **alloc_trim (`LastAllocTrim`)** — 11-outcome ICDF
+  (`{126, 124, 119, 109, 87, 41, 19, 9, 4, 2, 0}`, ftb=7) selecting the
+  global trim that biases bit allocation towards low or high bands.
+  Defaults to `AllocTrimDefault (5)` when the bit budget is exhausted.
+
+Output is still silence — Phase 2c.2b ships `compute_allocation`
+(multi-pass bit-budget search plus intensity / dual stereo / skip),
+2c.3 ships fine energy + PVQ shape decode, 2c.4 ships anti-collapse +
+final energy, and 2d ships the IMDCT pipeline.
 
 ## Phase 2c.1 behavior (added on top of Phase 2b)
 

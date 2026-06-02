@@ -49,6 +49,14 @@ internal sealed class CeltDecoder
     // signed and feed the MDCT layer offset during synthesis.
     private readonly sbyte[] _tfRes;
 
+    // Per-band bit-allocation caps from Phase 2c.2a (init_caps).
+    // Units: fractional bits (1 / (1<<BitRes) of a whole bit).
+    private readonly int[] _caps;
+
+    // Per-band dyn_alloc boost from Phase 2c.2a (dyn_alloc loop).
+    // Units: fractional bits, same as _caps.
+    private readonly int[] _boost;
+
     /// <summary>The active band layout for this decoder.</summary>
     public CeltMode Mode { get; }
 
@@ -106,6 +114,29 @@ internal sealed class CeltDecoder
     public ReadOnlySpan<sbyte> LastTfResolution => _tfRes;
 
     /// <summary>
+    /// Per-band allocation caps from the most recent frame (Phase 2c.2a
+    /// init_caps). Units: fractional bits (1 / (1&lt;&lt;BitRes) of a
+    /// whole bit). Always populated, regardless of bit budget — caps are
+    /// table-driven and do not consume entropy.
+    /// </summary>
+    public ReadOnlySpan<int> LastBandCaps => _caps;
+
+    /// <summary>
+    /// Per-band dyn_alloc boost from the most recent frame (Phase 2c.2a).
+    /// Units: fractional bits. Zero outside <c>[Mode.StartBand, Mode.EndBand)</c>
+    /// and for bands that received no boost.
+    /// </summary>
+    public ReadOnlySpan<int> LastBandBoost => _boost;
+
+    /// <summary>
+    /// Decoded <c>alloc_trim</c> value from the most recent frame
+    /// (Phase 2c.2a). One of 0..10; defaults to
+    /// <see cref="CeltConstants.AllocTrimDefault"/> when the bit budget
+    /// did not admit the symbol.
+    /// </summary>
+    public int LastAllocTrim { get; private set; } = CeltConstants.AllocTrimDefault;
+
+    /// <summary>
     /// Read-only view over the per-band log-energy state. Stored in
     /// DB_SHIFT units (multiply by <c>1/1024</c> to recover log2 energy).
     /// Layout matches libopus: <c>channel * MaxBands + band</c>.
@@ -126,6 +157,8 @@ internal sealed class CeltDecoder
         _channels = channels;
         _oldLogE = new float[channels * CeltConstants.MaxBands];
         _tfRes = new sbyte[CeltConstants.MaxBands];
+        _caps = new int[CeltConstants.MaxBands];
+        _boost = new int[CeltConstants.MaxBands];
     }
 
     /// <summary>
@@ -232,12 +265,34 @@ internal sealed class CeltDecoder
             LastSpreadDecision = CeltConstants.SpreadNormal;
         }
 
-        // Phase 2c.2+ ships init_caps + dyn_alloc + alloc_trim +
-        // intensity/dual stereo + skip + compute_allocation, then Phase
-        // 2c.3 ships fine energy + PVQ shape decode + anti-collapse +
-        // final energy, and Phase 2d ships the IMDCT pipeline.
-        // For now the output remains silent — but the decoded state above
-        // is observable for tests.
+        // 8. Per-band allocation caps (no entropy — pure table lookup).
+        Array.Clear(_caps);
+        InitCaps(lm);
+
+        // 9. dyn_alloc — per-band boost loop. Operates in *fractional*
+        //    bits (libopus BITRES = 3, so 1 whole bit = 8 frac units).
+        //    We track totalBitsFrac as a local since dyn_alloc shrinks
+        //    the remaining budget as boost is allocated.
+        Array.Clear(_boost);
+        long totalBitsFrac = (long)totalBits << CeltConstants.BitRes;
+        totalBitsFrac = DecodeDynAlloc(ref rangeDecoder, totalBitsFrac, lm);
+
+        // 10. alloc_trim (RFC 6716 §4.3.3) — global trim biasing
+        //     allocation towards low or high bands.
+        if (rangeDecoder.TellFrac() + (6 << CeltConstants.BitRes) <= totalBitsFrac)
+        {
+            LastAllocTrim = rangeDecoder.DecodeIcdf(CeltConstants.AllocTrimIcdf, 7);
+        }
+        else
+        {
+            LastAllocTrim = CeltConstants.AllocTrimDefault;
+        }
+
+        // Phase 2c.2b+ ships compute_allocation + intensity/dual stereo +
+        // skip, then 2c.3 ships fine energy + PVQ shape decode, 2c.4
+        // ships anti-collapse + final energy, and Phase 2d ships the
+        // IMDCT pipeline. For now the output remains silent — but the
+        // decoded state above is observable for tests.
 
         IsFirstFrame = false;
         SamplesProduced += Mode.SamplesPerFrame;
@@ -279,6 +334,53 @@ internal sealed class CeltDecoder
             int tableIdx = lm * 8 + 4 * isT + 2 * tfSelect + _tfRes[i];
             _tfRes[i] = CeltConstants.TfSelectTable[tableIdx];
         }
+    }
+
+    private void InitCaps(int lm)
+    {
+        // Port of libopus init_caps (celt/celt.c).
+        //   cap[i] = (cache.caps[nbEBands*(2*LM + C-1) + i] + 64) * C * N >> 2
+        // where N = (eBands[i+1] - eBands[i]) << LM and C is channel count.
+        int rowOffset = CeltConstants.MaxBands * (2 * lm + (_channels - 1));
+        var caps = CeltConstants.CacheCaps50;
+        var eBands = CeltConstants.EBands;
+        for (int i = 0; i < CeltConstants.MaxBands; i++)
+        {
+            int n = (eBands[i + 1] - eBands[i]) << lm;
+            _caps[i] = ((caps[rowOffset + i] + 64) * _channels * n) >> 2;
+        }
+    }
+
+    private long DecodeDynAlloc(ref OpusRangeDecoder rd, long totalBitsFrac, int lm)
+    {
+        // Port of libopus dyn_alloc loop (celt/celt_decoder.c). All
+        // budget accounting is in fractional bits (1/(1<<BitRes) bit).
+        // Bands outside [StartBand, EndBand) get zero boost.
+        int dynallocLogP = CeltConstants.DynAllocLogPStart;
+        var eBands = CeltConstants.EBands;
+
+        for (int i = Mode.StartBand; i < Mode.EndBand; i++)
+        {
+            int width = _channels * (eBands[i + 1] - eBands[i]) << lm;
+            // quanta = min(width<<BITRES, max(6<<BITRES, width))
+            int quanta = Math.Min(width << CeltConstants.BitRes,
+                                  Math.Max(6 << CeltConstants.BitRes, width));
+            int dynallocLoopLogP = dynallocLogP;
+            int boost = 0;
+            while (rd.TellFrac() + ((long)dynallocLoopLogP << CeltConstants.BitRes) < totalBitsFrac
+                   && boost < _caps[i])
+            {
+                int flag = rd.DecodeBitLogP(dynallocLoopLogP);
+                if (flag == 0) break;
+                boost += quanta;
+                totalBitsFrac -= quanta;
+                dynallocLoopLogP = 1;
+            }
+            _boost[i] = boost;
+            if (boost > 0)
+                dynallocLogP = Math.Max(2, dynallocLogP - 1);
+        }
+        return totalBitsFrac;
     }
 
     private void DecodeCoarseEnergy(ref OpusRangeDecoder rd, int totalBits, bool intra, int lm)
@@ -342,10 +444,13 @@ internal sealed class CeltDecoder
         SamplesProduced = 0;
         Array.Clear(_oldLogE);
         Array.Clear(_tfRes);
+        Array.Clear(_caps);
+        Array.Clear(_boost);
         LastFrameWasSilent = false;
         LastFrameWasTransient = false;
         LastFrameUsedIntra = false;
         LastPostFilter = CeltPostFilterParams.Disabled;
         LastSpreadDecision = CeltConstants.SpreadNormal;
+        LastAllocTrim = CeltConstants.AllocTrimDefault;
     }
 }

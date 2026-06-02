@@ -261,4 +261,120 @@ public sealed class CeltDecoderTests
             Assert.Equal(0, (int)tf[i]);
         Assert.Equal(CeltConstants.SpreadNormal, dec.LastSpreadDecision);
     }
+
+    // ---- Phase 2c.2a — init_caps + dyn_alloc + alloc_trim --------------
+
+    [Fact]
+    public void DecodeFrame_Populates_BandCaps_For_NonSilent_Packet()
+    {
+        // init_caps is pure table lookup so every band in
+        // [StartBand, EndBand) ends up with a strictly-positive cap and
+        // bands outside the active range stay zero.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        var caps = dec.LastBandCaps;
+        Assert.Equal(CeltConstants.MaxBands, caps.Length);
+        for (int i = 0; i < CeltConstants.MaxBands; i++)
+            Assert.True(caps[i] > 0,
+                $"Caps for band {i} should be positive (libopus init_caps).");
+        // Bands at the top of the spectrum cover wider widths and at FB/LM=0
+        // for stereo the caps grow accordingly — sanity-check non-zero
+        // monotonicity for the bands within the active range.
+        Assert.True(caps[20] > caps[0]);
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_BandBoost_For_NonSilent_Packet()
+    {
+        // dyn_alloc reads at probability 2^-6 (then 2^-1) so it almost
+        // always yields zero boost on an all-zero payload — but the
+        // observable invariant is: boost[i] is non-negative, in 8-frac-bit
+        // multiples, and bounded by caps[i]. Bands outside [Start, End)
+        // must be zero.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        var boost = dec.LastBandBoost;
+        var caps = dec.LastBandCaps;
+        Assert.Equal(CeltConstants.MaxBands, boost.Length);
+        for (int i = 0; i < mode.StartBand; i++)
+            Assert.Equal(0, boost[i]);
+        for (int i = mode.EndBand; i < boost.Length; i++)
+            Assert.Equal(0, boost[i]);
+        for (int i = mode.StartBand; i < mode.EndBand; i++)
+        {
+            Assert.True(boost[i] >= 0, $"boost[{i}] must be non-negative");
+            Assert.True(boost[i] < caps[i],
+                $"boost[{i}]={boost[i]} must be < caps[{i}]={caps[i]}");
+        }
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_AllocTrim_For_NonSilent_Packet()
+    {
+        // alloc_trim is one ICDF symbol with 11 outcomes (0..10).
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+        Assert.False(dec.LastFrameWasSilent);
+
+        Assert.InRange(dec.LastAllocTrim, 0, 10);
+    }
+
+    [Fact]
+    public void DecodeFrame_AllocTrim_Defaults_To_Five_On_Tiny_Payload()
+    {
+        // A 2-byte (16-bit) payload runs out of budget well before the
+        // 6-bit alloc_trim symbol, so it must fall through to the
+        // documented default of 5 — regardless of which earlier symbols
+        // happen to consume entropy.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Wideband, 10_000);
+        var dec = new CeltDecoder(mode, 1);
+        Span<float> output = new float[mode.SamplesPerFrame];
+
+        byte[] payload = new byte[] { 0xAA, 0xAA };
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        Assert.Equal(CeltConstants.AllocTrimDefault, dec.LastAllocTrim);
+    }
+
+    [Fact]
+    public void Reset_Clears_Allocation_State()
+    {
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        dec.Reset();
+
+        var caps = dec.LastBandCaps;
+        var boost = dec.LastBandBoost;
+        for (int i = 0; i < caps.Length; i++)
+        {
+            Assert.Equal(0, caps[i]);
+            Assert.Equal(0, boost[i]);
+        }
+        Assert.Equal(CeltConstants.AllocTrimDefault, dec.LastAllocTrim);
+    }
 }

@@ -236,4 +236,62 @@ internal static class CeltConstants
     public const int SpreadNormal = 2;
     /// <inheritdoc cref="SpreadNone"/>
     public const int SpreadAggressive = 3;
+
+    // ----------------------------------------------------------------
+    // Bit allocation tables (RFC 6716 §4.3.3)
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Fractional-bit unit shift used throughout the CELT bit allocator.
+    /// libopus refers to this as <c>BITRES</c>. One whole bit equals
+    /// <c>1 &lt;&lt; BitRes = 8</c> fractional-bit units.
+    /// </summary>
+    public const int BitRes = 3;
+
+    /// <summary>
+    /// Default <c>alloc_trim</c> value returned when the bit budget does
+    /// not admit the 6-bit symbol. Index into the 11-entry trim table —
+    /// libopus comment: "right in the middle so we don't over-correct".
+    /// </summary>
+    public const int AllocTrimDefault = 5;
+
+    /// <summary>
+    /// Initial value of <c>dynalloc_logp</c> at the start of the dyn_alloc
+    /// loop. Decremented by 1 (clamped at 2) for every band that consumed
+    /// any boost bits, so subsequent bands become cheaper to boost.
+    /// </summary>
+    public const int DynAllocLogPStart = 6;
+
+    /// <summary>
+    /// ICDF for <c>alloc_trim</c>. 11 outcomes, ftb = 7. Selects the
+    /// global trim that biases bit allocation towards low or high bands.
+    /// </summary>
+    public static ReadOnlySpan<byte> AllocTrimIcdf => new byte[]
+    {
+        126, 124, 119, 109, 87, 41, 19, 9, 4, 2, 0,
+    };
+
+    /// <summary>
+    /// Per-band pulse-cache caps from libopus <c>cache_caps50[168]</c>.
+    /// Indexed as <c>CacheCaps50[MaxBands * (2*LM + (channels-1)) + band]</c>.
+    /// Stored as unsigned bytes in 1/32-bit-per-sample units; the actual
+    /// per-band cap (in fractional bits) is
+    /// <c>cap[i] = (CacheCaps50[idx] + 64) * C * N &gt;&gt; 2</c>
+    /// where <c>N = (eBands[i+1] - eBands[i]) &lt;&lt; LM</c>.
+    /// </summary>
+    public static ReadOnlySpan<byte> CacheCaps50 => new byte[]
+    {
+        224, 224, 224, 224, 224, 224, 224, 224, 160, 160, 160, 160, 185, 185, 185,
+        178, 178, 168, 134,  61,  37, 224, 224, 224, 224, 224, 224, 224, 224, 240,
+        240, 240, 240, 207, 207, 207, 198, 198, 183, 144,  66,  40, 160, 160, 160,
+        160, 160, 160, 160, 160, 185, 185, 185, 185, 193, 193, 193, 183, 183, 172,
+        138,  64,  38, 240, 240, 240, 240, 240, 240, 240, 240, 207, 207, 207, 207,
+        204, 204, 204, 193, 193, 180, 143,  66,  40, 185, 185, 185, 185, 185, 185,
+        185, 185, 193, 193, 193, 193, 193, 193, 193, 183, 183, 172, 138,  65,  39,
+        207, 207, 207, 207, 207, 207, 207, 207, 204, 204, 204, 204, 201, 201, 201,
+        188, 188, 176, 141,  66,  40, 193, 193, 193, 193, 193, 193, 193, 193, 193,
+        193, 193, 193, 194, 194, 194, 184, 184, 173, 139,  65,  39, 204, 204, 204,
+        204, 204, 204, 204, 204, 201, 201, 201, 201, 198, 198, 198, 187, 187, 175,
+        140,  66,  40,
+    };
 }
