@@ -346,5 +346,121 @@ public sealed class FlacMuxerTests
             Assert.Equal(0xF8, bytes[off + 1]);
         }
     }
+
+    [Fact]
+    public async Task FinishAsync_WithoutWrite_ProducesHeaderOnlyOutput()
+    {
+        using var ms = new MemoryStream();
+        await using (var mux = new FlacMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(BuildTrack());
+            await mux.StartAsync();
+            await mux.FinishAsync();
+        }
+        // 4 (fLaC) + 4 (block header) + 34 (streaminfo) = 42 bytes.
+        Assert.Equal(42, ms.ToArray().Length);
+    }
+
+    [Fact]
+    public async Task WriteSampleAsync_MinimumValid4ByteFrame_Succeeds()
+    {
+        using var ms = new MemoryStream();
+        await using (var mux = new FlacMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(BuildTrack());
+            await mux.StartAsync();
+            byte[] data = { 0xFF, 0xF8, 0x00, 0x00 };
+            await mux.WriteSampleAsync(new MediaSample
+            {
+                TrackIndex = 0,
+                Pts = 0,
+                Dts = 0,
+                Duration = 4096,
+                IsKeyFrame = true,
+                Data = data,
+            });
+            await mux.FinishAsync();
+        }
+        var bytes = ms.ToArray();
+        Assert.Equal(42 + 4, bytes.Length);
+        Assert.Equal(0xFF, bytes[42]);
+        Assert.Equal(0xF8, bytes[43]);
+    }
+
+    [Fact]
+    public async Task FrameOrder_PreservedAcrossSyncBytes()
+    {
+        using var ms = new MemoryStream();
+        await using (var mux = new FlacMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(BuildTrack());
+            await mux.StartAsync();
+            // Mix different valid sync byte values across consecutive frames.
+            byte[] syncBytes = [0xF8, 0xF9, 0xFC, 0xFD];
+            foreach (byte b in syncBytes)
+            {
+                await mux.WriteSampleAsync(BuildFrame(length: 32, syncByte1: b));
+            }
+            await mux.FinishAsync();
+        }
+        var bytes = ms.ToArray();
+        // 42-byte header + 4 frames * 32 bytes = 170.
+        Assert.Equal(42 + 4 * 32, bytes.Length);
+        Assert.Equal(0xF8, bytes[42 + 1]);
+        Assert.Equal(0xF9, bytes[42 + 32 + 1]);
+        Assert.Equal(0xFC, bytes[42 + 64 + 1]);
+        Assert.Equal(0xFD, bytes[42 + 96 + 1]);
+    }
+
+    [Fact]
+    public async Task StreamInfo_Bytes_Round_Trip_Through_Header()
+    {
+        using var ms = new MemoryStream();
+        var track = BuildTrack(fillByte: 0x10);
+        await using (var mux = new FlacMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(track);
+            await mux.StartAsync();
+            await mux.FinishAsync();
+        }
+        var bytes = ms.ToArray();
+        // streaminfo body starts at byte 8 (after fLaC magic + 4-byte block header).
+        for (int i = 0; i < 34; i++)
+        {
+            Assert.Equal((byte)(0x10 + i), bytes[8 + i]);
+        }
+    }
+
+    [Fact]
+    public void Dispose_OnFreshMuxer_NoStart_Succeeds()
+    {
+        // No track, no Start - Dispose should still work.
+        var ms = new MemoryStream();
+        var mux = new FlacMuxer(ms, leaveOpen: true);
+        mux.Dispose();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_OnFreshMuxer_NoStart_Succeeds()
+    {
+        var ms = new MemoryStream();
+        var mux = new FlacMuxer(ms, leaveOpen: true);
+        await mux.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Dispose_AfterFinish_LeavesStreamOpenIfRequested()
+    {
+        var ms = new MemoryStream();
+        await using (var mux = new FlacMuxer(ms, leaveOpen: true))
+        {
+            mux.AddTrack(BuildTrack());
+            await mux.StartAsync();
+            await mux.FinishAsync();
+        }
+        // Underlying stream still writable.
+        ms.WriteByte(0x42);
+        Assert.True(ms.Length > 42);
+    }
 }
 

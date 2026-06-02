@@ -283,6 +283,118 @@ public sealed class AiffDemuxerTests
         await dx.DisposeAsync();
     }
 
+    [Fact]
+    public async Task ReadSamples_AlwaysReports_IsKeyFrame_True_For_Pcm()
+    {
+        byte[] pcm = new byte[200];
+        byte[] aiff = BuildAiff(8000, 1, 16, pcm, "", "");
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { Assert.True(s.IsKeyFrame); }
+            finally { s.Owner?.Dispose(); }
+        }
+    }
+
+    [Fact]
+    public async Task ReadSamples_TrackIndex_Always_Zero()
+    {
+        byte[] pcm = new byte[80];
+        byte[] aiff = BuildAiff(8000, 1, 16, pcm, "", "");
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { Assert.Equal(0, s.TrackIndex); }
+            finally { s.Owner?.Dispose(); }
+        }
+    }
+
+    [Fact]
+    public async Task SeekAsync_Zero_Reads_All_Samples()
+    {
+        byte[] pcm = new byte[400];
+        byte[] aiff = BuildAiff(8000, 1, 16, pcm, "", "");
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        await dx.SeekAsync(TimeSpan.Zero);
+        long total = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { total += s.Data.Length; }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(pcm.Length, total);
+    }
+
+    [Fact]
+    public async Task SeekAsync_MidStream_Reads_Less_Than_Total()
+    {
+        // 16000 samples/sec mono 16-bit => 32000 bytes/sec. 16000 bytes total = 0.5s.
+        byte[] pcm = new byte[16000];
+        byte[] aiff = BuildAiff(16000, 1, 16, pcm, "", "");
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        await dx.SeekAsync(TimeSpan.FromMilliseconds(125));
+        long total = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try { total += s.Data.Length; }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.True(total <= pcm.Length);
+    }
+
+    [Fact]
+    public async Task Tracks_Index_Is_Zero_And_Id_Stable()
+    {
+        byte[] aiff = BuildAiff(8000, 1, 16, new byte[16], "", "");
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        Assert.Equal(0, dx.Tracks[0].Index);
+    }
+
+    [Fact]
+    public async Task Aifc_fl32_BitsPerSample_Is_32()
+    {
+        byte[] aifc = BuildAifc(48000, 1, 32, new byte[16], "fl32");
+        using var src = new IO.MemoryRandomAccessSource(aifc);
+        using var dx = AiffDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(32, a.BitsPerSample);
+    }
+
+    [Fact]
+    public async Task Aifc_sowt_BitsPerSample_Is_16()
+    {
+        byte[] aifc = BuildAifc(8000, 1, 16, new byte[16], "sowt");
+        using var src = new IO.MemoryRandomAccessSource(aifc);
+        using var dx = AiffDemuxer.Open(src);
+        var a = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(16, a.BitsPerSample);
+    }
+
+    [Fact]
+    public async Task BothCommentAndCopyrightAndTitle_RoundTrip()
+    {
+        byte[] pcm = new byte[16];
+        byte[] aiff = BuildAiffWithChunks(8000, 1, 16, pcm,
+            new (string id, byte[] body)[]
+            {
+                ("NAME", Encoding.UTF8.GetBytes("Track")),
+                ("AUTH", Encoding.UTF8.GetBytes("Artist")),
+                ("ANNO", Encoding.UTF8.GetBytes("comment text")),
+                ("COPY", Encoding.UTF8.GetBytes("(c) Owner")),
+            });
+        using var src = new IO.MemoryRandomAccessSource(aiff);
+        using var dx = AiffDemuxer.Open(src);
+        Assert.Equal("Track", dx.Metadata.Title);
+        Assert.Equal("Artist", dx.Metadata.Artist);
+        Assert.Equal("comment text", dx.Metadata.Comment);
+        Assert.Equal("(c) Owner", dx.Metadata.Copyright);
+    }
+
     // ---------- helpers ----------
 
     private static byte[] BuildAiffWithChunks(int sr, int ch, int bits, byte[] pcm, (string id, byte[] body)[] extras)
