@@ -180,8 +180,8 @@ public ref struct OpusRangeEncoder
     /// <summary>Encode an integer in [0, ft) for ft &gt; 1 (ec_enc_uint).</summary>
     public void EncodeUint(uint value, uint ft)
     {
-        if (ft <= 1) throw new ArgumentOutOfRangeException(nameof(ft), "ft must be > 1");
-        if (value >= ft) throw new ArgumentOutOfRangeException(nameof(value));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ft, 1U);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(value, ft);
         ft--;
         int ftb = EcIlog(ft);
         if (ftb > UintBits)
