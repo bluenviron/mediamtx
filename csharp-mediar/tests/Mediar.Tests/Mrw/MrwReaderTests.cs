@@ -259,6 +259,121 @@ public sealed class MrwReaderTests
         Assert.Equal(ImageFormat.Mrw, ImageFormatDetector.Detect(header));
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => MrwReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Stream()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE A2", emitStrip: false);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+        });
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var reader = MrwReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Mrw, reader.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE A2", emitStrip: false);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+        });
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var reader = MrwReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Mrw, reader.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal(0, ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_ShortLayout_Prd_Parses_Geometry_Without_Storage_Fields()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE A2", emitStrip: false);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec
+            {
+                ShortLayout = true, // 16-byte PRD (older firmware)
+                ImageWidth = 2868,
+                ImageHeight = 2136,
+            },
+            TtwBytes = ttw,
+        });
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = MrwReader.Open(ms);
+        Assert.Equal(2868, reader.Mrw.ImageWidth);
+        Assert.Equal(2136, reader.Mrw.ImageHeight);
+        // Storage / bayer fields default to zero in the short layout.
+        Assert.Equal(0, reader.Mrw.DataSize);
+        Assert.Equal(0, reader.Mrw.PixelSize);
+        Assert.Equal(0, reader.Mrw.StorageMethod);
+        Assert.Equal(0, reader.Mrw.BayerPattern);
+    }
+
+    [Fact]
+    public void Open_With_EnvelopeLength_Overrun_Throws_Envelope_Error()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE A2", emitStrip: false);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+            OverrideEnvelopeLength = uint.MaxValue,
+        });
+        using var ms = new MemoryStream(bytes, writable: false);
+        var ex = Assert.Throws<ImageFormatException>(() => MrwReader.Open(ms));
+        Assert.Contains("envelope", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Cancellation_When_Decodable()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE 7Hi", emitStrip: true);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+        });
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = MrwReader.Open(ms);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in reader.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Open_Without_Wbg_Or_Rif_Reports_Zero_Lengths()
+    {
+        var ttw = BuildKonicaMinoltaTtw("MINOLTA CO.,LTD.", "DiMAGE A2", emitStrip: false);
+        var bytes = TestMrwBuilder.Build(new TestMrwBuilder.MrwSpec
+        {
+            Prd = new TestMrwBuilder.PrdSpec(),
+            TtwBytes = ttw,
+        });
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = MrwReader.Open(ms);
+        Assert.Equal(0, reader.Mrw.WhiteBalanceGainsLength);
+        Assert.Equal(0, reader.Mrw.RawInformationFileLength);
+    }
+
     /// <summary>
     /// Builds a small TIFF byte stream suitable for embedding into the MRW
     /// TTW sub-block. When <paramref name="emitStrip"/> is true, the TIFF

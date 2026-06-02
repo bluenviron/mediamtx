@@ -260,4 +260,114 @@ public class PvrV2ReaderTests
         Assert.Equal(PixelFormat.Bgra32, frame!.PixelFormat);
         Assert.Equal(4 * 4 * 4, frame.Pixels.Length);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => PvrV2Reader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Stream()
+    {
+        var b = new TestPvrV2Builder { Width = 4, Height = 4, FormatId = PvrV2FormatId.GlRgba8888 };
+        b.Payloads.Add(new byte[4 * 4 * 4]);
+        var ms = new MemoryStream(b.Build(), writable: false);
+        using (var reader = PvrV2Reader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Pvr, reader.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Pvrtc_Format_Has_Unknown_PixelFormat_And_Zero_FrameCount()
+    {
+        var b = new TestPvrV2Builder
+        {
+            Width = 8,
+            Height = 8,
+            FormatId = PvrV2FormatId.Pvrtc4,
+        };
+        b.Payloads.Add(new byte[(8 / 4) * (8 / 4) * 8]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = PvrV2Reader.Open(ms);
+        Assert.Equal(PixelFormat.Unknown, reader.Info.PixelFormat);
+        Assert.Equal(0, reader.Info.FrameCount);
+    }
+
+    [Fact]
+    public void Dxt1_Has_Bcn_Tagged_ColorSpace()
+    {
+        var b = new TestPvrV2Builder
+        {
+            Width = 4,
+            Height = 4,
+            FormatId = PvrV2FormatId.Dxt1,
+        };
+        b.Payloads.Add(new byte[8]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = PvrV2Reader.Open(ms);
+        Assert.StartsWith("BCn:", reader.Info.ColorSpace, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Etc1_Has_Etc_Tagged_ColorSpace()
+    {
+        var b = new TestPvrV2Builder
+        {
+            Width = 4,
+            Height = 4,
+            FormatId = PvrV2FormatId.GlEtc1,
+        };
+        b.Payloads.Add(new byte[8]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = PvrV2Reader.Open(ms);
+        Assert.StartsWith("ETC:", reader.Info.ColorSpace, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadFrames_With_Mipmaps_Yields_One_Frame_Per_Level()
+    {
+        var b = new TestPvrV2Builder
+        {
+            Width = 4,
+            Height = 4,
+            FormatId = PvrV2FormatId.GlRgba8888,
+            Flags = PvrV2Flags.HasMipmaps,
+            MipMapCount = 2, // 4x4, 2x2, 1x1
+        };
+        b.Payloads.Add(new byte[4 * 4 * 4]);
+        b.Payloads.Add(new byte[2 * 2 * 4]);
+        b.Payloads.Add(new byte[1 * 1 * 4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = PvrV2Reader.Open(ms);
+        int count = 0;
+        await foreach (var f in reader.ReadFramesAsync())
+        {
+            count++;
+            f.Dispose();
+        }
+        Assert.Equal(3, count);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Cancellation_Before_First_Frame()
+    {
+        var b = new TestPvrV2Builder { Width = 4, Height = 4, FormatId = PvrV2FormatId.GlRgba8888 };
+        b.Payloads.Add(new byte[4 * 4 * 4]);
+        var bytes = b.Build();
+        using var ms = new MemoryStream(bytes, writable: false);
+        using var reader = PvrV2Reader.Open(ms);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in reader.ReadFramesAsync(cts.Token)) { }
+        });
+    }
 }
