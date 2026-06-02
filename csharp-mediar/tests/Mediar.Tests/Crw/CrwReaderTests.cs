@@ -286,6 +286,83 @@ public sealed class CrwReaderTests
         Assert.Throws<ImageFormatException>(() => CrwReader.Open(new MemoryStream(bytes)));
     }
 
+    [Fact]
+    public void Open_Null_Stream_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => CrwReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = CrwReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Crw, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = CrwReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Crw, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Rejects_HeaderLength_Larger_Than_File()
+    {
+        // Header length field is the LE u32 at offset 2 (CIFF). Writing a
+        // value larger than the file triggers the explicit guard rail.
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(2, 4), 0xFFFF_FF00u);
+        var ex = Assert.Throws<ImageFormatException>(() => CrwReader.Open(new MemoryStream(bytes)));
+        Assert.Contains("header length", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Cancellation_For_Decodable_Thumbnail()
+    {
+        var spec = new TestCrwBuilder.CrwSpec
+        {
+            Entries = [new() { Tag = 0x2007, Payload = LoadRedJpeg() }],
+        };
+        var bytes = TestCrwBuilder.Build(spec);
+        using var r = CrwReader.Open(new MemoryStream(bytes));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in r.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Crw_Regardless_Of_Heap_Contents()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        using var r = CrwReader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Crw, r.Format);
+        Assert.Equal(ImageFormat.Crw, r.Info.Format);
+    }
+
+    [Fact]
+    public void Empty_Heap_Has_Zero_SubImages_And_CannotDecodePixels()
+    {
+        var bytes = TestCrwBuilder.Build(new TestCrwBuilder.CrwSpec());
+        using var r = CrwReader.Open(new MemoryStream(bytes));
+        Assert.Empty(r.SubImages);
+        Assert.False(r.CanDecodePixels);
+    }
+
     private static (byte R, byte G, byte B) ReadPixel(ImageFrame frame, int x, int y)
     {
         // Frame data is row-major Rgb24 (8 bpc) per CrwReader's contract.

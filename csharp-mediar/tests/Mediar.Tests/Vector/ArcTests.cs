@@ -170,4 +170,69 @@ public class ArcTests
             Assert.InRange(v, 0.85f, 1.15f);
         }
     }
+
+    [Fact]
+    public void Half_Circle_Endpoint_Is_Reached()
+    {
+        // Half-circle from (-10,0) to (10,0) with radius 10 (sweeping below).
+        var path = new Path2D().MoveTo(-10, 0).ArcTo(10, 10, 0, false, true, new Vector2(10, 0));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.1f).ToList();
+        var last = segs[^1];
+        Assert.Equal(10f, last.P1.X, 1);
+        Assert.Equal(0f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void Full_Sweep_270_Degrees_Is_Decomposed_Into_Multiple_Cubics()
+    {
+        // 270° arc — must be split into at least three quarter-arc cubics.
+        var path = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, true, true, new Vector2(0, 10));
+        int cubics = path.Segments.Count(s => s.Verb == PathVerb.CubicTo);
+        Assert.True(cubics >= 3, $"Expected at least 3 cubics for a 270° sweep, got {cubics}");
+    }
+
+    [Fact]
+    public void Sweep_Flag_Selects_Different_Arc_Side()
+    {
+        // The two sweep flags should select the two different quarter arcs
+        // that connect the same two points, producing distinct flattened
+        // polylines.
+        var pathSweep = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, false, true, new Vector2(0, 10));
+        var pathNoSweep = new Path2D().MoveTo(10, 0).ArcTo(10, 10, 0, false, false, new Vector2(0, 10));
+        var s1 = PathFlattener.Flatten(pathSweep, Matrix3x2.Identity, 0.1f).ToList();
+        var s2 = PathFlattener.Flatten(pathNoSweep, Matrix3x2.Identity, 0.1f).ToList();
+        // Mid-segment x or y should differ — the two arcs bow opposite ways.
+        var mid1 = s1[s1.Count / 2].P0;
+        var mid2 = s2[s2.Count / 2].P0;
+        Assert.True(Math.Abs(mid1.X - mid2.X) > 1f || Math.Abs(mid1.Y - mid2.Y) > 1f,
+            $"Sweep flags should yield distinct paths but mids matched: {mid1} vs {mid2}");
+    }
+
+    [Fact]
+    public void Rotated_Ellipse_Still_Hits_Endpoint_For_45_Rotation()
+    {
+        var path = new Path2D().MoveTo(0, 0).ArcTo(10, 5, 45f, false, true, new Vector2(10, 10));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.1f).ToList();
+        var last = segs[^1];
+        Assert.Equal(10f, last.P1.X, 1);
+        Assert.Equal(10f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void Tiny_Radius_Still_Reaches_Endpoint_After_Scaling_Up()
+    {
+        // Both radii too small to span chord — the SVG spec scales them up.
+        var path = new Path2D().MoveTo(0, 0).ArcTo(0.01f, 0.01f, 0, false, true, new Vector2(20, 0));
+        var segs = PathFlattener.Flatten(path, Matrix3x2.Identity, 0.5f).ToList();
+        var last = segs[^1];
+        Assert.Equal(20f, last.P1.X, 1);
+        Assert.Equal(0f, last.P1.Y, 1);
+    }
+
+    [Fact]
+    public void ArcTo_Returns_Same_Path_Instance_For_Chaining()
+    {
+        var p = new Path2D().MoveTo(0, 0);
+        Assert.Same(p, p.ArcTo(5, 5, 0, false, true, new Vector2(10, 0)));
+    }
 }
