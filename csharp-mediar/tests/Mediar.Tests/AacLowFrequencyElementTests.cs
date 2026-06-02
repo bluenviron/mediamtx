@@ -254,4 +254,78 @@ public sealed class AacLowFrequencyElementTests
         Assert.Equal(sce.Stream.IcsInfo.WindowGroupCount, lfe.Stream.IcsInfo.WindowGroupCount);
         Assert.Equal(sce.BitsConsumed, lfe.BitsConsumed);
     }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x55)]
+    [InlineData(0xAA)]
+    [InlineData(0xFF)]
+    public void TryParse_GlobalGain_RoundTripsAll4Bytes(byte gain)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 0, globalGain: gain, maxSfb: 4);
+
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.Equal(gain, lfe!.Stream.GlobalGain);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(8)]
+    [InlineData(20)]
+    [InlineData(30)]
+    public void TryParse_LongLfe_HandlesAllMaxSfbValues(int maxSfb)
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 0, globalGain: 0x40, maxSfb: maxSfb);
+
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.Equal(maxSfb, lfe!.Stream.IcsInfo.MaxSfb);
+    }
+
+    [Fact]
+    public void TryParse_PulseDataPresent_IsRejectedOrAccepted_ConsistentlyWithSce()
+    {
+        // For long windows, pulse_data_present is legal. LFE bitstream
+        // parity with SCE means the same syntax should be accepted in
+        // both — verify that a minimal pulse_data parses through.
+        var book = BuildSyntheticSfCodebook();
+        var w = new AacBitWriter();
+        w.Write(0u, 4);
+        w.Write(0x40u, 8);
+        WriteLongIcsInfo(w, maxSfb: 4);
+        WriteOneZeroSection(w, len: 4);
+        w.Write(1u, 1); // pulse_data_present
+        // pulse_data: number_pulse(2) + pulse_start_sfb(6) + 1*(offset(5)+amp(4))
+        w.Write(0u, 2); // 1 pulse
+        w.Write(0u, 6);
+        w.Write(0u, 5);
+        w.Write(0u, 4);
+        w.Write(0u, 1); // tns
+        w.Write(0u, 1); // gain control
+
+        Assert.True(AacLowFrequencyElement.TryParse(w.ToArray(), book, out var lfe));
+        Assert.True(AacSingleChannelElement.TryParse(w.ToArray(), book, out var sce));
+        Assert.Equal(sce!.BitsConsumed, lfe!.BitsConsumed);
+    }
+
+    [Fact]
+    public void TryParse_PreservesScaleFactorEntries_Length_EqualsMaxSfb()
+    {
+        var book = BuildSyntheticSfCodebook();
+        var bytes = BuildCanonicalLfeBytes(tag: 1, globalGain: 0x42, maxSfb: 10);
+
+        Assert.True(AacLowFrequencyElement.TryParse(bytes, book, out var lfe));
+        Assert.Equal(10, lfe!.Stream.ScaleFactorData.Entries.Count);
+    }
+
+    [Fact]
+    public void TryParse_LfeHas_NoSeparateConstants_BeyondElementInstanceTag()
+    {
+        // MaxElementInstanceTag = 15 ⇒ a 4-bit field; SCE has the same bound.
+        Assert.Equal(15, AacLowFrequencyElement.MaxElementInstanceTag);
+        Assert.Equal(AacSingleChannelElement.MaxElementInstanceTag,
+            AacLowFrequencyElement.MaxElementInstanceTag);
+    }
 }

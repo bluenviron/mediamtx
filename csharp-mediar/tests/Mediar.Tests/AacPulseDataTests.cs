@@ -1,5 +1,6 @@
 using AacBitWriter = Mediar.Codecs.Aac.Decoder.BitWriter;
 using Mediar.Codecs.Aac.Decoder;
+using System.Collections.Immutable;
 using Xunit;
 
 namespace Mediar.Tests;
@@ -229,6 +230,119 @@ public class AacPulseDataTests
         Assert.Equal(2, data.Pulses.Length);
         Assert.Equal(new AacPulse(4, 5), data.Pulses[0]);
         Assert.Equal(new AacPulse(8, 2), data.Pulses[1]);
+    }
+
+    [Fact]
+    public void Pulse_Record_Equality_WorksAcrossInstances()
+    {
+        var a = new AacPulse(5, 3);
+        var b = new AacPulse(5, 3);
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, new AacPulse(6, 3));
+        Assert.NotEqual(a, new AacPulse(5, 4));
+    }
+
+    [Fact]
+    public void PulseData_Record_With_ChangedField_NotEqualToOriginal()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(5u, 6);
+        writer.Write(7u, 5);
+        writer.Write(3u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var original));
+        var mutated = original! with { StartScaleFactorBand = 50 };
+        Assert.NotEqual(original, mutated);
+        Assert.Equal(50, mutated.StartScaleFactorBand);
+        Assert.Equal(original!.Pulses, mutated.Pulses);
+    }
+
+    [Fact]
+    public void TryParse_OnePulse_StartSfb_Edge_Values()
+    {
+        // start_sfb can occupy any 6-bit value; test min and max.
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(63u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.Equal(63, data!.StartScaleFactorBand);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(7, 7)]
+    [InlineData(15, 15)]
+    [InlineData(31, 15)]
+    public void TryParse_OnePulse_OffsetAmplitudeRanges(int offset, int amplitude)
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(5u, 6);
+        writer.Write((uint)offset, 5);
+        writer.Write((uint)amplitude, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.Equal(offset, data!.Pulses[0].Offset);
+        Assert.Equal(amplitude, data.Pulses[0].Amplitude);
+    }
+
+    [Fact]
+    public void ToBytes_NegativeOffset_Throws()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(0u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var parsed));
+        var bogus = parsed! with { Pulses = [new AacPulse(-1, 0)] };
+        Assert.Throws<InvalidOperationException>(() => bogus.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_NegativeAmplitude_Throws()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(0u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var parsed));
+        var bogus = parsed! with { Pulses = [new AacPulse(0, -1)] };
+        Assert.Throws<InvalidOperationException>(() => bogus.ToBytes());
+    }
+
+    [Fact]
+    public void ToBytes_NoPulses_Throws()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(0u, 2);
+        writer.Write(0u, 6);
+        writer.Write(0u, 5);
+        writer.Write(0u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var parsed));
+        var bogus = parsed! with { Pulses = ImmutableArray<AacPulse>.Empty };
+        Assert.Throws<InvalidOperationException>(() => bogus.ToBytes());
+    }
+
+    [Fact]
+    public void TryParse_FourPulses_AscendingOffsets()
+    {
+        var writer = new AacBitWriter();
+        writer.Write(3u, 2);
+        writer.Write(7u, 6);
+        writer.Write(0u, 5); writer.Write(1u, 4);
+        writer.Write(5u, 5); writer.Write(2u, 4);
+        writer.Write(10u, 5); writer.Write(3u, 4);
+        writer.Write(15u, 5); writer.Write(4u, 4);
+        Assert.True(AacPulseData.TryParse(writer.ToArray(), out var data));
+        Assert.Equal(4, data!.Pulses.Length);
+        Assert.Equal(0, data.Pulses[0].Offset);
+        Assert.Equal(5, data.Pulses[1].Offset);
+        Assert.Equal(10, data.Pulses[2].Offset);
+        Assert.Equal(15, data.Pulses[3].Offset);
     }
 
     private sealed class AacPulseData_ForRoundTrip
