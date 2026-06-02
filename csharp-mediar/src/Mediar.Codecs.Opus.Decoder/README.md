@@ -10,13 +10,32 @@ commits.
 |------:|---------------------------------------------------------------------------|----------|
 |     1 | Foundation: TOC parser, frame packing, range coder, silence-emitting skeleton | ✅ shipped |
 |    2a | CELT foundation: constants, band-layout `CeltMode`, decoder skeleton, OpusDecoder routing | ✅ shipped |
-|    2b | CELT energy: silence/transient/post-filter/intra flags + coarse/fine/final energy | ⏳ planned |
+|    2b | CELT energy: silence/transient/post-filter/intra flags + coarse energy (Laplace) | ✅ shipped |
 |    2c | CELT PVQ: bit allocation, band shape, anti-collapse, mid-side stereo      | ⏳ planned |
 |    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
 |     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
 |     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
 |     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
 |     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2b behavior (added on top of Phase 2a)
+
+CELT-only frames now parse the front-of-packet flag set and the
+Laplace-coded coarse band energies. Output is still silence — the
+spectral synthesis path (PVQ + IMDCT) lands in Phase 2c/2d — but the
+decoded state is observable from tests via:
+
+- `LastFrameWasSilent` — silence shortcut triggered.
+- `LastPostFilter` — octave, period, gain, tapset (parsed, not yet applied).
+- `LastFrameWasTransient` — `true` when the frame is split into
+  `ShortBlocksPerFrame` short MDCTs.
+- `LastFrameUsedIntra` — coarse-energy predictor used the intra path.
+- `OldLogE` — per-band log-energy state in DB_SHIFT (Q10) units; this
+  is the same storage layout libopus uses.
+
+The decoder consumes range bits in the exact order specified by RFC
+6716 §4.3.2, so plugging in Phase 2c (PVQ + fine energy) just means
+reading the next set of symbols from the same range decoder.
 
 ## Phase 2a behavior (added on top of Phase 1)
 

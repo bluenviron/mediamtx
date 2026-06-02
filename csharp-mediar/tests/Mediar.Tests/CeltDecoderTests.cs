@@ -93,9 +93,10 @@ public sealed class CeltDecoderTests
     public void OpusDecoder_Routes_CeltOnly_Packets_Through_Celt_Path()
     {
         // Build a CELT-only packet (config 28 = CELT FB 2.5 ms) — through
-        // OpusDecoder this exercises the new CELT routing path. Phase 2a
-        // still emits silence, so we verify the *shape* — Phase 2b+
-        // upgrades the content.
+        // OpusDecoder this exercises the new CELT routing path. Phase 2b
+        // parses the front-of-packet flag set and the coarse-energy
+        // spectrum, but still emits silence for the audio output until
+        // Phase 2c/2d ship.
         byte toc = (byte)((28 << 3) | (1 << 2) | 0); // config=28, stereo=1, code=0
         byte[] pkt = new byte[1 + 20];
         pkt[0] = toc;
@@ -108,7 +109,85 @@ public sealed class CeltDecoderTests
         Assert.Equal(120, frame.SamplesPerChannel); // 2.5 ms @ 48k
         Assert.Equal(42, frame.Pts);
         Assert.Equal(120 * 2, frame.Samples.Length);
-        // Phase 2a still silent.
+        // Phase 2b still emits silence (PCM lands in Phase 2d).
         foreach (var s in frame.Samples.Span) Assert.Equal(0.0f, s);
+    }
+
+    [Fact]
+    public void DecodeFrame_Populates_State_For_NonSilent_Packet()
+    {
+        // A payload of 16 all-zero bytes is large enough (128 bits) that
+        // all Phase 2b flags + the coarse-energy loop get exercised. The
+        // silence flag in particular comes out false because after init
+        // the range coder sits at the top of the window — so we get a
+        // full pass through post-filter / transient / intra / coarse
+        // energy decoding. State must update accordingly.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        int tellBefore = rd.Tell();
+        int produced = dec.DecodeFrame(ref rd, output);
+        int tellAfter = rd.Tell();
+
+        Assert.Equal(mode.SamplesPerFrame, produced);
+        Assert.False(dec.LastFrameWasSilent, "All-zero payload trips the silent=0 branch.");
+        Assert.True(tellAfter > tellBefore + 17,
+            "Coarse energy decode should consume well past the silence-flag budget.");
+        // Output stays zeroed until Phase 2d.
+        foreach (var s in output) Assert.Equal(0f, s);
+        Assert.False(dec.IsFirstFrame);
+    }
+
+    [Fact]
+    public void DecodeFrame_Silent_Path_Clamps_Energy_State()
+    {
+        // A 4-byte (32-bit) payload is large enough to trigger the
+        // silence-flag branch but small enough that — once silence
+        // resolves true — we skip post-filter / transient / intra /
+        // coarse-energy. With our specific init pattern the silence
+        // flag *can* resolve either way; regardless of which path was
+        // taken, the recorded state must be internally consistent.
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Wideband, 10_000);
+        var dec = new CeltDecoder(mode, 1);
+        Span<float> output = new float[mode.SamplesPerFrame];
+
+        byte[] payload = new byte[] { 0xFF, 0xFF, 0xFF, 0xFF };
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        if (dec.LastFrameWasSilent)
+        {
+            Assert.False(dec.LastFrameWasTransient);
+            Assert.False(dec.LastFrameUsedIntra);
+            Assert.False(dec.LastPostFilter.Enabled);
+            for (int i = 0; i < dec.OldLogE.Length; i++)
+            {
+                Assert.Equal(-28.0f * 1024.0f, dec.OldLogE[i]);
+            }
+        }
+    }
+
+    [Fact]
+    public void Reset_Clears_Energy_And_Flags()
+    {
+        var mode = CeltMode.ForCeltOnly(OpusBandwidth.Fullband, 20_000);
+        var dec = new CeltDecoder(mode, 2);
+        Span<float> output = new float[mode.SamplesPerFrame * 2];
+        byte[] payload = new byte[16];
+        var rd = new OpusRangeDecoder(payload);
+        dec.DecodeFrame(ref rd, output);
+
+        dec.Reset();
+        Assert.True(dec.IsFirstFrame);
+        Assert.Equal(0, dec.SamplesProduced);
+        Assert.False(dec.LastFrameWasSilent);
+        Assert.False(dec.LastFrameWasTransient);
+        Assert.False(dec.LastFrameUsedIntra);
+        Assert.False(dec.LastPostFilter.Enabled);
+        for (int i = 0; i < dec.OldLogE.Length; i++)
+            Assert.Equal(0f, dec.OldLogE[i]);
     }
 }

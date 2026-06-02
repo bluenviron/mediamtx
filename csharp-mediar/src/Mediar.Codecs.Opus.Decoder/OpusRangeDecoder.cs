@@ -274,6 +274,59 @@ public ref struct OpusRangeDecoder
         return ret;
     }
 
+    /// <summary>
+    /// Decode a signed integer using a discretised Laplace distribution
+    /// (libopus <c>ec_laplace_decode</c>, RFC 6716 §4.3.2.1). Used by the
+    /// CELT coarse-energy decoder.
+    /// </summary>
+    /// <param name="fs">
+    /// Initial 15-bit symbol total for the centre bin (corresponds to
+    /// <c>e_prob_model[LM][intra][2i] &lt;&lt; 7</c>).
+    /// </param>
+    /// <param name="decay">
+    /// Geometric decay factor (Q14) applied to subsequent bins
+    /// (corresponds to <c>e_prob_model[LM][intra][2i+1] &lt;&lt; 6</c>).
+    /// </param>
+    public int DecodeLaplace(uint fs, int decay)
+    {
+        // LAPLACE_LOG_MINP = 0, LAPLACE_MINP = 1, LAPLACE_NMIN = 16.
+        const uint LaplaceMinP = 1;
+        const uint LaplaceTwoNMinP = 32; // 2 * LAPLACE_NMIN * LAPLACE_MINP
+
+        int val = 0;
+        uint fl = 0;
+        uint fm = DecodeBin(15);
+
+        if (fm >= fs)
+        {
+            val++;
+            fl = fs;
+            // ec_laplace_get_freq1(fs0, decay) + LAPLACE_MINP.
+            uint ft = 32768u - LaplaceTwoNMinP - fs;
+            fs = (uint)((int)ft * (16384 - decay) >> 15) + LaplaceMinP;
+            while (fs > LaplaceMinP && fm >= fl + 2 * fs)
+            {
+                fs *= 2;
+                fl += fs;
+                fs = (uint)(((int)fs - 2 * (int)LaplaceMinP) * decay >> 15) + LaplaceMinP;
+                val++;
+            }
+            if (fs <= LaplaceMinP)
+            {
+                int di = (int)(fm - fl) >> 1;
+                val += di;
+                fl += (uint)(2 * di);
+            }
+            if (fm < fl + fs) val = -val;
+            else fl += fs;
+        }
+
+        uint fh = fl + fs;
+        if (fh > 32768u) fh = 32768u;
+        Update(fl, fh, 32768);
+        return val;
+    }
+
     // ------- introspection -------
 
     /// <summary>
