@@ -341,6 +341,120 @@ public sealed class TiffReaderTests
         }
     }
 
+    [Fact]
+    public async Task UncompressedGray8_SingleStrip_Photometric_BlackIsZero()
+    {
+        var payload = new byte[8 * 4];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i * 7);
+        var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = 8, Height = 4, BitsPerSample = 8, SamplesPerPixel = 1,
+            Compression = 1, Photometric = 1, RowsPerStrip = 4,
+            StripPayloads = [payload],
+        });
+
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(PixelFormat.Gray8, r.Info.PixelFormat);
+        Assert.True(r.CanDecodePixels);
+
+        ImageFrame? captured = null;
+        await foreach (var f in r.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            Assert.Equal(payload, captured!.Pixels.ToArray());
+        }
+    }
+
+    [Fact]
+    public async Task UncompressedRgb_MultipleStrips_Decodes_Concatenated()
+    {
+        // Two strips of 2 rows each = 4x4 image total.
+        var row01 = new byte[4 * 2 * 3];
+        var row23 = new byte[4 * 2 * 3];
+        for (int i = 0; i < row01.Length; i++) row01[i] = (byte)(i + 1);
+        for (int i = 0; i < row23.Length; i++) row23[i] = (byte)(i + 100);
+        var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = 4, Height = 4, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 2,
+            StripPayloads = [row01, row23],
+        });
+
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        ImageFrame? captured = null;
+        await foreach (var f in r.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            var px = captured!.Pixels.ToArray();
+            Assert.Equal(row01.Length + row23.Length, px.Length);
+            Assert.Equal(row01, px[..row01.Length]);
+            Assert.Equal(row23, px[row01.Length..]);
+        }
+    }
+
+    [Fact]
+    public void Rejects_Bad_Byte_Order_Mark()
+    {
+        byte[] bytes = [0x00, 0x00, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00];
+        Assert.Throws<ImageFormatException>(() =>
+            TiffReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void Rejects_Bad_Magic_Number()
+    {
+        byte[] bytes = [0x49, 0x49, 0x29, 0x00, 0x08, 0x00, 0x00, 0x00]; // 41 not 42
+        Assert.Throws<ImageFormatException>(() =>
+            TiffReader.Open(new MemoryStream(bytes), ownsStream: true));
+    }
+
+    [Fact]
+    public void UncompressedRgb_Single_Strip_Exposes_Format_Tiff()
+    {
+        var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = 2, Height = 2, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 2,
+            StripPayloads = [new byte[2 * 2 * 3]],
+        });
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.Equal(ImageFormat.Tiff, r.Format);
+        Assert.Single(r.Pages);
+        Assert.False(r.Pages[0].IsTiled);
+    }
+
+    [Fact]
+    public async Task RowsPerStrip_Equals_Height_Single_Strip()
+    {
+        // RowsPerStrip = Height -> only one strip needed.
+        var payload = new byte[6 * 6 * 3];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i & 0xFF);
+        var bytes = TestTiffBuilder.Build(new TestTiffBuilder.TiffSpec
+        {
+            Width = 6, Height = 6, BitsPerSample = 8, SamplesPerPixel = 3,
+            Compression = 1, Photometric = 2, RowsPerStrip = 6,
+            StripPayloads = [payload],
+        });
+        using var r = TiffReader.Open(new MemoryStream(bytes), ownsStream: true);
+        Assert.False(r.Pages[0].IsTiled);
+        ImageFrame? captured = null;
+        await foreach (var f in r.ReadFramesAsync()) { captured = f; break; }
+        Assert.NotNull(captured);
+        using (captured)
+        {
+            Assert.Equal(payload, captured!.Pixels.ToArray());
+        }
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        Assert.Throws<ImageFormatException>(() =>
+            TiffReader.Open(new MemoryStream(Array.Empty<byte>()), ownsStream: true));
+    }
+
     private static byte[] BuildSolidRgbTile(int w, int h, byte r, byte g, byte b)
     {
         var buf = new byte[w * h * 3];

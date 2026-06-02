@@ -257,4 +257,162 @@ public sealed class DngReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => DngReader.Open(ms));
+    }
+
+    [Theory]
+    [InlineData(1, 0, 0, 0, "1.0.0.0")]
+    [InlineData(1, 5, 0, 0, "1.5.0.0")]
+    [InlineData(1, 7, 1, 0, "1.7.1.0")]
+    public void DngVersion_Parsed_And_Formatted_In_Metadata(byte a, byte b, byte c, byte d, string expected)
+    {
+        var spec = new TestDngBuilder.IfdSpec
+        {
+            Width = 2,
+            Height = 2,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[2 * 2 * 3],
+            DngVersion = [a, b, c, d],
+        };
+        byte[] bytes = TestDngBuilder.Build(spec);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(expected, dng.Metadata.Tags["DNG:Version"]);
+    }
+
+    [Fact]
+    public void Without_UniqueCameraModel_Field_Is_Null()
+    {
+        var spec = new TestDngBuilder.IfdSpec
+        {
+            Width = 2,
+            Height = 2,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[2 * 2 * 3],
+            DngVersion = [1, 7, 0, 0],
+        };
+        byte[] bytes = TestDngBuilder.Build(spec);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(dng.Dng.UniqueCameraModel);
+        Assert.False(dng.Metadata.Tags.ContainsKey("DNG:UniqueCameraModel"));
+    }
+
+    [Fact]
+    public void Without_DngBackwardVersion_Field_Is_Empty()
+    {
+        var spec = new TestDngBuilder.IfdSpec
+        {
+            Width = 2,
+            Height = 2,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[2 * 2 * 3],
+            DngVersion = [1, 7, 0, 0],
+        };
+        byte[] bytes = TestDngBuilder.Build(spec);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.True(dng.Dng.DngBackwardVersion.IsEmpty || dng.Dng.DngBackwardVersion.Length == 0);
+    }
+
+    [Fact]
+    public void Without_BlackLevel_Field_Is_Empty()
+    {
+        var spec = new TestDngBuilder.IfdSpec
+        {
+            Width = 2,
+            Height = 2,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[2 * 2 * 3],
+            DngVersion = [1, 7, 0, 0],
+        };
+        byte[] bytes = TestDngBuilder.Build(spec);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Empty(dng.Dng.BlackLevel);
+        Assert.False(dng.Metadata.Tags.ContainsKey("DNG:BlackLevel"));
+    }
+
+    [Fact]
+    public void Multiple_SubIfds_All_Discovered_As_SubImages()
+    {
+        var raw1 = new TestDngBuilder.IfdSpec
+        {
+            Width = 16,
+            Height = 16,
+            BitsPerSample = 16,
+            SamplesPerPixel = 1,
+            Compression = 1,
+            Photometric = 1,
+            NewSubFileType = 0,
+            StripPayload = new byte[16 * 16 * 2],
+        };
+        var raw2 = new TestDngBuilder.IfdSpec
+        {
+            Width = 6,
+            Height = 6,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 1,
+            StripPayload = new byte[6 * 6 * 3],
+        };
+        var ifd0 = new TestDngBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 1,
+            StripPayload = new byte[4 * 4 * 3],
+            DngVersion = [1, 7, 0, 0],
+            SubIfds = [raw1, raw2],
+        };
+        byte[] bytes = TestDngBuilder.Build(ifd0);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(3, dng.SubImages.Count);
+        Assert.Equal(16, dng.Info.Width);
+        Assert.Equal(16, dng.Info.Height);
+    }
+
+    [Fact]
+    public void CfaPattern_RGGB_Stored_Verbatim()
+    {
+        var spec = new TestDngBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 1,
+            Compression = 1,
+            Photometric = 32803, // CFA
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4],
+            DngVersion = [1, 7, 0, 0],
+            CfaPattern = [0, 1, 1, 2],
+        };
+        byte[] bytes = TestDngBuilder.Build(spec);
+        using var dng = DngReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal([0, 1, 1, 2], dng.Dng.CfaPattern.ToArray());
+    }
 }
