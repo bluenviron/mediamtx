@@ -77,7 +77,7 @@ must come with their own licensing analysis.
 | **AV2 transmux (carry-through MP4 / MKV)** | ✅ (`av02` / `V_AV2` codec id; passthrough only — no decoder, spec not yet published) |
 | Vorbis audio synthesis (floor 1 + residue + overlap-add) | ✅ (shipped) |
 | Opus decoder                              | 🟡 (deferred, royalty-free but large) |
-| MP3 decoder                              | 🟢 (pipeline shipped; bit-exact ISO conformance pending: substitute Annex B Table B.4 D-window + full Table B.7 Huffman tables) |
+| MP3 decoder                              | 🟢 (pipeline shipped; full status, performance baseline, and conformance/perf TODOs in [`src/Mediar.Codecs.Mp3.Decoder/README.md`](src/Mediar.Codecs.Mp3.Decoder/README.md)) |
 | ALAC decoder                             | 🟡 (deferred)         |
 | Matroska lacing (XIPH/EBML/FIXED)        | ❌ (not yet)          |
 
