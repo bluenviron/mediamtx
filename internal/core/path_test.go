@@ -903,6 +903,7 @@ func TestPathResolveSource(t *testing.T) {
 	require.NoError(t, err)
 	defer strm.Close()
 
+	var u *base.URL
 	for name, source := range map[string]string{
 		"G1": "rtsp://127.0.0.1:8555/$G1?$MTX_QUERY",
 	} {
@@ -916,7 +917,7 @@ func TestPathResolveSource(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
+			u, err = base.ParseURL("rtsp://127.0.0.1:8554/test_a?key=val")
 			require.NoError(t, err)
 
 			reader := gortsplib.Client{
@@ -945,7 +946,7 @@ func TestPathResolveSource(t *testing.T) {
 		defer p.Close()
 
 		// Simulate the target server at 127.0.0.1:8556
-		s := gortsplib.Server{
+		targetServer := gortsplib.Server{
 			Handler: &testServer{
 				onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 					require.Equal(t, "", ctx.Query)
@@ -968,9 +969,9 @@ func TestPathResolveSource(t *testing.T) {
 			RTSPAddress: "127.0.0.1:8556", // Target server port
 		}
 
-		err := s.Start()
+		err = targetServer.Start()
 		require.NoError(t, err)
-		defer s.Close()
+		defer targetServer.Close()
 
 		strm2 := &gortsplib.ServerStream{
 			Server: &s,

@@ -19,10 +19,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
-var reSourcePlaceholderPort = regexp.MustCompile(`:\$G[0-9]+`)
-var reSourcePlaceholderHost = regexp.MustCompile(`(//|@)\$G[0-9]+`)
-var reSourcePlaceholder = regexp.MustCompile(`\$G[0-9]+`)
+var (
+	rePathName              = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
+	reSourcePlaceholderPort = regexp.MustCompile(`:\$G[0-9]+`)
+	reSourcePlaceholderHost = regexp.MustCompile(`(//|@)\$G[0-9]+`)
+	reSourcePlaceholder     = regexp.MustCompile(`\$G[0-9]+`)
+)
 
 // IsValidPathName checks whether the path name is valid.
 func IsValidPathName(name string) error {
@@ -98,6 +100,34 @@ func validateSourceWithPlaceholders(source string) (*url.URL, error) {
 	}
 
 	return u, nil
+}
+
+func validateSourceURL(source string, hasPlaceholders bool) error {
+	var u *url.URL
+	var err error
+
+	if hasPlaceholders {
+		u, err = validateSourceWithPlaceholders(source)
+		if err != nil {
+			return err
+		}
+	} else {
+		u, err = url.Parse(source)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid URL", source)
+		}
+	}
+
+	if u.User != nil {
+		pass, _ := u.User.Password()
+		user := u.User.Username()
+		if user != "" && pass == "" ||
+			user == "" && pass != "" {
+			return fmt.Errorf("username and password must be both provided")
+		}
+	}
+
+	return nil
 }
 
 func checkMP4MagicBytes(f io.ReadSeeker) error {
@@ -493,72 +523,14 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		var (
-			u   *url.URL
-			err error
-		)
-		if hasSourcePlaceholders {
-			u, err = validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					return fmt.Errorf("username and password must be both provided")
-				}
-			}
-		} else {
-			u, err := url.Parse(pconf.Source)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-			}
-
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					return fmt.Errorf("username and password must be both provided")
-				}
-			}
+		if err := validateSourceURL(pconf.Source, hasSourcePlaceholders); err != nil {
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		var (
-			u   *url.URL
-			err error
-		)
-		if hasSourcePlaceholders {
-			u, err = validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					return fmt.Errorf("username and password must be both provided")
-				}
-			}
-		} else {
-			u, err := url.Parse(pconf.Source)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-			}
-
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					return fmt.Errorf("username and password must be both provided")
-				}
-			}
+		if err := validateSourceURL(pconf.Source, hasSourcePlaceholders); err != nil {
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
