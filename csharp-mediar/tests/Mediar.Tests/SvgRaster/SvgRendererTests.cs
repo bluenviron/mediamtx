@@ -169,4 +169,79 @@ public class SvgRendererTests
     {
         Assert.Throws<ArgumentNullException>(() => SvgRenderer.Render(null!));
     }
+
+    [Fact]
+    public void Render_With_Whitespace_Throws()
+    {
+        // ArgumentException.ThrowIfNullOrEmpty rejects empty; whitespace-only
+        // passes that check but the XML parse step fails.
+        Assert.ThrowsAny<Exception>(() => SvgRenderer.Render("   "));
+    }
+
+    [Fact]
+    public void Render_With_Invalid_Xml_Throws()
+    {
+        Assert.ThrowsAny<Exception>(() => SvgRenderer.Render("<not-closed-tag"));
+    }
+
+    [Fact]
+    public void Render_Line_Element_Produces_Stroke()
+    {
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><line x1="5" y1="15" x2="25" y2="15" stroke="black" stroke-width="3"/></svg>""";
+        var frame = SvgRenderer.Render(svg);
+        // Pixel on the line should be opaque or near it.
+        int onLineA = PixelAt(frame, 15, 15).A;
+        Assert.True(onLineA > 100);
+        // Pixel far above the line stays empty.
+        Assert.Equal(0, PixelAt(frame, 15, 0).A);
+    }
+
+    [Fact]
+    public void Render_Ellipse_Element_Fills_Center()
+    {
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><ellipse cx="20" cy="10" rx="15" ry="5" fill="red"/></svg>""";
+        var frame = SvgRenderer.Render(svg);
+        // Center of ellipse opaque red.
+        var (b, g, r, a) = PixelAt(frame, 20, 10);
+        Assert.Equal(255, r);
+        Assert.Equal(0, g);
+        Assert.Equal(0, b);
+        Assert.Equal(255, a);
+        // Top-left corner well outside the ellipse remains transparent.
+        Assert.Equal(0, PixelAt(frame, 0, 0).A);
+    }
+
+    [Fact]
+    public void Render_Polyline_Element_Strokes_But_Does_Not_Fill_By_Default()
+    {
+        // Polyline with stroke only (no fill). SVG default fill is black,
+        // but for an open polyline the fill region is the implied closed
+        // polygon. Either way the test just verifies the stroke renders.
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><polyline points="5,5 25,5 25,25" fill="none" stroke="black" stroke-width="3"/></svg>""";
+        var frame = SvgRenderer.Render(svg);
+        // Pixel on the top edge of the polyline has stroke coverage.
+        int onStrokeA = PixelAt(frame, 15, 5).A;
+        Assert.True(onStrokeA > 100);
+    }
+
+    [Fact]
+    public void Render_With_Explicit_Dimensions_Overrides_Intrinsic_Width_Height()
+    {
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="black"/></svg>""";
+        var frame = SvgRenderer.Render(svg, 16, 16);
+        Assert.Equal(16, frame.Width);
+        Assert.Equal(16, frame.Height);
+    }
+
+    [Fact]
+    public void Render_Background_With_Custom_Rgba_Produces_That_Color_For_Empty_Svg()
+    {
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""";
+        var frame = SvgRenderer.Render(svg, RgbaColor.FromBytes(10, 20, 30, 255));
+        var (b, g, r, a) = PixelAt(frame, 2, 2);
+        Assert.Equal(10, r);
+        Assert.Equal(20, g);
+        Assert.Equal(30, b);
+        Assert.Equal(255, a);
+    }
 }

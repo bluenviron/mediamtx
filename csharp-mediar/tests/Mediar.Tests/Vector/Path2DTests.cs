@@ -128,4 +128,79 @@ public class Path2DTests
         a.Append(b);
         Assert.Equal(4, a.Segments.Count);
     }
+
+    [Fact]
+    public void Append_With_Null_Throws()
+    {
+        var p = new Path2D().MoveTo(0, 0);
+        Assert.Throws<ArgumentNullException>(() => p.Append(null!));
+    }
+
+    [Fact]
+    public void GetBounds_On_Empty_Returns_Zero_Rect()
+    {
+        var (minX, minY, maxX, maxY) = new Path2D().GetBounds();
+        Assert.Equal(0f, minX);
+        Assert.Equal(0f, minY);
+        Assert.Equal(0f, maxX);
+        Assert.Equal(0f, maxY);
+    }
+
+    [Fact]
+    public void Second_MoveTo_Changes_SubPath_Start_So_Close_Returns_There()
+    {
+        var p = new Path2D()
+            .MoveTo(0, 0).LineTo(10, 0)
+            .MoveTo(5, 5).LineTo(7, 5)
+            .Close();
+        var closeSeg = p.Segments[^1];
+        Assert.Equal(PathVerb.Close, closeSeg.Verb);
+        Assert.Equal(new Vector2(5, 5), closeSeg.P0);
+    }
+
+    [Fact]
+    public void ArcTo_Without_MoveTo_Adds_Implicit_Origin_MoveTo()
+    {
+        var p = new Path2D().ArcTo(10, 10, 0, false, true, new Vector2(10, 0));
+        Assert.Equal(PathVerb.MoveTo, p.Segments[0].Verb);
+        Assert.Equal(Vector2.Zero, p.Segments[0].P0);
+        Assert.True(p.Segments.Count > 1);
+    }
+
+    [Fact]
+    public void SmoothCubicTo_After_Close_Uses_Current_Point()
+    {
+        // Close changes _lastVerb to Close (not Cubic) so SmoothCubicTo
+        // must fall back to using the current point as its first control.
+        var p = new Path2D()
+            .MoveTo(0, 0)
+            .CubicTo(new Vector2(1, 1), new Vector2(2, 2), new Vector2(3, 3))
+            .Close()
+            .MoveTo(5, 5)
+            .SmoothCubicTo(new Vector2(8, 8), new Vector2(9, 9));
+        var seg = p.Segments[^1];
+        Assert.Equal(PathVerb.CubicTo, seg.Verb);
+        Assert.Equal(new Vector2(5, 5), seg.P0); // current point, not reflected.
+    }
+
+    [Fact]
+    public void SmoothQuadTo_Without_Previous_Quad_Uses_Current_Point()
+    {
+        var p = new Path2D()
+            .MoveTo(0, 0)
+            .LineTo(4, 4)
+            .SmoothQuadTo(new Vector2(8, 8));
+        var seg = p.Segments[^1];
+        Assert.Equal(PathVerb.QuadTo, seg.Verb);
+        Assert.Equal(new Vector2(4, 4), seg.P0); // first control = current point.
+    }
+
+    [Fact]
+    public void Fluent_Chain_Returns_Same_Instance()
+    {
+        var p = new Path2D();
+        Assert.Same(p, p.MoveTo(1, 2));
+        Assert.Same(p, p.LineTo(3, 4));
+        Assert.Same(p, p.Close());
+    }
 }
