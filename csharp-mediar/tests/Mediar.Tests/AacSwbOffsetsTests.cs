@@ -264,4 +264,170 @@ public sealed class AacSwbOffsetsTests
         Assert.True(AacSwbOffsets.GetShortOffsets(32_000)
             .SequenceEqual(AacSwbOffsets.GetShortOffsets(48_000)));
     }
+
+    [Fact]
+    public void LongSwbWidths_AllPositive_AllRates()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            int num = AacSwbOffsets.GetNumSwbLong(rate);
+            for (int s = 0; s < num; s++)
+            {
+                int w = AacSwbOffsets.GetLongSwbWidth(rate, s);
+                Assert.True(w > 0, $"rate {rate} long SWB[{s}] width = {w}");
+            }
+        }
+    }
+
+    [Fact]
+    public void ShortSwbWidths_AllPositive_AllRates()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            int num = AacSwbOffsets.GetNumSwbShort(rate);
+            for (int s = 0; s < num; s++)
+            {
+                int w = AacSwbOffsets.GetShortSwbWidth(rate, s);
+                Assert.True(w > 0, $"rate {rate} short SWB[{s}] width = {w}");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 96_000)]
+    [InlineData(1, 88_200)]
+    [InlineData(2, 64_000)]
+    [InlineData(3, 48_000)]
+    [InlineData(4, 44_100)]
+    [InlineData(5, 32_000)]
+    [InlineData(6, 24_000)]
+    [InlineData(7, 22_050)]
+    [InlineData(8, 16_000)]
+    [InlineData(9, 12_000)]
+    [InlineData(10, 11_025)]
+    [InlineData(11, 8_000)]
+    [InlineData(12, 7_350)]
+    public void GetLongOffsetsForIndex_DispatchTheory(int sfIndex, int expectedRate)
+    {
+        var byIndex = AacSwbOffsets.GetLongOffsetsForIndex(sfIndex);
+        var byRate = AacSwbOffsets.GetLongOffsets(expectedRate);
+        Assert.True(byIndex.SequenceEqual(byRate));
+    }
+
+    [Theory]
+    [InlineData(0, 96_000)]
+    [InlineData(3, 48_000)]
+    [InlineData(6, 24_000)]
+    [InlineData(12, 7_350)]
+    public void GetShortOffsetsForIndex_DispatchTheory(int sfIndex, int expectedRate)
+    {
+        var byIndex = AacSwbOffsets.GetShortOffsetsForIndex(sfIndex);
+        var byRate = AacSwbOffsets.GetShortOffsets(expectedRate);
+        Assert.True(byIndex.SequenceEqual(byRate));
+    }
+
+    [Fact]
+    public void GetLongOffsetsForIndex_OutOfRange_ReturnsEmpty()
+    {
+        Assert.True(AacSwbOffsets.GetLongOffsetsForIndex(13).IsEmpty);
+        Assert.True(AacSwbOffsets.GetLongOffsetsForIndex(14).IsEmpty);
+        Assert.True(AacSwbOffsets.GetLongOffsetsForIndex(-1).IsEmpty);
+    }
+
+    [Fact]
+    public void GetShortOffsetsForIndex_OutOfRange_ReturnsEmpty()
+    {
+        Assert.True(AacSwbOffsets.GetShortOffsetsForIndex(13).IsEmpty);
+        Assert.True(AacSwbOffsets.GetShortOffsetsForIndex(14).IsEmpty);
+        Assert.True(AacSwbOffsets.GetShortOffsetsForIndex(-1).IsEmpty);
+    }
+
+    [Fact]
+    public void GetLongSwbWidth_WidthEqualsOffsetDifference_AllRates()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            var offs = AacSwbOffsets.GetLongOffsets(rate);
+            int num = AacSwbOffsets.GetNumSwbLong(rate);
+            for (int s = 0; s < num; s++)
+            {
+                int width = AacSwbOffsets.GetLongSwbWidth(rate, s);
+                int diff = offs[s + 1] - offs[s];
+                Assert.Equal(diff, width);
+            }
+        }
+    }
+
+    [Fact]
+    public void GetShortSwbWidth_WidthEqualsOffsetDifference_AllRates()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            var offs = AacSwbOffsets.GetShortOffsets(rate);
+            int num = AacSwbOffsets.GetNumSwbShort(rate);
+            for (int s = 0; s < num; s++)
+            {
+                int width = AacSwbOffsets.GetShortSwbWidth(rate, s);
+                int diff = offs[s + 1] - offs[s];
+                Assert.Equal(diff, width);
+            }
+        }
+    }
+
+    [Fact]
+    public void GetLongOffsets_NumSwb_MatchesSpanLengthMinusOne()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            var offs = AacSwbOffsets.GetLongOffsets(rate);
+            int num = AacSwbOffsets.GetNumSwbLong(rate);
+            Assert.Equal(num + 1, offs.Length);
+        }
+    }
+
+    [Fact]
+    public void GetShortOffsets_NumSwb_MatchesSpanLengthMinusOne()
+    {
+        int[] rates = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
+        foreach (var rate in rates)
+        {
+            var offs = AacSwbOffsets.GetShortOffsets(rate);
+            int num = AacSwbOffsets.GetNumSwbShort(rate);
+            Assert.Equal(num + 1, offs.Length);
+        }
+    }
+
+    [Fact]
+    public void LongTransformLength_Is_1024()
+    {
+        Assert.Equal(1024, AacSwbOffsets.LongTransformLength);
+    }
+
+    [Fact]
+    public void ShortTransformLength_Is_128()
+    {
+        Assert.Equal(128, AacSwbOffsets.ShortTransformLength);
+    }
+
+    [Fact]
+    public void GetShortOffsets_24k_MatchesSpec()
+    {
+        // 24 kHz short table - 15 SWBs.
+        int[] expected = [0, 4, 8, 12, 16, 20, 24, 28, 36, 44, 52, 64, 76, 92, 108, 128];
+        Assert.True(AacSwbOffsets.GetShortOffsets(24_000).SequenceEqual(expected));
+    }
+
+    [Fact]
+    public void GetLongOffsets_96k_Has_41_Bands_PlusTerminator()
+    {
+        var offs = AacSwbOffsets.GetLongOffsets(96_000);
+        Assert.Equal(42, offs.Length);   // 41 SWBs => 42 boundaries
+        Assert.Equal(0, offs[0]);
+        Assert.Equal(1024, offs[41]);
+    }
 }

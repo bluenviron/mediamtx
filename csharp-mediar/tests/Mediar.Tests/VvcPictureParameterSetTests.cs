@@ -407,6 +407,208 @@ public class VvcPictureParameterSetTests
         Assert.Equal(3, pps.InitQpMinus26);
     }
 
+    [Theory]
+    [InlineData(320u, 180u)]
+    [InlineData(1280u, 720u)]
+    [InlineData(7680u, 4320u)]
+    public void TryParse_Various_Resolutions(uint width, uint height)
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = width,
+            PicHeightInLumaSamples = height,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(width, pps!.PicWidthInLumaSamples);
+        Assert.Equal(height, pps.PicHeightInLumaSamples);
+    }
+
+    [Theory]
+    [InlineData(-26)]
+    [InlineData(-15)]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(25)]
+    public void TryParse_InitQp_BoundaryValues(int initQp)
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            InitQpMinus26 = initQp,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(initQp, pps!.InitQpMinus26);
+    }
+
+    [Fact]
+    public void TryParse_OutputFlagPresent_Flag_Recorded()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            OutputFlagPresentFlag = true,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.OutputFlagPresentFlag);
+    }
+
+    [Fact]
+    public void TryParse_CuQpDeltaEnabled_Flag_Recorded()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            CuQpDeltaEnabledFlag = true,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.CuQpDeltaEnabledFlag);
+    }
+
+    [Fact]
+    public void TryParse_ChromaTool_Without_QpOffsetList_NoLists()
+    {
+        // ChromaToolOffsetsPresentFlag=true but CuChromaQpOffsetListEnabledFlag=false
+        // should yield empty CbQpOffsetList/CrQpOffsetList.
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            ChromaToolOffsetsPresentFlag = true,
+            CbQpOffset = -2,
+            CrQpOffset = 3,
+            CuChromaQpOffsetListEnabledFlag = false,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.ChromaToolOffsetsPresentFlag);
+        Assert.Equal(-2, pps.CbQpOffset);
+        Assert.Equal(3, pps.CrQpOffset);
+        Assert.Empty(pps.CbQpOffsetList);
+        Assert.Empty(pps.CrQpOffsetList);
+        Assert.Empty(pps.JointCbCrQpOffsetList);
+    }
+
+    [Fact]
+    public void TryParse_NumRefIdx_NonZero_Values_Preserved()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            NumRefIdxL0DefaultActiveMinus1 = 14,
+            NumRefIdxL1DefaultActiveMinus1 = 7,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(14u, pps!.NumRefIdxL0DefaultActiveMinus1);
+        Assert.Equal(7u, pps.NumRefIdxL1DefaultActiveMinus1);
+    }
+
+    [Fact]
+    public void TryParse_Conformance_Window_AllSides_NonZero()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            ConformanceWindowFlag = true,
+            ConfWinLeftOffset = 4,
+            ConfWinRightOffset = 8,
+            ConfWinTopOffset = 2,
+            ConfWinBottomOffset = 6,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(4u, pps!.ConfWinLeftOffset);
+        Assert.Equal(8u, pps.ConfWinRightOffset);
+        Assert.Equal(2u, pps.ConfWinTopOffset);
+        Assert.Equal(6u, pps.ConfWinBottomOffset);
+    }
+
+    [Fact]
+    public void TryParse_RefWraparound_With_Zero_Offset()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            RefWraparoundEnabledFlag = true,
+            PicWidthMinusWraparoundOffset = 0,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.RefWraparoundEnabledFlag);
+        Assert.Equal(0u, pps.PicWidthMinusWraparoundOffset);
+    }
+
+    [Fact]
+    public void TryParse_PicParameterSetId_MaxValue_63()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicParameterSetId = 63,
+            SeqParameterSetId = 15,
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(63, pps!.PicParameterSetId);
+        Assert.Equal(15, pps.SeqParameterSetId);
+    }
+
+    [Theory]
+    [InlineData((byte)0)]   // TRAIL_NUT
+    [InlineData((byte)15)]  // SPS_NUT
+    [InlineData((byte)17)]  // APS_NUT
+    [InlineData((byte)31)]  // RESERVED
+    public void TryParse_Rejects_AllOther_NalUnitTypes(byte nut)
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            NalUnitTypeOverride = nut,
+        });
+        Assert.False(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Null(pps);
+    }
+
+    [Fact]
+    public void TryParse_ScalingWindow_NegativeAndPositive_Mix()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1280,
+            PicHeightInLumaSamples = 720,
+            ScalingWindowExplicitSignallingFlag = true,
+            ScalingWinLeftOffset = -100,
+            ScalingWinRightOffset = 200,
+            ScalingWinTopOffset = -50,
+            ScalingWinBottomOffset = 75,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.Equal(-100, pps!.ScalingWinLeftOffset);
+        Assert.Equal(200, pps.ScalingWinRightOffset);
+        Assert.Equal(-50, pps.ScalingWinTopOffset);
+        Assert.Equal(75, pps.ScalingWinBottomOffset);
+    }
+
+    [Fact]
+    public void TryParse_ScalingWindow_All_Zero_Offsets_Stored_As_Zero()
+    {
+        var nalu = PpsBuilder.Build(new PpsSpec
+        {
+            PicWidthInLumaSamples = 1920,
+            PicHeightInLumaSamples = 1080,
+            ScalingWindowExplicitSignallingFlag = true,
+        });
+        Assert.True(VvcPictureParameterSet.TryParse(nalu, out var pps));
+        Assert.True(pps!.ScalingWindowExplicitSignallingFlag);
+        Assert.Equal(0, pps.ScalingWinLeftOffset);
+        Assert.Equal(0, pps.ScalingWinRightOffset);
+        Assert.Equal(0, pps.ScalingWinTopOffset);
+        Assert.Equal(0, pps.ScalingWinBottomOffset);
+    }
+
     // -----------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------
