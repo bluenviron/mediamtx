@@ -48,12 +48,40 @@ internal sealed class Mp3SideInfo
     /// </summary>
     public static Mp3SideInfo Parse(ReadOnlySpan<byte> bytes, int mpegVersion, int channelCount)
     {
+        int granuleCount = mpegVersion == 1 ? 2 : 1;
+        var si = new Mp3SideInfo(granuleCount, channelCount);
+        ParseInto(bytes, mpegVersion, channelCount, si);
+        return si;
+    }
+
+    /// <summary>
+    /// Parse the side-info bytes for a Layer III frame into an existing
+    /// <see cref="Mp3SideInfo"/> instance. Avoids per-frame allocation in
+    /// hot decode paths. The target must have been created with
+    /// dimensions ≥ <c>(mpegVersion == 1 ? 2 : 1, channelCount)</c>.
+    /// </summary>
+    public static void ParseInto(
+        ReadOnlySpan<byte> bytes,
+        int mpegVersion,
+        int channelCount,
+        Mp3SideInfo target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
         int expected = SideInfoBytes(mpegVersion, channelCount);
         if (bytes.Length != expected)
             throw new ArgumentException($"Side-info expected {expected} bytes, got {bytes.Length}.", nameof(bytes));
 
         int granuleCount = mpegVersion == 1 ? 2 : 1;
-        var si = new Mp3SideInfo(granuleCount, channelCount);
+        if (target.Granules.GetLength(0) < granuleCount || target.Granules.GetLength(1) < channelCount)
+        {
+            throw new ArgumentException(
+                $"Target Mp3SideInfo is too small: needs at least [{granuleCount},{channelCount}], " +
+                $"has [{target.Granules.GetLength(0)},{target.Granules.GetLength(1)}].",
+                nameof(target));
+        }
+
+        var si = target;
         var br = new BitReader(bytes);
 
         if (mpegVersion == 1)
@@ -132,8 +160,6 @@ internal sealed class Mp3SideInfo
                 }
             }
         }
-
-        return si;
     }
 }
 

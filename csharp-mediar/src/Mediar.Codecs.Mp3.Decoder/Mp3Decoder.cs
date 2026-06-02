@@ -44,6 +44,11 @@ public sealed class Mp3Decoder : IAudioDecoder
     private readonly float[] _polyphaseRow = new float[32];
     private readonly float[] _polyphasePcm = new float[32];
 
+    // Reusable side-info instance sized for the worst case (MPEG-1, stereo).
+    // Avoids per-frame allocation of the side-info wrapper, its Granules array,
+    // and the per-granule TableSelect / SubblockGain arrays.
+    private readonly Mp3SideInfo _sideInfo = new(granuleCount: 2, channelCount: 2);
+
     /// <inheritdoc/>
     public CodecId Codec => CodecId.Mp3;
 
@@ -114,7 +119,8 @@ public sealed class Mp3Decoder : IAudioDecoder
         var sideInfoSpan = encoded.Slice(headerSize + crcSize, sideInfoSize);
         var mainDataSpan = encoded.Slice(headerSize + crcSize + sideInfoSize, mainDataSize);
 
-        var si = Mp3SideInfo.Parse(sideInfoSpan, mpegVersion, channels);
+        Mp3SideInfo.ParseInto(sideInfoSpan, mpegVersion, channels, _sideInfo);
+        var si = _sideInfo;
 
         _reservoir.Append(mainDataSpan);
         _reservoir.SetCursorBytesFromEnd(mainDataSize + si.MainDataBegin);
