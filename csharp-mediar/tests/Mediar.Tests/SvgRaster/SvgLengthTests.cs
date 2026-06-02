@@ -66,4 +66,83 @@ public class SvgLengthTests
         Assert.Equal(-10f, SvgLength.Parse("-10"));
         Assert.Equal(-10f, SvgLength.Parse("-10px"));
     }
+
+    [Fact]
+    public void Leading_Whitespace_Is_Trimmed()
+    {
+        Assert.Equal(42f, SvgLength.Parse("   42"));
+        Assert.Equal(42f, SvgLength.Parse("\t42px"));
+    }
+
+    [Fact]
+    public void Trailing_Whitespace_Is_Trimmed()
+    {
+        Assert.Equal(42f, SvgLength.Parse("42   "));
+        Assert.Equal(42f, SvgLength.Parse("42px\t"));
+    }
+
+    [Fact]
+    public void Plus_Sign_Parsed()
+    {
+        Assert.Equal(10f, SvgLength.Parse("+10"));
+        Assert.Equal(10f, SvgLength.Parse("+10px"));
+    }
+
+    [Fact]
+    public void Scientific_Notation_Parsed()
+    {
+        Assert.Equal(100f, SvgLength.Parse("1e2"));
+        Assert.Equal(100f, SvgLength.Parse("1.0E2px"));
+    }
+
+    [Fact]
+    public void Percentage_Above_100_Resolves_To_Multiple_Of_Viewport()
+    {
+        Assert.Equal(200f, SvgLength.Parse("200%", viewport: 100f));
+    }
+
+    [Fact]
+    public void Percentage_Negative_Resolves()
+    {
+        Assert.Equal(-50f, SvgLength.Parse("-50%", viewport: 100f));
+    }
+
+    [Fact]
+    public void Bare_Percent_Sign_Returns_Default()
+    {
+        Assert.Equal(5f, SvgLength.Parse("%", defaultIfMissing: 5f));
+    }
+
+    [Fact]
+    public void Default_If_Missing_Is_Zero_When_Unspecified()
+    {
+        Assert.Equal(0f, SvgLength.Parse(null));
+        Assert.Equal(0f, SvgLength.Parse(""));
+        Assert.Equal(0f, SvgLength.Parse("garbage"));
+    }
+
+    [Theory]
+    [InlineData("3PX", 3f)]
+    [InlineData("3Pt", 4f)]
+    [InlineData("3EM", 48f)]
+    [InlineData("3eX", 24f)]
+    public void Unit_Suffixes_Are_Case_Insensitive(string text, float expected)
+    {
+        Assert.Equal(expected, SvgLength.Parse(text), 3);
+    }
+
+    [Fact]
+    public void Decimal_Without_Leading_Zero_Parsed()
+    {
+        Assert.Equal(0.5f, SvgLength.Parse(".5"));
+        Assert.Equal(-0.5f, SvgLength.Parse("-.5px"));
+    }
+
+    [Fact]
+    public void Internal_Whitespace_Between_Number_And_Unit_Parsed()
+    {
+        // "100 px" — after stripping the "px" suffix, "100 " parses as 100
+        // thanks to the inner Trim().
+        Assert.Equal(100f, SvgLength.Parse("100 px"));
+    }
 }

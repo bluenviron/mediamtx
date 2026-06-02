@@ -93,4 +93,114 @@ public class SvgColorParserTests
         Assert.True(SvgColorParser.TryParse("currentColor", out var c));
         Assert.Equal(SvgColorParser.CurrentColorSentinel, c);
     }
+
+    [Fact]
+    public void Leading_Trailing_Whitespace_Is_Trimmed()
+    {
+        Assert.True(SvgColorParser.TryParse("   red   ", out var c));
+        Assert.Equal(1f, c.R);
+        Assert.Equal(0f, c.G);
+        Assert.Equal(0f, c.B);
+    }
+
+    [Fact]
+    public void None_Is_Case_Insensitive()
+    {
+        Assert.False(SvgColorParser.TryParse("NONE", out _));
+        Assert.False(SvgColorParser.TryParse("None", out _));
+    }
+
+    [Fact]
+    public void Transparent_Is_Case_Insensitive()
+    {
+        Assert.True(SvgColorParser.TryParse("TRANSPARENT", out var c));
+        Assert.Equal(0f, c.A);
+    }
+
+    [Fact]
+    public void Empty_Hash_Returns_False()
+    {
+        Assert.False(SvgColorParser.TryParse("#", out _));
+    }
+
+    [Theory]
+    [InlineData("#FF")]      // 2 digits
+    [InlineData("#FFFFF")]   // 5 digits
+    [InlineData("#FFFFFFF")] // 7 digits
+    public void Hex_With_Invalid_Length_Returns_False(string s)
+    {
+        Assert.False(SvgColorParser.TryParse(s, out _));
+    }
+
+    [Fact]
+    public void Hex_With_Invalid_Digit_Returns_False()
+    {
+        // Long-form hex uses byte.TryParse which rejects non-hex chars.
+        Assert.False(SvgColorParser.TryParse("#GGGGGG", out _));
+    }
+
+    [Fact]
+    public void Rgb_Out_Of_Range_Channels_Clamped()
+    {
+        Assert.True(SvgColorParser.TryParse("rgb(300, -10, 100)", out var c));
+        Assert.Equal(255, (int)MathF.Round(c.R * 255));
+        Assert.Equal(0, (int)MathF.Round(c.G * 255));
+        Assert.Equal(100, (int)MathF.Round(c.B * 255));
+    }
+
+    [Fact]
+    public void Rgb_Percentage_Above_100_Clamped()
+    {
+        Assert.True(SvgColorParser.TryParse("rgb(150%, 50%, 0%)", out var c));
+        Assert.Equal(255, (int)MathF.Round(c.R * 255));
+        Assert.Equal(128, (int)MathF.Round(c.G * 255));
+    }
+
+    [Fact]
+    public void Rgb_Too_Few_Channels_Returns_False()
+    {
+        Assert.False(SvgColorParser.TryParse("rgb(255, 0)", out _));
+    }
+
+    [Fact]
+    public void Rgba_Without_Alpha_Returns_False()
+    {
+        Assert.False(SvgColorParser.TryParse("rgba(255, 0, 0)", out _));
+    }
+
+    [Fact]
+    public void Rgb_With_Slash_Separator_Treats_Last_As_Alpha()
+    {
+        // CSS-style space-and-slash separators.
+        Assert.True(SvgColorParser.TryParse("rgb(255 0 0 / 0.5)", out var c));
+        Assert.Equal(255, (int)MathF.Round(c.R * 255));
+        Assert.InRange((int)MathF.Round(c.A * 255), 127, 129);
+    }
+
+    [Fact]
+    public void Rgba_With_Percentage_Alpha()
+    {
+        Assert.True(SvgColorParser.TryParse("rgba(255, 0, 0, 50%)", out var c));
+        Assert.InRange((int)MathF.Round(c.A * 255), 127, 129);
+    }
+
+    [Fact]
+    public void Rgba_With_Negative_Alpha_Clamped_To_Zero()
+    {
+        Assert.True(SvgColorParser.TryParse("rgba(255, 0, 0, -0.5)", out var c));
+        Assert.Equal(0f, c.A);
+    }
+
+    [Fact]
+    public void Rgba_With_Alpha_Above_One_Clamped_To_One()
+    {
+        Assert.True(SvgColorParser.TryParse("rgba(255, 0, 0, 2.0)", out var c));
+        Assert.Equal(1f, c.A);
+    }
+
+    [Fact]
+    public void Rgb_With_Bad_Channel_Returns_False()
+    {
+        Assert.False(SvgColorParser.TryParse("rgb(foo, 0, 0)", out _));
+    }
 }
