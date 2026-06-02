@@ -502,7 +502,7 @@ func TestFromStream(t *testing.T) {
 					Formats: []format.Format{&format.H265{}},
 				},
 				{
-					Formats: []format.Format{&format.H264{}},
+					Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 				},
 				{
 					Formats: []format.Format{&format.VP9{}},
@@ -869,7 +869,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		},
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 	}}
 

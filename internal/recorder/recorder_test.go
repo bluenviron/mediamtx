@@ -605,7 +605,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{
 				{
 					Type:    description.MediaTypeVideo,
-					Formats: []rtspformat.Format{&rtspformat.H264{}},
+					Formats: []rtspformat.Format{&rtspformat.H264{PacketizationMode: 1}},
 				},
 				{
 					Type:    description.MediaTypeVideo,

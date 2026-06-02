@@ -37,7 +37,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,

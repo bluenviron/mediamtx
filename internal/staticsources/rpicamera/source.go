@@ -171,8 +171,9 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	}
 
 	encH264 := &rtph264.Encoder{
-		PayloadType:    96,
-		PayloadMaxSize: s.RTPMaxPayloadSize,
+		PayloadType:       96,
+		PayloadMaxSize:    s.RTPMaxPayloadSize,
+		PacketizationMode: 1,
 	}
 	err := encH264.Init()
 	if err != nil {
