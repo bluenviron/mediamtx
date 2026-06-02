@@ -222,4 +222,81 @@ public sealed class AacFillDataExtensionTests
         Assert.NotSame(d1, d2);
         Assert.True(d1!.FillBytes.Span.SequenceEqual(d2!.FillBytes.Span));
     }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        byte[] bytes = { 0xA5, 0xA5 };
+        var a = new AacFillDataExtension { FillNibble = 0x0, FillBytes = bytes };
+        var b = new AacFillDataExtension { FillNibble = 0x0, FillBytes = bytes };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { FillNibble = 0x5 };
+        Assert.NotEqual(a, c);
+        Assert.Equal((byte)0x5, c.FillNibble);
+    }
+
+    [Theory]
+    [InlineData(0x0)]
+    [InlineData(0x1)]
+    [InlineData(0x7)]
+    [InlineData(0xF)]
+    public void TryParse_AnyNibble_Roundtrips_Value(byte nibble)
+    {
+        var w = new AacBitWriter();
+        w.Write(nibble, 4);
+        w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 12, out var data));
+        Assert.Equal(nibble, data!.FillNibble);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(16)]
+    [InlineData(64)]
+    public void TryParse_Conformant_Fill_Of_Various_Sizes(int byteCount)
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        for (int i = 0; i < byteCount; i++) w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        int bodyBits = 4 + 8 * byteCount;
+        Assert.True(AacFillDataExtension.TryParse(body, bodyBits, out var data));
+        Assert.Equal(byteCount, data!.FillBytes.Length);
+        Assert.True(data.IsConformant);
+    }
+
+    [Fact]
+    public void IsConformant_False_When_First_Of_Many_Fill_Bytes_Is_Wrong()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0x55u, 8); // wrong first byte
+        for (int i = 1; i < 10; i++) w.Write(0xA5u, 8);
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 4 + 8 * 10, out var data));
+        Assert.False(data!.IsConformant);
+    }
+
+    [Fact]
+    public void IsConformant_False_When_Last_Of_Many_Fill_Bytes_Is_Wrong()
+    {
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        for (int i = 0; i < 9; i++) w.Write(0xA5u, 8);
+        w.Write(0x77u, 8); // wrong last byte
+        byte[] body = w.ToArray();
+        Assert.True(AacFillDataExtension.TryParse(body, 4 + 8 * 10, out var data));
+        Assert.False(data!.IsConformant);
+    }
+
+    [Fact]
+    public void ExpectedFillByte_Bit_Pattern_Is_10100101()
+    {
+        Assert.Equal((byte)0b1010_0101, AacFillDataExtension.ExpectedFillByte);
+    }
 }

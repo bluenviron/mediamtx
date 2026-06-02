@@ -222,4 +222,76 @@ public sealed class AacTnsLpcStepUpTests
         Assert.Equal(-0.625f, lpc[0], precision: 6);
         Assert.Equal(0.25f, lpc[1], precision: 6);
     }
+
+    [Fact]
+    public void MaxOrder_Constant_Is_31()
+    {
+        Assert.Equal(31, AacTnsLpcStepUp.MaxOrder);
+    }
+
+    [Fact]
+    public void Compute_OrderFour_HandWorked()
+    {
+        // k = [0.5, 0.25, 0.125, 0.0625]
+        // After order 3 (per existing test): lpc = [0.65625, 0.328125, 0.125]
+        // Step 4: k = 0.0625
+        //   tmp[0] = 0.65625 + 0.0625 * 0.125    = 0.6640625
+        //   tmp[1] = 0.328125 + 0.0625 * 0.328125 = 0.34863281
+        //   tmp[2] = 0.125    + 0.0625 * 0.65625 = 0.166015625
+        //   lpc = [0.6640625, 0.34863281, 0.166015625, 0.0625]
+        var lpc = AacTnsLpcStepUp.Compute(new float[] { 0.5f, 0.25f, 0.125f, 0.0625f });
+        Assert.Equal(0.6640625f, lpc[0], precision: 6);
+        Assert.Equal(0.34863281f, lpc[1], precision: 6);
+        Assert.Equal(0.166015625f, lpc[2], precision: 6);
+        Assert.Equal(0.0625f, lpc[3], precision: 6);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(8)]
+    [InlineData(16)]
+    [InlineData(31)]
+    public void Compute_LastLpc_Equals_LastParcor_For_Orders(int order)
+    {
+        var parcor = new float[order];
+        for (int i = 0; i < order; i++) parcor[i] = (i * 0.07f) - 0.3f;
+        var lpc = AacTnsLpcStepUp.Compute(parcor);
+        Assert.Equal(parcor[^1], lpc[^1], precision: 5);
+    }
+
+    [Fact]
+    public void Compute_Span_Overload_Overwrites_PreFilled_Lpc()
+    {
+        // Pre-fill with sentinel values; Compute must overwrite them.
+        var parcor = new float[] { 0.5f, 0.25f };
+        var lpc = new float[] { 999f, -999f };
+        AacTnsLpcStepUp.Compute(parcor, lpc);
+        Assert.Equal(0.625f, lpc[0], precision: 6);
+        Assert.Equal(0.25f, lpc[1], precision: 6);
+    }
+
+    [Fact]
+    public void Compute_Span_Overload_DoesNotMutate_Parcor()
+    {
+        var parcor = new float[] { 0.5f, 0.25f, 0.125f };
+        var copy = (float[])parcor.Clone();
+        var lpc = new float[parcor.Length];
+        AacTnsLpcStepUp.Compute(parcor, lpc);
+        Assert.Equal(copy, parcor);
+    }
+
+    [Theory]
+    [InlineData(-0.99f)]
+    [InlineData(-0.5f)]
+    [InlineData(0f)]
+    [InlineData(0.5f)]
+    [InlineData(0.99f)]
+    public void Compute_OrderOne_MatchesParcor_Across_Range(float k)
+    {
+        var lpc = AacTnsLpcStepUp.Compute(new float[] { k });
+        Assert.Equal(k, lpc[0], precision: 6);
+    }
 }
