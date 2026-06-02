@@ -406,10 +406,6 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		}, err
 	}
 
-	if s.userAgent != "" {
-		s.Log(logger.Info, "user agent: %s", s.userAgent)
-	}
-
 	rtsp.ToStream(
 		s.rsession,
 		s.rsession.AnnouncedDescription().Medias,

@@ -356,10 +356,6 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	s.user = res1.User
 	s.mutex.Unlock()
 
-	if ua := s.httpRequest.Header.Get("User-Agent"); ua != "" {
-		s.Log(logger.Info, "user agent: %s", ua)
-	}
-
 	iceServers, err := s.parent.generateICEServers(false)
 	if err != nil {
 		return http.StatusInternalServerError, err

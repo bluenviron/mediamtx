@@ -286,10 +286,6 @@ func (c *conn) runPublish() error {
 	c.user = res.User
 	c.mutex.Unlock()
 
-	if c.userAgent != "" {
-		c.Log(logger.Info, "user agent: %s", c.userAgent)
-	}
-
 	c.nconn.SetWriteDeadline(time.Time{})
 
 	for {
