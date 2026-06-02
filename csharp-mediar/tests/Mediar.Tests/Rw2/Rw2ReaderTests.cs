@@ -203,4 +203,108 @@ public sealed class Rw2ReaderTests
         using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
         Assert.False(string.IsNullOrEmpty(rw2.Rw2.PanasonicRawVersion));
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => Rw2Reader.Open(ms));
+    }
+
+    [Fact]
+    public void Without_Make_Tag_CameraMake_Is_Null()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            SensorWidth = 4000,
+            SensorHeight = 3000,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Null(rw2.Rw2.Make);
+        Assert.Null(rw2.Metadata.CameraMake);
+    }
+
+    [Fact]
+    public void Without_Iso_Tag_IsoSpeed_Is_Zero()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            Make = "Panasonic",
+            SensorWidth = 4000,
+            SensorHeight = 3000,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Equal(0, rw2.Rw2.Iso);
+        Assert.Null(rw2.Metadata.IsoSpeed);
+    }
+
+    [Fact]
+    public void SensorBorders_All_Recorded_When_Provided()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            Make = "Panasonic",
+            SensorWidth = 6000,
+            SensorHeight = 4000,
+            SensorTopBorder = 8,
+            SensorLeftBorder = 4,
+            SensorBottomBorder = 3996,
+            SensorRightBorder = 5996,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Equal(8, rw2.Rw2.SensorTopBorder);
+        Assert.Equal(4, rw2.Rw2.SensorLeftBorder);
+        Assert.Equal(3996, rw2.Rw2.SensorBottomBorder);
+        Assert.Equal(5996, rw2.Rw2.SensorRightBorder);
+    }
+
+    [Fact]
+    public void CfaPattern_Defaults_Zero_When_Absent()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            Make = "Panasonic",
+            SensorWidth = 4000,
+            SensorHeight = 3000,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.Equal(0, rw2.Rw2.CfaPattern);
+    }
+
+    [Fact]
+    public void Records_SubImage_Compression_Tag_On_Panasonic_Compression()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            Make = "Panasonic",
+            TiffWidth = 4000,
+            TiffHeight = 3000,
+            BitsPerSample = 12,
+            Compression = 34316,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        using var rw2 = Rw2Reader.Open(new MemoryStream(bytes));
+        Assert.NotEmpty(rw2.SubImages);
+        Assert.Equal(34316, rw2.SubImages[0].CompressionTag);
+    }
+
+    [Fact]
+    public void Reader_Disposes_OwnedStream_On_Dispose()
+    {
+        var spec = new TestRw2Builder.Rw2Spec
+        {
+            Make = "Panasonic",
+            SensorWidth = 100,
+            SensorHeight = 100,
+        };
+        byte[] bytes = TestRw2Builder.Build(spec);
+        var ms = new MemoryStream(bytes);
+        var rw2 = Rw2Reader.Open(ms, ownsStream: true);
+        rw2.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
 }

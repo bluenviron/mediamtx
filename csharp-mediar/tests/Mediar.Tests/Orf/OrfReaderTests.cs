@@ -209,4 +209,100 @@ public sealed class OrfReaderTests
         using var orf = OrfReader.Open(new MemoryStream(bytes));
         Assert.Equal("0x4F52", orf.Metadata.Tags["ORF:Magic"]);
     }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => OrfReader.Open(ms));
+    }
+
+    [Fact]
+    public void Without_Software_Tag_Field_Is_Null()
+    {
+        var spec = new TestOrfBuilder.OrfSpec
+        {
+            Magic = 0x4F52,
+            Make = "OLYMPUS IMAGING CORP.",
+            Model = "E-M1",
+            TiffWidth = 100,
+            TiffHeight = 100,
+        };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.Null(orf.Orf.Software);
+    }
+
+    [Fact]
+    public void Without_MakerNote_Length_Is_Zero()
+    {
+        var spec = new TestOrfBuilder.OrfSpec
+        {
+            Magic = 0x4F52,
+            Make = "OLYMPUS IMAGING CORP.",
+            TiffWidth = 100,
+            TiffHeight = 100,
+        };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.Equal(0, orf.Orf.MakerNoteLength);
+    }
+
+    [Fact]
+    public void SubImages_Has_At_Least_Primary_Entry()
+    {
+        var spec = new TestOrfBuilder.OrfSpec
+        {
+            Magic = 0x4F52,
+            Make = "OLYMPUS IMAGING CORP.",
+            TiffWidth = 4640,
+            TiffHeight = 3472,
+            BitsPerSample = 12,
+        };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.NotEmpty(orf.SubImages);
+    }
+
+    [Theory]
+    [InlineData((ushort)0x4F52, "0x4F52")]
+    [InlineData((ushort)0x5352, "0x5352")]
+    public void Magic_Tag_String_Matches_Hex_Representation(ushort magic, string expected)
+    {
+        var spec = new TestOrfBuilder.OrfSpec
+        {
+            Magic = magic,
+            Make = "OLYMPUS IMAGING CORP.",
+            TiffWidth = 100,
+            TiffHeight = 100,
+        };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.Equal(expected, orf.Metadata.Tags["ORF:Magic"]);
+    }
+
+    [Fact]
+    public void Reader_Disposes_OwnedStream_On_Dispose()
+    {
+        var spec = new TestOrfBuilder.OrfSpec
+        {
+            Magic = 0x4F52,
+            Make = "OLYMPUS IMAGING CORP.",
+            TiffWidth = 100,
+            TiffHeight = 100,
+        };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        var ms = new MemoryStream(bytes);
+        var orf = OrfReader.Open(ms, ownsStream: true);
+        orf.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Format_Detector_Recognises_BigEndian_Variant()
+    {
+        // MMOR: bytes 'M','M','O','R' big-endian Olympus.
+        byte[] orBe = [0x4D, 0x4D, 0x4F, 0x52, 0x00, 0x00, 0x00, 0x08];
+        Assert.Equal(ImageFormat.Orf, ImageFormatDetector.Detect(orBe));
+    }
 }
