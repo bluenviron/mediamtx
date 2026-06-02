@@ -341,7 +341,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 			Name:        s.pathName,
 			Query:       s.httpRequest.URL.RawQuery,
 			Publish:     true,
-			UserAgent:   s.req.httpRequest.Header.Get("User-Agent"),
+			UserAgent:   s.httpRequest.Header.Get("User-Agent"),
 			Proto:       auth.ProtocolWebRTC,
 			ID:          &s.uuid,
 			Credentials: httpp.Credentials(s.httpRequest),
@@ -356,7 +356,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	s.user = res1.User
 	s.mutex.Unlock()
 
-	if ua := s.req.httpRequest.Header.Get("User-Agent"); ua != "" {
+	if ua := s.httpRequest.Header.Get("User-Agent"); ua != "" {
 		s.Log(logger.Info, "user agent: %s", ua)
 	}
 
@@ -458,7 +458,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 			Query:     s.httpRequest.URL.RawQuery,
 			Publish:   true,
 			SkipAuth:  true,
-			UserAgent: s.req.httpRequest.Header.Get("User-Agent"),
+			UserAgent: s.httpRequest.Header.Get("User-Agent"),
 		},
 	})
 	if err != nil {
@@ -761,7 +761,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		Path:                    s.pathName,
 		Query:                   s.httpRequest.URL.RawQuery,
 		User:                    s.user,
-		UserAgent:               s.req.httpRequest.Header.Get("User-Agent"),
+		UserAgent:               s.httpRequest.Header.Get("User-Agent"),
 		InboundBytes:            bytesReceived,
 		InboundRTPPackets:       rtpPacketsReceived,
 		InboundRTPPacketsLost:   rtpPacketsLost,
