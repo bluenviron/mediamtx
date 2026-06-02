@@ -305,4 +305,65 @@ public sealed class OrfReaderTests
         byte[] orBe = [0x4D, 0x4D, 0x4F, 0x52, 0x00, 0x00, 0x00, 0x08];
         Assert.Equal(ImageFormat.Orf, ImageFormatDetector.Detect(orBe));
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => OrfReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestOrfBuilder.Build(MinimalOlympusSpec());
+        using var ms = new MemoryStream(bytes);
+        using (var r = OrfReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Orf, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public void Format_Property_Is_Orf()
+    {
+        byte[] bytes = TestOrfBuilder.Build(MinimalOlympusSpec());
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.Equal(ImageFormat.Orf, orf.Format);
+        Assert.Equal(ImageFormat.Orf, orf.Info.Format);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestOrfBuilder.Build(MinimalOlympusSpec());
+        var r = OrfReader.Open(new MemoryStream(bytes), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    [Fact]
+    public void Bytes_Less_Than_Two_Throws_ImageFormatException()
+    {
+        Assert.Throws<ImageFormatException>(() => OrfReader.Open(new MemoryStream([0x49])));
+    }
+
+    [Fact]
+    public void Make_Tag_Is_Surfaced_In_Raw_Metadata()
+    {
+        var spec = MinimalOlympusSpec() with { Model = "E-M1 Mark III" };
+        byte[] bytes = TestOrfBuilder.Build(spec);
+        using var orf = OrfReader.Open(new MemoryStream(bytes));
+        Assert.Equal("OLYMPUS IMAGING CORP.", orf.Orf.Make);
+        Assert.Equal("E-M1 Mark III", orf.Orf.Model);
+    }
+
+    private static TestOrfBuilder.OrfSpec MinimalOlympusSpec() => new()
+    {
+        Magic = 0x4F52,
+        Make = "OLYMPUS IMAGING CORP.",
+        TiffWidth = 100,
+        TiffHeight = 100,
+    };
 }

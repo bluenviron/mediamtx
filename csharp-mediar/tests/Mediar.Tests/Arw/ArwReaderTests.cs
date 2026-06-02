@@ -414,4 +414,88 @@ public sealed class ArwReaderTests
         // Primary should still be the largest with NewSubFileType=0 -> raw1 (12x12).
         Assert.Equal(12, arw.Info.Width);
     }
+
+    [Fact]
+    public void Open_Null_Stream_Throws_ArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ArwReader.Open((Stream)null!));
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_True_Disposes_Underlying_Stream()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        var ms = new MemoryStream(bytes, writable: false);
+        using (var r = ArwReader.Open(ms, ownsStream: true))
+        {
+            Assert.Equal(ImageFormat.Arw, r.Format);
+        }
+        Assert.Throws<ObjectDisposedException>(() => ms.ReadByte());
+    }
+
+    [Fact]
+    public void Open_With_OwnsStream_False_Leaves_Stream_Open()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        using var ms = new MemoryStream(bytes, writable: false);
+        using (var r = ArwReader.Open(ms))
+        {
+            Assert.Equal(ImageFormat.Arw, r.Format);
+        }
+        ms.Position = 0;
+        Assert.Equal((byte)'I', (byte)ms.ReadByte());
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Honors_Pre_Cancelled_Token()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.True(arw.CanDecodePixels);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var f in arw.ReadFramesAsync(cts.Token)) { f.Dispose(); }
+        });
+    }
+
+    [Fact]
+    public void Format_Is_Arw_And_Info_Format_Matches()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(ImageFormat.Arw, arw.Format);
+        Assert.Equal(ImageFormat.Arw, arw.Info.Format);
+    }
+
+    [Fact]
+    public void Info_HasAlpha_False_For_3Channel_Rgb_Strip()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.False(arw.Info.HasAlpha);
+    }
+
+    [Fact]
+    public void Double_Dispose_Is_Idempotent()
+    {
+        byte[] bytes = TestArwBuilder.Build(MinimalSonySpec());
+        var r = ArwReader.Open(new MemoryStream(bytes, writable: false), ownsStream: true);
+        r.Dispose();
+        r.Dispose();
+    }
+
+    private static TestArwBuilder.IfdSpec MinimalSonySpec() => new()
+    {
+        Width = 4,
+        Height = 4,
+        BitsPerSample = 8,
+        SamplesPerPixel = 3,
+        Compression = 1,
+        Photometric = 2,
+        NewSubFileType = 0,
+        StripPayload = new byte[4 * 4 * 3],
+        Make = "SONY",
+    };
 }
