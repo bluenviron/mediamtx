@@ -315,6 +315,257 @@ public class HevcVideoParameterSetTests
         Assert.Equal(120, vps.GeneralLevelIdc);
     }
 
+    [Fact]
+    public void VpsNalUnitType_Constant_Is_32()
+    {
+        Assert.Equal(32, HevcVideoParameterSet.VpsNalUnitType);
+    }
+
+    [Theory]
+    [InlineData((byte)0)]   // TRAIL_N
+    [InlineData((byte)1)]   // TRAIL_R
+    [InlineData((byte)9)]   // RASL_N
+    [InlineData((byte)19)]  // IDR_W_RADL
+    [InlineData((byte)21)]  // CRA
+    [InlineData((byte)33)]  // SPS_NUT
+    [InlineData((byte)34)]  // PPS_NUT
+    [InlineData((byte)35)]  // AUD_NUT
+    [InlineData((byte)39)]  // PREFIX_SEI_NUT
+    [InlineData((byte)40)]  // SUFFIX_SEI_NUT
+    [InlineData((byte)63)]  // RSV_NVCL47
+    public void TryParse_Rejects_Various_NalUnitTypes(byte nutOverride)
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec { NalUnitTypeOverride = nutOverride });
+        Assert.False(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Null(vps);
+    }
+
+    [Fact]
+    public void TryParse_Two_Identical_Parses_Have_Equal_Scalar_Members()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec { VpsId = 3, GeneralLevelIdc = 90 });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var a));
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var b));
+        Assert.NotNull(a);
+        Assert.NotNull(b);
+        Assert.Equal(a!.VideoParameterSetId, b!.VideoParameterSetId);
+        Assert.Equal(a.GeneralLevelIdc, b.GeneralLevelIdc);
+        Assert.Equal(a.MaxLayersMinus1, b.MaxLayersMinus1);
+        Assert.Equal(a.MaxSubLayersMinus1, b.MaxSubLayersMinus1);
+        Assert.Equal(a.GeneralProfileCompatibilityFlags, b.GeneralProfileCompatibilityFlags);
+        Assert.Equal(a.GeneralConstraintIndicatorFlags, b.GeneralConstraintIndicatorFlags);
+    }
+
+    [Fact]
+    public void With_Expression_Modifies_Single_Field()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec { VpsId = 1 });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        var changed = vps! with { VideoParameterSetId = 12 };
+        Assert.Equal(12, changed.VideoParameterSetId);
+        Assert.Equal(vps.GeneralLevelIdc, changed.GeneralLevelIdc);
+        Assert.Equal(vps.MaxLayersMinus1, changed.MaxLayersMinus1);
+        Assert.NotSame(vps, changed);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_When_Only_SubLayer_Profile_Present()
+    {
+        // Profile present without level present must still parse and skip
+        // the appropriate number of profile bits per signaled sub-layer.
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxSubLayersMinus1 = 1,
+            SubLayerProfilePresentMask = 0b01,
+            SubLayerLevelPresentMask = 0b00,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(1, vps!.MaxSubLayersMinus1);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_When_Only_SubLayer_Level_Present()
+    {
+        // Level present without profile present — exercises the
+        // level-skip branch in isolation.
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxSubLayersMinus1 = 1,
+            SubLayerProfilePresentMask = 0b00,
+            SubLayerLevelPresentMask = 0b01,
+            SubLayerLevelIdcs = new byte[] { 75 },
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(1, vps!.MaxSubLayersMinus1);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_When_Neither_SubLayer_Profile_Nor_Level_Present()
+    {
+        // The reserved 2-bit padding loop must still execute for
+        // max_sub_layers_minus1 > 0 even when no per-sub-layer entries
+        // are signaled.
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxSubLayersMinus1 = 3,
+            SubLayerProfilePresentMask = 0,
+            SubLayerLevelPresentMask = 0,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(3, vps!.MaxSubLayersMinus1);
+    }
+
+    [Fact]
+    public void TryParse_Surfaces_Reserved16Bits_Verbatim()
+    {
+        // Spec mandates 0xFFFF but parser does not validate; arbitrary
+        // values must round-trip into the property unchanged.
+        var nalu = VpsBuilder.Build(new VpsSpec { Reserved0xffff16Bits = 0x1234 });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal((ushort)0x1234, vps!.Reserved0xffff16Bits);
+    }
+
+    [Fact]
+    public void TryParse_Accepts_Max_Layer_Count_At_Boundary()
+    {
+        // MaxLayerId = 63 means layerCount = 64 = MaxLayerCount, which is
+        // accepted (the parser rejects only when > 64).
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxLayerId = 63,
+            NumLayerSetsMinus1 = 1,
+            LayerIdIncludedBitmaps = ImmutableArray.Create(0x0000_0000_0000_0001ul),
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(63, vps!.MaxLayerId);
+        Assert.Single(vps.LayerIdIncludedBitmaps);
+    }
+
+    [Fact]
+    public void TryParse_Decodes_Three_Layer_Sets()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxLayerId = 1,
+            NumLayerSetsMinus1 = 3,
+            LayerIdIncludedBitmaps = ImmutableArray.Create(0b01ul, 0b10ul, 0b11ul),
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(3u, vps!.NumLayerSetsMinus1);
+        Assert.Equal(3, vps.LayerIdIncludedBitmaps.Length);
+        Assert.Equal(0b01ul, vps.LayerIdIncludedBitmaps[0]);
+        Assert.Equal(0b10ul, vps.LayerIdIncludedBitmaps[1]);
+        Assert.Equal(0b11ul, vps.LayerIdIncludedBitmaps[2]);
+    }
+
+    [Fact]
+    public void TryParse_NumLayerSetsMinus1_Zero_Yields_Empty_Bitmap_Array()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxLayerId = 2,
+            NumLayerSetsMinus1 = 0,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(0u, vps!.NumLayerSetsMinus1);
+        Assert.Empty(vps.LayerIdIncludedBitmaps);
+    }
+
+    [Fact]
+    public void TryParse_General_Tier_High_Decodes()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            GeneralTierFlag = true,
+            GeneralProfileIdc = 2,
+            GeneralLevelIdc = 186,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.True(vps!.GeneralTierFlag);
+        Assert.Equal(2, vps.GeneralProfileIdc);
+        Assert.Equal(186, vps.GeneralLevelIdc);
+    }
+
+    [Fact]
+    public void TryParse_Sets_NumHrdParameters_Zero_When_Timing_Info_Absent()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec { TimingInfoPresentFlag = false });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.False(vps!.TimingInfoPresentFlag);
+        Assert.Equal(0u, vps.NumHrdParameters);
+    }
+
+    [Fact]
+    public void TryParse_All_Constraint_Indicator_Bits_Roundtrip()
+    {
+        // Highest representable 48-bit value to validate the split-read
+        // (24-bit high + 24-bit low) is reassembled correctly.
+        const ulong max48 = (1UL << 48) - 1;
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            GeneralConstraintIndicatorFlags = max48,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(max48, vps!.GeneralConstraintIndicatorFlags);
+    }
+
+    [Fact]
+    public void TryParse_Zero_Profile_Compatibility_Roundtrips()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec { GeneralProfileCompatibilityFlags = 0u });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(0u, vps!.GeneralProfileCompatibilityFlags);
+    }
+
+    [Fact]
+    public void TryParse_MaxLayers_And_MaxSubLayers_Boundary_Values()
+    {
+        // 6 bits => 0..63, 3 bits => 0..7.
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            MaxLayersMinus1 = 63,
+            MaxSubLayersMinus1 = 6, // keep room for reserved 2-bit padding loop
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(63, vps!.MaxLayersMinus1);
+        Assert.Equal(6, vps.MaxSubLayersMinus1);
+    }
+
+    [Fact]
+    public void TryParse_VpsId_Max_Roundtrips()
+    {
+        // 4-bit field => max value 15.
+        var nalu = VpsBuilder.Build(new VpsSpec { VpsId = 15 });
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(15, vps!.VideoParameterSetId);
+    }
+
+    [Fact]
+    public void TryParse_PocProportionalToTiming_True_With_Nonzero_NumTicks()
+    {
+        var nalu = VpsBuilder.Build(new VpsSpec
+        {
+            TimingInfoPresentFlag = true,
+            NumUnitsInTick = 1001,
+            TimeScale = 24000,
+            PocProportionalToTimingFlag = true,
+            NumTicksPocDiffOneMinus1 = 7,
+        });
+
+        Assert.True(HevcVideoParameterSet.TryParse(nalu, out var vps));
+        Assert.Equal(true, vps!.PocProportionalToTimingFlag);
+        Assert.Equal(7u, vps.NumTicksPocDiffOneMinus1);
+    }
+
     // -----------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------

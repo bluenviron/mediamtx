@@ -245,6 +245,464 @@ public sealed class AviDemuxerTests
         Assert.ThrowsAny<Exception>(() => AviDemuxer.Open("Z:\\nonexistent-avi-file.avi"));
     }
 
+    [Theory]
+    [InlineData(16, CodecId.PcmS16Le)]
+    [InlineData(24, CodecId.PcmS24Le)]
+    [InlineData(32, CodecId.PcmS32Le)]
+    public void Pcm_Bits_Maps_To_Expected_CodecId(int bits, CodecId expected)
+    {
+        byte[] pcm = new byte[bits / 8 * 32];
+        byte[] avi = BuildPcmAvi(8000, 1, bits, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var audio = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(expected, audio.Codec);
+        Assert.Equal(bits, audio.BitsPerSample);
+    }
+
+    [Theory]
+    [InlineData((ushort)0x0001, 16, CodecId.PcmS16Le)]
+    [InlineData((ushort)0x0003, 32, CodecId.PcmF32Le)]
+    [InlineData((ushort)0x0006, 8, CodecId.G711ALaw)]
+    [InlineData((ushort)0x0007, 8, CodecId.G711MuLaw)]
+    [InlineData((ushort)0x0055, 16, CodecId.Mp3)]
+    [InlineData((ushort)0x00FF, 16, CodecId.Aac)]
+    [InlineData((ushort)0x2000, 16, CodecId.Ac3)]
+    [InlineData((ushort)0x2001, 16, CodecId.EAc3)]
+    [InlineData((ushort)0xF1AC, 16, CodecId.Flac)]
+    [InlineData((ushort)0x6750, 16, CodecId.Vorbis)]
+    [InlineData((ushort)0x0099, 16, CodecId.Unknown)]
+    public void Audio_FormatTag_Maps_To_Expected_CodecId(ushort formatTag, int bits, CodecId expected)
+    {
+        byte[] data = new byte[bits / 8 * 16];
+        byte[] avi = BuildAudioAviCustomTag(formatTag, sampleRate: 22050, channels: 1, bits: bits, data: data);
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var audio = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(expected, audio.Codec);
+        Assert.Equal(22050, audio.SampleRate);
+        Assert.Equal(1, audio.Channels);
+        Assert.Equal(bits, audio.BitsPerSample);
+    }
+
+    [Fact]
+    public void Metadata_All_Common_Info_Tags_Roundtrip()
+    {
+        var tags = new Dictionary<string, string>
+        {
+            ["INAM"] = "Song",
+            ["IART"] = "Band",
+            ["ICRD"] = "2024",
+            ["ICMT"] = "Note",
+            ["IGNR"] = "Rock",
+            ["IPRD"] = "Album",
+            ["ITRK"] = "5",
+            ["ICOP"] = "(c)2024",
+            ["ISFT"] = "Mediar",
+            ["IENG"] = "Engineer",
+            ["ILNG"] = "eng",
+        };
+        byte[] avi = BuildAudioAviWithInfoTags(8000, 1, 16, new byte[16], tags);
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        Assert.Equal("Song", dx.Metadata.Title);
+        Assert.Equal("Band", dx.Metadata.Artist);
+        Assert.Equal("2024", dx.Metadata.Date);
+        Assert.Equal("Note", dx.Metadata.Comment);
+        Assert.Equal("Rock", dx.Metadata.Genre);
+        Assert.Equal("Album", dx.Metadata.Album);
+        Assert.Equal(5, dx.Metadata.TrackNumber);
+    }
+
+    [Fact]
+    public void Metadata_Trailing_Whitespace_And_Null_Trimmed()
+    {
+        var tags = new Dictionary<string, string> { ["INAM"] = "Song   \0\0" };
+        byte[] avi = BuildAudioAviWithInfoTags(8000, 1, 16, new byte[16], tags);
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        Assert.Equal("Song", dx.Metadata.Title);
+    }
+
+    [Fact]
+    public void Metadata_Empty_Value_Stays_Empty()
+    {
+        var tags = new Dictionary<string, string> { ["INAM"] = "\0", ["IART"] = "X" };
+        byte[] avi = BuildAudioAviWithInfoTags(8000, 1, 16, new byte[16], tags);
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        Assert.True(string.IsNullOrEmpty(dx.Metadata.Title));
+        Assert.Equal("X", dx.Metadata.Artist);
+    }
+
+    [Fact]
+    public async Task Sample_Pts_Starts_At_Zero_And_TrackIndex_Is_Stream_Index()
+    {
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[64], title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        await using var enumerator = dx.ReadSamplesAsync().GetAsyncEnumerator();
+        Assert.True(await enumerator.MoveNextAsync());
+        var first = enumerator.Current;
+        try
+        {
+            Assert.Equal(0L, first.Pts);
+            Assert.Equal(0L, first.Dts);
+            Assert.Equal(0, first.TrackIndex);
+            Assert.True(first.IsKeyFrame);
+            Assert.True(first.Duration > 0);
+        }
+        finally { first.Owner?.Dispose(); }
+
+        // Drain remaining so the demuxer closes cleanly.
+        while (await enumerator.MoveNextAsync()) enumerator.Current.Owner?.Dispose();
+    }
+
+    [Fact]
+    public async Task Sample_Duration_Is_BlockCount_For_Audio()
+    {
+        // 16 frames @ 16-bit mono = 32 bytes. Block size = 2. So expected
+        // duration per chunk (each holds 16 bytes => 8 blocks).
+        byte[] pcm = new byte[32];
+        byte[] avi = BuildPcmAvi(8000, 1, 16, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                Assert.Equal(8, s.Duration);
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+    }
+
+    [Fact]
+    public async Task Sample_TotalBytes_Matches_Source_Pcm()
+    {
+        byte[] pcm = new byte[256];
+        new Random(0).NextBytes(pcm);
+        byte[] avi = BuildPcmAvi(8000, 1, 16, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var collected = new List<byte>();
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                collected.AddRange(s.Data.ToArray());
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.Equal(pcm, collected.ToArray());
+    }
+
+    [Fact]
+    public void Tracks_Has_Single_Element_With_Index_And_Id_Zero()
+    {
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[16], title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var t = Assert.Single(dx.Tracks);
+        Assert.Equal(0, t.Index);
+        Assert.Equal(0u, t.Id);
+        Assert.Equal("und", t.Language);
+    }
+
+    [Fact]
+    public void Track_TimeBase_Reflects_Strh_Scale_Rate()
+    {
+        // strh.Scale=1, strh.Rate=8000 -> TimeBase = 1/8000.
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[16], title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var t = dx.Tracks[0];
+        Assert.Equal(1, t.TimeBase.Numerator);
+        Assert.Equal(8000, t.TimeBase.Denominator);
+    }
+
+    [Fact]
+    public void Duration_NonZero_When_Avih_Has_MicrosecPerFrame_And_TotalFrames()
+    {
+        // BuildPcmAvi writes 1_000_000/25 us/frame and totalFrames = pcm.Length / blockSize.
+        // 256-byte mono 16-bit PCM => 128 frames; duration = 128 * 40000us = 5.12s.
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[256], title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        Assert.True(dx.Duration > TimeSpan.Zero);
+    }
+
+    [Fact]
+    public void Open_Default_Does_Not_Dispose_External_Source()
+    {
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[16], title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        var dx = AviDemuxer.Open(src); // ownsSource defaults to false
+        dx.Dispose();
+        // Source must still be usable after demuxer Dispose; opening another
+        // demuxer on it should succeed.
+        using var dx2 = AviDemuxer.Open(src);
+        Assert.Equal("avi", dx2.FormatName);
+    }
+
+    [Fact]
+    public void Open_OwnsSource_True_Disposes_Source_With_Demuxer()
+    {
+        byte[] avi = BuildPcmAvi(8000, 1, 16, new byte[16], title: "T", artist: "A");
+        var src = new IO.MemoryRandomAccessSource(avi);
+        var dx = AviDemuxer.Open(src, ownsSource: true);
+        dx.Dispose();
+        // Reading from a disposed memory source should throw.
+        Assert.Throws<ObjectDisposedException>(() =>
+        {
+            Span<byte> buf = stackalloc byte[1];
+            src.Read(0, buf);
+        });
+    }
+
+    [Fact]
+    public async Task SeekAsync_Past_Duration_Lands_At_Last_Sample()
+    {
+        byte[] pcm = new byte[256];
+        byte[] avi = BuildPcmAvi(8000, 1, 16, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        await dx.SeekAsync(TimeSpan.FromMinutes(10));
+        int chunks = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            chunks++;
+            s.Owner?.Dispose();
+        }
+        // After seeking past the end, at most the final chunk should remain.
+        Assert.True(chunks <= 1, $"expected <=1 chunk after seek-past-end, got {chunks}");
+    }
+
+    [Fact]
+    public void Open_Riff_Too_Short_For_Avi_Magic_Throws()
+    {
+        // 4-byte RIFF + size, but only 9 bytes total (missing the AVI form id).
+        byte[] hdr = new byte[9];
+        WriteAscii(hdr.AsSpan(0, 4), "RIFF");
+        BinaryPrimitives.WriteUInt32LittleEndian(hdr.AsSpan(4, 4), 1u);
+        using var src = new IO.MemoryRandomAccessSource(hdr);
+        Assert.Throws<InvalidDataException>(() => AviDemuxer.Open(src));
+    }
+
+    [Fact]
+    public void Open_DefaultParams_Has_Zero_Duration_Without_Avih_Frame_Info()
+    {
+        byte[] hdr = new byte[12];
+        WriteAscii(hdr.AsSpan(0, 4), "RIFF");
+        BinaryPrimitives.WriteUInt32LittleEndian(hdr.AsSpan(4, 4), 4u);
+        WriteAscii(hdr.AsSpan(8, 4), "AVI ");
+        using var src = new IO.MemoryRandomAccessSource(hdr);
+        // The RIFF list is empty here, so Open should fail on missing movi.
+        Assert.Throws<InvalidDataException>(() => AviDemuxer.Open(src));
+    }
+
+    [Fact]
+    public async Task Multiple_Open_Read_Cycles_Yield_Identical_Samples()
+    {
+        byte[] pcm = new byte[64];
+        for (int i = 0; i < pcm.Length; i++) pcm[i] = (byte)i;
+        byte[] avi = BuildPcmAvi(8000, 1, 16, pcm, title: "T", artist: "A");
+
+        byte[] read1, read2;
+        {
+            using var src = new IO.MemoryRandomAccessSource(avi);
+            using var dx = AviDemuxer.Open(src);
+            var buf = new List<byte>();
+            await foreach (var s in dx.ReadSamplesAsync())
+            {
+                try { buf.AddRange(s.Data.ToArray()); }
+                finally { s.Owner?.Dispose(); }
+            }
+            read1 = buf.ToArray();
+        }
+        {
+            using var src = new IO.MemoryRandomAccessSource(avi);
+            using var dx = AviDemuxer.Open(src);
+            var buf = new List<byte>();
+            await foreach (var s in dx.ReadSamplesAsync())
+            {
+                try { buf.AddRange(s.Data.ToArray()); }
+                finally { s.Owner?.Dispose(); }
+            }
+            read2 = buf.ToArray();
+        }
+        Assert.Equal(read1, read2);
+    }
+
+    [Fact]
+    public void Pcm_Stereo_Maps_To_Two_Channels()
+    {
+        byte[] pcm = new byte[16 * 4]; // 16 frames @ 2 ch * 16-bit = 4 bytes/frame
+        byte[] avi = BuildPcmAvi(44100, 2, 16, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        var audio = Assert.IsType<AudioCodecParameters>(dx.Tracks[0].Codec);
+        Assert.Equal(2, audio.Channels);
+        Assert.Equal(44100, audio.SampleRate);
+    }
+
+    [Fact]
+    public async Task ReadSamplesAsync_Multiple_Reads_Each_Pts_Increases_By_Duration()
+    {
+        byte[] pcm = new byte[64]; // 32 blocks total; 2 chunks of 16 blocks each.
+        byte[] avi = BuildPcmAvi(8000, 1, 16, pcm, title: "T", artist: "A");
+        using var src = new IO.MemoryRandomAccessSource(avi);
+        using var dx = AviDemuxer.Open(src);
+        long expectedPts = 0;
+        await foreach (var s in dx.ReadSamplesAsync())
+        {
+            try
+            {
+                Assert.Equal(expectedPts, s.Pts);
+                expectedPts += s.Duration;
+            }
+            finally { s.Owner?.Dispose(); }
+        }
+        Assert.True(expectedPts > 0);
+    }
+
+    /// <summary>
+    /// Build an AVI with one audio stream whose <c>WAVEFORMATEX.wFormatTag</c>
+    /// is set to <paramref name="formatTag"/>. Used to exercise the codec
+    /// mapping table without requiring real decoder support.
+    /// </summary>
+    private static byte[] BuildAudioAviCustomTag(ushort formatTag, int sampleRate, int channels, int bits, byte[] data)
+    {
+        byte[] strh = new byte[56];
+        WriteAscii(strh.AsSpan(0, 4), "auds");
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(20, 4), 1u);
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(24, 4), (uint)sampleRate);
+        int blockSize = (bits / 8) * channels;
+        if (blockSize == 0) blockSize = 1;
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(32, 4), (uint)(data.Length / blockSize));
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(40, 4), (uint)blockSize);
+
+        byte[] strf = new byte[16];
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(0, 2), formatTag);
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(2, 2), (ushort)channels);
+        BinaryPrimitives.WriteUInt32LittleEndian(strf.AsSpan(4, 4), (uint)sampleRate);
+        BinaryPrimitives.WriteUInt32LittleEndian(strf.AsSpan(8, 4), (uint)(sampleRate * channels * (bits / 8)));
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(12, 2), (ushort)blockSize);
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(14, 2), (ushort)bits);
+
+        byte[] avih = new byte[56];
+        BinaryPrimitives.WriteUInt32LittleEndian(avih.AsSpan(0, 4), 40000u);
+        BinaryPrimitives.WriteUInt32LittleEndian(avih.AsSpan(16, 4), 1u);
+
+        using var ms = new MemoryStream();
+        WriteAscii(ms, "RIFF");
+        long sizeOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "AVI ");
+
+        WriteAscii(ms, "LIST");
+        long hdrlOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "hdrl");
+        WriteChunk(ms, "avih", avih);
+        WriteAscii(ms, "LIST");
+        long strlOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "strl");
+        WriteChunk(ms, "strh", strh);
+        WriteChunk(ms, "strf", strf);
+        long strlEnd = ms.Position;
+        PatchSize(ms, strlOff, (uint)(strlEnd - strlOff - 4));
+        long hdrlEnd = ms.Position;
+        PatchSize(ms, hdrlOff, (uint)(hdrlEnd - hdrlOff - 4));
+
+        WriteAscii(ms, "LIST");
+        long moviOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "movi");
+        WriteChunk(ms, "00wb", data);
+        long moviEnd = ms.Position;
+        PatchSize(ms, moviOff, (uint)(moviEnd - moviOff - 4));
+
+        long fileEnd = ms.Position;
+        PatchSize(ms, sizeOff, (uint)(fileEnd - sizeOff - 4));
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Build an AVI with one PCM audio stream and a <c>LIST INFO</c> chunk
+    /// populated from <paramref name="infoTags"/> (4-byte IDs -> string).
+    /// </summary>
+    private static byte[] BuildAudioAviWithInfoTags(int sampleRate, int channels, int bits, byte[] data, IReadOnlyDictionary<string, string> infoTags)
+    {
+        byte[] strh = new byte[56];
+        WriteAscii(strh.AsSpan(0, 4), "auds");
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(20, 4), 1u);
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(24, 4), (uint)sampleRate);
+        int blockSize = (bits / 8) * channels;
+        if (blockSize == 0) blockSize = 1;
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(32, 4), (uint)(data.Length / blockSize));
+        BinaryPrimitives.WriteUInt32LittleEndian(strh.AsSpan(40, 4), (uint)blockSize);
+
+        byte[] strf = new byte[16];
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(0, 2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(2, 2), (ushort)channels);
+        BinaryPrimitives.WriteUInt32LittleEndian(strf.AsSpan(4, 4), (uint)sampleRate);
+        BinaryPrimitives.WriteUInt32LittleEndian(strf.AsSpan(8, 4), (uint)(sampleRate * channels * (bits / 8)));
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(12, 2), (ushort)blockSize);
+        BinaryPrimitives.WriteUInt16LittleEndian(strf.AsSpan(14, 2), (ushort)bits);
+
+        byte[] avih = new byte[56];
+
+        using var infoMs = new MemoryStream();
+        foreach (var kv in infoTags)
+        {
+            string id4 = kv.Key.PadRight(4)[..4];
+            byte[] payload = Encoding.Latin1.GetBytes(kv.Value);
+            WriteChunk(infoMs, id4, payload);
+        }
+        byte[] info = infoMs.ToArray();
+
+        using var ms = new MemoryStream();
+        WriteAscii(ms, "RIFF");
+        long sizeOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "AVI ");
+
+        WriteAscii(ms, "LIST");
+        long hdrlOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "hdrl");
+        WriteChunk(ms, "avih", avih);
+        WriteAscii(ms, "LIST");
+        long strlOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "strl");
+        WriteChunk(ms, "strh", strh);
+        WriteChunk(ms, "strf", strf);
+        long strlEnd = ms.Position;
+        PatchSize(ms, strlOff, (uint)(strlEnd - strlOff - 4));
+        long hdrlEnd = ms.Position;
+        PatchSize(ms, hdrlOff, (uint)(hdrlEnd - hdrlOff - 4));
+
+        WriteAscii(ms, "LIST");
+        long moviOff = ms.Position;
+        WriteLeUInt32(ms, 0);
+        WriteAscii(ms, "movi");
+        WriteChunk(ms, "00wb", data);
+        long moviEnd = ms.Position;
+        PatchSize(ms, moviOff, (uint)(moviEnd - moviOff - 4));
+
+        WriteAscii(ms, "LIST");
+        WriteLeUInt32(ms, (uint)(info.Length + 4));
+        WriteAscii(ms, "INFO");
+        ms.Write(info);
+
+        long fileEnd = ms.Position;
+        PatchSize(ms, sizeOff, (uint)(fileEnd - sizeOff - 4));
+        return ms.ToArray();
+    }
+
     /// <summary>
     /// Build a tiny RIFF/AVI 1-stream PCM file with idx1, LIST INFO, and a
     /// movi list containing the data split across two ##wb chunks.
@@ -326,13 +784,13 @@ public sealed class AviDemuxerTests
         byte[] idx1 = new byte[2 * 16];
         WriteAscii(idx1.AsSpan(0, 4), "00wb");
         BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(4, 4), 0x10u); // AVIIF_KEYFRAME
-        // movi-relative offset of chunk header from moviStart - 4
-        BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(8, 4), (uint)(chunk1HdrOffset - (moviStart - 4)));
+        // movi-relative offset of chunk header from the 'movi' fourcc
+        BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(8, 4), (uint)(chunk1HdrOffset - moviStart));
         BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(12, 4), (uint)chunk1.Length);
 
         WriteAscii(idx1.AsSpan(16, 4), "00wb");
         BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(20, 4), 0x10u);
-        BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(24, 4), (uint)(chunk2HdrOffset - (moviStart - 4)));
+        BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(24, 4), (uint)(chunk2HdrOffset - moviStart));
         BinaryPrimitives.WriteUInt32LittleEndian(idx1.AsSpan(28, 4), (uint)chunk2.Length);
 
         WriteChunk(ms, "idx1", idx1);
