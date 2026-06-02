@@ -9,11 +9,28 @@ commits.
 | Phase | Scope                                                                     | Status   |
 |------:|---------------------------------------------------------------------------|----------|
 |     1 | Foundation: TOC parser, frame packing, range coder, silence-emitting skeleton | ✅ shipped |
-|     2 | CELT path: energy quant, PVQ, IMDCT, anti-collapse, stereo, post-filter   | ⏳ planned |
-|     3 | SILK path: NLSF / LPC stability, LTP scaling, sub-frame gains             | ⏳ planned |
-|     4 | SILK excitation + synthesis: pulse decoding, signs, sub-frame LPC         | ⏳ planned |
-|     5 | Hybrid + stereo bit-allocation + 8/12/16/24/48 kHz resampler              | ⏳ planned |
-|     6 | Polish: multistream, PLC / FEC, perf tuning, RFC test vectors             | ⏳ planned |
+|    2a | CELT foundation: constants, band-layout `CeltMode`, decoder skeleton, OpusDecoder routing | ✅ shipped |
+|    2b | CELT energy: silence/transient/post-filter/intra flags + coarse/fine/final energy | ⏳ planned |
+|    2c | CELT PVQ: bit allocation, band shape, anti-collapse, mid-side stereo      | ⏳ planned |
+|    2d | CELT IMDCT + post-filter + window overlap-add → first real PCM            | ⏳ planned |
+|     3 | SILK NLSF / LPC stability / LTP scaling / sub-frame gains                 | ⏳ planned |
+|     4 | SILK excitation + sub-frame synthesis                                     | ⏳ planned |
+|     5 | Hybrid bit-allocation + 8/12/16/24/48 kHz resampler                       | ⏳ planned |
+|     6 | Multistream, PLC / FEC, perf tuning, RFC test vectors                     | ⏳ planned |
+
+## Phase 2a behavior (added on top of Phase 1)
+
+CELT-only configs (TOC config 16..31) now route through a dedicated
+`CeltDecoder` per (mode, channels) tuple. The decoder:
+
+- Resolves the band layout via `CeltMode.ForCeltOnly` (StartBand=0,
+  EndBand from bandwidth, ShortBlocksPerFrame from frame size).
+- Still emits silence today — Phase 2b begins consuming entropy.
+- Increments its own `SamplesProduced` counter so progress is observable.
+
+The structural payoff: every part of the CELT pipeline now knows its
+band edges, frame sizes, and channel layout. Phases 2b-2d fill in the
+DSP without touching the surrounding wiring.
 
 ## Phase 1 behavior
 

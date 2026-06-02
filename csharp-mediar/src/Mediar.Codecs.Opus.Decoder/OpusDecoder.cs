@@ -1,4 +1,5 @@
 using System.Buffers;
+using Mediar.Codecs.Opus.Decoder.Celt;
 
 namespace Mediar.Codecs.Opus.Decoder;
 
@@ -27,6 +28,12 @@ public sealed class OpusDecoder : IAudioDecoder
 
     private readonly List<OpusFrameView> _frames = new(capacity: 4);
     private long _samplesProduced;
+
+    // Lazy per-mode CELT decoders. Opus packets in a single stream can
+    // legally switch configs (e.g. 20 ms CELT FB → 10 ms CELT WB) so we
+    // cache one decoder per distinct (mode, channels) tuple. Most real
+    // streams use exactly one mode so the cache stays at size 1.
+    private readonly Dictionary<(CeltMode Mode, int Channels), CeltDecoder> _celtDecoders = new();
 
     /// <inheritdoc/>
     public CodecId Codec => CodecId.Opus;
@@ -104,27 +111,44 @@ public sealed class OpusDecoder : IAudioDecoder
             return default;
         }
 
-        // Walk every frame so that any structural error in the entropy stream
-        // surfaces immediately. Phase 1 doesn't *use* the range decoder's
-        // output, but constructing it validates that the per-frame bytes are
-        // present and that the decoder's invariants hold (the constructor
-        // already pulls in the first byte and normalises).
-        foreach (var frame in _frames)
-        {
-            if (frame.Length > 0)
-            {
-                _ = new OpusRangeDecoder(encoded.Slice(frame.Offset, frame.Length));
-            }
-        }
-
         int channels = ResolveChannelCount(toc);
-        int samplesPerChannel = toc.SamplesPerFrameAt48k * _frames.Count;
+        int samplesPerFrame = toc.SamplesPerFrameAt48k;
+        int samplesPerChannel = samplesPerFrame * _frames.Count;
         int totalFloats = samplesPerChannel * channels;
 
         var owner = MemoryPool<float>.Shared.Rent(totalFloats);
-        // Rent gives us a buffer >= requested; we slice down to exact size
-        // and zero-fill — Phase 1 always emits silence.
-        owner.Memory.Span.Slice(0, totalFloats).Clear();
+        var outputSpan = owner.Memory.Span.Slice(0, totalFloats);
+        outputSpan.Clear();
+
+        // Route CELT-only configs (16..31) through the CELT decoder so the
+        // per-frame audio path is wired up end-to-end. The decoder still
+        // emits silence today — Phase 2b begins consuming entropy.
+        if (toc.Mode == OpusMode.CeltOnly)
+        {
+            var mode = CeltMode.ForCeltOnly(toc.Bandwidth, toc.FrameSizeMicroseconds);
+            var celt = GetOrCreateCeltDecoder(mode, channels);
+            for (int i = 0; i < _frames.Count; i++)
+            {
+                var frame = _frames[i];
+                if (frame.Length == 0) continue;
+                var rd = new OpusRangeDecoder(encoded.Slice(frame.Offset, frame.Length));
+                var frameSlice = outputSpan.Slice(i * samplesPerFrame * channels, samplesPerFrame * channels);
+                celt.DecodeFrame(ref rd, frameSlice);
+            }
+        }
+        else
+        {
+            // SILK / Hybrid configs — Phase 1 behaviour: validate entropy
+            // header presence, leave the buffer zeroed.
+            foreach (var frame in _frames)
+            {
+                if (frame.Length > 0)
+                {
+                    _ = new OpusRangeDecoder(encoded.Slice(frame.Offset, frame.Length));
+                }
+            }
+        }
+
         _samplesProduced += samplesPerChannel;
 
         return new DecodedAudioFrame
@@ -138,11 +162,26 @@ public sealed class OpusDecoder : IAudioDecoder
         };
     }
 
+    private CeltDecoder GetOrCreateCeltDecoder(CeltMode mode, int channels)
+    {
+        var key = (mode, channels);
+        if (!_celtDecoders.TryGetValue(key, out var dec))
+        {
+            dec = new CeltDecoder(mode, channels);
+            _celtDecoders[key] = dec;
+        }
+        return dec;
+    }
+
     /// <inheritdoc/>
     public void Reset()
     {
         _frames.Clear();
         _samplesProduced = 0;
+        foreach (var celt in _celtDecoders.Values)
+        {
+            celt.Reset();
+        }
     }
 
     /// <inheritdoc/>
