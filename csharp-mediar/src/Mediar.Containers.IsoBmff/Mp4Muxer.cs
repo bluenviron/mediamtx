@@ -386,7 +386,10 @@ public sealed class Mp4Muxer : IMediaMuxer
             b.WriteUInt16((ushort)a.Channels);
             b.WriteUInt16(a.BitsPerSample > 0 ? (ushort)a.BitsPerSample : (ushort)16);
             b.WriteUInt16(0); b.WriteUInt16(0);
-            b.WriteUInt32((uint)(a.SampleRate << 16));
+            // Opus-in-ISOBMFF specifies the SampleEntry sample rate as
+            // 48000 << 16 regardless of the OpusHead.InputSampleRate field.
+            int sampleEntryRate = entry.Track.Codec.Codec == CodecId.Opus ? 48000 : a.SampleRate;
+            b.WriteUInt32((uint)(sampleEntryRate << 16));
             if (!a.ExtraData.IsEmpty && entry.Track.Codec.Codec == CodecId.Aac)
             {
                 b.StartBox(BoxTypes.EsDs);
@@ -400,6 +403,21 @@ public sealed class Mp4Muxer : IMediaMuxer
                 b.StartBox(BoxTypes.Alac);
                 b.WriteZeros(4);
                 b.WriteBytes(a.ExtraData.Span);
+                b.EndBox();
+            }
+            else if (entry.Track.Codec.Codec == CodecId.Opus)
+            {
+                // Opus in ISOBMFF REQUIRES an OpusSpecificBox (dOps) child of
+                // the sample entry — without it the track is not conformant.
+                // ExtraData is expected to hold the Ogg-form OpusHead bytes
+                // (matches OggDemuxer's output convention).
+                if (a.ExtraData.IsEmpty || !OpusHead.TryReadOgg(a.ExtraData.Span, out var head))
+                {
+                    throw new InvalidOperationException(
+                        "Opus track ExtraData must hold a valid Ogg-form OpusHead so the muxer can emit a conformant 'dOps' box.");
+                }
+                b.StartBox(BoxTypes.Dops);
+                b.WriteBytes(OpusHead.WriteIsobmff(head));
                 b.EndBox();
             }
         }

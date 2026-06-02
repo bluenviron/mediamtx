@@ -281,6 +281,19 @@ internal static class MovieParser
                     extra = cPayload.ToArray();
                     break;
                 }
+                if (codec == CodecId.Opus && cType.Value == BoxTypes.Dops.Value)
+                {
+                    // Convert the dOps body (BE, no magic) into the canonical
+                    // Ogg-form OpusHead bytes that the rest of the codebase
+                    // expects in AudioCodecParameters.ExtraData. Skip silently
+                    // on malformed dOps — downstream consumers can detect the
+                    // missing extra-data and surface a clearer error.
+                    if (OpusHead.TryReadIsobmff(cPayload.Span, out var head))
+                    {
+                        extra = OpusHead.WriteOgg(head);
+                    }
+                    break;
+                }
             }
 
             return (codec, extra);

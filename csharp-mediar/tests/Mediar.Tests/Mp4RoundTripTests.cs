@@ -479,7 +479,17 @@ public sealed class Mp4RoundTripTests
     private static MediaTrack MakeAudioTrack() => new()
     {
         Index = 0, Id = 1,
-        Codec = new AudioCodecParameters { Codec = CodecId.Opus, SampleRate = 48000, Channels = 2 },
+        Codec = new AudioCodecParameters
+        {
+            Codec = CodecId.Opus, SampleRate = 48000, Channels = 2,
+            // Minimal Ogg-form OpusHead: family=0 stereo, pre-skip=312, input rate=48000, gain=0.
+            ExtraData = OpusHead.WriteOgg(new OpusHead
+            {
+                ChannelCount = 2, PreSkip = 312,
+                InputSampleRate = 48000, OutputGain = 0,
+                ChannelMappingFamily = 0,
+            }),
+        },
         TimeBase = new Rational(1, 48000),
         Language = "und",
     };

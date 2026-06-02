@@ -70,6 +70,8 @@ internal static class BoxTypes
     public static readonly FourCc AvcC = new("avcC");
     public static readonly FourCc HvcC = new("hvcC");
     public static readonly FourCc Av1C = new("av1C");
+    /// <summary>Opus Specific Box body holder (per Opus-in-ISOBMFF spec).</summary>
+    public static readonly FourCc Dops = new("dOps");
 
     // Track handlers
     public static readonly FourCc Vide = new("vide");
