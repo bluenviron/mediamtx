@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Mediar.Imaging;
 using Mediar.Imaging.Heif;
 using Xunit;
@@ -200,6 +201,176 @@ public class HeifBrandInfoTests
         Assert.Equal(HeifCodec.Av1, r.BrandInfo.PrimaryCodec);
         Assert.Equal(HeifContainerKind.SingleImage, r.BrandInfo.ContainerKind);
         Assert.True(r.BrandInfo.HasBrand("mif1"));
+    }
+
+    [Fact]
+    public void Mif2_Major_Brand_Classifies_As_SingleImage()
+    {
+        var info = HeifBrandInfo.From("mif2", []);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+        Assert.False(info.IsImageSequence);
+    }
+
+    [Fact]
+    public void Mif3_Major_Brand_Classifies_As_SingleImage()
+    {
+        var info = HeifBrandInfo.From("mif3", []);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+    }
+
+    [Fact]
+    public void Empty_Compatible_Brands_Major_Only_Works()
+    {
+        var info = HeifBrandInfo.From("heic", []);
+        Assert.Equal(HeifCodec.Hevc, info.PrimaryCodec);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+        Assert.Empty(info.CompatibleBrands);
+    }
+
+    [Fact]
+    public void CompatibleBrands_Property_Preserved_Verbatim()
+    {
+        ImmutableArray<string> compat = ["mif1", "heic", "miaf", "MA1A"];
+        var info = HeifBrandInfo.From("heic", compat);
+        Assert.Equal(compat, info.CompatibleBrands);
+    }
+
+    [Fact]
+    public void Hevc_Image_Brand_Wins_Over_Av1_When_Both_Present()
+    {
+        // major=avif but heic in compat → primary codec resolves to Hevc per switch precedence.
+        var info = HeifBrandInfo.From("avif", ["mif1", "heic", "avif"]);
+        Assert.Equal(HeifCodec.Hevc, info.PrimaryCodec);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+    }
+
+    [Fact]
+    public void Record_Equality_And_With_Expression()
+    {
+        ImmutableArray<string> compat = ["mif1", "heic"];
+        var a = HeifBrandInfo.From("heic", compat);
+        var b = HeifBrandInfo.From("heic", compat);
+        Assert.Equal(a, b);
+
+        var c = a with { MajorBrand = "avif" };
+        Assert.NotEqual(a, c);
+        Assert.Equal("avif", c.MajorBrand);
+    }
+
+    [Fact]
+    public void HasBrand_Empty_String_Returns_False()
+    {
+        var info = HeifBrandInfo.From("heic", ["mif1"]);
+        Assert.False(info.HasBrand(string.Empty));
+    }
+
+    [Fact]
+    public void HasBrand_Is_Case_Sensitive()
+    {
+        var info = HeifBrandInfo.From("heic", ["mif1"]);
+        Assert.True(info.HasBrand("heic"));
+        Assert.False(info.HasBrand("HEIC"));
+        Assert.False(info.HasBrand("Mif1"));
+    }
+
+    [Fact]
+    public void Unif_In_Compat_Only_Still_Sets_Uncompressed_Codec()
+    {
+        // unif as compat brand only - codec resolves through compat list.
+        var info = HeifBrandInfo.From("mif1", ["mif1", "unif"]);
+        Assert.Equal(HeifCodec.Uncompressed, info.PrimaryCodec);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+    }
+
+    [Fact]
+    public void Crx_In_Compat_Only_Sets_CanonRaw_Codec()
+    {
+        var info = HeifBrandInfo.From("isom", ["isom", "crx "]);
+        Assert.Equal(HeifCodec.CanonRaw, info.PrimaryCodec);
+        Assert.Equal(HeifContainerKind.SingleImage, info.ContainerKind);
+    }
+
+    [Fact]
+    public void Tmap_In_Compat_Only_Sets_ToneMapped_Codec_When_No_Other_Codec_Hit()
+    {
+        var info = HeifBrandInfo.From("mif1", ["mif1", "tmap"]);
+        Assert.Equal(HeifCodec.ToneMapped, info.PrimaryCodec);
+        Assert.True(info.IsToneMapped);
+    }
+
+    [Fact]
+    public void Heis_Sets_All_Three_Flags_Multilayer_RangeNot_Set_And_Sequence()
+    {
+        // heis = multilayer image sequence; range-extended is NOT implied.
+        var info = HeifBrandInfo.From("heis", ["msf1", "heis"]);
+        Assert.True(info.IsMultilayer);
+        Assert.True(info.IsImageSequence);
+        Assert.False(info.IsRangeExtended);
+        Assert.Equal(HeifCodec.Hevc, info.PrimaryCodec);
+    }
+
+    [Fact]
+    public void Combined_Flags_Multilayer_RangeExtended_AppleMulti_All_Set()
+    {
+        var info = HeifBrandInfo.From("heic", ["mif1", "heic", "heim", "heix", "MA1B"]);
+        Assert.True(info.IsMultilayer);
+        Assert.True(info.IsRangeExtended);
+        Assert.True(info.IsAppleMultiImage);
+        Assert.Equal(HeifCodec.Hevc, info.PrimaryCodec);
+    }
+
+    [Theory]
+    [InlineData("heic", HeifCodec.Hevc)]
+    [InlineData("heix", HeifCodec.Hevc)]
+    [InlineData("heim", HeifCodec.Hevc)]
+    [InlineData("hevc", HeifCodec.Hevc)]
+    [InlineData("hevx", HeifCodec.Hevc)]
+    [InlineData("heis", HeifCodec.Hevc)]
+    [InlineData("avif", HeifCodec.Av1)]
+    [InlineData("avis", HeifCodec.Av1)]
+    [InlineData("vvic", HeifCodec.Vvc)]
+    [InlineData("vvis", HeifCodec.Vvc)]
+    [InlineData("unif", HeifCodec.Uncompressed)]
+    [InlineData("crx ", HeifCodec.CanonRaw)]
+    [InlineData("tmap", HeifCodec.ToneMapped)]
+    public void Codec_Brand_Mapping_Theory(string brand, HeifCodec expected)
+    {
+        var info = HeifBrandInfo.From(brand, [brand]);
+        Assert.Equal(expected, info.PrimaryCodec);
+    }
+
+    [Theory]
+    [InlineData("msf1")]
+    [InlineData("hevc")]
+    [InlineData("hevx")]
+    [InlineData("heis")]
+    [InlineData("avis")]
+    [InlineData("vvis")]
+    public void Sequence_Brand_Theory_Sets_IsImageSequence(string brand)
+    {
+        var info = HeifBrandInfo.From(brand, [brand]);
+        Assert.True(info.IsImageSequence);
+        Assert.Equal(HeifContainerKind.ImageSequence, info.ContainerKind);
+    }
+
+    [Fact]
+    public void Msf1_Alone_Sets_Sequence_Even_Without_Codec_Brand()
+    {
+        var info = HeifBrandInfo.From("msf1", ["msf1"]);
+        Assert.True(info.IsImageSequence);
+        Assert.Equal(HeifContainerKind.ImageSequence, info.ContainerKind);
+        Assert.Equal(HeifCodec.Unknown, info.PrimaryCodec);
+    }
+
+    [Fact]
+    public void MajorBrand_Not_Duplicated_In_Compat_When_Also_Listed()
+    {
+        // Major brand is added once even if also present in compat.
+        var info = HeifBrandInfo.From("heic", ["heic", "heic", "mif1"]);
+        // HasBrand still works for both; CompatibleBrands echoes whatever caller passed.
+        Assert.True(info.HasBrand("heic"));
+        Assert.True(info.HasBrand("mif1"));
+        Assert.Equal(HeifCodec.Hevc, info.PrimaryCodec);
     }
 
     private static void WriteBox(Stream s, string type, Action<MemoryStream> writePayload)

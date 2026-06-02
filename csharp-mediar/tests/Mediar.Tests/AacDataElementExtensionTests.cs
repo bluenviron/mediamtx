@@ -208,4 +208,179 @@ public sealed class AacDataElementExtensionTests
         Assert.Equal(AacFillExtensionType.SbrData, fil.FillExtension!.ExtensionType);
         Assert.Null(fil.FillExtension.DataElement);
     }
+
+    [Fact]
+    public void Constants_Match_Specification()
+    {
+        Assert.Equal((byte)0x0, AacDataElementExtension.VersionAncData);
+        Assert.Equal(256, AacDataElementExtension.MaxLengthParts);
+    }
+
+    [Fact]
+    public void TryParse_NegativeBitLength_Returns_False()
+    {
+        Assert.False(AacDataElementExtension.TryParse(new byte[4], -1, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_BodyShorter_Than_BitLength_Returns_False()
+    {
+        // bodyBitLength claims 64 bits but body is only 4 bytes (32 bits).
+        Assert.False(AacDataElementExtension.TryParse(new byte[4], 64, out var data));
+        Assert.Null(data);
+    }
+
+    [Theory]
+    [InlineData(0x1)]
+    [InlineData(0x5)]
+    [InlineData(0xA)]
+    [InlineData(0xF)]
+    public void TryParse_NonZero_Version_Captures_Opaque_Body(byte version)
+    {
+        var w = new AacBitWriter();
+        w.Write(version, 4);
+        w.Write(0xABu, 8); // 8 trailing bits
+        byte[] body = w.ToArray();
+
+        Assert.True(AacDataElementExtension.TryParse(body, 12, out var data));
+        Assert.Equal(version, data!.Version);
+        Assert.False(data.IsAncData);
+        Assert.Null(data.AncData);
+        Assert.Equal(4, data.BitsConsumed);
+        Assert.Equal(8, data.TrailingBitLength);
+        Assert.Equal(1, data.Trailing.Length);
+        Assert.Equal((byte)0xAB, data.Trailing.Span[0]);
+    }
+
+    [Fact]
+    public void TryParse_AncData_LengthChain_510_Bytes()
+    {
+        // length parts = [255, 255, 0] → dataElementLength = 2*255 + 0 = 510.
+        byte[] payload = new byte[510];
+        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)((i * 7) & 0xFF);
+
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xFFu, 8);
+        w.Write(0xFFu, 8);
+        w.Write(0x00u, 8);
+        foreach (byte b in payload) w.Write(b, 8);
+        byte[] body = w.ToArray();
+        int bodyBits = 4 + 24 + 510 * 8;
+
+        Assert.True(AacDataElementExtension.TryParse(body, bodyBits, out var data));
+        Assert.Equal(510, data!.AncData!.DataElementLength);
+        Assert.Equal(3, data.AncData.LengthParts.Count);
+        Assert.Equal(payload, data.AncData.DataElementBytes.ToArray());
+    }
+
+    [Fact]
+    public void TryParse_AncData_LengthChain_509_Bytes_With_FF_FE()
+    {
+        // length parts = [255, 254] → dataElementLength = 255 + 254 = 509.
+        byte[] payload = new byte[509];
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xFFu, 8);
+        w.Write(0xFEu, 8);
+        foreach (byte b in payload) w.Write(b, 8);
+        byte[] body = w.ToArray();
+        int bodyBits = 4 + 16 + 509 * 8;
+
+        Assert.True(AacDataElementExtension.TryParse(body, bodyBits, out var data));
+        Assert.Equal(509, data!.AncData!.DataElementLength);
+        Assert.Equal((byte)0xFF, data.AncData.LengthParts[0]);
+        Assert.Equal((byte)0xFE, data.AncData.LengthParts[1]);
+    }
+
+    [Fact]
+    public void TryParse_AncData_TruncatedBeforeNextLengthPart_Returns_False()
+    {
+        // After reading first FF (12 bits used) loop wants 8 more bits but body claims only 12.
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xFFu, 8);
+        byte[] body = w.ToArray();
+
+        Assert.False(AacDataElementExtension.TryParse(body, 12, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void TryParse_ExceedingMaxLengthParts_Returns_False()
+    {
+        // 257 length parts of 0xFF triggers the > 256 cap.
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        for (int i = 0; i < 257; i++) w.Write(0xFFu, 8);
+        byte[] body = w.ToArray();
+        int bodyBits = 4 + 257 * 8;
+
+        Assert.False(AacDataElementExtension.TryParse(body, bodyBits, out var data));
+        Assert.Null(data);
+    }
+
+    [Fact]
+    public void AncDataPayload_BitsConsumed_Matches_Formula()
+    {
+        // length parts [255, 5] + 260 data bytes.
+        byte[] payload = new byte[260];
+        var w = new AacBitWriter();
+        w.Write(0x0u, 4);
+        w.Write(0xFFu, 8);
+        w.Write(0x05u, 8);
+        foreach (byte b in payload) w.Write(b, 8);
+        byte[] body = w.ToArray();
+        int bodyBits = 4 + 16 + 260 * 8;
+
+        Assert.True(AacDataElementExtension.TryParse(body, bodyBits, out var data));
+        var anc = data!.AncData!;
+        Assert.Equal(8 * 2 + 8 * 260, anc.BitsConsumed);
+        Assert.Equal(4 + anc.BitsConsumed, data.BitsConsumed);
+    }
+
+    [Fact]
+    public void AncDataPayload_Empty_LengthParts_Has_Zero_Length()
+    {
+        var empty = new AacAncDataPayload
+        {
+            LengthParts = Array.Empty<byte>(),
+            DataElementBytes = ReadOnlyMemory<byte>.Empty,
+        };
+        Assert.Equal(0, empty.DataElementLength);
+        Assert.Equal(0, empty.BitsConsumed);
+    }
+
+    [Fact]
+    public void AacDataElementExtension_Record_Equality()
+    {
+        byte[] trailing = { 0x55 };
+        var ancA = new AacAncDataPayload
+        {
+            LengthParts = new byte[] { 0x02 },
+            DataElementBytes = new byte[] { 0x11, 0x22 },
+        };
+        var ancB = new AacAncDataPayload
+        {
+            LengthParts = new byte[] { 0x02 },
+            DataElementBytes = new byte[] { 0x11, 0x22 },
+        };
+
+        var a = new AacDataElementExtension
+        {
+            Version = 0,
+            AncData = ancA,
+            Trailing = trailing,
+            TrailingBitLength = 4,
+            BitsConsumed = 28,
+        };
+        var b = a with { TrailingBitLength = 4 };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { Version = 3 };
+        Assert.NotEqual(a, c);
+        Assert.Equal((byte)3, c.Version);
+    }
 }
