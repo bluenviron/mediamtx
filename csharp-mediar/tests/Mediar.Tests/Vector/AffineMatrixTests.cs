@@ -85,4 +85,68 @@ public class AffineMatrixTests
         var singular = new Matrix3x2(0, 0, 0, 0, 0, 0);
         Assert.Equal(Matrix3x2.Identity, AffineMatrix.InvertOrIdentity(singular));
     }
+
+    [Fact]
+    public void Compose_Is_Not_Commutative()
+    {
+        var a = Matrix3x2.CreateTranslation(10f, 0f);
+        var b = Matrix3x2.CreateScale(2f);
+        var ab = AffineMatrix.Compose(a, b);
+        var ba = AffineMatrix.Compose(b, a);
+        var pAb = AffineMatrix.TransformPoint(new Vector2(1, 0), ab);
+        var pBa = AffineMatrix.TransformPoint(new Vector2(1, 0), ba);
+        Assert.NotEqual(pAb, pBa);
+    }
+
+    [Fact]
+    public void TransformVector_Applies_Rotation_Only()
+    {
+        // 90 degrees CCW; translation should be ignored.
+        var m = Matrix3x2.CreateRotation(MathF.PI / 2f) * Matrix3x2.CreateTranslation(100f, 200f);
+        var v = AffineMatrix.TransformVector(new Vector2(1, 0), m);
+        Assert.Equal(0f, v.X, 4);
+        Assert.Equal(1f, v.Y, 4);
+    }
+
+    [Fact]
+    public void TransformVector_Identity_Returns_Same_Vector()
+    {
+        var v = AffineMatrix.TransformVector(new Vector2(3, -5), Matrix3x2.Identity);
+        Assert.Equal(new Vector2(3, -5), v);
+    }
+
+    [Fact]
+    public void MaxScale_Translation_Only_Returns_One()
+    {
+        var m = Matrix3x2.CreateTranslation(100f, -200f);
+        Assert.Equal(1f, AffineMatrix.MaxScale(m), 4);
+    }
+
+    [Fact]
+    public void MaxScale_Negative_Scale_Returns_Absolute_Value()
+    {
+        // Reflection along X: M11=-1, M22=1; operator norm = 1.
+        var m = Matrix3x2.CreateScale(-1f, 1f);
+        Assert.Equal(1f, AffineMatrix.MaxScale(m), 4);
+    }
+
+    [Fact]
+    public void InvertOrIdentity_Inverts_Pure_Translation()
+    {
+        var m = Matrix3x2.CreateTranslation(5f, -7f);
+        var inv = AffineMatrix.InvertOrIdentity(m);
+        var p = AffineMatrix.TransformPoint(AffineMatrix.TransformPoint(new Vector2(10, 20), m), inv);
+        Assert.Equal(10f, p.X, 3);
+        Assert.Equal(20f, p.Y, 3);
+    }
+
+    [Fact]
+    public void InvertOrIdentity_Inverts_Pure_Rotation()
+    {
+        var m = Matrix3x2.CreateRotation(MathF.PI / 4f);
+        var inv = AffineMatrix.InvertOrIdentity(m);
+        var p = AffineMatrix.TransformPoint(AffineMatrix.TransformPoint(new Vector2(7, 11), m), inv);
+        Assert.Equal(7f, p.X, 3);
+        Assert.Equal(11f, p.Y, 3);
+    }
 }
