@@ -252,4 +252,166 @@ public sealed class ArwReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Mixed_Case_Sony_Make_Is_Accepted()
+    {
+        var spec = new TestArwBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "Sony Corporation",
+        };
+        byte[] bytes = TestArwBuilder.Build(spec);
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal("Sony Corporation", arw.Raw.Make);
+    }
+
+    [Fact]
+    public void Lowercase_Make_Is_Rejected()
+    {
+        var spec = new TestArwBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "sony",
+        };
+        byte[] bytes = TestArwBuilder.Build(spec);
+        Assert.Throws<ImageFormatException>(() => ArwReader.Open(new MemoryStream(bytes, writable: false)));
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => ArwReader.Open(ms));
+    }
+
+    [Fact]
+    public void Without_MakerNote_MakerNoteLength_Is_Zero()
+    {
+        var spec = new TestArwBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "SONY",
+        };
+        byte[] bytes = TestArwBuilder.Build(spec);
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(0, arw.Raw.MakerNoteLength);
+        Assert.False(arw.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+    }
+
+    [Fact]
+    public void Without_Software_Field_Metadata_Software_Is_Null()
+    {
+        var spec = new TestArwBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "SONY",
+        };
+        byte[] bytes = TestArwBuilder.Build(spec);
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(arw.Raw.Software);
+        Assert.Null(arw.Metadata.Software);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Multi_Row_RGB_Preserves_All_Pixels()
+    {
+        const int W = 5, H = 6;
+        var strip = new byte[W * H * 3];
+        for (int i = 0; i < strip.Length; i++) strip[i] = (byte)((i * 19) ^ 0xA5);
+        var spec = new TestArwBuilder.IfdSpec
+        {
+            Width = W,
+            Height = H,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = strip,
+            Make = "SONY",
+        };
+        byte[] bytes = TestArwBuilder.Build(spec);
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in arw.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        using (frame)
+        {
+            Assert.Equal(strip, frame.Pixels.ToArray());
+        }
+    }
+
+    [Fact]
+    public void Multiple_SubIfds_All_Discovered_As_SubImages()
+    {
+        var raw1 = new TestArwBuilder.IfdSpec
+        {
+            Width = 12,
+            Height = 12,
+            BitsPerSample = 16,
+            SamplesPerPixel = 1,
+            Compression = 1,
+            Photometric = 1,
+            NewSubFileType = 0,
+            StripPayload = new byte[12 * 12 * 2],
+        };
+        var raw2 = new TestArwBuilder.IfdSpec
+        {
+            Width = 6,
+            Height = 6,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 1,
+            StripPayload = new byte[6 * 6 * 3],
+        };
+        var ifd0 = new TestArwBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 1,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "SONY",
+            SubIfds = [raw1, raw2],
+        };
+        byte[] bytes = TestArwBuilder.Build(ifd0);
+        using var arw = ArwReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(3, arw.SubImages.Count);
+        // Primary should still be the largest with NewSubFileType=0 -> raw1 (12x12).
+        Assert.Equal(12, arw.Info.Width);
+    }
 }

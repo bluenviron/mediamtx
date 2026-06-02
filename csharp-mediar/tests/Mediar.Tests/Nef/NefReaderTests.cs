@@ -257,4 +257,157 @@ public sealed class NefReaderTests
             }
         });
     }
+
+    [Fact]
+    public void Mixed_Case_Nikon_Make_Is_Accepted()
+    {
+        var spec = new TestNefBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "Nikon Imaging",
+        };
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal("Nikon Imaging", nef.Raw.Make);
+    }
+
+    [Fact]
+    public void Lowercase_Make_Is_Rejected()
+    {
+        var spec = new TestNefBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "nikon",
+        };
+        byte[] bytes = TestNefBuilder.Build(spec);
+        Assert.Throws<ImageFormatException>(() => NefReader.Open(new MemoryStream(bytes, writable: false)));
+    }
+
+    [Fact]
+    public void Empty_Stream_Throws_ImageFormatException()
+    {
+        using var ms = new MemoryStream(Array.Empty<byte>(), writable: false);
+        Assert.Throws<ImageFormatException>(() => NefReader.Open(ms));
+    }
+
+    [Fact]
+    public void Without_MakerNote_MakerNoteLength_Is_Zero()
+    {
+        var spec = new TestNefBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "NIKON CORPORATION",
+        };
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(0, nef.Raw.MakerNoteLength);
+        Assert.False(nef.Metadata.Tags.ContainsKey("Exif:MakerNoteLength"));
+    }
+
+    [Fact]
+    public void Without_Software_Field_Metadata_Software_Is_Null()
+    {
+        var spec = new TestNefBuilder.IfdSpec
+        {
+            Width = 4,
+            Height = 4,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = new byte[4 * 4 * 3],
+            Make = "NIKON CORPORATION",
+        };
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Null(nef.Raw.Software);
+        Assert.Null(nef.Metadata.Software);
+    }
+
+    [Fact]
+    public async Task ReadFramesAsync_Multi_Row_RGB_Preserves_All_Pixels()
+    {
+        const int W = 6, H = 5;
+        var strip = new byte[W * H * 3];
+        for (int i = 0; i < strip.Length; i++) strip[i] = (byte)((i * 17) ^ 0x5A);
+        var spec = new TestNefBuilder.IfdSpec
+        {
+            Width = W,
+            Height = H,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 0,
+            StripPayload = strip,
+            Make = "NIKON CORPORATION",
+        };
+        byte[] bytes = TestNefBuilder.Build(spec);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        ImageFrame? frame = null;
+        await foreach (var f in nef.ReadFramesAsync()) { frame = f; break; }
+        Assert.NotNull(frame);
+        using (frame)
+        {
+            Assert.Equal(strip, frame.Pixels.ToArray());
+        }
+    }
+
+    [Fact]
+    public void NewSubFileType_Two_Treated_As_Non_Primary()
+    {
+        // NewSubFileType bit 1 = reduced-resolution preview, bit 0 = thumbnail.
+        // Value 2 means "single page of multi-page" - should not be picked
+        // as primary when a NewSubFileType=0 SubIFD is present.
+        var raw = new TestNefBuilder.IfdSpec
+        {
+            Width = 20,
+            Height = 20,
+            BitsPerSample = 8,
+            SamplesPerPixel = 1,
+            Compression = 1,
+            Photometric = 1,
+            NewSubFileType = 0,
+            StripPayload = new byte[20 * 20],
+        };
+        var ifd0 = new TestNefBuilder.IfdSpec
+        {
+            Width = 8,
+            Height = 8,
+            BitsPerSample = 8,
+            SamplesPerPixel = 3,
+            Compression = 1,
+            Photometric = 2,
+            NewSubFileType = 2,
+            StripPayload = new byte[8 * 8 * 3],
+            Make = "NIKON CORPORATION",
+            SubIfds = [raw],
+        };
+        byte[] bytes = TestNefBuilder.Build(ifd0);
+        using var nef = NefReader.Open(new MemoryStream(bytes, writable: false));
+        Assert.Equal(20, nef.Info.Width);
+        Assert.Equal(20, nef.Info.Height);
+    }
 }
