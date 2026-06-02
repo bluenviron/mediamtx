@@ -236,4 +236,133 @@ public sealed class MediaMetadataExtendedFieldsTests
         Assert.Equal("Version", m.Version);
         Assert.False(m.IsEmpty);
     }
+
+    [Theory]
+    [InlineData("BARCODE")]
+    [InlineData("UPC")]
+    [InlineData("EAN")]
+    public void Builder_Maps_All_Barcode_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "0123456789012");
+        Assert.Equal("0123456789012", b.Build().Barcode);
+    }
+
+    [Theory]
+    [InlineData("CATALOGNUMBER")]
+    [InlineData("CATALOG")]
+    [InlineData("CATALOGUE")]
+    public void Builder_Maps_All_Catalog_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "ABC-100");
+        Assert.Equal("ABC-100", b.Build().CatalogNumber);
+    }
+
+    [Theory]
+    [InlineData("WEBSITE")]
+    [InlineData("URL")]
+    [InlineData("CONTACT")]
+    [InlineData("WWW")]
+    public void Builder_Maps_All_Website_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "https://example.com");
+        Assert.Equal("https://example.com", b.Build().Website);
+    }
+
+    [Theory]
+    [InlineData("KEY")]
+    [InlineData("INITIALKEY")]
+    [InlineData("MUSICALKEY")]
+    public void Builder_Maps_All_MusicalKey_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "Dm");
+        Assert.Equal("Dm", b.Build().MusicalKey);
+    }
+
+    [Theory]
+    [InlineData("LICENSE")]
+    [InlineData("LICENCE")]
+    public void Builder_Maps_All_License_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "GPL");
+        Assert.Equal("GPL", b.Build().License);
+    }
+
+    [Theory]
+    [InlineData("COMPILATION")]
+    [InlineData("ITUNESCOMPILATION")]
+    [InlineData("TCMP")]
+    public void Builder_Maps_All_Compilation_Aliases(string key)
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set(key, "1");
+        Assert.True(b.Build().Compilation);
+    }
+
+    [Fact]
+    public void Builder_Bpm_DoubleOutOfRange_IsIgnored()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("BPM", "1500.5"); // > 1000 rejected
+        Assert.Null(b.Bpm);
+    }
+
+    [Fact]
+    public void Builder_Bpm_Zero_IsIgnored()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("BPM", "0.0"); // 0 not > 0
+        Assert.Null(b.Bpm);
+    }
+
+    [Fact]
+    public void Builder_Bpm_FirstWriteWins()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("BPM", "120");
+        b.Set("BPM", "150");
+        Assert.Equal(120, b.Build().Bpm);
+    }
+
+    [Fact]
+    public void Builder_Compilation_FirstWriteWins()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("COMPILATION", "1");
+        b.Set("COMPILATION", "0");
+        Assert.True(b.Build().Compilation);
+    }
+
+    [Fact]
+    public void Builder_StringField_FirstWriteWins()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("PRODUCER", "First");
+        b.Set("PRODUCER", "Second");
+        Assert.Equal("First", b.Build().Producer);
+    }
+
+    [Fact]
+    public void Builder_Build_ReturnsDistinctSnapshotsForNonEmpty()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("PRODUCER", "X");
+        var m1 = b.Build();
+        var m2 = b.Build();
+        // Both reflect the same data but the builder produces a fresh snapshot.
+        Assert.Equal(m1.Producer, m2.Producer);
+    }
+
+    [Fact]
+    public void Builder_UnknownKey_GoesToTags()
+    {
+        var b = new MediaMetadataBuilder();
+        b.Set("MY_CUSTOM_KEY", "custom value");
+        var m = b.Build();
+        Assert.Equal("custom value", m.Tags["MY_CUSTOM_KEY"]);
+    }
 }

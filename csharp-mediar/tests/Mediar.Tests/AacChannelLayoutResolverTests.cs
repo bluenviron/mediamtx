@@ -238,4 +238,124 @@ public sealed class AacChannelLayoutResolverTests
         Assert.Same(cpe1, resolved[1].RawEntry);
         Assert.Same(cpe2, resolved[2].RawEntry);
     }
+
+    [Theory]
+    [InlineData(3, new[]
+    {
+        AacSyntacticElementType.SingleChannelElement,
+        AacSyntacticElementType.ChannelPairElement,
+    })]
+    [InlineData(4, new[]
+    {
+        AacSyntacticElementType.SingleChannelElement,
+        AacSyntacticElementType.ChannelPairElement,
+        AacSyntacticElementType.SingleChannelElement,
+    })]
+    [InlineData(5, new[]
+    {
+        AacSyntacticElementType.SingleChannelElement,
+        AacSyntacticElementType.ChannelPairElement,
+        AacSyntacticElementType.ChannelPairElement,
+    })]
+    [InlineData(7, new[]
+    {
+        AacSyntacticElementType.SingleChannelElement,
+        AacSyntacticElementType.ChannelPairElement,
+        AacSyntacticElementType.ChannelPairElement,
+        AacSyntacticElementType.ChannelPairElement,
+        AacSyntacticElementType.LfeChannelElement,
+    })]
+    public void Resolve_AllConfigs_ProduceExpectedElementCount(int config, AacSyntacticElementType[] expected)
+    {
+        var entries = new AacRawDataBlockEntry[expected.Length + 1];
+        for (int i = 0; i < expected.Length; i++) entries[i] = Entry(expected[i]);
+        entries[^1] = Entry(AacSyntacticElementType.End);
+        var block = Block(entries);
+
+        var resolved = AacChannelLayoutResolver.Resolve(block, config);
+        Assert.Equal(expected.Length, resolved.Count);
+        for (int i = 0; i < expected.Length; i++)
+        {
+            Assert.Equal(expected[i], resolved[i].RawEntry.Type);
+        }
+    }
+
+    [Fact]
+    public void Resolve_MultipleCces_AllSurfaced()
+    {
+        var block = Block(
+            Entry(AacSyntacticElementType.SingleChannelElement),
+            Entry(AacSyntacticElementType.CouplingChannelElement),
+            Entry(AacSyntacticElementType.CouplingChannelElement),
+            Entry(AacSyntacticElementType.CouplingChannelElement),
+            Entry(AacSyntacticElementType.End));
+        var resolved = AacChannelLayoutResolver.Resolve(block, 1);
+        Assert.Equal(4, resolved.Count);
+        Assert.Equal(3, AacChannelLayoutResolver.FilterCouplingEntries(resolved).Count);
+        Assert.Single(AacChannelLayoutResolver.FilterSpeakerEntries(resolved));
+    }
+
+    [Fact]
+    public void FilterSpeakerEntries_EmptyList_ReturnsEmpty()
+    {
+        var empty = new List<AacResolvedChannelEntry>();
+        Assert.Empty(AacChannelLayoutResolver.FilterSpeakerEntries(empty));
+    }
+
+    [Fact]
+    public void FilterCouplingEntries_EmptyList_ReturnsEmpty()
+    {
+        var empty = new List<AacResolvedChannelEntry>();
+        Assert.Empty(AacChannelLayoutResolver.FilterCouplingEntries(empty));
+    }
+
+    [Fact]
+    public void Resolve_ConfigOutOfRange_Zero_Throws()
+    {
+        // Config 0 is PCE-described; explicit-PCE resolver isn't implemented here.
+        var block = Block(Entry(AacSyntacticElementType.End));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AacChannelLayoutResolver.Resolve(block, 0));
+    }
+
+    [Fact]
+    public void AacResolvedChannelEntry_Record_Equality_HoldsForSameEntryAndMapping()
+    {
+        var raw = Entry(AacSyntacticElementType.SingleChannelElement);
+        var a = new AacResolvedChannelEntry { RawEntry = raw, Mapping = null };
+        var b = new AacResolvedChannelEntry { RawEntry = raw, Mapping = null };
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+
+        var c = a with { RawEntry = Entry(AacSyntacticElementType.ChannelPairElement) };
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void Resolve_CceBeforeAnyAudio_AllowedAndPreserved()
+    {
+        var block = Block(
+            Entry(AacSyntacticElementType.CouplingChannelElement),
+            Entry(AacSyntacticElementType.SingleChannelElement),
+            Entry(AacSyntacticElementType.End));
+        var resolved = AacChannelLayoutResolver.Resolve(block, 1);
+        Assert.Equal(2, resolved.Count);
+        Assert.Equal(AacSyntacticElementType.CouplingChannelElement, resolved[0].RawEntry.Type);
+        Assert.Null(resolved[0].Mapping);
+        Assert.Equal(AacSyntacticElementType.SingleChannelElement, resolved[1].RawEntry.Type);
+        Assert.NotNull(resolved[1].Mapping);
+    }
+
+    [Fact]
+    public void Resolve_CceAfterLastAudio_AllowedAndPreserved()
+    {
+        var block = Block(
+            Entry(AacSyntacticElementType.SingleChannelElement),
+            Entry(AacSyntacticElementType.CouplingChannelElement),
+            Entry(AacSyntacticElementType.End));
+        var resolved = AacChannelLayoutResolver.Resolve(block, 1);
+        Assert.Equal(2, resolved.Count);
+        Assert.Equal(AacSyntacticElementType.SingleChannelElement, resolved[0].RawEntry.Type);
+        Assert.Equal(AacSyntacticElementType.CouplingChannelElement, resolved[1].RawEntry.Type);
+    }
 }
