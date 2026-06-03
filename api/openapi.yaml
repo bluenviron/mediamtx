@@ -155,6 +155,10 @@ components:
       type: string
       enum: [read, publish]
 
+    MoQSessionState:
+      type: string
+      enum: [idle, read, publish]
+
     OK:
       type: object
       properties:
@@ -593,6 +597,26 @@ components:
           type: boolean
         srtAddress:
           type: string
+
+        # MoQ server
+        moq:
+          type: boolean
+        moqHTTPS2Address:
+          type: string
+        moqHTTPS3Address:
+          type: string
+        moqServerKey:
+          type: string
+        moqServerCert:
+          type: string
+        moqAllowOrigins:
+          type: array
+          items:
+            type: string
+        moqTrustedProxies:
+          type: array
+          items:
+            type: string
 
         # Record (deprecated)
         record:
@@ -1855,6 +1879,39 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WebRTCSession"
+
+    MoQSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created:
+          type: string
+        remoteAddr:
+          type: string
+        state:
+          $ref: "#/components/schemas/MoQSessionState"
+        path:
+          type: string
+        query:
+          type: string
+        userAgent:
+          type: string
+
+    MoQSessionList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+          format: int64
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MoQSession"
 
 paths:
   /v3/info:
@@ -3354,6 +3411,123 @@ paths:
       operationId: webrtcSessionsKick
       tags: [WebRTC]
       summary: kicks out a WebRTC session from the server.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/moqsessions/list:
+    get:
+      operationId: moqSessionsList
+      tags: [MoQ]
+      summary: returns all MoQ sessions.
+      description: ""
+      parameters:
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoQSessionList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/moqsessions/get/{id}:
+    get:
+      operationId: moqSessionsGet
+      tags: [MoQ]
+      summary: returns a MoQ session.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoQSession"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/moqsessions/kick/{id}:
+    post:
+      operationId: moqSessionsKick
+      tags: [MoQ]
+      summary: kicks out a MoQ session from the server.
       description: ""
       parameters:
         - name: id

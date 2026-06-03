@@ -46,7 +46,6 @@ type PPROF struct {
 func (pp *PPROF) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(pp.middlewarePreflightRequests)
 	router.Use(pp.middlewareAuth)
 
@@ -70,7 +69,7 @@ func (pp *PPROF) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + pp.Address
+	str := "started with listener on " + pp.Address
 	if !pp.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -83,7 +82,7 @@ func (pp *PPROF) Initialize() error {
 
 // Close closes PPROF.
 func (pp *PPROF) Close() {
-	pp.Log(logger.Info, "listener is closing")
+	pp.Log(logger.Info, "closing")
 	pp.httpServer.Close()
 }
 

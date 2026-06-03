@@ -263,6 +263,11 @@ webrtc_sessions_rtp_packets_jitter 0
 webrtc_sessions_rtcp_packets_received 0
 webrtc_sessions_rtcp_packets_sent 0
 
+# MoQ sessions
+moq_sessions 0
+moq_sessions_inbound_bytes 0
+moq_sessions_outbound_bytes 0
+
 `, string(bo))
 	})
 
@@ -497,6 +502,11 @@ webrtc_sessions_rtcp_packets_sent 0
 			"paths_bytes_received 0\n"+
 			"paths_bytes_sent 0\n"+
 			"paths_readers 0\n"+
+			"\n"+
+			"# MoQ sessions\n"+
+			"moq_sessions 0\n"+
+			"moq_sessions_inbound_bytes 0\n"+
+			"moq_sessions_outbound_bytes 0\n"+
 			"\n",
 			string(bo))
 	})

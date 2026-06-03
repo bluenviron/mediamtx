@@ -5,3 +5,7 @@
 /internal/core/VERSION
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*/
+/auto.crt
+/auto.key
+/internal/core/auto.crt
+/internal/core/auto.key
