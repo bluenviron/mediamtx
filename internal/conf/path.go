@@ -19,7 +19,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
+var (
+	rePathName              = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
+	reSourcePlaceholderPort = regexp.MustCompile(`:\$G[0-9]+`)
+	reSourcePlaceholder     = regexp.MustCompile(`\$G[0-9]+`)
+)
 
 // IsValidPathName checks whether the path name is valid.
 func IsValidPathName(name string) error {
@@ -73,6 +77,31 @@ func checkRedirect(v string) error {
 	}
 
 	return nil
+}
+
+func validateURL(source string) (*url.URL, error) {
+	s := reSourcePlaceholderPort.ReplaceAllString(source, ":1935")
+	s = reSourcePlaceholder.ReplaceAllString(s, "abc")
+
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, fmt.Errorf("'%s' is not a valid URL", source)
+	}
+
+	if u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("'%s' is not a valid URL", source)
+	}
+
+	if u.User != nil {
+		pass, _ := u.User.Password()
+		user := u.User.Username()
+		if user != "" && pass == "" ||
+			user == "" && pass != "" {
+			return nil, fmt.Errorf("username and password must be both provided")
+		}
+	}
+
+	return u, nil
 }
 
 func checkMP4MagicBytes(f io.ReadSeeker) error {
@@ -441,9 +470,9 @@ func (pconf *Path) validate(
 		strings.HasPrefix(pconf.Source, "rtsps+http://") ||
 		strings.HasPrefix(pconf.Source, "rtsp+ws://") ||
 		strings.HasPrefix(pconf.Source, "rtsps+ws://"):
-		_, err := url.Parse(pconf.Source)
+		_, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			return err
 		}
 
 		if pconf.SourceProtocol != nil {
@@ -458,54 +487,51 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		u, err := url.Parse(pconf.Source)
+		_, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-		}
-
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
-			if user != "" && pass == "" ||
-				user == "" && pass != "" {
-				return fmt.Errorf("username and password must be both provided")
-			}
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		u, err := url.Parse(pconf.Source)
+		_, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-		}
-
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
-			if user != "" && pass == "" ||
-				user == "" && pass != "" {
-				return fmt.Errorf("username and password must be both provided")
-			}
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
+		u, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			return err
+		}
+
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
+		u, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
+			return err
+		}
+
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
 
 	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
-		_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
+		u, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
+			return err
+		}
+
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 		if pconf.RTPSDP == "" {
@@ -514,21 +540,22 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
 		l.Log(logger.Warn, "source 'unix+rtp' is deprecated due to intrinsic instability, use 'udp+rtp' instead")
+
 		if pconf.RTPSDP == "" {
 			return fmt.Errorf("`rtpSDP` was not provided")
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		_, err := url.Parse(pconf.Source)
+		_, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		_, err := url.Parse(pconf.Source)
+		_, err := validateURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+			return err
 		}
 
 	case pconf.Source == "redirect":
