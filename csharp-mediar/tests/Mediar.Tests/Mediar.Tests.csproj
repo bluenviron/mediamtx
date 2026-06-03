@@ -46,6 +46,7 @@
     <ProjectReference Include="..\..\src\Mediar.Codecs.Mp3.Decoder\Mediar.Codecs.Mp3.Decoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Alac.Decoder\Mediar.Codecs.Alac.Decoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Codecs.Opus.Decoder\Mediar.Codecs.Opus.Decoder.csproj" />
+    <ProjectReference Include="..\..\src\Mediar.Codecs.Opus.Encoder\Mediar.Codecs.Opus.Encoder.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Bitstream\Mediar.Bitstream.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Subtitles.Srt\Mediar.Subtitles.Srt.csproj" />
     <ProjectReference Include="..\..\src\Mediar.Subtitles.WebVtt\Mediar.Subtitles.WebVtt.csproj" />

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mediar.Codecs.Opus.Encoder</RootNamespace>
+    <AssemblyName>Mediar.Codecs.Opus.Encoder</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>Native Opus audio encoder for Mediar. Clean-room implementation of RFC 6716 — phased delivery. Phase B3-foundation ships the SILK analysis primitives (fixed-point Q-math helpers, Burg autocorrelation / LPC analysis, voice activity detector). The closed-loop noise-shaping quantiser, NLSF MSVQ encoder, LTP pitch search, shell-coder encoder, and top-level SilkEncoder land in later slices once the SILK decoder (Phases 3-4) provides round-trip validation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs\Mediar.Codecs.csproj" />
+    <ProjectReference Include="..\Mediar.Codecs.Opus.Decoder\Mediar.Codecs.Opus.Decoder.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+</Project>
