@@ -42,15 +42,14 @@ paths:
   "~^rtmp_(.+)$":
     source: rtmp://backend.example.com:1935/$G1
     sourceOnDemand: yes
-    
+
   "~^hls_(.+)_(.+)$":
     source: http://$G1/$G2/index.m3u8
     sourceOnDemand: yes
-    
+
   "~^srt_([^_]+)_([^_]+)_(.+)$":
     source: srt://$G1:$G2/$G3
     sourceOnDemand: yes
 ```
 
 Use `$G1`, `$G2`, ... to reference regex capture groups. You can also use `$MTX_QUERY` to include the query string from the incoming request in the proxied source.
-

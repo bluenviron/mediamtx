@@ -982,7 +982,7 @@ func TestPathResolveSource(t *testing.T) {
 		defer strm2.Close()
 
 		// Request to proxy: mycam/127.0.0.1/8556/stream1 should resolve source to rtsp://127.0.0.1:8556/stream1
-		u, err := base.ParseURL("rtsp://127.0.0.1:8554/mycam/127.0.0.1/8556/stream1")
+		u, err = base.ParseURL("rtsp://127.0.0.1:8554/mycam/127.0.0.1/8556/stream1")
 		require.NoError(t, err)
 
 		reader := gortsplib.Client{
