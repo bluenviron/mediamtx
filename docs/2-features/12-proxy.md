@@ -11,4 +11,4 @@ paths:
     sourceOnDemand: yes
 ```
 
-All requests addressed to `rtsp://server:8854/a` will be forwarded to `rtsp://other-server:8554/a` and so on.
+All requests addressed to `rtsp://mediamtx:8554/a` will be forwarded to `rtsp://other-server:8554/a` and so on.
