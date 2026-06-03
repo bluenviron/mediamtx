@@ -26,6 +26,57 @@ func createTempFile(t *testing.T, byts []byte) string {
 	return tmpf.Name()
 }
 
+func TestConf(t *testing.T) {
+	for _, ca := range []struct {
+		name   string
+		source string
+	}{
+		{
+			name:   "rtmp with placeholders",
+			source: "rtmp://$G1:$G2/live?token=$G3",
+		},
+		{
+			name:   "https with placeholders",
+			source: "https://$G1/$G2/index.m3u8",
+		},
+		{
+			name:   "srt with placeholders",
+			source: "srt://$G1:$G2/$G3",
+		},
+		{
+			name:   "whep with placeholders",
+			source: "whep://$G1:$G2/$G3",
+		},
+		{
+			name:   "wheps with placeholders",
+			source: "wheps://$G1:$G2/$G3",
+		},
+		{
+			name:   "udp with placeholders",
+			source: "udp://$G1:$G2",
+		},
+		{
+			name:   "udp mpegts with placeholders",
+			source: "udp+mpegts://$G1:$G2",
+		},
+		{
+			name:   "udp rtp with placeholders",
+			source: "udp+rtp://$G1:$G2",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			conf := "paths:\n" +
+				"  test:\n" +
+				"    rtpSDP: abc\n" +
+				"    source: " + ca.source + "\n"
+
+			tmpf := createTempFile(t, []byte(conf))
+			_, _, err := Load(tmpf, nil, nil)
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestConfFromFile(t *testing.T) {
 	func() {
 		tmpf := createTempFile(t, []byte("logLevel: debug\n"+
@@ -728,6 +779,20 @@ func TestConfErrors(t *testing.T) {
 				"    - codec: H264\n" +
 				"    alwaysAvailableFile: /path/to/file.mp4\n",
 			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
+		},
+		{
+			"missing udp port",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: udp://$G1\n",
+			"'udp://$G1' is missing the port",
+		},
+		{
+			"missing rtmp authority",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtmp://$G1:$G2@\n",
+			"'rtmp://$G1:$G2@' is not a valid URL",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

@@ -22,7 +22,6 @@ import (
 var (
 	rePathName              = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.]+$`)
 	reSourcePlaceholderPort = regexp.MustCompile(`:\$G[0-9]+`)
-	reSourcePlaceholderHost = regexp.MustCompile(`(//|@)\$G[0-9]+`)
 	reSourcePlaceholder     = regexp.MustCompile(`\$G[0-9]+`)
 )
 
@@ -80,16 +79,10 @@ func checkRedirect(v string) error {
 	return nil
 }
 
-func sanitizeSourceForValidation(source string) string {
-	s := strings.ReplaceAll(source, "$MTX_QUERY", "x=1")
-	s = reSourcePlaceholderPort.ReplaceAllString(s, ":1935")
-	s = reSourcePlaceholderHost.ReplaceAllString(s, "${1}example.com")
-	s = reSourcePlaceholder.ReplaceAllString(s, "x")
-	return s
-}
+func validateURL(source string) (*url.URL, error) {
+	s := reSourcePlaceholderPort.ReplaceAllString(source, ":1935")
+	s = reSourcePlaceholder.ReplaceAllString(s, "abc")
 
-func validateSourceWithPlaceholders(source string) (*url.URL, error) {
-	s := sanitizeSourceForValidation(source)
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, fmt.Errorf("'%s' is not a valid URL", source)
@@ -99,35 +92,16 @@ func validateSourceWithPlaceholders(source string) (*url.URL, error) {
 		return nil, fmt.Errorf("'%s' is not a valid URL", source)
 	}
 
-	return u, nil
-}
-
-func validateSourceURL(source string, hasPlaceholders bool) error {
-	var u *url.URL
-	var err error
-
-	if hasPlaceholders {
-		u, err = validateSourceWithPlaceholders(source)
-		if err != nil {
-			return err
-		}
-	} else {
-		u, err = url.Parse(source)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid URL", source)
-		}
-	}
-
 	if u.User != nil {
 		pass, _ := u.User.Password()
 		user := u.User.Username()
 		if user != "" && pass == "" ||
 			user == "" && pass != "" {
-			return fmt.Errorf("username and password must be both provided")
+			return nil, fmt.Errorf("username and password must be both provided")
 		}
 	}
 
-	return nil
+	return u, nil
 }
 
 func checkMP4MagicBytes(f io.ReadSeeker) error {
@@ -475,8 +449,6 @@ func (pconf *Path) validate(
 
 	// General
 
-	hasSourcePlaceholders := strings.Contains(pconf.Source, "$")
-
 	switch {
 	case pconf.Source == "publisher":
 		if pconf.DisablePublisherOverride != nil {
@@ -498,17 +470,9 @@ func (pconf *Path) validate(
 		strings.HasPrefix(pconf.Source, "rtsps+http://") ||
 		strings.HasPrefix(pconf.Source, "rtsp+ws://") ||
 		strings.HasPrefix(pconf.Source, "rtsps+ws://"):
-		// Allow placeholders like $G1, $MTX_QUERY in the source URL and validate the resulting structure.
-		if strings.Contains(pconf.Source, "$") {
-			_, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := url.Parse(pconf.Source)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-			}
+		_, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
 		}
 
 		if pconf.SourceProtocol != nil {
@@ -523,70 +487,51 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		if err := validateSourceURL(pconf.Source, hasSourcePlaceholders); err != nil {
+		_, err := validateURL(pconf.Source)
+		if err != nil {
 			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		if err := validateSourceURL(pconf.Source, hasSourcePlaceholders); err != nil {
+		_, err := validateURL(pconf.Source)
+		if err != nil {
 			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
-		if hasSourcePlaceholders {
-			u, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
+		u, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
+		}
 
-			_, _, err = net.SplitHostPort(u.Host)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
-			}
-		} else {
-			_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
-			}
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp+mpegts://"):
-		if hasSourcePlaceholders {
-			u, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
+		u, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
+		}
 
-			_, _, err = net.SplitHostPort(u.Host)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
-			}
-		} else {
-			_, _, err := net.SplitHostPort(pconf.Source[len("udp+mpegts://"):])
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+MPEGTS URL", pconf.Source)
-			}
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "unix+mpegts://"):
 
 	case strings.HasPrefix(pconf.Source, "udp+rtp://"):
-		if hasSourcePlaceholders {
-			u, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
+		u, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
+		}
 
-			_, _, err = net.SplitHostPort(u.Host)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
-			}
-		} else {
-			_, _, err := net.SplitHostPort(pconf.Source[len("udp+rtp://"):])
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid UDP+RTP URL", pconf.Source)
-			}
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", pconf.Source)
 		}
 
 		if pconf.RTPSDP == "" {
@@ -595,35 +540,22 @@ func (pconf *Path) validate(
 
 	case strings.HasPrefix(pconf.Source, "unix+rtp://"):
 		l.Log(logger.Warn, "source 'unix+rtp' is deprecated due to intrinsic instability, use 'udp+rtp' instead")
+
 		if pconf.RTPSDP == "" {
 			return fmt.Errorf("`rtpSDP` was not provided")
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		if hasSourcePlaceholders {
-			_, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := url.Parse(pconf.Source)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-			}
+		_, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
 		}
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		if hasSourcePlaceholders {
-			_, err := validateSourceWithPlaceholders(pconf.Source)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := url.Parse(pconf.Source)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
-			}
+		_, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
 		}
 
 	case pconf.Source == "redirect":
