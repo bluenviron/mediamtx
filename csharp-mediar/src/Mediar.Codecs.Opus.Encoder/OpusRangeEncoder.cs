@@ -197,7 +197,68 @@ public ref struct OpusRangeEncoder
         }
     }
 
-    /// <summary>Append <paramref name="bits"/> raw LSBs of <paramref name="value"/> to the back of the buffer.</summary>
+    /// <summary>
+    /// Encode a signed integer using a discretised Laplace distribution
+    /// (libopus <c>ec_laplace_encode</c>, RFC 6716 §4.3.2.1, inverse of
+    /// <c>OpusRangeDecoder.DecodeLaplace</c>). Used by the CELT
+    /// coarse-energy encoder. Returns the (possibly clamped) value
+    /// actually encoded — the encoder may saturate the magnitude to keep
+    /// the cumulative range within the [0, 32768) symbol total.
+    /// </summary>
+    /// <param name="value">Signed integer to encode.</param>
+    /// <param name="fs">Initial 15-bit symbol total for the centre bin
+    /// (<c>e_prob_model[LM][intra][2i] &lt;&lt; 7</c>).</param>
+    /// <param name="decay">Geometric decay factor in Q14
+    /// (<c>e_prob_model[LM][intra][2i+1] &lt;&lt; 6</c>).</param>
+    public int EncodeLaplace(int value, uint fs, int decay)
+    {
+        const uint LaplaceMinP = 1;
+        const uint LaplaceTwoNMinP = 32;
+
+        uint fl = 0;
+        if (value != 0)
+        {
+            int s = value < 0 ? -1 : 0;
+            int absVal = (value + s) ^ s;
+            fl = fs;
+            uint ft = 32768u - LaplaceTwoNMinP - fs;
+            fs = (uint)((int)ft * (16384 - decay) >> 15) + LaplaceMinP;
+            for (int i = 1; i < absVal && fs > LaplaceMinP; i++)
+            {
+                fs *= 2;
+                fl += fs;
+                fs = (uint)(((int)fs - 2 * (int)LaplaceMinP) * decay >> 15) + LaplaceMinP;
+            }
+            if (fs <= LaplaceMinP)
+            {
+                int di = absVal - 1;
+                // Saturate the magnitude to what the symbol space allows.
+                int maxDi = (int)((32768u - fl - 2 * LaplaceMinP) / (2 * LaplaceMinP));
+                if (di > maxDi)
+                {
+                    di = maxDi;
+                    absVal = di + 1;
+                }
+                fl += (uint)(2 * di) * LaplaceMinP;
+            }
+            if (s != 0)
+            {
+                // value was negative — choose the lower half of the centre band.
+                value = -absVal;
+            }
+            else
+            {
+                fl += fs;
+                value = absVal;
+            }
+        }
+        uint fh = fl + fs;
+        if (fh > 32768u) fh = 32768u;
+        EncodeBin(fl, fh, 15);
+        return value;
+    }
+
+
     public void EncodeBitsRaw(uint value, int bits)
     {
         if ((uint)bits > 25) throw new ArgumentOutOfRangeException(nameof(bits));
