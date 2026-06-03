@@ -33,9 +33,8 @@ func emptyTimer() *time.Timer {
 
 func resolveSource(s string, matches []string, query string) string {
 	if len(matches) > 1 {
-		for i := len(matches) - 1; i >= 1; i-- {
-			ma := matches[i]
-			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i), 10), ma)
+		for i, ma := range matches[1:] {
+			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
 		}
 	}
 
