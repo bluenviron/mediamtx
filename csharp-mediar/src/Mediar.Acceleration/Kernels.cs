@@ -18,4 +18,12 @@ public static class Kernels
     /// <summary>The active byte-saturation kernel for the current CPU.</summary>
     public static IByteSaturator ByteSaturator
         => AccelerationDispatcher.Resolve<IByteSaturator>(ScalarByteSaturator.Instance);
+
+    /// <summary>
+    /// The active 8×8 inverse-DCT kernel. All registered backends are
+    /// bit-exact with <see cref="ScalarIdct8x8"/> by construction (same
+    /// integer Loeffler constants and rounding).
+    /// </summary>
+    public static IIdct8x8 Idct8x8
+        => AccelerationDispatcher.Resolve<IIdct8x8>(ScalarIdct8x8.Instance);
 }

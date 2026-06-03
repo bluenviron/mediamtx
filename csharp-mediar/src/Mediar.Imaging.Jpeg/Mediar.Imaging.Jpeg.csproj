@@ -8,9 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Mediar.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Mediar.Imaging.Core\Mediar.Imaging.Core.csproj" />
     <ProjectReference Include="..\Mediar.Core\Mediar.Core.csproj" />
     <ProjectReference Include="..\Mediar.Imaging.Metadata\Mediar.Imaging.Metadata.csproj" />
+    <ProjectReference Include="..\Mediar.Acceleration\Mediar.Acceleration.csproj" />
   </ItemGroup>
 
 </Project>

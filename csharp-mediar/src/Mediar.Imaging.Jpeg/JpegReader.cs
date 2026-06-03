@@ -38,7 +38,9 @@ public sealed class JpegReader : IImageReader
 
     /// <inheritdoc/>
     public bool CanDecodePixels =>
-        (_frame.IsBaseline || _frame.IsProgressive || _frame.IsLossless) && _frame.NumberOfComponents is 1 or 3;
+        (_frame.IsBaseline || _frame.IsProgressive || _frame.IsLossless
+            || _frame.IsExtendedSequential || _frame.IsArithmetic)
+        && _frame.NumberOfComponents is 1 or 3;
 
     /// <summary>
     /// Returns the EXIF / TIFF tag dictionary verbatim (key prefixes:
@@ -150,10 +152,16 @@ public sealed class JpegReader : IImageReader
                 case 0xC1: // SOF1 extended sequential
                 case 0xC2: // SOF2 progressive
                 case 0xC3: // SOF3 lossless
+                case 0xC9: // SOF9 arithmetic sequential
+                case 0xCA: // SOF10 arithmetic progressive
+                case 0xCB: // SOF11 arithmetic lossless
                     ParseSof(segment, frame);
+                    frame.SofMarker = marker;
                     frame.IsBaseline = marker == 0xC0;
+                    frame.IsExtendedSequential = marker == 0xC1;
                     frame.IsProgressive = marker == 0xC2;
                     frame.IsLossless = marker == 0xC3;
+                    frame.IsArithmetic = marker is 0xC9 or 0xCA or 0xCB;
                     break;
 
                 case 0xDB: // DQT
@@ -268,6 +276,10 @@ public sealed class JpegReader : IImageReader
         {
             frame = JpegBaselineDecoder.Decode(_frame, _state, _scanData);
         }
+        else if (_frame.IsExtendedSequential)
+        {
+            frame = JpegHighBitDepthDecoder.Decode(_frame, _state, _scanData);
+        }
         else if (_frame.IsProgressive)
         {
             frame = JpegProgressiveDecoder.Decode(_frame, _state, _scans);
@@ -276,10 +288,14 @@ public sealed class JpegReader : IImageReader
         {
             frame = JpegLosslessDecoder.Decode(_frame, _state, _scanData);
         }
+        else if (_frame.IsArithmetic)
+        {
+            frame = JpegArithmeticDecoder.Decode(_frame, _state, _scanData, _frame.SofMarker);
+        }
         else
         {
             throw new NotSupportedException(
-                "JPEG arithmetic-coded decoding is not implemented in this version of Mediar.");
+                "Unrecognised JPEG SOF variant; the Mediar JPEG codec does not know how to decode this frame type.");
         }
         await Task.CompletedTask.ConfigureAwait(false);
         yield return frame;
@@ -489,8 +505,11 @@ public sealed class JpegReader : IImageReader
 internal sealed class JpegFrame
 {
     public bool IsBaseline { get; set; }
+    public bool IsExtendedSequential { get; set; }
     public bool IsProgressive { get; set; }
     public bool IsLossless { get; set; }
+    public bool IsArithmetic { get; set; }
+    public byte SofMarker { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
     public int BitsPerSample { get; set; } = 8;
