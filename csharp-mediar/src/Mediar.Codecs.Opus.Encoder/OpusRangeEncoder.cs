@@ -30,6 +30,9 @@ public ref struct OpusRangeEncoder
     /// <summary>Total bits in the running range.</summary>
     public const int CodeBits = 32;
 
+    /// <summary>EC_CODE_SHIFT = EC_CODE_BITS - EC_SYM_BITS - 1 = 23 — the carry-out shift.</summary>
+    public const int CodeShift = CodeBits - SymbolBits - 1;
+
     /// <summary>EC_CODE_EXTRA = ((CodeBits - 2) % SymbolBits) + 1 = 7.</summary>
     public const int CodeExtra = ((CodeBits - 2) % SymbolBits) + 1;
 
@@ -85,8 +88,13 @@ public ref struct OpusRangeEncoder
         HasError = false;
     }
 
-    /// <summary>Number of bytes consumed (range-coded + raw) after Finish.</summary>
-    public readonly int ByteCount => _offs + _endOffs;
+    /// <summary>
+    /// Number of bytes that must be passed to the decoder for the
+    /// produced packet to round-trip. If any raw bits were written, the
+    /// raw-bit window sits at the back of the buffer so the full buffer
+    /// must be shipped; otherwise only the range-coded prefix is needed.
+    /// </summary>
+    public readonly int ByteCount => _endOffs > 0 ? _buf.Length : _offs;
 
     /// <summary>Bits used so far (libopus ec_tell).</summary>
     public readonly int Tell() => _nBitsTotal - EcIlog(_rng);
@@ -294,9 +302,9 @@ public ref struct OpusRangeEncoder
     /// <summary>Flush the carry chain and pack the trailing raw bits (ec_enc_done).</summary>
     public void Finish()
     {
-        // Compute the number of bits we need to "ensure" — chosen so the
-        // resulting code-value reliably decodes back to a value < rng. This
-        // mirrors libopus celt/entenc.c:ec_enc_done.
+        // libopus celt/entenc.c:ec_enc_done — pick an in-range terminator
+        // value with the fewest bits, push it through the carry chain,
+        // zero-pad the gap, and OR the raw-bit window into the tail.
         int l = CodeBits - EcIlog(_rng);
         uint mask = (CodeTop - 1) >> l;
         uint end = (_low + mask) & ~mask;
@@ -308,41 +316,71 @@ public ref struct OpusRangeEncoder
         }
         while (l > 0)
         {
-            CarryOut((int)(end >> (CodeBits - SymbolBits)));
+            CarryOut((int)(end >> CodeShift));
             end = (end << SymbolBits) & (CodeTop - 1);
             l -= SymbolBits;
         }
-        // Pack the saved-byte / carry chain into the buffer.
+        // Flush any saved byte / carry chain that the l-loop left in
+        // _rem. libopus relies on the caller's buffer being sized so
+        // the gap-clear silently absorbs this; here we commit it
+        // explicitly so a tight buffer round-trips.
         if (_rem >= 0 || _ext > 0)
         {
             CarryOut(0);
+            _rem = -1;
         }
-        // Flush any leftover raw-bit window byte.
-        if (_nEndBits > 0)
+        // Flush full raw-bit bytes into the back of the buffer.
+        uint window = _endWindow;
+        int used = _nEndBits;
+        while (used >= SymbolBits)
         {
             if (_endOffs >= _buf.Length - _offs)
             {
                 HasError = true;
                 return;
             }
-            _buf[_buf.Length - 1 - _endOffs] = (byte)_endWindow;
+            _buf[_buf.Length - 1 - _endOffs] = (byte)(window & 0xFFu);
             _endOffs++;
-            _endWindow = 0;
-            _nEndBits = 0;
+            window >>= SymbolBits;
+            used -= SymbolBits;
         }
-        // Zero-pad the middle between forward and reverse pointers so the
-        // produced packet length matches ByteCount exactly.
-        if (_offs + _endOffs > _buf.Length)
+        if (!HasError)
         {
-            HasError = true;
+            // Zero-pad the gap between the forward carry chain (front of
+            // the buffer) and the raw-bit window (back). The decoder reads
+            // these zeros as harmless filler.
+            int gapStart = _offs;
+            int gapLen = _buf.Length - _offs - _endOffs;
+            if (gapLen > 0)
+                _buf.Slice(gapStart, gapLen).Clear();
+            // OR the leftover < 8-bit raw window into the last byte
+            // already inside the raw-bit region (libopus does the same).
+            if (used > 0)
+            {
+                if (_endOffs >= _buf.Length)
+                {
+                    HasError = true;
+                    return;
+                }
+                int negL = -l; // bits available in the carry-chain tail byte
+                if (_offs + _endOffs >= _buf.Length && negL < used)
+                {
+                    window &= (1U << negL) - 1;
+                    HasError = true;
+                }
+                _buf[_buf.Length - 1 - _endOffs] |= (byte)window;
+                _endOffs++;
+            }
         }
+        _endWindow = 0;
+        _nEndBits = 0;
     }
 
     private void Normalize()
     {
         while (_rng <= CodeBot)
         {
-            CarryOut((int)(_low >> (CodeBits - SymbolBits)));
+            CarryOut((int)(_low >> CodeShift));
             _low = (_low << SymbolBits) & (CodeTop - 1);
             _rng <<= SymbolBits;
             _nBitsTotal += SymbolBits;
