@@ -68,7 +68,7 @@ func TestIsValidPathName(t *testing.T) {
 }
 
 func TestPathValidateAllowsPlaceholdersForAllSourceProtocols(t *testing.T) {
-	testCases := []struct {
+	for _, ca := range []struct {
 		name   string
 		source string
 		rtpSDP string
@@ -106,13 +106,11 @@ func TestPathValidateAllowsPlaceholdersForAllSourceProtocols(t *testing.T) {
 			source: "udp+rtp://$G1:$G2",
 			rtpSDP: "v=0...",
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	} {
+		t.Run(ca.name, func(t *testing.T) {
 			pconf := &Path{
-				Source:     tc.source,
-				RTPSDP:     tc.rtpSDP,
+				Source:     ca.source,
+				RTPSDP:     ca.rtpSDP,
 				Name:       "test",
 				RecordPath: "/tmp/%path/%s",
 			}
@@ -123,7 +121,7 @@ func TestPathValidateAllowsPlaceholdersForAllSourceProtocols(t *testing.T) {
 }
 
 func TestPathValidateRejectsInvalidPlaceholderSources(t *testing.T) {
-	testCases := []struct {
+	for _, ca := range []struct {
 		name   string
 		source string
 	}{
@@ -135,12 +133,10 @@ func TestPathValidateRejectsInvalidPlaceholderSources(t *testing.T) {
 			name:   "udp_missing_port",
 			source: "udp://$G1",
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	} {
+		t.Run(ca.name, func(t *testing.T) {
 			pconf := &Path{
-				Source:     tc.source,
+				Source:     ca.source,
 				Name:       "test",
 				RecordPath: "/tmp/%path/%s",
 			}

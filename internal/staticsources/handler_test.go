@@ -7,7 +7,7 @@ import (
 )
 
 func TestResolveSource(t *testing.T) {
-	testCases := []struct {
+	for _, ca := range []struct {
 		name     string
 		source   string
 		matches  []string
@@ -105,12 +105,10 @@ func TestResolveSource(t *testing.T) {
 			query:    "",
 			expected: "udp+rtp://192.168.1.100:5000",
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := resolveSource(tc.source, tc.matches, tc.query)
-			require.Equal(t, tc.expected, result)
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			result := resolveSource(ca.source, ca.matches, ca.query)
+			require.Equal(t, ca.expected, result)
 		})
 	}
 }
