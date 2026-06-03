@@ -794,6 +794,13 @@ func TestConfErrors(t *testing.T) {
 				"    source: rtmp://$G1:$G2@\n",
 			"'rtmp://$G1:$G2@' is not a valid URL",
 		},
+		{
+			"rtsp source username without password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtsp://user@localhost/stream\n",
+			"username and password must be both provided",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf := createTempFile(t, []byte(ca.conf))
