@@ -29,7 +29,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.4
 	github.com/minio/selfupdate v0.6.0
-	github.com/pion/ice/v4 v4.2.7
+	github.com/pion/ice/v4 v4.2.8-0.20260604162030-72f5001c4596
 	github.com/pion/interceptor v0.1.45
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.16
@@ -88,7 +88,7 @@ require (
 	github.com/pion/sctp v1.10.0 // indirect
 	github.com/pion/srtp/v3 v3.0.11 // indirect
 	github.com/pion/stun/v3 v3.1.4 // indirect
-	github.com/pion/turn/v5 v5.0.7 // indirect
+	github.com/pion/turn/v5 v5.0.8 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
@@ -106,7 +106,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.2.2-0.20260602093426-86d76c717f99
 
 replace github.com/quic-go/webtransport-go => github.com/aler9/webtransport-go v0.0.0-20260604211153-27af9c338497
