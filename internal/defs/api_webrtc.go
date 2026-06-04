@@ -34,6 +34,7 @@ type APIWebRTCSession struct {
 	Path                      string                `json:"path"`
 	Query                     string                `json:"query"`
 	User                      string                `json:"user"`
+	UserAgent                 string                `json:"userAgent"`
 	InboundBytes              uint64                `json:"inboundBytes"`
 	InboundRTPPackets         uint64                `json:"inboundRTPPackets"`
 	InboundRTPPacketsLost     uint64                `json:"inboundRTPPacketsLost"`

@@ -28,35 +28,29 @@
 
 /** WebRTC/WHIP publisher. */
 class MediaMTXWebRTCPublisher {
-  #retryPause;
+  static #RETRY_PAUSE = 2000;
+
   #conf;
-  #state;
-  #restartTimeout;
-  #pc;
-  #offerData;
-  #sessionUrl;
-  #queuedCandidates;
+  #state = "running";
+  #restartTimeout = null;
+  #pc = null;
+  #offerData = null;
+  #sessionUrl = null;
+  #queuedCandidates = [];
 
   /**
    * Create a MediaMTXWebRTCPublisher.
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
-    this.#retryPause = 2000;
     this.#conf = conf;
-    this.#state = "running";
-    this.#restartTimeout = null;
-    this.#pc = null;
-    this.#offerData = null;
-    this.#sessionUrl = null;
-    this.#queuedCandidates = [];
     this.#start();
   }
 
   /**
    * Close the publisher and all its resources.
    */
-  close = () => {
+  close() {
     this.#state = "closed";
 
     if (this.#pc !== null) {
@@ -66,7 +60,7 @@ class MediaMTXWebRTCPublisher {
     if (this.#restartTimeout !== null) {
       clearTimeout(this.#restartTimeout);
     }
-  };
+  }
 
   static #unquoteCredential(v) {
     return JSON.parse(`"${v}"`);
@@ -123,17 +117,16 @@ class MediaMTXWebRTCPublisher {
       candidatesByMedia[mid].push(candidate);
     }
 
-    let frag =
-      "a=ice-ufrag:" + od.iceUfrag + "\r\n" + "a=ice-pwd:" + od.icePwd + "\r\n";
+    let frag = `a=ice-ufrag:${od.iceUfrag}\r\n` + `a=ice-pwd:${od.icePwd}\r\n`;
 
     let mid = 0;
 
     for (const media of od.medias) {
       if (candidatesByMedia[mid] !== undefined) {
-        frag += "m=" + media + "\r\n" + "a=mid:" + mid + "\r\n";
+        frag += `m=${media}\r\n` + `a=mid:${mid}\r\n`;
 
         for (const candidate of candidatesByMedia[mid]) {
-          frag += "a=" + candidate.candidate + "\r\n";
+          frag += `a=${candidate.candidate}\r\n`;
         }
       }
       mid++;
@@ -273,6 +266,12 @@ class MediaMTXWebRTCPublisher {
     return sections.join("m=");
   }
 
+  #restart() {
+    this.#restartTimeout = null;
+    this.#state = "running";
+    this.#start();
+  }
+
   #start() {
     this.#requestICEServers()
       .then((iceServers) => this.#setupPeerConnection(iceServers))
@@ -303,11 +302,10 @@ class MediaMTXWebRTCPublisher {
       this.#queuedCandidates = [];
       this.#state = "restarting";
 
-      this.#restartTimeout = window.setTimeout(() => {
-        this.#restartTimeout = null;
-        this.#state = "running";
-        this.#start();
-      }, this.#retryPause);
+      this.#restartTimeout = window.setTimeout(
+        () => this.#restart(),
+        MediaMTXWebRTCPublisher.#RETRY_PAUSE,
+      );
 
       if (this.#conf.onError !== undefined) {
         this.#conf.onError(`${err}, retrying in some seconds`);
@@ -329,9 +327,7 @@ class MediaMTXWebRTCPublisher {
   #requestICEServers() {
     return fetch(this.#conf.url, {
       method: "OPTIONS",
-      headers: {
-        ...this.#authHeader(),
-      },
+      headers: this.#authHeader(),
     }).then((res) =>
       MediaMTXWebRTCPublisher.#linkToIceServers(res.headers.get("Link")),
     );

@@ -679,6 +679,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsSent":                float64(0),
 							"rtcpPacketsInError":             float64(0),
 							"conns":                          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
+							"userAgent":                      "gortsplib",
 						},
 					},
 				}, out1)
@@ -740,6 +741,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtcpPacketsSent":                float64(0),
 							"rtcpPacketsInError":             float64(0),
 							"conns":                          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["conns"],
+							"userAgent":                      "gortsplib",
 						},
 					},
 				}, out1)
@@ -762,6 +764,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":                    "",
 							"remoteAddr":              out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":                   "publish",
+							"userAgent":               "LNX 9,0,124,2",
 						},
 					},
 				}, out1)
@@ -784,6 +787,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":                    "",
 							"remoteAddr":              out1.(map[string]any)["items"].([]any)[0].(map[string]any)["remoteAddr"],
 							"state":                   "publish",
+							"userAgent":               "LNX 9,0,124,2",
 						},
 					},
 				}, out1)
@@ -802,6 +806,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"user":          "",
 							"isCDN":         false,
 							"outboundBytes": out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
+							"userAgent":     "Go-http-client/1.1",
 						},
 					},
 				}, out1)
@@ -855,6 +860,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"rtpPacketsLost":            float64(0),
 							"rtpPacketsReceived":        float64(0),
 							"rtpPacketsSent":            float64(1),
+							"userAgent":                 "Go-http-client/1.1",
 						},
 					},
 				}, out1)
@@ -869,14 +875,14 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"bytesAvailReceiveBuf":          float64(0),
 							"bytesAvailSendBuf":             float64(0),
 							"bytesReceiveBuf":               float64(0),
-							"bytesReceived":                 float64(628),
+							"bytesReceived":                 out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"],
 							"bytesReceivedBelated":          float64(0),
 							"bytesReceivedDrop":             float64(0),
 							"bytesReceivedLoss":             float64(0),
 							"bytesReceivedRetrans":          float64(0),
 							"bytesReceivedUndecrypt":        float64(0),
 							"outboundFramesDiscarded":       out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundFramesDiscarded"],
-							"bytesReceivedUnique":           float64(628),
+							"bytesReceivedUnique":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceivedUnique"],
 							"bytesRetrans":                  float64(0),
 							"bytesSendBuf":                  float64(0),
 							"bytesSendDrop":                 float64(0),
@@ -995,6 +1001,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			case "hls muxers":
 				out2.(map[string]any)["lastRequest"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["lastRequest"]
+
+			case "srt":
+				out2.(map[string]any)["bytesReceived"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceived"]
+				out2.(map[string]any)["bytesReceivedUnique"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["bytesReceivedUnique"]
+				out2.(map[string]any)["packetsReceivedACK"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsReceivedACK"]
+				out2.(map[string]any)["packetsSentACK"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["packetsSentACK"]
+				out2.(map[string]any)["msRTT"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["msRTT"]
 			}
 
 			require.Equal(t, out1.(map[string]any)["items"].([]any)[0], out2)
@@ -1231,7 +1244,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				u, err := url.Parse("http://localhost:8889/mypath/whip")
 				require.NoError(t, err)
 
-				track := &webrtc.OutgoingTrack{
+				track := &webrtc.OutboundTrack{
 					Caps: pwebrtc.RTPCodecCapability{
 						MimeType:    pwebrtc.MimeTypeH264,
 						ClockRate:   90000,
@@ -1244,7 +1257,7 @@ func TestAPIProtocolKick(t *testing.T) {
 					URL:            u,
 					Log:            test.NilLogger,
 					Publish:        true,
-					OutgoingTracks: []*webrtc.OutgoingTrack{track},
+					OutboundTracks: []*webrtc.OutboundTrack{track},
 				}
 
 				err = c.Initialize(context.Background())

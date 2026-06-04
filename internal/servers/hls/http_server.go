@@ -77,9 +77,7 @@ type httpServer struct {
 func (s *httpServer) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(s.middlewarePreflightRequests)
-
 	router.Use(s.onRequest)
 
 	var proto string

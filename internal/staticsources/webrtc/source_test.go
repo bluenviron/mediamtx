@@ -26,7 +26,7 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 }
 
 func TestSource(t *testing.T) {
-	outgoingTracks := []*webrtc.OutgoingTrack{{
+	outboundTracks := []*webrtc.OutboundTrack{{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    "audio/opus",
 			ClockRate:   48000,
@@ -39,7 +39,7 @@ func TestSource(t *testing.T) {
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
 		Publish:           true,
-		OutgoingTracks:    outgoingTracks,
+		OutboundTracks:    outboundTracks,
 		Log:               test.NilLogger,
 	}
 	err := pc.Start()
@@ -81,7 +81,7 @@ func TestSource(t *testing.T) {
 					err3 := pc.WaitUntilConnected(10 * time.Second)
 					require.NoError(t, err3)
 
-					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
+					err3 = outboundTracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,

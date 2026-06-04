@@ -338,7 +338,7 @@ func TestToStream(t *testing.T) {
 				LocalRandomUDP:    true,
 				IPsFromInterfaces: true,
 				Publish:           true,
-				OutgoingTracks: []*OutgoingTrack{{
+				OutboundTracks: []*OutboundTrack{{
 					Caps: ca.webrtcCaps,
 				}},
 				Log: test.NilLogger,
@@ -385,7 +385,7 @@ func TestToStream(t *testing.T) {
 			err = pc2.WaitUntilConnected(10 * time.Second)
 			require.NoError(t, err)
 
-			err = pc1.OutgoingTracks[0].WriteRTP(&rtp.Packet{
+			err = pc1.OutboundTracks[0].WriteRTP(&rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
 					Marker:         true,
@@ -398,7 +398,7 @@ func TestToStream(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = pc2.GatherIncomingTracks(2 * time.Second)
+			err = pc2.GatherInboundTracks(2 * time.Second)
 			require.NoError(t, err)
 
 			var subStream *stream.SubStream

@@ -274,14 +274,15 @@ func TestAuthHTTP(t *testing.T) {
 					require.Equal(t, "/auth", r.URL.Path)
 
 					var in struct {
-						IP       string `json:"ip"`
-						User     string `json:"user"`
-						Password string `json:"password"`
-						Path     string `json:"path"`
-						Protocol string `json:"protocol"`
-						ID       string `json:"id"`
-						Action   string `json:"action"`
-						Query    string `json:"query"`
+						IP        string `json:"ip"`
+						User      string `json:"user"`
+						Password  string `json:"password"`
+						Path      string `json:"path"`
+						Protocol  string `json:"protocol"`
+						ID        string `json:"id"`
+						Action    string `json:"action"`
+						Query     string `json:"query"`
+						UserAgent string `json:"userAgent"`
 					}
 					err := json.NewDecoder(r.Body).Decode(&in)
 					require.NoError(t, err)
@@ -293,6 +294,7 @@ func TestAuthHTTP(t *testing.T) {
 						in.Protocol != "rtsp" ||
 						(firstReceived && in.ID == "") ||
 						in.Action != "publish" ||
+						in.UserAgent != "testagent" ||
 						(in.Query != "user=testreader&pass=testpass&param=value" &&
 							in.Query != "user=testpublisher&pass=testpass&param=value" &&
 							in.Query != "param=value") {
@@ -319,10 +321,11 @@ func TestAuthHTTP(t *testing.T) {
 
 			if outcome == "ok" {
 				req = &Request{
-					Action:   conf.AuthActionPublish,
-					Path:     "teststream",
-					Query:    "param=value",
-					Protocol: ProtocolRTSP,
+					Action:    conf.AuthActionPublish,
+					Path:      "teststream",
+					Query:     "param=value",
+					Protocol:  ProtocolRTSP,
+					UserAgent: "testagent",
 					Credentials: &Credentials{
 						User: "testpublisher",
 						Pass: "testpass",
@@ -331,10 +334,11 @@ func TestAuthHTTP(t *testing.T) {
 				}
 			} else {
 				req = &Request{
-					Action:   conf.AuthActionPublish,
-					Path:     "teststream",
-					Query:    "param=value",
-					Protocol: ProtocolRTSP,
+					Action:    conf.AuthActionPublish,
+					Path:      "teststream",
+					Query:     "param=value",
+					Protocol:  ProtocolRTSP,
+					UserAgent: "testagent",
 					Credentials: &Credentials{
 						User: "invalid",
 						Pass: "testpass",

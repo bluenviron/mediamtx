@@ -29,14 +29,15 @@
 
 /** WebRTC/WHEP reader. */
 class MediaMTXWebRTCReader {
-  #retryPause;
+  static #RETRY_PAUSE = 2000;
+
   #conf;
-  #state;
-  #restartTimeout;
-  #pc;
-  #offerData;
-  #sessionUrl;
-  #queuedCandidates;
+  #state = "getting_codecs";
+  #restartTimeout = null;
+  #pc = null;
+  #offerData = null;
+  #sessionUrl = null;
+  #queuedCandidates = [];
   #nonAdvertisedCodecs;
 
   /**
@@ -44,14 +45,7 @@ class MediaMTXWebRTCReader {
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
-    this.#retryPause = 2000;
     this.#conf = conf;
-    this.#state = "getting_codecs";
-    this.#restartTimeout = null;
-    this.#pc = null;
-    this.#offerData = null;
-    this.#sessionUrl = null;
-    this.#queuedCandidates = [];
     this.#getNonAdvertisedCodecs();
   }
 
@@ -432,11 +426,10 @@ class MediaMTXWebRTCReader {
       this.#queuedCandidates = [];
       this.#state = "restarting";
 
-      this.#restartTimeout = window.setTimeout(() => {
-        this.#restartTimeout = null;
-        this.#state = "running";
-        this.#start();
-      }, this.#retryPause);
+      this.#restartTimeout = window.setTimeout(
+        () => this.#restart(),
+        MediaMTXWebRTCReader.#RETRY_PAUSE,
+      );
 
       if (this.#conf.onError !== undefined) {
         this.#conf.onError(`${err}, retrying in some seconds`);
@@ -448,6 +441,12 @@ class MediaMTXWebRTCReader {
         this.#conf.onError(err);
       }
     }
+  }
+
+  #restart() {
+    this.#restartTimeout = null;
+    this.#state = "running";
+    this.#start();
   }
 
   #getNonAdvertisedCodecs() {
@@ -504,9 +503,7 @@ class MediaMTXWebRTCReader {
   #requestICEServers() {
     return fetch(this.#conf.url, {
       method: "OPTIONS",
-      headers: {
-        ...this.#authHeader(),
-      },
+      headers: this.#authHeader(),
     }).then((res) =>
       MediaMTXWebRTCReader.#linkToIceServers(res.headers.get("Link")),
     );
