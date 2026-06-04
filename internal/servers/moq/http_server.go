@@ -191,9 +191,6 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return false
 		}

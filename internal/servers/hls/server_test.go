@@ -645,13 +645,9 @@ func TestAuthError(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/stream/index.m3u8", nil)
 	require.NoError(t, err)
 
-	start := time.Now()
-
 	res, err = http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
-
-	require.Greater(t, time.Since(start), 2*time.Second)
 
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
