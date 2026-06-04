@@ -342,8 +342,7 @@ func (s *Source) waitForPrimary(
 			},
 		})
 		if err != nil {
-			var err2 *defs.PathNoStreamAvailableError
-			if errors.As(err, &err2) {
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 				select {
 				case <-time.After(pauseBetweenErrors):
 				case <-params.Context.Done():

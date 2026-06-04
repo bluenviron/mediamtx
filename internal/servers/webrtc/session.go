@@ -493,8 +493,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		},
 	})
 	if err != nil {
-		var terr2 *defs.PathNoStreamAvailableError
-		if errors.As(err, &terr2) {
+		if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 			return http.StatusNotFound, err
 		}
 

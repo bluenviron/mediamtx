@@ -215,8 +215,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			},
 		})
 		if err != nil {
-			var terr *auth.Error
-			if errors.As(err, &terr) {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
 				if terr.AskCredentials {
 					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -271,8 +270,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			}
 			err := sx.initialize(ctx)
 			if err != nil {
-				var terr2 *defs.PathNoStreamAvailableError
-				if errors.As(err, &terr2) {
+				if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 					s.writeErrorNoLog(ctx, http.StatusNotFound, err)
 					return
 				}
@@ -336,8 +334,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 		err := sx.initialize(ctx)
 		if err != nil {
-			var terr *auth.Error
-			if errors.As(err, &terr) {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
 				if terr.AskCredentials {
 					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -353,8 +350,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			var terr2 *defs.PathNoStreamAvailableError
-			if errors.As(err, &terr2) {
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 				s.writeErrorNoLog(ctx, http.StatusNotFound, err)
 				return
 			}
