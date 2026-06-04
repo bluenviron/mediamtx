@@ -108,3 +108,5 @@ require (
 )
 
 replace github.com/pion/ice/v4 => github.com/aler9/ice/v4 v4.2.2-0.20260602093426-86d76c717f99
+
+replace github.com/quic-go/webtransport-go => github.com/aler9/webtransport-go v0.0.0-20260604211153-27af9c338497
