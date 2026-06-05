@@ -130,20 +130,38 @@ func (s *Server) Initialize() error {
 		}
 	}
 
-	var listen func(network string, address string) (net.Listener, error)
-	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
+	listen := func(network string, address string) (net.Listener, error) {
+		ln, err := net.Listen(network, address)
+		if err != nil {
+			return nil, err
+		}
 
-	if s.DumpPackets {
-		listen = (&packetdumper.Listen{
-			Prefix: s.DumpPacketsPrefix,
-		}).Do
+		if s.DumpPackets {
+			ln = &packetdumper.Listener{
+				Wrapped: ln,
+				Prefix:  s.DumpPacketsPrefix,
+			}
+		}
 
-		tlsListen = (&packetdumper.TLSListen{
-			Listen: listen,
-		}).Do
-	} else {
-		listen = net.Listen
-		tlsListen = tls.Listen
+		return ln, nil
+	}
+
+	tlsListen := func(network string, laddr string, config *tls.Config) (net.Listener, error) {
+		ln, err := listen(network, laddr)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			ln = &packetdumper.TLSListener{
+				Wrapped:   ln,
+				TLSConfig: config,
+			}
+		} else {
+			ln = tls.NewListener(ln, config)
+		}
+
+		return ln, nil
 	}
 
 	if tlsConfig != nil {

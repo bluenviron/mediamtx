@@ -58,9 +58,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 
 		if s.DumpPackets {
-			l.Listen = (&packetdumper.Listen{
-				Prefix: "mpegts_source_unix_conn",
-			}).Do
+			l.Listen = func(network, address string) (net.Listener, error) {
+				ln, err2 := net.Listen(network, address)
+				if err2 != nil {
+					return nil, err2
+				}
+
+				return &packetdumper.Listener{
+					Wrapped: ln,
+					Prefix:  "mpegts_source_unix_conn",
+				}, nil
+			}
 		}
 
 		err = l.Initialize()
@@ -76,6 +84,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 
 		params := udp.URLToParams(u)
+
 		l := &udp.Listener{
 			Address:           params.Address,
 			Source:            params.Source,
@@ -83,10 +92,27 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			UDPReadBufferSize: int(udpReadBufferSize),
 		}
 
-		if s.DumpPackets {
-			l.ListenPacket = (&packetdumper.ListenPacket{
-				Prefix: "mpegts_source_packet_conn",
-			}).Do
+		l.ListenPacket = func(network, address string) (net.PacketConn, error) {
+			pc, err2 := net.ListenPacket(network, address)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			if s.DumpPackets {
+				pc2 := &packetdumper.PacketConn{
+					Wrapped: pc,
+					Prefix:  "mpegts_source_packet_conn",
+				}
+				err2 = pc2.Initialize()
+				if err2 != nil {
+					pc.Close() //nolint:errcheck
+					return nil, err2
+				}
+
+				pc = pc2
+			}
+
+			return pc, nil
 		}
 
 		err = l.Initialize()

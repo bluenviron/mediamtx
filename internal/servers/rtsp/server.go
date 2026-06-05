@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxy"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -105,6 +107,7 @@ type Server struct {
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	Transports          conf.RTSPTransports
 	RunOnConnect        string
 	RunOnConnectRestart bool
@@ -166,25 +169,84 @@ func (s *Server) Initialize() error {
 		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
 	}
 
-	if s.DumpPackets {
-		var proto string
-		if s.Encryption {
-			proto = "rtsps"
-		} else {
-			proto = "rtsp"
+	s.srv.Listen = func(network, address string) (net.Listener, error) {
+		ln, err := net.Listen(network, address)
+		if err != nil {
+			return nil, err
 		}
 
-		s.srv.Listen = (&packetdumper.Listen{
-			Prefix: proto + "_server_conn",
-		}).Do
+		if s.DumpPackets {
+			var proto string
+			if s.Encryption {
+				proto = "rtsps"
+			} else {
+				proto = "rtsp"
+			}
 
-		s.srv.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix: proto + "_server_packet_conn",
-		}).Do
+			ln = &packetdumper.Listener{
+				Wrapped: ln,
+				Prefix:  proto + "_server_conn",
+			}
+		}
 
-		s.srv.TLSListen = (&packetdumper.TLSListen{
-			Listen: s.srv.Listen,
-		}).Do
+		if len(s.TrustedProxies) > 0 {
+			pl := &proxy.Listener{
+				Wrapped:        ln,
+				TrustedProxies: s.TrustedProxies,
+			}
+			pl.Initialize()
+			ln = pl
+		}
+
+		return ln, nil
+	}
+
+	s.srv.TLSListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
+		ln, err := s.srv.Listen(network, laddr)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			ln = &packetdumper.TLSListener{
+				Wrapped:   ln,
+				TLSConfig: config,
+			}
+		} else {
+			ln = tls.NewListener(ln, config)
+		}
+
+		return ln, nil
+	}
+
+	s.srv.ListenPacket = func(network, address string) (net.PacketConn, error) {
+		pc, err := net.ListenPacket(network, address)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			var proto string
+			if s.Encryption {
+				proto = "rtsps"
+			} else {
+				proto = "rtsp"
+			}
+
+			pc2 := &packetdumper.PacketConn{
+				Wrapped: pc,
+				Prefix:  proto + "_server_packet_conn",
+			}
+			err = pc2.Initialize()
+			if err != nil {
+				pc.Close() //nolint:errcheck
+				return nil, err
+			}
+
+			pc = pc2
+		}
+
+		return pc, nil
 	}
 
 	err := s.srv.Start()
