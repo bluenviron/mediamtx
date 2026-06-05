@@ -376,7 +376,7 @@ func TestServerRead(t *testing.T) {
 			n := 0
 
 			pathManager := &test.PathManager{
-				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+				DescribeImpl: func(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 
@@ -384,7 +384,7 @@ func TestServerRead(t *testing.T) {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
 
 						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}
 
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
@@ -394,16 +394,15 @@ func TestServerRead(t *testing.T) {
 						if n == 0 {
 							require.False(t, ok)
 							n++
-							return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 						}
 						require.True(t, ok)
 					}
 
-					return defs.PathDescribeRes{
+					return &defs.PathDescribeRes{
 						Path:   &dummyPath{},
 						Stream: strm,
-						Err:    nil,
-					}
+					}, nil
 				},
 				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
@@ -552,20 +551,20 @@ func TestServerRedirect(t *testing.T) {
 			require.NoError(t, err)
 
 			pathManager := &test.PathManager{
-				DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+				DescribeImpl: func(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
 					if req.AccessRequest.Name == "path1" {
 						if ca == "relative" {
-							return defs.PathDescribeRes{
+							return &defs.PathDescribeRes{
 								Redirect: "/path2",
-							}
+							}, nil
 						}
-						return defs.PathDescribeRes{
+						return &defs.PathDescribeRes{
 							Redirect: "rtsp://localhost:8557/path2",
-						}
+						}, nil
 					}
 
 					if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-						return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
+						return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 					}
 
 					require.Equal(t, "path2", req.AccessRequest.Name)
@@ -573,10 +572,10 @@ func TestServerRedirect(t *testing.T) {
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 
-					return defs.PathDescribeRes{
+					return &defs.PathDescribeRes{
 						Path:   &dummyPath{},
 						Stream: strm,
-					}
+					}, nil
 				},
 			}
 
@@ -616,12 +615,12 @@ func TestServerRedirect(t *testing.T) {
 
 func TestAuthError(t *testing.T) {
 	pathManager := &test.PathManager{
-		DescribeImpl: func(req defs.PathDescribeReq) defs.PathDescribeRes {
+		DescribeImpl: func(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
 			if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-				return defs.PathDescribeRes{Err: &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}}
+				return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 			}
 
-			return defs.PathDescribeRes{Err: &auth.Error{Wrapped: fmt.Errorf("auth error")}}
+			return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 		},
 	}
 

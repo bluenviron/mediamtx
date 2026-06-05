@@ -224,9 +224,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
-				// wait some seconds to delay brute force attacks
-				<-time.After(auth.PauseAfterError)
-
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
 			}
@@ -343,9 +340,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
-				// wait some seconds to delay brute force attacks
-				<-time.After(auth.PauseAfterError)
-
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
 			}
@@ -398,9 +392,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			create: false,
 		})
 		if err != nil {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
@@ -412,9 +403,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			sx = muxer.findSession(ctx)
 		}
 		if sx == nil {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}

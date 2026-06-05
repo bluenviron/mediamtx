@@ -142,6 +142,8 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 
 	_, err := s.AuthManager.Authenticate(req)
 	if err != nil {
+		auth.DelayBruteForce(err)
+
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -150,9 +152,6 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 
 		s.Log(logger.Info, "connection %v failed to authenticate: %v",
 			httpp.RemoteAddr(ctx), err.Wrapped)
-
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
 
 		s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return false
