@@ -1,11 +1,11 @@
-package proxyprotocol
+package proxy
 
 import (
 	"fmt"
 	"net"
 	"testing"
 
-	proxyproto "github.com/pires/go-proxyproto"
+	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -23,14 +23,15 @@ func trustedProxies(cidrs ...string) conf.IPNetworks {
 	return networks
 }
 
-func TestWrapListenerTrustedWithHeader(t *testing.T) {
+func TestListenerTrustedWithHeader(t *testing.T) {
 	for _, version := range []byte{1, 2} {
 		t.Run(fmt.Sprintf("v%d", version), func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:0")
 			require.NoError(t, err)
 			defer ln.Close()
 
-			wrapped := WrapListener(ln, trustedProxies("127.0.0.1/32"))
+			wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
+			wrapped.Initialize()
 
 			done := make(chan struct{})
 
@@ -63,12 +64,13 @@ func TestWrapListenerTrustedWithHeader(t *testing.T) {
 	}
 }
 
-func TestWrapListenerTrustedWithoutHeader(t *testing.T) {
+func TestListenerTrustedWithoutHeader(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wrapped := WrapListener(ln, trustedProxies("127.0.0.1/32"))
+	wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
+	wrapped.Initialize()
 
 	done := make(chan struct{})
 
@@ -95,12 +97,13 @@ func TestWrapListenerTrustedWithoutHeader(t *testing.T) {
 	<-done
 }
 
-func TestWrapListenerUntrustedIgnoresHeader(t *testing.T) {
+func TestListenerUntrustedIgnoresHeader(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wrapped := WrapListener(ln, trustedProxies("10.0.0.0/8"))
+	wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("10.0.0.0/8")}
+	wrapped.Initialize()
 
 	done := make(chan struct{})
 

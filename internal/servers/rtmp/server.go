@@ -19,7 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
-	"github.com/bluenviron/mediamtx/internal/protocols/proxyprotocol"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxy"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -109,45 +109,54 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	listen := net.Listen
-
-	if len(s.TrustedProxies) > 0 {
-		innerListen := listen
-		listen = func(network, address string) (net.Listener, error) {
-			ln, err := innerListen(network, address)
-			if err != nil {
-				return nil, err
-			}
-			return proxyprotocol.WrapListener(ln, s.TrustedProxies), nil
+	listen := func(network, address string) (net.Listener, error) {
+		ln, err := net.Listen(network, address)
+		if err != nil {
+			return nil, err
 		}
+
+		if s.DumpPackets {
+			var proto string
+			if s.Encryption {
+				proto = "rtmps"
+			} else {
+				proto = "rtmp"
+			}
+
+			ln = &packetdumper.Listener{
+				Wrapped: ln,
+				Prefix:  proto + "_server_conn",
+			}
+		}
+
+		if len(s.TrustedProxies) > 0 {
+			pl := &proxy.Listener{
+				Wrapped:        ln,
+				TrustedProxies: s.TrustedProxies,
+			}
+			pl.Initialize()
+			ln = pl
+		}
+
+		return ln, nil
 	}
 
-	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
-
-	if s.DumpPackets {
-		var proto string
-		if s.Encryption {
-			proto = "rtmps"
-		} else {
-			proto = "rtmp"
+	tlsListen := func(network string, laddr string, config *tls.Config) (net.Listener, error) {
+		ln, err := listen(network, laddr)
+		if err != nil {
+			return nil, err
 		}
 
-		listen = (&packetdumper.Listen{
-			Prefix:      proto + "_server_conn",
-			InnerListen: listen,
-		}).Do
-
-		tlsListen = (&packetdumper.TLSListen{
-			Listen: listen,
-		}).Do
-	} else {
-		tlsListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
-			ln, err := listen(network, laddr)
-			if err != nil {
-				return nil, err
+		if s.DumpPackets {
+			ln = &packetdumper.TLSListener{
+				Wrapped:   ln,
+				TLSConfig: config,
 			}
-			return tls.NewListener(ln, config), nil
+		} else {
+			ln = tls.NewListener(ln, config)
 		}
+
+		return ln, nil
 	}
 
 	if s.Encryption {

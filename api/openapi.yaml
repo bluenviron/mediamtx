@@ -448,7 +448,7 @@ components:
         rtspAuthMethods:
           type: array
           items:
-            $ref: '#/components/schemas/RTSPAuthMethod'
+            $ref: "#/components/schemas/RTSPAuthMethod"
         rtspTrustedProxies:
           type: array
           items:
