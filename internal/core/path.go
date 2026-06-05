@@ -177,12 +177,12 @@ func (pa *path) isOnline() bool {
 	return pa.source != nil
 }
 
-func (pa *path) sourceStats() defs.SourceStats {
+func (pa *path) sourceStats() defs.StaticSourceStats {
 	if pa.source == nil {
 		return nil
 	}
 
-	if sp, ok := pa.source.(defs.SourceStatsProvider); ok {
+	if sp, ok := pa.source.(defs.StaticSourceStatsProvider); ok {
 		return sp.SourceStats()
 	}
 	return nil
@@ -703,7 +703,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundBytes()
 			}(),
-			StaticStats: func() defs.SourceStats {
+			StaticStats: func() defs.StaticSourceStats {
 				if !pa.isAvailable() {
 					return nil
 				}

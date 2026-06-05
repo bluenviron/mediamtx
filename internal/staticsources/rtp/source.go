@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -35,6 +36,9 @@ type Source struct {
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
 	Parent            parent
+
+	packetsReceived atomic.Uint64
+	packetsLost     atomic.Uint64
 }
 
 // Log implements logger.Writer.
@@ -197,6 +201,8 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 			return err
 		}
 
+		s.packetsReceived.Add(1)
+
 		if subStream == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
 				Desc:          desc,
@@ -223,6 +229,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 		if lost != 0 {
 			packetsLost.Add(lost)
+			s.packetsLost.Add(lost)
 		}
 
 		for _, pkt := range pkts {
@@ -244,5 +251,18 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: defs.APIPathSourceTypeRTPSource,
 		ID:   "",
+	}
+}
+
+var _ defs.StaticSourceStatsProvider = (*Source)(nil)
+
+// SourceStats exports raw RTP source statistics.
+// Jitter is not computed for raw RTP and is left nil.
+func (s *Source) SourceStats() defs.StaticSourceStats {
+	return &defs.RTPSourceStats{
+		BaseSourceStats: defs.BaseSourceStats{
+			PacketsReceived: s.packetsReceived.Load(),
+			PacketsLost:     s.packetsLost.Load(),
+		},
 	}
 }

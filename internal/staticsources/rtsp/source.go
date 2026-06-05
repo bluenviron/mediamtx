@@ -299,10 +299,10 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	}
 }
 
-var _ defs.SourceStatsProvider = (*Source)(nil)
+var _ defs.StaticSourceStatsProvider = (*Source)(nil)
 
 // SourceStats method exports RTSP Client source statistiscs
-func (s *Source) SourceStats() defs.SourceStats {
+func (s *Source) SourceStats() defs.StaticSourceStats {
 	if s.client == nil {
 		return nil
 	}
@@ -316,11 +316,14 @@ func (s *Source) SourceStats() defs.SourceStats {
 	// We could fetch this from ClockRate() in Format []format.Format in medias []*description.medias
 	// for individual media tracks, but for now we don't.
 	clockrate := 90000.0
+	jitter := cs.Session.InboundRTPPacketsJitter / clockrate
 
 	return &defs.RTSPSourceStats{
-		PacketsReceived: cs.Session.InboundRTPPackets,
-		PacketsLost:     cs.Session.InboundRTPPacketsLost,
-		PacketsInError:  cs.Session.InboundRTPPacketsInError,
-		Jitter:          cs.Session.InboundRTPPacketsJitter / clockrate,
+		BaseSourceStats: defs.BaseSourceStats{
+			PacketsReceived: cs.Session.InboundRTPPackets,
+			PacketsLost:     cs.Session.InboundRTPPacketsLost,
+			Jitter:          &jitter,
+		},
+		PacketsInError: cs.Session.InboundRTPPacketsInError,
 	}
 }

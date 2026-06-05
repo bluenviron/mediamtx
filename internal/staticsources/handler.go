@@ -339,8 +339,8 @@ func (s *Handler) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, 
 }
 
 // SourceStats - Get sourcestatistics if available
-func (s *Handler) SourceStats() defs.SourceStats {
-	if sp, ok := s.instance.(defs.SourceStatsProvider); ok {
+func (s *Handler) SourceStats() defs.StaticSourceStats {
+	if sp, ok := s.instance.(defs.StaticSourceStatsProvider); ok {
 		return sp.SourceStats()
 	}
 	return nil
