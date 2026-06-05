@@ -4,7 +4,7 @@ package proxyprotocol
 import (
 	"net"
 
-	proxyproto "github.com/pires/go-proxyproto"
+	"github.com/pires/go-proxyproto"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
