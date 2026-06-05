@@ -214,8 +214,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
 			return c.handleAuthError(terr)
 		}
 
@@ -295,14 +294,12 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			},
 		})
 		if err != nil {
-			var terr *auth.Error
-			if errors.As(err, &terr) {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
 				res, err2 := c.handleAuthError(terr)
 				return res, nil, err2
 			}
 
-			var terr2 *defs.PathNoStreamAvailableError
-			if errors.As(err, &terr2) {
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil, err

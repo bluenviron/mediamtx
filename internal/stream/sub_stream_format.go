@@ -128,8 +128,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.format, ssf.streamFormat.rtpMaxPayloadSize,
 						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
-						var err2 rtpEncoderNotAvailableError
-						if errors.As(err, &err2) {
+						if _, ok := errors.AsType[rtpEncoderNotAvailableError](err); ok {
 							return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 								len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
 						}
