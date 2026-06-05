@@ -124,9 +124,9 @@ func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {
 
 func TestPathManagerConfigHotReload(t *testing.T) {
 	// Start MediaMTX with basic configuration
-	p, ok := newInstance("api: yes\n" +
-		"paths:\n" +
-		"  all:\n" +
+	p, ok := newInstance(t, "api: yes\n"+
+		"paths:\n"+
+		"  all:\n"+
 		"    record: no\n")
 	require.Equal(t, true, ok)
 	defer p.Close()

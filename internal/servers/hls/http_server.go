@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	gopath "path"
+	"path"
 	"strings"
 	"time"
 
@@ -27,12 +27,34 @@ var hlsIndex []byte
 //go:embed hls.min.js
 var hlsMinJS []byte
 
-func mergePathAndQuery(path string, rawQuery string) string {
-	res := path
+func trailingSlashLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res + "/"
+
 	if rawQuery != "" {
 		res += "?" + rawQuery
 	}
+
 	return res
+}
+
+func sanitizeLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res
+
+	if rawQuery != "" {
+		res += "?" + rawQuery
+	}
+
+	return res
+}
+
+func isIOS(userAgent string) bool {
+	return strings.Contains(userAgent, "iPad") ||
+		strings.Contains(userAgent, "iPhone") ||
+		strings.Contains(userAgent, "iPod")
 }
 
 type httpServer struct {
@@ -45,6 +67,7 @@ type httpServer struct {
 	trustedProxies conf.IPNetworks
 	readTimeout    conf.Duration
 	writeTimeout   conf.Duration
+	cdnSecret      string
 	pathManager    serverPathManager
 	parent         *Server
 
@@ -54,9 +77,7 @@ type httpServer struct {
 func (s *httpServer) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(s.middlewarePreflightRequests)
-
 	router.Use(s.onRequest)
 
 	var proto string
@@ -124,6 +145,17 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	var dir string
 	var fname string
 
+	type contentType int
+
+	const (
+		index contentType = iota
+		multivariantPlaylist
+		mediaPlaylist
+		segment
+	)
+
+	var contentTyp contentType
+
 	switch {
 	case strings.HasSuffix(pa, "/hls.min.js"):
 		ctx.Header("Cache-Control", "max-age=3600")
@@ -135,52 +167,237 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	case pa == "", pa == "favicon.ico", strings.HasSuffix(pa, "/hls.min.js.map"):
 		return
 
-	case strings.HasSuffix(pa, ".m3u8") ||
-		strings.HasSuffix(pa, ".ts") ||
+	case strings.HasSuffix(pa, ".m3u8"):
+		dir, fname = path.Dir(pa), path.Base(pa)
+
+		if fname == "index.m3u8" {
+			contentTyp = multivariantPlaylist
+		} else {
+			contentTyp = mediaPlaylist
+		}
+
+	case strings.HasSuffix(pa, ".ts") ||
 		strings.HasSuffix(pa, ".mp4") ||
 		strings.HasSuffix(pa, ".mp"):
-		dir, fname = gopath.Dir(pa), gopath.Base(pa)
+		dir, fname = path.Dir(pa), path.Base(pa)
 
 		if strings.HasSuffix(fname, ".mp") {
 			fname += "4"
 		}
 
+		contentTyp = segment
+
 	default:
-		dir, fname = pa, ""
+		dir = pa
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
-			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+			ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+			ctx.Writer.WriteHeader(http.StatusFound)
 			return
 		}
+
+		dir = dir[:len(dir)-1]
+		contentTyp = index
 	}
 
-	dir = strings.TrimSuffix(dir, "/")
-	if dir == "" {
-		return
-	}
+	isCDN := (s.cdnSecret != "" && ctx.Request.Header.Get("Authorization") == "Bearer "+s.cdnSecret)
 
-	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
-		AccessRequest: defs.PathAccessRequest{
-			Name:        dir,
-			Query:       ctx.Request.URL.RawQuery,
-			Publish:     false,
-			Proto:       auth.ProtocolHLS,
-			Credentials: httpp.Credentials(ctx.Request),
-			IP:          net.ParseIP(ctx.ClientIP()),
-		},
-	})
-	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			if terr.AskCredentials {
-				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+	switch contentTyp {
+	case index:
+		_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+			AccessRequest: defs.PathAccessRequest{
+				Name:        dir,
+				Query:       ctx.Request.URL.RawQuery,
+				Publish:     false,
+				Proto:       auth.ProtocolHLS,
+				Credentials: httpp.Credentials(ctx.Request),
+				IP:          net.ParseIP(ctx.ClientIP()),
+			},
+		})
+		if err != nil {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
+				if terr.AskCredentials {
+					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+					return
+				}
+
+				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
+
+				// wait some seconds to delay brute force attacks
+				<-time.After(auth.PauseAfterError)
+
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
 
+		ctx.Header("Cache-Control", "max-age=3600")
+		ctx.Header("Content-Type", "text/html")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(hlsIndex)
+
+	case multivariantPlaylist:
+		if isCDN {
+			if existingMuxer, err := s.parent.getMuxer(serverGetMuxerReq{path: dir, create: false}); err == nil {
+				if sx := existingMuxer.getCDNSession(); sx != nil {
+					sx.lastRequestTime.Store(time.Now().UnixNano())
+
+					ctx.Writer = &responseWriterCounter{
+						ResponseWriter: ctx.Writer,
+						bytesSent:      &sx.bytesSent,
+					}
+					ctx.Request.URL.Path = fname
+
+					err = existingMuxer.handleRequest(ctx, isCDN)
+					if err != nil {
+						s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+					}
+					return
+				}
+			}
+
+			sx := &session{
+				isCDN:           true,
+				remoteAddr:      httpp.RemoteAddr(ctx),
+				pathName:        dir,
+				externalCmdPool: s.parent.ExternalCmdPool,
+				pathManager:     s.pathManager,
+				server:          s.parent,
+			}
+			err := sx.initialize(ctx)
+			if err != nil {
+				if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
+					s.writeErrorNoLog(ctx, http.StatusNotFound, err)
+					return
+				}
+
+				s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+				return
+			}
+
+			ctx.Writer = &responseWriterCounter{
+				ResponseWriter: ctx.Writer,
+				bytesSent:      &sx.bytesSent,
+			}
+			ctx.Request.URL.Path = fname
+
+			err = sx.muxer.handleRequest(ctx, isCDN)
+			if err != nil {
+				s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			}
+			return
+		}
+
+		if ctx.Request.URL.Query().Get("cookieCheck") != "1" {
+			http.SetCookie(ctx.Writer, &http.Cookie{
+				Name:  "cookieCheck",
+				Value: "1",
+			})
+
+			http.SetCookie(ctx.Writer, &http.Cookie{
+				Name:        "cookieCheck",
+				Value:       "1",
+				SameSite:    http.SameSiteNoneMode,
+				Secure:      true,
+				Partitioned: true,
+				HttpOnly:    true,
+			})
+
+			q := ctx.Request.URL.Query()
+			q.Set("cookieCheck", "1")
+			ctx.Request.URL.RawQuery = q.Encode()
+			ctx.Writer.Header().Set("Location", sanitizeLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+
+			ctx.Writer.WriteHeader(http.StatusFound)
+			return
+		}
+
+		if _, err := ctx.Request.Cookie("cookieCheck"); err != nil && isIOS(ctx.Request.UserAgent()) {
+			s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("HLS on iOS requires the server to set and read cookies"))
+			return
+		}
+
+		q := ctx.Request.URL.Query()
+		q.Del("cookieCheck")
+		ctx.Request.URL.RawQuery = q.Encode()
+
+		sx := &session{
+			remoteAddr:      httpp.RemoteAddr(ctx),
+			pathName:        dir,
+			externalCmdPool: s.parent.ExternalCmdPool,
+			pathManager:     s.pathManager,
+			server:          s.parent,
+		}
+		err := sx.initialize(ctx)
+		if err != nil {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
+				if terr.AskCredentials {
+					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+					return
+				}
+
+				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
+
+				// wait some seconds to delay brute force attacks
+				<-time.After(auth.PauseAfterError)
+
+				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+				return
+			}
+
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
+				s.writeErrorNoLog(ctx, http.StatusNotFound, err)
+				return
+			}
+
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		if cookie, err2 := ctx.Request.Cookie("cookieCheck"); err2 == nil && cookie.Value == "1" {
+			http.SetCookie(ctx.Writer, &http.Cookie{
+				Name:  sessionCookieName,
+				Value: sx.secret.String(),
+			})
+
+			http.SetCookie(ctx.Writer, &http.Cookie{
+				Name:        sessionCookieName,
+				Value:       sx.secret.String(),
+				SameSite:    http.SameSiteNoneMode,
+				Secure:      true,
+				Partitioned: true,
+				HttpOnly:    true,
+			})
+		} else {
+			q = ctx.Request.URL.Query()
+			q.Set(sessionQueryParamName, sx.secret.String())
+			ctx.Request.URL.RawQuery = q.Encode()
+		}
+
+		ctx.Writer = &responseWriterCounter{
+			ResponseWriter: ctx.Writer,
+			bytesSent:      &sx.bytesSent,
+		}
+
+		ctx.Request.URL.Path = fname
+
+		err = sx.muxer.handleRequest(ctx, isCDN)
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+	default:
+		muxer, err := s.parent.getMuxer(serverGetMuxerReq{
+			path:   dir,
+			create: false,
+		})
+		if err != nil {
 			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 
@@ -188,31 +405,35 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			return
 		}
 
-		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
-		return
-	}
+		var sx *session
+		if isCDN {
+			sx = muxer.getCDNSession()
+		} else {
+			sx = muxer.findSession(ctx)
+		}
+		if sx == nil {
+			// wait some seconds to delay brute force attacks
+			<-time.After(auth.PauseAfterError)
 
-	switch fname {
-	case "":
-		ctx.Header("Cache-Control", "max-age=3600")
-		ctx.Header("Content-Type", "text/html")
-		ctx.Writer.WriteHeader(http.StatusOK)
-		ctx.Writer.Write(hlsIndex)
-
-	default:
-		var mux *muxer
-		mux, err = s.parent.getMuxer(serverGetMuxerReq{
-			path:           dir,
-			remoteAddr:     httpp.RemoteAddr(ctx),
-			query:          ctx.Request.URL.RawQuery,
-			sourceOnDemand: res.Conf.SourceOnDemand,
-		})
-		if err != nil {
-			ctx.Writer.WriteHeader(http.StatusNotFound)
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
+		if isCDN {
+			sx.lastRequestTime.Store(time.Now().UnixNano())
+		}
+
+		ctx.Writer = &responseWriterCounter{
+			ResponseWriter: ctx.Writer,
+			bytesSent:      &sx.bytesSent,
+		}
+
 		ctx.Request.URL.Path = fname
-		mux.handleRequest(ctx)
+
+		err = muxer.handleRequest(ctx, isCDN)
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
 	}
 }

@@ -95,7 +95,7 @@ func (r *secondaryReader) Close() {
 // APIReaderDescribe implements reader.
 func (*secondaryReader) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
-		Type: defs.APIPathReaderTypeRPICameraSecondary,
+		Type: defs.APIPathReaderTypeHidden,
 		ID:   "",
 	}
 }
@@ -171,8 +171,9 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	}
 
 	encH264 := &rtph264.Encoder{
-		PayloadType:    96,
-		PayloadMaxSize: s.RTPMaxPayloadSize,
+		PayloadType:       96,
+		PayloadMaxSize:    s.RTPMaxPayloadSize,
+		PacketizationMode: 1,
 	}
 	err := encH264.Init()
 	if err != nil {
@@ -341,8 +342,7 @@ func (s *Source) waitForPrimary(
 			},
 		})
 		if err != nil {
-			var err2 defs.PathNoStreamAvailableError
-			if errors.As(err, &err2) {
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 				select {
 				case <-time.After(pauseBetweenErrors):
 				case <-params.Context.Done():

@@ -164,7 +164,7 @@ func (s *Server) Initialize() error {
 	s.chAPIConnsGet = make(chan serverAPIConnsGetReq)
 	s.chAPIConnsKick = make(chan serverAPIConnsKickReq)
 
-	str := "listener opened on " + s.Address
+	str := "started with listener on " + s.Address
 	if s.Encryption {
 		str += " (TCP/RTMPS)"
 	} else {
@@ -206,7 +206,7 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 
 // Close closes the server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 
 	if !interfaceIsEmpty((s.Metrics)) {
 		if s.Encryption {
@@ -335,7 +335,7 @@ func (s *Server) closeConn(c *conn) {
 	}
 }
 
-// APIConnsList is called by api.
+// APIConnsList implements defs.APIRTMPServer.
 func (s *Server) APIConnsList() (*defs.APIRTMPConnList, error) {
 	req := serverAPIConnsListReq{
 		res: make(chan serverAPIConnsListRes),
@@ -351,7 +351,7 @@ func (s *Server) APIConnsList() (*defs.APIRTMPConnList, error) {
 	}
 }
 
-// APIConnsGet is called by api.
+// APIConnsGet implements defs.APIRTMPServer.
 func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTMPConn, error) {
 	req := serverAPIConnsGetReq{
 		uuid: uuid,
@@ -368,7 +368,7 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTMPConn, error) {
 	}
 }
 
-// APIConnsKick is called by api.
+// APIConnsKick implements defs.APIRTMPServer.
 func (s *Server) APIConnsKick(uuid uuid.UUID) error {
 	req := serverAPIConnsKickReq{
 		uuid: uuid,

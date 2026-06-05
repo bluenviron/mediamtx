@@ -239,11 +239,9 @@ func TestOnGet(t *testing.T) {
 			"mtxi",
 		} {
 			t.Run(format+"_"+mode, func(t *testing.T) {
-				dir, err := os.MkdirTemp("", "mediamtx-playback")
-				require.NoError(t, err)
-				defer os.RemoveAll(dir)
+				dir := t.TempDir()
 
-				err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+				err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 				require.NoError(t, err)
 
 				init := fmp4.Init{
@@ -700,11 +698,9 @@ func TestOnGet(t *testing.T) {
 }
 
 func TestOnGetDifferentInit(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
 	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
@@ -782,11 +778,9 @@ func TestOnGetDifferentInit(t *testing.T) {
 func TestOnGetInMiddleOfLastSample(t *testing.T) {
 	for _, format := range []string{"fmp4", "mp4"} {
 		t.Run(format, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-playback")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
 			init := fmp4.Init{
@@ -914,11 +908,9 @@ func TestOnGetBetweenSegments(t *testing.T) {
 		"idr after",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-playback")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
 			init := fmp4.Init{

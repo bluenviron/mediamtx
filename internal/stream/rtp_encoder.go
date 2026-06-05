@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpac3"
@@ -22,12 +23,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
 )
-
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
 
 type rtpEncoderNotAvailableError struct {
 	format format.Format
@@ -151,6 +146,16 @@ func (e *rtpEncoderKLV) encode(payload unit.Payload) ([]*rtp.Packet, error) {
 	return (*rtpklv.Encoder)(e).Encode(payload.(unit.PayloadKLV))
 }
 
+type rtpEncoderEmpty struct{}
+
+func (e *rtpEncoderEmpty) init() error {
+	return nil
+}
+
+func (e *rtpEncoderEmpty) encode(_ unit.Payload) ([]*rtp.Packet, error) {
+	return nil, nil
+}
+
 func newRTPEncoder(
 	forma format.Format,
 	rtpMaxPayloadSize int,
@@ -208,7 +213,7 @@ func newRTPEncoder(
 			PayloadType:           forma.PayloadTyp,
 			SSRC:                  ssrc,
 			InitialSequenceNumber: initialSequenceNumber,
-			InitialPictureID:      ptrOf(uint16(0x35af)),
+			InitialPictureID:      new(uint16(0x35af)),
 		}
 		err := wrapped.Init()
 		if err != nil {
@@ -388,7 +393,16 @@ func newRTPEncoder(
 
 		return (*rtpEncoderKLV)(wrapped), nil
 
-	default:
-		return nil, rtpEncoderNotAvailableError{forma}
+	case *format.Generic:
+		if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") {
+			enc := &rtpEncoderEmpty{}
+			err := enc.init()
+			if err != nil {
+				return nil, err
+			}
+			return enc, nil
+		}
 	}
+
+	return nil, rtpEncoderNotAvailableError{forma}
 }

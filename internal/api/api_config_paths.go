@@ -63,7 +63,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -100,7 +100,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -141,7 +141,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	}
 
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

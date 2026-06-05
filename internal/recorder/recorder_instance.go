@@ -47,8 +47,8 @@ func (ri *recorderInstance) initialize() {
 		ri.format,
 	)
 	ri.reader = &stream.Reader{
-		SkipBytesSent: true,
-		Parent:        ri,
+		SkipOutboundBytes: true,
+		Parent:            ri,
 	}
 
 	ri.terminate = make(chan struct{})

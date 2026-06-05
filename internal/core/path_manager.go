@@ -44,6 +44,8 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RPICameraGain = newPathConf.RPICameraGain
 	clone.RPICameraEV = newPathConf.RPICameraEV
 	clone.RPICameraFPS = newPathConf.RPICameraFPS
+	clone.RPICameraTextOverlayEnable = newPathConf.RPICameraTextOverlayEnable
+	clone.RPICameraTextOverlay = newPathConf.RPICameraTextOverlay
 	clone.RPICameraIDRPeriod = newPathConf.RPICameraIDRPeriod
 	clone.RPICameraBitrate = newPathConf.RPICameraBitrate
 
@@ -343,10 +345,12 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	_, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-	if err2 != nil {
-		req.Res <- defs.PathDescribeRes{Err: err2}
-		return
+	if !req.AccessRequest.SkipAuth {
+		_, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if err2 != nil {
+			req.Res <- defs.PathDescribeRes{Err: err2}
+			return
+		}
 	}
 
 	// create path if it doesn't exist
@@ -622,7 +626,7 @@ func (pm *pathManager) SetHLSServer(s *hls.Server) []defs.Path {
 	}
 }
 
-// APIPathsList is called by api.
+// APIPathsList implements defs.APIPathManager.
 func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
@@ -654,7 +658,7 @@ func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 	}
 }
 
-// APIPathsGet is called by api.
+// APIPathsGet implements defs.APIPathManager.
 func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	req := pathAPIPathsGetReq{
 		name: name,

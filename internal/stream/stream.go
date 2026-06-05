@@ -394,8 +394,8 @@ func (s *Stream) Initialize() error {
 			alwaysAvailable:      s.AlwaysAvailable,
 			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
 			replaceNTP:           s.ReplaceNTP,
-			addInboundBytes:      s.addInboundBytes,
-			addOutboundBytes:     s.addOutboundBytes,
+			inboundBytes:         &s.inboundBytes,
+			outboundBytes:        &s.outboundBytes,
 			updateLastTime:       s.updateLastTime,
 			writeRTSP:            s.writeRTSP,
 			inboundFramesInError: s.inboundFramesInError,
@@ -572,14 +572,6 @@ func (s *Stream) RemoveReader(r *Reader) {
 // WaitForReaders waits for the stream to have at least one reader.
 func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
-}
-
-func (s *Stream) addInboundBytes(v uint64) {
-	s.inboundBytes.Add(v)
-}
-
-func (s *Stream) addOutboundBytes(v uint64) {
-	s.outboundBytes.Add(v)
 }
 
 func (s *Stream) updateLastTime(pts time.Duration) {

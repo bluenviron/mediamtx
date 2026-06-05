@@ -3,7 +3,6 @@ package rtsp
 import (
 	"context"
 	"crypto/tls"
-	"os"
 	"testing"
 	"time"
 
@@ -19,12 +18,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
-
-func ptrOf[T any](v T) *T {
-	p := new(T)
-	*p = v
-	return p
-}
 
 type testServer struct {
 	onDescribe func(*gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error)
@@ -131,15 +124,8 @@ func TestSource(t *testing.T) {
 				s.UDPRTCPAddress = "127.0.0.1:8003"
 
 			case "rtsps", "rtsps+http", "rtsps+ws":
-				var serverCertFpath string
-				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
-				require.NoError(t, err)
-				defer os.Remove(serverCertFpath)
-
-				var serverKeyFpath string
-				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
-				require.NoError(t, err)
-				defer os.Remove(serverKeyFpath)
+				serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+				serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
 				var cert tls.Certificate
 				cert, err = tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
@@ -522,7 +508,7 @@ func TestSkipBackChannel(t *testing.T) {
 			Context:        ctx,
 			ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
-				RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+				RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
 				RTSPUDPSourcePortRange: []uint{10000, 65535},
 			},
 		})
@@ -598,7 +584,7 @@ func TestOnlyBackChannelsError(t *testing.T) {
 		Context:        ctx,
 		ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 		Conf: &conf.Path{
-			RTSPTransport:          conf.RTSPTransport{Protocol: ptrOf(gortsplib.ProtocolTCP)},
+			RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
 			RTSPUDPSourcePortRange: []uint{10000, 65535},
 		},
 	})

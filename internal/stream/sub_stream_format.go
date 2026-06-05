@@ -126,10 +126,9 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 				if len(pkt.Payload) > ssf.streamFormat.rtpMaxPayloadSize {
 					var err error
 					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.format, ssf.streamFormat.rtpMaxPayloadSize,
-						ptrOf(pkt.SSRC), ptrOf(pkt.SequenceNumber))
+						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
-						var err2 rtpEncoderNotAvailableError
-						if errors.As(err, &err2) {
+						if _, ok := errors.AsType[rtpEncoderNotAvailableError](err); ok {
 							return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 								len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
 						}
@@ -170,7 +169,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	}
 
 	size := unitSize(u)
-	ssf.streamFormat.addInboundBytes(size)
+	ssf.streamFormat.inboundBytes.Add(size)
 
 	ssf.streamFormat.writeRTSP(ssf.streamFormat.media, u.RTPPackets, u.NTP)
 
@@ -178,8 +177,8 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		csr := sr
 		cOnData := onData
 		sr.push(func() error {
-			if !csr.SkipBytesSent {
-				ssf.streamFormat.addOutboundBytes(size)
+			if !csr.SkipOutboundBytes {
+				ssf.streamFormat.outboundBytes.Add(size)
 			}
 			return cOnData(u)
 		})

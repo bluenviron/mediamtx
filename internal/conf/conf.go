@@ -52,8 +52,7 @@ func setAllNilSlicesToEmptyRecursive(rv reflect.Value) {
 	}
 
 	if rv.Kind() == reflect.Struct {
-		for i := range rv.NumField() {
-			field := rv.Field(i)
+		for _, field := range rv.Fields() {
 			switch field.Kind() {
 			case reflect.Slice:
 				if field.IsNil() {
@@ -365,6 +364,7 @@ type Conf struct {
 	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
 	HLSDirectory       string     `json:"hlsDirectory"`
 	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
+	HLSCDNSecret       string     `json:"hlsCDNSecret"`
 
 	// WebRTC server
 	WebRTC                      bool              `json:"webrtc"`
@@ -393,6 +393,15 @@ type Conf struct {
 	// SRT server
 	SRT        bool   `json:"srt"`
 	SRTAddress string `json:"srtAddress"`
+
+	// MoQ server
+	MoQ               bool       `json:"moq"`
+	MoQHTTPS2Address  string     `json:"moqHTTPS2Address"`
+	MoQHTTPS3Address  string     `json:"moqHTTPS3Address"`
+	MoQServerKey      string     `json:"moqServerKey"`
+	MoQServerCert     string     `json:"moqServerCert"`
+	MoQAllowOrigins   []string   `json:"moqAllowOrigins"`
+	MoQTrustedProxies IPNetworks `json:"moqTrustedProxies"`
 
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty" deprecated:"true"`
@@ -521,6 +530,14 @@ func (conf *Conf) setDefaults() {
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+
+	// MoQ server
+	conf.MoQ = true
+	conf.MoQHTTPS2Address = ":8892"
+	conf.MoQHTTPS3Address = ":8892"
+	conf.MoQServerKey = "auto.key"
+	conf.MoQServerCert = "auto.crt"
+	conf.MoQAllowOrigins = []string{"*"}
 
 	conf.PathDefaults.setDefaults()
 }
@@ -935,6 +952,12 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	if conf.HLS {
 		if conf.HLSAddress == "" {
 			return fmt.Errorf("'hlsAddress' must be set when HLS is enabled")
+		}
+	}
+
+	if conf.HLSCDNSecret != "" {
+		if !rePlainCredential.MatchString(conf.HLSCDNSecret) {
+			return fmt.Errorf("'hlsCDNSecret' contains unsupported characters. Supported are: %s", plainCredentialSupportedChars)
 		}
 	}
 

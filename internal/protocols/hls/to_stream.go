@@ -1,6 +1,8 @@
 package hls
 
 import (
+	"encoding/hex"
+	"strconv"
 	"sync"
 	"time"
 
@@ -178,6 +180,33 @@ func ToStream(
 				})
 			})
 
+		case *codecs.FLAC:
+			enc, err := tcodec.StreamInfo.Marshal()
+			if err != nil {
+				return nil, err
+			}
+
+			sampleRate := int(tcodec.StreamInfo.SampleRate)
+			medi = &description.Media{
+				Type: description.MediaTypeApplication,
+				Formats: []format.Format{&format.Generic{
+					PayloadTyp: 96,
+					RTPMa:      "flac/" + strconv.Itoa(sampleRate),
+					ClockRat:   sampleRate,
+					FMT: map[string]string{
+						"streaminfo": hex.EncodeToString(enc),
+					},
+				}},
+			}
+
+			c.OnDataFLAC(ctrack, func(pts int64, frame []byte) {
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+					NTP:     handleNTP(pts),
+					PTS:     multiplyAndDivide(pts, int64(sampleRate), int64(ctrack.ClockRate)),
+					Payload: unit.PayloadFLAC(frame),
+				})
+			})
+
 		case *codecs.MPEG4Audio:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
@@ -196,6 +225,23 @@ func ToStream(
 					NTP:     handleNTP(pts),
 					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
 					Payload: unit.PayloadMPEG4Audio(aus),
+				})
+			})
+
+		case *codecs.KLV:
+			medi = &description.Media{
+				Type: description.MediaTypeApplication,
+				Formats: []format.Format{&format.KLV{
+					PayloadTyp: 96,
+				}},
+			}
+			newClockRate := medi.Formats[0].ClockRate()
+
+			c.OnDataKLV(ctrack, func(pts int64, uni []byte) {
+				(*subStream).WriteUnit(medi, medi.Formats[0], &unit.Unit{
+					NTP:     handleNTP(pts),
+					PTS:     multiplyAndDivide(pts, int64(newClockRate), int64(ctrack.ClockRate)),
+					Payload: unit.PayloadKLV(uni),
 				})
 			})
 

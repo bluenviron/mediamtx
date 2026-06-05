@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -50,14 +49,8 @@ func TestServerPublish(t *testing.T) {
 			var serverKeyFpath string
 
 			if encrypt == "tls" {
-				var err error
-				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
-				require.NoError(t, err)
-				defer os.Remove(serverCertFpath)
-
-				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
-				require.NoError(t, err)
-				defer os.Remove(serverKeyFpath)
+				serverCertFpath = test.CreateTempFile(t, test.TLSCertPub)
+				serverKeyFpath = test.CreateTempFile(t, test.TLSCertKey)
 			}
 
 			var strm *stream.Stream
@@ -203,6 +196,7 @@ func TestServerPublish(t *testing.T) {
 						Path:                    "teststream",
 						Query:                   "user=myuser&pass=mypass&param=value",
 						User:                    "myuser",
+						UserAgent:               list.Items[0].UserAgent,
 						InboundBytes:            list.Items[0].InboundBytes,
 						OutboundBytes:           list.Items[0].OutboundBytes,
 						OutboundFramesDiscarded: list.Items[0].OutboundFramesDiscarded,
@@ -225,14 +219,8 @@ func TestServerRead(t *testing.T) {
 			var serverKeyFpath string
 
 			if encrypt == "tls" {
-				var err error
-				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
-				require.NoError(t, err)
-				defer os.Remove(serverCertFpath)
-
-				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
-				require.NoError(t, err)
-				defer os.Remove(serverKeyFpath)
+				serverCertFpath = test.CreateTempFile(t, test.TLSCertPub)
+				serverKeyFpath = test.CreateTempFile(t, test.TLSCertKey)
 			}
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
@@ -364,6 +352,7 @@ func TestServerRead(t *testing.T) {
 						Path:                    "teststream",
 						Query:                   "user=myuser&pass=mypass&param=value",
 						User:                    "myuser",
+						UserAgent:               list.Items[0].UserAgent,
 						InboundBytes:            list.Items[0].InboundBytes,
 						OutboundBytes:           list.Items[0].OutboundBytes,
 						OutboundFramesDiscarded: list.Items[0].OutboundFramesDiscarded,

@@ -11,7 +11,7 @@ import (
 )
 
 func TestHLSServerRead(t *testing.T) {
-	p, ok := newInstance("paths:\n" +
+	p, ok := newInstance(t, "paths:\n"+
 		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -52,7 +52,7 @@ func TestHLSServerAuth(t *testing.T) {
 				"    readPass: testpass\n" +
 				"    readIPs: [127.0.0.0/16]\n"
 
-			p, ok := newInstance(cnf)
+			p, ok := newInstance(t, cnf)
 			require.Equal(t, true, ok)
 			defer p.Close()
 

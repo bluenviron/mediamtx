@@ -28,7 +28,7 @@ func isJSONNull(raw json.RawMessage) bool {
 }
 
 func needsCustomDecode(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t.Kind() == reflect.Struct || t.Kind() == reflect.Slice
@@ -47,7 +47,7 @@ func checkForUnknownFields(rawMap map[string]json.RawMessage, known map[string]i
 }
 
 func decode(v reflect.Value, raw json.RawMessage, path string) error {
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		if isJSONNull(raw) {
 			v.Set(reflect.Zero(v.Type()))
 			return nil

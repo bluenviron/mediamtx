@@ -54,11 +54,10 @@ func writeBenchInit(f io.WriteSeeker) {
 }
 
 func BenchmarkFMP4ReadHeader(b *testing.B) {
-	f, err := os.CreateTemp(os.TempDir(), "mediamtx-playback-fmp4-")
+	f, err := os.CreateTemp(b.TempDir(), "mediamtx-playback-fmp4-")
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(f.Name())
 
 	writeBenchInit(f)
 	f.Close()

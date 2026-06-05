@@ -69,3 +69,53 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	require.Equal(t, 2, n)
 }
+
+func TestFromStreamKLVRequiresMPEGTSVariant(t *testing.T) {
+	t.Run("klv only, non-mpegts variant", func(t *testing.T) {
+		desc := &description.Session{Medias: []*description.Media{{
+			Type:    description.MediaTypeApplication,
+			Formats: []format.Format{&format.KLV{PayloadTyp: 96}},
+		}}}
+
+		r := &stream.Reader{
+			Parent: test.Logger(func(logger.Level, string, ...any) {
+				t.Error("should not happen")
+			}),
+		}
+
+		m := &gohlslib.Muxer{Variant: gohlslib.MuxerVariantFMP4}
+
+		err := FromStream(desc, r, m)
+		require.Equal(t, ErrNoSupportedCodecs, err)
+	})
+
+	t.Run("klv alongside video, non-mpegts variant", func(t *testing.T) {
+		desc := &description.Session{Medias: []*description.Media{
+			{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{PayloadTyp: 96, PacketizationMode: 1}},
+			},
+			{
+				Type:    description.MediaTypeApplication,
+				Formats: []format.Format{&format.KLV{PayloadTyp: 97}},
+			},
+		}}
+
+		n := 0
+
+		r := &stream.Reader{
+			Parent: test.Logger(func(l logger.Level, f string, args ...any) {
+				require.Equal(t, logger.Warn, l)
+				require.Equal(t, "skipping track 2 (KLV)", fmt.Sprintf(f, args...))
+				n++
+			}),
+		}
+
+		m := &gohlslib.Muxer{Variant: gohlslib.MuxerVariantFMP4}
+
+		err := FromStream(desc, r, m)
+		require.NoError(t, err)
+		require.Equal(t, 1, n)
+		require.Equal(t, 1, len(m.Tracks))
+	})
+}

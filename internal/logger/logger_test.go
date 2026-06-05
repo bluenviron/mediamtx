@@ -45,9 +45,8 @@ func TestLoggerToFile(t *testing.T) {
 		"structured",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			tempFile, err := os.CreateTemp(os.TempDir(), "mtx-logger-")
+			tempFile, err := os.CreateTemp(t.TempDir(), "mtx-logger-")
 			require.NoError(t, err)
-			defer os.Remove(tempFile.Name())
 			defer tempFile.Close()
 
 			l := &Logger{

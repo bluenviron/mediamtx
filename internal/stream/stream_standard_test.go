@@ -20,7 +20,7 @@ func TestStream(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -69,11 +69,11 @@ func TestStream(t *testing.T) {
 	require.Equal(t, uint64(14), strm.OutboundBytes())
 }
 
-func TestStreamSkipBytesSent(t *testing.T) {
+func TestStreamSkipOutboundBytes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -98,7 +98,7 @@ func TestStreamSkipBytesSent(t *testing.T) {
 	require.NoError(t, err)
 
 	r := &Reader{
-		SkipBytesSent: true,
+		SkipOutboundBytes: true,
 	}
 
 	recv := make(chan struct{})
@@ -129,6 +129,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		{
 			Type: description.MediaTypeVideo,
 			Formats: []format.Format{&format.H264{
+				PacketizationMode: 1,
 				SPS: []byte{ // 1920x1080 baseline
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -250,8 +251,9 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 				pps := []byte{0x08, 0x07, 0x08, 0x09}
 
 				formatH264 := &format.H264{
-					SPS: []byte{0x67, 0x42, 0xc0, 0x28},
-					PPS: []byte{0x08, 0x06},
+					PacketizationMode: 1,
+					SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+					PPS:               []byte{0x08, 0x06},
 				}
 
 				desc = &description.Session{Medias: []*description.Media{{
@@ -502,7 +504,8 @@ var casesDecodeEncode = []struct {
 	{
 		name: "h264",
 		format: &format.H264{
-			PayloadTyp: 96,
+			PayloadTyp:        96,
+			PacketizationMode: 1,
 			SPS: []byte{
 				0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 				0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,

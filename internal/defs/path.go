@@ -16,7 +16,7 @@ type PathNoStreamAvailableError struct {
 }
 
 // Error implements the error interface.
-func (e PathNoStreamAvailableError) Error() string {
+func (e *PathNoStreamAvailableError) Error() string {
 	return fmt.Sprintf("no stream is available on path '%s'", e.PathName)
 }
 

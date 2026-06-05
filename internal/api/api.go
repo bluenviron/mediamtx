@@ -19,6 +19,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
+const (
+	maxInboundConfigSize = 10 * 1024 * 1024
+)
+
 func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
@@ -77,6 +81,7 @@ type API struct {
 	HLSServer      defs.APIHLSServer
 	WebRTCServer   defs.APIWebRTCServer
 	SRTServer      defs.APISRTServer
+	MoQServer      defs.APIMoQServer
 	Parent         apiParent
 
 	httpServer *httpp.Server
@@ -87,7 +92,6 @@ type API struct {
 func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(a.middlewarePreflightRequests)
 	router.Use(a.middlewareAuth)
 
@@ -116,6 +120,9 @@ func (a *API) Initialize() error {
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
 		group.GET("/hlsmuxers/get/*name", a.onHLSMuxersGet)
+		group.GET("/hlssessions/list", a.onHLSSessionsList)
+		group.GET("/hlssessions/get/:id", a.onHLSSessionsGet)
+		group.POST("/hlssessions/kick/:id", a.onHLSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTSPServer) {
@@ -158,6 +165,12 @@ func (a *API) Initialize() error {
 		group.POST("/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
+	if !interfaceIsEmpty(a.MoQServer) {
+		group.GET("/moqsessions/list", a.onMoQSessionsList)
+		group.GET("/moqsessions/get/:id", a.onMoQSessionsGet)
+		group.POST("/moqsessions/kick/:id", a.onMoQSessionsKick)
+	}
+
 	group.GET("/recordings/list", a.onRecordingsList)
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
@@ -180,7 +193,7 @@ func (a *API) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + a.Address
+	str := "started with listener on " + a.Address
 	if !a.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -193,7 +206,7 @@ func (a *API) Initialize() error {
 
 // Close closes the API.
 func (a *API) Close() {
-	a.Log(logger.Info, "listener is closing")
+	a.Log(logger.Info, "closing")
 	a.httpServer.Close()
 }
 

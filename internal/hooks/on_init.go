@@ -20,14 +20,16 @@ func OnInit(params OnInitParams) func() {
 
 	if params.Conf.RunOnInit != "" {
 		params.Logger.Log(logger.Info, "runOnInit command started")
-		onInitCmd = externalcmd.NewCmd(
-			params.ExternalCmdPool,
-			params.Conf.RunOnInit,
-			params.Conf.RunOnInitRestart,
-			params.ExternalCmdEnv,
-			func(err error) {
+		onInitCmd = &externalcmd.Cmd{
+			Pool:    params.ExternalCmdPool,
+			Cmdstr:  params.Conf.RunOnInit,
+			Restart: params.Conf.RunOnInitRestart,
+			Env:     params.ExternalCmdEnv,
+			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnInit command exited: %v", err)
-			})
+			},
+		}
+		onInitCmd.Start()
 	}
 
 	return func() {

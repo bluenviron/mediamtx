@@ -24,7 +24,8 @@ const (
 	// PauseAfterError is the pause to apply after an authentication failure.
 	PauseAfterError = 2 * time.Second
 
-	jwksRefreshPeriod = 60 * 60 * time.Second
+	maxInboundBodySize = 128 * 1024
+	jwksRefreshPeriod  = 60 * 60 * time.Second
 )
 
 func isHTTP(req *Request) bool {
@@ -196,25 +197,27 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	}
 
 	enc, _ := json.Marshal(struct {
-		IP       string     `json:"ip"`
-		User     string     `json:"user"`
-		Password string     `json:"password"`
-		Token    string     `json:"token"`
-		Action   string     `json:"action"`
-		Path     string     `json:"path"`
-		Protocol string     `json:"protocol"`
-		ID       *uuid.UUID `json:"id"`
-		Query    string     `json:"query"`
+		IP        string     `json:"ip"`
+		User      string     `json:"user"`
+		Password  string     `json:"password"`
+		Token     string     `json:"token"`
+		Action    string     `json:"action"`
+		Path      string     `json:"path"`
+		Protocol  string     `json:"protocol"`
+		ID        *uuid.UUID `json:"id"`
+		Query     string     `json:"query"`
+		UserAgent string     `json:"userAgent"`
 	}{
-		IP:       req.IP.String(),
-		User:     req.Credentials.User,
-		Password: req.Credentials.Pass,
-		Token:    token,
-		Action:   string(req.Action),
-		Path:     req.Path,
-		Protocol: string(req.Protocol),
-		ID:       req.ID,
-		Query:    req.Query,
+		IP:        req.IP.String(),
+		User:      req.Credentials.User,
+		Password:  req.Credentials.Pass,
+		Token:     token,
+		Action:    string(req.Action),
+		Path:      req.Path,
+		Protocol:  string(req.Protocol),
+		ID:        req.ID,
+		Query:     req.Query,
+		UserAgent: req.UserAgent,
 	})
 
 	tr := &http.Transport{
@@ -234,7 +237,8 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		if resBody, err2 := io.ReadAll(res.Body); err2 == nil && len(resBody) != 0 {
+		resBody, err2 := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
+		if err2 == nil && len(resBody) != 0 {
 			return "", fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
 
@@ -304,7 +308,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		defer res.Body.Close()
 
 		var raw json.RawMessage
-		err = json.NewDecoder(res.Body).Decode(&raw)
+		err = json.NewDecoder(&customLimitReader{res.Body, maxInboundBodySize}).Decode(&raw)
 		if err != nil {
 			return nil, err
 		}

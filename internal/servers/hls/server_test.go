@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -145,6 +146,82 @@ func TestServerIndexNotConfigured(t *testing.T) {
 	}, payload)
 }
 
+func TestServerIndexRedirect(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:8888",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  &dummyPathManager{},
+		Parent:       test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := client.Get("http://127.0.0.1:8888/stream")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusFound, res.StatusCode)
+	require.Equal(t, "/stream/", res.Header.Get("Location"))
+}
+
+func TestServerIndexRedirectNoXSS(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{"double slash", "//double/slash", "/double/slash/"},
+		{"protocol-relative open redirect", "//evil.com", "/evil.com/"},
+		{"backslash bypass", "/%5Cevil.com", "/evil.com/"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pm := &dummyPathManager{
+				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+				},
+			}
+
+			s := &Server{
+				Address:      "127.0.0.1:8888",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathManager:  pm,
+				Parent:       test.NilLogger,
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{
+				Transport: tr,
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888"+ca.path, nil)
+			require.NoError(t, err)
+
+			res, err := hc.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusFound, res.StatusCode)
+			require.Equal(t, ca.expected, res.Header.Get("Location"))
+		})
+	}
+}
+
 func TestServerNotFound(t *testing.T) {
 	for _, ca := range []string{
 		"always remux off",
@@ -158,7 +235,7 @@ func TestServerNotFound(t *testing.T) {
 				},
 				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					return nil, fmt.Errorf("not found")
+					return nil, &defs.PathNoStreamAvailableError{}
 				},
 			}
 
@@ -215,244 +292,199 @@ func TestServerNotFound(t *testing.T) {
 	}
 }
 
+type cdnRoundTripper struct {
+	secret string
+	base   http.RoundTripper
+}
+
+func (t *cdnRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("Authorization", "Bearer "+t.secret)
+	return t.base.RoundTrip(req)
+}
+
 func TestServerRead(t *testing.T) {
-	for _, ca := range []string{
-		"always remux off",
-		"always remux on",
+	for _, cdn := range []string{
+		"no cdn",
+		"cdn",
 	} {
-		t.Run(ca, func(t *testing.T) {
-			desc := &description.Session{Medias: []*description.Media{
-				test.MediaH264,
-				test.MediaMPEG4Audio,
-			}}
+		for _, ca := range []string{
+			"always remux off",
+			"always remux on",
+		} {
+			t.Run(cdn+"/"+ca, func(t *testing.T) {
+				desc := &description.Session{Medias: []*description.Media{
+					test.MediaH264,
+					test.MediaMPEG4Audio,
+				}}
 
-			strm := &stream.Stream{
-				Desc:              desc,
-				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
-				ReplaceNTP:        false,
-				Parent:            test.NilLogger,
-			}
-			err := strm.Initialize()
-			require.NoError(t, err)
+				strm := &stream.Stream{
+					Desc:              desc,
+					WriteQueueSize:    512,
+					RTPMaxPayloadSize: 1450,
+					ReplaceNTP:        false,
+					Parent:            test.NilLogger,
+				}
+				err := strm.Initialize()
+				require.NoError(t, err)
 
-			subStream := &stream.SubStream{
-				Stream:        strm,
-				UseRTPPackets: false,
-			}
-			err = subStream.Initialize()
-			require.NoError(t, err)
+				subStream := &stream.SubStream{
+					Stream:        strm,
+					UseRTPPackets: false,
+				}
+				err = subStream.Initialize()
+				require.NoError(t, err)
 
-			pm := &dummyPathManager{
-				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					require.Equal(t, "teststream", req.AccessRequest.Name)
-					require.Equal(t, "param=value", req.AccessRequest.Query)
-					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
-					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
-				},
-				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					require.Equal(t, "teststream", req.AccessRequest.Name)
-					if ca == "always remux off" {
-						require.Equal(t, "param=value", req.AccessRequest.Query)
-					} else {
-						require.Equal(t, "", req.AccessRequest.Query)
+				pm := &dummyPathManager{
+					addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+						require.Equal(t, "teststream", req.AccessRequest.Name)
+
+						switch req.Author.(type) {
+						case *muxer:
+							if cdn != "no cdn" || ca == "always remux on" {
+								require.Equal(t, "", req.AccessRequest.Query)
+							} else {
+								require.Equal(t, "param=value", req.AccessRequest.Query)
+							}
+
+						case *session:
+							if cdn != "no cdn" {
+								require.True(t, req.AccessRequest.SkipAuth)
+								require.Nil(t, req.AccessRequest.Credentials)
+								require.Equal(t, "", req.AccessRequest.Query)
+							} else {
+								require.Equal(t, "param=value", req.AccessRequest.Query)
+							}
+
+						default:
+							t.Errorf("should not happen")
+						}
+
+						return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+					},
+				}
+
+				s := &Server{
+					Address:         "127.0.0.1:8888",
+					AlwaysRemux:     ca == "always remux on",
+					Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+					SegmentCount:    7,
+					SegmentDuration: conf.Duration(1 * time.Second),
+					PartDuration:    conf.Duration(200 * time.Millisecond),
+					SegmentMaxSize:  50 * 1024 * 1024,
+					TrustedProxies:  conf.IPNetworks{},
+					CDNSecret:       "myCDNSecret",
+					ReadTimeout:     conf.Duration(10 * time.Second),
+					WriteTimeout:    conf.Duration(10 * time.Second),
+					PathManager:     pm,
+					Parent:          test.NilLogger,
+				}
+				err = s.Initialize()
+				require.NoError(t, err)
+				defer s.Close()
+
+				recv1 := make(chan struct{})
+				recv2 := make(chan struct{})
+
+				newClient := func() *gohlslib.Client {
+					c := &gohlslib.Client{StartDistance: 1}
+					c.OnTracks = func(tracks []*gohlslib.Track) error {
+						require.Equal(t, []*gohlslib.Track{
+							{
+								Codec:     &codecs.H264{},
+								ClockRate: 90000,
+							},
+							{
+								Codec: &codecs.MPEG4Audio{
+									Config: mpeg4audio.AudioSpecificConfig{
+										Type:          2,
+										ChannelCount:  2,
+										ChannelConfig: 2,
+										SampleRate:    44100,
+									},
+								},
+								ClockRate: 90000,
+							},
+						}, tracks)
+
+						c.OnDataH26x(tracks[0], func(pts, dts int64, au [][]byte) {
+							require.Equal(t, int64(0), pts)
+							require.Equal(t, int64(0), dts)
+							require.Equal(t, [][]byte{
+								test.FormatH264.SPS,
+								test.FormatH264.PPS,
+								{5, 1},
+							}, au)
+							close(recv1)
+						})
+
+						c.OnDataMPEG4Audio(tracks[1], func(pts int64, aus [][]byte) {
+							require.Equal(t, int64(0), pts)
+							require.Equal(t, [][]byte{{1, 2}}, aus)
+							close(recv2)
+						})
+
+						return nil
 					}
-					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
-				},
-			}
-
-			switch ca {
-			case "always remux off":
-				s := &Server{
-					Address:         "127.0.0.1:8888",
-					AlwaysRemux:     false,
-					Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-					SegmentCount:    7,
-					SegmentDuration: conf.Duration(1 * time.Second),
-					PartDuration:    conf.Duration(200 * time.Millisecond),
-					SegmentMaxSize:  50 * 1024 * 1024,
-					TrustedProxies:  conf.IPNetworks{},
-					ReadTimeout:     conf.Duration(10 * time.Second),
-					WriteTimeout:    conf.Duration(10 * time.Second),
-					PathManager:     pm,
-					Parent:          test.NilLogger,
-				}
-				err = s.Initialize()
-				require.NoError(t, err)
-				defer s.Close()
-
-				c := &gohlslib.Client{
-					URI:           "http://myuser:mypass@127.0.0.1:8888/teststream/index.m3u8?param=value",
-					StartDistance: 1,
-				}
-
-				recv1 := make(chan struct{})
-				recv2 := make(chan struct{})
-
-				c.OnTracks = func(tracks []*gohlslib.Track) error { //nolint:dupl
-					require.Equal(t, []*gohlslib.Track{
-						{
-							Codec:     &codecs.H264{},
-							ClockRate: 90000,
-						},
-						{
-							Codec: &codecs.MPEG4Audio{
-								Config: mpeg4audio.AudioSpecificConfig{
-									Type:          2,
-									ChannelCount:  2,
-									ChannelConfig: 2,
-									SampleRate:    44100,
-								},
+					if cdn != "no cdn" {
+						c.URI = "http://127.0.0.1:8888/teststream/index.m3u8"
+						c.HTTPClient = &http.Client{
+							Transport: &cdnRoundTripper{
+								secret: "myCDNSecret",
+								base:   &http.Transport{},
 							},
-							ClockRate: 90000,
-						},
-					}, tracks)
-
-					c.OnDataH26x(tracks[0], func(pts, dts int64, au [][]byte) {
-						require.Equal(t, int64(0), pts)
-						require.Equal(t, int64(0), dts)
-						require.Equal(t, [][]byte{
-							test.FormatH264.SPS,
-							test.FormatH264.PPS,
-							{5, 1},
-						}, au)
-						close(recv1)
-					})
-
-					c.OnDataMPEG4Audio(tracks[1], func(pts int64, aus [][]byte) {
-						require.Equal(t, int64(0), pts)
-						require.Equal(t, [][]byte{{1, 2}}, aus)
-						close(recv2)
-					})
-
-					return nil
+						}
+					} else {
+						c.URI = "http://myuser:mypass@127.0.0.1:8888/teststream/index.m3u8?param=value"
+					}
+					return c
 				}
 
-				err = c.Start()
-				require.NoError(t, err)
-				defer c.Close()
+				writeData := func() {
+					for i := range 2 {
+						subStream.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
+							NTP: time.Time{},
+							PTS: int64(i) * 90000,
+							Payload: unit.PayloadH264{
+								{5, 1}, // IDR
+							},
+						})
+						subStream.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
+							NTP:     time.Time{},
+							PTS:     int64(i) * 44100,
+							Payload: unit.PayloadMPEG4Audio{{1, 2}},
+						})
+					}
+				}
 
-				strm.WaitForReaders()
+				if ca == "always remux off" {
+					c := newClient()
+					err = c.Start()
+					require.NoError(t, err)
+					defer c.Close()
 
-				for i := range 2 {
-					subStream.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
-						NTP: time.Time{},
-						PTS: int64(i) * 90000,
-						Payload: unit.PayloadH264{
-							{5, 1}, // IDR
-						},
-					})
-					subStream.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
-						NTP:     time.Time{},
-						PTS:     int64(i) * 44100,
-						Payload: unit.PayloadMPEG4Audio{{1, 2}},
-					})
+					strm.WaitForReaders()
+					writeData()
+				} else {
+					s.PathReady(&dummyPath{})
+					strm.WaitForReaders()
+					writeData()
+
+					c := newClient()
+					err = c.Start()
+					require.NoError(t, err)
+					defer c.Close()
 				}
 
 				<-recv1
 				<-recv2
-
-			case "always remux on":
-				s := &Server{
-					Address:         "127.0.0.1:8888",
-					AlwaysRemux:     true,
-					Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-					SegmentCount:    7,
-					SegmentDuration: conf.Duration(1 * time.Second),
-					PartDuration:    conf.Duration(200 * time.Millisecond),
-					SegmentMaxSize:  50 * 1024 * 1024,
-					TrustedProxies:  conf.IPNetworks{},
-					ReadTimeout:     conf.Duration(10 * time.Second),
-					WriteTimeout:    conf.Duration(10 * time.Second),
-					PathManager:     pm,
-					Parent:          test.NilLogger,
-				}
-				err = s.Initialize()
-				require.NoError(t, err)
-				defer s.Close()
-
-				s.PathReady(&dummyPath{})
-
-				strm.WaitForReaders()
-
-				for i := range 2 {
-					subStream.WriteUnit(test.MediaH264, test.FormatH264, &unit.Unit{
-						NTP: time.Time{},
-						PTS: int64(i) * 90000,
-						Payload: unit.PayloadH264{
-							{5, 1}, // IDR
-						},
-					})
-					subStream.WriteUnit(test.MediaMPEG4Audio, test.FormatMPEG4Audio, &unit.Unit{
-						NTP:     time.Time{},
-						PTS:     int64(i) * 44100,
-						Payload: unit.PayloadMPEG4Audio{{1, 2}},
-					})
-				}
-
-				c := &gohlslib.Client{
-					URI:           "http://myuser:mypass@127.0.0.1:8888/teststream/index.m3u8?param=value",
-					StartDistance: 1,
-				}
-
-				recv1 := make(chan struct{})
-				recv2 := make(chan struct{})
-
-				c.OnTracks = func(tracks []*gohlslib.Track) error { //nolint:dupl
-					require.Equal(t, []*gohlslib.Track{
-						{
-							Codec:     &codecs.H264{},
-							ClockRate: 90000,
-						},
-						{
-							Codec: &codecs.MPEG4Audio{
-								Config: mpeg4audio.AudioSpecificConfig{
-									Type:          2,
-									ChannelCount:  2,
-									ChannelConfig: 2,
-									SampleRate:    44100,
-								},
-							},
-							ClockRate: 90000,
-						},
-					}, tracks)
-
-					c.OnDataH26x(tracks[0], func(pts, dts int64, au [][]byte) {
-						require.Equal(t, int64(0), pts)
-						require.Equal(t, int64(0), dts)
-						require.Equal(t, [][]byte{
-							test.FormatH264.SPS,
-							test.FormatH264.PPS,
-							{5, 1},
-						}, au)
-						close(recv1)
-					})
-
-					c.OnDataMPEG4Audio(tracks[1], func(pts int64, aus [][]byte) {
-						require.Equal(t, int64(0), pts)
-						require.Equal(t, [][]byte{{1, 2}}, aus)
-						close(recv2)
-					})
-
-					return nil
-				}
-
-				err = c.Start()
-				require.NoError(t, err)
-				defer c.Close()
-
-				<-recv1
-				<-recv2
-			}
-		})
+			})
+		}
 	}
 }
 
 func TestServerDirectory(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
@@ -462,7 +494,7 @@ func TestServerDirectory(t *testing.T) {
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
 	}
-	err = strm.Initialize()
+	err := strm.Initialize()
 	require.NoError(t, err)
 
 	subStream := &stream.SubStream{
@@ -579,7 +611,7 @@ func TestAuthError(t *testing.T) {
 		ReadTimeout:     conf.Duration(10 * time.Second),
 		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
-			findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
 					return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
@@ -624,4 +656,130 @@ func TestAuthError(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
 	require.Equal(t, 2, n)
+}
+
+func TestAuthQueryPreservedAcrossRedirect(t *testing.T) {
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Encryption:      false,
+		ServerKey:       "",
+		ServerCert:      "",
+		AlwaysRemux:     true,
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.Duration(1 * time.Second),
+		PartDuration:    conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
+		PathManager: &dummyPathManager{
+			findPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+				return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+			},
+		},
+		Parent: test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := client.Get("http://127.0.0.1:8888/stream/index.m3u8?jwt=mytoken")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusFound, res.StatusCode)
+	require.Equal(t, "/stream/index.m3u8?cookieCheck=1&jwt=mytoken", res.Header.Get("Location"))
+}
+
+func TestServerNoSupportedCodecs(t *testing.T) {
+	for _, ca := range []string{
+		"always remux off",
+		"always remux on",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.VP8{}},
+			}}}
+
+			strm := &stream.Stream{
+				Desc:              desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			pm := &dummyPathManager{
+				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					require.Equal(t, "teststream", req.AccessRequest.Name)
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+				},
+			}
+
+			s := &Server{
+				Address:         "127.0.0.1:8888",
+				AlwaysRemux:     (ca == "always remux on"),
+				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:    7,
+				SegmentDuration: conf.Duration(1 * time.Second),
+				PartDuration:    conf.Duration(200 * time.Millisecond),
+				SegmentMaxSize:  50 * 1024 * 1024,
+				TrustedProxies:  conf.IPNetworks{},
+				ReadTimeout:     conf.Duration(10 * time.Second),
+				WriteTimeout:    conf.Duration(10 * time.Second),
+				PathManager:     pm,
+				Parent:          test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			client := &http.Client{
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			res, err := client.Get("http://127.0.0.1:8888/teststream/index.m3u8")
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusFound, res.StatusCode)
+			require.Equal(t, "/teststream/index.m3u8?cookieCheck=1", res.Header.Get("Location"))
+
+			res, err = client.Get("http://127.0.0.1:8888/teststream/index.m3u8?cookieCheck=1")
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+			require.Contains(t, res.Header.Get("Content-Type"), "application/json")
+
+			byts, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+
+			var payload defs.APIError
+			err = json.Unmarshal(byts, &payload)
+			require.NoError(t, err)
+
+			if ca == "always remux off" {
+				require.Equal(t, defs.APIError{
+					Status: defs.APIErrorStatusError,
+					Error:  "terminated",
+				}, payload)
+			} else {
+				require.Equal(t, defs.APIError{
+					Status: defs.APIErrorStatusError,
+					Error:  "muxer is waiting to be created",
+				}, payload)
+			}
+		})
+	}
 }

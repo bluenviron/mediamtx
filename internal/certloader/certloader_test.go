@@ -14,13 +14,8 @@ func TestCertReload(t *testing.T) {
 	testData, err := tls.X509KeyPair(test.TLSCertPub, test.TLSCertKey)
 	require.NoError(t, err)
 
-	serverCertPath, err := test.CreateTempFile(test.TLSCertPub)
-	require.NoError(t, err)
-	defer os.Remove(serverCertPath)
-
-	serverKeyPath, err := test.CreateTempFile(test.TLSCertKey)
-	require.NoError(t, err)
-	defer os.Remove(serverKeyPath)
+	serverCertPath := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyPath := test.CreateTempFile(t, test.TLSCertKey)
 
 	loader := &CertLoader{
 		CertPath: serverCertPath,

@@ -2,6 +2,7 @@ package stream
 
 import (
 	"crypto/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -44,8 +45,8 @@ type streamFormat struct {
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
 	inboundFramesInError *errordumper.Dumper
-	addInboundBytes      func(uint64)
-	addOutboundBytes     func(uint64)
+	inboundBytes         *atomic.Uint64
+	outboundBytes        *atomic.Uint64
 	updateLastTime       func(time.Duration)
 	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
 	parent               logger.Writer

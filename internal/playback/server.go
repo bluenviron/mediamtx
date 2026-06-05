@@ -43,7 +43,6 @@ type Server struct {
 func (s *Server) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(s.middlewarePreflightRequests)
 
 	router.GET("/list", s.onList)
@@ -67,7 +66,7 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + s.Address
+	str := "started with listener on " + s.Address
 	if !s.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -80,7 +79,7 @@ func (s *Server) Initialize() error {
 
 // Close closes Server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 	s.httpServer.Close()
 }
 
@@ -101,7 +100,10 @@ func (s *Server) writeError(ctx *gin.Context, status int, err error) {
 	s.Log(logger.Error, err.Error())
 
 	// add error to response
-	ctx.String(status, err.Error())
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
 }
 
 func (s *Server) writeErrorNoLog(ctx *gin.Context, status int, err error) {

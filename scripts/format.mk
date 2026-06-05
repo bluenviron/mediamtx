@@ -15,9 +15,9 @@ format-go:
 	docker run --rm -it -v "$(shell pwd):/s" -w /s temp \
 	sh -c "gofumpt -l -w ."
 
-format-docs:
+format-other:
 	echo "$$DOCKERFILE_PRETTIER" | docker build . -f - -t temp
-	docker run --rm -v "$(shell pwd)/docs:/s" -w /s temp \
+	docker run --rm -v "$(shell pwd)/:/s" -w /s temp \
 	sh -c "prettier --write ."
 
-format: format-go format-docs
+format: format-go format-other

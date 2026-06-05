@@ -1,0 +1,66 @@
+//go:build !windows
+
+package externalcmd
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"syscall"
+
+	"github.com/kballard/go-shellquote"
+)
+
+func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
+	cmdParts, err := shellquote.Split(cmdstr)
+	if err != nil {
+		return err
+	}
+
+	for i, part := range cmdParts {
+		cmdParts[i] = expandEnv(part, c.Env)
+	}
+
+	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+
+	cmd.Env = env
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// set process group in order to allow killing subprocesses
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+
+	cmdDone := make(chan int)
+	go func() {
+		cmdDone <- func() int {
+			err2 := cmd.Wait()
+			if err2 == nil {
+				return 0
+			}
+			if ee, ok := errors.AsType[*exec.ExitError](err2); ok {
+				ee.ExitCode()
+			}
+			return 0
+		}()
+	}()
+
+	select {
+	case <-c.terminate:
+		// the minus is needed to kill all subprocesses
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGINT) //nolint:errcheck
+		<-cmdDone
+		return errTerminated
+
+	case c := <-cmdDone:
+		if c != 0 {
+			return fmt.Errorf("command exited with code %d", c)
+		}
+		return nil
+	}
+}

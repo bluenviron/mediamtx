@@ -108,7 +108,7 @@ func TestPathsGet(t *testing.T) {
 				BytesReceived:        123456,
 				BytesSent:            789012,
 				Readers: []defs.APIPathReader{
-					{Type: defs.APIPathReaderTypeHLSMuxer, ID: "muxer1"},
+					{Type: defs.APIPathReaderTypeHLSSession, ID: "session6123"},
 					{Type: defs.APIPathReaderTypeWebRTCSession, ID: "session456"},
 				},
 			},

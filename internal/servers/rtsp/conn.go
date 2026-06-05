@@ -164,14 +164,12 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	})
 
 	if res.Err != nil {
-		var terr *auth.Error
-		if errors.As(res.Err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](res.Err); ok {
 			res, err2 := c.handleAuthError(terr)
 			return res, nil, err2
 		}
 
-		var terr2 defs.PathNoStreamAvailableError
-		if errors.As(res.Err, &terr2) {
+		if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](res.Err); ok {
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
 			}, nil, res.Err
@@ -184,7 +182,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if res.Redirect != "" {
 		return &base.Response{
-			StatusCode: base.StatusMovedPermanently,
+			StatusCode: base.StatusFound,
 			Header: base.Header{
 				"Location": base.HeaderValue{absoluteURL(ctx.Request, res.Redirect)},
 			},

@@ -48,6 +48,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	userAgent string
 	reader    *stream.Reader
 }
 
@@ -141,6 +142,7 @@ func (c *conn) runReader() error {
 
 	c.mutex.Lock()
 	c.rconn = conn
+	c.userAgent = conn.FlashVer
 	c.mutex.Unlock()
 
 	if !conn.Publish {
@@ -156,10 +158,11 @@ func (c *conn) runRead() error {
 	res, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
-			Name:  pathName,
-			Query: c.rconn.URL.RawQuery,
-			Proto: auth.ProtocolRTMP,
-			ID:    &c.uuid,
+			Name:      pathName,
+			Query:     c.rconn.URL.RawQuery,
+			UserAgent: c.userAgent,
+			Proto:     auth.ProtocolRTMP,
+			ID:        &c.uuid,
 			Credentials: &auth.Credentials{
 				User: query.Get("user"),
 				Pass: query.Get("pass"),
@@ -168,8 +171,7 @@ func (c *conn) runRead() error {
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
 			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 			return terr
@@ -249,11 +251,12 @@ func (c *conn) runPublish() error {
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
 		AccessRequest: defs.PathAccessRequest{
-			Name:    pathName,
-			Query:   c.rconn.URL.RawQuery,
-			Publish: true,
-			Proto:   auth.ProtocolRTMP,
-			ID:      &c.uuid,
+			Name:      pathName,
+			Query:     c.rconn.URL.RawQuery,
+			Publish:   true,
+			UserAgent: c.userAgent,
+			Proto:     auth.ProtocolRTMP,
+			ID:        &c.uuid,
 			Credentials: &auth.Credentials{
 				User: query.Get("user"),
 				Pass: query.Get("pass"),
@@ -262,8 +265,7 @@ func (c *conn) runPublish() error {
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
 			// wait some seconds to delay brute force attacks
 			<-time.After(auth.PauseAfterError)
 			return terr
@@ -344,6 +346,7 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 		Path:                    c.pathName,
 		Query:                   c.query,
 		User:                    c.user,
+		UserAgent:               c.userAgent,
 		InboundBytes:            bytesReceived,
 		OutboundBytes:           bytesSent,
 		BytesReceived:           bytesReceived,

@@ -14,9 +14,7 @@ import (
 )
 
 func TestRecordingsList(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -32,7 +30,7 @@ func TestRecordingsList(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -85,9 +83,7 @@ func TestRecordingsList(t *testing.T) {
 }
 
 func TestRecordingsGet(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -102,7 +98,7 @@ func TestRecordingsGet(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -135,9 +131,7 @@ func TestRecordingsGet(t *testing.T) {
 }
 
 func TestRecordingsDeleteSegment(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -152,7 +146,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -189,9 +183,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 }
 
 func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -206,7 +198,7 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -242,9 +234,7 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 }
 
 func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -259,7 +249,7 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 

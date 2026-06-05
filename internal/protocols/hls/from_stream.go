@@ -2,14 +2,17 @@
 package hls
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/flac"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -19,7 +22,7 @@ import (
 
 // ErrNoSupportedCodecs is returned by FromStream when there are no supported codecs.
 var ErrNoSupportedCodecs = errors.New(
-	"the stream doesn't contain any supported codec, which are currently AV1, VP9, H265, H264, Opus, MPEG-4 Audio")
+	"the stream doesn't contain any supported codec, which are currently AV1, VP9, H265, H264, Opus, MPEG-4 Audio, KLV")
 
 func setupVideoTrack(
 	desc *description.Session,
@@ -182,7 +185,7 @@ func setupAudioTracks(
 	desc *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
-) {
+) error {
 	addTrack := func(
 		medi *description.Media,
 		forma format.Format,
@@ -220,6 +223,48 @@ func setupAudioTracks(
 
 						return nil
 					})
+
+			case *format.Generic:
+				if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") {
+					enc, err := hex.DecodeString(forma.FMT["streaminfo"])
+					if err != nil {
+						return err
+					}
+
+					var streamInfo flac.StreamInfo
+					err = streamInfo.Unmarshal(enc)
+					if err != nil {
+						return err
+					}
+
+					track := &gohlslib.Track{
+						Codec: &codecs.FLAC{
+							StreamInfo: &streamInfo,
+						},
+						ClockRate: forma.ClockRate(),
+					}
+
+					addTrack(
+						media,
+						forma,
+						track,
+						func(u *unit.Unit) error {
+							if u.NilPayload() {
+								return nil
+							}
+
+							err2 := muxer.WriteFLAC(
+								track,
+								u.NTP,
+								u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+								u.Payload.(unit.PayloadFLAC))
+							if err2 != nil {
+								return fmt.Errorf("muxer error: %w", err2)
+							}
+
+							return nil
+						})
+				}
 
 			case *format.MPEG4Audio:
 				track := &gohlslib.Track{
@@ -285,6 +330,56 @@ func setupAudioTracks(
 			}
 		}
 	}
+
+	return nil
+}
+
+func setupDataTracks(
+	desc *description.Session,
+	r *stream.Reader,
+	muxer *gohlslib.Muxer,
+) {
+	addTrack := func(
+		media *description.Media,
+		forma format.Format,
+		track *gohlslib.Track,
+		onData stream.OnDataFunc,
+	) {
+		muxer.Tracks = append(muxer.Tracks, track)
+		r.OnData(media, forma, onData)
+	}
+
+	for _, media := range desc.Medias {
+		for _, forma := range media.Formats {
+			if forma, ok := forma.(*format.KLV); ok && muxer.Variant == gohlslib.MuxerVariantMPEGTS {
+				track := &gohlslib.Track{
+					Codec:     &codecs.KLV{Synchronous: true},
+					ClockRate: forma.ClockRate(),
+				}
+
+				addTrack(
+					media,
+					forma,
+					track,
+					func(u *unit.Unit) error {
+						if u.NilPayload() {
+							return nil
+						}
+
+						err := muxer.WriteKLV(
+							track,
+							u.NTP,
+							u.PTS, // no conversion is needed since we set gohlslib.Track.ClockRate = format.ClockRate
+							u.Payload.(unit.PayloadKLV))
+						if err != nil {
+							return fmt.Errorf("muxer error: %w", err)
+						}
+
+						return nil
+					})
+			}
+		}
+	}
 }
 
 // FromStream maps a MediaMTX stream to a HLS muxer.
@@ -299,7 +394,16 @@ func FromStream(
 		muxer,
 	)
 
-	setupAudioTracks(
+	err := setupAudioTracks(
+		desc,
+		r,
+		muxer,
+	)
+	if err != nil {
+		return err
+	}
+
+	setupDataTracks(
 		desc,
 		r,
 		muxer,

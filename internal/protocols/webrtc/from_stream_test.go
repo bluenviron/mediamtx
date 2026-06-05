@@ -37,7 +37,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -80,7 +80,7 @@ func TestFromStream(t *testing.T) {
 			err := FromStream(desc, r, pc)
 			require.NoError(t, err)
 
-			require.Equal(t, ca.webrtcCaps, pc.OutgoingTracks[0].Caps)
+			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
 		})
 	}
 }
@@ -136,10 +136,10 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
-	offer, err := pc1.CreatePartialOffer()
+	offer, err := pc1.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pc2.CreateFullAnswer(offer)
+	answer, err := pc2.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	err = pc1.SetAnswer(answer)
@@ -186,10 +186,10 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	err = pc1.GatherIncomingTracks(2 * time.Second)
+	err = pc1.GatherInboundTracks(2 * time.Second)
 	require.NoError(t, err)
 
-	tracks := pc1.IncomingTracks()
+	tracks := pc1.InboundTracks()
 
 	done := make(chan struct{})
 	n := 0
@@ -264,10 +264,10 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(pcPublisher.Close)
 
-	offer, err := pcReader.CreatePartialOffer()
+	offer, err := pcReader.CreatePartialOffer(false)
 	require.NoError(t, err)
 
-	answer, err := pcPublisher.CreateFullAnswer(offer)
+	answer, err := pcPublisher.CreateFullAnswer(offer, false)
 	require.NoError(t, err)
 
 	err = pcReader.SetAnswer(answer)
@@ -302,10 +302,10 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 		}},
 	})
 
-	err = pcReader.GatherIncomingTracks(2 * time.Second)
+	err = pcReader.GatherInboundTracks(2 * time.Second)
 	require.NoError(t, err)
 
-	tracks := pcReader.IncomingTracks()
+	tracks := pcReader.InboundTracks()
 	require.Len(t, tracks, 1)
 
 	done := make(chan struct{})

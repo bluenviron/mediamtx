@@ -15,7 +15,10 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 
 	for _, o := range allowOrigins {
 		if o == "*" {
-			return o, true
+			if origin != "" {
+				return origin, true
+			}
+			return "*", true
 		}
 	}
 

@@ -31,11 +31,9 @@ func TestOnList(t *testing.T) {
 		"start before first",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-playback")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
 			switch ca {
@@ -289,11 +287,9 @@ func TestOnListInvalidPath(t *testing.T) {
 }
 
 func TestOnListCachedDuration(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
 	func() {
@@ -371,11 +367,9 @@ func TestOnListCachedDuration(t *testing.T) {
 }
 
 func TestOnListXForwardedProto(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
 	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))

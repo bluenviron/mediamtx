@@ -18,7 +18,7 @@ func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {
 
 func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	var p conf.OptionalPath
-	err := jsonwrapper.Decode(ctx.Request.Body, &p)
+	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

@@ -3,7 +3,6 @@
 package teste2e
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -42,11 +41,11 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				proto = "rtsp"
 				port = "8554"
 
-				p, ok := newInstance("rtmp: no\n" +
-					"hls: no\n" +
-					"webrtc: no\n" +
-					"readTimeout: 20s\n" +
-					"paths:\n" +
+				p, ok := newInstance(t, "rtmp: no\n"+
+					"hls: no\n"+
+					"webrtc: no\n"+
+					"readTimeout: 20s\n"+
+					"paths:\n"+
 					"  all_others:\n")
 				require.Equal(t, true, ok)
 				defer p.Close()
@@ -54,23 +53,18 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				proto = "rtsps"
 				port = "8322"
 
-				serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-				require.NoError(t, err)
-				defer os.Remove(serverCertFpath)
+				serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+				serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
-				serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-				require.NoError(t, err)
-				defer os.Remove(serverKeyFpath)
-
-				p, ok := newInstance("rtmp: no\n" +
-					"hls: no\n" +
-					"webrtc: no\n" +
-					"readTimeout: 20s\n" +
-					"rtspTransports: [tcp]\n" +
-					"rtspEncryption: \"yes\"\n" +
-					"rtspServerCert: " + serverCertFpath + "\n" +
-					"rtspServerKey: " + serverKeyFpath + "\n" +
-					"paths:\n" +
+				p, ok := newInstance(t, "rtmp: no\n"+
+					"hls: no\n"+
+					"webrtc: no\n"+
+					"readTimeout: 20s\n"+
+					"rtspTransports: [tcp]\n"+
+					"rtspEncryption: \"yes\"\n"+
+					"rtspServerCert: "+serverCertFpath+"\n"+
+					"rtspServerKey: "+serverKeyFpath+"\n"+
+					"paths:\n"+
 					"  all_others:\n")
 				require.Equal(t, true, ok)
 				defer p.Close()
@@ -199,13 +193,13 @@ func TestRTSPServerPublishRead(t *testing.T) {
 }
 
 func TestRTSPServerRedirect(t *testing.T) {
-	p1, ok := newInstance("rtmp: no\n" +
-		"hls: no\n" +
-		"webrtc: no\n" +
-		"paths:\n" +
-		"  path1:\n" +
-		"    source: redirect\n" +
-		"    sourceRedirect: rtsp://localhost:8554/path2\n" +
+	p1, ok := newInstance(t, "rtmp: no\n"+
+		"hls: no\n"+
+		"webrtc: no\n"+
+		"paths:\n"+
+		"  path1:\n"+
+		"    source: redirect\n"+
+		"    sourceRedirect: rtsp://localhost:8554/path2\n"+
 		"  path2:\n")
 	require.Equal(t, true, ok)
 	defer p1.Close()

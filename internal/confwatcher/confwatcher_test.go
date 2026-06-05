@@ -16,11 +16,10 @@ func TestNoFile(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	fpath, err := test.CreateTempFile([]byte("{}"))
-	require.NoError(t, err)
+	fpath := test.CreateTempFile(t, []byte("{}"))
 
 	w := &ConfWatcher{FilePath: fpath}
-	err = w.Initialize()
+	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
 
@@ -43,11 +42,10 @@ func TestWrite(t *testing.T) {
 }
 
 func TestWriteMultipleTimes(t *testing.T) {
-	fpath, err := test.CreateTempFile([]byte("{}"))
-	require.NoError(t, err)
+	fpath := test.CreateTempFile(t, []byte("{}"))
 
 	w := &ConfWatcher{FilePath: fpath}
-	err = w.Initialize()
+	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
 
@@ -87,15 +85,15 @@ func TestWriteMultipleTimes(t *testing.T) {
 }
 
 func TestDeleteCreate(t *testing.T) {
-	fpath, err := test.CreateTempFile([]byte("{}"))
-	require.NoError(t, err)
+	fpath := test.CreateTempFile(t, []byte("{}"))
 
 	w := &ConfWatcher{FilePath: fpath}
-	err = w.Initialize()
+	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
 
 	os.Remove(fpath)
+
 	time.Sleep(10 * time.Millisecond)
 
 	func() {
@@ -117,10 +115,9 @@ func TestDeleteCreate(t *testing.T) {
 }
 
 func TestSymlinkDeleteCreate(t *testing.T) {
-	fpath, err := test.CreateTempFile([]byte("{}"))
-	require.NoError(t, err)
+	fpath := test.CreateTempFile(t, []byte("{}"))
 
-	err = os.Symlink(fpath, fpath+"-sym")
+	err := os.Symlink(fpath, fpath+"-sym")
 	require.NoError(t, err)
 
 	w := &ConfWatcher{FilePath: fpath + "-sym"}
