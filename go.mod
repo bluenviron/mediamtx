@@ -109,3 +109,5 @@ require (
 )
 
 replace github.com/quic-go/webtransport-go => github.com/aler9/webtransport-go v0.0.0-20260604211153-27af9c338497
+
+replace github.com/pion/dtls/v3 => github.com/aler9/dtls/v3 v3.0.0-20260606084748-e63367ce9e60
