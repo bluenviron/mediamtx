@@ -63,8 +63,8 @@ func TestServer(t *testing.T) {
 	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
 
 	s := &Server{
-		HTTPS2Address:  "127.0.0.1:19895",
-		HTTPS3Address:  "127.0.0.1:19896",
+		HTTP2Address:   "127.0.0.1:19895",
+		HTTP3Address:   "127.0.0.1:19896",
 		ServerCert:     serverCertFile,
 		ServerKey:      serverKeyFile,
 		AllowOrigins:   []string{"*"},

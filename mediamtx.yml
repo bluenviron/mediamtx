@@ -443,12 +443,12 @@ srtAddress: :8890
 
 # Enable the MoQ (Media over QUIC) server, which allows to publish and read streams with the MoQ protocol.
 moq: true
-# Address of the TCP/HTTPS2 listener.
+# Address of the TCP/HTTP2 listener.
 # This hosts the web client.
-moqHTTPS2Address: :8892
-# Address of the UDP/HTTPS3 listener.
+moqHTTP2Address: :8892
+# Address of the UDP/HTTP3 listener.
 # This hosts the WebTransport endpoint.
-moqHTTPS3Address: :8892
+moqHTTP3Address: :8892
 # Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
