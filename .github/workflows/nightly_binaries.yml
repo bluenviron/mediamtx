@@ -3,6 +3,9 @@ name: nightly_binaries
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   nightly_binaries:
     runs-on: ubuntu-24.04
