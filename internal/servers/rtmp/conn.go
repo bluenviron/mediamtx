@@ -171,12 +171,6 @@ func (c *conn) runRead() error {
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-			return terr
-		}
 		return err
 	}
 
@@ -266,12 +260,6 @@ func (c *conn) runPublish() error {
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-			return terr
-		}
 		return err
 	}
 

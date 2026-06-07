@@ -11,7 +11,7 @@ Media-over-QUIC has a wide range of features and variants, most of them in activ
 
 - We support `draft-18` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
 - We only support using Media-over-QUIC through browsers and in particular through the WebTransport API. We do not support using QUIC directly.
-- We support the `PUBLISH` and `SUBSCRIBE` messages only, which are the ones meant to be used by a routing solution like _MediaMTX_.
+- We support the `PUBLISH` and `SUBSCRIBE` messages only, which are the ones meant to be used with a routing solution like _MediaMTX_.
 - We use the MOQT Streaming Format (MSF) to advertise tracks, described in [this specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-msf-00).
 - We use the Low Overhead Media Container (LOC) to ship frames, described in [this specification](https://datatracker.ietf.org/doc/draft-ietf-moq-loc/).
 - We host web pages through a HTTP/2 listener and host the WebTransport endpoint through a HTTP/3 listener. This hybrid setup allows to use self-signed certificates, that are normally forbidden in pure HTTP/3.
@@ -23,7 +23,7 @@ There are some server requirements:
 
 And there are some client (browser) requirements:
 
-- If the server certificate is self-signed, browser must support the [serverCertificatesHashes option](https://caniuse.com/mdn-api_webtransport_webtransport_options_servercertificatehashes_parameter) (all except iOS safari do).
+- If the server certificate is self-signed, browser must support the [serverCertificatesHashes option](https://caniuse.com/mdn-api_webtransport_webtransport_options_servercertificatehashes_parameter) (all except iOS Safari do).
 - Browser must support [WebTransport](https://caniuse.com/webtransport) and [WebCodecs](https://caniuse.com/webcodecs) (all modern browsers do)
 - When publishing tracks, the browser to support [MediaStreamTrackProcessor](https://caniuse.com/mdn-api_mediastreamtrackprocessor) (only Chrome does).
 

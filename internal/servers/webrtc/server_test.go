@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1160,7 +1161,7 @@ func TestAuthError(t *testing.T) {
 		"whip post",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			authFailed := false
+			var authFailed atomic.Bool
 
 			s := &Server{
 				Address:      "127.0.0.1:8886",
@@ -1175,11 +1176,13 @@ func TestAuthError(t *testing.T) {
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					},
 				},
-				Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-					if l == logger.Info {
-						if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
-							authFailed = true
+				Parent: test.Logger(func(_ logger.Level, s string, i ...any) {
+					if ca == "whip post" {
+						if regexp.MustCompile("authentication failed: auth error$").MatchString(fmt.Sprintf(s, i...)) {
+							authFailed.Store(true)
 						}
+					} else if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
+						authFailed.Store(true)
 					}
 				}),
 			}
@@ -1250,17 +1253,13 @@ func TestAuthError(t *testing.T) {
 
 			require.NoError(t, err)
 
-			start := time.Now()
-
 			res, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)
 			defer res.Body.Close()
 
-			require.Greater(t, time.Since(start), 2*time.Second)
-
 			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
-			require.True(t, authFailed)
+			require.True(t, authFailed.Load())
 		})
 	}
 }

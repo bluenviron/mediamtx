@@ -21,9 +21,6 @@ import (
 )
 
 const (
-	// PauseAfterError is the pause to apply after an authentication failure.
-	PauseAfterError = 2 * time.Second
-
 	maxInboundBodySize = 128 * 1024
 	jwksRefreshPeriod  = 60 * 60 * time.Second
 )

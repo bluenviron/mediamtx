@@ -20,28 +20,34 @@ func (w *connKeyLogWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-type tlsListener struct {
-	Listener  net.Listener
+var _ net.Listener = (*TLSListener)(nil)
+
+// TLSListener is a wrapper around a net.Listener that dumps TLS master secrets to disk.
+type TLSListener struct {
+	Wrapped   net.Listener
 	TLSConfig *tls.Config
 }
 
-func (l *tlsListener) Close() error {
-	return l.Listener.Close()
+// Close implements net.Listener.
+func (l *TLSListener) Close() error {
+	return l.Wrapped.Close()
 }
 
-func (l *tlsListener) Addr() net.Addr {
-	return l.Listener.Addr()
+// Addr implements net.Listener.
+func (l *TLSListener) Addr() net.Addr {
+	return l.Wrapped.Addr()
 }
 
-func (l *tlsListener) Accept() (net.Conn, error) {
-	netConn, err := l.Listener.Accept()
+// Accept implements net.Listener.
+func (l *TLSListener) Accept() (net.Conn, error) {
+	netConn, err := l.Wrapped.Accept()
 	if err != nil {
 		return nil, err
 	}
 
 	tlsConfig := l.TLSConfig.Clone()
 	pdConn := netConn.(*conn)
-	pdConn.expectingSecrets = 4
+	pdConn.expectingSecrets.Store(4)
 	tlsConfig.KeyLogWriter = &connKeyLogWriter{c: pdConn}
 
 	return tls.Server(netConn, tlsConfig), nil
