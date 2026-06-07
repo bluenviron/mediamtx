@@ -609,9 +609,9 @@ components:
         # MoQ server
         moq:
           type: boolean
-        moqHTTPS2Address:
+        moqHTTP2Address:
           type: string
-        moqHTTPS3Address:
+        moqHTTP3Address:
           type: string
         moqServerKey:
           type: string
@@ -625,6 +625,14 @@ components:
           type: array
           items:
             type: string
+        moqHTTPS2Address:
+          type: string
+          nullable: true
+          deprecated: true
+        moqHTTPS3Address:
+          type: string
+          nullable: true
+          deprecated: true
 
         # Record (deprecated)
         record:

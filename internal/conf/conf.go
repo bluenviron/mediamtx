@@ -398,12 +398,14 @@ type Conf struct {
 
 	// MoQ server
 	MoQ               bool       `json:"moq"`
-	MoQHTTPS2Address  string     `json:"moqHTTPS2Address"`
-	MoQHTTPS3Address  string     `json:"moqHTTPS3Address"`
+	MoQHTTP2Address   string     `json:"moqHTTP2Address"`
+	MoQHTTP3Address   string     `json:"moqHTTP3Address"`
 	MoQServerKey      string     `json:"moqServerKey"`
 	MoQServerCert     string     `json:"moqServerCert"`
 	MoQAllowOrigins   []string   `json:"moqAllowOrigins"`
 	MoQTrustedProxies IPNetworks `json:"moqTrustedProxies"`
+	MoQHTTPS2Address  *string    `json:"moqHTTPS2Address,omitempty" deprecated:"true"`
+	MoQHTTPS3Address  *string    `json:"moqHTTPS3Address,omitempty" deprecated:"true"`
 
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty" deprecated:"true"`
@@ -535,8 +537,8 @@ func (conf *Conf) setDefaults() {
 
 	// MoQ server
 	conf.MoQ = true
-	conf.MoQHTTPS2Address = ":8892"
-	conf.MoQHTTPS3Address = ":8892"
+	conf.MoQHTTP2Address = ":8892"
+	conf.MoQHTTP3Address = ":8892"
 	conf.MoQServerKey = "auto.key"
 	conf.MoQServerCert = "auto.crt"
 	conf.MoQAllowOrigins = []string{"*"}
@@ -1040,6 +1042,18 @@ func (conf *Conf) Validate(l logger.Writer) error {
 				return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled")
 			}
 		}
+	}
+
+	if conf.MoQHTTPS2Address != nil {
+		l.Log(logger.Warn, "parameter 'moqHTTPS2Address' is deprecated "+
+			"and has been replaced with 'moqHTTP2Address'")
+		conf.MoQHTTP2Address = *conf.MoQHTTPS2Address
+	}
+
+	if conf.MoQHTTPS3Address != nil {
+		l.Log(logger.Warn, "parameter 'moqHTTPS3Address' is deprecated "+
+			"and has been replaced with 'moqHTTP3Address'")
+		conf.MoQHTTP3Address = *conf.MoQHTTPS3Address
 	}
 
 	// Record (deprecated)
