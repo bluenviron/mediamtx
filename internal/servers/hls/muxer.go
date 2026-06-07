@@ -309,12 +309,6 @@ func (m *muxer) addSession(sx *session) ([]format.Format, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	select {
-	case <-m.ctx.Done():
-		return nil, fmt.Errorf("terminated")
-	default:
-	}
-
 	if m.instance == nil {
 		return nil, fmt.Errorf("muxer instance not available")
 	}
@@ -327,6 +321,7 @@ func (m *muxer) addSession(sx *session) ([]format.Format, error) {
 	} else {
 		m.sessionsBySecret[sx.secret] = sx
 	}
+
 	return m.instance.reader.Formats(), nil
 }
 

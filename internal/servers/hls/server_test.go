@@ -768,7 +768,7 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 			if ca == "always remux off" {
 				require.Equal(t, defs.APIError{
 					Status: defs.APIErrorStatusError,
-					Error:  "terminated",
+					Error:  "muxer instance not available",
 				}, payload)
 			} else {
 				require.Equal(t, defs.APIError{
