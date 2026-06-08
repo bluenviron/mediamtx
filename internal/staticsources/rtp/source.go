@@ -96,10 +96,27 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			UDPReadBufferSize: int(udpReadBufferSize),
 		}
 
-		if s.DumpPackets {
-			l.ListenPacket = (&packetdumper.ListenPacket{
-				Prefix: "rtp_source_packet_conn",
-			}).Do
+		l.ListenPacket = func(network, address string) (net.PacketConn, error) {
+			pc, err2 := net.ListenPacket(network, address)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			if s.DumpPackets {
+				pc2 := &packetdumper.PacketConn{
+					Wrapped: pc,
+					Prefix:  "rtp_source_packet_conn",
+				}
+				err2 = pc2.Initialize()
+				if err2 != nil {
+					pc.Close() //nolint:errcheck
+					return nil, err2
+				}
+
+				pc = pc2
+			}
+
+			return pc, nil
 		}
 
 		err = l.Initialize()

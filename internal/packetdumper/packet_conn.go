@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var _ net.PacketConn = (*packetConn)(nil)
+var _ net.PacketConn = (*PacketConn)(nil)
 
 type extendedPacketConn interface {
 	net.PacketConn
@@ -28,10 +28,10 @@ type packetDumpEntry struct {
 	src, dst *net.UDPAddr
 }
 
-// packetConn is a wrapper around net.PacketConn that dumps packets to disk.
-type packetConn struct {
-	Prefix     string
-	PacketConn net.PacketConn
+// PacketConn is a wrapper around net.PacketConn that dumps packets to disk.
+type PacketConn struct {
+	Prefix  string
+	Wrapped net.PacketConn
 
 	f    *os.File
 	pw   *pcapgo.NgWriter
@@ -43,7 +43,7 @@ type packetConn struct {
 }
 
 // Initialize initializes packetConn.
-func (c *packetConn) Initialize() error {
+func (c *PacketConn) Initialize() error {
 	var err error
 	c.f, err = os.Create(fmt.Sprintf("%s_%d_%s.pcapng", c.Prefix, time.Now().UnixNano(), uuid.New().String()))
 	if err != nil {
@@ -66,15 +66,15 @@ func (c *packetConn) Initialize() error {
 }
 
 // Close implements net.PacketConn.
-func (c *packetConn) Close() error {
+func (c *PacketConn) Close() error {
 	c.once.Do(func() {
 		close(c.terminated)
 	})
 	<-c.done
-	return c.PacketConn.Close()
+	return c.Wrapped.Close()
 }
 
-func (c *packetConn) run() {
+func (c *PacketConn) run() {
 	defer close(c.done)
 	defer c.f.Close()
 
@@ -97,7 +97,7 @@ func (c *packetConn) run() {
 	}
 }
 
-func (c *packetConn) writePacket(ntp time.Time, src, dst *net.UDPAddr, payload []byte) {
+func (c *PacketConn) writePacket(ntp time.Time, src, dst *net.UDPAddr, payload []byte) {
 	eth := &layers.Ethernet{
 		SrcMAC:       net.HardwareAddr{0, 0, 0, 0, 0, 0},
 		DstMAC:       net.HardwareAddr{0, 0, 0, 0, 0, 0},
@@ -130,7 +130,7 @@ func (c *packetConn) writePacket(ntp time.Time, src, dst *net.UDPAddr, payload [
 	}, raw)
 }
 
-func (c *packetConn) enqueue(e packetDumpEntry) {
+func (c *PacketConn) enqueue(e packetDumpEntry) {
 	select {
 	case c.queue <- e:
 	case <-c.terminated:
@@ -138,11 +138,11 @@ func (c *packetConn) enqueue(e packetDumpEntry) {
 }
 
 // ReadFrom implements net.PacketConn.
-func (c *packetConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	n, addr, err = c.PacketConn.ReadFrom(p)
+func (c *PacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, addr, err = c.Wrapped.ReadFrom(p)
 
 	if n != 0 {
-		local := c.PacketConn.LocalAddr().(*net.UDPAddr)
+		local := c.Wrapped.LocalAddr().(*net.UDPAddr)
 		remote := addr.(*net.UDPAddr)
 
 		c.enqueue(packetDumpEntry{
@@ -157,11 +157,11 @@ func (c *packetConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 }
 
 // WriteTo implements net.PacketConn.
-func (c *packetConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	n, err = c.PacketConn.WriteTo(p, addr)
+func (c *PacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	n, err = c.Wrapped.WriteTo(p, addr)
 
 	if err == nil {
-		local := c.PacketConn.LocalAddr().(*net.UDPAddr)
+		local := c.Wrapped.LocalAddr().(*net.UDPAddr)
 		remote := addr.(*net.UDPAddr)
 
 		c.enqueue(packetDumpEntry{
@@ -176,23 +176,23 @@ func (c *packetConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 // LocalAddr implements net.PacketConn.
-func (c *packetConn) LocalAddr() net.Addr { return c.PacketConn.LocalAddr() }
+func (c *PacketConn) LocalAddr() net.Addr { return c.Wrapped.LocalAddr() }
 
 // SetDeadline implements net.PacketConn.
-func (c *packetConn) SetDeadline(t time.Time) error { return c.PacketConn.SetDeadline(t) }
+func (c *PacketConn) SetDeadline(t time.Time) error { return c.Wrapped.SetDeadline(t) }
 
 // SetReadDeadline implements net.PacketConn.
-func (c *packetConn) SetReadDeadline(t time.Time) error { return c.PacketConn.SetReadDeadline(t) }
+func (c *PacketConn) SetReadDeadline(t time.Time) error { return c.Wrapped.SetReadDeadline(t) }
 
 // SetWriteDeadline implements net.PacketConn.
-func (c *packetConn) SetWriteDeadline(t time.Time) error { return c.PacketConn.SetWriteDeadline(t) }
+func (c *PacketConn) SetWriteDeadline(t time.Time) error { return c.Wrapped.SetWriteDeadline(t) }
 
 // SetReadBuffer implements extendedPacketConn.
-func (c *packetConn) SetReadBuffer(bytes int) error {
-	return c.PacketConn.(extendedPacketConn).SetReadBuffer(bytes)
+func (c *PacketConn) SetReadBuffer(bytes int) error {
+	return c.Wrapped.(extendedPacketConn).SetReadBuffer(bytes)
 }
 
 // SyscallConn implements extendedPacketConn.
-func (c *packetConn) SyscallConn() (syscall.RawConn, error) {
-	return c.PacketConn.(extendedPacketConn).SyscallConn()
+func (c *PacketConn) SyscallConn() (syscall.RawConn, error) {
+	return c.Wrapped.(extendedPacketConn).SyscallConn()
 }

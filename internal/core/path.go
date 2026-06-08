@@ -1057,12 +1057,14 @@ func (pa *path) StaticSourceHandlerSetNotReady(
 }
 
 // describe is called by a reader or publisher through pathManager.
-func (pa *path) describe(req defs.PathDescribeReq) defs.PathDescribeRes {
+func (pa *path) describe(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
 	select {
 	case pa.chDescribe <- req:
-		return <-req.Res
+		res := <-req.Res
+		return &res, res.Err
+
 	case <-pa.ctx.Done():
-		return defs.PathDescribeRes{Err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	}
 }
 

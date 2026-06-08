@@ -449,6 +449,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RTSPAuthMethod"
+        rtspTrustedProxies:
+          type: array
+          items:
+            type: string
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
@@ -472,6 +476,10 @@ components:
           type: string
         rtmpServerCert:
           type: string
+        rtmpTrustedProxies:
+          type: array
+          items:
+            type: string
 
         # HLS server
         hls:
@@ -601,9 +609,9 @@ components:
         # MoQ server
         moq:
           type: boolean
-        moqHTTPS2Address:
+        moqHTTP2Address:
           type: string
-        moqHTTPS3Address:
+        moqHTTP3Address:
           type: string
         moqServerKey:
           type: string
@@ -617,6 +625,14 @@ components:
           type: array
           items:
             type: string
+        moqHTTPS2Address:
+          type: string
+          nullable: true
+          deprecated: true
+        moqHTTPS3Address:
+          type: string
+          nullable: true
+          deprecated: true
 
         # Record (deprecated)
         record:

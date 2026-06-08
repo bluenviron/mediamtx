@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/gopacket"
@@ -72,7 +73,7 @@ type conn struct {
 	Conn       net.Conn
 	ServerSide bool
 
-	expectingSecrets   int
+	expectingSecrets   atomic.Int32
 	f                  *os.File
 	pw                 *pcapgo.NgWriter
 	once               sync.Once
@@ -157,7 +158,7 @@ func (c *conn) run() {
 }
 
 func (c *conn) processEntry(e dumpEntry) {
-	if c.expectingSecrets > 0 && e.direction != dirSecret {
+	if c.expectingSecrets.Load() > 0 && e.direction != dirSecret {
 		c.delayed = append(c.delayed, e)
 		return
 	}
@@ -189,8 +190,7 @@ func (c *conn) processEntry(e dumpEntry) {
 		c.pw.Flush() //nolint:errcheck
 		writeDecryptionSecretsBlock(c.f, e.data)
 
-		c.expectingSecrets--
-		if c.expectingSecrets == 0 {
+		if c.expectingSecrets.Add(-1) == 0 {
 			for _, e2 := range c.delayed {
 				c.processEntry(e2)
 			}

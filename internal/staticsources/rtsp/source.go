@@ -3,6 +3,7 @@ package rtsp
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"time"
 
@@ -190,16 +191,35 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			Prefix: u.Scheme + "_source_conn",
 		}).Do
 
-		c.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix: u.Scheme + "_source_packet_conn",
-		}).Do
-
 		c.DialTLSContext = (&packetdumper.DialTLSContext{
 			DialContext: c.DialContext,
 			TLSConfig:   tlsConfig,
 		}).Do
 	} else {
 		c.TLSConfig = tlsConfig
+	}
+
+	c.ListenPacket = func(network, address string) (net.PacketConn, error) {
+		pc, err2 := net.ListenPacket(network, address)
+		if err2 != nil {
+			return nil, err2
+		}
+
+		if s.DumpPackets {
+			pc2 := &packetdumper.PacketConn{
+				Wrapped: pc,
+				Prefix:  u.Scheme + "_source_packet_conn",
+			}
+			err2 = pc2.Initialize()
+			if err2 != nil {
+				pc.Close() //nolint:errcheck
+				return nil, err2
+			}
+
+			pc = pc2
+		}
+
+		return pc, nil
 	}
 
 	err = c.Start()

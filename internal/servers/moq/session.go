@@ -358,11 +358,6 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 		},
 	})
 	if err != nil {
-		if _, ok := errors.AsType[*auth.Error](err); ok {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-		}
-
 		var code controlmessage.RequestErrorCode
 		if _, ok := errors.AsType[*auth.Error](err); ok {
 			code = controlmessage.RequestErrorCodeUnauthorized
@@ -595,11 +590,6 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 			},
 		})
 		if err != nil {
-			if _, ok := errors.AsType[*auth.Error](err); ok {
-				// wait some seconds to delay brute force attacks
-				<-time.After(auth.PauseAfterError)
-			}
-
 			var code controlmessage.RequestErrorCode
 			if _, ok := errors.AsType[*auth.Error](err); ok {
 				code = controlmessage.RequestErrorCodeUnauthorized

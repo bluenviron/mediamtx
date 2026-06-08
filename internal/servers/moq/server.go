@@ -78,8 +78,8 @@ type serverMetrics interface {
 
 // Server is a Media over QUIC server.
 type Server struct {
-	HTTPS2Address     string
-	HTTPS3Address     string
+	HTTP2Address      string
+	HTTP3Address      string
 	ServerKey         string
 	ServerCert        string
 	AllowOrigins      []string
@@ -107,8 +107,8 @@ type Server struct {
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
 	s.httpServer = &httpServer{
-		https2Address:     s.HTTPS2Address,
-		https3Address:     s.HTTPS3Address,
+		http2Address:      s.HTTP2Address,
+		http3Address:      s.HTTP3Address,
 		serverKey:         s.ServerKey,
 		serverCert:        s.ServerCert,
 		allowOrigins:      s.AllowOrigins,
@@ -133,7 +133,7 @@ func (s *Server) Initialize() error {
 	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
 	s.done = make(chan struct{})
 
-	s.Log(logger.Info, "started with listeners on %s (TCP/HTTPS2), %s (UDP/HTTP3)", s.HTTPS2Address, s.HTTPS3Address)
+	s.Log(logger.Info, "started with listeners on %s (TCP/HTTP2), %s (UDP/HTTP3)", s.HTTP2Address, s.HTTP3Address)
 
 	go s.run()
 
