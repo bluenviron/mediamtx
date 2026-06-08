@@ -886,3 +886,50 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 
 	<-dataReceived
 }
+
+func TestPeerConnectionAdditionalHostsUnresolvable(t *testing.T) {
+	// A host in AdditionalHosts that can't be resolved server-side - for
+	// instance air-gapped networks without DNS, or split-horizon / overlay
+	// DNS names that only resolve on the client - must be skipped instead of
+	// aborting the session; the other (valid) entries must still produce
+	// candidates.
+	clientPC := &PeerConnection{
+		LocalRandomUDP:        true,
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{"lo"},
+		Log:                   test.NilLogger,
+	}
+	err := clientPC.Start()
+	require.NoError(t, err)
+	defer clientPC.Close()
+
+	ln, err := net.ListenPacket("udp4", ":0")
+	require.NoError(t, err)
+	defer ln.Close()
+	udpMux := webrtc.NewICEUDPMux(webrtcNilLogger, ln)
+
+	serverPC := &PeerConnection{
+		ICEUDPMux:       udpMux,
+		AdditionalHosts: []string{"127.0.0.1", "unresolvable.invalid"},
+		Publish:         true,
+		OutboundTracks: []*OutboundTrack{{
+			Caps: webrtc.RTPCodecCapability{
+				MimeType:  webrtc.MimeTypeAV1,
+				ClockRate: 90000,
+			},
+		}},
+		Log: test.NilLogger,
+	}
+	err = serverPC.Start()
+	require.NoError(t, err)
+	defer serverPC.Close()
+
+	offer, err := clientPC.CreatePartialOffer(false)
+	require.NoError(t, err)
+
+	answer, err := serverPC.CreateFullAnswer(offer, false)
+	require.NoError(t, err)
+
+	require.Contains(t, answer.SDP, "127.0.0.1")
+	require.NotContains(t, answer.SDP, "unresolvable.invalid")
+}
