@@ -1307,3 +1307,29 @@ func TestStreamEncode(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamUpgradeH264PacketizationMode(t *testing.T) {
+	forma := &format.H264{
+		PacketizationMode: 0,
+		SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+		PPS:               []byte{0x08, 0x06},
+	}
+
+	strm := &Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{{Formats: []format.Format{forma}}}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	outDesc := strm.OutDescCopy()
+
+	require.Equal(t, &format.H264{
+		PacketizationMode: 1,
+		SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+		PPS:               []byte{0x08, 0x06},
+	}, outDesc.Medias[0].Formats[0])
+}
