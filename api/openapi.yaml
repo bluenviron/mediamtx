@@ -782,6 +782,8 @@ components:
           $ref: "#/components/schemas/RTSPRangeType"
         rtspRangeStart:
           type: string
+        rtspScale:
+          type: string
         rtspUDPReadBufferSize:
           type: integer
           format: uint64

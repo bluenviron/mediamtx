@@ -257,6 +257,7 @@ type Path struct {
 	SourceAnyPortEnable    *bool          `json:"sourceAnyPortEnable,omitempty" deprecated:"true"`
 	RTSPRangeType          RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart         string         `json:"rtspRangeStart"`
+	RTSPScale              string         `json:"rtspScale"`
 	RTSPUDPReadBufferSize  *uint          `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
 	RTSPUDPSourcePortRange []uint         `json:"rtspUDPSourcePortRange"`
 
