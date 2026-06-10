@@ -39,6 +39,7 @@ func dumpRequestLimited(r *http.Request) ([]byte, error) {
 type responseRecorder struct {
 	w      http.ResponseWriter
 	status int
+	body   []byte
 	size   int
 }
 
@@ -50,7 +51,14 @@ func (w *responseRecorder) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
-	w.size += len(b)
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType == "application/sdp" || contentType == "application/trickle-ice-sdpfrag" {
+		w.body = append(w.body, b...)
+	} else {
+		w.size += len(b)
+	}
+
 	return w.w.Write(b)
 }
 
@@ -64,9 +72,13 @@ func (w *responseRecorder) dump() string {
 	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.status, http.StatusText(w.status))
 	w.w.Header().Write(&buf) //nolint:errcheck
 	buf.Write([]byte("\n"))
-	if w.size > 0 {
+
+	if w.body != nil {
+		buf.Write(w.body)
+	} else if w.size > 0 {
 		fmt.Fprintf(&buf, "(body of %d bytes)", w.size)
 	}
+
 	return buf.String()
 }
 
