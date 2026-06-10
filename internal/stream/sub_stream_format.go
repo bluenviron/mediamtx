@@ -27,7 +27,9 @@ func (ssf *subStreamFormat) initialize() error {
 		}
 	}
 
-	if ssf.streamFormat.rtpEncoder == nil && (!ssf.useRTPPackets || ssf.streamFormat.alwaysAvailable) {
+	if ssf.streamFormat.rtpEncoder == nil && (!ssf.useRTPPackets ||
+		ssf.streamFormat.alwaysAvailable ||
+		ssf.streamFormat.forceRemux) {
 		var err error
 		ssf.streamFormat.rtpEncoder, err = newRTPEncoder(
 			ssf.streamFormat.outFormat,

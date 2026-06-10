@@ -51,6 +51,7 @@ type streamFormat struct {
 	parent               logger.Writer
 
 	outFormat     format.Format
+	forceRemux    bool
 	ptsOffset     int64
 	formatUpdater formatUpdater
 	unitRemuxer   unitRemuxer
@@ -62,6 +63,13 @@ type streamFormat struct {
 
 func (sf *streamFormat) initialize() error {
 	sf.outFormat = cloneFormatShallow(sf.origFormat)
+
+	if forma, ok := sf.outFormat.(*format.H264); ok && forma.PacketizationMode == 0 {
+		sf.parent.Log(logger.Info, "remuxing in order to change H264 packetization-mode from 0 to 1")
+		forma.PacketizationMode = 1
+		sf.forceRemux = true
+	}
+
 	sf.formatUpdater = newFormatUpdater(sf.outFormat)
 	sf.unitRemuxer = newUnitRemuxer(sf.outFormat)
 
