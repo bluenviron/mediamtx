@@ -190,9 +190,15 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	var strm *gortsplib.ServerStream
 	if !c.encryption {
-		strm = res.Stream.RTSPStream(c.rserver)
+		strm, err = res.Stream.RTSPStream(c.rserver)
 	} else {
-		strm = res.Stream.RTSPSStream(c.rserver)
+		strm, err = res.Stream.RTSPSStream(c.rserver)
+	}
+
+	if err != nil {
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, nil, err
 	}
 
 	return &base.Response{

@@ -185,7 +185,13 @@ func (c *conn) runRead() error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = rtmp.FromStream(res.Stream.Desc, r, c.rconn, c.nconn, time.Duration(c.writeTimeout))
+	err = rtmp.FromStream(
+		res.Stream.OrigDesc,
+		res.Stream.OutDescCopy(),
+		r,
+		c.rconn,
+		c.nconn,
+		time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}

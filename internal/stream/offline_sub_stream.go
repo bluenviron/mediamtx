@@ -25,7 +25,7 @@ type offlineSubStream struct {
 func (o *offlineSubStream) initialize() error {
 	o.subStream = &SubStream{
 		Stream:        o.stream,
-		CurDesc:       o.stream.offlineDesc,
+		InDesc:        o.stream.offlineDesc,
 		UseRTPPackets: false,
 	}
 	err := o.subStream.Initialize()
@@ -36,9 +36,9 @@ func (o *offlineSubStream) initialize() error {
 	o.ctx, o.ctxCancel = context.WithCancel(context.Background())
 
 	pos := 0
-	o.tracks = make([]*offlineSubStreamTrack, len(o.subStream.CurDesc.Medias))
+	o.tracks = make([]*offlineSubStreamTrack, len(o.subStream.InDesc.Medias))
 
-	for _, media := range o.subStream.CurDesc.Medias {
+	for _, media := range o.subStream.InDesc.Medias {
 		for _, forma := range media.Formats {
 			t := &offlineSubStreamTrack{
 				wg:        &o.wg,

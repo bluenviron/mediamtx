@@ -130,7 +130,7 @@ func TestRecorder(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -423,7 +423,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -516,7 +516,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -614,7 +614,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -680,7 +680,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -748,7 +748,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -875,7 +875,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,

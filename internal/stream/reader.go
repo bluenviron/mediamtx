@@ -29,14 +29,14 @@ type Reader struct {
 }
 
 // OnData registers a callback that is called when data from given format is available.
-func (r *Reader) OnData(medi *description.Media, forma format.Format, cb OnDataFunc) {
+func (r *Reader) OnData(origMedia *description.Media, origFormat format.Format, cb OnDataFunc) {
 	if r.onDatas == nil {
 		r.onDatas = make(map[*description.Media]map[format.Format]OnDataFunc)
 	}
-	if r.onDatas[medi] == nil {
-		r.onDatas[medi] = make(map[format.Format]OnDataFunc)
+	if r.onDatas[origMedia] == nil {
+		r.onDatas[origMedia] = make(map[format.Format]OnDataFunc)
 	}
-	r.onDatas[medi][forma] = cb
+	r.onDatas[origMedia][origFormat] = cb
 }
 
 // Formats returns all formats for which the reader has registered a OnData callback.
