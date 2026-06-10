@@ -379,7 +379,7 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	}
 
 	tracks, err := moq.FromStream(
-		addRes.Stream.Desc,
+		addRes.Stream.OrigDesc,
 	)
 	if err != nil {
 		addRes.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})

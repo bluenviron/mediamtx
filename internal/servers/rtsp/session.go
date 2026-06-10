@@ -72,6 +72,7 @@ type session struct {
 	pathConf                    *conf.Path // record only
 	path                        defs.Path
 	stream                      *stream.Stream
+	rtspStream                  *gortsplib.ServerStream
 	subStream                   *stream.SubStream
 	onUnreadHook                func()
 	inboundRTPPacketsLost       *counterdumper.Dumper
@@ -235,13 +236,6 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	}, nil
 }
 
-func (s *session) rtspStream() *gortsplib.ServerStream {
-	if !s.encryption {
-		return s.stream.RTSPStream(s.rserver)
-	}
-	return s.stream.RTSPSStream(s.rserver)
-}
-
 // onSetup is called by rtspServer.
 func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
@@ -310,8 +304,23 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			}, nil, err
 		}
 
-		s.path = res.Path
+		var rtspStream *gortsplib.ServerStream
+		if !s.encryption {
+			rtspStream, err = res.Stream.RTSPStream(s.rserver)
+		} else {
+			rtspStream, err = res.Stream.RTSPSStream(s.rserver)
+		}
+
+		if err != nil {
+			res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, nil, err
+		}
+
 		s.stream = res.Stream
+		s.rtspStream = rtspStream
+		s.path = res.Path
 
 		s.mutex.Lock()
 		s.user = res.User
@@ -320,12 +329,12 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, s.rtspStream(), nil
+		}, s.rtspStream, nil
 
 	case gortsplib.ServerSessionStatePrePlay: // play, subsequent calls
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, s.rtspStream(), nil
+		}, s.rtspStream, nil
 
 	default: // record
 		return &base.Response{

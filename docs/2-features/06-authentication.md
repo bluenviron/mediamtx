@@ -79,6 +79,7 @@ Authentication can be delegated to an external HTTP server:
 ```yml
 authMethod: http
 authHTTPAddress: http://myauthserver/auth
+authHTTPExclude: [] # explicitly clear authHTTPExclude to validate every action
 ```
 
 Each time a user needs to be authenticated, the specified URL will be requested with the POST method and this payload:
@@ -109,7 +110,7 @@ If the URL returns a status code that begins with `20` (i.e. `200`), authenticat
 
 This happens because RTSP clients don't provide credentials until they are asked to. In order to receive the credentials, the authentication server must reply with status code `401`, then the client will send credentials.
 
-Some actions can be excluded from the process:
+Some actions can be excluded from the validation process:
 
 ```yml
 # Actions to exclude from HTTP-based authentication.

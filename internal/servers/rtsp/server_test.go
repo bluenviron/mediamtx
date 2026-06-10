@@ -110,7 +110,7 @@ func TestServerPublish(t *testing.T) {
 							require.True(t, req.AccessRequest.SkipAuth)
 
 							strm = &stream.Stream{
-								Desc:              req.Desc,
+								OrigDesc:          req.Desc,
 								WriteQueueSize:    512,
 								RTPMaxPayloadSize: 1450,
 								Parent:            test.NilLogger,
@@ -128,8 +128,8 @@ func TestServerPublish(t *testing.T) {
 							reader = &stream.Reader{Parent: test.NilLogger}
 
 							reader.OnData(
-								strm.Desc.Medias[0],
-								strm.Desc.Medias[0].Formats[0],
+								strm.OrigDesc.Medias[0],
+								strm.OrigDesc.Medias[0].Formats[0],
 								func(u *unit.Unit) error {
 									require.Equal(t, unit.PayloadH264{
 										test.FormatH264.SPS,
@@ -302,7 +302,7 @@ func TestServerPublishMPEGTS(t *testing.T) {
 			}}}, req.Desc)
 
 			strm = &stream.Stream{
-				Desc:              req.Desc,
+				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -321,8 +321,8 @@ func TestServerPublishMPEGTS(t *testing.T) {
 			n := 0
 
 			reader.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
+				strm.OrigDesc.Medias[0],
+				strm.OrigDesc.Medias[0].Formats[0],
 				func(u *unit.Unit) error {
 					if n == 0 {
 						require.Equal(t, unit.PayloadH264{
@@ -420,7 +420,7 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -597,7 +597,7 @@ func TestServerRedirect(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,

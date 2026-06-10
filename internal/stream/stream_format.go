@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/pion/rtp"
 
@@ -39,8 +38,7 @@ func randUint32() (uint32, error) {
 }
 
 type streamFormat struct {
-	format               format.Format
-	media                *description.Media
+	origFormat           format.Format
 	alwaysAvailable      bool
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
@@ -48,9 +46,11 @@ type streamFormat struct {
 	inboundBytes         *atomic.Uint64
 	outboundBytes        *atomic.Uint64
 	updateLastTime       func(time.Duration)
-	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
+	writeRTSP            func([]*rtp.Packet, time.Time)
+	updateOutDesc        func(func())
 	parent               logger.Writer
 
+	outFormat     format.Format
 	ptsOffset     int64
 	formatUpdater formatUpdater
 	unitRemuxer   unitRemuxer
@@ -61,12 +61,13 @@ type streamFormat struct {
 }
 
 func (sf *streamFormat) initialize() error {
-	sf.formatUpdater = newFormatUpdater(sf.format)
-	sf.unitRemuxer = newUnitRemuxer(sf.format)
+	sf.outFormat = cloneFormatShallow(sf.origFormat)
+	sf.formatUpdater = newFormatUpdater(sf.outFormat)
+	sf.unitRemuxer = newUnitRemuxer(sf.outFormat)
 
 	if sf.replaceNTP {
 		sf.ntpEstimator = &ntpestimator.Estimator{
-			ClockRate: sf.format.ClockRate(),
+			ClockRate: sf.outFormat.ClockRate(),
 		}
 	}
 
