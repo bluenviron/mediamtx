@@ -3,23 +3,50 @@ package httpp
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type loggerWriter struct {
+const (
+	maxDumpedRequestBodySize = 10 * 1024
+)
+
+func dumpRequestLimited(r *http.Request) ([]byte, error) {
+	peek, err := io.ReadAll(io.LimitReader(r.Body, maxDumpedRequestBodySize+1))
+	if err != nil {
+		return nil, err
+	}
+
+	capped := peek
+	if int64(len(capped)) > maxDumpedRequestBodySize {
+		capped = append([]byte(nil), capped[:maxDumpedRequestBodySize]...)
+		capped = append(capped, []byte("\n\n(body truncated)\n")...)
+	}
+
+	original := r.Body
+	r.Body = io.NopCloser(bytes.NewReader(capped))
+
+	dump, dumpErr := httputil.DumpRequest(r, true)
+
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek), original))
+
+	return dump, dumpErr
+}
+
+type responseRecorder struct {
 	w      http.ResponseWriter
 	status int
 	size   int
 }
 
-func (w *loggerWriter) Header() http.Header {
+func (w *responseRecorder) Header() http.Header {
 	return w.w.Header()
 }
 
-func (w *loggerWriter) Write(b []byte) (int, error) {
+func (w *responseRecorder) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
@@ -27,12 +54,12 @@ func (w *loggerWriter) Write(b []byte) (int, error) {
 	return w.w.Write(b)
 }
 
-func (w *loggerWriter) WriteHeader(statusCode int) {
+func (w *responseRecorder) WriteHeader(statusCode int) {
 	w.status = statusCode
 	w.w.WriteHeader(statusCode)
 }
 
-func (w *loggerWriter) dump() string {
+func (w *responseRecorder) dump() string {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.status, http.StatusText(w.status))
 	w.w.Header().Write(&buf) //nolint:errcheck
@@ -50,12 +77,13 @@ type handlerLogger struct {
 }
 
 func (h *handlerLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	byts, _ := httputil.DumpRequest(r, true)
+	byts, _ := dumpRequestLimited(r)
+
 	h.log.Log(logger.Debug, "[conn %v] [c->s] %s", r.RemoteAddr, string(byts))
 
-	logw := &loggerWriter{w: w}
+	resRecorder := &responseRecorder{w: w}
 
-	h.h.ServeHTTP(logw, r)
+	h.h.ServeHTTP(resRecorder, r)
 
-	h.log.Log(logger.Debug, "[conn %v] [s->c] %s", r.RemoteAddr, logw.dump())
+	h.log.Log(logger.Debug, "[conn %v] [s->c] %s", r.RemoteAddr, resRecorder.dump())
 }
