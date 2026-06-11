@@ -3,7 +3,6 @@ package core
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"os"
 	"os/signal"
@@ -39,11 +38,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/upgrade"
 )
 
-//go:generate go run ./versiongetter
-
-//go:embed VERSION
-var version []byte
-
 var started = time.Now()
 
 var defaultConfPaths = []string{
@@ -75,6 +69,32 @@ func getArch() string {
 		arch = runtime.GOARCH
 	}
 	return arch
+}
+
+func versionString() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	if info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	var rev, modified string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.modified":
+			modified = s.Value
+		}
+	}
+	if rev == "" {
+		return "devel"
+	}
+	if modified == "true" {
+		return rev[:8] + "-dirty"
+	}
+	return rev[:8]
 }
 
 func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
@@ -140,7 +160,7 @@ type Core struct {
 // New allocates a Core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
-		kong.Description("MediaMTX "+string(version)+", "+runtime.GOOS+", "+getArch()),
+		kong.Description("MediaMTX "+versionString()+", "+runtime.GOOS+", "+getArch()),
 		kong.UsageOnError(),
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {
@@ -159,13 +179,13 @@ func New(args []string) (*Core, bool) {
 	parser.FatalIfErrorf(err)
 
 	if cli.Version {
-		fmt.Println(string(version))
+		fmt.Println(versionString())
 		os.Exit(0)
 	}
 
 	if cli.CheckVersion {
 		var newVersionAvailable bool
-		newVersionAvailable, err = upgrade.CheckVersion(string(version), getArch())
+		newVersionAvailable, err = upgrade.CheckVersion(versionString(), getArch())
 		if err != nil {
 			fmt.Printf("ERR: %v\n", err)
 			os.Exit(1)
@@ -177,7 +197,7 @@ func New(args []string) (*Core, bool) {
 	}
 
 	if cli.Upgrade {
-		err = upgrade.Upgrade(string(version), getArch())
+		err = upgrade.Upgrade(versionString(), getArch())
 		if err != nil {
 			fmt.Printf("ERR: %v\n", err)
 			os.Exit(1)
@@ -322,7 +342,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX %s, %s, %s", string(version), runtime.GOOS, getArch())
+		p.Log(logger.Info, "MediaMTX %s, %s, %s", versionString(), runtime.GOOS, getArch())
 
 		if p.confPath != "" {
 			a, _ := filepath.Abs(p.confPath)
@@ -726,7 +746,7 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.API &&
 		p.api == nil {
 		i := &api.API{
-			Version:        string(version),
+			Version:        versionString(),
 			Started:        started,
 			Address:        p.conf.APIAddress,
 			DumpPackets:    p.conf.DumpPackets,
