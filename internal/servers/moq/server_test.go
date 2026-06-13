@@ -34,7 +34,7 @@ func (p *serverDummyPath) RemoveReader(_ defs.PathRemoveReaderReq)       {}
 func TestServer(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}}
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -172,8 +172,7 @@ func TestServer(t *testing.T) {
 	err = frameSG.Read(frameStream)
 	require.NoError(t, err)
 
-	sps, pps := test.FormatH264.SafeParams()
-	expectedPayload, err2 := mch264.AVCC([][]byte{sps, pps, {5, 1}}).Marshal()
+	expectedPayload, err2 := mch264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}).Marshal()
 	require.NoError(t, err2)
 	require.Equal(t, expectedPayload, frameSG.Objects[0].Payload)
 }

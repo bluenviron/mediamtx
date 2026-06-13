@@ -30,7 +30,7 @@ func (p *StaticSourceParent) Close() {
 // SetReady implements parent.
 func (p *StaticSourceParent) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
 	p.stream = &stream.Stream{
-		Desc:              req.Desc,
+		OrigDesc:          req.Desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		ReplaceNTP:        req.ReplaceNTP,

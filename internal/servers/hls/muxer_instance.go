@@ -76,7 +76,11 @@ func (mi *muxerInstance) initialize() error {
 		Parent:            mi,
 	}
 
-	err := hls.FromStream(mi.stream.Desc, mi.reader, mi.hmuxer)
+	err := hls.FromStream(
+		mi.stream.OrigDesc,
+		mi.stream.OutDescCopy(),
+		mi.reader,
+		mi.hmuxer)
 	if err != nil {
 		return err
 	}

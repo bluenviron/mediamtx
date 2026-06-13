@@ -87,7 +87,7 @@ func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Me
 // SubStream is a Stream without interruptions.
 type SubStream struct {
 	Stream        *Stream
-	CurDesc       *description.Session
+	InDesc        *description.Session
 	UseRTPPackets bool
 
 	medias map[*description.Media]*subStreamMedia
@@ -100,39 +100,39 @@ func (ss *SubStream) Initialize() error {
 			panic("should not happen")
 		}
 
-		if ss.CurDesc != nil {
+		if ss.InDesc != nil {
 			panic("should not happen")
 		}
 	} else {
-		if ss.CurDesc == nil {
+		if ss.InDesc == nil {
 			panic("should not happen")
 		}
 
-		err := mediasAreCompatible(ss.Stream.Desc.Medias, ss.CurDesc.Medias)
+		err := mediasAreCompatible(ss.Stream.OrigDesc.Medias, ss.InDesc.Medias)
 		if err != nil {
 			return err
 		}
 	}
 
 	if !ss.Stream.AlwaysAvailable {
-		ss.CurDesc = ss.Stream.Desc
+		ss.InDesc = ss.Stream.OrigDesc
 	}
 
 	ss.medias = make(map[*description.Media]*subStreamMedia)
 
-	for i, curMedia := range ss.CurDesc.Medias {
-		media := ss.Stream.Desc.Medias[i]
+	for i, inMedia := range ss.InDesc.Medias {
+		origMedia := ss.Stream.OrigDesc.Medias[i]
 
 		ssm := &subStreamMedia{
-			curMedia:      curMedia,
-			streamMedia:   ss.Stream.medias[media],
+			inMedia:       inMedia,
+			streamMedia:   ss.Stream.medias[origMedia],
 			useRTPPackets: ss.UseRTPPackets,
 		}
 		err := ssm.initialize()
 		if err != nil {
 			return err
 		}
-		ss.medias[curMedia] = ssm
+		ss.medias[inMedia] = ssm
 	}
 
 	if ss.Stream.AlwaysAvailable {
@@ -163,7 +163,7 @@ func (ss *SubStream) Initialize() error {
 }
 
 // WriteUnit writes a Unit.
-func (ss *SubStream) WriteUnit(medi *description.Media, forma format.Format, u *unit.Unit) {
+func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Format, u *unit.Unit) {
 	ss.Stream.mutex.RLock()
 	defer ss.Stream.mutex.RUnlock()
 
@@ -171,8 +171,8 @@ func (ss *SubStream) WriteUnit(medi *description.Media, forma format.Format, u *
 		return
 	}
 
-	ssm := ss.medias[medi]
-	ssf := ssm.formats[forma]
+	ssm := ss.medias[inMedia]
+	ssf := ssm.formats[inFormat]
 
 	ssf.writeUnit(u)
 }

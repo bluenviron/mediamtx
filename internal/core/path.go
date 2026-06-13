@@ -448,9 +448,11 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
 	}
+
 	if pa.conf.AlwaysAvailable {
-		subStream.CurDesc = req.Desc
+		subStream.InDesc = req.Desc
 	}
+
 	err := subStream.Initialize()
 	if err != nil {
 		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
@@ -568,9 +570,11 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
 	}
+
 	if pa.conf.AlwaysAvailable {
-		subStream.CurDesc = req.Desc
+		subStream.InDesc = req.Desc
 	}
+
 	err := subStream.Initialize()
 	if err != nil {
 		req.Res <- defs.PathAddPublisherRes{Err: err}
@@ -643,6 +647,11 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 }
 
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
+	var outDesc *description.Session
+	if pa.isAvailable() {
+		outDesc = pa.stream.OutDescCopy()
+	}
+
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
 			Name:     pa.name,
@@ -682,13 +691,13 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				if !pa.isAvailable() {
 					return []defs.APIPathTrackCodec{}
 				}
-				return formatlabel.MediasToLabels(pa.stream.Desc.Medias)
+				return formatlabel.MediasToLabels(outDesc.Medias)
 			}(),
 			Tracks2: func() []defs.APIPathTrack {
 				if !pa.isAvailable() {
 					return []defs.APIPathTrack{}
 				}
-				return defs.MediasToTracks(pa.stream.Desc.Medias)
+				return defs.MediasToTracks(outDesc.Medias)
 			}(),
 			InboundBytes: func() uint64 {
 				if !pa.isAvailable() {
@@ -842,7 +851,7 @@ func (pa *path) setAvailable(
 	replaceNTP bool,
 ) error {
 	pa.stream = &stream.Stream{
-		Desc:                  desc,
+		OrigDesc:              desc,
 		AlwaysAvailable:       pa.conf.AlwaysAvailable,
 		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
 		AlwaysAvailableFile:   pa.conf.AlwaysAvailableFile,
@@ -881,9 +890,9 @@ func (pa *path) setAvailable(
 	})
 
 	if pa.conf.AlwaysAvailable {
-		pa.Log(logger.Info, "stream is available, %s", defs.MediasInfo(pa.stream.Desc.Medias))
+		pa.Log(logger.Info, "stream is available, %s", defs.MediasInfo(pa.stream.OrigDesc.Medias))
 	} else {
-		pa.Log(logger.Info, "stream is available and online, %s", defs.MediasInfo(pa.stream.Desc.Medias))
+		pa.Log(logger.Info, "stream is available and online, %s", defs.MediasInfo(pa.stream.OrigDesc.Medias))
 	}
 
 	pa.parent.setPathReady(pa)

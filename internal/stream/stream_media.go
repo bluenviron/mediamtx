@@ -12,7 +12,7 @@ import (
 )
 
 type streamMedia struct {
-	media                *description.Media
+	origMedia            *description.Media
 	alwaysAvailable      bool
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
@@ -20,19 +20,26 @@ type streamMedia struct {
 	outboundBytes        *atomic.Uint64
 	updateLastTime       func(time.Duration)
 	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
+	updateOutDesc        func(func())
 	inboundFramesInError *errordumper.Dumper
 	parent               logger.Writer
 
-	formats map[format.Format]*streamFormat
+	outMedia *description.Media
+	formats  map[format.Format]*streamFormat
 }
 
 func (sm *streamMedia) initialize() error {
 	sm.formats = make(map[format.Format]*streamFormat)
 
-	for _, forma := range sm.media.Formats {
+	sm.outMedia = &description.Media{
+		Type:    sm.origMedia.Type,
+		ID:      sm.origMedia.ID,
+		Formats: make([]format.Format, len(sm.origMedia.Formats)),
+	}
+
+	for i, origFormat := range sm.origMedia.Formats {
 		sf := &streamFormat{
-			format:               forma,
-			media:                sm.media,
+			origFormat:           origFormat,
 			alwaysAvailable:      sm.alwaysAvailable,
 			rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
 			replaceNTP:           sm.replaceNTP,
@@ -40,15 +47,22 @@ func (sm *streamMedia) initialize() error {
 			inboundBytes:         sm.inboundBytes,
 			outboundBytes:        sm.outboundBytes,
 			updateLastTime:       sm.updateLastTime,
-			writeRTSP:            sm.writeRTSP,
+			writeRTSP:            sm.writeRTSPWrapper,
+			updateOutDesc:        sm.updateOutDesc,
 			parent:               sm.parent,
 		}
 		err := sf.initialize()
 		if err != nil {
 			return err
 		}
-		sm.formats[forma] = sf
+
+		sm.formats[origFormat] = sf
+		sm.outMedia.Formats[i] = sf.outFormat
 	}
 
 	return nil
+}
+
+func (sm *streamMedia) writeRTSPWrapper(pkts []*rtp.Packet, ntp time.Time) {
+	sm.writeRTSP(sm.outMedia, pkts, ntp)
 }

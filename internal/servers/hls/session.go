@@ -108,8 +108,9 @@ func (s *session) initialize(ctx *gin.Context) error {
 		Parent: s,
 	}
 
-	// all of this is needed to allow Stream to increase outbound bytes for every HLS session
-	for _, medi := range res.Stream.Desc.Medias {
+	// this is needed to increase stream outbound bytes for every HLS session,
+	// even if HLS sessions are not directly attached to streams (they are through muxers).
+	for _, medi := range res.Stream.OrigDesc.Medias {
 		for _, forma := range medi.Formats {
 			if slices.Contains(muxerFormats, forma) {
 				s.reader.OnData(medi, forma, func(_ *unit.Unit) error {
