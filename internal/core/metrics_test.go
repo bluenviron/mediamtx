@@ -241,6 +241,12 @@ srt_conns_packets_send_loss_rate 0
 srt_conns_packets_received_loss_rate 0
 srt_conns_outbound_frames_discarded 0
 
+# SRTLA groups
+srtla_groups 0
+srtla_groups_conns_active 0
+srtla_groups_bytes_received 0
+srtla_groups_bytes_forwarded 0
+
 # WebRTC sessions
 webrtc_sessions 0
 webrtc_sessions_inbound_bytes 0

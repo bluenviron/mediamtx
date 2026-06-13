@@ -463,6 +463,14 @@ moqAllowOrigins: ["*"]
 moqTrustedProxies: []
 
 ###############################################
+# Global settings -> SRTLA server
+
+# Allow SRTLA (SRT Link Aggregation) clients to bond multiple connections.
+srtla: true
+# Address of the SRTLA listener.
+srtlaAddress: :8891
+
+###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,
