@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -56,4 +57,31 @@ func TestMuxerMP4EmptyTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Greater(t, buf.Len(), 0)
+}
+
+// Test that flushing without any written sample returns an error instead of panicking
+func TestMuxerMP4NoSamples(t *testing.T) {
+	var buf bytes.Buffer
+
+	mux := &muxerMP4{
+		w: &buf,
+	}
+
+	init := &fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &mcodecs.H264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
+			},
+		},
+	}
+
+	mux.writeInit(init)
+
+	err := mux.flush()
+	require.ErrorIs(t, err, recordstore.ErrNoSegmentsFound)
 }
