@@ -223,6 +223,25 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 	return medias
 }
 
+func buildOfflineDesc(
+	alwaysAvailableTracks []conf.AlwaysAvailableTrack,
+	alwaysAvailableFile string,
+) (*description.Session, error) {
+	out := &description.Session{}
+
+	if alwaysAvailableFile != "" {
+		var err error
+		out.Medias, err = mediasFromAlwaysAvailableFile(alwaysAvailableFile)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		out.Medias = mediasFromAlwaysAvailableTracks(alwaysAvailableTracks)
+	}
+
+	return out, nil
+}
+
 func cloneFormatShallow(forma format.Format) format.Format {
 	v := reflect.New(reflect.TypeOf(forma).Elem())
 	v.Elem().Set(reflect.ValueOf(forma).Elem())
@@ -296,23 +315,13 @@ func (s *Stream) Initialize() error {
 			panic("should not happen")
 		}
 
-		var medias []*description.Media
-
-		if s.AlwaysAvailableFile != "" {
-			var err error
-			medias, err = mediasFromAlwaysAvailableFile(s.AlwaysAvailableFile)
-			if err != nil {
-				return err
-			}
-		} else {
-			medias = mediasFromAlwaysAvailableTracks(s.AlwaysAvailableTracks)
+		var err error
+		s.offlineDesc, err = buildOfflineDesc(s.AlwaysAvailableTracks, s.AlwaysAvailableFile)
+		if err != nil {
+			return err
 		}
 
-		s.offlineDesc = &description.Session{
-			Medias: medias,
-		}
-
-		s.OrigDesc = cloneDesc(s.offlineDesc)
+		s.OrigDesc = s.offlineDesc
 	}
 
 	s.medias = make(map[*description.Media]*streamMedia)
