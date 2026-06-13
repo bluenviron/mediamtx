@@ -286,6 +286,9 @@ components:
           items:
             $ref: "#/components/schemas/AuthInternalUserPermission"
 
+        authCheckInterval:
+          type: string
+
         # Control API
         api:
           type: boolean

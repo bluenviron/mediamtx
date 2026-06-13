@@ -24,7 +24,9 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -1032,4 +1034,65 @@ func TestPathOverridePublisher(t *testing.T) {
 			<-frameRecv
 		})
 	}
+}
+
+type mockReader struct {
+	closed bool
+}
+
+func (m *mockReader) Close() {
+	m.closed = true
+}
+
+func (m *mockReader) APIReaderDescribe() *defs.APIPathReader {
+	return nil
+}
+
+type mockPathParent struct{}
+
+func (m *mockPathParent) Log(_ logger.Level, _ string, _ ...any) {}
+func (m *mockPathParent) setPathReady(_ *path)                   {}
+func (m *mockPathParent) setPathNotReady(_ *path)                {}
+func (m *mockPathParent) closePathIfIdle(_ *path)                {}
+func (m *mockPathParent) removePath(_ *path)                     {}
+func (m *mockPathParent) AddReader(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+	return nil, nil
+}
+
+func TestPathCheckAuthExpiry(t *testing.T) {
+	t.Run("expired reader is kicked", func(t *testing.T) {
+		r := &mockReader{}
+		pa := &path{
+			logLevel: conf.LogLevel(logger.Debug),
+			parent:   &mockPathParent{},
+			readers:  map[defs.Reader]time.Time{r: time.Now().Add(-1 * time.Minute)},
+		}
+		pa.checkAuthExpiry()
+		require.True(t, r.closed)
+		require.Empty(t, pa.readers)
+	})
+
+	t.Run("non-expired reader is kept", func(t *testing.T) {
+		r := &mockReader{}
+		pa := &path{
+			logLevel: conf.LogLevel(logger.Debug),
+			parent:   &mockPathParent{},
+			readers:  map[defs.Reader]time.Time{r: time.Now().Add(1 * time.Hour)},
+		}
+		pa.checkAuthExpiry()
+		require.False(t, r.closed)
+		require.Len(t, pa.readers, 1)
+	})
+
+	t.Run("zero expiry reader is kept", func(t *testing.T) {
+		r := &mockReader{}
+		pa := &path{
+			logLevel: conf.LogLevel(logger.Debug),
+			parent:   &mockPathParent{},
+			readers:  map[defs.Reader]time.Time{r: {}},
+		}
+		pa.checkAuthExpiry()
+		require.False(t, r.closed)
+		require.Len(t, pa.readers, 1)
+	})
 }
