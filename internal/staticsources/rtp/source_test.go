@@ -202,9 +202,12 @@ func TestSourceUnixSocket(t *testing.T) {
 				_, err := os.Stat(pa)
 				require.NoError(t, err)
 
-				conn, err := net.Dial("unix", pa)
+				raddr, err := net.ResolveUnixAddr("unixgram", pa)
 				require.NoError(t, err)
-				defer conn.Close()
+
+				conn, err := net.DialUnix("unixgram", nil, raddr)
+				require.NoError(t, err)
+				defer conn.Close() //nolint:errcheck
 
 				enc := &rtph264.Encoder{
 					PayloadType:       96,

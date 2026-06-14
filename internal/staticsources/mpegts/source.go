@@ -52,23 +52,38 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	switch u.Scheme {
 	case "unix+mpegts":
-		params := unix.URLToParams(u)
-		l := &unix.Listener{
-			Path: params.Path,
+		udpReadBufferSize := s.UDPReadBufferSize
+		if params.Conf.MPEGTSUDPReadBufferSize != nil {
+			udpReadBufferSize = *params.Conf.MPEGTSUDPReadBufferSize
 		}
 
-		if s.DumpPackets {
-			l.Listen = func(network, address string) (net.Listener, error) {
-				ln, err2 := net.Listen(network, address)
+		params := unix.URLToParams(u)
+		l := &unix.Listener{
+			Path:              params.Path,
+			UDPReadBufferSize: int(udpReadBufferSize),
+		}
+
+		l.ListenPacket = func(network, address string) (net.PacketConn, error) {
+			pc, err2 := net.ListenPacket(network, address)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			if s.DumpPackets {
+				pc2 := &packetdumper.PacketConn{
+					Wrapped: pc,
+					Prefix:  "mpegts_source_unix_conn",
+				}
+				err2 = pc2.Initialize()
 				if err2 != nil {
+					pc.Close() //nolint:errcheck
 					return nil, err2
 				}
 
-				return &packetdumper.Listener{
-					Wrapped: ln,
-					Prefix:  "mpegts_source_unix_conn",
-				}, nil
+				pc = pc2
 			}
+
+			return pc, nil
 		}
 
 		err = l.Initialize()

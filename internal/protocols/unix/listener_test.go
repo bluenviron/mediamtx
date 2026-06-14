@@ -21,27 +21,33 @@ func TestListen(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close() //nolint:errcheck
 
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-
-		buf := make([]byte, 1024)
-		l.SetReadDeadline(time.Now().Add(2 * time.Second)) //nolint:errcheck
-		n, err2 := l.Read(buf)
-		require.NoError(t, err2)
-		require.Equal(t, []byte("testing"), buf[:n])
-	}()
-
-	clientAddr, err := net.ResolveUnixAddr("unix", socket.Name())
+	clientAddr, err := net.ResolveUnixAddr("unixgram", socket.Name())
 	require.NoError(t, err)
 
-	clientConn, err := net.DialUnix("unix", nil, clientAddr)
+	clientConn, err := net.DialUnix("unixgram", nil, clientAddr)
 	require.NoError(t, err)
 	defer clientConn.Close() //nolint:errcheck
 
-	_, err = clientConn.Write([]byte("testing"))
-	require.NoError(t, err)
+	// Send several datagrams back-to-back. Each must be read back whole and in
+	// order: datagram boundaries must be preserved. A stream-mode Unix socket
+	// would coalesce these, corrupting RTP/MPEG-TS parsing (the root cause of
+	// the decode errors reported in issue #4999).
+	msgs := [][]byte{
+		[]byte("first-datagram"),
+		[]byte("2"),
+		[]byte("the-third-and-longest-datagram"),
+	}
 
-	<-done
+	for _, m := range msgs {
+		_, err = clientConn.Write(m)
+		require.NoError(t, err)
+	}
+
+	buf := make([]byte, 1024)
+	for _, m := range msgs {
+		l.SetReadDeadline(time.Now().Add(2 * time.Second)) //nolint:errcheck
+		n, err2 := l.Read(buf)
+		require.NoError(t, err2)
+		require.Equal(t, m, buf[:n])
+	}
 }
