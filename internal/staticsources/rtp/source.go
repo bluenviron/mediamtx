@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/udp"
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
+	"github.com/bluenviron/mediamtx/internal/protocols/unixgram"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
@@ -79,41 +80,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		nc = l
 
 	case "unixgram+rtp":
-		udpReadBufferSize := s.UDPReadBufferSize
-		if params.Conf.RTPUDPReadBufferSize != nil {
-			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
+		params := unixgram.URLToParams(u)
+		l := &unixgram.Listener{
+			Path:         params.Path,
+			ListenPacket: net.ListenPacket,
 		}
-
-		params := unix.URLToParams(u)
-		l := &unix.Listener{
-			Path:              params.Path,
-			Datagram:          true,
-			UDPReadBufferSize: int(udpReadBufferSize),
-		}
-
-		l.ListenPacket = func(network, address string) (net.PacketConn, error) {
-			pc, err2 := net.ListenPacket(network, address)
-			if err2 != nil {
-				return nil, err2
-			}
-
-			if s.DumpPackets {
-				pc2 := &packetdumper.PacketConn{
-					Wrapped: pc,
-					Prefix:  "rtp_source_packet_conn",
-				}
-				err2 = pc2.Initialize()
-				if err2 != nil {
-					pc.Close() //nolint:errcheck
-					return nil, err2
-				}
-
-				pc = pc2
-			}
-
-			return pc, nil
-		}
-
 		err = l.Initialize()
 		if err != nil {
 			return err

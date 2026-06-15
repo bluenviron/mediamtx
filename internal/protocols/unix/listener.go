@@ -6,37 +6,15 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 	"time"
-
-	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 )
 
-type packetConn interface {
-	net.PacketConn
-	SetReadBuffer(bytes int) error
-	SyscallConn() (syscall.RawConn, error)
-}
-
 // Listener is a listener on a Unix socket.
-//
-// Datagram selects the socket type. RTP is packet-oriented and relies on
-// message boundaries, so it uses a datagram socket ("unixgram"). MPEG-TS is a
-// continuous byte stream, so it uses a stream socket ("unix").
 type Listener struct {
-	Path     string
-	Datagram bool
-
-	// datagram mode
-	UDPReadBufferSize int
-	ListenPacket      func(network string, address string) (net.PacketConn, error)
-
-	// stream mode
+	Path   string
 	Listen func(network string, address string) (net.Listener, error)
 
-	pc packetConn // datagram
-
-	l        net.Listener // stream
+	l        net.Listener
 	c        net.Conn
 	mutex    sync.Mutex
 	closed   bool
@@ -48,57 +26,34 @@ func (l *Listener) Initialize() error {
 	if l.Path == "" {
 		return fmt.Errorf("invalid unix path")
 	}
-
-	os.Remove(l.Path)
-
-	if l.Datagram {
-		if l.ListenPacket == nil {
-			l.ListenPacket = net.ListenPacket
-		}
-
-		tmp, err := l.ListenPacket("unixgram", l.Path)
-		if err != nil {
-			return err
-		}
-		l.pc = tmp.(packetConn)
-
-		if l.UDPReadBufferSize != 0 {
-			err = readbuffer.SetReadBuffer(l.pc, l.UDPReadBufferSize)
-			if err != nil {
-				l.pc.Close() //nolint:errcheck
-				return err
-			}
-		}
-
-		return nil
-	}
-
 	if l.Listen == nil {
 		l.Listen = net.Listen
 	}
 
+	os.Remove(l.Path)
+
 	var err error
 	l.l, err = l.Listen("unix", l.Path)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Close closes the listener.
 func (l *Listener) Close() error {
-	if l.Datagram {
-		err := l.pc.Close()
-		// Datagram sockets are not unlinked automatically on close.
-		os.Remove(l.Path) //nolint:errcheck
-		return err
-	}
-
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
 	l.closed = true
+
 	l.l.Close()
+
 	if l.c != nil {
 		l.c.Close()
 	}
+
 	return nil
 }
 
@@ -141,13 +96,7 @@ func (l *Listener) setConn(c net.Conn) error {
 	return nil
 }
 
-// Read implements net.Conn.
 func (l *Listener) Read(p []byte) (int, error) {
-	if l.Datagram {
-		n, _, err := l.pc.ReadFrom(p)
-		return n, err
-	}
-
 	if l.c == nil {
 		c, err := l.acceptWithDeadline()
 		if err != nil {
@@ -186,9 +135,6 @@ func (l *Listener) SetDeadline(_ time.Time) error {
 
 // SetReadDeadline implements net.Conn.
 func (l *Listener) SetReadDeadline(t time.Time) error {
-	if l.Datagram {
-		return l.pc.SetReadDeadline(t)
-	}
 	l.deadline = t
 	return nil
 }
