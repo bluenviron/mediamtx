@@ -29,12 +29,12 @@ paths:
 
 Some clients that can publish with UDP and MPEG-TS are [FFmpeg](17-ffmpeg.md) and [GStreamer](18-gstreamer.md).
 
-Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+rtp` scheme:
+Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unixgram+rtp` scheme. The socket is opened in datagram mode, so that RTP packet boundaries are preserved:
 
 ```yml
 paths:
   mypath:
-    source: unix+rtp:///tmp/socket.sock
+    source: unixgram+rtp:///tmp/socket.sock
     rtpSDP: |
       v=0
       o=- 123456789 123456789 IN IP4 192.168.1.100

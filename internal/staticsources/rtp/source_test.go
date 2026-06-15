@@ -202,12 +202,98 @@ func TestSourceUnixSocket(t *testing.T) {
 				_, err := os.Stat(pa)
 				require.NoError(t, err)
 
+				conn, err := net.Dial("unix", pa)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				enc := &rtph264.Encoder{
+					PayloadType:       96,
+					PacketizationMode: 1,
+				}
+				err = enc.Init()
+				require.NoError(t, err)
+
+				pkts, err := enc.Encode([][]byte{
+					{5, 1},
+				})
+				require.NoError(t, err)
+
+				for _, pkt := range pkts {
+					var buf []byte
+					buf, err = pkt.Marshal()
+					require.NoError(t, err)
+
+					_, err = conn.Write(buf)
+					require.NoError(t, err)
+				}
+
+				<-p.Unit
+			}()
+
+			_, err := os.Stat(pa)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestSourceUnixgramSocket(t *testing.T) {
+	for _, ca := range []string{
+		"relative",
+		"absolute",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			var pa string
+			if ca == "relative" {
+				pa = "test_rtp.sock"
+			} else {
+				pa = filepath.Join(t.TempDir(), "test_rtp.sock")
+			}
+
+			func() {
+				p := &test.StaticSourceParent{}
+				p.Initialize()
+				defer p.Close()
+
+				so := &Source{
+					ReadTimeout: conf.Duration(10 * time.Second),
+					Parent:      p,
+				}
+
+				done := make(chan struct{})
+				defer func() { <-done }()
+
+				ctx, ctxCancel := context.WithCancel(context.Background())
+				defer ctxCancel()
+
+				go func() {
+					so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+						Context:        ctx,
+						ResolvedSource: "unixgram+rtp://" + pa,
+						Conf: &conf.Path{
+							RTPSDP: "v=0\n" +
+								"o=- 123456789 123456789 IN IP4 192.168.1.100\n" +
+								"s=H264 Video Stream\n" +
+								"c=IN IP4 192.168.1.100\n" +
+								"t=0 0\n" +
+								"m=video 5004 RTP/AVP 96\n" +
+								"a=rtpmap:96 H264/90000\n" +
+								"a=fmtp:96 profile-level-id=42e01e;packetization-mode=1\n",
+						},
+					})
+					close(done)
+				}()
+
+				time.Sleep(50 * time.Millisecond)
+
+				_, err := os.Stat(pa)
+				require.NoError(t, err)
+
 				raddr, err := net.ResolveUnixAddr("unixgram", pa)
 				require.NoError(t, err)
 
 				conn, err := net.DialUnix("unixgram", nil, raddr)
 				require.NoError(t, err)
-				defer conn.Close() //nolint:errcheck
+				defer conn.Close()
 
 				enc := &rtph264.Encoder{
 					PayloadType:       96,

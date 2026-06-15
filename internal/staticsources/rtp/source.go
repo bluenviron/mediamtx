@@ -66,7 +66,19 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var nc net.Conn
 
 	switch u.Scheme {
-	case "unix+rtp":
+	case "unix+rtp": // deprecated
+		params := unix.URLToParams(u)
+		l := &unix.Listener{
+			Path:   params.Path,
+			Listen: net.Listen,
+		}
+		err = l.Initialize()
+		if err != nil {
+			return err
+		}
+		nc = l
+
+	case "unixgram+rtp":
 		udpReadBufferSize := s.UDPReadBufferSize
 		if params.Conf.RTPUDPReadBufferSize != nil {
 			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
@@ -75,6 +87,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		params := unix.URLToParams(u)
 		l := &unix.Listener{
 			Path:              params.Path,
+			Datagram:          true,
 			UDPReadBufferSize: int(udpReadBufferSize),
 		}
 

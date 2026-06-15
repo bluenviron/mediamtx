@@ -190,12 +190,8 @@ func TestSourceUnixSocket(t *testing.T) {
 				_, err := os.Stat(pa)
 				require.NoError(t, err)
 
-				raddr, err := net.ResolveUnixAddr("unixgram", pa)
+				conn, err := net.Dial("unix", pa)
 				require.NoError(t, err)
-
-				conn, err := net.DialUnix("unixgram", nil, raddr)
-				require.NoError(t, err)
-				defer conn.Close() //nolint:errcheck
 
 				track := &mpegts.Track{
 					Codec: &tscodecs.H264{},
@@ -214,15 +210,7 @@ func TestSourceUnixSocket(t *testing.T) {
 				err = bw.Flush()
 				require.NoError(t, err)
 
-				// A datagram socket has no EOF, so emit a second access unit to
-				// flush the first one (mirrors the UDP test).
-				err = w.WriteH264(track, 0, 0, [][]byte{{ // non-IDR
-					5, 2,
-				}})
-				require.NoError(t, err)
-
-				err = bw.Flush()
-				require.NoError(t, err)
+				conn.Close() // trigger a flush
 
 				<-p.Unit
 			}()

@@ -43,3 +43,9 @@ paths:
   mypath:
     source: unix+mpegts:///tmp/socket.sock
 ```
+
+For instance, FFmpeg can encode and publish a test stream to the socket with:
+
+```sh
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -c:v libx264 -tune zerolatency -f mpegts unix:/tmp/socket.sock
+```
