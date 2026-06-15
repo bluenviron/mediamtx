@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.23
+FROM amd64/alpine:3.24
 
 RUN apk add --no-cache \
     ffmpeg
