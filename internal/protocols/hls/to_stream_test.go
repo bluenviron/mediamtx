@@ -144,7 +144,7 @@ func TestToStream(t *testing.T) {
 					}
 
 					strm = &stream.Stream{
-						Desc:              &description.Session{Medias: medias},
+						OrigDesc:          &description.Session{Medias: medias},
 						WriteQueueSize:    512,
 						RTPMaxPayloadSize: 1450,
 						Parent:            test.NilLogger,

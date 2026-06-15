@@ -16,6 +16,7 @@ import (
 	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
 	"github.com/pion/sdp/v3"
+	"github.com/pion/transport/v4"
 	"github.com/pion/webrtc/v4"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -151,7 +152,7 @@ type trackRecvPair struct {
 
 // PeerConnection is a wrapper around webrtc.PeerConnection.
 type PeerConnection struct {
-	UDPReadBufferSize     uint
+	Net                   transport.Net
 	LocalRandomUDP        bool
 	ICEUDPMux             ice.UDPMux
 	ICETCPMux             *TCPMuxWrapper
@@ -161,19 +162,19 @@ type PeerConnection struct {
 	AdditionalHosts       []string
 	STUNGatherTimeout     time.Duration
 	Publish               bool
-	OutgoingTracks        []*OutgoingTrack
-	OutgoingDataChannels  []*OutgoingDataChannel
+	OutboundTracks        []*OutboundTrack
+	OutboundDataChannels  []*OutboundDataChannel
 	Log                   logger.Writer
 
 	wr               *webrtc.PeerConnection
 	ctx              context.Context
 	ctxCancel        context.CancelFunc
 	readingStarted   atomic.Int64
-	incomingTracks   []*IncomingTrack
+	inboundTracks    []*InboundTrack
 	statsInterceptor *statsInterceptor
 
 	newLocalCandidate chan *webrtc.ICECandidateInit
-	incomingTrack     chan trackRecvPair
+	inboundTrack      chan trackRecvPair
 
 	stateMutex   sync.Mutex
 	state        webrtc.PeerConnectionState
@@ -218,21 +219,14 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetSTUNGatherTimeout(co.STUNGatherTimeout)
 
-	webrtcNet := &webrtcNet{
-		udpReadBufferSize: int(co.UDPReadBufferSize),
-	}
-	err := webrtcNet.initialize()
-	if err != nil {
-		return err
-	}
-	settingsEngine.SetNet(webrtcNet)
+	settingsEngine.SetNet(co.Net)
 
 	mediaEngine := &webrtc.MediaEngine{}
 
 	if co.Publish {
 		videoSetupped := false
 		audioSetupped := false
-		for _, tr := range co.OutgoingTracks {
+		for _, tr := range co.OutboundTracks {
 			if tr.isVideo() {
 				videoSetupped = true
 			} else {
@@ -243,7 +237,7 @@ func (co *PeerConnection) Start() error {
 		// When audio is not used, a track has to be present anyway,
 		// otherwise video is not displayed on Firefox and Chrome.
 		if !audioSetupped {
-			co.OutgoingTracks = append(co.OutgoingTracks, &OutgoingTrack{
+			co.OutboundTracks = append(co.OutboundTracks, &OutboundTrack{
 				Caps: webrtc.RTPCodecCapability{
 					MimeType:  webrtc.MimeTypePCMU,
 					ClockRate: 8000,
@@ -251,7 +245,7 @@ func (co *PeerConnection) Start() error {
 			})
 		}
 
-		for i, tr := range co.OutgoingTracks {
+		for i, tr := range co.OutboundTracks {
 			var codecType webrtc.RTPCodecType
 			if tr.isVideo() {
 				codecType = webrtc.RTPCodecTypeVideo
@@ -259,7 +253,7 @@ func (co *PeerConnection) Start() error {
 				codecType = webrtc.RTPCodecTypeAudio
 			}
 
-			err = mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: tr.Caps,
 				PayloadType:        webrtc.PayloadType(96 + i),
 			}, codecType)
@@ -271,7 +265,7 @@ func (co *PeerConnection) Start() error {
 		// When video is not used, a track must not be added but a codec has to present.
 		// Otherwise audio is muted on Firefox and Chrome.
 		if !videoSetupped {
-			err = mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 				RTPCodecCapability: webrtc.RTPCodecCapability{
 					MimeType:  webrtc.MimeTypeVP8,
 					ClockRate: 90000,
@@ -284,14 +278,14 @@ func (co *PeerConnection) Start() error {
 		}
 	} else {
 		for _, codec := range incomingVideoCodecs {
-			err = mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
+			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
 			if err != nil {
 				return err
 			}
 		}
 
 		for _, codec := range incomingAudioCodecs {
-			err = mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
+			err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
 			if err != nil {
 				return err
 			}
@@ -300,7 +294,7 @@ func (co *PeerConnection) Start() error {
 
 	interceptorRegistry := &interceptor.Registry{}
 
-	err = registerInterceptors(
+	err := registerInterceptors(
 		mediaEngine,
 		interceptorRegistry,
 		func(s *statsInterceptor) {
@@ -328,12 +322,12 @@ func (co *PeerConnection) Start() error {
 	co.newLocalCandidate = make(chan *webrtc.ICECandidateInit)
 	co.stateChanged = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
-	co.incomingTrack = make(chan trackRecvPair)
+	co.inboundTrack = make(chan trackRecvPair)
 	co.done = make(chan struct{})
 	co.chStartReading = make(chan struct{})
 
 	if co.Publish {
-		for _, tr := range co.OutgoingTracks {
+		for _, tr := range co.OutboundTracks {
 			err = tr.setup(co)
 			if err != nil {
 				co.wr.GracefulClose() //nolint:errcheck
@@ -341,7 +335,7 @@ func (co *PeerConnection) Start() error {
 			}
 		}
 
-		for _, dc := range co.OutgoingDataChannels {
+		for _, dc := range co.OutboundDataChannels {
 			err = dc.setup(co)
 			if err != nil {
 				co.wr.GracefulClose() //nolint:errcheck
@@ -367,7 +361,7 @@ func (co *PeerConnection) Start() error {
 
 		co.wr.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 			select {
-			case co.incomingTrack <- trackRecvPair{track, receiver}:
+			case co.inboundTrack <- trackRecvPair{track, receiver}:
 			case <-co.ctx.Done():
 			}
 		})
@@ -429,10 +423,10 @@ func (co *PeerConnection) run() {
 	defer close(co.done)
 
 	defer func() {
-		for _, track := range co.incomingTracks {
+		for _, track := range co.inboundTracks {
 			track.close()
 		}
-		for _, track := range co.OutgoingTracks {
+		for _, track := range co.OutboundTracks {
 			track.close()
 		}
 
@@ -448,7 +442,7 @@ func (co *PeerConnection) run() {
 	for {
 		select {
 		case <-co.chStartReading:
-			for _, track := range co.incomingTracks {
+			for _, track := range co.inboundTracks {
 				track.start()
 			}
 			co.readingStarted.Store(1)
@@ -762,8 +756,8 @@ outer:
 	return nil
 }
 
-// GatherIncomingTracks gathers incoming tracks.
-func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
+// GatherInboundTracks gathers incoming tracks.
+func (co *PeerConnection) GatherInboundTracks(timeout time.Duration) error {
 	var sdp sdp.SessionDescription
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
@@ -775,13 +769,13 @@ func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 	for {
 		select {
 		case <-t.C:
-			if len(co.incomingTracks) != 0 {
+			if len(co.inboundTracks) != 0 {
 				return nil
 			}
 			return fmt.Errorf("deadline exceeded while waiting tracks")
 
-		case pair := <-co.incomingTrack:
-			t := &IncomingTrack{
+		case pair := <-co.inboundTrack:
+			t := &InboundTrack{
 				track:     pair.track,
 				receiver:  pair.receiver,
 				rid:       pair.track.RID(),
@@ -789,9 +783,9 @@ func (co *PeerConnection) GatherIncomingTracks(timeout time.Duration) error {
 				log:       co.Log,
 			}
 			t.initialize()
-			co.incomingTracks = append(co.incomingTracks, t)
+			co.inboundTracks = append(co.inboundTracks, t)
 
-			if len(co.incomingTracks) >= maxTrackCount {
+			if len(co.inboundTracks) >= maxTrackCount {
 				return nil
 			}
 
@@ -895,9 +889,9 @@ func (co *PeerConnection) GatheringDone() <-chan struct{} {
 	return co.gatheringDone
 }
 
-// IncomingTracks returns incoming tracks.
-func (co *PeerConnection) IncomingTracks() []*IncomingTrack {
-	return co.incomingTracks
+// InboundTracks returns incoming tracks.
+func (co *PeerConnection) InboundTracks() []*InboundTrack {
+	return co.inboundTracks
 }
 
 // StartReading starts reading incoming tracks.
@@ -960,7 +954,7 @@ func (co *PeerConnection) Stats() *Stats {
 	packetsLost := uint64(0)
 
 	if co.readingStarted.Load() == 1 {
-		for _, tr := range co.incomingTracks {
+		for _, tr := range co.inboundTracks {
 			if recvStats := tr.rtpReceiver.Stats(); recvStats != nil {
 				v += recvStats.Jitter
 				n++
@@ -970,7 +964,7 @@ func (co *PeerConnection) Stats() *Stats {
 		}
 	}
 
-	for _, tr := range co.OutgoingTracks {
+	for _, tr := range co.OutboundTracks {
 		if sentStats := tr.rtcpSender.Stats(); sentStats != nil {
 			packetsSent += sentStats.Sent
 		}

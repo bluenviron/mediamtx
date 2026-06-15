@@ -37,7 +37,7 @@ func TestPacketConnInitialize_CreatesFile(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close()      //nolint:errcheck
@@ -50,7 +50,7 @@ func TestPacketConnWriteTo(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	n, err := c.WriteTo([]byte("hello world"), server.LocalAddr())
@@ -73,7 +73,7 @@ func TestPacketConnReadFrom(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	_, err := server.WriteTo([]byte("incoming data"), client.LocalAddr())
@@ -96,7 +96,7 @@ func TestPacketConnMultipleWriteRead(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	serverAddr := server.LocalAddr()
@@ -140,7 +140,7 @@ func TestPacketConnCloseIdempotent(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close()      //nolint:errcheck
@@ -154,7 +154,7 @@ func TestPacketConnDelegatesAddrMethods(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	require.Equal(t, client.LocalAddr(), c.LocalAddr())
@@ -173,7 +173,7 @@ func TestPacketConnReadFromRecordsSource(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &packetConn{Prefix: prefix, PacketConn: client}
+	c := &PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	_, err := server.WriteTo([]byte("ping"), client.LocalAddr())

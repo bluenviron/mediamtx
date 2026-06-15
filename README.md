@@ -6,29 +6,30 @@
   <br>
   <br>
 
-  [![Website](https://img.shields.io/badge/website-mediamtx.org-1c94b5)](https://mediamtx.org)
-  [![Test](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml?query=branch%3Amain)
-  [![Lint](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml?query=branch%3Amain)
-  [![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/tree/main)
-  [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
-  [![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
+[![Website](https://img.shields.io/badge/website-mediamtx.org-1c94b5)](https://mediamtx.org)
+[![Test](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml?query=branch%3Amain)
+[![Lint](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml?query=branch%3Amain)
+[![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/tree/main)
+[![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
+[![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
+
 </h1>
 
 <br>
 
-_MediaMTX_ is a ready-to-use and zero-dependency real-time media server and media proxy that allows to publish, read, proxy, record and playback video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other, with a focus on efficiency and portability.
+_MediaMTX_ is a ready-to-use and zero-dependency live media server and media proxy that allows to publish, read, proxy, record and playback real-time video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other, with a focus on efficiency and portability.
 
 <div align="center">
 
-  |[Install](https://mediamtx.org/docs/kickoff/install)|[Documentation](https://mediamtx.org/docs/kickoff/introduction)|
-  |-|-|
+| [Install](https://mediamtx.org/docs/kickoff/install) | [Documentation](https://mediamtx.org/docs/kickoff/introduction) |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
 
 </div>
 
 <h3>Features</h3>
 
-- [Publish](https://mediamtx.org/docs/features/publish) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, web browsers, Raspberry Pi Cameras and more.
-- [Read](https://mediamtx.org/docs/features/read) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, web browsers and more.
+- [Publish](https://mediamtx.org/docs/features/publish) live streams to the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, web browsers, Raspberry Pi Cameras and more.
+- [Read](https://mediamtx.org/docs/features/read) live streams from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)

@@ -62,50 +62,39 @@ authMethod: internal
 authInternalUsers:
   # Default unprivileged user.
   # Username. 'any' means any user, including anonymous ones.
-- user: any
-  # Password. Not used in case of 'any' user.
-  pass:
-  # IPs or networks allowed to use this user. An empty list means any IP.
-  ips: []
-  # Permissions.
-  permissions:
-    # Available actions are: publish, read, playback, api, metrics, pprof.
-  - action: publish
-    # Paths can be set to further restrict access to a specific path.
-    # An empty path means any path.
-    # Regular expressions can be used by using a tilde as prefix.
-    path:
-  - action: read
-    path:
-  - action: playback
-    path:
+  - user: any
+    # Password. Not used in case of 'any' user.
+    pass:
+    # IPs or networks allowed to use this user. An empty list means any IP.
+    ips: []
+    # Permissions.
+    permissions:
+      # Available actions are: publish, read, playback, api, metrics, pprof.
+      - action: publish
+        # Paths can be set to further restrict access to a specific path.
+        # An empty path means any path.
+        # Regular expressions can be used by using a tilde as prefix.
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
 
-  # Default administrator.
-  # This allows to use API, metrics and PPROF without authentication,
-  # if the IP is localhost.
-- user: any
-  pass:
-  ips: ['127.0.0.1', '::1']
-  permissions:
-  - action: api
-  - action: metrics
-  - action: pprof
+    # Default administrator.
+    # This allows to use API, metrics and PPROF without authentication,
+    # if the IP is localhost.
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
 # to authenticate, the server calls this URL with the POST method
-# and a body containing:
-# {
-#   "user": "user",
-#   "password": "password",
-#   "token": "token",
-#   "ip": "ip",
-#   "action": "publish|read|playback|api|metrics|pprof",
-#   "path": "path",
-#   "protocol": "rtsp|rtmp|hls|webrtc|srt",
-#   "id": "id",
-#   "query": "query"
-# }
+# and a payload described in the documentation.
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
 authHTTPAddress:
@@ -118,9 +107,9 @@ authHTTPFingerprint:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
-- action: api
-- action: metrics
-- action: pprof
+  - action: api
+  - action: metrics
+  - action: pprof
 
 # JWT-based authentication.
 # Users have to log in through an external identity server and obtain a JWT.
@@ -157,11 +146,11 @@ authJWTAudience:
 ###############################################
 # Global settings -> Control API
 
-# Allow clients to control the server through the Control API.
+# Enable the control API server, which allows to control the server.
 api: false
-# Address of the Control API listener.
+# Address of the TCP/HTTP listener.
 apiAddress: :9997
-# Enable HTTPS on the Control API server.
+# Enable HTTPS.
 apiEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -172,20 +161,20 @@ apiServerKey: server.key
 apiServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-apiAllowOrigins: ['*']
+apiAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 apiTrustedProxies: []
 
 ###############################################
-# Global settings -> Metrics
+# Global settings -> Metrics server
 
-# Allow clients to extract Prometheus-compatible metrics.
+# Enable the metrics server, which allows to extract Prometheus-compatible metrics.
 metrics: false
-# Address of the metrics HTTP listener.
+# Address of the TCP/HTTP listener.
 metricsAddress: :9998
-# Enable HTTPS on the Metrics server.
+# Enable HTTPS.
 metricsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -196,20 +185,20 @@ metricsServerKey: server.key
 metricsServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-metricsAllowOrigins: ['*']
+metricsAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
 metricsTrustedProxies: []
 
 ###############################################
-# Global settings -> PPROF
+# Global settings -> PPROF server
 
-# Allow clients to extract pprof-compatible performance reports.
+# Enable the PPROF server, which allows to extract performance reports.
 pprof: false
-# Address of the pprof listener.
+# Address of the TCP/HTTP listener.
 pprofAddress: :9999
-# Enable HTTPS on the pprof server.
+# Enable HTTPS.
 pprofEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -220,7 +209,7 @@ pprofServerKey: server.key
 pprofServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-pprofAllowOrigins: ['*']
+pprofAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -229,11 +218,11 @@ pprofTrustedProxies: []
 ###############################################
 # Global settings -> Playback server
 
-# Allow clients to download recordings from the playback server.
+# Enable the playback server, which allows to download recordings from the server.
 playback: false
-# Address of the playback server listener.
+# Address of the TCP/HTTP listener.
 playbackAddress: :9996
-# Enable HTTPS on the playback server.
+# Enable HTTPS.
 playbackEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
 # This can be generated with:
@@ -244,7 +233,7 @@ playbackServerKey: server.key
 playbackServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-playbackAllowOrigins: ['*']
+playbackAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -253,7 +242,7 @@ playbackTrustedProxies: []
 ###############################################
 # Global settings -> RTSP server
 
-# Allow clients to publish and read streams with the RTSP protocol.
+# Enable the RTSP server, which allows to publish and read streams with the RTSP protocol.
 rtsp: true
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
 rtspTransports: [udp, multicast, tcp]
@@ -292,18 +281,22 @@ rtspServerCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
+# IPs or CIDRs of proxies placed before the RTSP server.
+# If the server receives a request from one of these entries, IP in logs
+# and authentication will be taken from the PROXY protocol header.
+rtspTrustedProxies: []
 
 ###############################################
 # Global settings -> RTMP server
 
-# Allow clients to publish and read streams with the RTMP protocol.
+# Enable the RTMP server, which allows to publish and read streams with the RTMP protocol.
 rtmp: true
 # Use the secure protocol variant (RTMPS).
 # Available values are "no", "strict", "optional".
 rtmpEncryption: "no"
-# Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
+# Address of the TCP/RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
-# Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
+# Address of the TCP/RTMPS listener. This is needed only when encryption is "strict" or "optional".
 rtmpsAddress: :1936
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
 # This can be generated with:
@@ -312,15 +305,19 @@ rtmpsAddress: :1936
 rtmpServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtmpServerCert: server.crt
+# IPs or CIDRs of proxies placed before the RTMP server.
+# If the server receives a request from one of these entries, IP in logs
+# and authentication will be taken from the PROXY protocol header.
+rtmpTrustedProxies: []
 
 ###############################################
 # Global settings -> HLS server
 
-# Allow clients to read streams with the HLS protocol.
+# Enable the HLS server, which allows to read streams with the HLS protocol.
 hls: true
-# Address of the HLS listener.
+# Address of the TCP/HTTP listener.
 hlsAddress: :8888
-# Enable HTTPS on the HLS server.
+# Enable HTTPS.
 # This is required for Low-Latency HLS to function correctly on Apple devices.
 hlsEncryption: false
 # Path to the server key. This is needed only when encryption is yes.
@@ -332,7 +329,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-hlsAllowOrigins: ['*']
+hlsAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
@@ -367,25 +364,25 @@ hlsSegmentMaxSize: 50M
 # Directory in which to save segments and non-low-latency playlists.
 # This has two purposes: offloading RAM and creating a self-consistent directory
 # that can be served by a CDN.
-hlsDirectory: ''
+hlsDirectory: ""
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
 # Secret to identify requests coming from a CDN.
 # The CDN must insert this secret in every request in the
 # 'Authorization: Bearer' header.
-hlsCDNSecret: ''
+hlsCDNSecret: ""
 
 ###############################################
 # Global settings -> WebRTC server
 
-# Allow clients to publish and read streams with the WebRTC protocol.
+# Enable the WebRTC server, which allows to publish and read streams with the WebRTC protocol.
 webrtc: true
-# Address of the WebRTC HTTP listener.
+# Address of the WebRTC TCP/HTTP listener.
 webrtcAddress: :8889
-# Enable HTTPS on the WebRTC server.
-# This covers only the WebRTC handshake and does not influence the encryption of WebRTC streams
-# which are always encrypted, with a key that is exchanged during the WebRTC handshake.
+# Enable HTTPS.
+# This covers only the WebRTC handshake, while WebRTC streams
+# are always encrypted with a key that is exchanged during the WebRTC handshake.
 webrtcEncryption: false
 # Path to the server key.
 # This can be generated with:
@@ -396,18 +393,18 @@ webrtcServerKey: server.key
 webrtcServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-webrtcAllowOrigins: ['*']
+webrtcAllowOrigins: ["*"]
 # IPs or CIDRs of proxies placed before the WebRTC server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
-# Address of a local UDP listener that will receive connections.
+# Address of a UDP/ICE listener that will receive connections.
 # Use a blank string to disable.
 webrtcLocalUDPAddress: :8189
-# Address of a local TCP listener that will receive connections.
+# Address of a TCP/ICE listener that will receive connections.
 # This is disabled by default since TCP is less efficient than UDP and
 # introduces a progressive delay when network is congested.
-webrtcLocalTCPAddress: ''
+webrtcLocalTCPAddress: ""
 # WebRTC clients need to know the IP of the server.
 # Gather IPs from interfaces and send them to clients.
 webrtcIPsFromInterfaces: true
@@ -436,12 +433,11 @@ webrtcTrackGatherTimeout: 2s
 ###############################################
 # Global settings -> SRT server
 
-# Allow clients to publish and read streams with the SRT protocol.
+# Enable the SRT server, which allows to publish and read streams with the SRT protocol.
 srt: true
-# Address of the SRT listener.
+# Address of the UDP/SRT listener.
 srtAddress: :8890
 
-###############################################
 ###############################################
 # External path configuration source
 
@@ -458,12 +454,35 @@ pathExternalConfEnabled: false
 pathExternalConfURL:
 
 ###############################################
+# MoQ server
+
+# Enable the MoQ (Media over QUIC) server, which allows to publish and read streams with the MoQ protocol.
+moq: true
+# Address of the TCP/HTTP2 listener.
+# This hosts the web client.
+moqHTTP2Address: :8892
+# Address of the UDP/HTTP3 listener.
+# This hosts the WebTransport endpoint.
+moqHTTP3Address: :8892
+# Path to the server key.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+# If set to "auto.key", a key is generated automatically and saved in the current folder.
+moqServerKey: auto.key
+# Path to the server certificate.
+moqServerCert: auto.crt
+# Allowed origins for CORS.
+moqAllowOrigins: ["*"]
+# Proxies which are trusted to provide the client's real IP via the X-Forwarded-For header.
+moqTrustedProxies: []
+
+###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,
 # unless they are overridden in "paths".
 pathDefaults:
-
   ###############################################
   # Default path settings -> General
 
@@ -529,7 +548,7 @@ pathDefaults:
     #   # in case of G711, muLaw must be provided too.
     #   muLaw: false
   # An MP4 file can be used instead of the default offline segment.
-  alwaysAvailableFile: ''
+  alwaysAvailableFile: ""
 
   ###############################################
   # Default path settings -> Record
@@ -602,7 +621,7 @@ pathDefaults:
   # Default path settings -> WebRTC / WHEP source (when source is WHEP)
 
   # Token to insert in the Authorization: Bearer header.
-  whepBearerToken: ''
+  whepBearerToken: ""
   # Maximum time to gather STUN candidates.
   whepSTUNGatherTimeout: 5s
   # Time to wait for the WebRTC handshake to complete.
@@ -691,7 +710,7 @@ pathDefaults:
   rpiCameraTextOverlayEnable: false
   # Text that is printed on each frame.
   # format is the one of the strftime() function.
-  rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
+  rpiCameraTextOverlay: "%Y-%m-%d %H:%M:%S - MediaMTX"
   # Codec (auto, hardwareH264, softwareH264 or mjpeg).
   # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
   # When is "auto" and stream is secondary, it defaults to mjpeg.
@@ -703,11 +722,11 @@ pathDefaults:
   # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
   rpiCameraHardwareH264Profile: main
   # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
-  rpiCameraHardwareH264Level: '4.1'
+  rpiCameraHardwareH264Level: "4.1"
   # Software H264 profile (baseline, main or high) (when codec is softwareH264).
   rpiCameraSoftwareH264Profile: baseline
   # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
-  rpiCameraSoftwareH264Level: '4.1'
+  rpiCameraSoftwareH264Level: "4.1"
   # M-JPEG JPEG quality (when codec is mjpeg).
   rpiCameraMJPEGQuality: 60
 

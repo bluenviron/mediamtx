@@ -46,7 +46,6 @@ type PPROF struct {
 func (pp *PPROF) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(pp.middlewarePreflightRequests)
 	router.Use(pp.middlewareAuth)
 
@@ -70,7 +69,7 @@ func (pp *PPROF) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + pp.Address
+	str := "started with listener on " + pp.Address
 	if !pp.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -83,7 +82,7 @@ func (pp *PPROF) Initialize() error {
 
 // Close closes PPROF.
 func (pp *PPROF) Close() {
-	pp.Log(logger.Info, "listener is closing")
+	pp.Log(logger.Info, "closing")
 	pp.httpServer.Close()
 }
 
@@ -119,6 +118,8 @@ func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 
 	_, err := pp.AuthManager.Authenticate(req)
 	if err != nil {
+		auth.DelayBruteForce(err)
+
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			pp.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -126,9 +127,6 @@ func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 		}
 
 		pp.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
-
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
 
 		pp.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return

@@ -43,7 +43,6 @@ type Server struct {
 func (s *Server) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(s.middlewarePreflightRequests)
 
 	router.GET("/list", s.onList)
@@ -67,7 +66,7 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + s.Address
+	str := "started with listener on " + s.Address
 	if !s.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -80,7 +79,7 @@ func (s *Server) Initialize() error {
 
 // Close closes Server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 	s.httpServer.Close()
 }
 
@@ -143,6 +142,8 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 
 	_, err := s.AuthManager.Authenticate(req)
 	if err != nil {
+		auth.DelayBruteForce(err)
+
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -151,9 +152,6 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 
 		s.Log(logger.Info, "connection %v failed to authenticate: %v",
 			httpp.RemoteAddr(ctx), err.Wrapped)
-
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
 
 		s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return false

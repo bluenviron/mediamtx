@@ -27,7 +27,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 
 	m := &gohlslib.Muxer{}
 
-	err := FromStream(desc, r, m)
+	err := FromStream(desc, desc, r, m)
 	require.Equal(t, ErrNoSupportedCodecs, err)
 }
 
@@ -64,7 +64,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		}),
 	}
 
-	err := FromStream(desc, r, m)
+	err := FromStream(desc, desc, r, m)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, n)
@@ -85,7 +85,7 @@ func TestFromStreamKLVRequiresMPEGTSVariant(t *testing.T) {
 
 		m := &gohlslib.Muxer{Variant: gohlslib.MuxerVariantFMP4}
 
-		err := FromStream(desc, r, m)
+		err := FromStream(desc, desc, r, m)
 		require.Equal(t, ErrNoSupportedCodecs, err)
 	})
 
@@ -113,7 +113,7 @@ func TestFromStreamKLVRequiresMPEGTSVariant(t *testing.T) {
 
 		m := &gohlslib.Muxer{Variant: gohlslib.MuxerVariantFMP4}
 
-		err := FromStream(desc, r, m)
+		err := FromStream(desc, desc, r, m)
 		require.NoError(t, err)
 		require.Equal(t, 1, n)
 		require.Equal(t, 1, len(m.Tracks))

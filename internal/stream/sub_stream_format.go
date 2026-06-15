@@ -11,32 +11,36 @@ import (
 )
 
 type subStreamFormat struct {
-	curFormat     format.Format
+	inFormat      format.Format
 	streamFormat  *streamFormat
 	useRTPPackets bool
 
-	rtpDecoder        rtpDecoder
-	tempRTPEncoder    rtpEncoder
-	tempRTPTimeOffset uint32
+	rtpDecoder rtpDecoder
 }
 
 func (ssf *subStreamFormat) initialize() error {
 	if ssf.useRTPPackets {
 		var err error
-		ssf.rtpDecoder, err = newRTPDecoder(ssf.curFormat)
+		ssf.rtpDecoder, err = newRTPDecoder(ssf.inFormat)
 		if err != nil {
 			return err
 		}
 	}
 
-	if ssf.streamFormat.rtpEncoder == nil && (!ssf.useRTPPackets || ssf.streamFormat.alwaysAvailable) {
+	if ssf.streamFormat.rtpEncoder == nil && (!ssf.useRTPPackets ||
+		ssf.streamFormat.alwaysAvailable ||
+		ssf.streamFormat.forceRemux) {
 		var err error
-		ssf.tempRTPEncoder, err = newRTPEncoder(ssf.curFormat, ssf.streamFormat.rtpMaxPayloadSize, nil, nil)
+		ssf.streamFormat.rtpEncoder, err = newRTPEncoder(
+			ssf.streamFormat.outFormat,
+			ssf.streamFormat.rtpMaxPayloadSize,
+			nil,
+			nil)
 		if err != nil {
 			return err
 		}
 
-		ssf.tempRTPTimeOffset, err = randUint32()
+		ssf.streamFormat.rtpTimeOffset, err = randUint32()
 		if err != nil {
 			return err
 		}
@@ -46,45 +50,32 @@ func (ssf *subStreamFormat) initialize() error {
 }
 
 func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
-	if ssf.tempRTPEncoder != nil {
-		if ssf.streamFormat.rtpEncoder == nil {
-			ssf.streamFormat.rtpEncoder = ssf.tempRTPEncoder
-			ssf.streamFormat.rtpTimeOffset = ssf.tempRTPTimeOffset
-		}
-
-		ssf.tempRTPEncoder = nil
-		ssf.tempRTPTimeOffset = 0
-	}
-
 	if ssf.streamFormat.alwaysAvailable {
 		if firstTimeReceived {
 			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
 			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo),
-				int64(ssf.streamFormat.format.ClockRate()), int64(time.Second))
+				int64(ssf.streamFormat.outFormat.ClockRate()), int64(time.Second))
 		}
 
-		switch curFormat := ssf.curFormat.(type) {
+		// transfer parameters from inFormat to outFormat by writing them in the stream
+		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
-			vps, sps, pps := curFormat.SafeParams()
-
-			if vps != nil && sps != nil && pps != nil {
+			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
 					RTPPackets: nil,
-					Payload:    unit.PayloadH265([][]byte{vps, sps, pps}),
+					Payload:    unit.PayloadH265([][]byte{inFormat.VPS, inFormat.SPS, inFormat.PPS}),
 				})
 			}
 
 		case *format.H264:
-			sps, pps := curFormat.SafeParams()
-
-			if sps != nil && pps != nil {
+			if inFormat.SPS != nil && inFormat.PPS != nil {
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
 					RTPPackets: nil,
-					Payload:    unit.PayloadH264([][]byte{sps, pps}),
+					Payload:    unit.PayloadH264([][]byte{inFormat.SPS, inFormat.PPS}),
 				})
 			}
 		}
@@ -105,7 +96,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 
 		ssf.streamFormat.updateLastTime(
 			multiplyAndDivide2(time.Duration(u.PTS),
-				time.Second, time.Duration(ssf.streamFormat.format.ClockRate())))
+				time.Second, time.Duration(ssf.streamFormat.outFormat.ClockRate())))
 	}
 
 	if ssf.streamFormat.replaceNTP {
@@ -125,11 +116,10 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 			for _, pkt := range u.RTPPackets {
 				if len(pkt.Payload) > ssf.streamFormat.rtpMaxPayloadSize {
 					var err error
-					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.format, ssf.streamFormat.rtpMaxPayloadSize,
-						ptrOf(pkt.SSRC), ptrOf(pkt.SequenceNumber))
+					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.outFormat, ssf.streamFormat.rtpMaxPayloadSize,
+						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
-						var err2 rtpEncoderNotAvailableError
-						if errors.As(err, &err2) {
+						if _, ok := errors.AsType[rtpEncoderNotAvailableError](err); ok {
 							return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
 								len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
 						}
@@ -152,9 +142,9 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	}
 
 	if !u.NilPayload() {
-		ssf.streamFormat.formatUpdater(ssf.streamFormat.format, u.Payload)
+		ssf.streamFormat.formatUpdater(ssf.streamFormat.outFormat, u.Payload, ssf.streamFormat.updateOutDesc)
 
-		u.Payload = ssf.streamFormat.unitRemuxer(ssf.streamFormat.format, u.Payload)
+		u.Payload = ssf.streamFormat.unitRemuxer(ssf.streamFormat.outFormat, u.Payload)
 
 		if ssf.streamFormat.rtpEncoder != nil && !u.NilPayload() {
 			var err error
@@ -172,7 +162,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	size := unitSize(u)
 	ssf.streamFormat.inboundBytes.Add(size)
 
-	ssf.streamFormat.writeRTSP(ssf.streamFormat.media, u.RTPPackets, u.NTP)
+	ssf.streamFormat.writeRTSP(u.RTPPackets, u.NTP)
 
 	for sr, onData := range ssf.streamFormat.onDatas {
 		csr := sr

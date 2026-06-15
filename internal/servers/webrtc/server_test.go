@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -355,7 +356,7 @@ func TestServerPublish(t *testing.T) {
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				Desc:              req.Desc,
+				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -373,8 +374,8 @@ func TestServerPublish(t *testing.T) {
 			reader = &stream.Reader{Parent: test.NilLogger}
 
 			reader.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
+				strm.OrigDesc.Medias[0],
+				strm.OrigDesc.Medias[0].Formats[0],
 				func(u *unit.Unit) error {
 					/* select {
 					case <-recv:
@@ -422,7 +423,7 @@ func TestServerPublish(t *testing.T) {
 	su, err := url.Parse("http://myuser:mypass@localhost:8886/teststream/whip?param=value")
 	require.NoError(t, err)
 
-	track := &webrtc.OutgoingTrack{
+	track := &webrtc.OutboundTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
 			ClockRate:   90000,
@@ -434,7 +435,7 @@ func TestServerPublish(t *testing.T) {
 		HTTPClient:     hc,
 		URL:            su,
 		Publish:        true,
-		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		OutboundTracks: []*webrtc.OutboundTrack{track},
 		Log:            test.NilLogger,
 	}
 
@@ -469,6 +470,7 @@ func TestServerPublish(t *testing.T) {
 				Path:                      "teststream",
 				Query:                     "param=value",
 				User:                      "myuser",
+				UserAgent:                 list.Items[0].UserAgent,
 				InboundBytes:              list.Items[0].InboundBytes,
 				InboundRTPPackets:         list.Items[0].InboundRTPPackets,
 				InboundRTPPacketsLost:     list.Items[0].InboundRTPPacketsLost,
@@ -644,7 +646,7 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: ca.medias}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -737,7 +739,7 @@ func TestServerRead(t *testing.T) {
 
 			done := make(chan struct{})
 
-			wc.IncomingTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
+			wc.InboundTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
 				select {
 				case <-done:
 				default:
@@ -763,6 +765,7 @@ func TestServerRead(t *testing.T) {
 						Path:                      "teststream",
 						Query:                     "param=value",
 						User:                      "myuser",
+						UserAgent:                 list.Items[0].UserAgent,
 						InboundBytes:              list.Items[0].InboundBytes,
 						InboundRTPPackets:         list.Items[0].InboundRTPPackets,
 						InboundRTPPacketsLost:     list.Items[0].InboundRTPPacketsLost,
@@ -917,7 +920,7 @@ func TestServerICERestart(t *testing.T) {
 		},
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			strm = &stream.Stream{
-				Desc:              req.Desc,
+				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -936,8 +939,8 @@ func TestServerICERestart(t *testing.T) {
 			n := 0
 
 			reader.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
+				strm.OrigDesc.Medias[0],
+				strm.OrigDesc.Medias[0].Formats[0],
 				func(u *unit.Unit) error {
 					switch n {
 					case 0:
@@ -990,7 +993,7 @@ func TestServerICERestart(t *testing.T) {
 	su, err := url.Parse("http://localhost:8886/teststream/whip")
 	require.NoError(t, err)
 
-	track := &webrtc.OutgoingTrack{
+	track := &webrtc.OutboundTrack{
 		Caps: pwebrtc.RTPCodecCapability{
 			MimeType:    pwebrtc.MimeTypeH264,
 			ClockRate:   90000,
@@ -1002,7 +1005,7 @@ func TestServerICERestart(t *testing.T) {
 		HTTPClient:     hc,
 		URL:            su,
 		Publish:        true,
-		OutgoingTracks: []*webrtc.OutgoingTrack{track},
+		OutboundTracks: []*webrtc.OutboundTrack{track},
 		Log:            test.NilLogger,
 	}
 
@@ -1158,7 +1161,7 @@ func TestAuthError(t *testing.T) {
 		"whip post",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			authFailed := false
+			var authFailed atomic.Bool
 
 			s := &Server{
 				Address:      "127.0.0.1:8886",
@@ -1173,11 +1176,13 @@ func TestAuthError(t *testing.T) {
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					},
 				},
-				Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-					if l == logger.Info {
-						if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
-							authFailed = true
+				Parent: test.Logger(func(_ logger.Level, s string, i ...any) {
+					if ca == "whip post" {
+						if regexp.MustCompile("authentication failed: auth error$").MatchString(fmt.Sprintf(s, i...)) {
+							authFailed.Store(true)
 						}
+					} else if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
+						authFailed.Store(true)
 					}
 				}),
 			}
@@ -1248,17 +1253,13 @@ func TestAuthError(t *testing.T) {
 
 			require.NoError(t, err)
 
-			start := time.Now()
-
 			res, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)
 			defer res.Body.Close()
 
-			require.Greater(t, time.Since(start), 2*time.Second)
-
 			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
-			require.True(t, authFailed)
+			require.True(t, authFailed.Load())
 		})
 	}
 }

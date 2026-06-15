@@ -31,6 +31,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordcleaner"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
+	"github.com/bluenviron/mediamtx/internal/servers/moq"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
@@ -125,6 +126,7 @@ type Core struct {
 	hlsServer       *hls.Server
 	webRTCServer    *webrtc.Server
 	srtServer       *srt.Server
+	moqServer       *moq.Server
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
 
@@ -493,6 +495,7 @@ func (p *Core) createResources(initial bool) error {
 			ServerCert:          "",
 			ServerKey:           "",
 			RTSPAddress:         p.conf.RTSPAddress,
+			TrustedProxies:      p.conf.RTSPTrustedProxies,
 			Transports:          p.conf.RTSPTransports,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
@@ -536,6 +539,7 @@ func (p *Core) createResources(initial bool) error {
 			ServerCert:          p.conf.RTSPServerCert,
 			ServerKey:           p.conf.RTSPServerKey,
 			RTSPAddress:         p.conf.RTSPAddress,
+			TrustedProxies:      p.conf.RTSPTrustedProxies,
 			Transports:          p.conf.RTSPTransports,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
@@ -565,6 +569,7 @@ func (p *Core) createResources(initial bool) error {
 			ServerCert:          "",
 			ServerKey:           "",
 			RTSPAddress:         p.conf.RTSPAddress,
+			TrustedProxies:      p.conf.RTMPTrustedProxies,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
@@ -593,6 +598,7 @@ func (p *Core) createResources(initial bool) error {
 			ServerKey:           p.conf.RTMPServerKey,
 			DumpPackets:         p.conf.DumpPackets,
 			RTSPAddress:         p.conf.RTSPAddress,
+			TrustedProxies:      p.conf.RTMPTrustedProxies,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
@@ -698,6 +704,29 @@ func (p *Core) createResources(initial bool) error {
 		p.srtServer = i
 	}
 
+	if p.conf.MoQ &&
+		p.moqServer == nil {
+		i := &moq.Server{
+			HTTP2Address:      p.conf.MoQHTTP2Address,
+			HTTP3Address:      p.conf.MoQHTTP3Address,
+			ServerKey:         p.conf.MoQServerKey,
+			ServerCert:        p.conf.MoQServerCert,
+			AllowOrigins:      p.conf.MoQAllowOrigins,
+			TrustedProxies:    p.conf.MoQTrustedProxies,
+			UDPReadBufferSize: p.conf.UDPReadBufferSize,
+			ReadTimeout:       p.conf.ReadTimeout,
+			WriteTimeout:      p.conf.WriteTimeout,
+			PathManager:       p.pathManager,
+			Metrics:           p.metrics,
+			Parent:            p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.moqServer = i
+	}
+
 	if p.conf.API &&
 		p.api == nil {
 		i := &api.API{
@@ -722,6 +751,7 @@ func (p *Core) createResources(initial bool) error {
 			HLSServer:      p.hlsServer,
 			WebRTCServer:   p.webRTCServer,
 			SRTServer:      p.srtServer,
+			MoQServer:      p.moqServer,
 			Parent:         p,
 		}
 		err = i.Initialize()
@@ -854,6 +884,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
 		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
 		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
+		!reflect.DeepEqual(newConf.RTSPTrustedProxies, p.conf.RTSPTrustedProxies) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -876,6 +907,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSPServerKey != p.conf.RTSPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
+		!reflect.DeepEqual(newConf.RTSPTrustedProxies, p.conf.RTSPTrustedProxies) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -891,6 +923,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTMPTrustedProxies, p.conf.RTMPTrustedProxies) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -908,6 +941,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
 		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.RTMPTrustedProxies, p.conf.RTMPTrustedProxies) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -974,6 +1008,22 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
+		closeMetrics ||
+		closePathManager ||
+		closeLogger
+
+	closeMoQServer := newConf == nil ||
+		newConf.MoQ != p.conf.MoQ ||
+		newConf.MoQHTTP2Address != p.conf.MoQHTTP2Address ||
+		newConf.MoQHTTP3Address != p.conf.MoQHTTP3Address ||
+		newConf.MoQServerKey != p.conf.MoQServerKey ||
+		newConf.MoQServerCert != p.conf.MoQServerCert ||
+		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||
+		!reflect.DeepEqual(newConf.MoQTrustedProxies, p.conf.MoQTrustedProxies) ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		closeMetrics ||
 		closePathManager ||
 		closeLogger
 
@@ -993,9 +1043,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
+		closeRTMPSServer ||
 		closeHLSServer ||
 		closeWebRTCServer ||
 		closeSRTServer ||
+		closeMoQServer ||
 		closeLogger
 
 	if newConf == nil && p.confWatcher != nil {
@@ -1015,6 +1067,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeSRTServer && p.srtServer != nil {
 		p.srtServer.Close()
 		p.srtServer = nil
+	}
+
+	if closeMoQServer && p.moqServer != nil {
+		p.moqServer.Close()
+		p.moqServer = nil
 	}
 
 	if closeWebRTCServer && p.webRTCServer != nil {

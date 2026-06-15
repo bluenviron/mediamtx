@@ -72,6 +72,7 @@ type session struct {
 	pathConf                    *conf.Path // record only
 	path                        defs.Path
 	stream                      *stream.Stream
+	rtspStream                  *gortsplib.ServerStream
 	subStream                   *stream.SubStream
 	onUnreadHook                func()
 	inboundRTPPacketsLost       *counterdumper.Dumper
@@ -79,6 +80,7 @@ type session struct {
 	outboundRTPPacketsDiscarded *counterdumper.Dumper
 	mutex                       sync.RWMutex
 	user                        string
+	userAgent                   string
 	mpegtsDemuxer               *mpegtsDemuxer
 }
 
@@ -194,11 +196,17 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		}
 	}
 
+	var userAgent string
+	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) > 0 {
+		userAgent = ua[0]
+	}
+
 	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:             ctx.Path,
 			Query:            ctx.Query,
 			Publish:          true,
+			UserAgent:        userAgent,
 			Proto:            auth.ProtocolRTSP,
 			ID:               &c.uuid,
 			Credentials:      rtsp.Credentials(ctx.Request),
@@ -207,8 +215,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
 			return c.handleAuthError(terr)
 		}
 
@@ -221,18 +228,12 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 
 	s.mutex.Lock()
 	s.user = res.User
+	s.userAgent = userAgent
 	s.mutex.Unlock()
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, nil
-}
-
-func (s *session) rtspStream() *gortsplib.ServerStream {
-	if !s.encryption {
-		return s.stream.RTSPStream(s.rserver)
-	}
-	return s.stream.RTSPSStream(s.rserver)
 }
 
 // onSetup is called by rtspServer.
@@ -266,6 +267,11 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		}
 	}
 
+	var userAgent string
+	if ua, ok := ctx.Request.Header["User-Agent"]; ok && len(ua) > 0 {
+		userAgent = ua[0]
+	}
+
 	switch s.rsession.State() {
 	case gortsplib.ServerSessionStateInitial: // play
 		res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
@@ -273,6 +279,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			AccessRequest: defs.PathAccessRequest{
 				Name:             ctx.Path,
 				Query:            ctx.Query,
+				UserAgent:        userAgent,
 				Proto:            auth.ProtocolRTSP,
 				ID:               &c.uuid,
 				Credentials:      rtsp.Credentials(ctx.Request),
@@ -281,14 +288,12 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			},
 		})
 		if err != nil {
-			var terr *auth.Error
-			if errors.As(err, &terr) {
+			if terr, ok := errors.AsType[*auth.Error](err); ok {
 				res, err2 := c.handleAuthError(terr)
 				return res, nil, err2
 			}
 
-			var terr2 *defs.PathNoStreamAvailableError
-			if errors.As(err, &terr2) {
+			if _, ok := errors.AsType[*defs.PathNoStreamAvailableError](err); ok {
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil, err
@@ -299,21 +304,37 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			}, nil, err
 		}
 
-		s.path = res.Path
+		var rtspStream *gortsplib.ServerStream
+		if !s.encryption {
+			rtspStream, err = res.Stream.RTSPStream(s.rserver)
+		} else {
+			rtspStream, err = res.Stream.RTSPSStream(s.rserver)
+		}
+
+		if err != nil {
+			res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, nil, err
+		}
+
 		s.stream = res.Stream
+		s.rtspStream = rtspStream
+		s.path = res.Path
 
 		s.mutex.Lock()
 		s.user = res.User
+		s.userAgent = userAgent
 		s.mutex.Unlock()
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, s.rtspStream(), nil
+		}, s.rtspStream, nil
 
 	case gortsplib.ServerSessionStatePrePlay: // play, subsequent calls
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, s.rtspStream(), nil
+		}, s.rtspStream, nil
 
 	default: // record
 		return &base.Response{
@@ -385,10 +406,11 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		ReplaceNTP:    !s.pathConf.UseAbsoluteTimestamp,
 		ConfToCompare: s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:     s.rsession.Path()[1:],
-			Query:    s.rsession.Query(),
-			Publish:  true,
-			SkipAuth: true,
+			Name:      s.rsession.Path()[1:],
+			Query:     s.rsession.Query(),
+			Publish:   true,
+			SkipAuth:  true,
+			UserAgent: s.userAgent,
 		},
 	})
 	if err != nil {
@@ -507,8 +529,9 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			}
 			return ""
 		}(),
-		Query: s.rsession.Query(),
-		User:  s.user,
+		Query:     s.rsession.Query(),
+		User:      s.user,
+		UserAgent: s.userAgent,
 		Transport: func() *string {
 			transport := s.rsession.Transport()
 			if transport == nil {

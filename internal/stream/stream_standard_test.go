@@ -20,7 +20,7 @@ func TestStream(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -29,7 +29,7 @@ func TestStream(t *testing.T) {
 	}}
 
 	strm := &Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 	}
@@ -73,7 +73,7 @@ func TestStreamSkipOutboundBytes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -82,7 +82,7 @@ func TestStreamSkipOutboundBytes(t *testing.T) {
 	}}
 
 	strm := &Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 	}
@@ -129,6 +129,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		{
 			Type: description.MediaTypeVideo,
 			Formats: []format.Format{&format.H264{
+				PacketizationMode: 1,
 				SPS: []byte{ // 1920x1080 baseline
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -140,7 +141,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 	}}
 
 	strm := &Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 400,
 		Parent:            &nilLogger{},
@@ -236,8 +237,6 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 func TestStreamUpdateFormatParams(t *testing.T) {
 	for _, ca := range []string{"h264", "h265", "mpeg4video"} {
 		t.Run(ca, func(t *testing.T) {
-			var desc *description.Session
-			var media *description.Media
 			var forma format.Format
 			var u *unit.Unit
 
@@ -249,17 +248,11 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 				}
 				pps := []byte{0x08, 0x07, 0x08, 0x09}
 
-				formatH264 := &format.H264{
-					SPS: []byte{0x67, 0x42, 0xc0, 0x28},
-					PPS: []byte{0x08, 0x06},
+				forma = &format.H264{
+					PacketizationMode: 1,
+					SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+					PPS:               []byte{0x08, 0x06},
 				}
-
-				desc = &description.Session{Medias: []*description.Media{{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{formatH264},
-				}}}
-				media = desc.Medias[0]
-				forma = formatH264
 
 				u = &unit.Unit{
 					PTS: 90000,
@@ -275,18 +268,11 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 				sps := []byte{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04}
 				pps := []byte{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a}
 
-				formatH265 := &format.H265{
+				forma = &format.H265{
 					VPS: []byte{0x40, 0x01, 0x0c},
 					SPS: []byte{0x42, 0x01, 0x01},
 					PPS: []byte{0x44, 0x01, 0xc1},
 				}
-
-				desc = &description.Session{Medias: []*description.Media{{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{formatH265},
-				}}}
-				media = desc.Medias[0]
-				forma = formatH265
 
 				u = &unit.Unit{
 					PTS: 90000,
@@ -305,16 +291,9 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 					0x14, 0x00, 0x00, 0x01, 0x00,
 				}
 
-				formatMPEG4Video := &format.MPEG4Video{
+				forma = &format.MPEG4Video{
 					Config: []byte{0x00, 0x00, 0x01, 0xb0, 0x01},
 				}
-
-				desc = &description.Session{Medias: []*description.Media{{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{formatMPEG4Video},
-				}}}
-				media = desc.Medias[0]
-				forma = formatMPEG4Video
 
 				frame := make([]byte, 0, len(config)+20)
 				frame = append(frame, config...)
@@ -327,8 +306,15 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 				}
 			}
 
+			media := &description.Media{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{forma},
+			}
+
+			desc := &description.Session{Medias: []*description.Media{media}}
+
 			strm := &Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 			}
@@ -358,29 +344,35 @@ func TestStreamUpdateFormatParams(t *testing.T) {
 
 			<-recv
 
+			outDesc := strm.OutDescCopy()
+
 			// Verify that format parameters were updated
 			switch ca {
 			case "h264":
-				formatH264 := forma.(*format.H264)
-				require.Equal(t, []byte{
-					0x67, 0x64, 0x00, 0x20, 0xac, 0xd9, 0x40, 0x78,
-					0x02, 0x27, 0xe5, 0x9a, 0x80, 0x80, 0x80, 0xa0,
-				}, formatH264.SPS)
-				require.Equal(t, []byte{0x08, 0x07, 0x08, 0x09}, formatH264.PPS)
+				require.Equal(t, &format.H264{
+					SPS: []byte{
+						0x67, 0x64, 0x00, 0x20, 0xac, 0xd9, 0x40, 0x78,
+						0x02, 0x27, 0xe5, 0x9a, 0x80, 0x80, 0x80, 0xa0,
+					},
+					PPS:               []byte{0x08, 0x07, 0x08, 0x09},
+					PacketizationMode: 1,
+				}, outDesc.Medias[0].Formats[0])
 
 			case "h265":
-				formatH265 := forma.(*format.H265)
-				require.Equal(t, []byte{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe}, formatH265.VPS)
-				require.Equal(t, []byte{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04}, formatH265.SPS)
-				require.Equal(t, []byte{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a}, formatH265.PPS)
+				require.Equal(t, &format.H265{
+					VPS: []byte{0x40, 0x01, 0x0c, 0x01, 0xff, 0xfe},
+					SPS: []byte{0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x04},
+					PPS: []byte{0x44, 0x01, 0xc1, 0x73, 0xd1, 0x8a},
+				}, outDesc.Medias[0].Formats[0])
 
 			case "mpeg4video":
-				formatMPEG4Video := forma.(*format.MPEG4Video)
-				require.Equal(t, []byte{
-					0x00, 0x00, 0x01, 0xb0,
-					0x02, 0x00, 0x00, 0x01, 0xb5, 0x8a,
-					0x14, 0x00, 0x00, 0x01, 0x00,
-				}, formatMPEG4Video.Config)
+				require.Equal(t, &format.MPEG4Video{
+					Config: []byte{
+						0x00, 0x00, 0x01, 0xb0,
+						0x02, 0x00, 0x00, 0x01, 0xb5, 0x8a,
+						0x14, 0x00, 0x00, 0x01, 0x00,
+					},
+				}, outDesc.Medias[0].Formats[0])
 			}
 		})
 	}
@@ -502,7 +494,8 @@ var casesDecodeEncode = []struct {
 	{
 		name: "h264",
 		format: &format.H264{
-			PayloadTyp: 96,
+			PayloadTyp:        96,
+			PacketizationMode: 1,
 			SPS: []byte{
 				0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 				0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -1223,7 +1216,7 @@ func TestStreamDecode(t *testing.T) {
 			}}}
 
 			strm := &Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            &nilLogger{},
@@ -1273,7 +1266,7 @@ func TestStreamEncode(t *testing.T) {
 			}}}
 
 			strm := &Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            &nilLogger{},
@@ -1313,4 +1306,30 @@ func TestStreamEncode(t *testing.T) {
 			<-recv
 		})
 	}
+}
+
+func TestStreamUpgradeH264PacketizationMode(t *testing.T) {
+	forma := &format.H264{
+		PacketizationMode: 0,
+		SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+		PPS:               []byte{0x08, 0x06},
+	}
+
+	strm := &Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{{Formats: []format.Format{forma}}}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	outDesc := strm.OutDescCopy()
+
+	require.Equal(t, &format.H264{
+		PacketizationMode: 1,
+		SPS:               []byte{0x67, 0x42, 0xc0, 0x28},
+		PPS:               []byte{0x08, 0x06},
+	}, outDesc.Medias[0].Formats[0])
 }

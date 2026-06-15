@@ -17,6 +17,7 @@ const (
 	ProtocolHLS    Protocol = "hls"
 	ProtocolWebRTC Protocol = "webrtc"
 	ProtocolSRT    Protocol = "srt"
+	ProtocolMoQ    Protocol = "moq"
 )
 
 // Request is an authentication request.
@@ -26,6 +27,7 @@ type Request struct {
 	Query            string
 	Protocol         Protocol   // only for ActionPublish, ActionRead
 	ID               *uuid.UUID // only for ActionPublish, ActionRead
+	UserAgent        string
 	Credentials      *Credentials
 	IP               net.IP
 	CustomVerifyFunc func(expectedUser string, expectedPass string) bool

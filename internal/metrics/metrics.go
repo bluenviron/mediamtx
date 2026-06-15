@@ -84,6 +84,7 @@ const (
 	metricsTypeRTMPSConns     metricsType = "rtmps_conns"
 	metricsTypeSRTConns       metricsType = "srt_conns"
 	metricsTypeWebRTCSessions metricsType = "webrtc_sessions"
+	metricsTypeMoQSessions    metricsType = "moq_sessions"
 )
 
 type metricsAuthManager interface {
@@ -118,13 +119,13 @@ type Metrics struct {
 	rtmpsServer  defs.APIRTMPServer
 	srtServer    defs.APISRTServer
 	webRTCServer defs.APIWebRTCServer
+	moqServer    defs.APIMoQServer
 }
 
 // Initialize initializes metrics.
 func (m *Metrics) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(m.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(m.middlewarePreflightRequests)
 	router.Use(m.middlewareAuth)
 
@@ -148,7 +149,7 @@ func (m *Metrics) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + m.Address
+	str := "started with listener on " + m.Address
 	if !m.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -161,7 +162,7 @@ func (m *Metrics) Initialize() error {
 
 // Close closes Metrics.
 func (m *Metrics) Close() {
-	m.Log(logger.Info, "listener is closing")
+	m.Log(logger.Info, "closing")
 	m.httpServer.Close()
 }
 
@@ -197,6 +198,8 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 
 	_, err := m.AuthManager.Authenticate(req)
 	if err != nil {
+		auth.DelayBruteForce(err)
+
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			m.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -204,9 +207,6 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 		}
 
 		m.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
-
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
 
 		m.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return
@@ -223,6 +223,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	rtmpsServer := m.rtmpsServer
 	srtServer := m.srtServer
 	webRTCServer := m.webRTCServer
+	moqServer := m.moqServer
 	m.mutex.RUnlock()
 
 	typ := metricsType(ctx.Query("type"))
@@ -237,6 +238,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	rtmpsConnFilter := ctx.Query("rtmps_conn")
 	srtConnFilter := ctx.Query("srt_conn")
 	webrtcSessionFilter := ctx.Query("webrtc_session")
+	moqSessionFilter := ctx.Query("moq_session")
 
 	anyFilterActive := pathFilter != "" ||
 		hlsMuxerFilter != "" ||
@@ -248,7 +250,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		rtmpConnFilter != "" ||
 		rtmpsConnFilter != "" ||
 		srtConnFilter != "" ||
-		webrtcSessionFilter != ""
+		webrtcSessionFilter != "" ||
+		moqSessionFilter != ""
 
 	var out strings.Builder
 
@@ -993,6 +996,37 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
+	if !interfaceIsEmpty(moqServer) &&
+		(typ == "" || typ == metricsTypeMoQSessions) &&
+		(!anyFilterActive || moqSessionFilter != "") {
+		var data *defs.APIMoQSessionList
+		data, err := moqServer.APISessionsList()
+		if err == nil && len(data.Items) != 0 {
+			out.WriteString("# MoQ sessions\n")
+			for _, i := range data.Items {
+				if moqSessionFilter == "" || moqSessionFilter == i.ID.String() {
+					ta := tags(map[string]string{
+						"id":         i.ID.String(),
+						"state":      string(i.State),
+						"path":       i.Path,
+						"remoteAddr": i.RemoteAddr,
+					})
+
+					metric(&out, "moq_sessions", ta, 1)
+					metric(&out, "moq_sessions_inbound_bytes", ta, int64(i.InboundBytes))
+					metric(&out, "moq_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
+				}
+			}
+			out.WriteString("\n")
+		} else if moqSessionFilter == "" {
+			out.WriteString("# MoQ sessions\n")
+			metric(&out, "moq_sessions", "", 0)
+			metric(&out, "moq_sessions_inbound_bytes", "", 0)
+			metric(&out, "moq_sessions_outbound_bytes", "", 0)
+			out.WriteString("\n")
+		}
+	}
+
 	ctx.Writer.WriteHeader(http.StatusOK)
 	ctx.Writer.WriteString(out.String()) //nolint:errcheck
 }
@@ -1051,4 +1085,11 @@ func (m *Metrics) SetWebRTCServer(s defs.APIWebRTCServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.webRTCServer = s
+}
+
+// SetMoQServer is called by core.
+func (m *Metrics) SetMoQServer(s defs.APIMoQServer) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.moqServer = s
 }

@@ -2,12 +2,12 @@
 
 Welcome to the MediaMTX documentation!
 
-_MediaMTX_ is a ready-to-use and zero-dependency live media server and media proxy. It has been conceived as a "media router" that routes media streams from one end to the other, with a focus on efficiency and portability.
+_MediaMTX_ is a ready-to-use and zero-dependency live media server and media proxy that allows to publish, read, proxy, record and playback real-time video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other, with a focus on efficiency and portability.
 
 Main features:
 
-- [Publish](../2-features/03-publish.md) live streams to the server with SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
-- [Read](../2-features/04-read.md) live streams from the server with SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
+- [Publish](../2-features/03-publish.md) live streams to the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
+- [Read](../2-features/04-read.md) live streams from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)

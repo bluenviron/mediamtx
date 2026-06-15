@@ -502,7 +502,7 @@ func TestFromStream(t *testing.T) {
 					Formats: []format.Format{&format.H265{}},
 				},
 				{
-					Formats: []format.Format{&format.H264{}},
+					Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 				},
 				{
 					Formats: []format.Format{&format.VP9{}},
@@ -616,7 +616,7 @@ func TestFromStream(t *testing.T) {
 			medias := tc.medias
 
 			strm := &stream.Stream{
-				Desc:              &description.Session{Medias: medias},
+				OrigDesc:          &description.Session{Medias: medias},
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -673,7 +673,7 @@ func TestFromStream(t *testing.T) {
 
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err = FromStream(strm.Desc, r, conn, nconn, 10*time.Second)
+			err = FromStream(strm.OrigDesc, strm.OutDescCopy(), r, conn, nconn, 10*time.Second)
 			require.NoError(t, err)
 
 			strm.AddReader(r)
@@ -751,7 +751,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 	}
 
 	strm := &stream.Stream{
-		Desc:              &description.Session{Medias: medias},
+		OrigDesc:          &description.Session{Medias: medias},
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -819,7 +819,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 
 	r := &stream.Reader{Parent: test.NilLogger}
 
-	err = FromStream(strm.Desc, r, conn, nconn, 10*time.Second)
+	err = FromStream(strm.OrigDesc, strm.OutDescCopy(), r, conn, nconn, 10*time.Second)
 	require.NoError(t, err)
 
 	strm.AddReader(r)
@@ -857,7 +857,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 
 	conn := &gortmplib.ServerConn{}
 
-	err := FromStream(desc, r, conn, nil, 0)
+	err := FromStream(desc, desc, r, conn, nil, 0)
 	require.Equal(t, errNoSupportedCodecsFrom, err)
 }
 
@@ -869,7 +869,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 		},
 		{
 			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{}},
+			Formats: []format.Format{&format.H264{PacketizationMode: 1}},
 		},
 	}}
 
@@ -913,7 +913,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	err = conn.Accept()
 	require.NoError(t, err)
 
-	err = FromStream(desc, r, conn, nil, 0)
+	err = FromStream(desc, desc, r, conn, nil, 0)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, n)

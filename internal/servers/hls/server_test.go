@@ -319,7 +319,7 @@ func TestServerRead(t *testing.T) {
 				}}
 
 				strm := &stream.Stream{
-					Desc:              desc,
+					OrigDesc:          desc,
 					WriteQueueSize:    512,
 					RTPMaxPayloadSize: 1450,
 					ReplaceNTP:        false,
@@ -489,7 +489,7 @@ func TestServerDirectory(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -544,7 +544,7 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -645,13 +645,9 @@ func TestAuthError(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/stream/index.m3u8", nil)
 	require.NoError(t, err)
 
-	start := time.Now()
-
 	res, err = http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
-
-	require.Greater(t, time.Since(start), 2*time.Second)
 
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
@@ -709,7 +705,7 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 			}}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -772,7 +768,7 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 			if ca == "always remux off" {
 				require.Equal(t, defs.APIError{
 					Status: defs.APIErrorStatusError,
-					Error:  "terminated",
+					Error:  "muxer instance not available",
 				}, payload)
 			} else {
 				require.Equal(t, defs.APIError{

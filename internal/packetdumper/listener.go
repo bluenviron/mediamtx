@@ -2,17 +2,17 @@ package packetdumper
 
 import "net"
 
-var _ net.Listener = (*listener)(nil)
+var _ net.Listener = (*Listener)(nil)
 
-// listener is a wrapper around a net.Listener that dumps packets to disk.
-type listener struct {
-	Prefix   string
-	Listener net.Listener
+// Listener is a wrapper around a net.Listener that dumps packets to disk.
+type Listener struct {
+	Wrapped net.Listener
+	Prefix  string
 }
 
 // Accept implements net.Listener.
-func (l *listener) Accept() (net.Conn, error) {
-	netConn, err := l.Listener.Accept()
+func (l *Listener) Accept() (net.Conn, error) {
+	netConn, err := l.Wrapped.Accept()
 	if err != nil {
 		return nil, err
 	}
@@ -32,11 +32,11 @@ func (l *listener) Accept() (net.Conn, error) {
 }
 
 // Close implements net.Listener.
-func (l *listener) Close() error {
-	return l.Listener.Close()
+func (l *Listener) Close() error {
+	return l.Wrapped.Close()
 }
 
 // Addr implements net.Listener.
-func (l *listener) Addr() net.Addr {
-	return l.Listener.Addr()
+func (l *Listener) Addr() net.Addr {
+	return l.Wrapped.Addr()
 }

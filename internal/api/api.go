@@ -81,6 +81,7 @@ type API struct {
 	HLSServer      defs.APIHLSServer
 	WebRTCServer   defs.APIWebRTCServer
 	SRTServer      defs.APISRTServer
+	MoQServer      defs.APIMoQServer
 	Parent         apiParent
 
 	httpServer *httpp.Server
@@ -91,7 +92,6 @@ type API struct {
 func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(a.middlewarePreflightRequests)
 	router.Use(a.middlewareAuth)
 
@@ -165,6 +165,12 @@ func (a *API) Initialize() error {
 		group.POST("/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
+	if !interfaceIsEmpty(a.MoQServer) {
+		group.GET("/moqsessions/list", a.onMoQSessionsList)
+		group.GET("/moqsessions/get/:id", a.onMoQSessionsGet)
+		group.POST("/moqsessions/kick/:id", a.onMoQSessionsKick)
+	}
+
 	group.GET("/recordings/list", a.onRecordingsList)
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
@@ -187,7 +193,7 @@ func (a *API) Initialize() error {
 		return err
 	}
 
-	str := "listener opened on " + a.Address
+	str := "started with listener on " + a.Address
 	if !a.Encryption {
 		str += " (TCP/HTTP)"
 	} else {
@@ -200,7 +206,7 @@ func (a *API) Initialize() error {
 
 // Close closes the API.
 func (a *API) Close() {
-	a.Log(logger.Info, "listener is closing")
+	a.Log(logger.Info, "closing")
 	a.httpServer.Close()
 }
 
@@ -251,6 +257,8 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 
 	_, err := a.AuthManager.Authenticate(req)
 	if err != nil {
+		auth.DelayBruteForce(err)
+
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
@@ -258,9 +266,6 @@ func (a *API) middlewareAuth(ctx *gin.Context) {
 		}
 
 		a.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
-
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
 
 		a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return

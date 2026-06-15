@@ -448,10 +448,12 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	_, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
-	if err2 != nil {
-		req.Res <- defs.PathDescribeRes{Err: err2}
-		return
+	if !req.AccessRequest.SkipAuth {
+		_, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		if err2 != nil {
+			req.Res <- defs.PathDescribeRes{Err: err2}
+			return
+		}
 	}
 
 	// create path if it doesn't exist
@@ -630,7 +632,13 @@ func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFin
 	select {
 	case pm.chFindPathConf <- req:
 		res := <-req.Res
-		return &res, res.Err
+
+		if res.Err != nil {
+			auth.DelayBruteForce(res.Err)
+			return nil, res.Err
+		}
+
+		return &res, nil
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -638,25 +646,26 @@ func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFin
 }
 
 // Describe is called by a reader or publisher.
-func (pm *pathManager) Describe(req defs.PathDescribeReq) defs.PathDescribeRes {
+func (pm *pathManager) Describe(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
 	req.Res = make(chan defs.PathDescribeRes)
 	select {
 	case pm.chDescribe <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
-			return res1
+			auth.DelayBruteForce(res1.Err)
+			return nil, res1.Err
 		}
 
-		res2 := res1.Path.(*path).describe(req)
-		if res2.Err != nil {
-			return res2
+		res2, err := res1.Path.(*path).describe(req)
+		if err != nil {
+			return nil, err
 		}
 
 		res2.Path = res1.Path
-		return res2
+		return res2, nil
 
 	case <-pm.ctx.Done():
-		return defs.PathDescribeRes{Err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
@@ -667,6 +676,7 @@ func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAdd
 	case pm.chAddPublisher <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
+			auth.DelayBruteForce(res1.Err)
 			return nil, res1.Err
 		}
 
@@ -692,6 +702,7 @@ func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReader
 	case pm.chAddReader <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
+			auth.DelayBruteForce(res1.Err)
 			return nil, res1.Err
 		}
 

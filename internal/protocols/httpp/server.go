@@ -25,8 +25,8 @@ func (nilWriter) Write(p []byte) (int, error) {
 }
 
 // Server is a wrapper around http.Server that provides:
-// - net.Listener allocation and closure
-// - TLS allocation
+// - net.Listener creation and destruction
+// - TLS initialization and hot reload
 // - exit on panic
 // - logging
 // - server header
@@ -41,6 +41,7 @@ type Server struct {
 	Encryption        bool
 	ServerCert        string
 	ServerKey         string
+	AllowAutoCert     bool
 	Handler           http.Handler
 	Parent            logger.Writer
 
@@ -67,9 +68,10 @@ func (s *Server) Initialize() error {
 		}
 
 		s.loader = &certloader.CertLoader{
-			CertPath: s.ServerCert,
-			KeyPath:  s.ServerKey,
-			Parent:   s.Parent,
+			CertPath:  s.ServerCert,
+			KeyPath:   s.ServerKey,
+			AllowAuto: s.AllowAutoCert,
+			Parent:    s.Parent,
 		}
 		err := s.loader.Initialize()
 		if err != nil {
@@ -121,36 +123,63 @@ func (s *Server) Initialize() error {
 	if tlsConfig != nil {
 		err := http2.ConfigureServer(s.inner, &http2.Server{})
 		if err != nil {
+			if s.loader != nil {
+				s.loader.Close()
+			}
 			return err
 		}
 	}
 
-	var listen func(network string, address string) (net.Listener, error)
-	var tlsListen func(network string, laddr string, config *tls.Config) (net.Listener, error)
+	listen := func(network string, address string) (net.Listener, error) {
+		ln, err := net.Listen(network, address)
+		if err != nil {
+			return nil, err
+		}
 
-	if s.DumpPackets {
-		listen = (&packetdumper.Listen{
-			Prefix: s.DumpPacketsPrefix,
-		}).Do
+		if s.DumpPackets {
+			ln = &packetdumper.Listener{
+				Wrapped: ln,
+				Prefix:  s.DumpPacketsPrefix,
+			}
+		}
 
-		tlsListen = (&packetdumper.TLSListen{
-			Listen: listen,
-		}).Do
-	} else {
-		listen = net.Listen
-		tlsListen = tls.Listen
+		return ln, nil
+	}
+
+	tlsListen := func(network string, laddr string, config *tls.Config) (net.Listener, error) {
+		ln, err := listen(network, laddr)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			ln = &packetdumper.TLSListener{
+				Wrapped:   ln,
+				TLSConfig: config,
+			}
+		} else {
+			ln = tls.NewListener(ln, config)
+		}
+
+		return ln, nil
 	}
 
 	if tlsConfig != nil {
 		var err error
 		s.ln, err = tlsListen(network, address, tlsConfig)
 		if err != nil {
+			if s.loader != nil {
+				s.loader.Close()
+			}
 			return err
 		}
 	} else {
 		var err error
 		s.ln, err = listen(network, address)
 		if err != nil {
+			if s.loader != nil {
+				s.loader.Close()
+			}
 			return err
 		}
 	}

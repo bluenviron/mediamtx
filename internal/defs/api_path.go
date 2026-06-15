@@ -30,6 +30,7 @@ const (
 	APIPathSourceTypeRTPSource       APIPathSourceType = "rtpSource"
 	APIPathSourceTypeWebRTCSession   APIPathSourceType = "webRTCSession"
 	APIPathSourceTypeWebRTCSource    APIPathSourceType = "webRTCSource"
+	APIPathSourceTypeMoQSession      APIPathSourceType = "moqSession"
 )
 
 // APIPathSource is a source.
@@ -52,6 +53,7 @@ const (
 	APIPathReaderTypeRTSPSSession  APIPathReaderType = "rtspsSession"
 	APIPathReaderTypeSRTConn       APIPathReaderType = "srtConn"
 	APIPathReaderTypeWebRTCSession APIPathReaderType = "webRTCSession"
+	APIPathReaderTypeMoQSession    APIPathReaderType = "moqSession"
 	APIPathReaderTypeHidden        APIPathReaderType = "hidden"
 )
 

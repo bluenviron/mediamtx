@@ -24,14 +24,14 @@ lint-docslinks:
 lint-docsorder:
 	go test -v -tags enable_linters ./internal/linters/docsorder
 
-lint-docs:
-	echo "$$DOCKERFILE_PRETTIER" | docker build . -f - -t temp
-	docker run --rm -v "$(shell pwd)/docs:/s" -w /s temp \
-	sh -c "prettier --check ."
-
 lint-api-docs:
 	echo "$$DOCKERFILE_API_DOCS_LINT" | docker build . -f - -t temp
 	docker run --rm -v "$(shell pwd)/api:/s" -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
-lint: lint-go lint-go-mod lint-conf lint-go2api lint-docslinks lint-docsorder lint-docs lint-api-docs
+lint-other:
+	echo "$$DOCKERFILE_PRETTIER" | docker build . -f - -t temp
+	docker run --rm -v "$(shell pwd)/:/s" -w /s temp \
+	sh -c "prettier --check ."
+
+lint: lint-go lint-go-mod lint-conf lint-go2api lint-docslinks lint-docsorder lint-api-docs lint-other
