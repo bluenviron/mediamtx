@@ -332,11 +332,9 @@ func (s *Source) SourceStats() defs.StaticSourceStats {
 		return nil
 	}
 
-	// The clockrate for both video and audio in AV1/VP9/VP8/H.26x over rtsp is by default 90k
-	// We could fetch this from ClockRate() in Format []format.Format in medias []*description.medias
-	// for individual media tracks, but for now we don't.
-	clockrate := 90000.0
-	jitter := cs.Session.InboundRTPPacketsJitter / clockrate
+	// Expose jitter unscaled, in gortsplib's native RTP-timestamp units, to stay
+	// aligned with the RTSP server session stats (which publish it unscaled too).
+	jitter := cs.Session.InboundRTPPacketsJitter
 
 	return &defs.RTSPSourceStats{
 		BaseSourceStats: defs.BaseSourceStats{
