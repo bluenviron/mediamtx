@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -82,7 +83,8 @@ type Source struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	Parent            parent
-	client            *gortsplib.Client
+	// client is accessed concurrently by Run (writer) and SourceStats (reader) so it is atomic.
+	client atomic.Pointer[gortsplib.Client]
 }
 
 // Log implements logger.Writer.
@@ -156,12 +158,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	s.client = c
+	s.client.Store(c)
 
 	// Clear the client on exit so that, across a disconnect/retry cycle,
-	// SourceStats() reports nil (and Jitter == nil) instead of stale values
-	// from the previous, now-closed connection.
-	defer func() { s.client = nil }()
+	// SourceStats() reports nil instead of stale values from the previous, closed connection.
+	defer func() { s.client.Store(nil) }()
 
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
@@ -328,17 +329,16 @@ var _ defs.StaticSourceStatsProvider = (*Source)(nil)
 
 // SourceStats method exports RTSP Client source statistiscs
 func (s *Source) SourceStats() defs.StaticSourceStats {
-	if s.client == nil {
+	c := s.client.Load()
+	if c == nil {
 		return nil
 	}
-	cs := s.client.Stats()
+	cs := c.Stats()
 
 	if cs == nil {
 		return nil
 	}
 
-	// Expose jitter unscaled, in gortsplib's native RTP-timestamp units, to stay
-	// aligned with the RTSP server session stats (which publish it unscaled too).
 	jitter := cs.Session.InboundRTPPacketsJitter
 
 	return &defs.RTSPSourceStats{
