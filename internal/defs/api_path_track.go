@@ -12,10 +12,10 @@ type APIPathTrack struct {
 	CodecProps APIPathTrackCodecProps `json:"codecProps"`
 }
 
-func formatToTrack(forma format.Format) APIPathTrack {
+func formatToTrack(outFormat format.Format) APIPathTrack {
 	return APIPathTrack{
-		Codec:      formatlabel.FormatToLabel(forma),
-		CodecProps: formatToTrackCodecProps(forma),
+		Codec:      formatlabel.FormatToLabel(outFormat),
+		CodecProps: formatToTrackCodecProps(outFormat),
 	}
 }
 
@@ -39,18 +39,17 @@ func gatherFormats(medias []*description.Media) []format.Format {
 	return formats
 }
 
-// FormatsToTracks returns tracks of given formats.
-func FormatsToTracks(formats []format.Format) []APIPathTrack {
-	ret := make([]APIPathTrack, len(formats))
+func formatsToTracks(outFormats []format.Format) []APIPathTrack {
+	ret := make([]APIPathTrack, len(outFormats))
 
-	for i, forma := range formats {
-		ret[i] = formatToTrack(forma)
+	for i, outFormat := range outFormats {
+		ret[i] = formatToTrack(outFormat)
 	}
 
 	return ret
 }
 
 // MediasToTracks returns tracks of given medias.
-func MediasToTracks(medias []*description.Media) []APIPathTrack {
-	return FormatsToTracks(gatherFormats(medias))
+func MediasToTracks(outMedias []*description.Media) []APIPathTrack {
+	return formatsToTracks(gatherFormats(outMedias))
 }

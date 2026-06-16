@@ -295,8 +295,8 @@ func (s *Source) runSecondary(params defs.StaticSourceRunParams) error {
 	rdr := &stream.Reader{Parent: s}
 
 	rdr.OnData(
-		primaryStream.Desc.Medias[1],
-		primaryStream.Desc.Medias[1].Formats[0],
+		primaryStream.OrigDesc.Medias[1],
+		primaryStream.OrigDesc.Medias[1].Formats[0],
 		func(u *unit.Unit) error {
 			pkt := u.RTPPackets[0]
 

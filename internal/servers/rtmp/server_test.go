@@ -80,7 +80,7 @@ func TestServerPublish(t *testing.T) {
 						require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 
 						strm = &stream.Stream{
-							Desc:              req.Desc,
+							OrigDesc:          req.Desc,
 							WriteQueueSize:    512,
 							RTPMaxPayloadSize: 1450,
 							Parent:            test.NilLogger,
@@ -98,8 +98,8 @@ func TestServerPublish(t *testing.T) {
 						reader = &stream.Reader{Parent: test.NilLogger}
 
 						reader.OnData(
-							strm.Desc.Medias[0],
-							strm.Desc.Medias[0].Formats[0],
+							strm.OrigDesc.Medias[0],
+							strm.OrigDesc.Medias[0].Formats[0],
 							func(u *unit.Unit) error {
 								switch n {
 								case 0:
@@ -261,7 +261,7 @@ func TestServerRead(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,

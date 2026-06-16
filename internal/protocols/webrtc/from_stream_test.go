@@ -87,7 +87,7 @@ func TestFromStream(t *testing.T) {
 
 func TestFromStreamResampleOpus(t *testing.T) {
 	strm := &stream.Stream{
-		Desc: &description.Session{Medias: []*description.Media{
+		OrigDesc: &description.Session{Medias: []*description.Media{
 			{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
@@ -129,7 +129,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 
 	r := &stream.Reader{Parent: nil}
 
-	err = FromStream(strm.Desc, r, pc2)
+	err = FromStream(strm.OrigDesc, r, pc2)
 	require.NoError(t, err)
 
 	err = pc2.Start()
@@ -154,7 +154,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 	strm.AddReader(r)
 	defer strm.RemoveReader(r)
 
-	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
 		NTP: time.Now(),
 		RTPPackets: []*rtp.Packet{{
@@ -170,7 +170,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 		}},
 	})
 
-	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
 		NTP: time.Now(),
 		RTPPackets: []*rtp.Packet{{
@@ -215,7 +215,7 @@ func TestFromStreamResampleOpus(t *testing.T) {
 
 func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 	strm := &stream.Stream{
-		Desc: &description.Session{Medias: []*description.Media{
+		OrigDesc: &description.Session{Medias: []*description.Media{
 			{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.Opus{
@@ -257,7 +257,7 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 
 	r := &stream.Reader{Parent: nil}
 
-	err = FromStream(strm.Desc, r, pcPublisher)
+	err = FromStream(strm.OrigDesc, r, pcPublisher)
 	require.NoError(t, err)
 
 	err = pcPublisher.Start()
@@ -286,7 +286,7 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 	step := 20 * time.Millisecond
 
 	// prime the pipeline to allow track gathering
-	subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+	subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], &unit.Unit{
 		PTS: 0,
 		NTP: baseNTP,
 		RTPPackets: []*rtp.Packet{{
@@ -355,7 +355,7 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 			seq := startSeq + i
 			expected, _ := expectedNTP(seq)
 
-			subStream.WriteUnit(strm.Desc.Medias[0], strm.Desc.Medias[0].Formats[0], &unit.Unit{
+			subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], &unit.Unit{
 				PTS: 0,
 				NTP: expected,
 				RTPPackets: []*rtp.Packet{{

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -24,8 +25,30 @@ import (
 var ErrNoSupportedCodecs = errors.New(
 	"the stream doesn't contain any supported codec, which are currently AV1, VP9, H265, H264, Opus, MPEG-4 Audio, KLV")
 
+func findFormatAndIndexInMedia(media *description.Media, forma any) int {
+	for i, forma2 := range media.Formats {
+		if reflect.TypeOf(forma2) == reflect.TypeOf(forma).Elem() {
+			reflect.ValueOf(forma).Elem().Set(reflect.ValueOf(forma2))
+			return i
+		}
+	}
+
+	return -1
+}
+
+func findFormatAndIndexes(d *description.Session, forma any) (*description.Media, int, int) {
+	for i, media := range d.Medias {
+		j := findFormatAndIndexInMedia(media, forma)
+		if j >= 0 {
+			return media, i, j
+		}
+	}
+	return nil, -1, -1
+}
+
 func setupVideoTrack(
-	desc *description.Session,
+	origDesc *description.Session,
+	outDesc *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
 ) {
@@ -40,7 +63,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatAV1 *format.AV1
-	videoMedia := desc.FindFormat(&videoFormatAV1)
+	videoMedia, _, _ := findFormatAndIndexes(origDesc, &videoFormatAV1)
 
 	if videoFormatAV1 != nil {
 		track := &gohlslib.Track{
@@ -73,7 +96,7 @@ func setupVideoTrack(
 	}
 
 	var videoFormatVP9 *format.VP9
-	videoMedia = desc.FindFormat(&videoFormatVP9)
+	videoMedia, _, _ = findFormatAndIndexes(origDesc, &videoFormatVP9)
 
 	if videoFormatVP9 != nil {
 		track := &gohlslib.Track{
@@ -106,15 +129,16 @@ func setupVideoTrack(
 	}
 
 	var videoFormatH265 *format.H265
-	videoMedia = desc.FindFormat(&videoFormatH265)
+	videoMedia, i, j := findFormatAndIndexes(origDesc, &videoFormatH265)
 
 	if videoFormatH265 != nil {
-		vps, sps, pps := videoFormatH265.SafeParams()
+		outFormat := outDesc.Medias[i].Formats[j].(*format.H265)
+
 		track := &gohlslib.Track{
 			Codec: &codecs.H265{
-				VPS: vps,
-				SPS: sps,
-				PPS: pps,
+				VPS: outFormat.VPS,
+				SPS: outFormat.SPS,
+				PPS: outFormat.PPS,
 			},
 			ClockRate: videoFormatH265.ClockRate(),
 		}
@@ -144,14 +168,15 @@ func setupVideoTrack(
 	}
 
 	var videoFormatH264 *format.H264
-	videoMedia = desc.FindFormat(&videoFormatH264)
+	videoMedia, i, j = findFormatAndIndexes(origDesc, &videoFormatH264)
 
 	if videoFormatH264 != nil {
-		sps, pps := videoFormatH264.SafeParams()
+		outFormat := outDesc.Medias[i].Formats[j].(*format.H264)
+
 		track := &gohlslib.Track{
 			Codec: &codecs.H264{
-				SPS: sps,
-				PPS: pps,
+				SPS: outFormat.SPS,
+				PPS: outFormat.PPS,
 			},
 			ClockRate: videoFormatH264.ClockRate(),
 		}
@@ -182,7 +207,8 @@ func setupVideoTrack(
 }
 
 func setupAudioTracks(
-	desc *description.Session,
+	origDesc *description.Session,
+	_ *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
 ) error {
@@ -196,7 +222,7 @@ func setupAudioTracks(
 		r.OnData(medi, forma, onData)
 	}
 
-	for _, media := range desc.Medias {
+	for _, media := range origDesc.Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.Opus:
@@ -335,7 +361,8 @@ func setupAudioTracks(
 }
 
 func setupDataTracks(
-	desc *description.Session,
+	origDesc *description.Session,
+	_ *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
 ) {
@@ -349,7 +376,7 @@ func setupDataTracks(
 		r.OnData(media, forma, onData)
 	}
 
-	for _, media := range desc.Medias {
+	for _, media := range origDesc.Medias {
 		for _, forma := range media.Formats {
 			if forma, ok := forma.(*format.KLV); ok && muxer.Variant == gohlslib.MuxerVariantMPEGTS {
 				track := &gohlslib.Track{
@@ -384,18 +411,21 @@ func setupDataTracks(
 
 // FromStream maps a MediaMTX stream to a HLS muxer.
 func FromStream(
-	desc *description.Session,
+	origDesc *description.Session,
+	outDesc *description.Session,
 	r *stream.Reader,
 	muxer *gohlslib.Muxer,
 ) error {
 	setupVideoTrack(
-		desc,
+		origDesc,
+		outDesc,
 		r,
 		muxer,
 	)
 
 	err := setupAudioTracks(
-		desc,
+		origDesc,
+		outDesc,
 		r,
 		muxer,
 	)
@@ -404,7 +434,8 @@ func FromStream(
 	}
 
 	setupDataTracks(
-		desc,
+		origDesc,
+		outDesc,
 		r,
 		muxer,
 	)
@@ -416,7 +447,7 @@ func FromStream(
 	setuppedFormats := r.Formats()
 
 	n := 1
-	for _, media := range desc.Medias {
+	for _, media := range origDesc.Medias {
 		for _, forma := range media.Formats {
 			if !slices.Contains(setuppedFormats, forma) {
 				r.Parent.Log(logger.Warn, "skipping track %d (%s)", n, formatlabel.FormatToLabel(forma))

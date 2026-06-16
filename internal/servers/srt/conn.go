@@ -298,7 +298,7 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = mpegts.FromStream(res.Stream.Desc, r, bw, sconn, time.Duration(c.writeTimeout))
+	err = mpegts.FromStream(res.Stream.OrigDesc, r, bw, sconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}

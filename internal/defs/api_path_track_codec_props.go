@@ -160,19 +160,19 @@ func h265LevelString(levelIdc uint8) string {
 	return fmt.Sprintf("%.1f", level)
 }
 
-func formatToTrackCodecProps(forma format.Format) APIPathTrackCodecProps {
-	switch forma := forma.(type) {
+func formatToTrackCodecProps(outFormat format.Format) APIPathTrackCodecProps {
+	switch outFormat := outFormat.(type) {
 	case *format.AV1:
 		props := &APIPathTrackCodecPropsAV1{}
 
-		if forma.Profile != nil {
-			props.Profile = *forma.Profile
+		if outFormat.Profile != nil {
+			props.Profile = *outFormat.Profile
 		}
-		if forma.LevelIdx != nil {
-			props.Level = *forma.LevelIdx
+		if outFormat.LevelIdx != nil {
+			props.Level = *outFormat.LevelIdx
 		}
-		if forma.Tier != nil {
-			props.Tier = *forma.Tier
+		if outFormat.Tier != nil {
+			props.Tier = *outFormat.Tier
 		}
 
 		return props
@@ -180,8 +180,8 @@ func formatToTrackCodecProps(forma format.Format) APIPathTrackCodecProps {
 	case *format.VP9:
 		props := &APIPathTrackCodecPropsVP9{}
 
-		if forma.ProfileID != nil {
-			props.Profile = *forma.ProfileID
+		if outFormat.ProfileID != nil {
+			props.Profile = *outFormat.ProfileID
 		}
 
 		return props
@@ -189,10 +189,9 @@ func formatToTrackCodecProps(forma format.Format) APIPathTrackCodecProps {
 	case *format.H265:
 		props := &APIPathTrackCodecPropsH265{}
 
-		_, sps, _ := forma.SafeParams()
-		if sps != nil {
+		if outFormat.SPS != nil {
 			var s codecsh265.SPS
-			if err := s.Unmarshal(sps); err == nil {
+			if err := s.Unmarshal(outFormat.SPS); err == nil {
 				props.Width = s.Width()
 				props.Height = s.Height()
 				props.Profile = h265ProfileString(s.ProfileTierLevel.GeneralProfileIdc)
@@ -205,10 +204,9 @@ func formatToTrackCodecProps(forma format.Format) APIPathTrackCodecProps {
 	case *format.H264:
 		props := &APIPathTrackCodecPropsH264{}
 
-		sps, _ := forma.SafeParams()
-		if sps != nil {
+		if outFormat.SPS != nil {
 			var s codecsh264.SPS
-			if err := s.Unmarshal(sps); err == nil {
+			if err := s.Unmarshal(outFormat.SPS); err == nil {
 				props.Width = s.Width()
 				props.Height = s.Height()
 				props.Profile = h264ProfileString(s.ProfileIdc)
@@ -220,37 +218,37 @@ func formatToTrackCodecProps(forma format.Format) APIPathTrackCodecProps {
 
 	case *format.Opus:
 		return &APIPathTrackCodecPropsOpus{
-			ChannelCount: forma.ChannelCount,
+			ChannelCount: outFormat.ChannelCount,
 		}
 
 	case *format.MPEG4Audio:
 		props := &APIPathTrackCodecPropsMPEG4Audio{}
 
-		if forma.Config != nil {
-			props.SampleRate = forma.Config.SampleRate
-			props.ChannelCount = int(forma.Config.ChannelConfig)
+		if outFormat.Config != nil {
+			props.SampleRate = outFormat.Config.SampleRate
+			props.ChannelCount = int(outFormat.Config.ChannelConfig)
 		}
 
 		return props
 
 	case *format.AC3:
 		return &APIPathTrackCodecPropsAC3{
-			SampleRate:   forma.SampleRate,
-			ChannelCount: forma.ChannelCount,
+			SampleRate:   outFormat.SampleRate,
+			ChannelCount: outFormat.ChannelCount,
 		}
 
 	case *format.G711:
 		return &APIPathTrackCodecPropsG711{
-			MULaw:        forma.MULaw,
-			SampleRate:   forma.SampleRate,
-			ChannelCount: forma.ChannelCount,
+			MULaw:        outFormat.MULaw,
+			SampleRate:   outFormat.SampleRate,
+			ChannelCount: outFormat.ChannelCount,
 		}
 
 	case *format.LPCM:
 		return &APIPathTrackCodecPropsLPCM{
-			BitDepth:     forma.BitDepth,
-			SampleRate:   forma.SampleRate,
-			ChannelCount: forma.ChannelCount,
+			BitDepth:     outFormat.BitDepth,
+			SampleRate:   outFormat.SampleRate,
+			ChannelCount: outFormat.ChannelCount,
 		}
 
 	default:

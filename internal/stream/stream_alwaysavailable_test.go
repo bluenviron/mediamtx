@@ -117,7 +117,7 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 
 			subStream := &SubStream{
 				Stream:        strm,
-				CurDesc:       ca.desc,
+				InDesc:        ca.desc,
 				UseRTPPackets: false,
 			}
 			err = subStream.Initialize()
@@ -325,7 +325,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSAV1 int64
 			var soAV1a sync.Once
 			var soAV1b sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSAV1)
 				lastPTSAV1 = u.PTS
 
@@ -348,7 +348,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSVP9 int64
 			var soVP9a sync.Once
 			var soVP9b sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSVP9)
 				lastPTSVP9 = u.PTS
 
@@ -371,7 +371,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSH265 int64
 			var soH265a sync.Once
 			var soH265b sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSH265)
 				lastPTSH265 = u.PTS
 
@@ -394,7 +394,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSH264 int64
 			var soH264a sync.Once
 			var soH264b sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSH264)
 				lastPTSH264 = u.PTS
 
@@ -417,7 +417,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSOpus int64
 			var soOpusa sync.Once
 			var soOpusb sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSOpus)
 				lastPTSOpus = u.PTS
 
@@ -440,7 +440,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSMPEG4Audio int64
 			var soMPEG4Audioa sync.Once
 			var soMPEG4Audiob sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSMPEG4Audio)
 				lastPTSMPEG4Audio = u.PTS
 
@@ -463,7 +463,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var lastPTSLPCM int64
 			var soLPCMa sync.Once
 			var soLPCMb sync.Once
-			r.OnData(strm.Desc.Medias[n], strm.Desc.Medias[n].Formats[0], func(u *unit.Unit) error {
+			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
 				require.GreaterOrEqual(t, u.PTS, lastPTSLPCM)
 				lastPTSLPCM = u.PTS
 
@@ -488,7 +488,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 
 			subStream := &SubStream{
 				Stream: strm,
-				CurDesc: &description.Session{Medias: []*description.Media{
+				InDesc: &description.Session{Medias: []*description.Media{
 					{
 						Type:    description.MediaTypeVideo,
 						Formats: []format.Format{&format.AV1{}},
@@ -537,37 +537,37 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			wg.Add(7)
 			phase2.Store(true)
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[0], subStream.CurDesc.Medias[0].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[0], subStream.InDesc.Medias[0].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadAV1{{1, 2, 3, 4}},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[1], subStream.CurDesc.Medias[1].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[1], subStream.InDesc.Medias[1].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadVP9{1, 2, 3, 4},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[2], subStream.CurDesc.Medias[2].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[2], subStream.InDesc.Medias[2].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadH265{{1, 2, 3, 4}},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[3], subStream.CurDesc.Medias[3].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[3], subStream.InDesc.Medias[3].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadH264{{1, 2, 3, 4}},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[4], subStream.CurDesc.Medias[4].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[4], subStream.InDesc.Medias[4].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadOpus{{1, 2}},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[5], subStream.CurDesc.Medias[5].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[5], subStream.InDesc.Medias[5].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadMPEG4Audio{{1, 2, 3, 4}},
 			})
 
-			subStream.WriteUnit(subStream.CurDesc.Medias[6], subStream.CurDesc.Medias[6].Formats[0], &unit.Unit{
+			subStream.WriteUnit(subStream.InDesc.Medias[6], subStream.InDesc.Medias[6].Formats[0], &unit.Unit{
 				PTS:     0,
 				Payload: unit.PayloadLPCM{1, 2, 3, 4},
 			})
