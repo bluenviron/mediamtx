@@ -21,7 +21,7 @@ The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license 
 
 ```sh
 sudo apt purge -y vlc
-snap install vlc
+sudo snap install vlc
 ```
 
 ### Encrypted RTSP
