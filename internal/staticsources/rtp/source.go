@@ -30,6 +30,13 @@ type parent interface {
 	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
 }
 
+// connStats holds per-connection counters. A new instance is created for each
+// Run cycle so that stats reflect only the current connection.
+type connStats struct {
+	packetsReceived atomic.Uint64
+	packetsLost     atomic.Uint64
+}
+
 // Source is a RTP static source.
 type Source struct {
 	DumpPackets       bool
@@ -37,8 +44,7 @@ type Source struct {
 	UDPReadBufferSize uint
 	Parent            parent
 
-	packetsReceived atomic.Uint64
-	packetsLost     atomic.Uint64
+	stats atomic.Pointer[connStats] // current connection's counters (nil until first Run)
 }
 
 // Log implements logger.Writer.
@@ -126,9 +132,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		nc = l
 	}
 
+	cs := &connStats{}
+	s.stats.Store(cs)
+
 	readerErr := make(chan error)
 	go func() {
-		readerErr <- s.runReader(&desc, nc)
+		readerErr <- s.runReader(&desc, nc, cs)
 	}()
 
 	for {
@@ -147,7 +156,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 }
 
-func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
+func (s *Source) runReader(desc *description.Session, nc net.Conn, stats *connStats) error {
 	packetsLost := &counterdumper.Dumper{
 		OnReport: func(val uint64) {
 			s.Log(logger.Warn, "%d RTP %s lost",
@@ -218,7 +227,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 			return err
 		}
 
-		s.packetsReceived.Add(1)
+		stats.packetsReceived.Add(1)
 
 		if subStream == nil {
 			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
@@ -246,7 +255,7 @@ func (s *Source) runReader(desc *description.Session, nc net.Conn) error {
 
 		if lost != 0 {
 			packetsLost.Add(lost)
-			s.packetsLost.Add(lost)
+			stats.packetsLost.Add(lost)
 		}
 
 		for _, pkt := range pkts {
@@ -276,10 +285,15 @@ var _ defs.StaticSourceStatsProvider = (*Source)(nil)
 // SourceStats exports raw RTP source statistics.
 // Jitter is not computed for raw RTP and is left nil.
 func (s *Source) SourceStats() defs.StaticSourceStats {
+	cs := s.stats.Load()
+	if cs == nil {
+		return nil
+	}
+
 	return &defs.RTPSourceStats{
 		BaseSourceStats: defs.BaseSourceStats{
-			PacketsReceived: s.packetsReceived.Load(),
-			PacketsLost:     s.packetsLost.Load(),
+			PacketsReceived: cs.packetsReceived.Load(),
+			PacketsLost:     cs.packetsLost.Load(),
 		},
 	}
 }
