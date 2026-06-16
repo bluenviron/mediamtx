@@ -39,7 +39,7 @@ require (
 	github.com/pion/webrtc/v4 v4.2.15
 	github.com/pires/go-proxyproto v0.12.0
 	github.com/quic-go/quic-go v0.60.0
-	github.com/quic-go/webtransport-go v0.10.0
+	github.com/quic-go/webtransport-go v0.11.0
 	github.com/stretchr/testify v1.11.1
 	github.com/wlynxg/anet v0.0.5
 	golang.org/x/crypto v0.53.0
@@ -107,5 +107,3 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/quic-go/webtransport-go => github.com/aler9/webtransport-go v0.0.0-20260604211153-27af9c338497
