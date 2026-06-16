@@ -23,19 +23,10 @@ const testRTPSDP = "v=0\n" +
 	"a=rtpmap:96 H264/90000\n" +
 	"a=fmtp:96 profile-level-id=42e01e;packetization-mode=1\n"
 
-// a fresh source, before any packet is received, reports zeroed stats
-// with no jitter (jitter is not computed for raw RTP).
+// a fresh source, before connecting, reports nil stats.
 func TestSourceStatsEmpty(t *testing.T) {
 	so := &Source{}
-
-	st := so.SourceStats()
-	require.NotNil(t, st)
-
-	rst, ok := st.(*defs.RTPSourceStats)
-	require.True(t, ok)
-	require.Equal(t, uint64(0), rst.PacketsReceived)
-	require.Equal(t, uint64(0), rst.PacketsLost)
-	require.Nil(t, rst.Jitter)
+	require.Nil(t, so.SourceStats())
 }
 
 func TestSourceStats(t *testing.T) {

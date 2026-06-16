@@ -158,6 +158,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	s.client = c
 
+	// Clear the client on exit so that, across a disconnect/retry cycle,
+	// SourceStats() reports nil (and Jitter == nil) instead of stale values
+	// from the previous, now-closed connection.
+	defer func() { s.client = nil }()
+
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
 		c.Tunnel = gortsplib.TunnelHTTP

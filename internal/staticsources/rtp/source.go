@@ -287,6 +287,8 @@ var _ defs.StaticSourceStatsProvider = (*Source)(nil)
 func (s *Source) SourceStats() defs.StaticSourceStats {
 	cs := s.stats.Load()
 	if cs == nil {
+		// No connection has started yet: report nil, consistent with the
+		// other static sources (RTSP/WebRTC/SRT) before they connect.
 		return nil
 	}
 
