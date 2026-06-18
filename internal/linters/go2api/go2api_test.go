@@ -63,6 +63,10 @@ func schemaName(rt reflect.Type) string {
 		return "PathConf"
 	}
 
+	if rt.PkgPath() == "github.com/bluenviron/mediamtx/internal/conf" && name == "PushTarget" {
+		return "PathConfPushTarget"
+	}
+
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
 		return "PathTrackCodec"
 	}
@@ -185,6 +189,12 @@ func goEnumToApi(rt reflect.Type) (openAPISchema, bool) {
 			"srtConn",
 			"webRTCSession",
 		}}, true
+
+	case reflect.TypeOf(defs.APIPushTargetState("")):
+		return openAPISchema{Type: "string", Enum: []string{"connecting", "pushing", "error"}}, true
+
+	case reflect.TypeOf(defs.APIPushTargetSource("")):
+		return openAPISchema{Type: "string", Enum: []string{"config", "api"}}, true
 
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):
 		return openAPISchema{Type: "string", Enum: []string{
@@ -332,6 +342,10 @@ func TestGo2API(t *testing.T) {
 				conf.AlwaysAvailableTrack{},
 			},
 			{
+				"PathConfPushTarget",
+				conf.PushTarget{},
+			},
+			{
 				"AuthInternalUser",
 				conf.AuthInternalUser{},
 			},
@@ -378,6 +392,18 @@ func TestGo2API(t *testing.T) {
 			{
 				"PathList",
 				defs.APIPathList{},
+			},
+			{
+				"PushTarget",
+				defs.APIPushTarget{},
+			},
+			{
+				"PushTargetList",
+				defs.APIPushTargetList{},
+			},
+			{
+				"PushTargetAdd",
+				defs.APIPushTargetAdd{},
 			},
 			{
 				"PathReader",
@@ -532,6 +558,8 @@ func TestGo2API(t *testing.T) {
 			reflect.TypeOf(defs.APIErrorStatus("")),
 			reflect.TypeOf(defs.APIPathSourceType("")),
 			reflect.TypeOf(defs.APIPathReaderType("")),
+			reflect.TypeOf(defs.APIPushTargetState("")),
+			reflect.TypeOf(defs.APIPushTargetSource("")),
 			reflect.TypeOf(defs.APIPathTrackCodec("")),
 			reflect.TypeOf(conf.AlwaysAvailableTrackCodec("")),
 			reflect.TypeOf(conf.AuthAction("")),

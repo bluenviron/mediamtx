@@ -98,6 +98,7 @@ func TestConfFromFile(t *testing.T) {
 			SourceOnDemandStartTimeout:   10 * Duration(time.Second),
 			SourceOnDemandCloseAfter:     10 * Duration(time.Second),
 			OverridePublisher:            true,
+			PushTargets:                  PushTargets{},
 			AlwaysAvailableTracks:        []AlwaysAvailableTrack{},
 			RecordPath:                   "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:                 RecordFormatFMP4,
@@ -800,6 +801,23 @@ func TestConfErrors(t *testing.T) {
 				"  mypath:\n" +
 				"    source: rtsp://user@localhost/stream\n",
 			"username and password must be both provided",
+		},
+		{
+			"invalid push target URL",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    pushTargets:\n" +
+				"    - url: http://localhost/stream\n",
+			"invalid 'pushTargets': entry 0: unsupported scheme 'http', supported schemes are rtmp, rtmps, rtsp, rtsps and srt",
+		},
+		{
+			"duplicated push target URL",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    pushTargets:\n" +
+				"    - url: rtmp://localhost/stream\n" +
+				"    - url: rtmp://localhost/stream\n",
+			"invalid 'pushTargets': entry 1: URL is duplicated",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

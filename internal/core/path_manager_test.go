@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
 	"testing"
@@ -83,6 +84,31 @@ func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
 			require.Empty(t, data.Items)
 		})
 	}
+}
+
+func TestPathManagerAPIPushTargetKeepsDynamicPath(t *testing.T) {
+	p, ok := newInstance(t, "paths:\n"+
+		"  '~^dyn.+$':\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	target, err := p.pathManager.APIPushTargetsAdd("dynstream", defs.APIPushTargetAdd{
+		URL: "rtmp://127.0.0.1:1/target",
+	})
+	require.NoError(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	_, err = p.pathManager.APIPathsGet("dynstream")
+	require.NoError(t, err)
+
+	err = p.pathManager.APIPushTargetsRemove("dynstream", target.ID)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		_, err = p.pathManager.APIPathsGet("dynstream")
+		return errors.Is(err, conf.ErrPathNotFound)
+	}, 2*time.Second, 100*time.Millisecond)
 }
 
 func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {

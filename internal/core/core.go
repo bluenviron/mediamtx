@@ -454,6 +454,7 @@ func (p *Core) createResources(initial bool) error {
 			writeTimeout:      p.conf.WriteTimeout,
 			writeQueueSize:    p.conf.WriteQueueSize,
 			udpReadBufferSize: p.conf.UDPReadBufferSize,
+			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
 			rtpMaxPayloadSize: rtpMaxPayloadSize,
 			pathConfs:         p.conf.Paths,
 			authManager:       p.authManager,
