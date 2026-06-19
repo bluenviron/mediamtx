@@ -359,8 +359,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					continue
 				}
 
-				targets, err := pathManager.APIPushTargetsList(pa.Name)
-				if err != nil {
+				targets, targetsErr := pathManager.APIPushTargetsList(pa.Name)
+				if targetsErr != nil {
 					continue
 				}
 

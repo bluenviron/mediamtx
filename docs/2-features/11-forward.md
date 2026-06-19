@@ -16,7 +16,7 @@ The `url` field supports the following schemes: `rtmp`, `rtmps`, `rtsp`, `rtsps`
 
 ```yml
 paths:
-  '~^camera_(.+)$':
+  "~^camera_(.+)$":
     pushTargets:
       - url: rtsp://other-server:8554/$G1
 ```
