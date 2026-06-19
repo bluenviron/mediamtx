@@ -323,7 +323,7 @@ func rtmpURLWithDefaultPort(u *url.URL) *url.URL {
 	if u.Scheme == "rtmp" {
 		du.Host = net.JoinHostPort(u.Hostname(), "1935")
 	} else {
-		du.Host = net.JoinHostPort(u.Hostname(), "1936")
+		du.Host = net.JoinHostPort(u.Hostname(), "443")
 	}
 	return &du
 }

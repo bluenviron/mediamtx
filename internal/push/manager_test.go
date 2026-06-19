@@ -211,7 +211,7 @@ func TestRTMPURLWithDefaultPort(t *testing.T) {
 		host   string
 	}{
 		{"rtmp://example.com/live/stream", "example.com:1935"},
-		{"rtmps://example.com/live/stream", "example.com:1936"},
+		{"rtmps://example.com/live/stream", "example.com:443"},
 		{"rtmp://example.com:1937/live/stream", "example.com:1937"},
 	} {
 		t.Run(ca.rawURL, func(t *testing.T) {
