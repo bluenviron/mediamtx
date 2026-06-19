@@ -409,6 +409,10 @@ func (pa *path) runInner() error {
 		case req := <-pa.chRemoveReader:
 			pa.doRemoveReader(req)
 
+			if pa.shouldClose() {
+				pa.parent.closePathIfIdle(pa)
+			}
+
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
 

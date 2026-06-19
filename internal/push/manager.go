@@ -147,7 +147,7 @@ func (m *Manager) ReloadConf(targets conf.PushTargets) {
 	m.mutex.Unlock()
 
 	for _, target := range toClose {
-		target.Close()
+		target.CloseAsync()
 	}
 }
 
@@ -193,7 +193,7 @@ func (m *Manager) Remove(id uuid.UUID) error {
 	}
 	m.mutex.Unlock()
 
-	target.Close()
+	target.CloseAsync()
 	return nil
 }
 

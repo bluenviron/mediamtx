@@ -196,6 +196,9 @@ func goEnumToApi(rt reflect.Type) (openAPISchema, bool) {
 	case reflect.TypeOf(defs.APIPushTargetSource("")):
 		return openAPISchema{Type: "string", Enum: []string{"config", "api"}}, true
 
+	case reflect.TypeOf(defs.APIPushTargetProtocol("")):
+		return openAPISchema{Type: "string", Enum: []string{"rtmp", "rtmps", "rtsp", "rtsps", "srt"}}, true
+
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):
 		return openAPISchema{Type: "string", Enum: []string{
 			"AV1",
@@ -560,6 +563,7 @@ func TestGo2API(t *testing.T) {
 			reflect.TypeOf(defs.APIPathReaderType("")),
 			reflect.TypeOf(defs.APIPushTargetState("")),
 			reflect.TypeOf(defs.APIPushTargetSource("")),
+			reflect.TypeOf(defs.APIPushTargetProtocol("")),
 			reflect.TypeOf(defs.APIPathTrackCodec("")),
 			reflect.TypeOf(conf.AlwaysAvailableTrackCodec("")),
 			reflect.TypeOf(conf.AuthAction("")),

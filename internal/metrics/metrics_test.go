@@ -63,7 +63,7 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 }
 
 func (dummyPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	panic("unused")
+	return &defs.APIPushTargetList{}, nil
 }
 
 func (dummyPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
@@ -76,6 +76,27 @@ func (dummyPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.
 
 func (dummyPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
 	panic("unused")
+}
+
+type pushTargetPathManager struct {
+	dummyPathManager
+}
+
+func (pushTargetPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
+	return &defs.APIPushTargetList{
+		ItemCount: 1,
+		PageCount: 1,
+		Items: []defs.APIPushTarget{{
+			ID:            uuid.MustParse("5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe"),
+			Created:       time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC),
+			URL:           "rtmp://example.com/live/stream",
+			Protocol:      defs.APIPushTargetProtocolRTMP,
+			Source:        defs.APIPushTargetSourceAPI,
+			State:         defs.APIPushTargetStatePushing,
+			OutboundBytes: 321,
+			BytesSent:     321,
+		}},
+	}, nil
 }
 
 type dummyHLSServer struct{}
@@ -381,7 +402,7 @@ func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 }
 
 func (emptyPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	panic("unused")
+	return &defs.APIPushTargetList{}, nil
 }
 
 func (emptyPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
@@ -1082,6 +1103,44 @@ func TestZeroMetricsFallback(t *testing.T) {
 			"moq_sessions 0\n"+
 			"moq_sessions_inbound_bytes 0\n"+
 			"moq_sessions_outbound_bytes 0\n"+
+			"\n",
+		string(byts))
+}
+
+func TestPushTargetMetrics(t *testing.T) {
+	m := Metrics{
+		Address:      "localhost:9998",
+		AllowOrigins: []string{"*"},
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       test.NilLogger,
+	}
+	err := m.Initialize()
+	require.NoError(t, err)
+	defer m.Close()
+
+	m.SetPathManager(&pushTargetPathManager{})
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	res, err := hc.Get("http://localhost:9998/metrics?type=push_targets")
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	require.Equal(t,
+		"# Push targets\n"+
+			"push_targets{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
+			"protocol=\"rtmp\",source=\"api\",state=\"pushing\",url=\"rtmp://example.com/live/stream\"} 1\n"+
+			"push_targets_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
+			"protocol=\"rtmp\",source=\"api\",state=\"pushing\",url=\"rtmp://example.com/live/stream\"} 321\n"+
 			"\n",
 		string(byts))
 }

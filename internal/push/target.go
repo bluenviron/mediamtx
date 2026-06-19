@@ -67,9 +67,11 @@ type Target struct {
 	uuid    uuid.UUID
 	created time.Time
 
-	mutex     sync.RWMutex
-	state     defs.APIPushTargetState
-	lastError string
+	mutex              sync.RWMutex
+	state              defs.APIPushTargetState
+	lastError          string
+	outboundBytes      uint64
+	activeOutboundFunc func() uint64
 }
 
 // Initialize initializes Target.
@@ -94,6 +96,11 @@ func (t *Target) Close() {
 	<-t.done
 }
 
+// CloseAsync closes Target without waiting for the run goroutine to return.
+func (t *Target) CloseAsync() {
+	t.ctxCancel()
+}
+
 // Log implements logger.Writer.
 func (t *Target) Log(level logger.Level, format string, args ...any) {
 	t.Parent.Log(level, "[target "+t.uuid.String()+"] "+format, args...)
@@ -107,18 +114,56 @@ func (t *Target) setState(state defs.APIPushTargetState, lastError string) {
 	t.lastError = lastError
 }
 
+func (t *Target) setActiveOutboundFunc(fn func() uint64) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.activeOutboundFunc = fn
+}
+
+func (t *Target) clearActiveOutboundFunc() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.activeOutboundFunc != nil {
+		t.outboundBytes += t.activeOutboundFunc()
+		t.activeOutboundFunc = nil
+	}
+}
+
+func (t *Target) outboundBytesLocked() uint64 {
+	outboundBytes := t.outboundBytes
+	if t.activeOutboundFunc != nil {
+		outboundBytes += t.activeOutboundFunc()
+	}
+	return outboundBytes
+}
+
+func targetProtocol(rawURL string) defs.APIPushTargetProtocol {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return defs.APIPushTargetProtocol(u.Scheme)
+}
+
 // APIItem returns an API item.
 func (t *Target) APIItem() defs.APIPushTarget {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
+	outboundBytes := t.outboundBytesLocked()
+
 	return defs.APIPushTarget{
-		ID:        t.uuid,
-		Created:   t.created,
-		URL:       t.URL,
-		Source:    t.Source,
-		State:     t.state,
-		LastError: t.lastError,
+		ID:            t.uuid,
+		Created:       t.created,
+		URL:           t.URL,
+		Protocol:      targetProtocol(t.URL),
+		Source:        t.Source,
+		State:         t.state,
+		LastError:     t.lastError,
+		OutboundBytes: outboundBytes,
+		BytesSent:     outboundBytes,
 	}
 }
 
@@ -306,6 +351,8 @@ func (t *Target) runRTMP(ctx context.Context, u *url.URL, strm *stream.Stream) e
 		return fmt.Errorf("connect RTMP target: %w", err)
 	}
 	defer conn.Close()
+	t.setActiveOutboundFunc(conn.BytesSent)
+	defer t.clearActiveOutboundFunc()
 
 	r := &stream.Reader{Parent: t}
 	outDesc := strm.OutDescCopy()
@@ -347,6 +394,10 @@ func (t *Target) runRTSP(ctx context.Context, rawURL string, strm *stream.Stream
 		return err
 	}
 	defer client.Close()
+	t.setActiveOutboundFunc(func() uint64 {
+		return client.Stats().Session.OutboundBytes
+	})
+	defer t.clearActiveOutboundFunc()
 
 	r := &stream.Reader{Parent: t}
 
@@ -399,6 +450,12 @@ func (t *Target) runSRT(ctx context.Context, rawURL string, strm *stream.Stream)
 		return err
 	}
 	defer sconn.Close()
+	t.setActiveOutboundFunc(func() uint64 {
+		var s srt.Statistics
+		sconn.Stats(&s)
+		return s.Accumulated.ByteSent
+	})
+	defer t.clearActiveOutboundFunc()
 
 	r := &stream.Reader{Parent: t}
 	bw := bufio.NewWriterSize(sconn, int(conf.PayloadSize))

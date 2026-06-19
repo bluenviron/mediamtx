@@ -50,11 +50,12 @@ func (m *testPushTargetPathManager) APIPushTargetsAdd(
 ) (*defs.APIPushTarget, error) {
 	id := uuid.New()
 	item := &defs.APIPushTarget{
-		ID:      id,
-		Created: time.Date(2026, 6, 18, 10, 0, 0, 0, time.UTC),
-		URL:     req.URL,
-		Source:  defs.APIPushTargetSourceAPI,
-		State:   defs.APIPushTargetStateConnecting,
+		ID:       id,
+		Created:  time.Date(2026, 6, 18, 10, 0, 0, 0, time.UTC),
+		URL:      req.URL,
+		Protocol: defs.APIPushTargetProtocolSRT,
+		Source:   defs.APIPushTargetSourceAPI,
+		State:    defs.APIPushTargetStateConnecting,
 	}
 	m.items[id] = item
 
@@ -75,12 +76,15 @@ func TestPushTargets(t *testing.T) {
 	pathManager := &testPushTargetPathManager{
 		items: map[uuid.UUID]*defs.APIPushTarget{
 			id: {
-				ID:        id,
-				Created:   time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
-				URL:       "rtmp://localhost/live/stream",
-				Source:    defs.APIPushTargetSourceConfig,
-				State:     defs.APIPushTargetStateError,
-				LastError: "connection refused",
+				ID:            id,
+				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
+				URL:           "rtmp://localhost/live/stream",
+				Protocol:      defs.APIPushTargetProtocolRTMP,
+				Source:        defs.APIPushTargetSourceConfig,
+				State:         defs.APIPushTargetStateError,
+				LastError:     "connection refused",
+				OutboundBytes: 123,
+				BytesSent:     123,
 			},
 		},
 	}
@@ -111,14 +115,18 @@ func TestPushTargets(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/pushtargets/get/"+id.String()+"/mystream", nil, &item)
 	require.Equal(t, "rtmp://localhost/live/stream", item.URL)
+	require.Equal(t, defs.APIPushTargetProtocolRTMP, item.Protocol)
 	require.Equal(t, defs.APIPushTargetStateError, item.State)
 	require.Equal(t, "connection refused", item.LastError)
+	require.Equal(t, uint64(123), item.OutboundBytes)
+	require.Equal(t, uint64(123), item.BytesSent)
 
 	var added defs.APIPushTarget
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/pushtargets/add/mystream",
 		defs.APIPushTargetAdd{URL: "srt://localhost:8890?streamid=publish:mystream"}, &added)
 	require.Equal(t, defs.APIPushTargetSourceAPI, added.Source)
 	require.Equal(t, "srt://localhost:8890?streamid=publish:mystream", added.URL)
+	require.Equal(t, defs.APIPushTargetProtocolSRT, added.Protocol)
 
 	httpRequest(t, hc, http.MethodDelete,
 		"http://localhost:9997/v3/paths/pushtargets/remove/"+added.ID.String()+"/mystream", nil, nil)
