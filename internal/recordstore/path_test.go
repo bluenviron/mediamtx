@@ -67,6 +67,33 @@ var pathCases = []struct {
 		},
 		"mypath/2021-12-02_12-15-23-567324_-0200.mp4",
 	},
+	{
+		"timezone plus fractional hour",
+		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
+		Path{
+			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", 19800)),
+			Path:  "mypath",
+		},
+		"mypath/2021-12-02_12-15-23-567324_+0530.mp4",
+	},
+	{
+		"timezone plus fractional hour 45",
+		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
+		Path{
+			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", 20700)),
+			Path:  "mypath",
+		},
+		"mypath/2021-12-02_12-15-23-567324_+0545.mp4",
+	},
+	{
+		"timezone minus fractional hour",
+		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
+		Path{
+			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", -12600)),
+			Path:  "mypath",
+		},
+		"mypath/2021-12-02_12-15-23-567324_-0330.mp4",
+	},
 }
 
 func TestPathDecode(t *testing.T) {
