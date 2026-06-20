@@ -60,7 +60,7 @@ func timeLocationDecode(s string) *time.Location {
 	v1, _ := strconv.ParseInt(s[1:3], 10, 64)
 	v2, _ := strconv.ParseInt(s[3:5], 10, 64)
 
-	off := sign*int(v1)*3600 + int(v2)*3600
+	off := sign * (int(v1)*3600 + int(v2)*60)
 
 	return time.FixedZone("myzone", off)
 }
