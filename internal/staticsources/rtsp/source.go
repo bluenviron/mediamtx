@@ -139,6 +139,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			uint16(params.Conf.RTSPUDPSourcePortRange[1]),
 		},
 		OnRequest: func(req *base.Request) {
+			if params.Conf.RTSPScale != "" && req.Method == base.Play {
+				if req.Header == nil {
+					req.Header = base.Header{}
+				}
+				req.Header["Scale"] = base.HeaderValue{params.Conf.RTSPScale}
+			}
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
 		OnResponse: func(res *base.Response) {

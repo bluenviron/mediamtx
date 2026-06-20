@@ -305,6 +305,96 @@ func TestNoPassword(t *testing.T) {
 	<-p.Unit
 }
 
+func TestScale(t *testing.T) {
+	var strm *gortsplib.ServerStream
+
+	media0 := test.UniqueMediaH264()
+
+	s := gortsplib.Server{
+		Handler: &testServer{
+			onDescribe: func(_ *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, strm, nil
+			},
+			onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, strm, nil
+			},
+			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				require.Equal(t, base.HeaderValue{"-1.0"}, ctx.Request.Header["Scale"])
+
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					err := strm.WritePacketRTP(media0, &rtp.Packet{
+						Header: rtp.Header{
+							Version:        0x02,
+							PayloadType:    96,
+							SequenceNumber: 57899,
+							Timestamp:      345234345,
+							SSRC:           978651231,
+							Marker:         true,
+						},
+						Payload: []byte{5, 1, 2, 3, 4},
+					})
+					require.NoError(t, err)
+				}()
+
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
+		RTSPAddress: "127.0.0.1:8555",
+	}
+
+	err := s.Start()
+	require.NoError(t, err)
+	defer s.Close()
+
+	strm = &gortsplib.ServerStream{
+		Server: &s,
+		Desc:   &description.Session{Medias: []*description.Media{media0}},
+	}
+	err = strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	cnf := &conf.Path{
+		RTSPUDPSourcePortRange: []uint{10000, 65535},
+		RTSPScale:              "-1.0",
+	}
+
+	p := &test.StaticSourceParent{}
+	p.Initialize()
+	defer p.Close()
+
+	so := &Source{
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 2048,
+		Parent:         p,
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	go func() {
+		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+			Context:        ctx,
+			ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
+			Conf:           cnf,
+		})
+		close(done)
+	}()
+
+	<-p.Unit
+}
+
 func TestRange(t *testing.T) {
 	for _, ca := range []string{"clock", "npt", "smpte"} {
 		t.Run(ca, func(t *testing.T) {

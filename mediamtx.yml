@@ -593,6 +593,10 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+  # Scale header value to send to the source, in order to play the stream at a different speed.
+  # Negative values play in reverse, values > 1 fast-forward,
+  # values 0 < x < 1 play slow motion.
+  rtspScale:
   # Range of ports used as source port in outgoing UDP packets.
   rtspUDPSourcePortRange: [10000, 65535]
 
