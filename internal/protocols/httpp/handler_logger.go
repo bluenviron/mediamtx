@@ -14,6 +14,28 @@ const (
 	maxDumpedRequestBodySize = 10 * 1024
 )
 
+var requestHeadersToRedact = map[string]struct{}{
+	"Authorization":       {},
+	"Cookie":              {},
+	"Proxy-Authorization": {},
+	"Set-Cookie":          {},
+	"X-Api-Key":           {},
+	"X-Auth-Token":        {},
+}
+
+func cloneRequestForLogging(r *http.Request) *http.Request {
+	clone := r.Clone(r.Context())
+	clone.Header = r.Header.Clone()
+
+	for header := range requestHeadersToRedact {
+		if clone.Header.Get(header) != "" {
+			clone.Header.Set(header, "<redacted>")
+		}
+	}
+
+	return clone
+}
+
 func dumpRequestLimited(r *http.Request) ([]byte, error) {
 	peek, err := io.ReadAll(io.LimitReader(r.Body, maxDumpedRequestBodySize+1))
 	if err != nil {
@@ -28,8 +50,9 @@ func dumpRequestLimited(r *http.Request) ([]byte, error) {
 
 	original := r.Body
 	r.Body = io.NopCloser(bytes.NewReader(capped))
+	clone := cloneRequestForLogging(r)
 
-	dump, dumpErr := httputil.DumpRequest(r, true)
+	dump, dumpErr := httputil.DumpRequest(clone, true)
 
 	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek), original))
 
