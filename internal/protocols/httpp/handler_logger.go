@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxDumpedRequestBodySize = 10 * 1024
+	maxRequestBodySizeToLog = 10 * 1024
 )
 
 var requestHeadersToRedact = map[string]struct{}{
@@ -21,6 +21,11 @@ var requestHeadersToRedact = map[string]struct{}{
 	"Set-Cookie":          {},
 	"X-Api-Key":           {},
 	"X-Auth-Token":        {},
+}
+
+var requestBodyContentTypeToLog = map[string]struct{}{
+	"application/sdp":                 {},
+	"application/trickle-ice-sdpfrag": {},
 }
 
 func cloneRequestForLogging(r *http.Request) *http.Request {
@@ -37,15 +42,15 @@ func cloneRequestForLogging(r *http.Request) *http.Request {
 }
 
 func dumpRequestLimited(r *http.Request) ([]byte, error) {
-	peek, err := io.ReadAll(io.LimitReader(r.Body, maxDumpedRequestBodySize+1))
+	peek, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySizeToLog+1))
 	if err != nil {
 		return nil, err
 	}
 
 	capped := peek
-	if int64(len(capped)) > maxDumpedRequestBodySize {
-		capped = append([]byte(nil), capped[:maxDumpedRequestBodySize]...)
-		capped = append(capped, []byte("\n\n(body truncated)\n")...)
+	if int64(len(capped)) > maxRequestBodySizeToLog {
+		capped = append([]byte(nil), capped[:maxRequestBodySizeToLog]...)
+		capped = append(capped, []byte("\n\n(truncated body)\n")...)
 	}
 
 	original := r.Body
@@ -76,7 +81,7 @@ func (w *responseRecorder) Write(b []byte) (int, error) {
 	}
 
 	contentType := w.Header().Get("Content-Type")
-	if contentType == "application/sdp" || contentType == "application/trickle-ice-sdpfrag" {
+	if _, ok := requestBodyContentTypeToLog[contentType]; ok {
 		w.body = append(w.body, b...)
 	} else {
 		w.size += len(b)
