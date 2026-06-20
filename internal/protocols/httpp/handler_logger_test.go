@@ -9,35 +9,92 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDumpRequestLimitedRedactsSensitiveHeaders(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "http://localhost/test", strings.NewReader("request body"))
-	require.NoError(t, err)
+var casesDumpRequest = []struct {
+	name     string
+	header   http.Header
+	body     string
+	expected string
+}{
+	{
+		name: "small_body",
+		header: http.Header{
+			"Authorization":       []string{"Bearer secret-token"},
+			"Cookie":              []string{"session=secret-cookie"},
+			"Proxy-Authorization": []string{"Bearer proxy-secret"},
+			"X-Api-Key":           []string{"secret-api-key"},
+			"X-Auth-Token":        []string{"secret-auth-token"},
+		},
+		body: "request body",
+		expected: "POST /test HTTP/1.1\r\n" +
+			"Host: localhost\r\n" +
+			"Authorization: <redacted>\r\n" +
+			"Cookie: <redacted>\r\n" +
+			"Proxy-Authorization: <redacted>\r\n" +
+			"X-Api-Key: <redacted>\r\n" +
+			"X-Auth-Token: <redacted>\r\n" +
+			"\r\n" +
+			"request body",
+	},
+	{
+		name: "truncated_body",
+		header: http.Header{
+			"Authorization":       []string{"Bearer secret-token"},
+			"Cookie":              []string{"session=secret-cookie"},
+			"Proxy-Authorization": []string{"Bearer proxy-secret"},
+			"X-Api-Key":           []string{"secret-api-key"},
+			"X-Auth-Token":        []string{"secret-auth-token"},
+		},
+		body: strings.Repeat("a", maxRequestBodySizeToLog*2),
+		expected: "POST /test HTTP/1.1\r\n" +
+			"Host: localhost\r\n" +
+			"Authorization: <redacted>\r\n" +
+			"Cookie: <redacted>\r\n" +
+			"Proxy-Authorization: <redacted>\r\n" +
+			"X-Api-Key: <redacted>\r\n" +
+			"X-Auth-Token: <redacted>\r\n" +
+			"\r\n" +
+			strings.Repeat("a", maxRequestBodySizeToLog) +
+			"\n\n(truncated body)\n",
+	},
+}
 
-	req.Header.Set("Authorization", "Bearer secret-token")
-	req.Header.Set("Cookie", "session=secret-cookie")
-	req.Header.Set("Proxy-Authorization", "Bearer proxy-secret")
-	req.Header.Set("X-Api-Key", "secret-api-key")
-	req.Header.Set("X-Auth-Token", "secret-auth-token")
+func TestDumpRequest(t *testing.T) {
+	for _, ca := range casesDumpRequest {
+		t.Run(ca.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPost, "http://localhost/test", strings.NewReader(ca.body))
+			require.NoError(t, err)
 
-	dump, err := dumpRequestLimited(req)
-	require.NoError(t, err)
+			req.Header = ca.header
 
-	dumpStr := string(dump)
-	require.Contains(t, dumpStr, "Authorization: <redacted>")
-	require.Contains(t, dumpStr, "Cookie: <redacted>")
-	require.Contains(t, dumpStr, "Proxy-Authorization: <redacted>")
-	require.Contains(t, dumpStr, "X-Api-Key: <redacted>")
-	require.Contains(t, dumpStr, "X-Auth-Token: <redacted>")
-	require.NotContains(t, dumpStr, "secret-token")
-	require.NotContains(t, dumpStr, "secret-cookie")
-	require.NotContains(t, dumpStr, "proxy-secret")
-	require.NotContains(t, dumpStr, "secret-api-key")
-	require.NotContains(t, dumpStr, "secret-auth-token")
-	require.Contains(t, dumpStr, "request body")
+			require.Equal(t, ca.expected, string(dumpRequest(req)))
 
-	require.Equal(t, "Bearer secret-token", req.Header.Get("Authorization"))
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Equal(t, ca.body, string(body))
+		})
+	}
+}
 
-	body, err := io.ReadAll(req.Body)
-	require.NoError(t, err)
-	require.Equal(t, "request body", string(body))
+func BenchmarkDumpRequest(b *testing.B) {
+	for _, ca := range casesDumpRequest {
+		b.Run(ca.name, func(b *testing.B) {
+			req, err := http.NewRequest(http.MethodPost, "http://localhost/test", strings.NewReader(ca.body))
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			req.Header = ca.header
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				req.Body, err = req.GetBody()
+				if err != nil {
+					b.Fatal(err)
+				}
+
+				_ = dumpRequest(req)
+			}
+		})
+	}
 }
