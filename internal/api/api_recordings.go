@@ -29,9 +29,16 @@ type recordingSegmentInfo struct {
 func recordingsSessionsOfPath(
 	pathConf *conf.Path,
 	pathName string,
+	start *time.Time,
+	end *time.Time,
 ) gin.H {
 
-	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
+	segments, _ := recordstore.FindSegments(
+		pathConf,
+		pathName,
+		nil,
+		nil,
+	)
 
 	if len(segments) == 0 {
 		return gin.H{
@@ -40,19 +47,40 @@ func recordingsSessionsOfPath(
 		}
 	}
 
-	infos := make([]recordingSegmentInfo, 0, len(segments))
+	infos := make(
+		[]recordingSegmentInfo,
+		0,
+		len(segments),
+	)
 
 	for _, seg := range segments {
 
-		duration, err := playback.GetSegmentDuration(seg.Fpath)
+		duration, err := playback.GetSegmentDuration(
+			seg.Fpath,
+		)
+
 		if err != nil {
 			continue
 		}
 
-		infos = append(infos, recordingSegmentInfo{
-			start: seg.Start,
-			end:   seg.Start.Add(duration),
-		})
+		segStart := seg.Start
+		segEnd := seg.Start.Add(duration)
+
+		if start != nil && segEnd.Before(*start) {
+			continue
+		}
+
+		if end != nil && segStart.After(*end) {
+			continue
+		}
+
+		infos = append(
+			infos,
+			recordingSegmentInfo{
+				start: segStart,
+				end:   segEnd,
+			},
+		)
 	}
 
 	if len(infos) == 0 {
@@ -83,6 +111,9 @@ func recordingsSessionsOfPath(
 			)
 
 			sessionStart = infos[i].start
+			sessionEnd = infos[i].end
+
+			continue
 		}
 
 		if infos[i].end.After(sessionEnd) {
@@ -194,10 +225,42 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 		return
 	}
 
+	var startPtr *time.Time
+	var endPtr *time.Time
+
+	if v := ctx.Query("start"); v != "" {
+			t, err := time.Parse(time.RFC3339Nano, v)
+			if err != nil {
+					a.writeError(
+							ctx,
+							http.StatusBadRequest,
+							fmt.Errorf("invalid start parameter: %w", err),
+					)
+					return
+			}
+			startPtr = &t
+	}
+
+	if v := ctx.Query("end"); v != "" {
+			t, err := time.Parse(time.RFC3339Nano, v)
+			if err != nil {
+					a.writeError(
+							ctx,
+							http.StatusBadRequest,
+							fmt.Errorf("invalid end parameter: %w", err),
+					)
+					return
+			}
+			endPtr = &t
+	} else {
+			now := time.Now()
+			endPtr = &now
+	}
+
 	if ctx.Query("sessions") == "true" {
 		ctx.JSON(
 			http.StatusOK,
-			recordingsSessionsOfPath(pathConf, pathName),
+			recordingsSessionsOfPath(pathConf, pathName, startPtr, endPtr),
 		)
 		return
 	}

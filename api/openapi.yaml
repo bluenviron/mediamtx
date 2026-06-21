@@ -3657,15 +3657,49 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: start
+          in: query
+          required: false
+          description: >
+            Start time of the search interval (RFC3339Nano).
+            Used only when sessions=true.
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          description: >
+            End time of the search interval (RFC3339Nano).
+            Used only when sessions=true.
+            If omitted, the current server time is used.
+          schema:
+            type: string
+            format: date-time
       responses:
-      "200":
-        description: the request was successful.
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: "#/components/schemas/Recording"
-                - $ref: "#/components/schemas/RecordingSessions"
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Recording"
+                  - $ref: "#/components/schemas/RecordingSessions"
+              examples:
+                recording:
+                  summary: recordings list
+                  value:
+                    name: cam1
+                    segments:
+                      - start: "2026-06-01T10:00:00Z"
+                sessions:
+                  summary: recordings grouped into sessions
+                  value:
+                    name: cam1
+                    sessions:
+                      - start: "2026-06-01T10:00:00Z"
+                        duration: 120
+                        url: "http://localhost:9996/get?duration=120&path=cam1"
         "400":
           description: invalid request.
           content:
