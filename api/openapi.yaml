@@ -1287,6 +1287,24 @@ components:
           items:
             $ref: "#/components/schemas/RecordingSegment"
 
+    RecordingSessions:
+      type: object
+      properties:
+        name:
+          type: string
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: string
+                format: date-time
+              duration:
+                type: number
+              url:
+                type: string
+
     RecordingList:
       type: object
       properties:
@@ -3632,13 +3650,22 @@ paths:
           description: name of the path.
           schema:
             type: string
+        - name: sessions
+          in: query
+          required: false
+          description: returns recordings grouped into sessions.
+          schema:
+            type: boolean
+            default: false
       responses:
-        "200":
-          description: the request was successful.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Recording"
+      "200":
+        description: the request was successful.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Recording"
+                - $ref: "#/components/schemas/RecordingSessions"
         "400":
           description: invalid request.
           content:
@@ -3675,6 +3702,51 @@ paths:
           in: query
           required: true
           description: starting date of the segment.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/recordings/deletesession:
+    delete:
+      operationId: recordingsDeleteSession
+      tags: [Recordings]
+      summary: deletes a recording session.
+      description: ""
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: path.
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          description: starting date of the session.
           schema:
             type: string
       responses:

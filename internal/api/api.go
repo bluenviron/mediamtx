@@ -174,6 +174,7 @@ func (a *API) Initialize() error {
 	group.GET("/recordings/list", a.onRecordingsList)
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
+	group.DELETE("/recordings/deletesession", a.onRecordingDeleteSession)
 
 	a.httpServer = &httpp.Server{
 		Address:           a.Address,
