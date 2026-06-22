@@ -404,12 +404,14 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 			newConf.RecordPartDuration != oldConf.RecordPartDuration ||
 			newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
 			newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
-			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
+			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter ||
+			newConf.AlwaysAvailableRecorded != oldConf.AlwaysAvailableRecorded) {
 		pa.recorder.Close()
 		pa.recorder = nil
 	}
 
-	if newConf.Record && pa.stream != nil && pa.recorder == nil {
+	if newConf.Record && pa.stream != nil && pa.recorder == nil &&
+		(!newConf.AlwaysAvailable || newConf.AlwaysAvailableRecorded || pa.source != nil) {
 		pa.startRecording()
 	}
 }
@@ -567,6 +569,10 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	if pa.conf.AlwaysAvailable {
 		pa.onlineTime = time.Now()
+
+		if pa.conf.Record && !pa.conf.AlwaysAvailableRecorded && pa.recorder == nil {
+			pa.startRecording()
+		}
 	}
 
 	if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
@@ -849,7 +855,7 @@ func (pa *path) setAvailable(
 		pa.onlineTime = time.Now()
 	}
 
-	if pa.conf.Record {
+	if pa.conf.Record && (!pa.conf.AlwaysAvailable || pa.conf.AlwaysAvailableRecorded) {
 		pa.startRecording()
 	}
 
@@ -966,6 +972,11 @@ func (pa *path) executeRemovePublisher() {
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {
+		if pa.conf.Record && !pa.conf.AlwaysAvailableRecorded && pa.recorder != nil {
+			pa.recorder.Close()
+			pa.recorder = nil
+		}
+
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
 			panic("should not happen")

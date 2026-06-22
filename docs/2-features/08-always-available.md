@@ -26,3 +26,15 @@ paths:
     alwaysAvailable: true
     alwaysAvailableFile: "./h264.mp4"
 ```
+
+By default, the stream is recorded even when no source is connected and the offline segment is playing. To record only when a source is connected, set `alwaysAvailableRecorded` to `false`:
+
+```yml
+paths:
+  mypath:
+    alwaysAvailable: true
+    alwaysAvailableRecorded: false
+    record: true
+    alwaysAvailableTracks:
+      - codec: H264
+```
