@@ -13,45 +13,43 @@ import (
 )
 
 type cameraParams struct {
-	LogLevel            string
-	CameraID            uint32
-	Width               uint32
-	Height              uint32
-	HFlip               bool
-	VFlip               bool
-	Brightness          float32
-	Contrast            float32
-	Saturation          float32
-	Sharpness           float32
-	Exposure            string
-	AWB                 string
-	AWBGainRed          float32
-	AWBGainBlue         float32
-	Denoise             string
-	Shutter             uint32
-	Metering            string
-	Gain                float32
-	EV                  float32
-	ROI                 string
-	HDR                 bool
-	TuningFile          string
-	Mode                string
-	FPS                 float32
-	AfMode              string
-	AfRange             string
-	AfSpeed             string
-	LensPosition        float32
-	AfWindow            string
-	FlickerPeriod       uint32
-	TextOverlayEnable   bool
-	TextOverlay         string
-	Codec               string
-	IDRPeriod           uint32
-	Bitrate             uint32
-	HardwareH264Profile string
-	HardwareH264Level   string
-	SoftwareH264Profile string
-	SoftwareH264Level   string
+	LogLevel          string
+	CameraID          uint32
+	Width             uint32
+	Height            uint32
+	HFlip             bool
+	VFlip             bool
+	Brightness        float32
+	Contrast          float32
+	Saturation        float32
+	Sharpness         float32
+	Exposure          string
+	AWB               string
+	AWBGainRed        float32
+	AWBGainBlue       float32
+	Denoise           string
+	Shutter           uint32
+	Metering          string
+	Gain              float32
+	EV                float32
+	ROI               string
+	HDR               bool
+	TuningFile        string
+	Mode              string
+	FPS               float32
+	AfMode            string
+	AfRange           string
+	AfSpeed           string
+	LensPosition      float32
+	AfWindow          string
+	FlickerPeriod     uint32
+	TextOverlayEnable bool
+	TextOverlay       string
+	Codec             string
+	IDRPeriod         uint32
+	Bitrate           uint32
+	H264Profile       string
+	H264Level         string
 
 	SecondaryWidth        uint32
 	SecondaryHeight       uint32
@@ -102,13 +100,51 @@ func (p *cameraParams) fromConf(logLevel conf.LogLevel, cnf *conf.Path) {
 	p.FlickerPeriod = uint32(cnf.RPICameraFlickerPeriod)
 	p.TextOverlayEnable = cnf.RPICameraTextOverlayEnable
 	p.TextOverlay = cnf.RPICameraTextOverlay
-	p.Codec = cnf.RPICameraCodec
+
+	p.Codec = func() string {
+		if cnf.RPICameraCodec == "auto" {
+			if !cnf.RPICameraSecondary {
+				if supportsHardwareH264() {
+					return "hardwareH264"
+				}
+				return "softwareH264"
+			}
+			return "mjpeg"
+		}
+		return cnf.RPICameraCodec
+	}()
+
 	p.IDRPeriod = uint32(cnf.RPICameraIDRPeriod)
 	p.Bitrate = uint32(cnf.RPICameraBitrate)
-	p.HardwareH264Profile = cnf.RPICameraHardwareH264Profile
-	p.HardwareH264Level = cnf.RPICameraHardwareH264Level
-	p.SoftwareH264Profile = cnf.RPICameraSoftwareH264Profile
-	p.SoftwareH264Level = cnf.RPICameraSoftwareH264Level
+
+	p.H264Profile = func() string {
+		if p.Codec == "hardwareH264" && cnf.RPICameraHardwareH264Profile != nil {
+			return *cnf.RPICameraHardwareH264Profile
+		}
+		if p.Codec == "softwareH264" && cnf.RPICameraSoftwareH264Profile != nil {
+			return *cnf.RPICameraSoftwareH264Profile
+		}
+
+		if cnf.RPICameraH264Profile == "auto" {
+			if p.Codec == "hardwareH264" {
+				return "main"
+			}
+			return "baseline"
+		}
+
+		return cnf.RPICameraH264Profile
+	}()
+
+	p.H264Level = func() string {
+		if p.Codec == "hardwareH264" && cnf.RPICameraHardwareH264Level != nil {
+			return *cnf.RPICameraHardwareH264Level
+		}
+		if p.Codec == "softwareH264" && cnf.RPICameraSoftwareH264Level != nil {
+			return *cnf.RPICameraSoftwareH264Level
+		}
+
+		return cnf.RPICameraH264Level
+	}()
 
 	p.SecondaryWidth = uint32(cnf.RPICameraSecondaryWidth)
 	p.SecondaryHeight = uint32(cnf.RPICameraSecondaryHeight)
