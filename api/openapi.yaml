@@ -798,6 +798,8 @@ components:
           $ref: "#/components/schemas/RTSPRangeType"
         rtspRangeStart:
           type: string
+        rtspScale:
+          type: string
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
@@ -940,11 +942,23 @@ components:
           deprecated: true
         rpiCameraHardwareH264Profile:
           type: string
+          nullable: true
+          deprecated: true
         rpiCameraHardwareH264Level:
           type: string
+          nullable: true
+          deprecated: true
         rpiCameraSoftwareH264Profile:
           type: string
+          nullable: true
+          deprecated: true
         rpiCameraSoftwareH264Level:
+          type: string
+          nullable: true
+          deprecated: true
+        rpiCameraH264Profile:
+          type: string
+        rpiCameraH264Level:
           type: string
         rpiCameraJPEGQuality:
           type: integer

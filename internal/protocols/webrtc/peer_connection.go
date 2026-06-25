@@ -504,7 +504,12 @@ func (co *PeerConnection) addAdditionalCandidates(firstMedia *sdp.MediaDescripti
 		} else {
 			tmp, err := net.LookupIP(host)
 			if err != nil {
-				return err
+				// The host can't be resolved server-side - e.g. in air-gapped
+				// networks without DNS, or with split-horizon / overlay DNS
+				// names that only resolve on the client. Skip it instead of
+				// failing the entire session, so the other entries still work.
+				co.Log.Log(logger.Warn, "cannot resolve additional host %q, skipping it: %v", host, err)
+				continue
 			}
 
 			ips = make([]string, len(tmp))
