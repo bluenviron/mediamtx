@@ -701,22 +701,23 @@ pathDefaults:
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: "%Y-%m-%d %H:%M:%S - MediaMTX"
   # Codec (auto, hardwareH264, softwareH264 or mjpeg).
-  # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
-  # When is "auto" and stream is secondary, it defaults to mjpeg.
+  # When is "auto", it defaults to:
+  # * hardwareH264 when stream is primary and hardware encoder is available
+  # * softwareH264 when stream is primary and hardware encoder is not available
+  # * mjpeg when stream is secondary
   rpiCameraCodec: auto
   # Period between IDR frames (when codec is hardwareH264 or softwareH264).
   rpiCameraIDRPeriod: 60
   # Bitrate (when codec is hardwareH264 or softwareH264).
   rpiCameraBitrate: 5000000
-  # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
-  rpiCameraHardwareH264Profile: main
-  # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
-  rpiCameraHardwareH264Level: "4.1"
-  # Software H264 profile (baseline, main or high) (when codec is softwareH264).
-  rpiCameraSoftwareH264Profile: baseline
-  # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
-  rpiCameraSoftwareH264Level: "4.1"
-  # M-JPEG JPEG quality (when codec is mjpeg).
+  # H264 profile (auto, baseline, main or high).
+  # When is "auto", it defaults to:
+  # * main when codec is hardwareH264
+  # * baseline when codec is softwareH264
+  rpiCameraH264Profile: auto
+  # H264 level (4.0, 4.1 or 4.2).
+  rpiCameraH264Level: "4.1"
+  # M-JPEG quality (0-100).
   rpiCameraMJPEGQuality: 60
 
   ###############################################
