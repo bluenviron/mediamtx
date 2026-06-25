@@ -51,12 +51,18 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 }
 
 func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
-	var medias []*description.Media
+	var forma format.Format
 
-	forma := &format.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
+	if params.Conf.RPICameraCodec == "auto" || params.Conf.RPICameraCodec == "hardwareH264" || params.Conf.RPICameraCodec == "softwareH264" {
+		forma = &format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+		}
+	} else {
+		forma = &format.MJPEG{}
 	}
+
+	var medias []*description.Media
 
 	media := &description.Media{
 		Type:    description.MediaTypeVideo,
@@ -78,24 +84,40 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		medias = append(medias, mediaSecondary)
 	}
 
-	encH264 := &rtph264.Encoder{
-		PayloadType:       96,
-		PayloadMaxSize:    s.RTPMaxPayloadSize,
-		PacketizationMode: 1,
-	}
-	err := encH264.Init()
-	if err != nil {
-		return err
-	}
+	var encode func(au []byte) ([]*rtp.Packet, error)
 
-	encode := func(au []byte) ([]*rtp.Packet, error) {
-		var nalus h264.AnnexB
-		err = nalus.Unmarshal(au)
+	if params.Conf.RPICameraCodec == "auto" || params.Conf.RPICameraCodec == "hardwareH264" || params.Conf.RPICameraCodec == "softwareH264" {
+		encH264 := &rtph264.Encoder{
+			PayloadType:       96,
+			PayloadMaxSize:    s.RTPMaxPayloadSize,
+			PacketizationMode: 1,
+		}
+		err := encH264.Init()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		return encH264.Encode(nalus)
+		encode = func(au []byte) ([]*rtp.Packet, error) {
+			var nalus h264.AnnexB
+			err = nalus.Unmarshal(au)
+			if err != nil {
+				return nil, err
+			}
+
+			return encH264.Encode(nalus)
+		}
+	} else {
+		encMJPEG := &rtpmjpeg.Encoder{
+			PayloadMaxSize: s.RTPMaxPayloadSize,
+		}
+		err := encMJPEG.Init()
+		if err != nil {
+			return err
+		}
+
+		encode = func(au []byte) ([]*rtp.Packet, error) {
+			return encMJPEG.Encode(au)
+		}
 	}
 
 	var subStream *stream.SubStream
@@ -137,10 +159,10 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	var onDataSecondary func(pts int64, ntp time.Time, au []byte)
 
 	if params.Conf.RPICameraSecondaryWidth != 0 {
-		encJpeg := &rtpmjpeg.Encoder{
+		secondaryEncMJPEG := &rtpmjpeg.Encoder{
 			PayloadMaxSize: s.RTPMaxPayloadSize,
 		}
-		err := encJpeg.Init()
+		err := secondaryEncMJPEG.Init()
 		if err != nil {
 			panic(err)
 		}
@@ -148,7 +170,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		onDataSecondary = func(pts int64, ntp time.Time, au []byte) {
 			initializeSubStream()
 
-			pkts, err2 := encJpeg.Encode(au)
+			pkts, err2 := secondaryEncMJPEG.Encode(au)
 			if err2 != nil {
 				s.Log(logger.Error, err2.Error())
 				return
@@ -180,8 +202,8 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		onData:          onData,
 		onDataSecondary: onDataSecondary,
 	}
-	err = cam.initialize() //nolint:staticcheck
-	if err != nil {        //nolint:staticcheck
+	err := cam.initialize() //nolint:staticcheck
+	if err != nil {         //nolint:staticcheck
 		return err
 	}
 	defer cam.close()
