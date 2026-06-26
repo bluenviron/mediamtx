@@ -4,6 +4,7 @@ package rpicamera
 
 import (
 	"debug/elf"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,8 +15,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 )
 
 const (
@@ -174,8 +173,8 @@ func freeComponent() {
 }
 
 type camera struct {
-	params          params
-	onData          func(int64, time.Time, [][]byte)
+	params          cameraParams
+	onData          func(int64, time.Time, []byte)
 	onDataSecondary func(int64, time.Time, []byte)
 
 	cmd      *exec.Cmd
@@ -309,7 +308,7 @@ outer:
 
 		switch buf[0] {
 		case 'e':
-			return fmt.Errorf(string(buf[1:]))
+			return errors.New(string(buf[1:]))
 
 		case 'r':
 			break outer
@@ -327,7 +326,7 @@ outer:
 
 		switch buf[0] {
 		case 'e':
-			return fmt.Errorf(string(buf[1:]))
+			return errors.New(string(buf[1:]))
 
 		case 'd':
 			dts := int64(buf[8])<<56 | int64(buf[7])<<48 | int64(buf[6])<<40 | int64(buf[5])<<32 |
@@ -335,16 +334,10 @@ outer:
 			ntpUs := int64(buf[16])<<56 | int64(buf[15])<<48 | int64(buf[14])<<40 | int64(buf[13])<<32 |
 				int64(buf[12])<<24 | int64(buf[11])<<16 | int64(buf[10])<<8 | int64(buf[9])
 
-			var nalus h264.AnnexB
-			err = nalus.Unmarshal(buf[17:])
-			if err != nil {
-				return err
-			}
-
 			c.onData(
 				multiplyAndDivide(dts, 90000, 1e6),
 				time.Unix(ntpUs/1e6, (ntpUs%1e6)*1000),
-				nalus)
+				buf[17:])
 
 		case 's':
 			dts := int64(buf[8])<<56 | int64(buf[7])<<48 | int64(buf[6])<<40 | int64(buf[5])<<32 |
@@ -363,7 +356,7 @@ outer:
 	}
 }
 
-func (c *camera) reloadParams(params params) {
+func (c *camera) reloadParams(params cameraParams) {
 	c.pipeOut.write(append([]byte{'c'}, params.serialize()...))
 }
 

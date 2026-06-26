@@ -601,6 +601,10 @@ pathDefaults:
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   rtspRangeStart:
+  # Scale header value to send to the source, in order to play the stream at a different speed.
+  # Negative values play in reverse, values > 1 fast-forward,
+  # values 0 < x < 1 play slow motion.
+  rtspScale:
   # Range of ports used as source port in outgoing UDP packets.
   rtspUDPSourcePortRange: [10000, 65535]
 
@@ -705,22 +709,23 @@ pathDefaults:
   # format is the one of the strftime() function.
   rpiCameraTextOverlay: "%Y-%m-%d %H:%M:%S - MediaMTX"
   # Codec (auto, hardwareH264, softwareH264 or mjpeg).
-  # When is "auto" and stream is primary, it defaults to hardwareH264 (if available) or softwareH264.
-  # When is "auto" and stream is secondary, it defaults to mjpeg.
+  # When is "auto", it defaults to:
+  # * hardwareH264 when stream is primary and hardware encoder is available
+  # * softwareH264 when stream is primary and hardware encoder is not available
+  # * mjpeg when stream is secondary
   rpiCameraCodec: auto
   # Period between IDR frames (when codec is hardwareH264 or softwareH264).
   rpiCameraIDRPeriod: 60
   # Bitrate (when codec is hardwareH264 or softwareH264).
   rpiCameraBitrate: 5000000
-  # Hardware H264 profile (baseline, main or high) (when codec is hardwareH264).
-  rpiCameraHardwareH264Profile: main
-  # Hardware H264 level (4.0, 4.1 or 4.2) (when codec is hardwareH264).
-  rpiCameraHardwareH264Level: "4.1"
-  # Software H264 profile (baseline, main or high) (when codec is softwareH264).
-  rpiCameraSoftwareH264Profile: baseline
-  # Software H264 level (4.0, 4.1 or 4.2) (when codec is softwareH264).
-  rpiCameraSoftwareH264Level: "4.1"
-  # M-JPEG JPEG quality (when codec is mjpeg).
+  # H264 profile (auto, baseline, main or high).
+  # When is "auto", it defaults to:
+  # * main when codec is hardwareH264
+  # * baseline when codec is softwareH264
+  rpiCameraH264Profile: auto
+  # H264 level (4.0, 4.1 or 4.2).
+  rpiCameraH264Level: "4.1"
+  # M-JPEG quality (0-100).
   rpiCameraMJPEGQuality: 60
 
   ###############################################
