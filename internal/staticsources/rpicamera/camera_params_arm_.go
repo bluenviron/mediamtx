@@ -50,6 +50,7 @@ type cameraParams struct {
 	Bitrate           uint32
 	H264Profile       string
 	H264Level         string
+	MJPEGQuality      uint32
 
 	SecondaryWidth        uint32
 	SecondaryHeight       uint32
@@ -145,6 +146,8 @@ func (p *cameraParams) fromConf(logLevel conf.LogLevel, cnf *conf.Path) {
 
 		return cnf.RPICameraH264Level
 	}()
+
+	p.MJPEGQuality = uint32(cnf.RPICameraMJPEGQuality)
 
 	p.SecondaryWidth = uint32(cnf.RPICameraSecondaryWidth)
 	p.SecondaryHeight = uint32(cnf.RPICameraSecondaryHeight)

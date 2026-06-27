@@ -701,9 +701,9 @@ func (pconf *Path) validate(
 
 		if !pconf.RPICameraSecondary {
 			switch pconf.RPICameraCodec {
-			case "auto", "hardwareH264", "softwareH264":
+			case "auto", "hardwareH264", "softwareH264", "mjpeg":
 			default:
-				return fmt.Errorf("supported codecs for a primary RPI Camera stream are auto, hardwareH264, softwareH264")
+				return fmt.Errorf("supported codecs for a primary RPI Camera stream are auto, hardwareH264, softwareH264, mjpeg")
 			}
 
 			for otherName, otherPath := range conf.Paths {
