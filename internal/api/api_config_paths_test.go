@@ -112,6 +112,11 @@ func TestConfigPathsAdd(t *testing.T) {
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
 			"rpiCameraVFlip":           true,
+			"rpiCameraCodec":           "hardwareH264",
+			"rpiCameraIDRPeriod":       120,
+			"rpiCameraBitrate":         3000000,
+			"rpiCameraH264Profile":     "main",
+			"rpiCameraH264Level":       "4.2",
 		}, nil)
 
 	var out map[string]any
@@ -120,6 +125,11 @@ func TestConfigPathsAdd(t *testing.T) {
 	require.Equal(t, true, out["sourceOnDemand"])
 	require.Equal(t, true, out["disablePublisherOverride"])
 	require.Equal(t, true, out["rpiCameraVFlip"])
+	require.Equal(t, "hardwareH264", out["rpiCameraCodec"])
+	require.Equal(t, float64(120), out["rpiCameraIDRPeriod"])
+	require.Equal(t, float64(3000000), out["rpiCameraBitrate"])
+	require.Equal(t, "main", out["rpiCameraH264Profile"])
+	require.Equal(t, "4.2", out["rpiCameraH264Level"])
 }
 
 func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
@@ -185,12 +195,20 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
 			"rpiCameraVFlip":           true,
+			"rpiCameraCodec":           "hardwareH264",
+			"rpiCameraIDRPeriod":       120,
+			"rpiCameraBitrate":         3000000,
+			"rpiCameraH264Profile":     "main",
+			"rpiCameraH264Level":       "4.2",
 		}, nil)
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/my/path",
 		map[string]any{
-			"source":         "rtsp://127.0.0.1:9998/mypath",
-			"sourceOnDemand": true,
+			"source":             "rtsp://127.0.0.1:9998/mypath",
+			"sourceOnDemand":     true,
+			"rpiCameraCodec":     "softwareH264",
+			"rpiCameraBitrate":   4000000,
+			"rpiCameraH264Level": "4.0",
 		}, nil)
 
 	var out map[string]any
@@ -199,6 +217,11 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 	require.Equal(t, true, out["sourceOnDemand"])
 	require.Equal(t, true, out["disablePublisherOverride"])
 	require.Equal(t, true, out["rpiCameraVFlip"])
+	require.Equal(t, "softwareH264", out["rpiCameraCodec"])
+	require.Equal(t, float64(120), out["rpiCameraIDRPeriod"])
+	require.Equal(t, float64(4000000), out["rpiCameraBitrate"])
+	require.Equal(t, "main", out["rpiCameraH264Profile"])
+	require.Equal(t, "4.0", out["rpiCameraH264Level"])
 }
 
 func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
@@ -226,6 +249,11 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 			"sourceOnDemand":           true,
 			"disablePublisherOverride": true, // test setting a deprecated parameter
 			"rpiCameraVFlip":           true,
+			"rpiCameraCodec":           "hardwareH264",
+			"rpiCameraIDRPeriod":       120,
+			"rpiCameraBitrate":         3000000,
+			"rpiCameraH264Profile":     "main",
+			"rpiCameraH264Level":       "4.2",
 		}, nil)
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path",
@@ -240,6 +268,11 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	require.Equal(t, true, out["sourceOnDemand"])
 	require.Equal(t, nil, out["disablePublisherOverride"])
 	require.Equal(t, false, out["rpiCameraVFlip"])
+	require.Equal(t, "auto", out["rpiCameraCodec"])
+	require.Equal(t, float64(60), out["rpiCameraIDRPeriod"])
+	require.Equal(t, float64(5000000), out["rpiCameraBitrate"])
+	require.Equal(t, "auto", out["rpiCameraH264Profile"])
+	require.Equal(t, "4.1", out["rpiCameraH264Level"])
 }
 
 func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
