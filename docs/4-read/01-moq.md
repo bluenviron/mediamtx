@@ -12,7 +12,7 @@ There are some limitations and requirements that are listed in [Publish with Med
 You can read a stream with Media-over-QUIC and a web browser by visiting:
 
 ```
-https://localhost:8892/mystream/publish
+https://localhost:8892/mystream
 ```
 
 The only clients that can currently read with Media-over-QUIC are [Web browsers](07-web-browsers.md).
