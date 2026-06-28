@@ -191,7 +191,8 @@ func (c *conn) runRead() error {
 		r,
 		c.rconn,
 		c.nconn,
-		time.Duration(c.writeTimeout))
+		time.Duration(c.writeTimeout),
+		c.rconn.FourCcList)
 	if err != nil {
 		return err
 	}

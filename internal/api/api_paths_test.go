@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
@@ -30,6 +32,22 @@ func (m *testPathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, conf.ErrPathNotFound
 	}
 	return path, nil
+}
+
+func (*testPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
+	return &defs.APIPushTargetList{}, nil
+}
+
+func (*testPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
+	return nil, conf.ErrPathNotFound
+}
+
+func (*testPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+	return nil, conf.ErrPathNotFound
+}
+
+func (*testPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
+	return conf.ErrPathNotFound
 }
 
 func TestPathsList(t *testing.T) {

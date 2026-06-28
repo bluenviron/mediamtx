@@ -93,6 +93,7 @@ type PathAddReaderRes struct {
 type PathAddReaderReq struct {
 	Author        Reader
 	AccessRequest PathAccessRequest
+	Cancel        <-chan struct{}
 	Res           chan PathAddReaderRes
 }
 
