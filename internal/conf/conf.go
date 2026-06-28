@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"reflect"
 	"slices"
@@ -414,6 +415,10 @@ type Conf struct {
 	RecordPartDuration    *Duration     `json:"recordPartDuration,omitempty" deprecated:"true"`
 	RecordSegmentDuration *Duration     `json:"recordSegmentDuration,omitempty" deprecated:"true"`
 	RecordDeleteAfter     *Duration     `json:"recordDeleteAfter,omitempty" deprecated:"true"`
+
+	// External path configuration source
+	PathExternalConfEnabled bool   `json:"pathExternalConfEnabled"`
+	PathExternalConfURL     string `json:"pathExternalConfURL"`
 
 	// Path defaults
 	PathDefaults Path `json:"pathDefaults"`
@@ -1094,6 +1099,18 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
 	}
 
+	// external path configuration source
+
+	if conf.PathExternalConfEnabled {
+		if conf.PathExternalConfURL == "" {
+			return fmt.Errorf("'pathExternalConfURL' must be set when 'pathExternalConfEnabled' is true")
+		}
+		_, err := url.ParseRequestURI(conf.PathExternalConfURL)
+		if err != nil {
+			return fmt.Errorf("invalid 'pathExternalConfURL': %w", err)
+		}
+	}
+
 	// paths
 
 	hasAllOthers := false
@@ -1117,7 +1134,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			conf.OptionalPaths[name] = optional
 		}
 
-		pconf := newPath(&conf.PathDefaults, optional)
+		pconf := NewPath(&conf.PathDefaults, optional)
 		conf.Paths[name] = pconf
 	}
 
