@@ -49,6 +49,32 @@ There are several ways to change configuration parameters:
 
 3. Use the [Control API](22-control-api.md).
 
+## Network addressing
+
+All listener address parameters (e.g. `rtspAddress`, `rtmpAddress`, `hlsAddress`, `webrtcAddress`, etc.) use the `[host]:port` format.
+
+The default form `:port` (empty host) listens on all interfaces. On Linux, where `net.ipv6.bindv6only` defaults to `0`, this creates a dual-stack socket that accepts both IPv4 and IPv6 connections. On systems where IPv6 is disabled or `bindv6only=1`, it falls back to IPv4.
+
+To listen on IPv4 only regardless of system settings, set the host to `0.0.0.0`:
+
+```yaml
+rtspAddress: 0.0.0.0:8554
+rtmpAddress: 0.0.0.0:1935
+```
+
+To explicitly request a dual-stack socket (useful when you want to be sure IPv6 is active and not fall back silently to IPv4):
+
+```yaml
+rtspAddress: "[::]:8554"
+```
+
+To bind to a specific interface:
+
+```yaml
+rtspAddress: 192.0.2.1:8554
+rtspAddress: "[2001:db8::1]:8554"
+```
+
 ## Encrypt the configuration
 
 The configuration file can be entirely encrypted for security purposes by using the `crypto_secretbox` function of the NaCL library. An online tool for performing this operation is [available here](https://play.golang.org/p/rX29jwObNe4).
