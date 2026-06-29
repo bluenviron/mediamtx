@@ -201,7 +201,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 					vals := make([]uint, len(raw))
 
 					for i, v := range raw {
-						tmp, err := strconv.ParseUint(v, 10, 64)
+						tmp, err := strconv.ParseUint(v, 10, 32)
 						if err != nil {
 							return err
 						}

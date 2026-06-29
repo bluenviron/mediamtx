@@ -50,10 +50,16 @@ type cameraParams struct {
 	Bitrate           uint32
 	H264Profile       string
 	H264Level         string
+	MJPEGQuality      uint32
 
+	SecondaryCodec        string
 	SecondaryWidth        uint32
 	SecondaryHeight       uint32
 	SecondaryFPS          float32
+	SecondaryIDRPeriod    uint32
+	SecondaryBitrate      uint32
+	SecondaryH264Profile  string
+	SecondaryH264Level    string
 	SecondaryMJPEGQuality uint32
 }
 
@@ -146,9 +152,33 @@ func (p *cameraParams) fromConf(logLevel conf.LogLevel, cnf *conf.Path) {
 		return cnf.RPICameraH264Level
 	}()
 
+	p.MJPEGQuality = uint32(cnf.RPICameraMJPEGQuality)
+
+	p.SecondaryCodec = func() string {
+		if cnf.RPICameraSecondaryCodec == "auto" {
+			return "mjpeg"
+		}
+		return cnf.RPICameraSecondaryCodec
+	}()
+
 	p.SecondaryWidth = uint32(cnf.RPICameraSecondaryWidth)
 	p.SecondaryHeight = uint32(cnf.RPICameraSecondaryHeight)
 	p.SecondaryFPS = float32(cnf.RPICameraSecondaryFPS)
+	p.SecondaryIDRPeriod = uint32(cnf.RPICameraSecondaryIDRPeriod)
+	p.SecondaryBitrate = uint32(cnf.RPICameraSecondaryBitrate)
+
+	p.SecondaryH264Profile = func() string {
+		if cnf.RPICameraSecondaryH264Profile == "auto" {
+			if p.SecondaryCodec == "hardwareH264" {
+				return "main"
+			}
+			return "baseline"
+		}
+
+		return cnf.RPICameraSecondaryH264Profile
+	}()
+
+	p.SecondaryH264Level = cnf.RPICameraSecondaryH264Level
 	p.SecondaryMJPEGQuality = uint32(cnf.RPICameraSecondaryMJPEGQuality)
 }
 
