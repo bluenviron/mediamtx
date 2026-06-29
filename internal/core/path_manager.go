@@ -6,6 +6,7 @@ import (
 	"maps"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -80,6 +81,9 @@ type pathManager struct {
 	rtpMaxPayloadSize int
 	pathConfs         map[string]*conf.Path
 	authManager       pathManagerAuthManager
+	authMethod        conf.AuthMethod
+	jwtInHTTPQuery    bool
+	authCheckInterval time.Duration
 	externalCmdPool   *externalcmd.Pool
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
@@ -373,6 +377,7 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	var user string
+	var jwtExpiry time.Time
 
 	if !req.AccessRequest.SkipAuth {
 		var authErr *auth.Error
@@ -380,6 +385,11 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 		if authErr != nil {
 			req.Res <- defs.PathAddReaderRes{Err: authErr}
 			return
+		}
+
+		if pm.authMethod == conf.AuthMethodJWT {
+			token := auth.GetToken(pm.jwtInHTTPQuery, req.AccessRequest.ToAuthRequest())
+			jwtExpiry = auth.ExtractJWTExpiry(token)
 		}
 	}
 
@@ -393,8 +403,9 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathAddReaderRes{
-		Path: pa,
-		User: user,
+		Path:       pa,
+		User:       user,
+		AuthExpiry: jwtExpiry,
 	}
 }
 
@@ -411,6 +422,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	var user string
+	var jwtExpiry time.Time
 
 	if !req.AccessRequest.SkipAuth {
 		var authErr *auth.Error
@@ -418,6 +430,11 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 		if authErr != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: authErr}
 			return
+		}
+
+		if pm.authMethod == conf.AuthMethodJWT {
+			token := auth.GetToken(pm.jwtInHTTPQuery, req.AccessRequest.ToAuthRequest())
+			jwtExpiry = auth.ExtractJWTExpiry(token)
 		}
 	}
 
@@ -431,8 +448,9 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathAddPublisherRes{
-		Path: pa,
-		User: user,
+		Path:       pa,
+		User:       user,
+		AuthExpiry: jwtExpiry,
 	}
 }
 
@@ -473,6 +491,8 @@ func (pm *pathManager) createPath(
 		matches:           matches,
 		wg:                &pm.wg,
 		externalCmdPool:   pm.externalCmdPool,
+		authMethod:        pm.authMethod,
+		authCheckInterval: pm.authCheckInterval,
 		parent:            pm,
 	}
 	pa.initialize()
@@ -577,6 +597,8 @@ func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAdd
 			return nil, res1.Err
 		}
 
+		req.AuthExpiry = res1.AuthExpiry
+
 		res2, err := res1.Path.(*path).addPublisher(req)
 		if err != nil {
 			return nil, err
@@ -602,6 +624,8 @@ func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReader
 			auth.DelayBruteForce(res1.Err)
 			return nil, res1.Err
 		}
+
+		req.AuthExpiry = res1.AuthExpiry
 
 		res2, err := res1.Path.(*path).addReader(req)
 		if err != nil {

@@ -142,6 +142,9 @@ authJWTExclude: []
 authJWTIssuer:
 # Expected audience (aud) claim in the JWT. Leave empty to skip validation.
 authJWTAudience:
+# Interval at which connected clients' JWT tokens are checked for expiration.
+# Clients with expired tokens are disconnected. Set to 0 to disable.
+authCheckInterval: 30s
 
 ###############################################
 # Global settings -> Control API

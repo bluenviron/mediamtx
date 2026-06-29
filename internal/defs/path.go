@@ -2,6 +2,7 @@ package defs
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
@@ -58,10 +59,11 @@ type PathDescribeReq struct {
 
 // PathAddPublisherRes contains the response of AddPublisher().
 type PathAddPublisherRes struct {
-	Path      Path
-	User      string
-	SubStream *stream.SubStream
-	Err       error
+	Path       Path
+	User       string
+	AuthExpiry time.Time
+	SubStream  *stream.SubStream
+	Err        error
 }
 
 // PathAddPublisherReq contains arguments of AddPublisher().
@@ -72,6 +74,7 @@ type PathAddPublisherReq struct {
 	ReplaceNTP    bool
 	ConfToCompare *conf.Path
 	AccessRequest PathAccessRequest
+	AuthExpiry    time.Time
 	Res           chan PathAddPublisherRes
 }
 
@@ -83,16 +86,18 @@ type PathRemovePublisherReq struct {
 
 // PathAddReaderRes contains the response of AddReader().
 type PathAddReaderRes struct {
-	Path   Path
-	User   string
-	Stream *stream.Stream
-	Err    error
+	Path       Path
+	User       string
+	AuthExpiry time.Time
+	Stream     *stream.Stream
+	Err        error
 }
 
 // PathAddReaderReq contains arguments of AddReader().
 type PathAddReaderReq struct {
 	Author        Reader
 	AccessRequest PathAccessRequest
+	AuthExpiry    time.Time
 	Res           chan PathAddReaderRes
 }
 
