@@ -37,7 +37,7 @@ require (
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/transport/v4 v4.0.2
 	github.com/pion/webrtc/v4 v4.2.15
-	github.com/pires/go-proxyproto v0.12.0
+	github.com/pires/go-proxyproto v0.13.0
 	github.com/quic-go/quic-go v0.60.0
 	github.com/quic-go/webtransport-go v0.11.0
 	github.com/stretchr/testify v1.11.1
