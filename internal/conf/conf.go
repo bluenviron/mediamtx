@@ -407,6 +407,10 @@ type Conf struct {
 	MoQHTTPS2Address  *string    `json:"moqHTTPS2Address,omitempty" deprecated:"true"`
 	MoQHTTPS3Address  *string    `json:"moqHTTPS3Address,omitempty" deprecated:"true"`
 
+	// SRTLA server
+	SRTLA        bool   `json:"srtla"`
+	SRTLAAddress string `json:"srtlaAddress"`
+
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty" deprecated:"true"`
 	RecordPath            *string       `json:"recordPath,omitempty" deprecated:"true"`
@@ -542,6 +546,10 @@ func (conf *Conf) setDefaults() {
 	conf.MoQServerKey = "auto.key"
 	conf.MoQServerCert = "auto.crt"
 	conf.MoQAllowOrigins = []string{"*"}
+
+	// SRTLA server
+	conf.SRTLA = true
+	conf.SRTLAAddress = ":8891"
 
 	conf.PathDefaults.setDefaults()
 }
@@ -1057,6 +1065,12 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	// Record (deprecated)
+
+	if conf.SRTLA {
+		if conf.SRTLAAddress == "" {
+			return fmt.Errorf("'srtlaAddress' must be set when SRTLA is enabled")
+		}
+	}
 
 	if conf.Record != nil {
 		l.Log(logger.Warn, "parameter 'record' is deprecated "+
