@@ -355,7 +355,8 @@ func (p *Core) createResources(initial bool) error {
 			InternalUsers:      p.conf.AuthInternalUsers,
 			HTTPAddress:        p.conf.AuthHTTPAddress,
 			HTTPFingerprint:    p.conf.AuthHTTPFingerprint,
-			HTTPExclude:        p.conf.AuthHTTPExclude,
+			HTTPExclude:                      p.conf.AuthHTTPExclude,
+			HTTPForceInternalUsersForActions: p.conf.AuthHTTPForceInternalUsersForActions,
 			JWTJWKS:            p.conf.AuthJWTJWKS,
 			JWTJWKSFingerprint: p.conf.AuthJWTJWKSFingerprint,
 			JWTClaimKey:        p.conf.AuthJWTClaimKey,
@@ -782,6 +783,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.AuthHTTPAddress != p.conf.AuthHTTPAddress ||
 		newConf.AuthHTTPFingerprint != p.conf.AuthHTTPFingerprint ||
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
+		!reflect.DeepEqual(newConf.AuthHTTPForceInternalUsersForActions, p.conf.AuthHTTPForceInternalUsersForActions) ||
 		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
 		newConf.AuthJWTJWKSFingerprint != p.conf.AuthJWTJWKSFingerprint ||
 		newConf.AuthJWTClaimKey != p.conf.AuthJWTClaimKey ||

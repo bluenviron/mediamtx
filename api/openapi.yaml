@@ -267,6 +267,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuthInternalUserPermission"
+        authHTTPForceInternalUsersForActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthInternalUserPermission"
         authJWTJWKS:
           type: string
         authJWTJWKSFingerprint:

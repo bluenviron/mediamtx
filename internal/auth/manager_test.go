@@ -453,6 +453,117 @@ func TestAuthHTTPExclude(t *testing.T) {
 	require.Equal(t, "", user)
 }
 
+func TestAuthHTTPForceInternalUsersForActions(t *testing.T) {
+	m := Manager{
+		Method:      conf.AuthMethodHTTP,
+		HTTPAddress: "http://not-to-be-used:9120/auth",
+		HTTPExclude: []conf.AuthInternalUserPermission{{
+			Action: conf.AuthActionPublish,
+		}, {
+			Action: conf.AuthActionAPI,
+		}},
+		HTTPForceInternalUsersForActions: []conf.AuthInternalUserPermission{{
+			Action: conf.AuthActionPublish,
+		}},
+		InternalUsers: []conf.AuthInternalUser{
+			{
+				User: conf.Credential("pubuser"),
+				Pass: conf.Credential("pubpass"),
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+				}},
+			},
+			{
+				User: conf.Credential("apiuser"),
+				Pass: conf.Credential("apipass"),
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionAPI,
+				}},
+			},
+		},
+	}
+
+	t.Run("publish with valid credentials", func(t *testing.T) {
+		user, err := m.Authenticate(&Request{
+			Action:   conf.AuthActionPublish,
+			Path:     "teststream",
+			Protocol: ProtocolRTSP,
+			Credentials: &Credentials{
+				User: "pubuser",
+				Pass: "pubpass",
+			},
+			IP: net.ParseIP("127.0.0.1"),
+		})
+		require.Nil(t, err)
+		require.Equal(t, "pubuser", user)
+	})
+
+	t.Run("publish with invalid credentials", func(t *testing.T) {
+		_, err := m.Authenticate(&Request{
+			Action:   conf.AuthActionPublish,
+			Path:     "teststream",
+			Protocol: ProtocolRTSP,
+			Credentials: &Credentials{
+				User: "wrong",
+				Pass: "wrong",
+			},
+			IP: net.ParseIP("127.0.0.1"),
+		})
+		require.NotNil(t, err)
+	})
+
+	t.Run("api excluded but not forced to internal", func(t *testing.T) {
+		user, err := m.Authenticate(&Request{
+			Action:   conf.AuthActionAPI,
+			Path:     "",
+			Protocol: ProtocolRTSP,
+			Credentials: &Credentials{
+				User: "",
+				Pass: "",
+			},
+			IP: net.ParseIP("127.0.0.1"),
+		})
+		require.Nil(t, err)
+		require.Equal(t, "", user)
+	})
+
+	t.Run("second matching user", func(t *testing.T) {
+		m2 := m
+		m2.HTTPForceInternalUsersForActions = []conf.AuthInternalUserPermission{{
+			Action: conf.AuthActionPublish,
+		}}
+		m2.InternalUsers = []conf.AuthInternalUser{
+			{
+				User: conf.Credential("wronguser"),
+				Pass: conf.Credential("wrongpass"),
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+				}},
+			},
+			{
+				User: conf.Credential("pubuser"),
+				Pass: conf.Credential("pubpass"),
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+				}},
+			},
+		}
+
+		user, err := m2.Authenticate(&Request{
+			Action:   conf.AuthActionPublish,
+			Path:     "teststream",
+			Protocol: ProtocolRTSP,
+			Credentials: &Credentials{
+				User: "pubuser",
+				Pass: "pubpass",
+			},
+			IP: net.ParseIP("127.0.0.1"),
+		})
+		require.Nil(t, err)
+		require.Equal(t, "pubuser", user)
+	})
+}
+
 func TestAuthJWT(t *testing.T) {
 	for _, ca := range []string{"object", "string"} {
 		t.Run(ca, func(t *testing.T) {

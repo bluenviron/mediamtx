@@ -110,6 +110,10 @@ authHTTPExclude:
   - action: api
   - action: metrics
   - action: pprof
+# Actions excluded from HTTP-based authentication that must be validated through
+# authInternalUsers instead. Format is the same as the one of user permissions.
+# An action must be present in both authHTTPExclude and this parameter.
+authHTTPForceInternalUsersForActions: []
 
 # JWT-based authentication.
 # Users have to log in through an external identity server and obtain a JWT.

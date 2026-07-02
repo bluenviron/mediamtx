@@ -94,7 +94,8 @@ type Manager struct {
 	InternalUsers      []conf.AuthInternalUser
 	HTTPAddress        string
 	HTTPFingerprint    string
-	HTTPExclude        []conf.AuthInternalUserPermission
+	HTTPExclude                      []conf.AuthInternalUserPermission
+	HTTPForceInternalUsersForActions []conf.AuthInternalUserPermission
 	JWTJWKS            string
 	JWTJWKSFingerprint string
 	JWTClaimKey        string
@@ -190,6 +191,9 @@ func (m *Manager) authenticateWithUser(
 
 func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 	if matchesPermission(m.HTTPExclude, req) {
+		if matchesPermission(m.HTTPForceInternalUsersForActions, req) {
+			return m.authenticateInternal(req)
+		}
 		return "", nil
 	}
 
