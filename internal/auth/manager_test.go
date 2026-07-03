@@ -1098,3 +1098,38 @@ func TestAuthJWTFingerprint(t *testing.T) {
 	require.Nil(t, err2)
 	require.Equal(t, "somebody", user)
 }
+
+func TestExtractJWTExpiry(t *testing.T) {
+	t.Run("valid token with exp", func(t *testing.T) {
+		exp := time.Now().Add(1 * time.Hour).Truncate(time.Second)
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"exp": exp.Unix(),
+		})
+		tokenStr, err := token.SignedString([]byte("secret"))
+		require.NoError(t, err)
+
+		got := ExtractJWTExpiry(tokenStr)
+		require.Equal(t, exp.UTC(), got.UTC())
+	})
+
+	t.Run("token without exp", func(t *testing.T) {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sub": "user",
+		})
+		tokenStr, err := token.SignedString([]byte("secret"))
+		require.NoError(t, err)
+
+		got := ExtractJWTExpiry(tokenStr)
+		require.True(t, got.IsZero())
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		got := ExtractJWTExpiry("")
+		require.True(t, got.IsZero())
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		got := ExtractJWTExpiry("not-a-jwt")
+		require.True(t, got.IsZero())
+	})
+}

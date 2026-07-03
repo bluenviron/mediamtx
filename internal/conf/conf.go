@@ -270,6 +270,7 @@ type Conf struct {
 	AuthJWTInHTTPQuery        *bool                        `json:"authJWTInHTTPQuery,omitempty" deprecated:"true"`
 	AuthJWTIssuer             string                       `json:"authJWTIssuer"`
 	AuthJWTAudience           string                       `json:"authJWTAudience"`
+	AuthCheckInterval         Duration                     `json:"authCheckInterval"`
 
 	// Control API
 	API               bool       `json:"api"`
@@ -450,6 +451,7 @@ func (conf *Conf) setDefaults() {
 		},
 	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
+	conf.AuthCheckInterval = Duration(30 * time.Second)
 
 	// Control API
 	conf.APIAddress = ":9997"
