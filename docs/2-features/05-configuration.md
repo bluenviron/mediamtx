@@ -62,16 +62,21 @@ rtspAddress: 0.0.0.0:8554
 rtmpAddress: 0.0.0.0:1935
 ```
 
-To explicitly request a dual-stack socket (useful when you want to be sure IPv6 is active and not fall back silently to IPv4):
+To explicitly bind to IPv6 (guarantees IPv6 is active and will not silently fall back to IPv4; dual-stack still requires `bindv6only=0`):
 
 ```yaml
 rtspAddress: "[::]:8554"
 ```
 
-To bind to a specific interface:
+To bind to a specific IPv4 interface:
 
 ```yaml
 rtspAddress: 192.0.2.1:8554
+```
+
+To bind to a specific IPv6 interface:
+
+```yaml
 rtspAddress: "[2001:db8::1]:8554"
 ```
 
