@@ -767,7 +767,7 @@ func (pconf *Path) validate(
 		}
 	} else {
 		if pconf.Source != "publisher" && pconf.Source != "redirect" && pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
+			return fmt.Errorf("a path with a regular expression (or path 'all_others') and a static source" +
 				" must have 'sourceOnDemand' set to true")
 		}
 	}
@@ -791,7 +791,7 @@ func (pconf *Path) validate(
 
 	if pconf.AlwaysAvailable {
 		if pconf.Regexp != nil {
-			return fmt.Errorf("'alwaysAvailable' cannot be used in a path with a regular expression (or path 'all')")
+			return fmt.Errorf("'alwaysAvailable' cannot be used in a path with a regular expression (or path 'all_others')")
 		}
 
 		if pconf.SourceOnDemand {
@@ -923,7 +923,7 @@ func (pconf *Path) validate(
 	// Hooks
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
-		return fmt.Errorf("a path with a regular expression (or path 'all')" +
+		return fmt.Errorf("a path with a regular expression (or path 'all_others')" +
 			" does not support option 'runOnInit'; use another path")
 	}
 
