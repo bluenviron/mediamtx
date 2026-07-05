@@ -13,6 +13,11 @@ type IPNetworks []IPNetwork
 
 // UnmarshalEnv implements env.Unmarshaler.
 func (d *IPNetworks) UnmarshalEnv(_ string, v string) error {
+	if v == "" {
+		*d = []IPNetwork{}
+		return nil
+	}
+
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return jsonwrapper.Unmarshal(byts, d)
 }

@@ -26,59 +26,8 @@ func createTempFile(t *testing.T, byts []byte) string {
 	return tmpf.Name()
 }
 
-func TestConf(t *testing.T) {
-	for _, ca := range []struct {
-		name   string
-		source string
-	}{
-		{
-			name:   "rtmp with placeholders",
-			source: "rtmp://$G1:$G2/live?token=$G3",
-		},
-		{
-			name:   "https with placeholders",
-			source: "https://$G1/$G2/index.m3u8",
-		},
-		{
-			name:   "srt with placeholders",
-			source: "srt://$G1:$G2/$G3",
-		},
-		{
-			name:   "whep with placeholders",
-			source: "whep://$G1:$G2/$G3",
-		},
-		{
-			name:   "wheps with placeholders",
-			source: "wheps://$G1:$G2/$G3",
-		},
-		{
-			name:   "udp with placeholders",
-			source: "udp://$G1:$G2",
-		},
-		{
-			name:   "udp mpegts with placeholders",
-			source: "udp+mpegts://$G1:$G2",
-		},
-		{
-			name:   "udp rtp with placeholders",
-			source: "udp+rtp://$G1:$G2",
-		},
-	} {
-		t.Run(ca.name, func(t *testing.T) {
-			conf := "paths:\n" +
-				"  test:\n" +
-				"    rtpSDP: abc\n" +
-				"    source: " + ca.source + "\n"
-
-			tmpf := createTempFile(t, []byte(conf))
-			_, _, err := Load(tmpf, nil, nil)
-			require.NoError(t, err)
-		})
-	}
-}
-
 func TestConfFromFile(t *testing.T) {
-	func() {
+	t.Run("explicit path config", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte("logLevel: debug\n"+
 			"paths:\n"+
 			"  cam1:\n"+
@@ -133,30 +82,79 @@ func TestConfFromFile(t *testing.T) {
 			RunOnDemandStartTimeout:    5 * Duration(time.Second),
 			RunOnDemandCloseAfter:      10 * Duration(time.Second),
 		}, pa)
-	}()
+	})
 
-	func() {
+	t.Run("empty file", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte(``))
 
 		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
-	}()
+	})
 
-	func() {
+	t.Run("paths key without entries", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte(`paths:`))
 
 		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
-	}()
+	})
 
-	func() {
+	t.Run("single empty path entry", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte(
 			"paths:\n"+
 				"  mypath:\n"))
 
 		_, _, err := Load(tmpf, nil, nil)
 		require.NoError(t, err)
-	}()
+	})
+
+	for _, ca := range []struct {
+		name   string
+		source string
+	}{
+		{
+			name:   "rtmp with placeholders",
+			source: "rtmp://$G1:$G2/live?token=$G3",
+		},
+		{
+			name:   "https with placeholders",
+			source: "https://$G1/$G2/index.m3u8",
+		},
+		{
+			name:   "srt with placeholders",
+			source: "srt://$G1:$G2/$G3",
+		},
+		{
+			name:   "whep with placeholders",
+			source: "whep://$G1:$G2/$G3",
+		},
+		{
+			name:   "wheps with placeholders",
+			source: "wheps://$G1:$G2/$G3",
+		},
+		{
+			name:   "udp with placeholders",
+			source: "udp://$G1:$G2",
+		},
+		{
+			name:   "udp mpegts with placeholders",
+			source: "udp+mpegts://$G1:$G2",
+		},
+		{
+			name:   "udp rtp with placeholders",
+			source: "udp+rtp://$G1:$G2",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			conf := "paths:\n" +
+				"  test:\n" +
+				"    rtpSDP: abc\n" +
+				"    source: " + ca.source + "\n"
+
+			tmpf := createTempFile(t, []byte(conf))
+			_, _, err := Load(tmpf, nil, nil)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestConfFromFileAndEnv(t *testing.T) {
@@ -190,16 +188,62 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.Equal(t, false, pa.OverridePublisher)
 }
 
-func TestConfFromEnvOnly(t *testing.T) {
-	t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
+func TestConfFromEnv(t *testing.T) {
+	t.Run("path source", func(t *testing.T) {
+		t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
-	conf, confPath, err := Load("", nil, nil)
-	require.NoError(t, err)
-	require.Equal(t, "", confPath)
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
 
-	pa, ok := conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, "rtsp://testing", pa.Source)
+		pa, ok := conf.Paths["cam1"]
+		require.Equal(t, true, ok)
+		require.Equal(t, "rtsp://testing", pa.Source)
+	})
+
+	t.Run("empty auth internal user ips", func(t *testing.T) {
+		t.Setenv("MTX_AUTHINTERNALUSERS_0_IPS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Len(t, conf.AuthInternalUsers, len(defaultAuthInternalUsers))
+		require.Empty(t, conf.AuthInternalUsers[0].IPs)
+		require.Equal(t, defaultAuthInternalUsers[0].Permissions, conf.AuthInternalUsers[0].Permissions)
+	})
+
+	t.Run("empty log destinations", func(t *testing.T) {
+		t.Setenv("MTX_LOGDESTINATIONS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Empty(t, conf.LogDestinations)
+	})
+
+	t.Run("empty rtsp transports", func(t *testing.T) {
+		t.Setenv("MTX_RTSPTRANSPORTS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Empty(t, conf.RTSPTransports)
+	})
+
+	t.Run("empty rtsp auth methods", func(t *testing.T) {
+		t.Setenv("MTX_RTSP", "no")
+		t.Setenv("MTX_RTSPAUTHMETHODS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.False(t, conf.RTSP)
+		require.Empty(t, conf.RTSPAuthMethods)
+	})
 }
 
 func TestConfEncryption(t *testing.T) {
@@ -821,7 +865,7 @@ func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are [69 70 71 72]")
 }
 
-func TestSampleConfFile(t *testing.T) {
+func TestDefaultConfFile(t *testing.T) {
 	func() {
 		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)
