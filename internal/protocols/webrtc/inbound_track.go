@@ -270,7 +270,8 @@ func (t *InboundTrack) stripTWCCExtension(pkt *rtp.Packet) {
 
 	err := pkt.DelExtension(t.twccExtID)
 	if err != nil {
-		panic(err)
+		t.log.Log(logger.Warn, "error removing TWCC extension: %v", err)
+		return
 	}
 
 	if len(pkt.GetExtensionIDs()) == 0 {
@@ -334,7 +335,8 @@ func (t *InboundTrack) start() {
 
 			pkts, err2 := rtcp.Unmarshal(buf[:n])
 			if err2 != nil {
-				panic(err2)
+				t.log.Log(logger.Warn, "error parsing RTCP packet: %v", err2)
+				continue
 			}
 
 			for _, pkt := range pkts {

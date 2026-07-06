@@ -69,7 +69,7 @@ func (t *OutboundTrack) setup(p *PeerConnection) error {
 
 			_, err2 = rtcp.Unmarshal(buf[:n])
 			if err2 != nil {
-				panic(err2)
+				continue
 			}
 		}
 	}()
