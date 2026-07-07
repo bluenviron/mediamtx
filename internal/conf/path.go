@@ -226,6 +226,10 @@ type Path struct {
 	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
 	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
 
+	// Fallback source
+	FallbackSource     string `json:"fallbackSource"`
+	FallbackSourceMode string `json:"fallbackSourceMode"` // "preconnect" (default) or "ondemand"
+
 	// Record
 	Record                bool         `json:"record"`
 	Playback              *bool        `json:"playback,omitempty" deprecated:"true"`
@@ -370,6 +374,9 @@ func (pconf *Path) setDefaults() {
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
 	pconf.RecordSegmentDuration = 3600 * Duration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * Duration(time.Second)
+
+	// Fallback source
+	pconf.FallbackSourceMode = "preconnect"
 
 	// Publisher source
 	pconf.OverridePublisher = true
@@ -826,6 +833,30 @@ func (pconf *Path) validate(
 		}
 	}
 
+	// Fallback source
+
+	if pconf.FallbackSource != "" {
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'fallbackSource' can only be used when 'source' is 'publisher'")
+		}
+		if pconf.Regexp != nil {
+			return fmt.Errorf("'fallbackSource' cannot be used in a path with a regular expression")
+		}
+		if pconf.AlwaysAvailable {
+			return fmt.Errorf("'fallbackSource' and 'alwaysAvailable' cannot be used together")
+		}
+		if pconf.SourceOnDemand {
+			return fmt.Errorf("'fallbackSource' is not compatible with 'sourceOnDemand'")
+		}
+		_, err := validateURL(pconf.FallbackSource)
+		if err != nil {
+			return fmt.Errorf("invalid 'fallbackSource': %w", err)
+		}
+		if pconf.FallbackSourceMode != "preconnect" && pconf.FallbackSourceMode != "ondemand" {
+			return fmt.Errorf("'fallbackSourceMode' must be 'preconnect' or 'ondemand'")
+		}
+	}
+
 	// Record
 
 	if pconf.Playback != nil {
@@ -973,4 +1004,9 @@ func (pconf Path) HasOnDemandStaticSource() bool {
 // HasOnDemandPublisher checks whether the path has a on-demand publisher.
 func (pconf Path) HasOnDemandPublisher() bool {
 	return pconf.RunOnDemand != ""
+}
+
+// HasFallbackSource checks whether the path has a fallback source configured.
+func (pconf Path) HasFallbackSource() bool {
+	return pconf.FallbackSource != ""
 }

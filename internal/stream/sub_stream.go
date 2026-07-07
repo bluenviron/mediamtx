@@ -89,13 +89,19 @@ type SubStream struct {
 	Stream        *Stream
 	InDesc        *description.Session
 	UseRTPPackets bool
+	// FallbackSwap allows this SubStream to be initialized while another SubStream
+	// is already active (used when swapping between primary and fallback sources).
+	// Requires InDesc to be set; performs a mediasAreCompatible check.
+	FallbackSwap bool
 
 	medias map[*description.Media]*subStreamMedia
 }
 
 // Initialize initializes the SubStream.
 func (ss *SubStream) Initialize() error {
-	if !ss.Stream.AlwaysAvailable {
+	swapMode := ss.Stream.AlwaysAvailable || ss.FallbackSwap
+
+	if !swapMode {
 		if ss.Stream.subStream != nil {
 			panic("should not happen")
 		}
@@ -114,7 +120,7 @@ func (ss *SubStream) Initialize() error {
 		}
 	}
 
-	if !ss.Stream.AlwaysAvailable {
+	if !swapMode {
 		ss.InDesc = ss.Stream.OrigDesc
 	}
 
