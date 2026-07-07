@@ -907,6 +907,12 @@ components:
           type: string
           nullable: true
           deprecated: true
+        fallbackSource:
+          type: string
+          description: Fallback source
+        fallbackSourceMode:
+          type: string
+          description: "\"preconnect\" (default) or \"ondemand\""
         maxReaders:
           type: integer
           format: int64

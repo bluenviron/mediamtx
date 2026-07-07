@@ -555,7 +555,7 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 
 	if pa.stream == nil {
 		// No stream yet — create one from the fallback source's description.
-		// This happens when the fallback connects before any primary publisher.
+		// Happens when fallback connects before any primary publisher.
 		err := pa.setAvailable(nil, "", req.Desc, req.ReplaceNTP)
 		if err != nil {
 			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
@@ -566,10 +566,9 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 			Stream:        pa.stream,
 			UseRTPPackets: req.UseRTPPackets,
 		}
-		// First source to connect: InDesc not used (standard non-swap path).
 	} else {
-		// Stream exists (primary connected first or fallback is reconnecting).
-		// Use FallbackSwap to allow replacing the current active SubStream.
+		// Stream already exists (primary connected first, or fallback reconnected
+		// while primary is still active). FallbackSwap permits replacing the active SubStream.
 		ss = &stream.SubStream{
 			Stream:        pa.stream,
 			UseRTPPackets: req.UseRTPPackets,
@@ -578,7 +577,7 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 		}
 	}
 
-	err := ss.Initialize()
+	err := ss.SetupFormats()
 	if err != nil {
 		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 		return
@@ -587,13 +586,12 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 	pa.fallbackSubStream = ss
 
 	if !pa.primaryIsActive {
-		pa.Log(logger.Info, "fallback source is active")
+		// Fallback is the active source — switch on next keyframe.
+		ss.ScheduleActivation()
+		pa.Log(logger.Info, "fallback source connected, activating on next keyframe")
 	} else {
-		// Primary is active; the fallback's Initialize() displaced it — restore it.
-		// The fallback SubStream stays initialized (packets gate-discarded) and will be
-		// re-activated via ActivateSubStream when the primary drops.
-		// TODO: support a "park without activating" SubStream mode to avoid this double-swap.
-		pa.stream.ActivateSubStream(pa.primarySubStream)
+		// Primary is active; fallback is parked. Activation will be scheduled
+		// via ScheduleActivation when the primary drops (executeRemovePublisher).
 		pa.Log(logger.Debug, "fallback source connected and parked (primary is active)")
 	}
 
@@ -606,8 +604,7 @@ func (pa *path) doFallbackSourceSetNotReady(req defs.PathSourceStaticSetNotReady
 	pa.fallbackSubStream = nil
 
 	if wasActive {
-		// Fallback dropped while it was the active source.
-		pa.Log(logger.Warn, "fallback source disconnected")
+		pa.Log(logger.Warn, "fallback source disconnected while active")
 		if pa.conf.AlwaysAvailable {
 			err := pa.stream.StartOfflineSubStream()
 			if err != nil {
@@ -686,15 +683,45 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.executeRemovePublisher()
 	}
 
-	streamExists := pa.conf.AlwaysAvailable || (pa.conf.HasFallbackSource() && pa.stream != nil)
-	if !streamExists {
+	if pa.conf.HasFallbackSource() && pa.stream != nil {
+		// Fallback is active (or stream exists from a prior connection).
+		// Set up the primary SubStream and activate on the next keyframe.
+		subStream := &stream.SubStream{
+			Stream:        pa.stream,
+			UseRTPPackets: req.UseRTPPackets,
+			InDesc:        req.Desc,
+			FallbackSwap:  true,
+		}
+		err := subStream.SetupFormats()
+		if err != nil {
+			req.Res <- defs.PathAddPublisherRes{Err: err}
+			return
+		}
+		subStream.ScheduleActivation()
+
+		pa.source = req.Author
+		pa.primarySubStream = subStream
+		pa.primaryIsActive = true
+
+		if pa.conf.FallbackSourceMode == "ondemand" && pa.fallbackSubStream != nil {
+			// In ondemand mode, stop the fallback handler; its writes will be
+			// gate-discarded until the handler goroutine exits.
+			pa.fallbackHandler.Stop("primary publisher connected")
+		}
+
+		req.Author.Log(logger.Info, "is publishing to path '%s', activating on next keyframe", pa.name)
+		pa.consumeOnHoldRequests()
+		req.Res <- defs.PathAddPublisherRes{SubStream: subStream}
+		return
+	}
+
+	// No stream yet (primary connects first, before any fallback) or standard non-fallback path.
+	if !pa.conf.AlwaysAvailable {
 		err := pa.setAvailable(req.Author, req.AccessRequest.Query, req.Desc, req.ReplaceNTP)
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return
 		}
-		// For fallbackSource paths where primary connected before fallback, enable FallbackSource
-		// on the stream so subsequent SubStream swaps are permitted.
 		if pa.conf.HasFallbackSource() {
 			pa.stream.HasFallbackSource = true
 		}
@@ -705,9 +732,8 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		UseRTPPackets: req.UseRTPPackets,
 	}
 
-	if pa.conf.AlwaysAvailable || (pa.conf.HasFallbackSource() && pa.stream != nil) {
+	if pa.conf.AlwaysAvailable {
 		subStream.InDesc = req.Desc
-		subStream.FallbackSwap = pa.conf.HasFallbackSource() && pa.stream != nil
 	}
 
 	err := subStream.Initialize()
@@ -720,12 +746,6 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	if pa.conf.HasFallbackSource() {
 		pa.primarySubStream = subStream
 		pa.primaryIsActive = true
-		if pa.conf.FallbackSourceMode == "ondemand" && pa.fallbackSubStream != nil {
-			// ondemand: stop the fallback handler now that primary is live.
-			// The handler's goroutine exits asynchronously; its SubStream gate will discard
-			// any in-flight writes. doFallbackSourceSetNotReady will clear fallbackSubStream.
-			pa.fallbackHandler.Stop("primary publisher connected")
-		}
 	}
 
 	req.Author.Log(logger.Info, "is publishing to path '%s'",
@@ -1160,9 +1180,9 @@ func (pa *path) executeRemovePublisher() {
 		pa.source = nil
 
 		if pa.fallbackSubStream != nil {
-			// Fallback is pre-connected (preconnect mode) — activate it immediately.
-			pa.stream.ActivateSubStream(pa.fallbackSubStream)
-			pa.Log(logger.Info, "primary publisher dropped, fallback source is now active")
+			// Fallback is pre-connected — schedule activation on next keyframe.
+			pa.fallbackSubStream.ScheduleActivation()
+			pa.Log(logger.Info, "primary publisher dropped, fallback activating on next keyframe")
 		} else if pa.conf.FallbackSourceMode == "ondemand" {
 			// Start the fallback handler; it will call doFallbackSourceSetReady when connected.
 			pa.fallbackHandler.Start(false, "")
