@@ -1063,7 +1063,8 @@ components:
           description: Fallback source
         fallbackSourceMode:
           type: string
-          description: "\"preconnect\" (default) or \"ondemand\""
+          enum: [preconnect, ondemand]
+          description: Fallback source connection mode
         forward:
           type: array
           description: Forward
