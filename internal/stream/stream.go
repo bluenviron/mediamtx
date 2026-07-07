@@ -282,6 +282,7 @@ func cloneDesc(desc *description.Session) *description.Session {
 type Stream struct {
 	OrigDesc              *description.Session
 	AlwaysAvailable       bool
+	HasFallbackSource     bool // enables SubStream swapping without AlwaysAvailable offline machinery
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
 	AlwaysAvailableFile   string
 	WriteQueueSize        int
@@ -423,6 +424,15 @@ func (s *Stream) StartOfflineSubStream() error {
 	s.offlineSubStream = oss
 
 	return nil
+}
+
+// ActivateSubStream atomically makes ss the active sub-stream, displacing whatever
+// was previously active. Used by the fallback-source mechanism to swap sources
+// without going through Initialize() (which would reset PTS offsets).
+func (s *Stream) ActivateSubStream(ss *SubStream) {
+	s.mutex.Lock()
+	s.subStream = ss
+	s.mutex.Unlock()
 }
 
 // InboundBytes returns received bytes.
