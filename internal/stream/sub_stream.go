@@ -85,9 +85,6 @@ func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Me
 	return nil
 }
 
-// isKeyframeUnit reports whether u contains a keyframe for video codecs that
-// require IDR-aligned switching. Returns true for all non-video and unknown
-// codecs so that switching is never unnecessarily delayed.
 func isKeyframeUnit(u *unit.Unit) bool {
 	switch p := u.Payload.(type) {
 	case unit.PayloadH264:
@@ -110,9 +107,6 @@ func isKeyframeUnit(u *unit.Unit) bool {
 		return false
 
 	default:
-		// Audio, AV1, VP8/VP9 and other codecs: every frame is independently
-		// decodable (or keyframe detection is not worth the complexity here),
-		// so we always permit the switch.
 		return true
 	}
 }
@@ -122,18 +116,13 @@ type SubStream struct {
 	Stream        *Stream
 	InDesc        *description.Session
 	UseRTPPackets bool
-	// FallbackSwap allows this SubStream to be set up while another SubStream
-	// is already active (used when swapping between primary and fallback sources).
-	// Requires InDesc to be set; performs a mediasAreCompatible check.
-	FallbackSwap bool
+	FallbackSwap  bool
 
 	medias            map[*description.Media]*subStreamMedia
 	pendingActivation atomic.Bool
 }
 
-// SetupFormats initializes the SubStream's per-format codec state without making
-// it the active source. WriteUnit calls are gate-discarded until activate is called.
-// Must be followed by either ScheduleActivation (IDR-gated) or activate (immediate).
+// SetupFormats initializes per-format codec state without making this SubStream active.
 func (ss *SubStream) SetupFormats() error {
 	swapMode := ss.Stream.AlwaysAvailable || ss.FallbackSwap
 
@@ -192,8 +181,6 @@ func (ss *SubStream) SetupFormats() error {
 	return nil
 }
 
-// activate performs the atomic SubStream pointer swap and PTS offset initialization.
-// Called either directly (immediate switch) or from WriteUnit on keyframe detection.
 func (ss *SubStream) activate() {
 	ss.Stream.mutex.Lock()
 	ss.Stream.subStream = ss
@@ -206,14 +193,17 @@ func (ss *SubStream) activate() {
 	}
 }
 
-// ScheduleActivation arranges for this SubStream to become the active source on
-// the next keyframe delivered via WriteUnit. SetupFormats must be called first.
+// ScheduleActivation makes this SubStream become active on the next keyframe.
 func (ss *SubStream) ScheduleActivation() {
 	ss.pendingActivation.Store(true)
 }
 
-// Initialize is a convenience that calls SetupFormats then activate immediately.
-// Use this for paths that do not require IDR-gated switching.
+// Activate makes this SubStream the active source immediately.
+func (ss *SubStream) Activate() {
+	ss.activate()
+}
+
+// Initialize calls SetupFormats then activate immediately.
 func (ss *SubStream) Initialize() error {
 	if err := ss.SetupFormats(); err != nil {
 		return err
@@ -224,9 +214,6 @@ func (ss *SubStream) Initialize() error {
 
 // WriteUnit writes a Unit.
 func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Format, u *unit.Unit) {
-	// IDR gate: if activation is pending, wait for a keyframe before swapping.
-	// Uses CompareAndSwap to ensure only one goroutine triggers the swap even if
-	// multiple goroutines race on the same SubStream (defensive; normally one goroutine).
 	if ss.pendingActivation.Load() {
 		if !isKeyframeUnit(u) {
 			return

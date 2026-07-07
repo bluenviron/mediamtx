@@ -540,7 +540,7 @@ pathDefaults:
 
   # URL of a fallback source (RTSP, RTMP, SRT, or any other supported pull
   # protocol) that is streamed to readers when no live publisher is connected.
-  # Readers stay connected across the switch — no reconnect required.
+  # Readers stay connected across the switch - no reconnect required.
   # Can only be used when source is "publisher".
   # The fallback source and the live publisher must use the same codec and
   # resolution; no transcoding is performed. Switches are aligned to the

@@ -2,6 +2,7 @@
 package stream
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -287,6 +288,8 @@ type Stream struct {
 	outDesc      *description.Session
 
 	offlineDesc          *description.Session
+	offlineFileBytes     []byte
+	offlineFileMTime     time.Time
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
@@ -402,6 +405,24 @@ func (s *Stream) StartOfflineSubStream() error {
 		panic("should not happen")
 	}
 
+	if s.AlwaysAvailableFile != "" {
+		info, err := os.Stat(s.AlwaysAvailableFile)
+		if err != nil {
+			return err
+		}
+		if info.Size() > 100*1024*1024 {
+			return fmt.Errorf("alwaysAvailableFile exceeds 100 MB limit (%d bytes)", info.Size())
+		}
+		if info.ModTime() != s.offlineFileMTime {
+			data, err := os.ReadFile(s.AlwaysAvailableFile)
+			if err != nil {
+				return err
+			}
+			s.offlineFileBytes = data
+			s.offlineFileMTime = info.ModTime()
+		}
+	}
+
 	oss := &offlineSubStream{
 		stream: s,
 	}
@@ -417,15 +438,6 @@ func (s *Stream) StartOfflineSubStream() error {
 	s.offlineSubStream = oss
 
 	return nil
-}
-
-// ActivateSubStream atomically makes ss the active sub-stream, displacing whatever
-// was previously active. Used by the fallback-source mechanism to swap sources
-// without going through Initialize() (which would reset PTS offsets).
-func (s *Stream) ActivateSubStream(ss *SubStream) {
-	s.mutex.Lock()
-	s.subStream = ss
-	s.mutex.Unlock()
 }
 
 // InboundBytes returns received bytes.
