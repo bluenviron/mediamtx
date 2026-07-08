@@ -507,10 +507,19 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 		subStream.InDesc = req.Desc
 	}
 
-	err := subStream.Initialize()
-	if err != nil {
-		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
-		return
+	if pa.conf.AlwaysAvailable {
+		err := subStream.SetupFormats()
+		if err != nil {
+			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+			return
+		}
+		subStream.ScheduleActivation()
+	} else {
+		err := subStream.Initialize()
+		if err != nil {
+			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+			return
+		}
 	}
 
 	if pa.conf.AlwaysAvailable {
