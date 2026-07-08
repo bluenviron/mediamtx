@@ -53,6 +53,7 @@ func (ssf *subStreamFormat) initialize() error {
 // initialize2 is called when the first unit of the sub stream is received.
 // firstPTS is the PTS of the first unit.
 func (ssf *subStreamFormat) initialize2(
+	liveSource bool,
 	timeInitialized bool,
 	lastPTS time.Duration,
 	lastSystemTime time.Time,
@@ -62,7 +63,9 @@ func (ssf *subStreamFormat) initialize2(
 		clockRate := int64(ssf.streamFormat.outFormat.ClockRate())
 
 		// continue from the end of the previous sub stream, including the time elapsed since then.
-		if timeInitialized {
+		if liveSource {
+			ssf.streamFormat.ptsOffset = 0
+		} else if timeInitialized {
 			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
 			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo), clockRate, int64(time.Second))
 		}
@@ -92,7 +95,10 @@ func (ssf *subStreamFormat) initialize2(
 
 		// timestamps of sub streams need to start from zero.
 		// Subtract the first timestamp from every subsequent timestamp.
-		ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS), clockRate, int64(time.Second))
+		// Live sources keep their own timestamps.
+		if !liveSource {
+			ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS), clockRate, int64(time.Second))
+		}
 	}
 }
 

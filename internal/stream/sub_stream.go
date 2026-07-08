@@ -140,6 +140,7 @@ type SubStream struct {
 	InDesc        *description.Session
 	UseRTPPackets bool
 	FallbackSwap  bool
+	LiveSource    bool // if true, PTS is passed through unchanged (no ptsOffset applied on activation)
 
 	medias            map[*description.Media]*subStreamMedia
 	pendingActivation atomic.Bool
@@ -264,7 +265,7 @@ func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Forma
 
 			for _, ssm := range ss.medias {
 				for _, ssf := range ssm.formats {
-					ssf.initialize2(timeInitialized, lastPTS, lastSystemTime, firstPTS)
+					ssf.initialize2(ss.LiveSource, timeInitialized, lastPTS, lastSystemTime, firstPTS)
 				}
 			}
 		})
