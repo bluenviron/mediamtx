@@ -40,6 +40,7 @@ func randUint32() (uint32, error) {
 type streamFormat struct {
 	origFormat           format.Format
 	alwaysAvailable      bool
+	sourceSwapSSRCReset  bool
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
 	inboundFramesInError *errordumper.Dumper
