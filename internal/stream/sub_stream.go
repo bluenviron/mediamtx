@@ -213,10 +213,24 @@ func (ss *SubStream) Initialize() error {
 	return nil
 }
 
+func (ss *SubStream) hasVideo() bool {
+	for _, m := range ss.InDesc.Medias {
+		if m.Type == description.MediaTypeVideo {
+			return true
+		}
+	}
+	return false
+}
+
 // WriteUnit writes a Unit.
 func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Format, u *unit.Unit) {
 	if ss.pendingActivation.Load() {
-		if !isKeyframeUnit(u) {
+		if ss.hasVideo() {
+			// require a video IDR; drop all audio and non-IDR video until then
+			if inMedia.Type != description.MediaTypeVideo || !isKeyframeUnit(u) {
+				return
+			}
+		} else if !isKeyframeUnit(u) {
 			return
 		}
 		if ss.pendingActivation.CompareAndSwap(true, false) {
