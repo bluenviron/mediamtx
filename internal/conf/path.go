@@ -227,14 +227,15 @@ type Path struct {
 	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
 
 	// Record
-	Record                bool         `json:"record"`
-	Playback              *bool        `json:"playback,omitempty" deprecated:"true"`
-	RecordPath            string       `json:"recordPath"`
-	RecordFormat          RecordFormat `json:"recordFormat"`
-	RecordPartDuration    Duration     `json:"recordPartDuration"`
-	RecordMaxPartSize     StringSize   `json:"recordMaxPartSize"`
-	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
-	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
+	Record                       bool         `json:"record"`
+	Playback                     *bool        `json:"playback,omitempty" deprecated:"true"`
+	RecordPath                   string       `json:"recordPath"`
+	RecordFormat                 RecordFormat `json:"recordFormat"`
+	RecordPartDuration           Duration     `json:"recordPartDuration"`
+	RecordMaxPartSize            StringSize   `json:"recordMaxPartSize"`
+	RecordSegmentDuration        Duration     `json:"recordSegmentDuration"`
+	RecordSegmentDurationAligned bool         `json:"recordSegmentDurationAligned"`
+	RecordDeleteAfter            Duration     `json:"recordDeleteAfter"`
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty" deprecated:"true"`
@@ -846,6 +847,16 @@ func (pconf *Path) validate(
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
 		return fmt.Errorf("maximum segment duration is 1 day")
+	}
+
+	if pconf.RecordSegmentDurationAligned {
+		if pconf.RecordSegmentDuration <= 0 {
+			return fmt.Errorf("'recordSegmentDuration' must be greater than zero when 'recordSegmentDurationAligned' is true")
+		}
+
+		if (24*time.Hour)%time.Duration(pconf.RecordSegmentDuration) != 0 {
+			return fmt.Errorf("'recordSegmentDuration' must divide 1 day when 'recordSegmentDurationAligned' is true")
+		}
 	}
 
 	if pconf.RecordDeleteAfter != 0 && pconf.RecordDeleteAfter < pconf.RecordSegmentDuration {

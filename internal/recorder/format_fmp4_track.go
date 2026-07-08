@@ -119,7 +119,13 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
+		segmentDurationReached(
+			t.f.currentSegment.startNTP,
+			nextDTS-t.f.currentSegment.startDTS,
+			t.f.ri.segmentDuration,
+			t.f.ri.segmentDurationAligned,
+			t.nextSample.ntp,
+		) {
 		err = t.f.currentSegment.close()
 		if err != nil {
 			return err

@@ -523,6 +523,22 @@ func TestConfErrors(t *testing.T) {
 			`'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'`,
 		},
 		{
+			"invalid record segment duration aligned with zero duration",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordSegmentDuration: 0s\n" +
+				"    recordSegmentDurationAligned: true\n",
+			`'recordSegmentDuration' must be greater than zero when 'recordSegmentDurationAligned' is true`,
+		},
+		{
+			"invalid record segment duration aligned with non-divisor duration",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordSegmentDuration: 7m\n" +
+				"    recordSegmentDurationAligned: true\n",
+			`'recordSegmentDuration' must divide 1 day when 'recordSegmentDurationAligned' is true`,
+		},
+		{
 			"missing rtpAddress with UDP and no encryption",
 			"rtspEncryption: \"no\"\n" +
 				"rtspTransports: [udp]\n" +
