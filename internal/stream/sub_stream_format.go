@@ -82,7 +82,7 @@ func (ssf *subStreamFormat) initialize2(liveSource bool, fallbackSwap bool, firs
 	// on any source swap (alwaysAvailable or fallbackSource, either direction):
 	// inject updated video parameter sets and reset the video track's RTP encoder
 	// (new SSRC + timestamp offset) so downstream decoders get a clean reset signal.
-	// reset is scoped to the video ssf only — the same goroutine that triggers
+	// reset is scoped to the video ssf only; the same goroutine that triggers
 	// activation owns the video write path, so there is no concurrent reader race.
 	// audio SSRC is left unchanged: audio decoders do not need a reset on source swap.
 	if ssf.streamFormat.alwaysAvailable || fallbackSwap {

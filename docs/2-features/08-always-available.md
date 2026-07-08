@@ -27,10 +27,10 @@ paths:
     alwaysAvailableFile: "./h264.mp4"
 ```
 
-The MP4 file must be compatible with the live stream it replaces:
+Any alternative source -- whether an offline media file or a fallback stream -- must be format-compatible with the primary live stream:
 
 * The number of tracks and their codec types must match exactly (e.g. one H264 video track and one MPEG4Audio audio track).
-* Audio parameters (sample rate, channel count, AAC profile) must match exactly. A mismatch causes the live source to be rejected at connection time.
-* Video resolution and bitrate may differ; SPS/PPS are swapped automatically on switch.
+* Audio parameters (sample rate, channel count, AAC profile) must match exactly. A mismatch causes the source to be rejected at connection time.
+* Video resolution and bitrate may differ; SPS/PPS are swapped automatically on source switch.
 
-The safest approach is to encode the offline file with the same encoder settings as the live stream.
+The safest approach is to configure all sources with the same encoder settings.
