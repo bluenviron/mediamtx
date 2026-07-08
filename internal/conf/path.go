@@ -224,7 +224,8 @@ type Path struct {
 	// Always available
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
 	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
-	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
+	AlwaysAvailableFile            string                 `json:"alwaysAvailableFile"`
+	AlwaysAvailableFilePreloadSize int                    `json:"alwaysAvailableFilePreloadSize"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -356,6 +357,9 @@ func (pconf *Path) setDefaults() {
 	pconf.Source = "publisher"
 	pconf.SourceOnDemandStartTimeout = 10 * Duration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
+
+	// Always available
+	pconf.AlwaysAvailableFilePreloadSize = 16 * 1024 * 1024
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"

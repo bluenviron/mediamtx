@@ -43,6 +43,7 @@ func (o *offlineSubStream) initialize() error {
 			t := &offlineSubStreamTrack{
 				wg:        &o.wg,
 				file:      o.stream.AlwaysAvailableFile,
+				fileBytes: o.stream.offlineFileBytes,
 				pos:       pos,
 				ctx:       o.ctx,
 				subStream: o.subStream,

@@ -276,8 +276,9 @@ type Stream struct {
 	OrigDesc              *description.Session
 	AlwaysAvailable       bool
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
-	AlwaysAvailableFile   string
-	WriteQueueSize        int
+	AlwaysAvailableFile            string
+	AlwaysAvailableFilePreloadSize int
+	WriteQueueSize                 int
 	RTPMaxPayloadSize     int
 	ReplaceNTP            bool
 	Parent                logger.Writer
@@ -286,6 +287,8 @@ type Stream struct {
 	outDesc      *description.Session
 
 	offlineDesc          *description.Session
+	offlineFileBytes     []byte
+	offlineFileMTime     time.Time
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
@@ -399,6 +402,26 @@ func (s *Stream) Close() {
 func (s *Stream) StartOfflineSubStream() error {
 	if !s.AlwaysAvailable {
 		panic("should not happen")
+	}
+
+	if s.AlwaysAvailableFile != "" {
+		info, err := os.Stat(s.AlwaysAvailableFile)
+		if err != nil {
+			return err
+		}
+		if info.ModTime() != s.offlineFileMTime {
+			preload := s.AlwaysAvailableFilePreloadSize
+			if preload > 0 && info.Size() <= int64(preload) {
+				data, err := os.ReadFile(s.AlwaysAvailableFile)
+				if err != nil {
+					return err
+				}
+				s.offlineFileBytes = data
+			} else {
+				s.offlineFileBytes = nil
+			}
+			s.offlineFileMTime = info.ModTime()
+		}
 	}
 
 	oss := &offlineSubStream{
