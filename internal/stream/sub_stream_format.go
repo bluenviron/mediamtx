@@ -49,7 +49,26 @@ func (ssf *subStreamFormat) initialize() error {
 	return nil
 }
 
-func (ssf *subStreamFormat) initialize2(liveSource bool, firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
+func (ssf *subStreamFormat) resetRTPEncoder() {
+	enc, err := newRTPEncoder(
+		ssf.streamFormat.outFormat,
+		ssf.streamFormat.rtpMaxPayloadSize,
+		nil,
+		nil)
+	if err != nil {
+		ssf.streamFormat.parent.Log(logger.Warn, "failed to reset RTP encoder on codec change: %v", err)
+		return
+	}
+	offset, err := randUint32()
+	if err != nil {
+		ssf.streamFormat.parent.Log(logger.Warn, "failed to generate RTP time offset on codec change: %v", err)
+		return
+	}
+	ssf.streamFormat.rtpEncoder = enc
+	ssf.streamFormat.rtpTimeOffset = offset
+}
+
+func (ssf *subStreamFormat) initialize2(liveSource bool, fallbackSwap bool, firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
 	if ssf.streamFormat.alwaysAvailable {
 		if liveSource {
 			ssf.streamFormat.ptsOffset = 0
@@ -58,11 +77,22 @@ func (ssf *subStreamFormat) initialize2(liveSource bool, firstTimeReceived bool,
 			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo),
 				int64(ssf.streamFormat.outFormat.ClockRate()), int64(time.Second))
 		}
+	}
 
-		// transfer parameters from inFormat to outFormat by writing them in the stream
+	// on any source swap (alwaysAvailable or fallbackSource, either direction):
+	// inject updated video parameter sets and reset the video track's RTP encoder
+	// (new SSRC + timestamp offset) so downstream decoders get a clean reset signal.
+	// reset is scoped to the video ssf only — the same goroutine that triggers
+	// activation owns the video write path, so there is no concurrent reader race.
+	// audio SSRC is left unchanged: audio decoders do not need a reset on source swap.
+	if ssf.streamFormat.alwaysAvailable || fallbackSwap {
 		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
 			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+					ssf.resetRTPEncoder()
+				}
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
@@ -73,6 +103,10 @@ func (ssf *subStreamFormat) initialize2(liveSource bool, firstTimeReceived bool,
 
 		case *format.H264:
 			if inFormat.SPS != nil && inFormat.PPS != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+					ssf.resetRTPEncoder()
+				}
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},

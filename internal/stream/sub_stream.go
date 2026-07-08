@@ -189,7 +189,7 @@ func (ss *SubStream) activate() {
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
-			ssf.initialize2(ss.LiveSource, ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
+			ssf.initialize2(ss.LiveSource, ss.FallbackSwap, ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
 		}
 	}
 }
