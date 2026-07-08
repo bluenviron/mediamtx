@@ -40,6 +40,7 @@ func randUint32() (uint32, error) {
 type streamFormat struct {
 	origFormat                      format.Format
 	alwaysAvailable                 bool
+	sourceSwapSSRCReset             bool
 	rtspRTPMaxUnencryptedPacketSize int
 	rtspRTPMaxPayloadSize           int
 	replaceNTP                      bool

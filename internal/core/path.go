@@ -1152,6 +1152,7 @@ func (pa *path) setAvailable(
 		AlwaysAvailable:       pa.conf.AlwaysAvailable,
 		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
 		AlwaysAvailableFile:   pa.conf.AlwaysAvailableFile,
+		SourceSwapSSRCReset:   pa.conf.SourceSwapSSRCReset,
 		WriteQueueSize:        pa.writeQueueSize,
 		UDPMaxPayloadSize:     pa.udpMaxPayloadSize,
 		RTSPEncryption:        pa.rtspEncryption,

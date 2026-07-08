@@ -50,18 +50,38 @@ func (ssf *subStreamFormat) initialize() error {
 	return nil
 }
 
+func (ssf *subStreamFormat) resetRTPEncoder() {
+	enc, err := newRTPEncoder(
+		ssf.streamFormat.outFormat,
+		ssf.streamFormat.rtspRTPMaxPayloadSize,
+		nil,
+		nil)
+	if err != nil {
+		ssf.streamFormat.parent.Log(logger.Warn, "failed to reset RTP encoder on codec change: %v", err)
+		return
+	}
+	offset, err := randUint32()
+	if err != nil {
+		ssf.streamFormat.parent.Log(logger.Warn, "failed to generate RTP time offset on codec change: %v", err)
+		return
+	}
+	ssf.streamFormat.rtpEncoder = enc
+	ssf.streamFormat.rtpTimeOffset = offset
+}
+
 // initialize2 is called when the first unit of the sub stream is received.
 // firstPTS is the PTS of the first unit.
 func (ssf *subStreamFormat) initialize2(
 	liveSource bool,
+	fallbackSwap bool,
 	timeInitialized bool,
 	lastPTS time.Duration,
 	lastSystemTime time.Time,
 	firstPTS time.Duration,
 ) {
-	if ssf.streamFormat.alwaysAvailable {
-		clockRate := int64(ssf.streamFormat.outFormat.ClockRate())
+	clockRate := int64(ssf.streamFormat.outFormat.ClockRate())
 
+	if ssf.streamFormat.alwaysAvailable {
 		// continue from the end of the previous sub stream, including the time elapsed since then.
 		if liveSource {
 			ssf.streamFormat.ptsOffset = 0
@@ -69,11 +89,22 @@ func (ssf *subStreamFormat) initialize2(
 			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
 			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo), clockRate, int64(time.Second))
 		}
+	}
 
-		// transfer parameters from inFormat to outFormat by writing them in the stream.
+	// on any source swap (alwaysAvailable or fallbackSource, either direction):
+	// inject updated video parameter sets and reset the video track's RTP encoder
+	// (new SSRC + timestamp offset) so downstream decoders get a clean reset signal.
+	// reset is scoped to the video ssf only — the same goroutine that triggers
+	// activation owns the video write path, so there is no concurrent reader race.
+	// audio SSRC is left unchanged: audio decoders do not need a reset on source swap.
+	if ssf.streamFormat.alwaysAvailable || fallbackSwap {
 		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
 			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+					ssf.resetRTPEncoder()
+				}
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
@@ -84,6 +115,10 @@ func (ssf *subStreamFormat) initialize2(
 
 		case *format.H264:
 			if inFormat.SPS != nil && inFormat.PPS != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+					ssf.resetRTPEncoder()
+				}
 				ssf.writeUnit(&unit.Unit{
 					PTS:        0,
 					NTP:        time.Time{},
@@ -92,13 +127,13 @@ func (ssf *subStreamFormat) initialize2(
 				})
 			}
 		}
+	}
 
-		// timestamps of sub streams need to start from zero.
-		// Subtract the first timestamp from every subsequent timestamp.
-		// Live sources keep their own timestamps.
-		if !liveSource {
-			ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS), clockRate, int64(time.Second))
-		}
+	// timestamps of sub streams need to start from zero.
+	// Subtract the first timestamp from every subsequent timestamp.
+	// Live sources keep their own timestamps.
+	if ssf.streamFormat.alwaysAvailable && !liveSource {
+		ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS), clockRate, int64(time.Second))
 	}
 }
 

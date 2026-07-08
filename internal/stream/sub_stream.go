@@ -271,7 +271,8 @@ func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Forma
 	// In always-available streams, offsets are computed when the first unit
 	// is received, in order to take into account the time elapsed since the
 	// previous sub stream. Other writers wait until offsets are ready.
-	if ss.Stream.AlwaysAvailable {
+	// Fallback swaps use the same step to inject parameter sets.
+	if ss.Stream.AlwaysAvailable || ss.FallbackSwap {
 		ss.firstUnitOnce.Do(func() {
 			lastPTS, lastSystemTime, timeInitialized := lastStreamTime(ss.Stream.medias)
 
@@ -279,7 +280,7 @@ func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Forma
 
 			for _, ssm := range ss.medias {
 				for _, ssf := range ssm.formats {
-					ssf.initialize2(ss.LiveSource, timeInitialized, lastPTS, lastSystemTime, firstPTS)
+					ssf.initialize2(ss.LiveSource, ss.FallbackSwap, timeInitialized, lastPTS, lastSystemTime, firstPTS)
 				}
 			}
 		})
