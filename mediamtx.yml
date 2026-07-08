@@ -536,7 +536,7 @@ pathDefaults:
   alwaysAvailableFile: ""
   # Files up to this size (bytes) are preloaded into memory for zero-latency looping.
   # Larger files are read from disk. Default 16 MB. Set to 0 to always read from disk.
-  alwaysAvailableFilePreloadSize: 16777216
+  alwaysAvailablePreloadSize: 16777216
 
   ###############################################
   # Default path settings -> Record
