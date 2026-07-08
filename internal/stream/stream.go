@@ -2,7 +2,6 @@
 package stream
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -288,8 +287,6 @@ type Stream struct {
 	outDesc      *description.Session
 
 	offlineDesc          *description.Session
-	offlineFileBytes     []byte
-	offlineFileMTime     time.Time
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
@@ -403,24 +400,6 @@ func (s *Stream) Close() {
 func (s *Stream) StartOfflineSubStream() error {
 	if !s.AlwaysAvailable {
 		panic("should not happen")
-	}
-
-	if s.AlwaysAvailableFile != "" {
-		info, err := os.Stat(s.AlwaysAvailableFile)
-		if err != nil {
-			return err
-		}
-		if info.Size() > 100*1024*1024 {
-			return fmt.Errorf("alwaysAvailableFile exceeds 100 MB limit (%d bytes)", info.Size())
-		}
-		if info.ModTime() != s.offlineFileMTime {
-			data, err := os.ReadFile(s.AlwaysAvailableFile)
-			if err != nil {
-				return err
-			}
-			s.offlineFileBytes = data
-			s.offlineFileMTime = info.ModTime()
-		}
 	}
 
 	oss := &offlineSubStream{
