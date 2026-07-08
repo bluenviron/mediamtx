@@ -571,6 +571,7 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	subStream := &stream.SubStream{
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
+		LiveSource:    true,
 	}
 
 	if pa.conf.AlwaysAvailable {
@@ -641,6 +642,7 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 		ss = &stream.SubStream{
 			Stream:        pa.stream,
 			UseRTPPackets: req.UseRTPPackets,
+			LiveSource:    true,
 		}
 	} else {
 		ss = &stream.SubStream{
@@ -648,6 +650,7 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 			UseRTPPackets: req.UseRTPPackets,
 			InDesc:        req.Desc,
 			FallbackSwap:  true,
+			LiveSource:    true,
 		}
 	}
 
@@ -753,6 +756,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 			UseRTPPackets: req.UseRTPPackets,
 			InDesc:        req.Desc,
 			FallbackSwap:  true,
+			LiveSource:    true,
 		}
 		err := subStream.SetupFormats()
 		if err != nil {
@@ -790,6 +794,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	subStream := &stream.SubStream{
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
+		LiveSource:    true,
 	}
 
 	if pa.conf.AlwaysAvailable {
