@@ -241,7 +241,6 @@ type Path struct {
 	// Fallback source
 	FallbackSource        string `json:"fallbackSource"`
 	FallbackSourceMode    string `json:"fallbackSourceMode"` // "preconnect" (default) or "ondemand"
-	SourceSwapSSRCReset   bool   `json:"sourceSwapSSRCReset"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -396,8 +395,6 @@ func (pconf *Path) setDefaults() {
 
 	// Fallback source
 	pconf.FallbackSourceMode = "preconnect"
-	pconf.SourceSwapSSRCReset = true
-
 	// Publisher source
 	pconf.OverridePublisher = true
 
