@@ -97,7 +97,8 @@ func (ssf *subStreamFormat) initialize2(
 		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
 			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
-				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil &&
+					(fallbackSwap || timeInitialized) {
 					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
 					ssf.resetRTPEncoder()
 				}
@@ -111,7 +112,8 @@ func (ssf *subStreamFormat) initialize2(
 
 		case *format.H264:
 			if inFormat.SPS != nil && inFormat.PPS != nil {
-				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil {
+				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil &&
+					(fallbackSwap || timeInitialized) {
 					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
 					ssf.resetRTPEncoder()
 				}
