@@ -553,14 +553,6 @@ pathDefaults:
   #     Uses less upstream bandwidth at the cost of a connect-time gap on switch.
   fallbackSourceMode: preconnect
 
-  # Reset the RTP SSRC (and timestamp base) on every source swap.
-  # Applies to both alwaysAvailable (file or built-in offline segment) and
-  # fallbackSource transitions, in either direction (live->offline, offline->live,
-  # primary->fallback, fallback->primary).  An SSRC change is the RTP-layer signal
-  # for "new source, reset decoder state", which helps clients recover cleanly from
-  # PTS discontinuities, codec parameter changes, or gaps caused by the switch.
-  # Set to false only if your clients misbehave on SSRC changes.
-  sourceSwapSSRCReset: true
 
   ###############################################
   # Default path settings -> Record

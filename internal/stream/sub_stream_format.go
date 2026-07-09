@@ -79,15 +79,15 @@ func (ssf *subStreamFormat) initialize2(liveSource bool, fallbackSwap bool, firs
 		}
 	}
 
-	// scoped to video only: the activation goroutine owns the video write path so there
-	// is no concurrent reader race; audio SSRC stays continuous by design.
+	// Reset the RTP encoder on source swap so the new source starts with a fresh
+	// packetizer state and a timestamp discontinuity that downstream clients can detect.
+	// Scoped to video only; audio encoder is kept continuous by design.
 	if ssf.streamFormat.alwaysAvailable || fallbackSwap {
 		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
 			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
-				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil &&
-					(fallbackSwap || firstTimeReceived) {
-					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+				if ssf.streamFormat.rtpEncoder != nil && (fallbackSwap || firstTimeReceived) {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP encoder")
 					ssf.resetRTPEncoder()
 				}
 				ssf.writeUnit(&unit.Unit{
@@ -100,9 +100,8 @@ func (ssf *subStreamFormat) initialize2(liveSource bool, fallbackSwap bool, firs
 
 		case *format.H264:
 			if inFormat.SPS != nil && inFormat.PPS != nil {
-				if ssf.streamFormat.sourceSwapSSRCReset && ssf.streamFormat.rtpEncoder != nil &&
-					(fallbackSwap || firstTimeReceived) {
-					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP SSRC")
+				if ssf.streamFormat.rtpEncoder != nil && (fallbackSwap || firstTimeReceived) {
+					ssf.streamFormat.parent.Log(logger.Info, "source swap detected, resetting RTP encoder")
 					ssf.resetRTPEncoder()
 				}
 				ssf.writeUnit(&unit.Unit{
