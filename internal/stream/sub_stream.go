@@ -199,8 +199,14 @@ func (ss *SubStream) ScheduleActivation() {
 	ss.pendingActivation.Store(true)
 }
 
+// CancelActivation prevents a pending ScheduleActivation from firing.
+func (ss *SubStream) CancelActivation() {
+	ss.pendingActivation.Store(false)
+}
+
 // Activate makes this SubStream the active source immediately.
 func (ss *SubStream) Activate() {
+	ss.pendingActivation.Store(false)
 	ss.activate()
 }
 
