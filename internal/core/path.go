@@ -179,8 +179,7 @@ type path struct {
 	fallbackHandler        *staticsources.Handler
 	fallbackHandlerRunning bool
 	fallbackSubStream      *stream.SubStream // non-nil when fallback has an initialized SubStream
-	primarySubStream       *stream.SubStream // non-nil when a live publisher has an active SubStream
-	primaryIsActive        bool              // true when the primary publisher is the active source
+	primaryIsActive        bool              // true when the primary publisher is connected
 
 	// in
 	chReloadConf                chan *conf.Path
@@ -763,8 +762,11 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		subStream.ScheduleActivation()
 
 		pa.source = req.Author
-		pa.primarySubStream = subStream
 		pa.primaryIsActive = true
+
+		if pa.fallbackSubStream != nil {
+			pa.fallbackSubStream.CancelActivation()
+		}
 
 		if pa.conf.FallbackSourceMode == "ondemand" && pa.fallbackHandlerRunning {
 			pa.fallbackHandler.Stop("primary publisher connected")
@@ -806,7 +808,6 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	pa.source = req.Author
 	if pa.conf.HasFallbackSource() {
-		pa.primarySubStream = subStream
 		pa.primaryIsActive = true
 	}
 
@@ -1263,18 +1264,19 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 func (pa *path) executeRemovePublisher() {
 	if pa.conf.HasFallbackSource() {
 		pa.primaryIsActive = false
-		pa.primarySubStream = nil
 		pa.source = nil
 
 		if pa.fallbackSubStream != nil {
+			pa.fallbackSubStream.FallbackSwap = true
 			pa.fallbackSubStream.Activate()
 			pa.Log(logger.Info, "primary publisher dropped, fallback source activated")
-		} else if pa.conf.FallbackSourceMode == "ondemand" {
+		} else if pa.conf.FallbackSourceMode == "ondemand" && !pa.fallbackHandlerRunning {
 			pa.fallbackHandler.Start(false, "")
 			pa.fallbackHandlerRunning = true
 			pa.Log(logger.Info, "primary publisher dropped, starting fallback source")
-		} else {
+		} else if pa.conf.FallbackSourceMode == "preconnect" {
 			pa.Log(logger.Warn, "primary publisher dropped, waiting for fallback source to connect")
+			pa.setNotAvailable()
 		}
 		return
 	}
