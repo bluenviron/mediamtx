@@ -232,7 +232,6 @@ func (ss *SubStream) hasVideo() bool {
 func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Format, u *unit.Unit) {
 	if ss.pendingActivation.Load() {
 		if ss.hasVideo() {
-			// require a video IDR; drop all audio and non-IDR video until then
 			if inMedia.Type != description.MediaTypeVideo || !isKeyframeUnit(u) {
 				return
 			}
