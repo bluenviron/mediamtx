@@ -15,7 +15,6 @@ import (
 type streamMedia struct {
 	origMedia                       *description.Media
 	alwaysAvailable                 bool
-	sourceSwapSSRCReset             bool
 	rtspRTPMaxUnencryptedPacketSize int
 	rtspRTPMaxPayloadSize           int
 	replaceNTP                      bool
@@ -44,7 +43,6 @@ func (sm *streamMedia) initialize() error {
 		sf := &streamFormat{
 			origFormat:                      origFormat,
 			alwaysAvailable:                 sm.alwaysAvailable,
-			sourceSwapSSRCReset:             sm.sourceSwapSSRCReset,
 			rtspRTPMaxUnencryptedPacketSize: sm.rtspRTPMaxUnencryptedPacketSize,
 			rtspRTPMaxPayloadSize:           sm.rtspRTPMaxPayloadSize,
 			replaceNTP:                      sm.replaceNTP,

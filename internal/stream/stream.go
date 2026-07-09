@@ -303,7 +303,6 @@ type Stream struct {
 	HasFallbackSource     bool // enables SubStream swapping without AlwaysAvailable offline machinery
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
 	AlwaysAvailableFile   string
-	SourceSwapSSRCReset   bool
 	WriteQueueSize        int
 	UDPMaxPayloadSize     int
 	RTSPEncryption        conf.Encryption
@@ -375,7 +374,6 @@ func (s *Stream) Initialize() error {
 		sm := &streamMedia{
 			origMedia:                       origMedia,
 			alwaysAvailable:                 s.AlwaysAvailable,
-			sourceSwapSSRCReset:             s.SourceSwapSSRCReset,
 			rtspRTPMaxUnencryptedPacketSize: s.rtspRTPMaxUnencryptedPacketSize,
 			rtspRTPMaxPayloadSize:           s.rtspRTPMaxPayloadSize,
 			replaceNTP:                      s.ReplaceNTP,
