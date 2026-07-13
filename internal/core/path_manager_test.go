@@ -1,7 +1,11 @@
 package core
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"testing"
 	"time"
@@ -11,6 +15,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -214,4 +219,214 @@ func TestPathManagerConfigHotReload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "undefined_stream", pathData.Name)
 	require.Equal(t, "all", pathData.ConfName)
+}
+
+func TestFetchExternalPathConfFound(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "mypath", r.URL.Query().Get("path"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
+			"record": true,
+		})
+	}))
+	defer ts.Close()
+
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{Source: "publisher"},
+		authMethod:              conf.AuthMethodInternal,
+	}
+
+	pathConf, err := pm.fetchExternalPathConf("mypath", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, "mypath", pathConf.Name)
+	require.True(t, pathConf.Record)
+}
+
+func TestFetchExternalPathConf404(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{},
+		authMethod:              conf.AuthMethodInternal,
+	}
+
+	_, err := pm.fetchExternalPathConf("missing", "", nil)
+	require.ErrorIs(t, err, errExternalPathNotFound)
+}
+
+func TestFetchExternalPathConfInternalAuth(t *testing.T) {
+	var gotUser, gotPass string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotPass, _ = r.BasicAuth()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{}) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{},
+		authMethod:              conf.AuthMethodInternal,
+	}
+
+	creds := &auth.Credentials{User: "myuser", Pass: "mypass"}
+	_, err := pm.fetchExternalPathConf("mypath", "", creds)
+	require.NoError(t, err)
+	require.Equal(t, "myuser", gotUser)
+	require.Equal(t, "mypass", gotPass)
+}
+
+func TestFetchExternalPathConfJWTAuth(t *testing.T) {
+	var gotAuthHeader string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthHeader = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{}) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{},
+		authMethod:              conf.AuthMethodJWT,
+	}
+
+	creds := &auth.Credentials{Token: "mytoken"}
+	_, err := pm.fetchExternalPathConf("mypath", "", creds)
+	require.NoError(t, err)
+	require.Equal(t, "Bearer mytoken", gotAuthHeader)
+}
+
+func TestFetchExternalPathConfQueryParams(t *testing.T) {
+	var gotQuery string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{}) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{},
+		authMethod:              conf.AuthMethodInternal,
+	}
+
+	_, err := pm.fetchExternalPathConf("mypath", "token=abc&key=val", nil)
+	require.NoError(t, err)
+	q := url.Values{}
+	q.Set("path", "mypath")
+	q.Set("token", "abc")
+	q.Set("key", "val")
+	require.Equal(t, q.Encode(), gotQuery)
+}
+
+func TestFindPathConfExternalDisabled(t *testing.T) {
+	pathConfs := map[string]*conf.Path{
+		"all_others": {
+			Regexp: regexp.MustCompile("^.*$"),
+			Name:   "all_others",
+			Source: "publisher",
+		},
+	}
+	pm := &pathManager{
+		pathConfs:               pathConfs,
+		pathExternalConfEnabled: false,
+	}
+	p, _, err := pm.findPathConf("dynamic", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, "all_others", p.Name)
+}
+
+func TestFindPathConfExternalOverridesAllOthers(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"record": true}) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	pathConfs := map[string]*conf.Path{
+		"all_others": {
+			Regexp: regexp.MustCompile("^.*$"),
+			Name:   "all_others",
+			Source: "publisher",
+		},
+	}
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathConfs:               pathConfs,
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{Source: "publisher"},
+		authMethod:              conf.AuthMethodInternal,
+	}
+	p, _, err := pm.findPathConf("dynamic", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, "dynamic", p.Name)
+	require.True(t, p.Record)
+}
+
+func TestFindPathConfExternal404FallsToAllOthers(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	pathConfs := map[string]*conf.Path{
+		"all_others": {
+			Regexp: regexp.MustCompile("^.*$"),
+			Name:   "all_others",
+			Source: "publisher",
+		},
+	}
+	pm := &pathManager{
+		ctx:                     context.Background(),
+		pathConfs:               pathConfs,
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		pathDefaults:            conf.Path{},
+		authMethod:              conf.AuthMethodInternal,
+		parent:                  test.NilLogger,
+	}
+	p, _, err := pm.findPathConf("missing", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, "all_others", p.Name)
+}
+
+func TestFindPathConfStaticSkipsExternal(t *testing.T) {
+	externalCalled := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		externalCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	pathConfs := map[string]*conf.Path{
+		"mypath": {Name: "mypath", Source: "publisher"},
+	}
+	pm := &pathManager{
+		pathConfs:               pathConfs,
+		pathExternalConfEnabled: true,
+		pathExternalConfURL:     ts.URL,
+		authMethod:              conf.AuthMethodInternal,
+	}
+	p, _, err := pm.findPathConf("mypath", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, "mypath", p.Name)
+	require.False(t, externalCalled)
 }

@@ -67,6 +67,7 @@ type APIPathReader struct {
 type APIPath struct {
 	Name                 string              `json:"name"`
 	ConfName             string              `json:"confName"`
+	CreatedAt            string              `json:"createdAt"`
 	Ready                bool                `json:"ready" deprecated:"true"`
 	ReadyTime            *time.Time          `json:"readyTime" deprecated:"true"`
 	Available            bool                `json:"available"`
