@@ -32,6 +32,7 @@ type Source struct {
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
 	Parent            parent
+	client            *whip.Client
 }
 
 // Log implements logger.Writer.
@@ -68,7 +69,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
-	client := whip.Client{
+	client := &whip.Client{
 		URL: u,
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(s.ReadTimeout),
@@ -85,6 +86,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
+	s.client = client
 
 	var subStream *stream.SubStream
 
@@ -137,5 +139,34 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: defs.APIPathSourceTypeWebRTCSource,
 		ID:   "",
+	}
+}
+
+var _ defs.StaticSourceStatsProvider = (*Source)(nil)
+
+// SourceStats exports WebRTC source statistics.
+func (s *Source) SourceStats() defs.StaticSourceStats {
+	if s.client == nil {
+		return nil
+	}
+
+	pc := s.client.PeerConnection()
+	if pc == nil {
+		return nil
+	}
+
+	st := pc.Stats()
+	if st == nil {
+		return nil
+	}
+
+	jitter := st.RTPPacketsJitter
+
+	return &defs.WebRTCSourceStats{
+		BaseSourceStats: defs.BaseSourceStats{
+			PacketsReceived: st.RTPPacketsReceived,
+			PacketsLost:     st.RTPPacketsLost,
+			Jitter:          &jitter,
+		},
 	}
 }
