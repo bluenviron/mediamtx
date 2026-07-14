@@ -149,6 +149,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "[s->c] %v", res)
+
+			if body, changed := normalizeSDPOriginNumericValues(res.Body); changed {
+				res.Body = body
+				s.Log(logger.Warn, "normalized oversized SDP origin session ID/version")
+			}
 		},
 		OnTransportSwitch: func(err error) {
 			s.Log(logger.Warn, err.Error())
