@@ -324,9 +324,14 @@ type Path struct {
 	RPICameraJPEGQuality           *uint     `json:"rpiCameraJPEGQuality,omitempty" deprecated:"true"`
 	RPICameraMJPEGQuality          uint      `json:"rpiCameraMJPEGQuality"`
 	RPICameraPrimaryName           string    `json:"-"` // filled by Validate()
+	RPICameraSecondaryCodec        string    `json:"-"` // filled by Validate()
 	RPICameraSecondaryWidth        uint      `json:"-"` // filled by Validate()
 	RPICameraSecondaryHeight       uint      `json:"-"` // filled by Validate()
 	RPICameraSecondaryFPS          float64   `json:"-"` // filled by Validate()
+	RPICameraSecondaryIDRPeriod    uint      `json:"-"` // filled by Validate()
+	RPICameraSecondaryBitrate      uint      `json:"-"` // filled by Validate()
+	RPICameraSecondaryH264Profile  string    `json:"-"` // filled by Validate()
+	RPICameraSecondaryH264Level    string    `json:"-"` // filled by Validate()
 	RPICameraSecondaryMJPEGQuality uint      `json:"-"` // filled by Validate()
 
 	// Hooks
@@ -700,13 +705,13 @@ func (pconf *Path) validate(
 			pconf.RPICameraMJPEGQuality = *pconf.RPICameraJPEGQuality
 		}
 
-		if !pconf.RPICameraSecondary {
-			switch pconf.RPICameraCodec {
-			case "auto", "hardwareH264", "softwareH264":
-			default:
-				return fmt.Errorf("supported codecs for a primary RPI Camera stream are auto, hardwareH264, softwareH264")
-			}
+		switch pconf.RPICameraCodec {
+		case "auto", "hardwareH264", "softwareH264", "mjpeg":
+		default:
+			return fmt.Errorf("supported codecs for a RPI Camera stream are auto, hardwareH264, softwareH264, mjpeg")
+		}
 
+		if !pconf.RPICameraSecondary {
 			for otherName, otherPath := range conf.Paths {
 				if otherPath != pconf &&
 					otherPath != nil &&
@@ -718,12 +723,6 @@ func (pconf *Path) validate(
 				}
 			}
 		} else {
-			switch pconf.RPICameraCodec {
-			case "auto", "mjpeg":
-			default:
-				return fmt.Errorf("supported codecs for a secondary RPI Camera stream are auto, mjpeg")
-			}
-
 			var primaryName string
 			var primary *Path
 
@@ -752,6 +751,11 @@ func (pconf *Path) validate(
 			primary.RPICameraSecondaryHeight = pconf.RPICameraHeight
 			primary.RPICameraSecondaryFPS = pconf.RPICameraFPS
 			primary.RPICameraSecondaryMJPEGQuality = pconf.RPICameraMJPEGQuality
+			primary.RPICameraSecondaryCodec = pconf.RPICameraCodec
+			primary.RPICameraSecondaryIDRPeriod = pconf.RPICameraIDRPeriod
+			primary.RPICameraSecondaryBitrate = pconf.RPICameraBitrate
+			primary.RPICameraSecondaryH264Profile = pconf.RPICameraH264Profile
+			primary.RPICameraSecondaryH264Level = pconf.RPICameraH264Level
 		}
 
 	default:
@@ -764,7 +768,7 @@ func (pconf *Path) validate(
 		}
 	} else {
 		if pconf.Source != "publisher" && pconf.Source != "redirect" && pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
+			return fmt.Errorf("a path with a regular expression (or path 'all_others') and a static source" +
 				" must have 'sourceOnDemand' set to true")
 		}
 	}
@@ -793,7 +797,7 @@ func (pconf *Path) validate(
 
 	if pconf.AlwaysAvailable {
 		if pconf.Regexp != nil {
-			return fmt.Errorf("'alwaysAvailable' cannot be used in a path with a regular expression (or path 'all')")
+			return fmt.Errorf("'alwaysAvailable' cannot be used in a path with a regular expression (or path 'all_others')")
 		}
 
 		if pconf.SourceOnDemand {
@@ -925,7 +929,7 @@ func (pconf *Path) validate(
 	// Hooks
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
-		return fmt.Errorf("a path with a regular expression (or path 'all')" +
+		return fmt.Errorf("a path with a regular expression (or path 'all_others')" +
 			" does not support option 'runOnInit'; use another path")
 	}
 

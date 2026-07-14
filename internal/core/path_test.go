@@ -908,7 +908,7 @@ func TestPathResolveSource(t *testing.T) {
 			"  '~^test_(.+)$':\n"+
 			"    source: rtsp://127.0.0.1:8555/$G1?$MTX_QUERY\n"+
 			"    sourceOnDemand: yes\n"+
-			"  'all':\n")
+			"  'all_others':\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 

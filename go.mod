@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.26.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.78.0
+	code.cloudfoundry.org/bytefmt v0.80.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
@@ -12,8 +12,8 @@ require (
 	github.com/asticode/go-astits v1.15.0
 	github.com/bluenviron/gohlslib/v2 v2.4.0
 	github.com/bluenviron/gortmplib v0.4.0
-	github.com/bluenviron/gortsplib/v5 v5.6.0
-	github.com/bluenviron/mediacommon/v2 v2.9.0
+	github.com/bluenviron/gortsplib/v5 v5.6.1
+	github.com/bluenviron/mediacommon/v2 v2.9.1
 	github.com/datarhei/gosrt v0.11.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.4
@@ -32,21 +32,21 @@ require (
 	github.com/pion/ice/v4 v4.2.8-0.20260604162030-72f5001c4596
 	github.com/pion/interceptor v0.1.45
 	github.com/pion/logging v0.2.4
-	github.com/pion/rtcp v1.2.16
-	github.com/pion/rtp v1.10.2
+	github.com/pion/rtcp v1.2.17
+	github.com/pion/rtp v1.10.3
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/transport/v4 v4.0.2
-	github.com/pion/webrtc/v4 v4.2.15
-	github.com/pires/go-proxyproto v0.12.0
+	github.com/pion/webrtc/v4 v4.2.16
+	github.com/pires/go-proxyproto v0.14.0
 	github.com/quic-go/quic-go v0.60.0
-	github.com/quic-go/webtransport-go v0.11.0
+	github.com/quic-go/webtransport-go v0.11.1
 	github.com/stretchr/testify v1.11.1
 	github.com/wlynxg/anet v0.0.5
 	golang.org/x/crypto v0.53.0
 	golang.org/x/net v0.56.0
 	golang.org/x/sync v0.21.0
-	golang.org/x/sys v0.46.0
-	golang.org/x/term v0.44.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/term v0.45.0
 )
 
 require (
@@ -82,14 +82,14 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/pion/datachannel v1.6.0 // indirect
+	github.com/pion/datachannel v1.6.2 // indirect
 	github.com/pion/dtls/v3 v3.1.4 // indirect
 	github.com/pion/mdns/v2 v2.1.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/sctp v1.10.0 // indirect
-	github.com/pion/srtp/v3 v3.0.11 // indirect
-	github.com/pion/stun/v3 v3.1.5 // indirect
-	github.com/pion/turn/v5 v5.0.9 // indirect
+	github.com/pion/sctp v1.10.3 // indirect
+	github.com/pion/srtp/v3 v3.0.12 // indirect
+	github.com/pion/stun/v3 v3.1.6 // indirect
+	github.com/pion/turn/v5 v5.0.10 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
@@ -101,7 +101,7 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
