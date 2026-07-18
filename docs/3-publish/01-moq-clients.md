@@ -5,7 +5,7 @@
 | **video** | AV1, VP9, VP8, H265, H264 |
 | **audio** | Opus, MPEG-4 Audio (AAC)  |
 
-Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC, HTTP3) and browser APIs (WebTransport, WebCodecs) that can be used to publish and read live media streams. It's slightly faster than WebRTC, has an advanced data recovery mechanism, it supports additional codecs (FLAC and future ones) and is less complicated to route.
+Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC, HTTP3) and browser APIs (WebTransport, WebCodecs) that can be used to publish and read live media streams. It's slightly faster than WebRTC, has an advanced data recovery mechanism, supports additional codecs (FLAC and future ones), supports B-frames and is less complicated to route.
 
 Media-over-QUIC has a wide range of features and variants, most of them in active development. We currently support the following:
 
