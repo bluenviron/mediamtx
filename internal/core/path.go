@@ -98,7 +98,7 @@ type path struct {
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
-	onNotReadyHook                 func()
+	onUnavailableHook              func()
 	onOfflineHook                  func()
 	readers                        map[defs.Reader]struct{}
 	describeRequestsOnHold         []defs.PathDescribeReq
@@ -881,7 +881,7 @@ func (pa *path) setAvailable(
 		sourceDesc = source.APISourceDescribe()
 	}
 
-	pa.onNotReadyHook = hooks.OnReady(hooks.OnReadyParams{
+	pa.onUnavailableHook = hooks.OnAvailable(hooks.OnAvailableParams{
 		Logger:          pa,
 		ExternalCmdPool: pa.externalCmdPool,
 		Conf:            pa.conf,
@@ -928,7 +928,7 @@ func (pa *path) setNotAvailable() {
 		r.Close()
 	}
 
-	pa.onNotReadyHook()
+	pa.onUnavailableHook()
 
 	if pa.recorder != nil {
 		pa.recorder.Close()

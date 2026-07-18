@@ -9,8 +9,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// OnReadyParams are the parameters of OnReady.
-type OnReadyParams struct {
+// OnAvailableParams are the parameters of OnAvailable.
+type OnAvailableParams struct {
 	Logger          logger.Writer
 	ExternalCmdPool *externalcmd.Pool
 	Conf            *conf.Path
@@ -19,12 +19,12 @@ type OnReadyParams struct {
 	Query           string
 }
 
-// OnReady is the OnReady hook.
-func OnReady(params OnReadyParams) func() {
+// OnAvailable is the OnAvailable hook.
+func OnAvailable(params OnAvailableParams) func() {
 	var env externalcmd.Environment
-	var onReadyCmd *externalcmd.Cmd
+	var onAvailableCmd *externalcmd.Cmd
 
-	if params.Conf.RunOnReady != "" || params.Conf.RunOnNotReady != "" {
+	if params.Conf.RunOnAvailable != "" || params.Conf.RunOnUnavailable != "" {
 		env = params.ExternalCmdEnv
 		env["MTX_QUERY"] = url.QueryEscape(params.Query)
 		if params.Desc != nil {
@@ -33,31 +33,31 @@ func OnReady(params OnReadyParams) func() {
 		}
 	}
 
-	if params.Conf.RunOnReady != "" {
-		params.Logger.Log(logger.Info, "runOnReady command started")
-		onReadyCmd = &externalcmd.Cmd{
+	if params.Conf.RunOnAvailable != "" {
+		params.Logger.Log(logger.Info, "runOnAvailable command started")
+		onAvailableCmd = &externalcmd.Cmd{
 			Pool:    params.ExternalCmdPool,
-			Cmdstr:  params.Conf.RunOnReady,
-			Restart: params.Conf.RunOnReadyRestart,
+			Cmdstr:  params.Conf.RunOnAvailable,
+			Restart: params.Conf.RunOnAvailableRestart,
 			Env:     env,
 			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnReady command exited: %v", err)
+				params.Logger.Log(logger.Info, "runOnAvailable command exited: %v", err)
 			},
 		}
-		onReadyCmd.Start()
+		onAvailableCmd.Start()
 	}
 
 	return func() {
-		if onReadyCmd != nil {
-			onReadyCmd.Close()
-			params.Logger.Log(logger.Info, "runOnReady command stopped")
+		if onAvailableCmd != nil {
+			onAvailableCmd.Close()
+			params.Logger.Log(logger.Info, "runOnAvailable command stopped")
 		}
 
-		if params.Conf.RunOnNotReady != "" {
-			params.Logger.Log(logger.Info, "runOnNotReady command launched")
+		if params.Conf.RunOnUnavailable != "" {
+			params.Logger.Log(logger.Info, "runOnUnavailable command launched")
 			cmd := &externalcmd.Cmd{
 				Pool:    params.ExternalCmdPool,
-				Cmdstr:  params.Conf.RunOnNotReady,
+				Cmdstr:  params.Conf.RunOnUnavailable,
 				Restart: false,
 				Env:     env,
 			}
