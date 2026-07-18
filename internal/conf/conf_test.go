@@ -853,6 +853,25 @@ func TestConfErrors(t *testing.T) {
 	}
 }
 
+func TestDeprecatedAvailabilityHooks(t *testing.T) {
+	tmpf := createTempFile(t, []byte("paths:\n"+
+		"  mypath:\n"+
+		"    runOnReady: command1\n"+
+		"    runOnReadyRestart: yes\n"+
+		"    runOnNotReady: command2\n"))
+
+	conf, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+
+	pa := conf.Paths["mypath"]
+	require.Equal(t, "command1", pa.RunOnAvailable)
+	require.Equal(t, true, pa.RunOnAvailableRestart)
+	require.Equal(t, "command2", pa.RunOnUnavailable)
+	require.Equal(t, "command1", *pa.RunOnReady)
+	require.Equal(t, true, *pa.RunOnReadyRestart)
+	require.Equal(t, "command2", *pa.RunOnNotReady)
+}
+
 func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 	tmpf := createTempFile(t, []byte("ABCDEFGHI"))
 

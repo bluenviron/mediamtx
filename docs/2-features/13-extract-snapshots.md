@@ -1,10 +1,10 @@
 # Extract snapshots
 
-You can periodically extract snapshots from available streams by using FFmpeg inside the `runOnReady` hook:
+You can periodically extract snapshots from available streams by using FFmpeg inside the `runOnAvailable` hook:
 
 ```yml
 pathDefaults:
-  runOnReady: |
+  runOnAvailable: |
     bash -c "
     while true; do
       mkdir -p $(dirname snapshots/$MTX_PATH)

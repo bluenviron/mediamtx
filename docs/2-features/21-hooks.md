@@ -80,14 +80,14 @@ pathDefaults:
   runOnUnDemand:
 ```
 
-## runOnReady
+## runOnAvailable
 
-`runOnReady` allows to run a command when a stream is available to be read:
+`runOnAvailable` allows to run a command when a stream is available to be read:
 
 ```yml
 pathDefaults:
   # Command to run when the stream is available to be read.
-  # This is terminated with SIGINT when the stream is not ready anymore.
+  # This is terminated with SIGINT when the stream is not available anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher) (url-encoded)
@@ -96,20 +96,20 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+  runOnAvailable: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
   # Restart the command if it exits.
-  runOnReadyRestart: no
+  runOnAvailableRestart: no
 ```
 
-## runOnNotReady
+## runOnUnavailable
 
-`runOnNotReady` allows to run a command when a stream is not available anymore:
+`runOnUnavailable` allows to run a command when a stream is not available anymore:
 
 ```yml
 pathDefaults:
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnReady.
-  runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+  # Environment variables are the same as runOnAvailable.
+  runOnUnavailable: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
 
 ## runOnOnline

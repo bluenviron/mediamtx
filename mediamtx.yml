@@ -759,7 +759,7 @@ pathDefaults:
   runOnUnDemand:
 
   # Command to run when the stream is available to be read.
-  # This is terminated with SIGINT when the stream is not ready anymore.
+  # This is terminated with SIGINT when the stream is not available anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher) (url-encoded)
@@ -768,12 +768,12 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnReady:
+  runOnAvailable:
   # Restart the command if it exits.
-  runOnReadyRestart: false
+  runOnAvailableRestart: false
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnReady.
-  runOnNotReady:
+  # Environment variables are the same as runOnAvailable.
+  runOnUnavailable:
 
   # Command to run when the stream is online, which means
   # that the stream is available and provided by a online source (not an offline segment).
