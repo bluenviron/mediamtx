@@ -74,6 +74,7 @@ type metricsType string
 
 const (
 	metricsTypePaths          metricsType = "paths"
+	metricsTypePushTargets    metricsType = "push_targets"
 	metricsTypeHLSSessions    metricsType = "hls_sessions"
 	metricsTypeHLSMuxers      metricsType = "hls_muxers"
 	metricsTypeRTSPConns      metricsType = "rtsp_conns"
@@ -228,6 +229,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
+	pushTargetFilter := ctx.Query("push_target")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
 	hlsSessionFilter := ctx.Query("hls_session")
 	rtspConnFilter := ctx.Query("rtsp_conn")
@@ -241,6 +243,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	moqSessionFilter := ctx.Query("moq_session")
 
 	anyFilterActive := pathFilter != "" ||
+		pushTargetFilter != "" ||
 		hlsMuxerFilter != "" ||
 		hlsSessionFilter != "" ||
 		rtspConnFilter != "" ||
@@ -338,6 +341,61 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			metric(&out, "paths_bytes_sent", "", 0)
 			metric(&out, "paths_readers", "", 0)
 			out.WriteString("\n")
+		}
+	}
+
+	if (typ == "" || typ == metricsTypePushTargets) &&
+		(!anyFilterActive || pathFilter != "" || pushTargetFilter != "") {
+		data, err := pathManager.APIPathsList()
+		if err == nil {
+			type pushTargetWithPath struct {
+				path string
+				item defs.APIPushTarget
+			}
+
+			var items []pushTargetWithPath
+			for _, pa := range data.Items {
+				if pathFilter != "" && pathFilter != pa.Name {
+					continue
+				}
+
+				targets, targetsErr := pathManager.APIPushTargetsList(pa.Name)
+				if targetsErr != nil {
+					continue
+				}
+
+				for _, target := range targets.Items {
+					if pushTargetFilter == "" || pushTargetFilter == target.ID.String() {
+						items = append(items, pushTargetWithPath{
+							path: pa.Name,
+							item: target,
+						})
+					}
+				}
+			}
+
+			if len(items) != 0 {
+				out.WriteString("# Push targets\n")
+				for _, i := range items {
+					ta := tags(map[string]string{
+						"id":       i.item.ID.String(),
+						"path":     i.path,
+						"protocol": string(i.item.Protocol),
+						"source":   string(i.item.Source),
+						"state":    string(i.item.State),
+						"url":      i.item.URL,
+					})
+
+					metric(&out, "push_targets", ta, 1)
+					metric(&out, "push_targets_outbound_bytes", ta, int64(i.item.OutboundBytes))
+				}
+				out.WriteString("\n")
+			} else if typ == metricsTypePushTargets && pathFilter == "" && pushTargetFilter == "" {
+				out.WriteString("# Push targets\n")
+				metric(&out, "push_targets", "", 0)
+				metric(&out, "push_targets_outbound_bytes", "", 0)
+				out.WriteString("\n")
+			}
 		}
 	}
 

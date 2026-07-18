@@ -513,6 +513,12 @@ pathDefaults:
   sourceOnDemandCloseAfter: 10s
   # Maximum number of readers. Zero means no limit.
   maxReaders: 0
+  # Push the stream of this path to one or more external servers.
+  # Supported schemes are: rtmp, rtmps, rtsp, rtsps, srt.
+  # The URL can contain the variable $MTX_PATH. If the path name is a regular expression,
+  # regular expression groups can be used with $G1, $G2, and so on.
+  pushTargets: []
+    # - url: rtmp://other-server/live/$MTX_PATH
   # SRT encryption passphrase required to read from this path.
   srtReadPassphrase:
   # Use absolute timestamp of frames, instead of replacing them with the current time.

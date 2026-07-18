@@ -86,6 +86,10 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathConfList{}),
 	},
 	{
+		externalName: "PathConfPushTarget",
+		typ:          reflect.TypeOf(conf.PushTarget{}),
+	},
+	{
 		externalName: "PathList",
 		typ:          reflect.TypeOf(defs.APIPathList{}),
 	},
@@ -136,6 +140,18 @@ var structs = []struct {
 	{
 		externalName: "PathTrackCodecPropsVP9",
 		typ:          reflect.TypeOf(defs.APIPathTrackCodecPropsVP9{}),
+	},
+	{
+		externalName: "PushTarget",
+		typ:          reflect.TypeOf(defs.APIPushTarget{}),
+	},
+	{
+		externalName: "PushTargetAdd",
+		typ:          reflect.TypeOf(defs.APIPushTargetAdd{}),
+	},
+	{
+		externalName: "PushTargetList",
+		typ:          reflect.TypeOf(defs.APIPushTargetList{}),
 	},
 	{
 		externalName: "Recording",
@@ -292,6 +308,9 @@ func schemaName(rt reflect.Type) string {
 	if rt == reflect.TypeOf(conf.Path{}) {
 		return "PathConf"
 	}
+	if rt == reflect.TypeOf(conf.PushTarget{}) {
+		return "PathConfPushTarget"
+	}
 
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
 		return "PathTrackCodec"
@@ -349,6 +368,15 @@ func isStructEnum(rt reflect.Type) bool {
 		return true
 
 	case reflect.TypeOf(defs.APIPathReaderType("")):
+		return true
+
+	case reflect.TypeOf(defs.APIPushTargetProtocol("")):
+		return true
+
+	case reflect.TypeOf(defs.APIPushTargetSource("")):
+		return true
+
+	case reflect.TypeOf(defs.APIPushTargetState("")):
 		return true
 
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):

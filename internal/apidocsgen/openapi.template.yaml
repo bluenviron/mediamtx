@@ -721,6 +721,194 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v3/paths/pushtargets/list/{name}:
+    get:
+      operationId: pathsPushTargetsList
+      tags: [Paths]
+      summary: returns all push targets of a path.
+      description: ""
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushTargetList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/pushtargets/get/{id}/{name}:
+    get:
+      operationId: pathsPushTargetsGet
+      tags: [Paths]
+      summary: returns a push target.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the push target.
+          schema:
+            type: string
+            format: uuid
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushTarget"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or push target not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/pushtargets/add/{name}:
+    post:
+      operationId: pathsPushTargetsAdd
+      tags: [Paths]
+      summary: adds a push target to a path.
+      description: ""
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTargetAdd"
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushTarget"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/pushtargets/remove/{id}/{name}:
+    delete:
+      operationId: pathsPushTargetsRemove
+      tags: [Paths]
+      summary: removes a push target from a path.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the push target.
+          schema:
+            type: string
+            format: uuid
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or push target not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v3/rtspconns/list:
     get:
       operationId: rtspConnsList

@@ -211,15 +211,16 @@ type Path struct {
 	Name   string         `json:"name"` // filled by Validate()
 
 	// General
-	Source                     string   `json:"source"`
-	SourceFingerprint          string   `json:"sourceFingerprint"`
-	SourceOnDemand             bool     `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
-	MaxReaders                 int      `json:"maxReaders"`
-	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
-	Fallback                   *string  `json:"fallback,omitempty" deprecated:"true"`
-	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
+	Source                     string      `json:"source"`
+	SourceFingerprint          string      `json:"sourceFingerprint"`
+	SourceOnDemand             bool        `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout Duration    `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   Duration    `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int         `json:"maxReaders"`
+	PushTargets                PushTargets `json:"pushTargets"`
+	SRTReadPassphrase          string      `json:"srtReadPassphrase"`
+	Fallback                   *string     `json:"fallback,omitempty" deprecated:"true"`
+	UseAbsoluteTimestamp       bool        `json:"useAbsoluteTimestamp"`
 
 	// Always available
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
@@ -779,9 +780,14 @@ func (pconf *Path) validate(
 		}
 	}
 
+	err := pconf.PushTargets.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid 'pushTargets': %w", err)
+	}
+
 	if pconf.Fallback != nil {
 		l.Log(logger.Warn, "the 'fallback' feature is deprecated, use 'alwaysAvailable' instead")
-		err := checkRedirect(*pconf.Fallback)
+		err = checkRedirect(*pconf.Fallback)
 		if err != nil {
 			return err
 		}
@@ -807,7 +813,7 @@ func (pconf *Path) validate(
 				return fmt.Errorf("'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together")
 			}
 
-			err := checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
+			err = checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
 			if err != nil {
 				return fmt.Errorf("invalid 'alwaysAvailableFile': %w", err)
 			}

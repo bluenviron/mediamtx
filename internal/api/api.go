@@ -116,6 +116,10 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
+	group.GET("/paths/pushtargets/list/*name", a.onPushTargetsList)
+	group.GET("/paths/pushtargets/get/:id/*name", a.onPushTargetsGet)
+	group.POST("/paths/pushtargets/add/*name", a.onPushTargetsAdd)
+	group.DELETE("/paths/pushtargets/remove/:id/*name", a.onPushTargetsRemove)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
