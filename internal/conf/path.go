@@ -344,6 +344,9 @@ type Path struct {
 	RunOnReady                 string   `json:"runOnReady"`
 	RunOnReadyRestart          bool     `json:"runOnReadyRestart"`
 	RunOnNotReady              string   `json:"runOnNotReady"`
+	RunOnOnline                string   `json:"runOnOnline"`
+	RunOnOnlineRestart         bool     `json:"runOnOnlineRestart"`
+	RunOnOffline               string   `json:"runOnOffline"`
 	RunOnRead                  string   `json:"runOnRead"`
 	RunOnReadRestart           bool     `json:"runOnReadRestart"`
 	RunOnUnread                string   `json:"runOnUnread"`

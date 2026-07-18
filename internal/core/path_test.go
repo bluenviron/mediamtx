@@ -366,6 +366,82 @@ func TestPathRunOnReadyQueryInjection(t *testing.T) {
 	}
 }
 
+func TestPathRunOnOnline(t *testing.T) {
+	onOnline := filepath.Join(t.TempDir(), "on_online")
+	onOffline := filepath.Join(t.TempDir(), "on_offline")
+
+	func() {
+		p, ok := newInstance(t, fmt.Sprintf("rtmp: no\n"+
+			"hls: no\n"+
+			"webrtc: no\n"+
+			"paths:\n"+
+			"  test:\n"+
+			"    alwaysAvailable: yes\n"+
+			"    alwaysAvailableTracks:\n"+
+			"    - codec: H264\n"+
+			"    runOnOnline: sh -c 'echo \"$MTX_PATH $MTX_QUERY $MTX_SOURCE_TYPE $MTX_SOURCE_ID $RTSP_PORT $G1\" "+
+			"> %s; while true; do sleep 1; done'\n"+
+			"    runOnOffline: sh -c 'echo \"$MTX_PATH $MTX_QUERY $MTX_SOURCE_TYPE $MTX_SOURCE_ID $RTSP_PORT $G1\" "+
+			"> %s'\n",
+			onOnline, onOffline))
+		require.Equal(t, true, ok)
+		defer p.Close()
+
+		_, err := os.Stat(onOnline)
+		require.ErrorIs(t, err, os.ErrNotExist)
+
+		c := gortsplib.Client{}
+
+		err = c.StartRecording(
+			"rtsp://localhost:8554/test?query=value",
+			&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
+		require.NoError(t, err)
+
+		for {
+			_, err = os.Stat(onOnline)
+			if err == nil {
+				break
+			}
+			require.ErrorIs(t, err, os.ErrNotExist)
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		_, err = os.Stat(onOffline)
+		require.ErrorIs(t, err, os.ErrNotExist)
+
+		c.Close()
+
+		for {
+			_, err = os.Stat(onOffline)
+			if err == nil {
+				break
+			}
+			require.ErrorIs(t, err, os.ErrNotExist)
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+
+	byts, err := os.ReadFile(onOnline)
+	require.NoError(t, err)
+	fields := strings.Split(string(byts[:len(byts)-1]), " ")
+	require.Equal(t, "test", fields[0])
+	require.Equal(t, "query%3Dvalue", fields[1])
+	require.Equal(t, "rtspSession", fields[2])
+	require.NotEmpty(t, fields[3])
+	require.Equal(t, "8554", fields[4])
+	require.Equal(t, "", fields[5])
+
+	byts, err = os.ReadFile(onOffline)
+	require.NoError(t, err)
+	fields = strings.Split(string(byts[:len(byts)-1]), " ")
+	require.Equal(t, "test", fields[0])
+	require.Equal(t, "query%3Dvalue", fields[1])
+	require.Equal(t, "rtspSession", fields[2])
+	require.NotEmpty(t, fields[3])
+	require.Equal(t, "8554", fields[4])
+	require.Equal(t, "", fields[5])
+}
+
 func TestPathRunOnRead(t *testing.T) {
 	serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
 	serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
