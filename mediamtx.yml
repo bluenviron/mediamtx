@@ -598,7 +598,7 @@ pathDefaults:
   # values 0 < x < 1 play slow motion.
   rtspScale:
   # Range of ports used as source port in outgoing UDP packets.
-  rtspUDPSourcePortRange: [10000, 65535]
+  rtspUDPSourcePortRange: [32768, 60999]
 
   ###############################################
   # Default path settings -> RTP source (when source is RTP)

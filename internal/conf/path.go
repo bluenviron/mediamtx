@@ -375,7 +375,7 @@ func (pconf *Path) setDefaults() {
 	pconf.OverridePublisher = true
 
 	// RTSP source
-	pconf.RTSPUDPSourcePortRange = []uint{10000, 65535}
+	pconf.RTSPUDPSourcePortRange = []uint{32768, 60999}
 
 	// WHEP source
 	pconf.WHEPSTUNGatherTimeout = Duration(5 * time.Second)

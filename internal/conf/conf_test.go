@@ -54,7 +54,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordMaxPartSize:          50 * 1024 * 1024,
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
-			RTSPUDPSourcePortRange:     []uint{10000, 65535},
+			RTSPUDPSourcePortRange:     []uint{32768, 60999},
 			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
 			WHEPHandshakeTimeout:       10 * Duration(time.Second),
 			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
