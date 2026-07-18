@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math/big"
 	"time"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (
@@ -12,10 +14,12 @@ const (
 	maxPause = 4 * time.Second
 )
 
-// DelayBruteForce delays brute force attacks by waiting some seconds after an authentication error.
-func DelayBruteForce(err error) {
+// LogAndDelayError logs authentication errors and delays brute force attacks by waiting some seconds.
+func LogAndDelayError(author logger.Writer, err error) {
 	if terr, ok := errors.AsType[*Error](err); ok {
 		if !terr.AskCredentials {
+			author.Log(logger.Warn, err.Error())
+
 			var n *big.Int
 			n, err = rand.Int(rand.Reader, big.NewInt(int64(maxPause-minPause)))
 			if err != nil {

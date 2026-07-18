@@ -29,6 +29,9 @@ type secondaryReader struct {
 	ctxCancel func()
 }
 
+func (r *secondaryReader) Log(level logger.Level, format string, args ...interface{}) {
+}
+
 // Close implements reader.
 func (r *secondaryReader) Close() {
 	r.ctxCancel()

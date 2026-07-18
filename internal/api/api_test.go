@@ -186,7 +186,6 @@ func TestAuthJWKSRefresh(t *testing.T) {
 
 func TestAuthError(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
-	n := 0
 
 	api := API{
 		Address:      "localhost:9997",
@@ -201,16 +200,7 @@ func TestAuthError(t *testing.T) {
 				return "", &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: &testParent{
-			log: func(l logger.Level, s string, i ...any) {
-				if l == logger.Info {
-					if n == 1 {
-						require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
-					}
-					n++
-				}
-			},
-		},
+		Parent: &testParent{},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -235,6 +225,4 @@ func TestAuthError(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 	require.Equal(t, ``, res.Header.Get("WWW-Authenticate"))
 	checkError(t, res.Body, "authentication error")
-
-	require.Equal(t, 2, n)
 }

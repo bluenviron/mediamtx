@@ -68,8 +68,10 @@ func (s *session) initialize(ctx *gin.Context) error {
 	}
 	if s.isCDN {
 		accessReq.SkipAuth = true
+		s.Log(logger.Info, "created by %s (CDN)", s.remoteAddr)
 	} else {
 		accessReq.Credentials = httpp.Credentials(ctx.Request)
+		s.Log(logger.Info, "created by %s", s.remoteAddr)
 	}
 
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
@@ -122,11 +124,7 @@ func (s *session) initialize(ctx *gin.Context) error {
 
 	res.Stream.AddReader(s.reader)
 
-	if s.isCDN {
-		s.Log(logger.Info, "created by %s (CDN), reading from muxer '%s'", s.remoteAddr, s.pathName)
-	} else {
-		s.Log(logger.Info, "created by %s, reading from muxer '%s'", s.remoteAddr, s.pathName)
-	}
+	s.Log(logger.Info, "is reading from muxer '%s'", s.pathName)
 
 	s.onUnreadHook = hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,

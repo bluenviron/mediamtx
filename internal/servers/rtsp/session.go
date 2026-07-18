@@ -202,6 +202,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	}
 
 	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: s,
 		AccessRequest: defs.PathAccessRequest{
 			Name:             ctx.Path,
 			Query:            ctx.Query,

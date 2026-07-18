@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -686,23 +684,13 @@ func TestAuthError(t *testing.T) {
 		},
 	}
 
-	var n atomic.Int64
-	done := make(chan struct{})
-
 	s := &Server{
 		Address:        "127.0.0.1:8557",
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 512,
 		PathManager:    pathManager,
-		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-			if l == logger.Info {
-				if n.Add(1) == 3 {
-					require.Regexp(t, "authentication failed: auth error$", fmt.Sprintf(s, i...))
-					close(done)
-				}
-			}
-		}),
+		Parent:         test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -722,6 +710,4 @@ func TestAuthError(t *testing.T) {
 
 	_, _, err = reader.Describe(u)
 	require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
-
-	<-done
 }

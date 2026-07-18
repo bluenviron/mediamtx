@@ -142,16 +142,16 @@ func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 
 	_, err := s.AuthManager.Authenticate(req)
 	if err != nil {
-		auth.DelayBruteForce(err)
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: s,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return false
 		}
-
-		s.Log(logger.Info, "connection %v failed to authenticate: %v",
-			httpp.RemoteAddr(ctx), err.Wrapped)
 
 		s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return false
