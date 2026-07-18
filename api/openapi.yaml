@@ -1139,6 +1139,12 @@ components:
           type: boolean
         runOnNotReady:
           type: string
+        runOnOffline:
+          type: string
+        runOnOnline:
+          type: string
+        runOnOnlineRestart:
+          type: boolean
         runOnRead:
           type: string
         runOnReadRestart:
