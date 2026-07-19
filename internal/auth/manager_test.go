@@ -196,10 +196,11 @@ func TestAuthInternal(t *testing.T) {
 
 				// first request with empty credentials
 				_, err := m.Authenticate(&Request{
-					Action:      req.Action,
-					Path:        req.Path,
-					Credentials: &Credentials{},
-					IP:          req.IP,
+					Action:               req.Action,
+					Path:                 req.Path,
+					Credentials:          &Credentials{},
+					IP:                   req.IP,
+					EnableAskCredentials: true,
 				})
 				require.Equal(t, &Error{
 					Wrapped:        err.Wrapped,
@@ -349,10 +350,11 @@ func TestAuthHTTP(t *testing.T) {
 
 			// first request with empty credentials
 			_, err2 := m.Authenticate(&Request{
-				Action:      req.Action,
-				Path:        req.Path,
-				Credentials: &Credentials{},
-				IP:          req.IP,
+				Action:               req.Action,
+				Path:                 req.Path,
+				Credentials:          &Credentials{},
+				IP:                   req.IP,
+				EnableAskCredentials: true,
 			})
 			require.Equal(t, &Error{
 				Wrapped:        err2.Wrapped,
@@ -581,10 +583,11 @@ func TestAuthJWT(t *testing.T) {
 
 			// first request with empty credentials
 			_, err2 := m.Authenticate(&Request{
-				Action:      req.Action,
-				Path:        req.Path,
-				Credentials: &Credentials{},
-				IP:          req.IP,
+				Action:               req.Action,
+				Path:                 req.Path,
+				Credentials:          &Credentials{},
+				IP:                   req.IP,
+				EnableAskCredentials: true,
 			})
 			require.Equal(t, &Error{
 				Wrapped:        err2.Wrapped,

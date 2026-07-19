@@ -118,20 +118,12 @@ func TestAuthError(t *testing.T) {
 
 				switch ca {
 				case "subscribe":
-					pm.AddReaderImpl = func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-						}
-
+					pm.AddReaderImpl = func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					}
 
 				case "publish":
-					pm.AddPublisherImpl = func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
-						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-						}
-
+					pm.AddPublisherImpl = func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					}
 				}

@@ -133,25 +133,26 @@ func (s *Server) middlewarePreflightRequests(ctx *gin.Context) {
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
 	req := &auth.Request{
-		Action:      conf.AuthActionPlayback,
-		Path:        pathName,
-		Query:       ctx.Request.URL.RawQuery,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:               conf.AuthActionPlayback,
+		Path:                 pathName,
+		Query:                ctx.Request.URL.RawQuery,
+		Credentials:          httpp.Credentials(ctx.Request),
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
 
 	_, err := s.AuthManager.Authenticate(req)
 	if err != nil {
-		auth.LogAndDelayError(&logger.InlineWriter{
-			Parent: s,
-			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
-		}, err)
-
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return false
 		}
+
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: s,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
 		s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return false

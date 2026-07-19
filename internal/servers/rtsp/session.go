@@ -204,15 +204,16 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	res, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:             ctx.Path,
-			Query:            ctx.Query,
-			Publish:          true,
-			UserAgent:        userAgent,
-			Proto:            auth.ProtocolRTSP,
-			ID:               &c.uuid,
-			Credentials:      rtsp.Credentials(ctx.Request),
-			IP:               c.ip(),
-			CustomVerifyFunc: customVerifyFunc,
+			Name:                 ctx.Path,
+			Query:                ctx.Query,
+			Publish:              true,
+			UserAgent:            userAgent,
+			Proto:                auth.ProtocolRTSP,
+			ID:                   &c.uuid,
+			Credentials:          rtsp.Credentials(ctx.Request),
+			IP:                   c.ip(),
+			CustomVerifyFunc:     customVerifyFunc,
+			EnableAskCredentials: true,
 		},
 	})
 	if err != nil {
@@ -278,14 +279,15 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 			Author: s,
 			AccessRequest: defs.PathAccessRequest{
-				Name:             ctx.Path,
-				Query:            ctx.Query,
-				UserAgent:        userAgent,
-				Proto:            auth.ProtocolRTSP,
-				ID:               &c.uuid,
-				Credentials:      rtsp.Credentials(ctx.Request),
-				IP:               c.ip(),
-				CustomVerifyFunc: customVerifyFunc,
+				Name:                 ctx.Path,
+				Query:                ctx.Query,
+				UserAgent:            userAgent,
+				Proto:                auth.ProtocolRTSP,
+				ID:                   &c.uuid,
+				Credentials:          rtsp.Credentials(ctx.Request),
+				IP:                   c.ip(),
+				CustomVerifyFunc:     customVerifyFunc,
+				EnableAskCredentials: true,
 			},
 		})
 		if err != nil {
@@ -409,9 +411,9 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		AccessRequest: defs.PathAccessRequest{
 			Name:      s.rsession.Path()[1:],
 			Query:     s.rsession.Query(),
+			UserAgent: s.userAgent,
 			Publish:   true,
 			SkipAuth:  true,
-			UserAgent: s.userAgent,
 		},
 	})
 	if err != nil {
