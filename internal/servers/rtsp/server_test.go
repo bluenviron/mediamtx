@@ -77,11 +77,14 @@ func TestServerPublish(t *testing.T) {
 					dataReceived := make(chan struct{})
 
 					n := 0
+					var accessID string
 
 					pathManager := &test.PathManager{
 						FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 							require.Equal(t, "teststream", req.AccessRequest.Name)
 							require.Equal(t, "param=value", req.AccessRequest.Query)
+							require.NotNil(t, req.AccessRequest.ID)
+							accessID = req.AccessRequest.ID.String()
 
 							if ca == "basic" {
 								require.Nil(t, req.AccessRequest.CustomVerifyFunc)
@@ -233,6 +236,7 @@ func TestServerPublish(t *testing.T) {
 
 					list, err := s.APISessionsList()
 					require.NoError(t, err)
+					require.Equal(t, list.Items[0].ID.String(), accessID)
 					require.Equal(t, &defs.APIRTSPSessionList{
 						Items: []defs.APIRTSPSession{
 							{
@@ -436,6 +440,7 @@ func TestServerRead(t *testing.T) {
 			require.NoError(t, err)
 
 			n := 0
+			var accessID string
 
 			pathManager := &test.PathManager{
 				DescribeImpl: func(req defs.PathDescribeReq) (*defs.PathDescribeRes, error) {
@@ -469,6 +474,8 @@ func TestServerRead(t *testing.T) {
 				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
+					require.NotNil(t, req.AccessRequest.ID)
+					accessID = req.AccessRequest.ID.String()
 
 					if ca == "basic" {
 						require.Nil(t, req.AccessRequest.CustomVerifyFunc)
@@ -562,6 +569,7 @@ func TestServerRead(t *testing.T) {
 
 			list, err := s.APISessionsList()
 			require.NoError(t, err)
+			require.Equal(t, list.Items[0].ID.String(), accessID)
 			require.Equal(t, &defs.APIRTSPSessionList{
 				Items: []defs.APIRTSPSession{
 					{
