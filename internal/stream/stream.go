@@ -351,7 +351,7 @@ func (s *Stream) Initialize() error {
 		sm := &streamMedia{
 			origMedia:            origMedia,
 			alwaysAvailable:      s.AlwaysAvailable,
-				rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
+			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
 			replaceNTP:           s.ReplaceNTP,
 			inboundBytes:         &s.inboundBytes,
 			outboundBytes:        &s.outboundBytes,
