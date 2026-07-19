@@ -106,6 +106,18 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
+	s.ctx = ctx
+	s.ctxCancel = ctxCancel
+	s.sessions = make(map[*session]struct{})
+	s.chNewSession = make(chan newSessionReq)
+	s.chCloseSession = make(chan *session)
+	s.chAPISessionsList = make(chan serverAPISessionsListReq)
+	s.chAPISessionsGet = make(chan serverAPISessionsGetReq)
+	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
+	s.done = make(chan struct{})
+
 	s.httpServer = &httpServer{
 		http2Address:      s.HTTP2Address,
 		http3Address:      s.HTTP3Address,
@@ -121,17 +133,9 @@ func (s *Server) Initialize() error {
 	}
 	err := s.httpServer.initialize()
 	if err != nil {
+		ctxCancel()
 		return err
 	}
-
-	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
-	s.sessions = make(map[*session]struct{})
-	s.chNewSession = make(chan newSessionReq)
-	s.chCloseSession = make(chan *session)
-	s.chAPISessionsList = make(chan serverAPISessionsListReq)
-	s.chAPISessionsGet = make(chan serverAPISessionsGetReq)
-	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
-	s.done = make(chan struct{})
 
 	s.Log(logger.Info, "started with listeners on %s (TCP/HTTP2), %s (UDP/HTTP3)", s.HTTP2Address, s.HTTP3Address)
 
