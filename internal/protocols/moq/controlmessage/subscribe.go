@@ -26,8 +26,9 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	m.RequestID = uint64(requestID)
 	buf = buf[n:]
+
+	m.RequestID = uint64(requestID)
 
 	var nsCount varint.Varint
 	n, err = nsCount.Unmarshal(buf)
@@ -35,6 +36,10 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 		return err
 	}
 	buf = buf[n:]
+
+	if nsCount > maxNamespaceFieldCount {
+		return fmt.Errorf("too many namespace fields: %d", nsCount)
+	}
 
 	m.Namespace = make([]string, nsCount)
 	for i := range m.Namespace {
@@ -44,9 +49,11 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 			return err
 		}
 		buf = buf[n:]
-		if len(buf) < int(l) {
+
+		if uint64(len(buf)) < uint64(l) {
 			return fmt.Errorf("not enough bytes for namespace part")
 		}
+
 		m.Namespace[i] = string(buf[:l])
 		buf = buf[int(l):]
 	}
@@ -57,9 +64,11 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 		return err
 	}
 	buf = buf[n:]
-	if len(buf) < int(tnLen) {
-		return fmt.Errorf("not enough bytes for track name")
+
+	if uint64(len(buf)) < uint64(tnLen) {
+		return fmt.Errorf("invalid track name length: %d", tnLen)
 	}
+
 	m.TrackName = string(buf[:tnLen])
 	buf = buf[int(tnLen):]
 
