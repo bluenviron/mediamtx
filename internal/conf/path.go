@@ -239,8 +239,8 @@ type Path struct {
 	Forward Forward `json:"forward"`
 
 	// Fallback source
-	FallbackSource        string `json:"fallbackSource"`
-	FallbackSourceMode    string `json:"fallbackSourceMode"` // "preconnect" (default) or "ondemand"
+	FallbackSource     string `json:"fallbackSource"`
+	FallbackSourceMode string `json:"fallbackSourceMode"` // "preconnect" (default) or "ondemand"
 
 	// Record
 	Record                bool         `json:"record"`
