@@ -8,7 +8,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
 )
 
-const maxPayloadSize = 10 * 1024 * 1024
+const (
+	maxPropsLen    = 128 * 1024
+	maxPayloadSize = 10 * 1024 * 1024
+)
 
 // Object is an object of a subgroup stream.
 // spec: draft-18, section 11.4.2
@@ -34,6 +37,10 @@ func (o *Object) read(r io.Reader, header *Header) error {
 		}
 
 		if propsLen > 0 {
+			if propsLen > maxPropsLen {
+				return fmt.Errorf("properties too large: %d", propsLen)
+			}
+
 			props := make([]byte, propsLen)
 			_, err = io.ReadFull(r, props)
 			if err != nil {
