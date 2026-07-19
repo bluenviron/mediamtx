@@ -872,6 +872,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+        recording:
+          type: boolean
         source:
           type: object
           allOf:
@@ -3746,6 +3748,87 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/recordings/start/{name}:
+    post:
+      operationId: recordingStart
+      tags: [Recordings]
+      summary: starts recording on a path at runtime, without altering its configuration.
+      description: >-
+        The path must have an active publisher. If the path is already
+        recording, the request succeeds without any effect.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request, for instance the path has no active publisher.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/recordings/stop/{name}:
+    post:
+      operationId: recordingStop
+      tags: [Recordings]
+      summary: stops recording on a path at runtime, without altering its configuration.
+      description: >-
+        The publisher and any reader attached to the path are left untouched.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request, for instance the path is not recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
           content:
             application/json:
               schema:

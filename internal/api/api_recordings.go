@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -112,6 +113,50 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 	err = os.Remove(segmentPath)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	a.writeOK(ctx)
+}
+
+// onRecordingStart starts recording on a path at runtime, without touching
+// its configuration and without requiring the publisher to reconnect.
+func (a *API) onRecordingStart(ctx *gin.Context) {
+	pathName, ok := paramName(ctx)
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
+		return
+	}
+
+	err := a.PathManager.APIRecordingStart(pathName)
+	if err != nil {
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	a.writeOK(ctx)
+}
+
+// onRecordingStop stops recording on a path at runtime, without touching
+// its configuration and without disrupting the publisher or any reader.
+func (a *API) onRecordingStop(ctx *gin.Context) {
+	pathName, ok := paramName(ctx)
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
+		return
+	}
+
+	err := a.PathManager.APIRecordingStop(pathName)
+	if err != nil {
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusBadRequest, err)
+		}
 		return
 	}
 

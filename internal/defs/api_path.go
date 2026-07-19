@@ -8,6 +8,8 @@ import (
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	APIRecordingStart(string) error
+	APIRecordingStop(string) error
 }
 
 // APIPathSourceType is the type of a path source.
@@ -74,6 +76,7 @@ type APIPath struct {
 	Online               bool                `json:"online"`
 	OnlineTime           *time.Time          `json:"onlineTime"`
 	Source               *APIPathSource      `json:"source"`
+	Recording            bool                `json:"recording"`
 	Tracks               []APIPathTrackCodec `json:"tracks" deprecated:"true"`
 	Tracks2              []APIPathTrack      `json:"tracks2"`
 	Readers              []APIPathReader     `json:"readers"`

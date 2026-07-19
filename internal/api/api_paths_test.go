@@ -13,7 +13,9 @@ import (
 )
 
 type testPathManager struct {
-	paths map[string]*defs.APIPath
+	paths             map[string]*defs.APIPath
+	recordingStartErr error
+	recordingStopErr  error
 }
 
 func (m *testPathManager) APIPathsList() (*defs.APIPathList, error) {
@@ -30,6 +32,26 @@ func (m *testPathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, conf.ErrPathNotFound
 	}
 	return path, nil
+}
+
+func (m *testPathManager) APIRecordingStart(name string) error {
+	if m.recordingStartErr != nil {
+		return m.recordingStartErr
+	}
+	if _, ok := m.paths[name]; !ok {
+		return conf.ErrPathNotFound
+	}
+	return nil
+}
+
+func (m *testPathManager) APIRecordingStop(name string) error {
+	if m.recordingStopErr != nil {
+		return m.recordingStopErr
+	}
+	if _, ok := m.paths[name]; !ok {
+		return conf.ErrPathNotFound
+	}
+	return nil
 }
 
 func TestPathsList(t *testing.T) {
