@@ -41,7 +41,7 @@ func (sm *streamMedia) initialize() error {
 		sf := &streamFormat{
 			origFormat:           origFormat,
 			alwaysAvailable:      sm.alwaysAvailable,
-				rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
+			rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
 			replaceNTP:           sm.replaceNTP,
 			inboundFramesInError: sm.inboundFramesInError,
 			inboundBytes:         sm.inboundBytes,

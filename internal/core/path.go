@@ -150,12 +150,12 @@ type path struct {
 	chStaticSourceSetNotReady   chan defs.PathSourceStaticSetNotReadyReq
 	chFallbackSourceSetReady    chan defs.PathSourceStaticSetReadyReq
 	chFallbackSourceSetNotReady chan defs.PathSourceStaticSetNotReadyReq
-	chDescribe                chan defs.PathDescribeReq
-	chAddPublisher            chan defs.PathAddPublisherReq
-	chRemovePublisher         chan defs.PathRemovePublisherReq
-	chAddReader               chan defs.PathAddReaderReq
-	chRemoveReader            chan defs.PathRemoveReaderReq
-	chAPIPathsGet             chan pathAPIPathsGetReq
+	chDescribe                  chan defs.PathDescribeReq
+	chAddPublisher              chan defs.PathAddPublisherReq
+	chRemovePublisher           chan defs.PathRemovePublisherReq
+	chAddReader                 chan defs.PathAddReaderReq
+	chRemoveReader              chan defs.PathRemoveReaderReq
+	chAPIPathsGet               chan pathAPIPathsGetReq
 
 	// out
 	done chan struct{}

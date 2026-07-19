@@ -912,8 +912,7 @@ components:
           description: Fallback source
         fallbackSourceMode:
           type: string
-          enum: [preconnect, ondemand]
-          description: Fallback source connection mode
+          description: "\"preconnect\" (default) or \"ondemand\""
         maxReaders:
           type: integer
           format: int64
