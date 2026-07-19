@@ -4,16 +4,20 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -30,6 +34,241 @@ func (p *serverDummyPath) SafeConf() *conf.Path                          { retur
 func (p *serverDummyPath) ExternalCmdEnv() externalcmd.Environment       { return externalcmd.Environment{} }
 func (p *serverDummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {}
 func (p *serverDummyPath) RemoveReader(_ defs.PathRemoveReaderReq)       {}
+
+func TestAuthError(t *testing.T) {
+	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
+
+	for _, ca := range []string{
+		"read page",
+		"publish page",
+		"subscribe",
+		"publish",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			switch ca {
+			case "read page", "publish page":
+				pm := &test.PathManager{
+					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+						}
+
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					},
+				}
+				s := &Server{
+					HTTP2Address:   "127.0.0.1:19895",
+					HTTP3Address:   "127.0.0.1:19896",
+					ServerCert:     serverCertFile,
+					ServerKey:      serverKeyFile,
+					AllowOrigins:   []string{"*"},
+					TrustedProxies: conf.IPNetworks{},
+					ReadTimeout:    conf.Duration(10 * time.Second),
+					WriteTimeout:   conf.Duration(10 * time.Second),
+					PathManager:    pm,
+					Parent:         test.NilLogger,
+				}
+				err := s.Initialize()
+				require.NoError(t, err)
+				defer s.Close()
+
+				tr := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				}
+				defer tr.CloseIdleConnections()
+				hc := &http.Client{Transport: tr}
+
+				var req *http.Request
+
+				switch ca {
+				case "read page":
+					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/", nil)
+
+				case "publish page":
+					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/publish", nil)
+				}
+				require.NoError(t, err)
+
+				res, err := hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+
+				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+				require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+
+				switch ca {
+				case "read page":
+					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/", nil)
+
+				case "publish page":
+					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/publish", nil)
+				}
+				require.NoError(t, err)
+
+				res, err = hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+
+				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+				require.Equal(t, ``, res.Header.Get("WWW-Authenticate"))
+
+			case "subscribe", "publish":
+				pm := &test.PathManager{}
+
+				switch ca {
+				case "subscribe":
+					pm.AddReaderImpl = func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+						}
+
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					}
+
+				case "publish":
+					pm.AddPublisherImpl = func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+						}
+
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					}
+				}
+
+				s := &Server{
+					HTTP2Address:   "127.0.0.1:19895",
+					HTTP3Address:   "127.0.0.1:19896",
+					ServerCert:     serverCertFile,
+					ServerKey:      serverKeyFile,
+					AllowOrigins:   []string{"*"},
+					TrustedProxies: conf.IPNetworks{},
+					ReadTimeout:    conf.Duration(10 * time.Second),
+					WriteTimeout:   conf.Duration(10 * time.Second),
+					PathManager:    pm,
+					Parent:         test.NilLogger,
+				}
+				err := s.Initialize()
+				require.NoError(t, err)
+				defer s.Close()
+
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				d := &webtransport.Dialer{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+					QUICConfig: &quic.Config{
+						EnableDatagrams:                  true,
+						EnableStreamResetPartialDelivery: true,
+					},
+					ApplicationProtocols: []string{"moqt-18"},
+				}
+				defer d.Close() //nolint:errcheck
+
+				res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+				require.NoError(t, err)
+				defer sx.CloseWithError(0, "") //nolint:errcheck
+				defer res.Body.Close()         //nolint:errcheck
+
+				setupStream, err := sx.AcceptUniStream(ctx)
+				require.NoError(t, err)
+
+				setupMsg, err := controlmessage.Read(setupStream)
+				require.NoError(t, err)
+
+				_, ok := setupMsg.(*controlmessage.Setup)
+				require.True(t, ok)
+
+				clientSetup, err := sx.OpenUniStreamSync(ctx)
+				require.NoError(t, err)
+
+				_, err = clientSetup.Write(controlmessage.Setup{}.Marshal())
+				require.NoError(t, err)
+
+				switch ca {
+				case "subscribe":
+					var catalogBidi *webtransport.Stream
+					catalogBidi, err = sx.OpenStreamSync(ctx)
+					require.NoError(t, err)
+
+					_, err = catalogBidi.Write(controlmessage.Subscribe{
+						RequestID: 1,
+						TrackName: ".catalog",
+						Parameters: parameter.Parameters{
+							&parameter.AuthorizationToken{
+								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+								TokenType:  1,
+								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
+							},
+						},
+					}.Marshal())
+					require.NoError(t, err)
+
+					var msg controlmessage.Message
+					msg, err = controlmessage.Read(catalogBidi)
+					require.NoError(t, err)
+
+					require.Equal(t, &controlmessage.RequestError{
+						Code:   controlmessage.RequestErrorCodeUnauthorized,
+						Reason: "failed to authenticate: auth error",
+					}, msg)
+
+					catalogBidi.Close() //nolint:errcheck
+
+				case "publish":
+					var catalogData *webtransport.SendStream
+					catalogData, err = sx.OpenUniStreamSync(ctx)
+					require.NoError(t, err)
+
+					var cat []byte
+					cat, err = json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+						Name:      "0",
+						Packaging: "loc",
+						IsLive:    true,
+						Codec:     "avc3.640028",
+					}}})
+					require.NoError(t, err)
+
+					_, err = catalogData.Write((&subgroup.SubGroup{
+						Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
+						Objects: []subgroup.Object{{Payload: cat}},
+					}).Marshal())
+					require.NoError(t, err)
+					catalogData.Close() //nolint:errcheck
+
+					var catalogBidi *webtransport.Stream
+					catalogBidi, err = sx.OpenStreamSync(ctx)
+					require.NoError(t, err)
+
+					_, err = catalogBidi.Write(controlmessage.Publish{
+						RequestID:  1,
+						TrackName:  ".catalog",
+						TrackAlias: 0,
+						Parameters: parameter.Parameters{
+							&parameter.AuthorizationToken{
+								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+								TokenType:  1,
+								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
+							},
+						},
+					}.Marshal())
+					require.NoError(t, err)
+
+					var msg controlmessage.Message
+					msg, err = controlmessage.Read(catalogBidi)
+					require.NoError(t, err)
+
+					require.Equal(t, &controlmessage.RequestError{
+						Code:   controlmessage.RequestErrorCodeUnauthorized,
+						Reason: "failed to authenticate: auth error",
+					}, msg)
+
+					catalogBidi.Close() //nolint:errcheck
+				}
+			}
+		})
+	}
+}
 
 func TestServer(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}}
@@ -100,18 +339,20 @@ func TestServer(t *testing.T) {
 
 	setupStream, err := sx.AcceptUniStream(ctx)
 	require.NoError(t, err)
+
 	setupMsg, err := controlmessage.Read(setupStream)
 	require.NoError(t, err)
-	_, ok := setupMsg.(*controlmessage.Setup)
-	require.True(t, ok)
+	require.Equal(t, &controlmessage.Setup{}, setupMsg)
 
 	clientSetup, err := sx.OpenUniStreamSync(ctx)
 	require.NoError(t, err)
+
 	_, err = clientSetup.Write(controlmessage.Setup{}.Marshal())
 	require.NoError(t, err)
 
 	catalogBidi, err := sx.OpenStreamSync(ctx)
 	require.NoError(t, err)
+
 	_, err = catalogBidi.Write(controlmessage.Subscribe{
 		RequestID: 1,
 		TrackName: ".catalog",
@@ -120,12 +361,11 @@ func TestServer(t *testing.T) {
 
 	catalogOkMsg, err := controlmessage.Read(catalogBidi)
 	require.NoError(t, err)
-	catalogOk, ok := catalogOkMsg.(*controlmessage.SubscribeOk)
-	require.True(t, ok)
-	require.Equal(t, uint64(1), catalogOk.TrackAlias)
+	require.Equal(t, &controlmessage.SubscribeOk{TrackAlias: 1}, catalogOkMsg)
 
 	catalogDataStream, err := sx.AcceptUniStream(ctx)
 	require.NoError(t, err)
+
 	var catalogSG subgroup.SubGroup
 	err = catalogSG.Read(catalogDataStream)
 	require.NoError(t, err)
@@ -146,6 +386,7 @@ func TestServer(t *testing.T) {
 
 	trackBidi, err := sx.OpenStreamSync(ctx)
 	require.NoError(t, err)
+
 	_, err = trackBidi.Write(controlmessage.Subscribe{
 		RequestID: 2,
 		TrackName: "0",
@@ -154,9 +395,7 @@ func TestServer(t *testing.T) {
 
 	trackOkMsg, err := controlmessage.Read(trackBidi)
 	require.NoError(t, err)
-	trackOk, ok := trackOkMsg.(*controlmessage.SubscribeOk)
-	require.True(t, ok)
-	require.Equal(t, uint64(2), trackOk.TrackAlias)
+	require.Equal(t, &controlmessage.SubscribeOk{TrackAlias: 2}, trackOkMsg)
 
 	go func() {
 		time.Sleep(200 * time.Millisecond)
@@ -168,6 +407,7 @@ func TestServer(t *testing.T) {
 
 	frameStream, err := sx.AcceptUniStream(ctx)
 	require.NoError(t, err)
+
 	var frameSG subgroup.SubGroup
 	err = frameSG.Read(frameStream)
 	require.NoError(t, err)

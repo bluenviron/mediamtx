@@ -134,6 +134,7 @@ func (c *conn) runInner() error {
 
 func (c *conn) runPublish(streamID *streamID) error {
 	res, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
 			Query:   streamID.query,

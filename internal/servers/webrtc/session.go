@@ -338,6 +338,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	ip, _, _ := net.SplitHostPort(s.remoteAddr)
 
 	res1, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: s,
 		AccessRequest: defs.PathAccessRequest{
 			Name:        s.pathName,
 			Query:       s.httpRequest.URL.RawQuery,

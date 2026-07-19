@@ -198,15 +198,16 @@ func (m *Metrics) middlewareAuth(ctx *gin.Context) {
 
 	_, err := m.AuthManager.Authenticate(req)
 	if err != nil {
-		auth.DelayBruteForce(err)
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: m,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			m.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
-
-		m.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
 
 		m.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return

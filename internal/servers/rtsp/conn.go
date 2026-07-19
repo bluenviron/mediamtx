@@ -152,6 +152,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}
 
 	res, err := c.pathManager.Describe(defs.PathDescribeReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:             ctx.Path,
 			Query:            ctx.Query,
