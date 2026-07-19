@@ -61,19 +61,13 @@ func TestAuthError(t *testing.T) {
 					called := make(chan struct{})
 					pathManager := &test.PathManager{}
 					if ca.publish {
-						pathManager.AddPublisherImpl = func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+						pathManager.AddPublisherImpl = func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 							close(called)
-							if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-								return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-							}
 							return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 						}
 					} else {
-						pathManager.AddReaderImpl = func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+						pathManager.AddReaderImpl = func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 							close(called)
-							if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-								return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-							}
 							return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 						}
 					}

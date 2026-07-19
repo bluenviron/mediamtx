@@ -348,13 +348,14 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	addRes, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:        s.pathName,
-			Query:       s.query,
-			Proto:       auth.ProtocolMoQ,
-			ID:          &s.uuid,
-			Credentials: credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
-			IP:          net.ParseIP(remoteHost),
-			UserAgent:   s.userAgent,
+			Name:                 s.pathName,
+			Query:                s.query,
+			Proto:                auth.ProtocolMoQ,
+			ID:                   &s.uuid,
+			Credentials:          credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
+			IP:                   net.ParseIP(remoteHost),
+			UserAgent:            s.userAgent,
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
@@ -579,14 +580,15 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 			UseRTPPackets: false,
 			ReplaceNTP:    true,
 			AccessRequest: defs.PathAccessRequest{
-				Name:        s.pathName,
-				Query:       s.query,
-				Publish:     true,
-				Proto:       auth.ProtocolMoQ,
-				ID:          &s.uuid,
-				Credentials: credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
-				IP:          net.ParseIP(remoteHost),
-				UserAgent:   s.userAgent,
+				Name:                 s.pathName,
+				Query:                s.query,
+				Publish:              true,
+				Proto:                auth.ProtocolMoQ,
+				ID:                   &s.uuid,
+				Credentials:          credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
+				IP:                   net.ParseIP(remoteHost),
+				UserAgent:            s.userAgent,
+				EnableAskCredentials: false,
 			},
 		})
 		if err != nil {

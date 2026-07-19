@@ -143,13 +143,14 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
 		},
 		AccessRequest: defs.PathAccessRequest{
-			Name:        pathName,
-			Query:       ctx.Request.URL.RawQuery,
-			Publish:     publish,
-			UserAgent:   ctx.Request.Header.Get("User-Agent"),
-			Proto:       auth.ProtocolWebRTC,
-			Credentials: httpp.Credentials(ctx.Request),
-			IP:          net.ParseIP(ctx.ClientIP()),
+			Name:                 pathName,
+			Query:                ctx.Request.URL.RawQuery,
+			Publish:              publish,
+			UserAgent:            ctx.Request.Header.Get("User-Agent"),
+			Proto:                auth.ProtocolWebRTC,
+			Credentials:          httpp.Credentials(ctx.Request),
+			IP:                   net.ParseIP(ctx.ClientIP()),
+			EnableAskCredentials: true,
 		},
 	})
 	if err != nil {
@@ -222,6 +223,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
 			}
+
 			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}

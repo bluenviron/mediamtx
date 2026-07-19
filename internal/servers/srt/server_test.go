@@ -50,10 +50,7 @@ func TestAuthError(t *testing.T) {
 			name: "publish",
 			url:  "srt://127.0.0.1:8890?streamid=publish:teststream",
 			pm: &test.PathManager{
-				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-						return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-					}
+				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 				},
 			},
@@ -62,10 +59,7 @@ func TestAuthError(t *testing.T) {
 			name: "read",
 			url:  "srt://127.0.0.1:8890?streamid=read:teststream",
 			pm: &test.PathManager{
-				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-						return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-					}
+				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 				},
 			},

@@ -210,12 +210,13 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
 			},
 			AccessRequest: defs.PathAccessRequest{
-				Name:        dir,
-				Query:       ctx.Request.URL.RawQuery,
-				Publish:     false,
-				Proto:       auth.ProtocolHLS,
-				Credentials: httpp.Credentials(ctx.Request),
-				IP:          net.ParseIP(ctx.ClientIP()),
+				Name:                 dir,
+				Query:                ctx.Request.URL.RawQuery,
+				Publish:              false,
+				Proto:                auth.ProtocolHLS,
+				Credentials:          httpp.Credentials(ctx.Request),
+				IP:                   net.ParseIP(ctx.ClientIP()),
+				EnableAskCredentials: true,
 			},
 		})
 		if err != nil {

@@ -58,14 +58,16 @@ func (s *session) initialize(ctx *gin.Context) error {
 	s.lastRequestTime.Store(time.Now().UnixNano())
 
 	accessReq := defs.PathAccessRequest{
-		Name:      s.pathName,
-		Query:     s.query,
-		Publish:   false,
-		UserAgent: s.userAgent,
-		Proto:     auth.ProtocolHLS,
-		ID:        &s.uuid,
-		IP:        net.ParseIP(ctx.ClientIP()),
+		Name:                 s.pathName,
+		Query:                s.query,
+		Publish:              false,
+		UserAgent:            s.userAgent,
+		Proto:                auth.ProtocolHLS,
+		ID:                   &s.uuid,
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
+
 	if s.isCDN {
 		accessReq.SkipAuth = true
 		s.Log(logger.Info, "created by %s (CDN)", s.remoteAddr)
