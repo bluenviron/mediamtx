@@ -414,6 +414,19 @@ func TestServer(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &controlmessage.SubscribeOk{TrackAlias: 2}, trackOkMsg)
 
+			trackBidi2, err := sx.OpenStreamSync(ctx)
+			require.NoError(t, err)
+
+			_, err = trackBidi2.Write(controlmessage.Subscribe{
+				RequestID: 3,
+				TrackName: "0",
+			}.Marshal())
+			require.NoError(t, err)
+
+			trackOkMsg2, err := controlmessage.Read(trackBidi2)
+			require.NoError(t, err)
+			require.Equal(t, &controlmessage.SubscribeOk{TrackAlias: 3}, trackOkMsg2)
+
 			go func() {
 				time.Sleep(200 * time.Millisecond)
 				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
@@ -429,9 +442,42 @@ func TestServer(t *testing.T) {
 			err = frameSG.Read(frameStream)
 			require.NoError(t, err)
 
+			frameStream2, err := sx.AcceptUniStream(ctx)
+			require.NoError(t, err)
+
+			var frameSG2 subgroup.SubGroup
+			err = frameSG2.Read(frameStream2)
+			require.NoError(t, err)
+
 			expectedPayload, err2 := mch264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}).Marshal()
 			require.NoError(t, err2)
 			require.Equal(t, expectedPayload, frameSG.Objects[0].Payload)
+			require.Equal(t, expectedPayload, frameSG2.Objects[0].Payload)
+			require.ElementsMatch(t, []uint64{2, 3}, []uint64{frameSG.Header.TrackAlias, frameSG2.Header.TrackAlias})
+
+			trackBidi.Close() //nolint:errcheck
+			time.Sleep(100 * time.Millisecond)
+
+			go func() {
+				time.Sleep(200 * time.Millisecond)
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+					PTS:     1,
+					Payload: unit.PayloadH264{{5, 2}},
+				})
+			}()
+
+			frameStream3, err := sx.AcceptUniStream(ctx)
+			require.NoError(t, err)
+
+			var frameSG3 subgroup.SubGroup
+			err = frameSG3.Read(frameStream3)
+			require.NoError(t, err)
+
+			expectedPayload2, err2 := mch264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 2}}).Marshal()
+			require.NoError(t, err2)
+			require.Equal(t, expectedPayload2, frameSG3.Objects[0].Payload)
+			require.Equal(t, uint64(3), frameSG3.Header.TrackAlias)
+			trackBidi2.Close() //nolint:errcheck
 		})
 	}
 }
