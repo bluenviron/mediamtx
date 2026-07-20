@@ -23,6 +23,15 @@ const (
 	APIMoQSessionStatePublish APIMoQSessionState = "publish"
 )
 
+// APIMoQVersion is a MoQ protocol version.
+type APIMoQVersion string
+
+// protocol versions.
+const (
+	APIMoQVersionDraft18 APIMoQVersion = "moqt-18"
+	APIMoQVersionDraft19 APIMoQVersion = "moqt-19"
+)
+
 // APIMoQSessionList is a list of MoQ sessions.
 type APIMoQSessionList struct {
 	ItemCount int             `json:"itemCount"`
@@ -39,6 +48,7 @@ type APIMoQSession struct {
 	Path          string             `json:"path"`
 	Query         string             `json:"query"`
 	UserAgent     string             `json:"userAgent"`
+	Version       APIMoQVersion      `json:"version"`
 	InboundBytes  uint64             `json:"inboundBytes"`
 	OutboundBytes uint64             `json:"outboundBytes"`
 }

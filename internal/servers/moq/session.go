@@ -108,6 +108,7 @@ type session struct {
 	pathName    string
 	query       string
 	userAgent   string
+	version     defs.APIMoQVersion
 	pathManager serverPathManager
 	parent      sessionParent
 
@@ -714,6 +715,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		Path:          s.pathName,
 		Query:         s.query,
 		UserAgent:     s.userAgent,
+		Version:       s.version,
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),
 	}

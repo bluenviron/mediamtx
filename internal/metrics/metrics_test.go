@@ -339,6 +339,7 @@ func (dummyMoQServer) APISessionsList() (*defs.APIMoQSessionList, error) {
 			RemoteAddr:    "127.0.0.2:3456",
 			State:         defs.APIMoQSessionStatePublish,
 			Path:          "mypath",
+			Version:       defs.APIMoQVersionDraft19,
 			InboundBytes:  321,
 			OutboundBytes: 654,
 		}},

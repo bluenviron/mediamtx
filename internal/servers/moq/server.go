@@ -37,6 +37,7 @@ type newSessionReq struct {
 	pathName  string
 	query     string
 	userAgent string
+	version   defs.APIMoQVersion
 	wt        *webtransport.Session
 	res       chan newSessionRes
 }
@@ -180,6 +181,7 @@ outer:
 				pathName:    req.pathName,
 				query:       req.query,
 				userAgent:   req.userAgent,
+				version:     req.version,
 				pathManager: s.PathManager,
 				parent:      s,
 			}
