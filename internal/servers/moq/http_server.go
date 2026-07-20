@@ -37,27 +37,41 @@ var readerJS []byte
 var publisherJS []byte
 
 const (
-	moqtVersion                = "moqt-18"
 	wtProtocolHeader           = "WT-Protocol"
 	wtAvailableProtocolsHeader = "WT-Available-Protocols"
 )
+
+// ordered from most preferred to least preferred
+var supportedMoqtVersions = []defs.APIMoQVersion{
+	defs.APIMoQVersionDraft19,
+	defs.APIMoQVersionDraft18,
+}
 
 type ginUnwrapper interface {
 	Unwrap() http.ResponseWriter
 }
 
-func containsMoqtVersion(header string) bool {
+func selectMoqtVersion(header string) defs.APIMoQVersion {
+	available := make(map[string]struct{})
+
 	for item := range strings.SplitSeq(header, ",") {
 		item = strings.TrimSpace(item)
 		if i := strings.IndexByte(item, ';'); i >= 0 {
 			item = item[:i]
 		}
 		item = strings.Trim(strings.TrimSpace(item), `"`)
-		if item == moqtVersion {
-			return true
+		if item != "" {
+			available[item] = struct{}{}
 		}
 	}
-	return false
+
+	for _, version := range supportedMoqtVersions {
+		if _, ok := available[string(version)]; ok {
+			return version
+		}
+	}
+
+	return ""
 }
 
 func trailingSlashLocation(rawPath string, rawQuery string) string {
@@ -308,19 +322,22 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		return
 	}
 
-	if offered := ctx.Request.Header.Get(wtAvailableProtocolsHeader); offered != "" {
-		if !containsMoqtVersion(offered) {
-			s.writeErrorNoLog(ctx, http.StatusBadRequest,
-				fmt.Errorf("no supported MoQ version in %s", wtAvailableProtocolsHeader))
-			return
-		}
+	offered := ctx.Request.Header.Get(wtAvailableProtocolsHeader)
+	if offered == "" {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest,
+			fmt.Errorf("missing %s header", wtAvailableProtocolsHeader))
+		return
+	}
+
+	version := selectMoqtVersion(offered)
+	if version == "" {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest,
+			fmt.Errorf("no supported MoQ version in %s", wtAvailableProtocolsHeader))
+		return
 	}
 
 	w := ctx.Writer.(ginUnwrapper).Unwrap()
-
-	if offered := ctx.Request.Header.Get(wtAvailableProtocolsHeader); offered != "" {
-		w.Header().Set(wtProtocolHeader, `"`+moqtVersion+`"`)
-	}
+	w.Header().Set(wtProtocolHeader, `"`+string(version)+`"`)
 
 	wt, err := s.innerHTTP3.Upgrade(w, ctx.Request)
 	if err != nil {
@@ -332,6 +349,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		pathName:  pathName,
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
+		version:   version,
 		wt:        wt,
 	})
 	if res.err != nil {

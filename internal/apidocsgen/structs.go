@@ -366,6 +366,9 @@ func isStructEnum(rt reflect.Type) bool {
 	case reflect.TypeOf(defs.APIMoQSessionState("")):
 		return true
 
+	case reflect.TypeOf(defs.APIMoQVersion("")):
+		return true
+
 	case reflect.TypeOf(defs.APISRTConnState("")):
 		return true
 	}

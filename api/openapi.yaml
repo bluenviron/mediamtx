@@ -95,6 +95,12 @@ components:
         - read
         - publish
 
+    MoQVersion:
+      type: string
+      enum:
+        - moqt-18
+        - moqt-19
+
     OKStatus:
       type: string
       enum:
@@ -805,6 +811,8 @@ components:
           $ref: "#/components/schemas/MoQSessionState"
         userAgent:
           type: string
+        version:
+          $ref: "#/components/schemas/MoQVersion"
 
     MoQSessionList:
       type: object

@@ -25,11 +25,8 @@ func findTimestamp(props []property.Property) (int64, bool) {
 	return 0, false
 }
 
-// ToStream maps a Media-over-QUIC stream to a MediaMTX stream.
-func ToStream(
-	cat *catalog.Catalog,
-	subStream **stream.SubStream,
-) (
+// ToStream maps a Media-over-QUIC catalog and published tracks to a MediaMTX stream.
+func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 	[]*description.Media,
 	map[uint64]func(sg *subgroup.SubGroup) error,
 	error,
