@@ -45,7 +45,7 @@ paths:
     # It defaults to the default value of the operating system.
     rtspUDPReadBufferSize: 0
     # Range of ports used as source port in outgoing UDP packets.
-    rtspUDPSourcePortRange: [10000, 65535]
+    rtspUDPSourcePortRange: [32768, 60999]
 ```
 
 All available parameters are listed in the [configuration file](../5-references/1-configuration-file.md).

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -38,6 +39,7 @@ type PathFindPathConfRes struct {
 
 // PathFindPathConfReq contains arguments of FindPathConf().
 type PathFindPathConfReq struct {
+	Author        logger.Writer
 	AccessRequest PathAccessRequest
 	Res           chan PathFindPathConfRes
 }
@@ -52,6 +54,7 @@ type PathDescribeRes struct {
 
 // PathDescribeReq contains arguments of Describe().
 type PathDescribeReq struct {
+	Author        logger.Writer
 	AccessRequest PathAccessRequest
 	Res           chan PathDescribeRes
 }

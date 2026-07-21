@@ -26,7 +26,87 @@ func createTempFile(t *testing.T, byts []byte) string {
 	return tmpf.Name()
 }
 
-func TestConf(t *testing.T) {
+func TestConfFromFile(t *testing.T) {
+	t.Run("explicit path config", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte("logLevel: debug\n"+
+			"paths:\n"+
+			"  cam1:\n"+
+			"    runOnDemandStartTimeout: 5s\n"))
+
+		conf, confPath, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, tmpf, confPath)
+
+		require.Equal(t, LogLevel(logger.Debug), conf.LogLevel)
+
+		pa, ok := conf.Paths["cam1"]
+		require.Equal(t, true, ok)
+		require.Equal(t, &Path{
+			Name:                       "cam1",
+			Source:                     "publisher",
+			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
+			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
+			OverridePublisher:          true,
+			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
+			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
+			RecordFormat:               RecordFormatFMP4,
+			RecordPartDuration:         Duration(1 * time.Second),
+			RecordMaxPartSize:          50 * 1024 * 1024,
+			RecordSegmentDuration:      3600000000000,
+			RecordDeleteAfter:          86400000000000,
+			RTSPUDPSourcePortRange:     []uint{32768, 60999},
+			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
+			WHEPHandshakeTimeout:       10 * Duration(time.Second),
+			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
+			RPICameraWidth:             1920,
+			RPICameraHeight:            1080,
+			RPICameraContrast:          1,
+			RPICameraSaturation:        1,
+			RPICameraSharpness:         1,
+			RPICameraExposure:          "normal",
+			RPICameraAWB:               "auto",
+			RPICameraAWBGains:          []float64{0, 0},
+			RPICameraDenoise:           "off",
+			RPICameraMetering:          "centre",
+			RPICameraFPS:               30,
+			RPICameraAfMode:            "continuous",
+			RPICameraAfRange:           "normal",
+			RPICameraAfSpeed:           "normal",
+			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
+			RPICameraCodec:             "auto",
+			RPICameraIDRPeriod:         60,
+			RPICameraBitrate:           5000000,
+			RPICameraH264Profile:       "auto",
+			RPICameraH264Level:         "4.1",
+			RPICameraMJPEGQuality:      60,
+			RunOnDemandStartTimeout:    5 * Duration(time.Second),
+			RunOnDemandCloseAfter:      10 * Duration(time.Second),
+		}, pa)
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte(``))
+
+		_, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("paths key without entries", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte(`paths:`))
+
+		_, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("single empty path entry", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte(
+			"paths:\n"+
+				"  mypath:\n"))
+
+		_, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+	})
+
 	for _, ca := range []struct {
 		name   string
 		source string
@@ -77,88 +157,6 @@ func TestConf(t *testing.T) {
 	}
 }
 
-func TestConfFromFile(t *testing.T) {
-	func() {
-		tmpf := createTempFile(t, []byte("logLevel: debug\n"+
-			"paths:\n"+
-			"  cam1:\n"+
-			"    runOnDemandStartTimeout: 5s\n"))
-
-		conf, confPath, err := Load(tmpf, nil, nil)
-		require.NoError(t, err)
-		require.Equal(t, tmpf, confPath)
-
-		require.Equal(t, LogLevel(logger.Debug), conf.LogLevel)
-
-		pa, ok := conf.Paths["cam1"]
-		require.Equal(t, true, ok)
-		require.Equal(t, &Path{
-			Name:                       "cam1",
-			Source:                     "publisher",
-			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
-			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
-			OverridePublisher:          true,
-			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
-			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
-			RecordFormat:               RecordFormatFMP4,
-			RecordPartDuration:         Duration(1 * time.Second),
-			RecordMaxPartSize:          50 * 1024 * 1024,
-			RecordSegmentDuration:      3600000000000,
-			RecordDeleteAfter:          86400000000000,
-			RTSPUDPSourcePortRange:     []uint{10000, 65535},
-			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
-			WHEPHandshakeTimeout:       10 * Duration(time.Second),
-			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
-			RPICameraWidth:             1920,
-			RPICameraHeight:            1080,
-			RPICameraContrast:          1,
-			RPICameraSaturation:        1,
-			RPICameraSharpness:         1,
-			RPICameraExposure:          "normal",
-			RPICameraAWB:               "auto",
-			RPICameraAWBGains:          []float64{0, 0},
-			RPICameraDenoise:           "off",
-			RPICameraMetering:          "centre",
-			RPICameraFPS:               30,
-			RPICameraAfMode:            "continuous",
-			RPICameraAfRange:           "normal",
-			RPICameraAfSpeed:           "normal",
-			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
-			RPICameraCodec:             "auto",
-			RPICameraIDRPeriod:         60,
-			RPICameraBitrate:           5000000,
-			RPICameraH264Profile:       "auto",
-			RPICameraH264Level:         "4.1",
-			RPICameraMJPEGQuality:      60,
-			RunOnDemandStartTimeout:    5 * Duration(time.Second),
-			RunOnDemandCloseAfter:      10 * Duration(time.Second),
-		}, pa)
-	}()
-
-	func() {
-		tmpf := createTempFile(t, []byte(``))
-
-		_, _, err := Load(tmpf, nil, nil)
-		require.NoError(t, err)
-	}()
-
-	func() {
-		tmpf := createTempFile(t, []byte(`paths:`))
-
-		_, _, err := Load(tmpf, nil, nil)
-		require.NoError(t, err)
-	}()
-
-	func() {
-		tmpf := createTempFile(t, []byte(
-			"paths:\n"+
-				"  mypath:\n"))
-
-		_, _, err := Load(tmpf, nil, nil)
-		require.NoError(t, err)
-	}()
-}
-
 func TestConfFromFileAndEnv(t *testing.T) {
 	// global parameter
 	t.Setenv("RTSP_PROTOCOLS", "tcp")
@@ -190,16 +188,62 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.Equal(t, false, pa.OverridePublisher)
 }
 
-func TestConfFromEnvOnly(t *testing.T) {
-	t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
+func TestConfFromEnv(t *testing.T) {
+	t.Run("path source", func(t *testing.T) {
+		t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
-	conf, confPath, err := Load("", nil, nil)
-	require.NoError(t, err)
-	require.Equal(t, "", confPath)
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
 
-	pa, ok := conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, "rtsp://testing", pa.Source)
+		pa, ok := conf.Paths["cam1"]
+		require.Equal(t, true, ok)
+		require.Equal(t, "rtsp://testing", pa.Source)
+	})
+
+	t.Run("empty auth internal user ips", func(t *testing.T) {
+		t.Setenv("MTX_AUTHINTERNALUSERS_0_IPS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Len(t, conf.AuthInternalUsers, len(defaultAuthInternalUsers))
+		require.Empty(t, conf.AuthInternalUsers[0].IPs)
+		require.Equal(t, defaultAuthInternalUsers[0].Permissions, conf.AuthInternalUsers[0].Permissions)
+	})
+
+	t.Run("empty log destinations", func(t *testing.T) {
+		t.Setenv("MTX_LOGDESTINATIONS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Empty(t, conf.LogDestinations)
+	})
+
+	t.Run("empty rtsp transports", func(t *testing.T) {
+		t.Setenv("MTX_RTSPTRANSPORTS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.Empty(t, conf.RTSPTransports)
+	})
+
+	t.Run("empty rtsp auth methods", func(t *testing.T) {
+		t.Setenv("MTX_RTSP", "no")
+		t.Setenv("MTX_RTSPAUTHMETHODS", "")
+
+		conf, confPath, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath)
+
+		require.False(t, conf.RTSP)
+		require.Empty(t, conf.RTSPAuthMethods)
+	})
 }
 
 func TestConfEncryption(t *testing.T) {
@@ -809,6 +853,25 @@ func TestConfErrors(t *testing.T) {
 	}
 }
 
+func TestDeprecatedAvailabilityHooks(t *testing.T) {
+	tmpf := createTempFile(t, []byte("paths:\n"+
+		"  mypath:\n"+
+		"    runOnReady: command1\n"+
+		"    runOnReadyRestart: yes\n"+
+		"    runOnNotReady: command2\n"))
+
+	conf, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+
+	pa := conf.Paths["mypath"]
+	require.Equal(t, "command1", pa.RunOnAvailable)
+	require.Equal(t, true, pa.RunOnAvailableRestart)
+	require.Equal(t, "command2", pa.RunOnUnavailable)
+	require.Equal(t, "command1", *pa.RunOnReady)
+	require.Equal(t, true, *pa.RunOnReadyRestart)
+	require.Equal(t, "command2", *pa.RunOnNotReady)
+}
+
 func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 	tmpf := createTempFile(t, []byte("ABCDEFGHI"))
 
@@ -821,7 +884,7 @@ func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are [69 70 71 72]")
 }
 
-func TestSampleConfFile(t *testing.T) {
+func TestDefaultConfFile(t *testing.T) {
 	func() {
 		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)

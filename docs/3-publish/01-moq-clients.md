@@ -5,11 +5,11 @@
 | **video** | AV1, VP9, VP8, H265, H264 |
 | **audio** | Opus, MPEG-4 Audio (AAC)  |
 
-Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC, HTTP3) and browser APIs (WebTransport, WebCodecs) that can be used to publish and read live media streams. It's slightly faster than WebRTC, has an advanced data recovery mechanism, it supports additional codecs (FLAC and future ones) and is less complicated to route.
+Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC, HTTP3) and browser APIs (WebTransport, WebCodecs) that can be used to publish and read live media streams. It's slightly faster than WebRTC, has an advanced data recovery mechanism, supports additional codecs (FLAC and future ones), supports B-frames and is less complicated to route.
 
 Media-over-QUIC has a wide range of features and variants, most of them in active development. We currently support the following:
 
-- We support `draft-18` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
+- The server supports `draft-19` and `draft-18` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-19), and prefers `draft-19` when both are offered during negotiation.
 - We only support using Media-over-QUIC through browsers and in particular through the WebTransport API. We do not support using QUIC directly.
 - We support the `PUBLISH` and `SUBSCRIBE` messages only, which are the ones meant to be used with a routing solution like _MediaMTX_.
 - We use the MOQT Streaming Format (MSF) to advertise tracks, described in [this specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-msf-00).

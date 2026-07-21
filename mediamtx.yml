@@ -606,7 +606,7 @@ pathDefaults:
   # values 0 < x < 1 play slow motion.
   rtspScale:
   # Range of ports used as source port in outgoing UDP packets.
-  rtspUDPSourcePortRange: [10000, 65535]
+  rtspUDPSourcePortRange: [32768, 60999]
 
   ###############################################
   # Default path settings -> RTP source (when source is RTP)
@@ -766,9 +766,8 @@ pathDefaults:
   # Environment variables are the same as runOnDemand.
   runOnUnDemand:
 
-  # Command to run when the stream is ready to be read, whenever it is
-  # published by a client or pulled from a server / camera.
-  # This is terminated with SIGINT when the stream is not ready anymore.
+  # Command to run when the stream is available to be read.
+  # This is terminated with SIGINT when the stream is not available anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by publisher) (url-encoded)
@@ -777,12 +776,30 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnReady:
+  runOnAvailable:
   # Restart the command if it exits.
-  runOnReadyRestart: false
+  runOnAvailableRestart: false
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnReady.
-  runOnNotReady:
+  # Environment variables are the same as runOnAvailable.
+  runOnUnavailable:
+
+  # Command to run when the stream is online, which means
+  # that the stream is available and provided by a online source (not an offline segment).
+  # This is terminated with SIGINT when the stream is not online anymore.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by publisher) (url-encoded)
+  # * MTX_SOURCE_TYPE: source type
+  # * MTX_SOURCE_ID: source ID
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnOnline:
+  # Restart the command if it exits.
+  runOnOnlineRestart: false
+  # Command to run when the stream is not online anymore.
+  # Environment variables are the same as runOnOnline.
+  runOnOffline:
 
   # Command to run when a client starts reading.
   # This is terminated with SIGINT when a client stops reading.

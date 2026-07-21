@@ -205,13 +205,18 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	switch contentTyp {
 	case index:
 		_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+			Author: &logger.InlineWriter{
+				Parent: s,
+				Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+			},
 			AccessRequest: defs.PathAccessRequest{
-				Name:        dir,
-				Query:       ctx.Request.URL.RawQuery,
-				Publish:     false,
-				Proto:       auth.ProtocolHLS,
-				Credentials: httpp.Credentials(ctx.Request),
-				IP:          net.ParseIP(ctx.ClientIP()),
+				Name:                 dir,
+				Query:                ctx.Request.URL.RawQuery,
+				Publish:              false,
+				Proto:                auth.ProtocolHLS,
+				Credentials:          httpp.Credentials(ctx.Request),
+				IP:                   net.ParseIP(ctx.ClientIP()),
+				EnableAskCredentials: true,
 			},
 		})
 		if err != nil {
@@ -221,8 +226,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 					return
 				}
-
-				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
@@ -337,8 +340,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 					s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 					return
 				}
-
-				s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
 
 				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return

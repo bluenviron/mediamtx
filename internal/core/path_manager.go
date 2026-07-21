@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"sort"
@@ -529,9 +530,10 @@ func (pm *pathManager) FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFin
 	select {
 	case pm.chFindPathConf <- req:
 		res := <-req.Res
-
 		if res.Err != nil {
-			auth.DelayBruteForce(res.Err)
+			if terr, ok := errors.AsType[*auth.Error](res.Err); ok && !terr.AskCredentials {
+				auth.LogAndDelayError(req.Author, terr)
+			}
 			return nil, res.Err
 		}
 
@@ -549,7 +551,9 @@ func (pm *pathManager) Describe(req defs.PathDescribeReq) (*defs.PathDescribeRes
 	case pm.chDescribe <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
-			auth.DelayBruteForce(res1.Err)
+			if terr, ok := errors.AsType[*auth.Error](res1.Err); ok && !terr.AskCredentials {
+				auth.LogAndDelayError(req.Author, terr)
+			}
 			return nil, res1.Err
 		}
 
@@ -573,7 +577,9 @@ func (pm *pathManager) AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAdd
 	case pm.chAddPublisher <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
-			auth.DelayBruteForce(res1.Err)
+			if terr, ok := errors.AsType[*auth.Error](res1.Err); ok && !terr.AskCredentials {
+				auth.LogAndDelayError(req.Author, terr)
+			}
 			return nil, res1.Err
 		}
 
@@ -599,7 +605,9 @@ func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReader
 	case pm.chAddReader <- req:
 		res1 := <-req.Res
 		if res1.Err != nil {
-			auth.DelayBruteForce(res1.Err)
+			if terr, ok := errors.AsType[*auth.Error](res1.Err); ok && !terr.AskCredentials {
+				auth.LogAndDelayError(req.Author, terr)
+			}
 			return nil, res1.Err
 		}
 

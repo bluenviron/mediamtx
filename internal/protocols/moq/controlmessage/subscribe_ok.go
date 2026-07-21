@@ -24,8 +24,9 @@ func (m *SubscribeOk) unmarshal(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	m.TrackAlias = uint64(v)
 	buf = buf[n:]
+
+	m.TrackAlias = uint64(v)
 
 	var numParams varint.Varint
 	n, err = numParams.Unmarshal(buf)

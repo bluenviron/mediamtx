@@ -3,6 +3,7 @@ package rtmp
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/pires/go-proxyproto"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -40,6 +42,90 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
+}
+
+func TestAuthError(t *testing.T) {
+	for _, ca := range []struct {
+		name    string
+		publish bool
+	}{
+		{name: "read", publish: false},
+		{name: "publish", publish: true},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			for _, rawURL := range []string{
+				"rtmp://127.0.0.1:1939/teststream",
+				"rtmp://127.0.0.1:1939/teststream?user=myuser&pass=mypass",
+			} {
+				func() {
+					called := make(chan struct{})
+					pathManager := &test.PathManager{}
+					if ca.publish {
+						pathManager.AddPublisherImpl = func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+							close(called)
+							return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+						}
+					} else {
+						pathManager.AddReaderImpl = func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+							close(called)
+							return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+						}
+					}
+
+					s := &Server{
+						Address:             "127.0.0.1:1939",
+						ReadTimeout:         conf.Duration(10 * time.Second),
+						WriteTimeout:        conf.Duration(10 * time.Second),
+						RTSPAddress:         "",
+						RunOnConnect:        "",
+						RunOnConnectRestart: false,
+						RunOnDisconnect:     "",
+						ExternalCmdPool:     nil,
+						PathManager:         pathManager,
+						Parent:              test.NilLogger,
+					}
+					err := s.Initialize()
+					require.NoError(t, err)
+					defer s.Close()
+
+					u, err := url.Parse(rawURL)
+					require.NoError(t, err)
+
+					conn := &gortmplib.Client{
+						URL:     u,
+						Publish: ca.publish,
+					}
+					err = conn.Initialize(context.Background())
+					require.NoError(t, err)
+					defer conn.Close()
+
+					if ca.publish {
+						track := &gortmplib.Track{Codec: &codecs.H264{
+							SPS: test.FormatH264.SPS,
+							PPS: test.FormatH264.PPS,
+						}}
+						w := &gortmplib.Writer{
+							Conn:   conn,
+							Tracks: []*gortmplib.Track{track},
+						}
+						err = w.Initialize()
+						require.NoError(t, err)
+						_ = w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+					} else {
+						r := &gortmplib.Reader{Conn: conn}
+						err = r.Initialize()
+						require.Error(t, err)
+					}
+
+					select {
+					case <-called:
+					case <-time.After(2 * time.Second):
+						t.Fatal("auth callback not reached")
+					}
+				}()
+			}
+		})
+	}
 }
 
 func TestServerPublish(t *testing.T) {

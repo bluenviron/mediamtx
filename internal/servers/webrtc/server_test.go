@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"regexp"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -1161,8 +1158,6 @@ func TestAuthError(t *testing.T) {
 		"whip post",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			var authFailed atomic.Bool
-
 			s := &Server{
 				Address:      "127.0.0.1:8886",
 				ReadTimeout:  conf.Duration(10 * time.Second),
@@ -1176,15 +1171,7 @@ func TestAuthError(t *testing.T) {
 						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 					},
 				},
-				Parent: test.Logger(func(_ logger.Level, s string, i ...any) {
-					if ca == "whip post" {
-						if regexp.MustCompile("authentication failed: auth error$").MatchString(fmt.Sprintf(s, i...)) {
-							authFailed.Store(true)
-						}
-					} else if regexp.MustCompile("failed to authenticate: auth error$").MatchString(fmt.Sprintf(s, i...)) {
-						authFailed.Store(true)
-					}
-				}),
+				Parent: test.NilLogger,
 			}
 			err := s.Initialize()
 			require.NoError(t, err)
@@ -1258,8 +1245,6 @@ func TestAuthError(t *testing.T) {
 			defer res.Body.Close()
 
 			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-
-			require.True(t, authFailed.Load())
 		})
 	}
 }

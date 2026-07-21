@@ -341,9 +341,15 @@ type Path struct {
 	RunOnDemandStartTimeout    Duration `json:"runOnDemandStartTimeout"`
 	RunOnDemandCloseAfter      Duration `json:"runOnDemandCloseAfter"`
 	RunOnUnDemand              string   `json:"runOnUnDemand"`
-	RunOnReady                 string   `json:"runOnReady"`
-	RunOnReadyRestart          bool     `json:"runOnReadyRestart"`
-	RunOnNotReady              string   `json:"runOnNotReady"`
+	RunOnAvailable             string   `json:"runOnAvailable"`
+	RunOnAvailableRestart      bool     `json:"runOnAvailableRestart"`
+	RunOnUnavailable           string   `json:"runOnUnavailable"`
+	RunOnReady                 *string  `json:"runOnReady,omitempty" deprecated:"true"`
+	RunOnReadyRestart          *bool    `json:"runOnReadyRestart,omitempty" deprecated:"true"`
+	RunOnNotReady              *string  `json:"runOnNotReady,omitempty" deprecated:"true"`
+	RunOnOnline                string   `json:"runOnOnline"`
+	RunOnOnlineRestart         bool     `json:"runOnOnlineRestart"`
+	RunOnOffline               string   `json:"runOnOffline"`
 	RunOnRead                  string   `json:"runOnRead"`
 	RunOnReadRestart           bool     `json:"runOnReadRestart"`
 	RunOnUnread                string   `json:"runOnUnread"`
@@ -369,7 +375,7 @@ func (pconf *Path) setDefaults() {
 	pconf.OverridePublisher = true
 
 	// RTSP source
-	pconf.RTSPUDPSourcePortRange = []uint{10000, 65535}
+	pconf.RTSPUDPSourcePortRange = []uint{32768, 60999}
 
 	// WHEP source
 	pconf.WHEPSTUNGatherTimeout = Duration(5 * time.Second)
@@ -925,6 +931,21 @@ func (pconf *Path) validate(
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
 		return fmt.Errorf("a path with a regular expression (or path 'all_others')" +
 			" does not support option 'runOnInit'; use another path")
+	}
+
+	if pconf.RunOnReady != nil {
+		l.Log(logger.Warn, "parameter 'runOnReady' is deprecated and has been replaced with 'runOnAvailable'")
+		pconf.RunOnAvailable = *pconf.RunOnReady
+	}
+
+	if pconf.RunOnReadyRestart != nil {
+		l.Log(logger.Warn, "parameter 'runOnReadyRestart' is deprecated and has been replaced with 'runOnAvailableRestart'")
+		pconf.RunOnAvailableRestart = *pconf.RunOnReadyRestart
+	}
+
+	if pconf.RunOnNotReady != nil {
+		l.Log(logger.Warn, "parameter 'runOnNotReady' is deprecated and has been replaced with 'runOnUnavailable'")
+		pconf.RunOnUnavailable = *pconf.RunOnNotReady
 	}
 
 	if (pconf.RunOnDemand != "" || pconf.RunOnUnDemand != "") && pconf.Source != "publisher" {

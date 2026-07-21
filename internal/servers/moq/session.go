@@ -27,7 +27,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/google/uuid"
 	"github.com/quic-go/webtransport-go"
 	"golang.org/x/sync/errgroup"
@@ -72,28 +71,6 @@ func credentialsFromAuthorizationToken(authorization *parameter.AuthorizationTok
 	return &auth.Credentials{}
 }
 
-func tracksToCatalog(tracks []*moq.Track) (catalog.Catalog, error) {
-	cat := catalog.Catalog{
-		Version: 1,
-		Tracks:  make([]catalog.Track, len(tracks)),
-	}
-
-	for i, track := range tracks {
-		ct := catalog.Track{
-			Name:       strconv.Itoa(i),
-			Packaging:  "loc",
-			IsLive:     true,
-			Codec:      track.Codec,
-			Samplerate: track.Samplerate,
-			Channels:   track.Channels,
-			InitData:   track.InitData,
-		}
-		cat.Tracks[i] = ct
-	}
-
-	return cat, nil
-}
-
 func isSubGroupStream(b byte) bool {
 	return (b & 0x90) == 0x10
 }
@@ -108,22 +85,22 @@ type session struct {
 	pathName    string
 	query       string
 	userAgent   string
+	version     defs.APIMoQVersion
 	pathManager serverPathManager
 	parent      sessionParent
 
-	ctx                context.Context
-	ctxCancel          context.CancelFunc
-	created            time.Time
-	uuid               uuid.UUID
-	mutex              sync.Mutex
-	state              defs.APIMoQSessionState
-	path               defs.Path
-	stream             *stream.Stream           // read only
-	tracks             []*moq.Track             // read only
-	trackSubscriptions map[int]struct{}         // read only
-	catalogReceived    chan []byte              // publish only
-	publishReady       chan struct{}            // publish only
-	inboundTracks      map[uint64]*inboundTrack // publish only
+	ctx             context.Context
+	ctxCancel       context.CancelFunc
+	created         time.Time
+	uuid            uuid.UUID
+	mutex           sync.Mutex
+	state           defs.APIMoQSessionState
+	path            defs.Path
+	stream          *stream.Stream           // read only
+	setupTracks     []moq.SetupTrackFunc     // read only
+	catalogReceived chan *catalog.Catalog    // publish only
+	publishReady    chan struct{}            // publish only
+	inboundTracks   map[uint64]*inboundTrack // publish only
 
 	inboundBytes  atomic.Uint64
 	outboundBytes atomic.Uint64
@@ -137,9 +114,8 @@ func (s *session) initialize() {
 	s.created = time.Now()
 	s.uuid = uuid.New()
 	s.state = defs.APIMoQSessionStateIdle
-	s.trackSubscriptions = make(map[int]struct{})
 
-	s.catalogReceived = make(chan []byte, 1)
+	s.catalogReceived = make(chan *catalog.Catalog, 1)
 	s.publishReady = make(chan struct{})
 
 	s.setupReceived = make(chan struct{})
@@ -348,13 +324,14 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	addRes, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:        s.pathName,
-			Query:       s.query,
-			Proto:       auth.ProtocolMoQ,
-			ID:          &s.uuid,
-			Credentials: credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
-			IP:          net.ParseIP(remoteHost),
-			UserAgent:   s.userAgent,
+			Name:                 s.pathName,
+			Query:                s.query,
+			Proto:                auth.ProtocolMoQ,
+			ID:                   &s.uuid,
+			Credentials:          credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
+			IP:                   net.ParseIP(remoteHost),
+			UserAgent:            s.userAgent,
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
@@ -378,9 +355,7 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 		return err
 	}
 
-	tracks, err := moq.FromStream(
-		addRes.Stream.OrigDesc,
-	)
+	cat, setupTracks, err := moq.FromStream(addRes.Stream.OrigDesc)
 	if err != nil {
 		addRes.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 		return err
@@ -389,17 +364,12 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	s.mutex.Lock()
 	s.path = addRes.Path
 	s.stream = addRes.Stream
-	s.tracks = tracks
+	s.setupTracks = setupTracks
 	s.mutex.Unlock()
 
 	s.Log(logger.Info, "is reading from path %s", s.pathName)
 
 	_, err = wstream.Write(controlmessage.SubscribeOk{TrackAlias: m.RequestID}.Marshal())
-	if err != nil {
-		return err
-	}
-
-	cat, err := tracksToCatalog(tracks)
 	if err != nil {
 		return err
 	}
@@ -455,16 +425,9 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 			return fmt.Errorf("stream not ready")
 		}
 
-		if trackID >= len(s.tracks) {
+		if trackID >= len(s.setupTracks) {
 			return fmt.Errorf("track index %d out of range", trackID)
 		}
-
-		_, ok := s.trackSubscriptions[trackID]
-		if ok {
-			return fmt.Errorf("already subscribed to track %d", trackID)
-		}
-
-		s.trackSubscriptions[trackID] = struct{}{}
 
 		return nil
 	}()
@@ -474,10 +437,9 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 
 	r := &stream.Reader{Parent: s}
 
-	track := s.tracks[trackID]
 	groupID := uint64(0)
 
-	wrapped := func(payload []byte, pts int64) error {
+	writeData := func(payload []byte, pts int64) error {
 		wstream, err2 := s.wt.OpenUniStreamSync(context.Background())
 		if err2 != nil {
 			return err2
@@ -508,9 +470,7 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 		return err2
 	}
 
-	r.OnData(track.Media, track.Format, func(u *unit.Unit) error {
-		return track.OnData(u, wrapped)
-	})
+	s.setupTracks[trackID](r, writeData)
 
 	s.stream.AddReader(r)
 	defer s.stream.RemoveReader(r)
@@ -530,7 +490,7 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 	case err = <-r.Error():
 		return err
 	case <-streamClosed:
-		return fmt.Errorf("SUBSCRIBE track stream closed")
+		return nil
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
@@ -546,16 +506,10 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 	s.mutex.Unlock()
 
 	select {
-	case catalogData := <-s.catalogReceived:
-		var cat catalog.Catalog
-		err := json.Unmarshal(catalogData, &cat)
-		if err != nil {
-			return fmt.Errorf("failed to parse catalog JSON: %w", err)
-		}
-
+	case cat := <-s.catalogReceived:
 		var subStream *stream.SubStream
 
-		medias, writeFuncs, err := moq.ToStream(&cat, &subStream)
+		medias, writeFuncs, err := moq.ToStream(cat, &subStream)
 		if err != nil {
 			return err
 		}
@@ -579,14 +533,15 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 			UseRTPPackets: false,
 			ReplaceNTP:    true,
 			AccessRequest: defs.PathAccessRequest{
-				Name:        s.pathName,
-				Query:       s.query,
-				Publish:     true,
-				Proto:       auth.ProtocolMoQ,
-				ID:          &s.uuid,
-				Credentials: credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
-				IP:          net.ParseIP(remoteHost),
-				UserAgent:   s.userAgent,
+				Name:                 s.pathName,
+				Query:                s.query,
+				Publish:              true,
+				Proto:                auth.ProtocolMoQ,
+				ID:                   &s.uuid,
+				Credentials:          credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
+				IP:                   net.ParseIP(remoteHost),
+				UserAgent:            s.userAgent,
+				EnableAskCredentials: false,
 			},
 		})
 		if err != nil {
@@ -664,8 +619,14 @@ func (s *session) onUniSubGroup(r io.Reader) error {
 }
 
 func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
+	var cat catalog.Catalog
+	err := json.Unmarshal(sg.Objects[0].Payload, &cat)
+	if err != nil {
+		return fmt.Errorf("failed to parse catalog JSON: %w", err)
+	}
+
 	select {
-	case s.catalogReceived <- sg.Objects[0].Payload:
+	case s.catalogReceived <- &cat:
 	default:
 		return fmt.Errorf("catalog already received")
 	}
@@ -712,6 +673,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		Path:          s.pathName,
 		Query:         s.query,
 		UserAgent:     s.userAgent,
+		Version:       s.version,
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),
 	}

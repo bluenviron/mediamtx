@@ -253,7 +253,7 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 	}
 
 	track := presentation.Tracks[pos]
-	var pts int64
+	var dts int64
 	startSystemTime := time.Now()
 
 	for {
@@ -264,6 +264,9 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 				return err
 			}
 
+			pts := dts + int64(sample.PTSOffset)
+			ptsFormat := multiplyAndDivide(pts, int64(t.format.ClockRate()), int64(track.TimeScale))
+
 			switch track.Codec.(type) {
 			case *mcodecs.AV1:
 				var bs av1.Bitstream
@@ -273,14 +276,14 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 				}
 
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadAV1(bs),
 				})
 
 			case *mcodecs.VP9:
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadVP9(payload),
 				})
@@ -293,7 +296,7 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 				}
 
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadH265(avcc),
 				})
@@ -306,38 +309,36 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 				}
 
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadH264(avcc),
 				})
 
 			case *mcodecs.Opus:
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadOpus([][]byte{payload}),
 				})
 
 			case *mcodecs.MPEG4Audio:
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadMPEG4Audio([][]byte{payload}),
 				})
 
 			case *mcodecs.LPCM:
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
-					PTS:     pts,
+					PTS:     ptsFormat,
 					NTP:     time.Time{},
 					Payload: unit.PayloadLPCM(payload),
 				})
 			}
 
-			pts += multiplyAndDivide(int64(sample.Duration)+int64(sample.PTSOffset),
-				int64(t.format.ClockRate()), int64(track.TimeScale))
-
-			ptsGo := multiplyAndDivide2(time.Duration(pts), time.Second, time.Duration(t.format.ClockRate()))
-			systemTime := startSystemTime.Add(ptsGo)
+			dts += int64(sample.Duration)
+			dtsGo := multiplyAndDivide2(time.Duration(dts), time.Second, time.Duration(track.TimeScale))
+			systemTime := startSystemTime.Add(dtsGo)
 
 			if !t.sleep(systemTime) {
 				return nil

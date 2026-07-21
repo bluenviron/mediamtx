@@ -10,6 +10,10 @@ import (
 
 const typePublish varint.Varint = 0x1d
 
+const (
+	maxNamespaceFieldCount = 16
+)
+
 // Publish is the PUBLISH control message.
 // spec: draft-18, section 10.10
 type Publish struct {
@@ -29,8 +33,9 @@ func (m *Publish) unmarshal(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	m.RequestID = uint64(requestID)
 	buf = buf[n:]
+
+	m.RequestID = uint64(requestID)
 
 	var nsCount varint.Varint
 	n, err = nsCount.Unmarshal(buf)
@@ -38,6 +43,10 @@ func (m *Publish) unmarshal(buf []byte) error {
 		return err
 	}
 	buf = buf[n:]
+
+	if nsCount > maxNamespaceFieldCount {
+		return fmt.Errorf("too many namespace fields: %d", nsCount)
+	}
 
 	m.Namespace = make([]string, nsCount)
 	for i := range m.Namespace {
@@ -47,9 +56,11 @@ func (m *Publish) unmarshal(buf []byte) error {
 			return err
 		}
 		buf = buf[n:]
-		if len(buf) < int(l) {
+
+		if uint64(len(buf)) < uint64(l) {
 			return fmt.Errorf("not enough bytes for namespace part")
 		}
+
 		m.Namespace[i] = string(buf[:l])
 		buf = buf[int(l):]
 	}
@@ -60,9 +71,11 @@ func (m *Publish) unmarshal(buf []byte) error {
 		return err
 	}
 	buf = buf[n:]
-	if len(buf) < int(tnLen) {
-		return fmt.Errorf("not enough bytes for track name")
+
+	if uint64(len(buf)) < uint64(tnLen) {
+		return fmt.Errorf("invalid track name length: %d", tnLen)
 	}
+
 	m.TrackName = string(buf[:tnLen])
 	buf = buf[int(tnLen):]
 
@@ -71,8 +84,9 @@ func (m *Publish) unmarshal(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	m.TrackAlias = uint64(trackAlias)
 	buf = buf[n:]
+
+	m.TrackAlias = uint64(trackAlias)
 
 	var paramCount varint.Varint
 	n, err = paramCount.Unmarshal(buf)

@@ -152,14 +152,16 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}
 
 	res, err := c.pathManager.Describe(defs.PathDescribeReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
-			Name:             ctx.Path,
-			Query:            ctx.Query,
-			Proto:            auth.ProtocolRTSP,
-			ID:               &c.uuid,
-			Credentials:      rtsp.Credentials(ctx.Request),
-			IP:               c.ip(),
-			CustomVerifyFunc: customVerifyFunc,
+			Name:                 ctx.Path,
+			Query:                ctx.Query,
+			Proto:                auth.ProtocolRTSP,
+			ID:                   &c.uuid,
+			Credentials:          rtsp.Credentials(ctx.Request),
+			IP:                   c.ip(),
+			CustomVerifyFunc:     customVerifyFunc,
+			EnableAskCredentials: true,
 		},
 	})
 	if err != nil {

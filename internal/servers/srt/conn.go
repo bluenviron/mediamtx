@@ -138,6 +138,7 @@ func (c *conn) runInner() error {
 
 func (c *conn) runPublish(streamID *streamID) error {
 	res, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
 			Query:   streamID.query,
@@ -148,7 +149,8 @@ func (c *conn) runPublish(streamID *streamID) error {
 				User: streamID.user,
 				Pass: streamID.pass,
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
@@ -156,6 +158,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 			c.connReq.Reject(srt.REJ_PEER)
 			return terr
 		}
+
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
 	}
@@ -276,7 +279,8 @@ func (c *conn) runRead(streamID *streamID) error {
 				User: streamID.user,
 				Pass: streamID.pass,
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
@@ -284,6 +288,7 @@ func (c *conn) runRead(streamID *streamID) error {
 			c.connReq.Reject(srt.REJ_PEER)
 			return terr
 		}
+
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
 	}
