@@ -23,6 +23,34 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+type fallbackHandlerParent struct {
+	pa *path
+}
+
+func (f *fallbackHandlerParent) Log(level logger.Level, format string, args ...any) {
+	f.pa.Log(level, "[fallback] "+format, args...)
+}
+
+func (f *fallbackHandlerParent) StaticSourceHandlerSetReady(ctx context.Context, req defs.PathSourceStaticSetReadyReq) {
+	select {
+	case f.pa.chFallbackSourceSetReady <- req:
+	case <-f.pa.ctx.Done():
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+	case <-ctx.Done():
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+func (f *fallbackHandlerParent) StaticSourceHandlerSetNotReady(ctx context.Context, req defs.PathSourceStaticSetNotReadyReq) {
+	select {
+	case f.pa.chFallbackSourceSetNotReady <- req:
+	case <-f.pa.ctx.Done():
+		close(req.Res)
+	case <-ctx.Done():
+		close(req.Res)
+	}
+}
+
 func emptyTimer() *time.Timer {
 	t := time.NewTimer(0)
 	<-t.C
@@ -110,16 +138,24 @@ type path struct {
 	onDemandPublisherReadyTimer    *time.Timer
 	onDemandPublisherCloseTimer    *time.Timer
 
+	// fallback source state
+	fallbackHandler        *staticsources.Handler
+	fallbackHandlerRunning bool
+	fallbackSubStream      *stream.SubStream // non-nil when fallback has an initialized SubStream
+	primaryIsActive        bool              // true when the primary publisher is connected
+
 	// in
-	chReloadConf              chan *conf.Path
-	chStaticSourceSetReady    chan defs.PathSourceStaticSetReadyReq
-	chStaticSourceSetNotReady chan defs.PathSourceStaticSetNotReadyReq
-	chDescribe                chan defs.PathDescribeReq
-	chAddPublisher            chan defs.PathAddPublisherReq
-	chRemovePublisher         chan defs.PathRemovePublisherReq
-	chAddReader               chan defs.PathAddReaderReq
-	chRemoveReader            chan defs.PathRemoveReaderReq
-	chAPIPathsGet             chan pathAPIPathsGetReq
+	chReloadConf                chan *conf.Path
+	chStaticSourceSetReady      chan defs.PathSourceStaticSetReadyReq
+	chStaticSourceSetNotReady   chan defs.PathSourceStaticSetNotReadyReq
+	chFallbackSourceSetReady    chan defs.PathSourceStaticSetReadyReq
+	chFallbackSourceSetNotReady chan defs.PathSourceStaticSetNotReadyReq
+	chDescribe                  chan defs.PathDescribeReq
+	chAddPublisher              chan defs.PathAddPublisherReq
+	chRemovePublisher           chan defs.PathRemovePublisherReq
+	chAddReader                 chan defs.PathAddReaderReq
+	chRemoveReader              chan defs.PathRemoveReaderReq
+	chAPIPathsGet               chan pathAPIPathsGetReq
 
 	// out
 	done chan struct{}
@@ -139,6 +175,8 @@ func (pa *path) initialize() {
 	pa.chReloadConf = make(chan *conf.Path)
 	pa.chStaticSourceSetReady = make(chan defs.PathSourceStaticSetReadyReq)
 	pa.chStaticSourceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
+	pa.chFallbackSourceSetReady = make(chan defs.PathSourceStaticSetReadyReq)
+	pa.chFallbackSourceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
 	pa.chDescribe = make(chan defs.PathDescribeReq)
 	pa.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pa.chRemovePublisher = make(chan defs.PathRemovePublisherReq)
@@ -212,6 +250,31 @@ func (pa *path) run() {
 		}
 	}
 
+	if pa.conf.HasFallbackSource() {
+		fallbackConf := *pa.conf
+		fallbackConf.Source = pa.conf.FallbackSource
+		pa.fallbackHandler = &staticsources.Handler{
+			Conf:              &fallbackConf,
+			LogLevel:          pa.logLevel,
+			DumpPackets:       pa.dumpPackets,
+			ReadTimeout:       pa.readTimeout,
+			WriteTimeout:      pa.writeTimeout,
+			WriteQueueSize:    pa.writeQueueSize,
+			UDPReadBufferSize: pa.udpReadBufferSize,
+			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
+			Matches:           pa.matches,
+			PathManager:       pa.parent,
+			Parent:            &fallbackHandlerParent{pa: pa},
+		}
+		pa.fallbackHandler.Initialize()
+		// preconnect: start immediately so the connection is ready before it is needed.
+		// ondemand: start only when the primary publisher drops (see executeRemovePublisher).
+		if pa.conf.FallbackSourceMode == "preconnect" {
+			pa.fallbackHandler.Start(false, "")
+			pa.fallbackHandlerRunning = true
+		}
+	}
+
 	onUnInitHook := hooks.OnInit(hooks.OnInitParams{
 		Logger:          pa,
 		ExternalCmdPool: pa.externalCmdPool,
@@ -243,6 +306,10 @@ func (pa *path) run() {
 
 	if pa.stream != nil {
 		pa.setNotAvailable()
+	}
+
+	if pa.fallbackHandlerRunning {
+		pa.fallbackHandler.Stop("path is closing")
 	}
 
 	if pa.source != nil {
@@ -297,6 +364,12 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chStaticSourceSetNotReady:
 			pa.doSourceStaticSetNotReady(req)
+
+		case req := <-pa.chFallbackSourceSetReady:
+			pa.doFallbackSourceSetReady(req)
+
+		case req := <-pa.chFallbackSourceSetNotReady:
+			pa.doFallbackSourceSetNotReady(req)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)
@@ -427,16 +500,26 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	subStream := &stream.SubStream{
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
+		LiveSource:    true,
 	}
 
 	if pa.conf.AlwaysAvailable {
 		subStream.InDesc = req.Desc
 	}
 
-	err := subStream.Initialize()
-	if err != nil {
-		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
-		return
+	if pa.conf.AlwaysAvailable {
+		err := subStream.SetupFormats()
+		if err != nil {
+			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+			return
+		}
+		subStream.ScheduleActivation()
+	} else {
+		err := subStream.Initialize()
+		if err != nil {
+			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+			return
+		}
 	}
 
 	if pa.conf.AlwaysAvailable {
@@ -473,6 +556,62 @@ func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyRe
 	if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
 		pa.onDemandStaticSourceStop("an error occurred")
 	}
+}
+
+func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
+	var ss *stream.SubStream
+
+	if pa.stream == nil {
+		err := pa.setAvailable(nil, "", req.Desc, req.ReplaceNTP)
+		if err != nil {
+			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+			return
+		}
+		pa.stream.HasFallbackSource = true
+		ss = &stream.SubStream{
+			Stream:        pa.stream,
+			UseRTPPackets: req.UseRTPPackets,
+			LiveSource:    true,
+		}
+	} else {
+		ss = &stream.SubStream{
+			Stream:        pa.stream,
+			UseRTPPackets: req.UseRTPPackets,
+			InDesc:        req.Desc,
+			FallbackSwap:  true,
+			LiveSource:    true,
+		}
+	}
+
+	err := ss.SetupFormats()
+	if err != nil {
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
+		return
+	}
+
+	pa.fallbackSubStream = ss
+
+	if !pa.primaryIsActive {
+		ss.ScheduleActivation()
+		pa.Log(logger.Info, "fallback source connected, activating on next keyframe")
+	} else {
+		pa.Log(logger.Debug, "fallback source connected and parked (primary is active)")
+	}
+
+	pa.consumeOnHoldRequests()
+	req.Res <- defs.PathSourceStaticSetReadyRes{SubStream: ss}
+}
+
+func (pa *path) doFallbackSourceSetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
+	wasActive := pa.fallbackSubStream != nil && !pa.primaryIsActive
+	pa.fallbackSubStream = nil
+
+	if wasActive {
+		pa.Log(logger.Warn, "fallback source disconnected while active")
+		pa.setNotAvailable()
+	}
+
+	close(req.Res)
 }
 
 func (pa *path) doDescribe(req defs.PathDescribeReq) {
@@ -540,17 +679,54 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.executeRemovePublisher()
 	}
 
+	if pa.conf.HasFallbackSource() && pa.stream != nil {
+		subStream := &stream.SubStream{
+			Stream:        pa.stream,
+			UseRTPPackets: req.UseRTPPackets,
+			InDesc:        req.Desc,
+			FallbackSwap:  true,
+			LiveSource:    true,
+		}
+		err := subStream.SetupFormats()
+		if err != nil {
+			req.Res <- defs.PathAddPublisherRes{Err: err}
+			return
+		}
+		subStream.ScheduleActivation()
+
+		pa.source = req.Author
+		pa.primaryIsActive = true
+
+		if pa.fallbackSubStream != nil {
+			pa.fallbackSubStream.CancelActivation()
+		}
+
+		if pa.conf.FallbackSourceMode == "ondemand" && pa.fallbackHandlerRunning {
+			pa.fallbackHandler.Stop("primary publisher connected")
+			pa.fallbackHandlerRunning = false
+		}
+
+		req.Author.Log(logger.Info, "is publishing to path '%s', activating on next keyframe", pa.name)
+		pa.consumeOnHoldRequests()
+		req.Res <- defs.PathAddPublisherRes{SubStream: subStream}
+		return
+	}
+
 	if !pa.conf.AlwaysAvailable {
 		err := pa.setAvailable(req.Author, req.AccessRequest.Query, req.Desc, req.ReplaceNTP)
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return
 		}
+		if pa.conf.HasFallbackSource() {
+			pa.stream.HasFallbackSource = true
+		}
 	}
 
 	subStream := &stream.SubStream{
 		Stream:        pa.stream,
 		UseRTPPackets: req.UseRTPPackets,
+		LiveSource:    true,
 	}
 
 	if pa.conf.AlwaysAvailable {
@@ -564,6 +740,9 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	pa.source = req.Author
+	if pa.conf.HasFallbackSource() {
+		pa.primaryIsActive = true
+	}
 
 	req.Author.Log(logger.Info, "is publishing to path '%s'",
 		pa.name)
@@ -991,6 +1170,25 @@ func (pa *path) executeRemoveReader(r defs.Reader) {
 }
 
 func (pa *path) executeRemovePublisher() {
+	if pa.conf.HasFallbackSource() {
+		pa.primaryIsActive = false
+		pa.source = nil
+
+		if pa.fallbackSubStream != nil {
+			pa.fallbackSubStream.FallbackSwap = true
+			pa.fallbackSubStream.Activate()
+			pa.Log(logger.Info, "primary publisher dropped, fallback source activated")
+		} else if pa.conf.FallbackSourceMode == "ondemand" && !pa.fallbackHandlerRunning {
+			pa.fallbackHandler.Start(false, "")
+			pa.fallbackHandlerRunning = true
+			pa.Log(logger.Info, "primary publisher dropped, starting fallback source")
+		} else if pa.conf.FallbackSourceMode == "preconnect" {
+			pa.Log(logger.Warn, "primary publisher dropped, waiting for fallback source to connect")
+			pa.setNotAvailable()
+		}
+		return
+	}
+
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {

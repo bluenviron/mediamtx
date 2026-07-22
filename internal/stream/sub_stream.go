@@ -3,6 +3,7 @@ package stream
 import (
 	"fmt"
 	"reflect"
+	"sync/atomic"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -84,22 +85,52 @@ func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Me
 	return nil
 }
 
+func isKeyframeUnit(u *unit.Unit) bool {
+	switch p := u.Payload.(type) {
+	case unit.PayloadH264:
+		for _, nalu := range p {
+			if len(nalu) != 0 && nalu[0]&0x1F == 5 { // NAL type IDR
+				return true
+			}
+		}
+		return false
+
+	case unit.PayloadH265:
+		for _, nalu := range p {
+			if len(nalu) != 0 {
+				naluType := (nalu[0] >> 1) & 0x3F
+				if naluType == 19 || naluType == 20 { // IDR_W_RADL, IDR_N_LP
+					return true
+				}
+			}
+		}
+		return false
+
+	default:
+		return true
+	}
+}
+
 // SubStream is a Stream without interruptions.
 type SubStream struct {
 	Stream        *Stream
 	InDesc        *description.Session
 	UseRTPPackets bool
+	FallbackSwap  bool
+	LiveSource    bool // if true, PTS is passed through unchanged (no ptsOffset applied on activation)
 
-	medias map[*description.Media]*subStreamMedia
+	medias            map[*description.Media]*subStreamMedia
+	pendingActivation atomic.Bool
 }
 
-// Initialize initializes the SubStream.
-func (ss *SubStream) Initialize() error {
-	if !ss.Stream.AlwaysAvailable {
+// SetupFormats initializes per-format codec state without making this SubStream active.
+func (ss *SubStream) SetupFormats() error {
+	swapMode := ss.Stream.AlwaysAvailable || ss.FallbackSwap
+
+	if !swapMode {
 		if ss.Stream.subStream != nil {
 			panic("should not happen")
 		}
-
 		if ss.InDesc != nil {
 			panic("should not happen")
 		}
@@ -107,14 +138,13 @@ func (ss *SubStream) Initialize() error {
 		if ss.InDesc == nil {
 			panic("should not happen")
 		}
-
 		err := mediasAreCompatible(ss.Stream.OrigDesc.Medias, ss.InDesc.Medias)
 		if err != nil {
 			return err
 		}
 	}
 
-	if !ss.Stream.AlwaysAvailable {
+	if !swapMode {
 		ss.InDesc = ss.Stream.OrigDesc
 	}
 
@@ -149,21 +179,70 @@ func (ss *SubStream) Initialize() error {
 		}
 	}
 
+	return nil
+}
+
+func (ss *SubStream) activate() {
 	ss.Stream.mutex.Lock()
 	ss.Stream.subStream = ss
 	ss.Stream.mutex.Unlock()
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
-			ssf.initialize2(ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
+			ssf.initialize2(ss.LiveSource, ss.FallbackSwap, ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
 		}
 	}
+}
 
+// ScheduleActivation makes this SubStream become active on the next keyframe.
+func (ss *SubStream) ScheduleActivation() {
+	ss.pendingActivation.Store(true)
+}
+
+// CancelActivation prevents a pending ScheduleActivation from firing.
+func (ss *SubStream) CancelActivation() {
+	ss.pendingActivation.Store(false)
+}
+
+// Activate makes this SubStream the active source immediately.
+func (ss *SubStream) Activate() {
+	ss.pendingActivation.Store(false)
+	ss.activate()
+}
+
+// Initialize calls SetupFormats then activate immediately.
+func (ss *SubStream) Initialize() error {
+	if err := ss.SetupFormats(); err != nil {
+		return err
+	}
+	ss.activate()
 	return nil
+}
+
+func (ss *SubStream) hasVideo() bool {
+	for _, m := range ss.InDesc.Medias {
+		if m.Type == description.MediaTypeVideo {
+			return true
+		}
+	}
+	return false
 }
 
 // WriteUnit writes a Unit.
 func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Format, u *unit.Unit) {
+	if ss.pendingActivation.Load() {
+		if ss.hasVideo() {
+			if inMedia.Type != description.MediaTypeVideo || !isKeyframeUnit(u) {
+				return
+			}
+		} else if !isKeyframeUnit(u) {
+			return
+		}
+		if ss.pendingActivation.CompareAndSwap(true, false) {
+			ss.activate()
+		}
+	}
+
 	ss.Stream.mutex.RLock()
 	defer ss.Stream.mutex.RUnlock()
 
