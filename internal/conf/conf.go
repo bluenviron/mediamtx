@@ -995,10 +995,11 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			"and has been replaced with 'webrtcICEServers2'")
 
 		for _, server := range *conf.WebRTCICEServers {
-			parts := strings.Split(server, ":")
-			if len(parts) == 5 {
+			// old format: scheme:username:password:hostport; SplitN avoids splitting IPv6 colons
+			parts := strings.SplitN(server, ":", 4)
+			if len(parts) == 4 {
 				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
-					URL:      parts[0] + ":" + parts[3] + ":" + parts[4],
+					URL:      parts[0] + ":" + parts[3],
 					Username: parts[1],
 					Password: parts[2],
 				})
