@@ -19,9 +19,9 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
-	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
