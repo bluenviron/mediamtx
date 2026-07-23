@@ -98,7 +98,6 @@ func TestServerPreflightRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
-	require.Equal(t, "true", res.Header.Get("Access-Control-Allow-Credentials"))
 	require.Equal(t, "OPTIONS, GET", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Range", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})

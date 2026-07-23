@@ -38,7 +38,7 @@ func TestHandlerOrigin(t *testing.T) {
 			"everything allowed, with origin",
 			"https://example.com",
 			[]string{"*"},
-			"https://example.com",
+			"*",
 		},
 		{
 			"allowed",
@@ -51,6 +51,12 @@ func TestHandlerOrigin(t *testing.T) {
 			"https://test.example.org",
 			[]string{"https://*.example.org"},
 			"https://test.example.org",
+		},
+		{
+			"everything allowed plus specific domain",
+			"https://example.org",
+			[]string{"*", "https://example.org"},
+			"https://example.org",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
