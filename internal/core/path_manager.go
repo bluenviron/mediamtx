@@ -696,3 +696,43 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, fmt.Errorf("terminated")
 	}
 }
+
+// APIRecordingStart implements defs.APIPathManager.
+func (pm *pathManager) APIRecordingStart(name string) error {
+	pa, err := pm.apiFindPath(name)
+	if err != nil {
+		return err
+	}
+
+	return pa.apiRecordingStart()
+}
+
+// APIRecordingStop implements defs.APIPathManager.
+func (pm *pathManager) APIRecordingStop(name string) error {
+	pa, err := pm.apiFindPath(name)
+	if err != nil {
+		return err
+	}
+
+	return pa.apiRecordingStop()
+}
+
+// apiFindPath returns the path with the given name, if it currently exists.
+func (pm *pathManager) apiFindPath(name string) (*path, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+		return res.path, nil
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}

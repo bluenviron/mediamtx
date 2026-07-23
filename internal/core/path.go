@@ -67,6 +67,10 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
+type pathAPIRecordingReq struct {
+	res chan error
+}
+
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
@@ -120,6 +124,8 @@ type path struct {
 	chAddReader               chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
+	chAPIRecordingStart       chan pathAPIRecordingReq
+	chAPIRecordingStop        chan pathAPIRecordingReq
 
 	// out
 	done chan struct{}
@@ -145,6 +151,8 @@ func (pa *path) initialize() {
 	pa.chAddReader = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pa.chAPIRecordingStart = make(chan pathAPIRecordingReq)
+	pa.chAPIRecordingStop = make(chan pathAPIRecordingReq)
 	pa.done = make(chan struct{})
 
 	pa.Log(logger.Debug, "created")
@@ -341,6 +349,12 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
+
+		case req := <-pa.chAPIRecordingStart:
+			pa.doAPIRecordingStart(req)
+
+		case req := <-pa.chAPIRecordingStop:
+			pa.doAPIRecordingStop(req)
 
 		case <-pa.ctx.Done():
 			return fmt.Errorf("terminated")
@@ -668,6 +682,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.source.APISourceDescribe()
 				return v
 			}(),
+			Recording: pa.recorder != nil,
 			Tracks: func() []defs.APIPathTrackCodec {
 				if !pa.isAvailable() {
 					return []defs.APIPathTrackCodec{}
@@ -986,6 +1001,37 @@ func (pa *path) startRecording() {
 	pa.recorder.Initialize()
 }
 
+// doAPIRecordingStart starts recording on a path that already has an active
+// publisher, regardless of the "record" value in its configuration. If the
+// path is already recording, the request is a no-op and succeeds.
+func (pa *path) doAPIRecordingStart(req pathAPIRecordingReq) {
+	if pa.stream == nil {
+		req.res <- fmt.Errorf("path '%s' is not publishing, unable to start recording", pa.name)
+		return
+	}
+
+	if pa.recorder == nil {
+		pa.startRecording()
+	}
+
+	req.res <- nil
+}
+
+// doAPIRecordingStop stops recording on a path, regardless of the "record"
+// value in its configuration. It does not affect the publisher or any
+// reader attached to the path.
+func (pa *path) doAPIRecordingStop(req pathAPIRecordingReq) {
+	if pa.recorder == nil {
+		req.res <- fmt.Errorf("path '%s' is not recording", pa.name)
+		return
+	}
+
+	pa.recorder.Close()
+	pa.recorder = nil
+
+	req.res <- nil
+}
+
 func (pa *path) executeRemoveReader(r defs.Reader) {
 	delete(pa.readers, r)
 }
@@ -1142,5 +1188,29 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 
 	case <-pa.ctx.Done():
 		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// apiRecordingStart is called by pathManager.
+func (pa *path) apiRecordingStart() error {
+	req := pathAPIRecordingReq{res: make(chan error)}
+	select {
+	case pa.chAPIRecordingStart <- req:
+		return <-req.res
+
+	case <-pa.ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}
+
+// apiRecordingStop is called by pathManager.
+func (pa *path) apiRecordingStop() error {
+	req := pathAPIRecordingReq{res: make(chan error)}
+	select {
+	case pa.chAPIRecordingStop <- req:
+		return <-req.res
+
+	case <-pa.ctx.Done():
+		return fmt.Errorf("terminated")
 	}
 }

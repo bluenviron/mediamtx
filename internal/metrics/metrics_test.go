@@ -61,6 +61,14 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
+func (dummyPathManager) APIRecordingStart(string) error {
+	panic("unused")
+}
+
+func (dummyPathManager) APIRecordingStop(string) error {
+	panic("unused")
+}
+
 type dummyHLSServer struct{}
 
 func (dummyHLSServer) APIMuxersList() (*defs.APIHLSMuxerList, error) {
@@ -361,6 +369,14 @@ func (emptyPathManager) APIPathsList() (*defs.APIPathList, error) {
 }
 
 func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
+	panic("unused")
+}
+
+func (emptyPathManager) APIRecordingStart(string) error {
+	panic("unused")
+}
+
+func (emptyPathManager) APIRecordingStop(string) error {
 	panic("unused")
 }
 

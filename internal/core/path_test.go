@@ -881,6 +881,131 @@ func TestPathRecord(t *testing.T) {
 	require.Equal(t, 2, len(files))
 }
 
+func TestPathAPIRecordingStartStop(t *testing.T) {
+	dir := t.TempDir()
+
+	p, ok := newInstance(t, "api: yes\n"+
+		"recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
+		"paths:\n"+
+		"  mystream:\n"+
+		"    record: no\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	// starting recording on a path that exists but has no active publisher fails.
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/start/mystream", nil)
+	require.NoError(t, err)
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	// starting recording on a nonexistent path returns 404.
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/start/nonexistent", nil)
+	require.NoError(t, err)
+	res, err = hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+
+	media0 := test.UniqueMediaH264()
+
+	source := gortsplib.Client{}
+
+	err = source.StartRecording(
+		"rtsp://localhost:8554/mystream",
+		&description.Session{Medias: []*description.Media{media0}})
+	require.NoError(t, err)
+	defer source.Close()
+
+	writePacket := func(seq int) {
+		err2 := source.WritePacketRTP(media0, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 1123 + uint16(seq),
+				Timestamp:      45343 + 90000*uint32(seq),
+				SSRC:           563423,
+			},
+			Payload: []byte{5},
+		})
+		require.NoError(t, err2)
+	}
+
+	for i := range 4 {
+		writePacket(i)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	// no recording yet, since "record" is false in the config.
+	_, err = os.ReadDir(filepath.Join(dir, "mystream"))
+	require.True(t, os.IsNotExist(err))
+
+	// start recording via the API, without patching the config or reconnecting.
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/start/mystream", nil)
+	require.NoError(t, err)
+	res, err = hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	// starting again while already recording is a no-op that still succeeds.
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/start/mystream", nil)
+	require.NoError(t, err)
+	res, err = hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var pathData map[string]any
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/get/mystream", nil, &pathData)
+	require.Equal(t, true, pathData["recording"])
+
+	for i := 4; i < 8; i++ {
+		writePacket(i)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	files, err := os.ReadDir(filepath.Join(dir, "mystream"))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+
+	// stop recording via the API.
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/stop/mystream", nil)
+	require.NoError(t, err)
+	res, err = hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/get/mystream", nil, &pathData)
+	require.Equal(t, false, pathData["recording"])
+
+	// stopping again while not recording fails.
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:9997/v3/recordings/stop/mystream", nil)
+	require.NoError(t, err)
+	res, err = hc.Do(req)
+	require.NoError(t, err)
+	res.Body.Close() //nolint:errcheck
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	// the publisher and reader are unaffected: further data is not recorded, but the
+	// stream itself is left alone.
+	writePacket(8)
+	time.Sleep(200 * time.Millisecond)
+
+	files, err = os.ReadDir(filepath.Join(dir, "mystream"))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+}
+
 func TestPathFallback(t *testing.T) {
 	for _, ca := range []string{
 		"absolute",

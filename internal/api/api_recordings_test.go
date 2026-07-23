@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -262,4 +264,104 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRecordingStart(t *testing.T) {
+	for _, ca := range []struct {
+		name       string
+		pathName   string
+		pathExists bool
+		startErr   error
+		expStatus  int
+	}{
+		{"success", "mystream", true, nil, http.StatusOK},
+		{"path not found", "missing", false, nil, http.StatusNotFound},
+		{"not publishing", "mystream", true, fmt.Errorf("path 'mystream' is not publishing, unable to start recording"), http.StatusBadRequest},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pathManager := &testPathManager{
+				paths:             map[string]*defs.APIPath{},
+				recordingStartErr: ca.startErr,
+			}
+			if ca.pathExists {
+				pathManager.paths["mystream"] = &defs.APIPath{Name: "mystream"}
+			}
+
+			api := API{
+				Address:      "localhost:9997",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				PathManager:  pathManager,
+				Parent:       &testParent{},
+			}
+			err := api.Initialize()
+			require.NoError(t, err)
+			defer api.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			req, err := http.NewRequest(http.MethodPost,
+				"http://localhost:9997/v3/recordings/start/"+ca.pathName, nil)
+			require.NoError(t, err)
+
+			resp, err := hc.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, ca.expStatus, resp.StatusCode)
+		})
+	}
+}
+
+func TestRecordingStop(t *testing.T) {
+	for _, ca := range []struct {
+		name       string
+		pathName   string
+		pathExists bool
+		stopErr    error
+		expStatus  int
+	}{
+		{"success", "mystream", true, nil, http.StatusOK},
+		{"path not found", "missing", false, nil, http.StatusNotFound},
+		{"not recording", "mystream", true, fmt.Errorf("path 'mystream' is not recording"), http.StatusBadRequest},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pathManager := &testPathManager{
+				paths:            map[string]*defs.APIPath{},
+				recordingStopErr: ca.stopErr,
+			}
+			if ca.pathExists {
+				pathManager.paths["mystream"] = &defs.APIPath{Name: "mystream"}
+			}
+
+			api := API{
+				Address:      "localhost:9997",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				PathManager:  pathManager,
+				Parent:       &testParent{},
+			}
+			err := api.Initialize()
+			require.NoError(t, err)
+			defer api.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			req, err := http.NewRequest(http.MethodPost,
+				"http://localhost:9997/v3/recordings/stop/"+ca.pathName, nil)
+			require.NoError(t, err)
+
+			resp, err := hc.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, ca.expStatus, resp.StatusCode)
+		})
+	}
 }
