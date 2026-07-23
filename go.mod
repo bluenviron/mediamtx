@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.26.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.81.0
+	code.cloudfoundry.org/bytefmt v0.82.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
@@ -30,7 +30,7 @@ require (
 	github.com/matthewhartstonge/argon2 v1.5.6
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.3.0
-	github.com/pion/interceptor v0.1.45
+	github.com/pion/interceptor v0.1.46
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.17
 	github.com/pion/rtp v1.10.4
