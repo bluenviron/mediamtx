@@ -30,8 +30,10 @@ docker run --rm -it \
 -p 1935:1935 \
 -p 8888:8888 \
 -p 8889:8889 \
+-p 8892:8892 \
 -p 8890:8890/udp \
 -p 8189:8189/udp \
+-p 8892:8892/udp \
 bluenviron/mediamtx:1
 ```
 

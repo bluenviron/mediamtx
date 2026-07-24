@@ -19,7 +19,8 @@ Media-over-QUIC has a wide range of features and variants, most of them in activ
 There are some server requirements:
 
 - HTTPS is mandatory.
-- Clients must be able to access both the HTTP/2 listener (`:8892`) and the HTTP/3 listener (`:8892`), the latter of which runs over UDP.
+- Clients must be able to access both the HTTP/2 listener (`:8892/TCP`) and the HTTP/3 listener (`:8892/UDP`).
+- If the server is behind Docker, NAT or a firewall, expose and forward both `8892/TCP` and `8892/UDP` to the server.
 
 And there are some client (browser) requirements:
 
