@@ -75,14 +75,6 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		return nil
 	}
 
-	duration := t.nextSample.dts - sample.dts
-	if duration < 0 {
-		t.nextSample.dts = sample.dts
-		duration = 0
-	}
-
-	sample.Duration = uint32(duration)
-
 	dts := timestampToDuration(sample.dts, int(t.initTrack.TimeScale))
 
 	if !t.startInitialized {
@@ -95,6 +87,28 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
 		}
 	}
+
+	duration := t.nextSample.dts - sample.dts
+	if duration < 0 {
+		t.nextSample.dts = sample.dts
+		duration = 0
+	} else {
+		// This sample's duration is the gap until the next sample. When the
+		// next sample's stream time has drifted from absolute time (e.g. an RTP
+		// timestamp jump after packet loss) that gap can be arbitrarily large,
+		// and it would inflate the segment duration by the size of the gap: the
+		// drift is only caught on the following call, by which time the inflated
+		// segment has already been flushed and reported. Zero the duration so
+		// the segment isn't inflated; the drift detector above then resets the
+		// recording when the next sample is processed.
+		nextDTS := timestampToDuration(t.nextSample.dts, int(t.initTrack.TimeScale))
+		nextDrift := t.nextSample.ntp.Sub(t.startNTP) - (nextDTS - t.startDTS)
+		if nextDrift < -ntpDriftTolerance || nextDrift > ntpDriftTolerance {
+			duration = 0
+		}
+	}
+
+	sample.Duration = uint32(duration)
 
 	if t.f.currentSegment == nil {
 		t.f.currentSegment = &formatFMP4Segment{
