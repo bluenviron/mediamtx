@@ -26,7 +26,7 @@ And there are some client (browser) requirements:
 
 - If the server certificate is self-signed, browser must support the [serverCertificatesHashes option](https://caniuse.com/mdn-api_webtransport_webtransport_options_servercertificatehashes_parameter) (all except iOS Safari do).
 - Browser must support [WebTransport](https://caniuse.com/webtransport) and [WebCodecs](https://caniuse.com/webcodecs) (all modern browsers do)
-- When publishing tracks, the browser to support [MediaStreamTrackProcessor](https://caniuse.com/mdn-api_mediastreamtrackprocessor) (only Chrome does).
+- When publishing tracks, browser must support [MediaStreamTrackProcessor](https://caniuse.com/mdn-api_mediastreamtrackprocessor) (only Chrome does).
 
 You can publish a stream with Media-over-QUIC and a web browser by visiting:
 

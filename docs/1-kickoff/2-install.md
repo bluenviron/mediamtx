@@ -58,8 +58,10 @@ The `1` tag corresponds to the latest `1.x.x` release, that should guarantee bac
 
 The base image does not contain any utility, in order to minimize size and frequency of updates. If you need additional software (like curl, wget, GStreamer), you can build a custom image by creating a file named `Dockerfile` with this content:
 
-```Dockerfile
+```dockerfile
 FROM bluenviron/mediamtx:1 AS mediamtx
+
+# pick any Linux-based operating system you want.
 FROM ubuntu:24.04
 
 COPY --from=mediamtx /mediamtx /
@@ -77,8 +79,6 @@ And then build it:
 ```sh
 docker build . -t my-mediamtx
 ```
-
-This custom image is using the official _MediaMTX_ image as a base stage, and then adds a Linux-based operating system on top of it. You can use any Linux distribution or version you like, since _MediaMTX_ binaries are compatible with anything.
 
 ## Arch Linux package
 
