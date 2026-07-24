@@ -40,6 +40,10 @@ pathDefaults:
   recordMaxPartSize: 50M
   # Minimum duration of each segment.
   recordSegmentDuration: 1h
+  # Whether to align segment starts to wall-clock boundaries based on recordSegmentDuration.
+  # The first segment after startup or reconnection can be shorter than recordSegmentDuration.
+  # Segments are switched near aligned boundaries, on the first available random access point.
+  recordSegmentDurationAligned: false
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
   recordDeleteAfter: 1d

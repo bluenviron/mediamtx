@@ -29,6 +29,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RecordPartDuration = newPathConf.RecordPartDuration
 	clone.RecordMaxPartSize = newPathConf.RecordMaxPartSize
 	clone.RecordSegmentDuration = newPathConf.RecordSegmentDuration
+	clone.RecordSegmentDurationAligned = newPathConf.RecordSegmentDurationAligned
 	clone.RecordDeleteAfter = newPathConf.RecordDeleteAfter
 
 	clone.RPICameraBrightness = newPathConf.RPICameraBrightness

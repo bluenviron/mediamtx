@@ -13,16 +13,17 @@ import (
 )
 
 type recorderInstance struct {
-	pathFormat        string
-	format            conf.RecordFormat
-	partDuration      time.Duration
-	maxPartSize       conf.StringSize
-	segmentDuration   time.Duration
-	pathName          string
-	stream            *stream.Stream
-	onSegmentCreate   OnSegmentCreateFunc
-	onSegmentComplete OnSegmentCompleteFunc
-	parent            logger.Writer
+	pathFormat             string
+	format                 conf.RecordFormat
+	partDuration           time.Duration
+	maxPartSize            conf.StringSize
+	segmentDuration        time.Duration
+	segmentDurationAligned bool
+	pathName               string
+	stream                 *stream.Stream
+	onSegmentCreate        OnSegmentCreateFunc
+	onSegmentComplete      OnSegmentCompleteFunc
+	parent                 logger.Writer
 
 	streamID    uuid.UUID
 	pathFormat2 string
@@ -32,6 +33,20 @@ type recorderInstance struct {
 
 	terminate chan struct{}
 	done      chan struct{}
+}
+
+func segmentDurationReached(
+	startNTP time.Time,
+	elapsed time.Duration,
+	duration time.Duration,
+	aligned bool,
+	nextNTP time.Time,
+) bool {
+	if !aligned {
+		return elapsed >= duration
+	}
+
+	return !nextNTP.Before(startNTP.Truncate(duration).Add(duration))
 }
 
 // Log implements logger.Writer.

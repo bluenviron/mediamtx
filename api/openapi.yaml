@@ -978,6 +978,8 @@ components:
           type: string
         recordSegmentDuration:
           type: string
+        recordSegmentDurationAligned:
+          type: boolean
         rpiCameraAWB:
           type: string
         rpiCameraAWBGains:
