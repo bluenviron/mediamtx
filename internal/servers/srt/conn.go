@@ -30,7 +30,7 @@ func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
 	}
 
 	if !connReq.IsEncrypted() {
-		return fmt.Errorf("connection is encrypted, but not passphrase is defined in configuration")
+		return fmt.Errorf("passphrase not provided by client")
 	}
 
 	err := connReq.SetPassphrase(passphrase)
