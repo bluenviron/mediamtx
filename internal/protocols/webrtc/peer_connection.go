@@ -80,6 +80,25 @@ func maxTrackCount(medias []*sdp.MediaDescription) int {
 	return total
 }
 
+func ridIndexByMedia(media *sdp.MediaDescription) map[string]int {
+	ret := make(map[string]int)
+
+	for _, attr := range media.Attributes {
+		if attr.Key != "rid" || attr.Value == "" {
+			continue
+		}
+
+		ridge, _, ok := strings.Cut(attr.Value, " ")
+		if !ok || ridge == "" {
+			ridge = attr.Value
+		}
+
+		ret[ridge] = len(ret)
+	}
+
+	return ret
+}
+
 // * skip ConfigureRTCPReports
 // * add statsInterceptor
 func registerInterceptors(
@@ -767,31 +786,70 @@ func (co *PeerConnection) GatherInboundTracks(timeout time.Duration) error {
 	sdp.Unmarshal([]byte(co.wr.RemoteDescription().SDP)) //nolint:errcheck
 
 	maxTrackCount := maxTrackCount(sdp.MediaDescriptions)
+	tracks := make([]*InboundTrack, 0, maxTrackCount)
 
 	t := time.NewTimer(timeout)
 	defer t.Stop()
 
+	midIndexByMid := make(map[string]int, len(sdp.MediaDescriptions))
+	ridIndexByMid := make(map[string]map[string]int, len(sdp.MediaDescriptions))
+
+	for i, media := range sdp.MediaDescriptions {
+		mid, _ := media.Attribute("mid")
+		midIndexByMid[mid] = i
+		ridIndexByMid[mid] = ridIndexByMedia(media)
+	}
+
+	getMIDIndex := func(mid string) int {
+		if v, ok := midIndexByMid[mid]; ok {
+			return v
+		}
+
+		return len(midIndexByMid)
+	}
+
+	getRIDIndex := func(mid, rid string) int {
+		if rid == "" {
+			return 0
+		}
+
+		if v, ok := ridIndexByMid[mid][rid]; ok {
+			return v
+		}
+
+		return len(ridIndexByMid[mid])
+	}
+
+outer:
 	for {
 		select {
 		case <-t.C:
-			if len(co.inboundTracks) != 0 {
-				return nil
+			if len(tracks) != 0 {
+				break outer
 			}
 			return fmt.Errorf("deadline exceeded while waiting tracks")
 
 		case pair := <-co.inboundTrack:
-			t := &InboundTrack{
+			mid := ""
+			if transceiver := pair.receiver.RTPTransceiver(); transceiver != nil {
+				mid = transceiver.Mid()
+			}
+			rid := pair.track.RID()
+
+			track := &InboundTrack{
 				track:     pair.track,
 				receiver:  pair.receiver,
-				rid:       pair.track.RID(),
+				midIndex:  getMIDIndex(mid),
+				rid:       rid,
+				ridIndex:  getRIDIndex(mid, rid),
 				writeRTCP: co.wr.WriteRTCP,
 				log:       co.Log,
 			}
-			t.initialize()
-			co.inboundTracks = append(co.inboundTracks, t)
+			track.initialize()
+			tracks = append(tracks, track)
 
-			if len(co.inboundTracks) >= maxTrackCount {
-				return nil
+			if len(tracks) >= maxTrackCount {
+				break outer
 			}
 
 		case <-co.Failed():
@@ -801,6 +859,29 @@ func (co *PeerConnection) GatherInboundTracks(timeout time.Duration) error {
 			return fmt.Errorf("terminated")
 		}
 	}
+
+	slices.SortStableFunc(tracks, func(track1 *InboundTrack, track2 *InboundTrack) int {
+		if track1.midIndex != track2.midIndex {
+			return track1.midIndex - track2.midIndex
+		}
+
+		if track1.ridIndex != track2.ridIndex {
+			return track1.ridIndex - track2.ridIndex
+		}
+
+		id1 := track1.track.ID()
+		id2 := track2.track.ID()
+		if id1 != id2 {
+			return strings.Compare(id1, id2)
+		}
+
+		streamID1 := track1.track.StreamID()
+		streamID2 := track2.track.StreamID()
+		return strings.Compare(streamID1, streamID2)
+	})
+
+	co.inboundTracks = tracks
+	return nil
 }
 
 // Connected returns when connected.

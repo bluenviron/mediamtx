@@ -249,7 +249,9 @@ type InboundTrack struct {
 
 	track     *webrtc.TrackRemote
 	receiver  *webrtc.RTPReceiver
+	midIndex  int
 	rid       string
+	ridIndex  int
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 

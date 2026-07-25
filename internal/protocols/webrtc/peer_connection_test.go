@@ -34,6 +34,38 @@ func gatherCodecs(tracks []*InboundTrack) []webrtc.RTPCodecParameters {
 	return codecs
 }
 
+func gatherTrackIDs(tracks []*InboundTrack) []string {
+	ids := make([]string, len(tracks))
+	for i, track := range tracks {
+		ids[i] = track.track.ID()
+	}
+	return ids
+}
+
+func gatherTrackRIDs(tracks []*InboundTrack) []string {
+	rids := make([]string, len(tracks))
+	for i, track := range tracks {
+		rids[i] = track.track.RID()
+	}
+	return rids
+}
+
+func gatherTrackMIDIndexes(tracks []*InboundTrack) []int {
+	mids := make([]int, len(tracks))
+	for i, track := range tracks {
+		mids[i] = track.midIndex
+	}
+	return mids
+}
+
+func gatherTrackRIDIndexes(tracks []*InboundTrack) []int {
+	rids := make([]int, len(tracks))
+	for i, track := range tracks {
+		rids[i] = track.ridIndex
+	}
+	return rids
+}
+
 func senderHeaderExtensionID(params webrtc.RTPSendParameters, uri string) uint8 {
 	for _, ext := range params.HeaderExtensions {
 		if ext.URI == uri {
@@ -343,7 +375,7 @@ func TestPeerConnectionRead(t *testing.T) {
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 
-		err2 := videoTrack.WriteRTP(&rtp.Packet{
+		err2 := audioTrack.WriteRTP(&rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -356,7 +388,7 @@ func TestPeerConnectionRead(t *testing.T) {
 		})
 		require.NoError(t, err2)
 
-		err2 = audioTrack.WriteRTP(&rtp.Packet{
+		err2 = videoTrack.WriteRTP(&rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -372,6 +404,9 @@ func TestPeerConnectionRead(t *testing.T) {
 
 	err = reader.GatherInboundTracks(2 * time.Second)
 	require.NoError(t, err)
+
+	require.Equal(t, []string{"video", "audio"}, gatherTrackIDs(reader.InboundTracks()))
+	require.Equal(t, []int{0, 1}, gatherTrackMIDIndexes(reader.InboundTracks()))
 
 	codecs := gatherCodecs(reader.InboundTracks())
 
@@ -572,12 +607,8 @@ func TestPeerConnectionReadSimulcast(t *testing.T) {
 		}, codec.RTPCodecCapability)
 	}
 
-	rids := make([]string, len(tracks))
-	for i, track := range tracks {
-		rids[i] = track.track.RID()
-	}
-	sort.Strings(rids)
-	require.Equal(t, []string{"h", "l", "m"}, rids)
+	require.Equal(t, []string{"l", "m", "h"}, gatherTrackRIDs(tracks))
+	require.Equal(t, []int{0, 1, 2}, gatherTrackRIDIndexes(tracks))
 }
 
 func TestPeerConnectionStripIncomingTWCC(t *testing.T) {
