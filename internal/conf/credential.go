@@ -2,6 +2,7 @@ package conf
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -62,7 +63,7 @@ func (d Credential) IsHashed() bool {
 // Check returns true if the given value matches the credential.
 func (d Credential) Check(guess string) bool {
 	if d.IsSha256() {
-		return string(d)[len("sha256:"):] == sha256Base64(guess)
+		return subtle.ConstantTimeCompare([]byte(string(d)[len("sha256:"):]), []byte(sha256Base64(guess))) == 1
 	}
 
 	if d.IsArgon2() {
@@ -73,7 +74,7 @@ func (d Credential) Check(guess string) bool {
 	}
 
 	if d != "" {
-		return string(d) == guess
+		return subtle.ConstantTimeCompare([]byte(string(d)), []byte(guess)) == 1
 	}
 
 	return true

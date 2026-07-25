@@ -95,6 +95,12 @@ components:
         - read
         - publish
 
+    MoQVersion:
+      type: string
+      enum:
+        - moqt-18
+        - moqt-19
+
     OKStatus:
       type: string
       enum:
@@ -827,6 +833,8 @@ components:
           $ref: "#/components/schemas/MoQSessionState"
         userAgent:
           type: string
+        version:
+          $ref: "#/components/schemas/MoQVersion"
 
     MoQSessionList:
       type: object
@@ -1150,6 +1158,10 @@ components:
           items:
             type: integer
             format: uint64
+        runOnAvailable:
+          type: string
+        runOnAvailableRestart:
+          type: boolean
         runOnDemand:
           type: string
         runOnDemandCloseAfter:
@@ -1165,19 +1177,33 @@ components:
           type: boolean
         runOnNotReady:
           type: string
+          nullable: true
+          deprecated: true
+        runOnOffline:
+          type: string
+        runOnOnline:
+          type: string
+        runOnOnlineRestart:
+          type: boolean
         runOnRead:
           type: string
         runOnReadRestart:
           type: boolean
         runOnReady:
           type: string
+          nullable: true
+          deprecated: true
         runOnReadyRestart:
           type: boolean
+          nullable: true
+          deprecated: true
         runOnRecordSegmentComplete:
           type: string
         runOnRecordSegmentCreate:
           type: string
         runOnUnDemand:
+          type: string
+        runOnUnavailable:
           type: string
         runOnUnread:
           type: string

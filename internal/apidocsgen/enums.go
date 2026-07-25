@@ -48,6 +48,11 @@ var enums = []struct {
 		File:         filepath.Join("internal", "defs", "api_moq.go"),
 	},
 	{
+		externalName: "MoQVersion",
+		internalName: "APIMoQVersion",
+		File:         filepath.Join("internal", "defs", "api_moq.go"),
+	},
+	{
 		externalName: "OKStatus",
 		internalName: "APIOKStatus",
 		File:         filepath.Join("internal", "defs", "api.go"),

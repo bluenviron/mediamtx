@@ -58,3 +58,20 @@ func TestMarshal(t *testing.T) {
 		})
 	}
 }
+
+func FuzzUnmarshal(f *testing.F) {
+	for _, ca := range cases {
+		f.Add(ca.count, ca.enc)
+	}
+
+	f.Fuzz(func(_ *testing.T, count int, buf []byte) {
+		var params Parameters
+		_, err := params.Unmarshal(count, buf)
+		if err != nil {
+			return
+		}
+
+		buf = make([]byte, params.MarshalSize())
+		params.MarshalTo(buf)
+	})
+}

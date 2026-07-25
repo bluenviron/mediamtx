@@ -31,8 +31,8 @@ func (p *Properties) Unmarshal(buf []byte) error {
 		if err != nil {
 			return err
 		}
-
 		buf = buf[n:]
+
 		currentType += uint64(delta)
 
 		switch currentType {
@@ -54,9 +54,11 @@ func (p *Properties) Unmarshal(buf []byte) error {
 				if err != nil {
 					return err
 				}
-				if len(buf)-n2 < int(length) {
+
+				if uint64(len(buf))-uint64(n2) < uint64(length) {
 					return fmt.Errorf("not enough bytes for unknown property")
 				}
+
 				buf = buf[n2+int(length):]
 			} else {
 				var skip varint.Varint

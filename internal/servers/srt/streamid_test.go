@@ -58,6 +58,16 @@ func TestStreamIDUnmarshal(t *testing.T) {
 				path: "test3",
 			},
 		},
+		{
+			"issue 5414",
+			"publish:my_path:myuser:mypass#feedbackplay",
+			streamID{
+				mode: streamIDModePublish,
+				path: "my_path",
+				user: "myuser",
+				pass: "mypass",
+			},
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			var sid streamID

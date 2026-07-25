@@ -33,7 +33,7 @@
 class MediaMTXMoQReader {
   static #RETRY_PAUSE = 2000;
 
-  static #MOQT_VERSION = "moqt-18";
+  static #MOQT_VERSION = "moqt-19";
 
   static #SETUP_TYPE = 0x2f00n;
   static #MSG_SUBSCRIBE = 0x03n;

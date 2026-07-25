@@ -9,8 +9,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// OnReadyParams are the parameters of OnReady.
-type OnReadyParams struct {
+// OnOnlineParams are the parameters of OnOnline.
+type OnOnlineParams struct {
 	Logger          logger.Writer
 	ExternalCmdPool *externalcmd.Pool
 	Conf            *conf.Path
@@ -19,12 +19,12 @@ type OnReadyParams struct {
 	Query           string
 }
 
-// OnReady is the OnReady hook.
-func OnReady(params OnReadyParams) func() {
+// OnOnline is the OnOnline hook.
+func OnOnline(params OnOnlineParams) func() {
 	var env externalcmd.Environment
-	var onReadyCmd *externalcmd.Cmd
+	var onOnlineCmd *externalcmd.Cmd
 
-	if params.Conf.RunOnReady != "" || params.Conf.RunOnNotReady != "" {
+	if params.Conf.RunOnOnline != "" || params.Conf.RunOnOffline != "" {
 		env = params.ExternalCmdEnv
 		env["MTX_QUERY"] = url.QueryEscape(params.Query)
 		if params.Desc != nil {
@@ -33,31 +33,33 @@ func OnReady(params OnReadyParams) func() {
 		}
 	}
 
-	if params.Conf.RunOnReady != "" {
-		params.Logger.Log(logger.Info, "runOnReady command started")
-		onReadyCmd = &externalcmd.Cmd{
+	if params.Conf.RunOnOnline != "" {
+		params.Logger.Log(logger.Info, "runOnOnline command started")
+		onOnlineCmd = &externalcmd.Cmd{
 			Pool:    params.ExternalCmdPool,
-			Cmdstr:  params.Conf.RunOnReady,
-			Restart: params.Conf.RunOnReadyRestart,
+			Cmdstr:  params.Conf.RunOnOnline,
+			Restart: params.Conf.RunOnOnlineRestart,
 			Env:     env,
 			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnReady command exited: %v", err)
+				params.Logger.Log(logger.Info, "runOnOnline command exited: %v", err)
 			},
 		}
-		onReadyCmd.Start()
+		onOnlineCmd.Start()
 	}
 
 	return func() {
-		if onReadyCmd != nil {
-			onReadyCmd.Close()
-			params.Logger.Log(logger.Info, "runOnReady command stopped")
+		if onOnlineCmd != nil {
+			onlineCmd := onOnlineCmd
+			onOnlineCmd = nil
+			onlineCmd.Close()
+			params.Logger.Log(logger.Info, "runOnOnline command stopped")
 		}
 
-		if params.Conf.RunOnNotReady != "" {
-			params.Logger.Log(logger.Info, "runOnNotReady command launched")
+		if params.Conf.RunOnOffline != "" {
+			params.Logger.Log(logger.Info, "runOnOffline command launched")
 			cmd := &externalcmd.Cmd{
 				Pool:    params.ExternalCmdPool,
-				Cmdstr:  params.Conf.RunOnNotReady,
+				Cmdstr:  params.Conf.RunOnOffline,
 				Restart: false,
 				Env:     env,
 			}

@@ -141,7 +141,7 @@ func (m *Manager) Authenticate(req *Request) (string, *Error) {
 	if err != nil {
 		return "", &Error{
 			Wrapped:        err,
-			AskCredentials: (req.Credentials.User == "" && req.Credentials.Pass == "" && token == ""),
+			AskCredentials: req.EnableAskCredentials && req.Credentials.User == "" && req.Credentials.Pass == "" && token == "",
 		}
 	}
 

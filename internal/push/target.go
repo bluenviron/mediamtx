@@ -37,6 +37,9 @@ type targetReader struct {
 	once   sync.Once
 }
 
+func (*targetReader) Log(_ logger.Level, _ string, _ ...any) {
+}
+
 func (r *targetReader) Close() {
 	r.once.Do(r.cancel)
 }

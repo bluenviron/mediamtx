@@ -21,13 +21,13 @@ paths:
       - url: rtsp://other-server:8554/$G1
 ```
 
-When the destination requires transcoding, filtering or a protocol that is not supported by `pushTargets`, use _FFmpeg_ inside the `runOnReady` parameter instead:
+When the destination requires transcoding, filtering or a protocol that is not supported by `pushTargets`, use _FFmpeg_ inside the `runOnAvailable` parameter instead:
 
 ```yml
 pathDefaults:
-  runOnReady: >
+  runOnAvailable: >
     ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
     -c copy
     -f rtsp rtsp://other-server:8554/another-path
-  runOnReadyRestart: true
+  runOnAvailableRestart: yes
 ```

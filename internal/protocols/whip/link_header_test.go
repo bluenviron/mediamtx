@@ -30,6 +30,20 @@ var linkHeaderCases = []struct {
 			},
 		},
 	},
+	{
+		"slashes-and-quotes",
+		[]string{
+			`<turns:turn.example.com>; rel="ice-server"; username="my\\user\"a"; ` +
+				`credential="my\\pwd\"b"; credential-type="password"`,
+		},
+		[]webrtc.ICEServer{
+			{
+				URLs:       []string{"turns:turn.example.com"},
+				Username:   "my\\user\"a",
+				Credential: "my\\pwd\"b",
+			},
+		},
+	},
 }
 
 func TestLinkHeaderUnmarshal(t *testing.T) {
@@ -47,6 +61,33 @@ func TestLinkHeaderMarshal(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			enc := LinkHeaderMarshal(ca.dec)
 			require.Equal(t, ca.enc, enc)
+		})
+	}
+}
+
+func TestLinkHeaderUnmarshalInvalid(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		enc  []string
+	}{
+		{
+			"invalid escape in username",
+			[]string{
+				`<turns:turn.example.com>; rel="ice-server"; username="my\nuser"; ` +
+					`credential="mypwd"; credential-type="password"`,
+			},
+		},
+		{
+			"truncated escape in credential",
+			[]string{
+				`<turns:turn.example.com>; rel="ice-server"; username="myuser"; ` +
+					`credential="mypwd\"; credential-type="password"`,
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			_, err := LinkHeaderUnmarshal(ca.enc)
+			require.Error(t, err)
 		})
 	}
 }

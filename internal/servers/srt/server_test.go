@@ -2,12 +2,14 @@ package srt
 
 import (
 	"bufio"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -36,6 +38,65 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
+}
+
+func TestAuthError(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		url  string
+		pm   *test.PathManager
+	}{
+		{
+			name: "publish",
+			url:  "srt://127.0.0.1:8890?streamid=publish:teststream",
+			pm: &test.PathManager{
+				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				},
+			},
+		},
+		{
+			name: "read",
+			url:  "srt://127.0.0.1:8890?streamid=read:teststream",
+			pm: &test.PathManager{
+				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				},
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			s := &Server{
+				Address:             "127.0.0.1:8890",
+				RTSPAddress:         "",
+				ReadTimeout:         conf.Duration(10 * time.Second),
+				WriteTimeout:        conf.Duration(10 * time.Second),
+				UDPMaxPayloadSize:   1472,
+				RunOnConnect:        "",
+				RunOnConnectRestart: false,
+				RunOnDisconnect:     "",
+				ExternalCmdPool:     nil,
+				PathManager:         ca.pm,
+				Parent:              test.NilLogger,
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			for _, rawURL := range []string{ca.url, ca.url + ":myuser:mypass:param=value"} {
+				srtConf := srt.DefaultConfig()
+				var address string
+				address, err = srtConf.UnmarshalURL(rawURL)
+				require.NoError(t, err)
+
+				err = srtConf.Validate()
+				require.NoError(t, err)
+
+				_, err = srt.Dial("srt", address, srtConf)
+				require.Error(t, err)
+			}
+		})
+	}
 }
 
 func TestServerPublish(t *testing.T) {

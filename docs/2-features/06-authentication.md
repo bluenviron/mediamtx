@@ -2,7 +2,7 @@
 
 _MediaMTX_ can be configured to ask clients for credentials, either in the form of username/password or a string-based token. These credentials are then validated through a chosen method.
 
-## Credential validation
+## Validate credentials
 
 Credentials can be validated through one of these methods:
 
@@ -266,7 +266,7 @@ Here's a tutorial on how to setup the [Keycloak identity server](https://www.key
 
     The JWT is inside the `access_token` key.
 
-## Providing username and password
+## Provide username and password
 
 ### RTSP
 
@@ -308,7 +308,7 @@ If the `Authorization: Basic` header cannot be used (for instance, in software l
 Authorization: Bearer myuser:mypass
 ```
 
-## Providing tokens / JWTs
+## Provide tokens / JWTs
 
 ### RTSP
 
@@ -353,3 +353,51 @@ In OBS Studio, this is the "Bearer Token" field.
 If the `Authorization: Bearer` token cannot be directly provided (for instance, with web browsers that directly access _MediaMTX_ and show a credential dialog), you can pass the token as password, using an arbitrary user.
 
 In web browsers, if you need to automatically fill credentials from a parent web page, read [Embed in a website](../4-read/07-web-browsers.md#embed-in-a-website).
+
+## Ban after failed attempts
+
+It is possible to prevent certain IPs from connecting to the server after some failed attempts by using `fail2ban` together with _MediaMTX_.
+
+First configure _MediaMTX_ to store logs in a file:
+
+```yml
+logDestinations: [stdout, file]
+logFile: /var/log/mediamtx.log
+```
+
+Install `fail2ban`:
+
+```sh
+sudo apt install -y fail2ban
+```
+
+Create the `/etc/fail2ban/filter.d/mediamtx.conf` file with this content:
+
+```ini
+[Definition]
+
+failregex = ^\s*WAR \[[^\]]+\] \[conn <ADDR>:\d+\] failed to authenticate: authentication failed$
+            ^\s*INF \[(?P<proto>[^\]]+)\] \[session (?P<sess>[0-9A-Fa-f]+)\] created by <ADDR>:\d+\n\s*WAR \[(?P=proto)\] \[session (?P=sess)\] failed to authenticate: authentication failed\n$
+
+maxlines = 20
+datepattern = ^%%Y/%%m/%%d %%H:%%M:%%S
+```
+
+Create the `/etc/fail2ban/jail.d/mediamtx.conf` file with this content:
+
+```ini
+[mediamtx]
+enabled  = true
+filter   = mediamtx
+logpath  = /var/log/mediamtx.log
+backend  = auto
+maxretry = 5
+findtime = 600
+bantime  = 3600
+```
+
+Restart `fail2ban`:
+
+```sh
+sudo systemctl restart fail2ban
+```

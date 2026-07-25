@@ -148,7 +148,7 @@ func TestSource(t *testing.T) {
 
 			var ur string
 			cnf := &conf.Path{
-				RTSPUDPSourcePortRange: []uint{10000, 65535},
+				RTSPUDPSourcePortRange: []uint{32768, 60999},
 			}
 
 			switch ca {
@@ -296,7 +296,7 @@ func TestNoPassword(t *testing.T) {
 			ResolvedSource: "rtsp://testuser:@127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
 				RTSPTransport:          sp,
-				RTSPUDPSourcePortRange: []uint{10000, 65535},
+				RTSPUDPSourcePortRange: []uint{32768, 60999},
 			},
 		})
 		close(done)
@@ -362,7 +362,7 @@ func TestScale(t *testing.T) {
 	defer strm.Close()
 
 	cnf := &conf.Path{
-		RTSPUDPSourcePortRange: []uint{10000, 65535},
+		RTSPUDPSourcePortRange: []uint{32768, 60999},
 		RTSPScale:              "-1.0",
 	}
 
@@ -463,7 +463,7 @@ func TestRange(t *testing.T) {
 			defer strm.Close()
 
 			cnf := &conf.Path{
-				RTSPUDPSourcePortRange: []uint{10000, 65535},
+				RTSPUDPSourcePortRange: []uint{32768, 60999},
 			}
 
 			switch ca {
@@ -599,7 +599,7 @@ func TestSkipBackChannel(t *testing.T) {
 			ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 			Conf: &conf.Path{
 				RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
-				RTSPUDPSourcePortRange: []uint{10000, 65535},
+				RTSPUDPSourcePortRange: []uint{32768, 60999},
 			},
 		})
 		close(done)
@@ -675,7 +675,7 @@ func TestOnlyBackChannelsError(t *testing.T) {
 		ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 		Conf: &conf.Path{
 			RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
-			RTSPUDPSourcePortRange: []uint{10000, 65535},
+			RTSPUDPSourcePortRange: []uint{32768, 60999},
 		},
 	})
 
