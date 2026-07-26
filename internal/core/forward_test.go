@@ -19,14 +19,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func startRTMPPushTargetServer(t *testing.T) (string, <-chan [][]byte, <-chan error) {
+func startRTMPForwardServer(t *testing.T) (string, <-chan [][]byte, <-chan error) {
 	ready := &atomic.Bool{}
 	ready.Store(true)
-	u, received, _, serverErr := startRTMPPushTargetServerControlled(t, ready)
+	u, received, _, serverErr := startRTMPForwardServerControlled(t, ready)
 	return u, received, serverErr
 }
 
-func startRTMPPushTargetServerControlled(
+func startRTMPForwardServerControlled(
 	t *testing.T,
 	ready *atomic.Bool,
 ) (string, <-chan [][]byte, <-chan struct{}, <-chan error) {
@@ -65,14 +65,14 @@ func startRTMPPushTargetServerControlled(
 			default:
 			}
 
-			go handleRTMPPushTargetConn(nconn, received, serverErr)
+			go handleRTMPForwardConn(nconn, received, serverErr)
 		}
 	}()
 
-	return "rtmp://" + ln.Addr().String() + "/target", received, connOpened, serverErr
+	return "rtmp://" + ln.Addr().String() + "/dest", received, connOpened, serverErr
 }
 
-func handleRTMPPushTargetConn(nconn net.Conn, received chan<- [][]byte, serverErr chan<- error) {
+func handleRTMPForwardConn(nconn net.Conn, received chan<- [][]byte, serverErr chan<- error) {
 	defer nconn.Close()
 
 	deadlineErr := nconn.SetDeadline(time.Now().Add(10 * time.Second))
@@ -98,7 +98,7 @@ func handleRTMPPushTargetConn(nconn net.Conn, received chan<- [][]byte, serverEr
 		serverErr <- fmt.Errorf("connection is not publishing")
 		return
 	}
-	if conn.URL.Path != "/target" {
+	if conn.URL.Path != "/dest" {
 		serverErr <- fmt.Errorf("unexpected path: %s", conn.URL.Path)
 		return
 	}
@@ -170,7 +170,7 @@ func startRTMPPublisher(
 	return source, w, track
 }
 
-func waitRTMPPushTargetFrame(
+func waitRTMPForwardFrame(
 	t *testing.T,
 	w *gortmplib.Writer,
 	track *gortmplib.Track,
@@ -198,13 +198,13 @@ func waitRTMPPushTargetFrame(
 			require.NoError(t, err)
 
 		case <-timer.C:
-			t.Fatal("timed out waiting for RTMP pushed frame")
+			t.Fatal("timed out waiting for RTMP forwarded frame")
 		}
 	}
 }
 
-func TestPathPushTargetRTMP(t *testing.T) {
-	targetURL, received, serverErr := startRTMPPushTargetServer(t)
+func TestPathForwardRTMP(t *testing.T) {
+	dest, received, serverErr := startRTMPForwardServer(t)
 
 	p, ok := newInstance(t, "api: yes\n"+
 		"paths:\n"+
@@ -230,28 +230,28 @@ func TestPathPushTargetRTMP(t *testing.T) {
 		return path.Ready
 	}, 5*time.Second, 100*time.Millisecond)
 
-	var added defs.APIPushTarget
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/pushtargets/add/source",
-		defs.APIPushTargetAdd{URL: targetURL}, &added)
-	require.Equal(t, targetURL, added.URL)
-	require.Equal(t, defs.APIPushTargetProtocolRTMP, added.Protocol)
-	require.Equal(t, defs.APIPushTargetSourceAPI, added.Source)
+	var added defs.APIForward
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/forward/add/source",
+		defs.APIForwardAdd{Dest: dest}, &added)
+	require.Equal(t, dest, added.Dest)
+	require.Equal(t, defs.APIForwardProtocolRTMP, added.Protocol)
+	require.Equal(t, defs.APIForwardSourceAPI, added.Source)
 
-	waitRTMPPushTargetFrame(t, w, track, received, serverErr)
+	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
 	require.Eventually(t, func() bool {
-		var item defs.APIPushTarget
+		var item defs.APIForward
 		httpRequest(t, hc, http.MethodGet,
-			"http://localhost:9997/v3/paths/pushtargets/get/"+added.ID.String()+"/source", nil, &item)
-		return item.State == defs.APIPushTargetStatePushing &&
-			item.Protocol == defs.APIPushTargetProtocolRTMP &&
+			"http://localhost:9997/v3/paths/forward/get/"+added.ID.String()+"/source", nil, &item)
+		return item.State == defs.APIForwardStateForwarding &&
+			item.Protocol == defs.APIForwardProtocolRTMP &&
 			item.OutboundBytes > 0 &&
 			item.BytesSent == item.OutboundBytes
 	}, 5*time.Second, 100*time.Millisecond)
 }
 
-func TestPathPushTargetRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
-	targetURL, received, serverErr := startRTMPPushTargetServer(t)
+func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
+	dest, received, serverErr := startRTMPForwardServer(t)
 
 	p, ok := newInstance(t, "api: yes\n"+
 		"paths:\n"+
@@ -263,25 +263,25 @@ func TestPathPushTargetRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var added defs.APIPushTarget
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/pushtargets/add/source",
-		defs.APIPushTargetAdd{URL: targetURL}, &added)
+	var added defs.APIForward
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/forward/add/source",
+		defs.APIForwardAdd{Dest: dest}, &added)
 
 	require.Eventually(t, func() bool {
-		var list defs.APIPushTargetList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/pushtargets/list/source", nil, &list)
+		var list defs.APIForwardList
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/forward/list/source", nil, &list)
 		return list.ItemCount == 1 &&
 			list.Items[0].ID == added.ID &&
-			list.Items[0].State == defs.APIPushTargetStateError
+			list.Items[0].State == defs.APIForwardStateError
 	}, 7*time.Second, 100*time.Millisecond)
 
 	source, w, track := startRTMPPublisher(t, "source")
-	waitRTMPPushTargetFrame(t, w, track, received, serverErr)
+	waitRTMPForwardFrame(t, w, track, received, serverErr)
 	source.Close()
 
 	require.Eventually(t, func() bool {
-		var list defs.APIPushTargetList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/pushtargets/list/source", nil, &list)
+		var list defs.APIForwardList
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/forward/list/source", nil, &list)
 		return list.ItemCount == 1 && list.Items[0].ID == added.ID
 	}, 5*time.Second, 100*time.Millisecond)
 
@@ -297,19 +297,19 @@ drained:
 	source, w, track = startRTMPPublisher(t, "source")
 	defer source.Close()
 
-	waitRTMPPushTargetFrame(t, w, track, received, serverErr)
+	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
-	var item defs.APIPushTarget
+	var item defs.APIForward
 	httpRequest(t, hc, http.MethodGet,
-		"http://localhost:9997/v3/paths/pushtargets/get/"+added.ID.String()+"/source", nil, &item)
+		"http://localhost:9997/v3/paths/forward/get/"+added.ID.String()+"/source", nil, &item)
 	require.Equal(t, added.ID, item.ID)
-	require.Equal(t, defs.APIPushTargetStatePushing, item.State)
+	require.Equal(t, defs.APIForwardStateForwarding, item.State)
 	require.Greater(t, item.OutboundBytes, uint64(0))
 }
 
-func TestPathPushTargetRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
+func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 	ready := &atomic.Bool{}
-	targetURL, received, _, serverErr := startRTMPPushTargetServerControlled(t, ready)
+	dest, received, _, serverErr := startRTMPForwardServerControlled(t, ready)
 
 	p, ok := newInstance(t, "api: yes\n"+
 		"paths:\n"+
@@ -324,26 +324,26 @@ func TestPathPushTargetRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var added defs.APIPushTarget
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/pushtargets/add/source",
-		defs.APIPushTargetAdd{URL: targetURL}, &added)
+	var added defs.APIForward
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/forward/add/source",
+		defs.APIForwardAdd{Dest: dest}, &added)
 
 	require.Eventually(t, func() bool {
-		var list defs.APIPushTargetList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/pushtargets/list/source", nil, &list)
+		var list defs.APIForwardList
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/forward/list/source", nil, &list)
 		return list.ItemCount == 1 &&
 			list.Items[0].ID == added.ID &&
-			list.Items[0].State == defs.APIPushTargetStateError
+			list.Items[0].State == defs.APIForwardStateError
 	}, 7*time.Second, 100*time.Millisecond)
 
 	ready.Store(true)
-	waitRTMPPushTargetFrame(t, w, track, received, serverErr)
+	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
-	var item defs.APIPushTarget
+	var item defs.APIForward
 	httpRequest(t, hc, http.MethodGet,
-		"http://localhost:9997/v3/paths/pushtargets/get/"+added.ID.String()+"/source", nil, &item)
+		"http://localhost:9997/v3/paths/forward/get/"+added.ID.String()+"/source", nil, &item)
 	require.Equal(t, added.ID, item.ID)
-	require.Equal(t, defs.APIPushTargetStatePushing, item.State)
-	require.Equal(t, defs.APIPushTargetProtocolRTMP, item.Protocol)
+	require.Equal(t, defs.APIForwardStateForwarding, item.State)
+	require.Equal(t, defs.APIForwardProtocolRTMP, item.Protocol)
 	require.Greater(t, item.OutboundBytes, uint64(0))
 }

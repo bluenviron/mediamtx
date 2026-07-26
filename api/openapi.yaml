@@ -141,7 +141,7 @@ components:
         - webRTCSource
         - moqSession
 
-    PushTargetProtocol:
+    ForwardProtocol:
       type: string
       enum:
         - rtmp
@@ -150,17 +150,17 @@ components:
         - rtsps
         - srt
 
-    PushTargetSource:
+    ForwardSource:
       type: string
       enum:
         - config
         - api
 
-    PushTargetState:
+    ForwardState:
       type: string
       enum:
         - connecting
-        - pushing
+        - forwarding
         - error
 
     PathTrackCodec:
@@ -937,6 +937,10 @@ components:
           type: string
           nullable: true
           deprecated: true
+        forward:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfForward"
         maxReaders:
           type: integer
           format: int64
@@ -971,10 +975,6 @@ components:
           description: Authentication (deprecated)
           nullable: true
           deprecated: true
-        pushTargets:
-          type: array
-          items:
-            $ref: "#/components/schemas/PathConfPushTarget"
         readIPs:
           type: array
           nullable: true
@@ -1261,10 +1261,10 @@ components:
           type: integer
           format: int64
 
-    PathConfPushTarget:
+    PathConfForward:
       type: object
       properties:
-        url:
+        dest:
           type: string
 
     PathList:
@@ -1414,7 +1414,7 @@ components:
           type: integer
           format: int64
 
-    PushTarget:
+    Forward:
       type: object
       properties:
         bytesSent:
@@ -1423,6 +1423,8 @@ components:
           description: deprecated
           deprecated: true
         created:
+          type: string
+        dest:
           type: string
         id:
           type: string
@@ -1433,21 +1435,19 @@ components:
           type: integer
           format: uint64
         protocol:
-          $ref: "#/components/schemas/PushTargetProtocol"
+          $ref: "#/components/schemas/ForwardProtocol"
         source:
-          $ref: "#/components/schemas/PushTargetSource"
+          $ref: "#/components/schemas/ForwardSource"
         state:
-          $ref: "#/components/schemas/PushTargetState"
-        url:
-          type: string
+          $ref: "#/components/schemas/ForwardState"
 
-    PushTargetAdd:
+    ForwardAdd:
       type: object
       properties:
-        url:
+        dest:
           type: string
 
-    PushTargetList:
+    ForwardList:
       type: object
       properties:
         itemCount:
@@ -1456,7 +1456,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/PushTarget"
+            $ref: "#/components/schemas/Forward"
         pageCount:
           type: integer
           format: int64
@@ -2746,11 +2746,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/pushtargets/list/{name}:
+  /v3/paths/forward/list/{name}:
     get:
-      operationId: pathsPushTargetsList
+      operationId: pathsForwardList
       tags: [Paths]
-      summary: returns all push targets of a path.
+      summary: returns all forward destinations of a path.
       description: ""
       parameters:
         - name: name
@@ -2777,7 +2777,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PushTargetList"
+                $ref: "#/components/schemas/ForwardList"
         "400":
           description: invalid request.
           content:
@@ -2797,17 +2797,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/pushtargets/get/{id}/{name}:
+  /v3/paths/forward/get/{id}/{name}:
     get:
-      operationId: pathsPushTargetsGet
+      operationId: pathsForwardGet
       tags: [Paths]
-      summary: returns a push target.
+      summary: returns a forward destination.
       description: ""
       parameters:
         - name: id
           in: path
           required: true
-          description: ID of the push target.
+          description: ID of the forward destination.
           schema:
             type: string
             format: uuid
@@ -2823,7 +2823,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PushTarget"
+                $ref: "#/components/schemas/Forward"
         "400":
           description: invalid request.
           content:
@@ -2831,7 +2831,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: path or push target not found.
+          description: path or forward destination not found.
           content:
             application/json:
               schema:
@@ -2843,11 +2843,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/pushtargets/add/{name}:
+  /v3/paths/forward/add/{name}:
     post:
-      operationId: pathsPushTargetsAdd
+      operationId: pathsForwardAdd
       tags: [Paths]
-      summary: adds a push target to a path.
+      summary: adds a forward destination to a path.
       description: ""
       parameters:
         - name: name
@@ -2861,14 +2861,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PushTargetAdd"
+              $ref: "#/components/schemas/ForwardAdd"
       responses:
         "200":
           description: the request was successful.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PushTarget"
+                $ref: "#/components/schemas/Forward"
         "400":
           description: invalid request.
           content:
@@ -2888,17 +2888,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/pushtargets/remove/{id}/{name}:
+  /v3/paths/forward/remove/{id}/{name}:
     delete:
-      operationId: pathsPushTargetsRemove
+      operationId: pathsForwardRemove
       tags: [Paths]
-      summary: removes a push target from a path.
+      summary: removes a forward destination from a path.
       description: ""
       parameters:
         - name: id
           in: path
           required: true
-          description: ID of the push target.
+          description: ID of the forward destination.
           schema:
             type: string
             format: uuid
@@ -2922,7 +2922,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: path or push target not found.
+          description: path or forward destination not found.
           content:
             application/json:
               schema:

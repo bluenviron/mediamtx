@@ -12,9 +12,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/forward"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/metrics"
-	"github.com/bluenviron/mediamtx/internal/push"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
 	"github.com/google/uuid"
 )
@@ -24,7 +24,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 
 	clone.Name = newPathConf.Name
 	clone.Regexp = newPathConf.Regexp
-	clone.PushTargets = newPathConf.PushTargets
+	clone.Forward = newPathConf.Forward
 
 	clone.Record = newPathConf.Record
 	clone.RecordPath = newPathConf.RecordPath
@@ -96,22 +96,22 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	chReloadConf           chan map[string]*conf.Path
-	chSetHLSServer         chan pathSetHLSServerReq
-	chRemovePath           chan *path
-	chClosePathIfIdle      chan *path
-	chSetPathReady         chan *path
-	chSetPathNotReady      chan *path
-	chFindPathConf         chan defs.PathFindPathConfReq
-	chDescribe             chan defs.PathDescribeReq
-	chAddReader            chan defs.PathAddReaderReq
-	chAddPublisher         chan defs.PathAddPublisherReq
-	chAPIPathsList         chan pathAPIPathsListReq
-	chAPIPathsGet          chan pathAPIPathsGetReq
-	chAPIPushTargetsList   chan pathAPIPushTargetsListReq
-	chAPIPushTargetsGet    chan pathAPIPushTargetsGetReq
-	chAPIPushTargetsAdd    chan pathAPIPushTargetsAddReq
-	chAPIPushTargetsRemove chan pathAPIPushTargetsRemoveReq
+	chReloadConf       chan map[string]*conf.Path
+	chSetHLSServer     chan pathSetHLSServerReq
+	chRemovePath       chan *path
+	chClosePathIfIdle  chan *path
+	chSetPathReady     chan *path
+	chSetPathNotReady  chan *path
+	chFindPathConf     chan defs.PathFindPathConfReq
+	chDescribe         chan defs.PathDescribeReq
+	chAddReader        chan defs.PathAddReaderReq
+	chAddPublisher     chan defs.PathAddPublisherReq
+	chAPIPathsList     chan pathAPIPathsListReq
+	chAPIPathsGet      chan pathAPIPathsGetReq
+	chAPIForwardList   chan pathAPIForwardListReq
+	chAPIForwardGet    chan pathAPIForwardGetReq
+	chAPIForwardAdd    chan pathAPIForwardAddReq
+	chAPIForwardRemove chan pathAPIForwardRemoveReq
 }
 
 func (pm *pathManager) initialize() {
@@ -132,10 +132,10 @@ func (pm *pathManager) initialize() {
 	pm.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pm.chAPIPathsList = make(chan pathAPIPathsListReq)
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
-	pm.chAPIPushTargetsList = make(chan pathAPIPushTargetsListReq)
-	pm.chAPIPushTargetsGet = make(chan pathAPIPushTargetsGetReq)
-	pm.chAPIPushTargetsAdd = make(chan pathAPIPushTargetsAddReq)
-	pm.chAPIPushTargetsRemove = make(chan pathAPIPushTargetsRemoveReq)
+	pm.chAPIForwardList = make(chan pathAPIForwardListReq)
+	pm.chAPIForwardGet = make(chan pathAPIForwardGetReq)
+	pm.chAPIForwardAdd = make(chan pathAPIForwardAddReq)
+	pm.chAPIForwardRemove = make(chan pathAPIForwardRemoveReq)
 
 	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
@@ -216,17 +216,17 @@ outer:
 		case req := <-pm.chAPIPathsGet:
 			pm.doAPIPathsGet(req)
 
-		case req := <-pm.chAPIPushTargetsList:
-			pm.doAPIPushTargetsList(req)
+		case req := <-pm.chAPIForwardList:
+			pm.doAPIForwardList(req)
 
-		case req := <-pm.chAPIPushTargetsGet:
-			pm.doAPIPushTargetsGet(req)
+		case req := <-pm.chAPIForwardGet:
+			pm.doAPIForwardGet(req)
 
-		case req := <-pm.chAPIPushTargetsAdd:
-			pm.doAPIPushTargetsAdd(req)
+		case req := <-pm.chAPIForwardAdd:
+			pm.doAPIForwardAdd(req)
 
-		case req := <-pm.chAPIPushTargetsRemove:
-			pm.doAPIPushTargetsRemove(req)
+		case req := <-pm.chAPIForwardRemove:
+			pm.doAPIForwardRemove(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -478,30 +478,30 @@ func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{path: pa}
 }
 
-func (pm *pathManager) doAPIPushTargetsList(req pathAPIPushTargetsListReq) {
+func (pm *pathManager) doAPIForwardList(req pathAPIForwardListReq) {
 	pa, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIPushTargetsListRes{err: conf.ErrPathNotFound}
+		req.res <- pathAPIForwardListRes{err: conf.ErrPathNotFound}
 		return
 	}
 
-	req.res <- pathAPIPushTargetsListRes{path: pa}
+	req.res <- pathAPIForwardListRes{path: pa}
 }
 
-func (pm *pathManager) doAPIPushTargetsGet(req pathAPIPushTargetsGetReq) {
+func (pm *pathManager) doAPIForwardGet(req pathAPIForwardGetReq) {
 	pa, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIPushTargetsGetRes{err: conf.ErrPathNotFound}
+		req.res <- pathAPIForwardGetRes{err: conf.ErrPathNotFound}
 		return
 	}
 
-	req.res <- pathAPIPushTargetsGetRes{path: pa}
+	req.res <- pathAPIForwardGetRes{path: pa}
 }
 
-func (pm *pathManager) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
+func (pm *pathManager) doAPIForwardAdd(req pathAPIForwardAddReq) {
 	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.name)
 	if err != nil {
-		req.res <- pathAPIPushTargetsAddRes{err: err}
+		req.res <- pathAPIForwardAddRes{err: err}
 		return
 	}
 
@@ -509,17 +509,17 @@ func (pm *pathManager) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
 		pm.createPath(pathConf, req.name, pathMatches)
 	}
 
-	req.res <- pathAPIPushTargetsAddRes{path: pm.paths[req.name]}
+	req.res <- pathAPIForwardAddRes{path: pm.paths[req.name]}
 }
 
-func (pm *pathManager) doAPIPushTargetsRemove(req pathAPIPushTargetsRemoveReq) {
+func (pm *pathManager) doAPIForwardRemove(req pathAPIForwardRemoveReq) {
 	pa, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIPushTargetsRemoveRes{err: conf.ErrPathNotFound}
+		req.res <- pathAPIForwardRemoveRes{err: conf.ErrPathNotFound}
 		return
 	}
 
-	req.res <- pathAPIPushTargetsRemoveRes{path: pa}
+	req.res <- pathAPIForwardRemoveRes{path: pa}
 }
 
 func (pm *pathManager) createPath(
@@ -548,7 +548,7 @@ func (pm *pathManager) createPath(
 	pa.initialize()
 	pm.paths[name] = pa
 
-	pa.pushManager = &push.Manager{
+	pa.forwardManager = &forward.Manager{
 		ReadTimeout:       pm.readTimeout,
 		WriteTimeout:      pm.writeTimeout,
 		UDPMaxPayloadSize: pm.udpMaxPayloadSize,
@@ -557,7 +557,7 @@ func (pm *pathManager) createPath(
 		PathManager:       pm,
 		Parent:            pa,
 	}
-	pa.pushManager.Initialize(pathConf.PushTargets)
+	pa.forwardManager.Initialize(pathConf.Forward)
 }
 
 // ReloadPathConfs is called by core.
@@ -777,21 +777,21 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	}
 }
 
-// APIPushTargetsList implements defs.APIPathManager.
-func (pm *pathManager) APIPushTargetsList(name string) (*defs.APIPushTargetList, error) {
-	req := pathAPIPushTargetsListReq{
+// APIForwardList implements defs.APIPathManager.
+func (pm *pathManager) APIForwardList(name string) (*defs.APIForwardList, error) {
+	req := pathAPIForwardListReq{
 		name: name,
-		res:  make(chan pathAPIPushTargetsListRes),
+		res:  make(chan pathAPIForwardListRes),
 	}
 
 	select {
-	case pm.chAPIPushTargetsList <- req:
+	case pm.chAPIForwardList <- req:
 		res := <-req.res
 		if res.err != nil {
 			return nil, res.err
 		}
 
-		data, err := res.path.APIPushTargetsList(req)
+		data, err := res.path.APIForwardList(req)
 		return data, err
 
 	case <-pm.ctx.Done():
@@ -799,22 +799,22 @@ func (pm *pathManager) APIPushTargetsList(name string) (*defs.APIPushTargetList,
 	}
 }
 
-// APIPushTargetsGet implements defs.APIPathManager.
-func (pm *pathManager) APIPushTargetsGet(name string, id uuid.UUID) (*defs.APIPushTarget, error) {
-	req := pathAPIPushTargetsGetReq{
+// APIForwardGet implements defs.APIPathManager.
+func (pm *pathManager) APIForwardGet(name string, id uuid.UUID) (*defs.APIForward, error) {
+	req := pathAPIForwardGetReq{
 		name: name,
 		id:   id,
-		res:  make(chan pathAPIPushTargetsGetRes),
+		res:  make(chan pathAPIForwardGetRes),
 	}
 
 	select {
-	case pm.chAPIPushTargetsGet <- req:
+	case pm.chAPIForwardGet <- req:
 		res := <-req.res
 		if res.err != nil {
 			return nil, res.err
 		}
 
-		data, err := res.path.APIPushTargetsGet(req)
+		data, err := res.path.APIForwardGet(req)
 		return data, err
 
 	case <-pm.ctx.Done():
@@ -822,22 +822,22 @@ func (pm *pathManager) APIPushTargetsGet(name string, id uuid.UUID) (*defs.APIPu
 	}
 }
 
-// APIPushTargetsAdd implements defs.APIPathManager.
-func (pm *pathManager) APIPushTargetsAdd(name string, req defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
-	ireq := pathAPIPushTargetsAddReq{
+// APIForwardAdd implements defs.APIPathManager.
+func (pm *pathManager) APIForwardAdd(name string, req defs.APIForwardAdd) (*defs.APIForward, error) {
+	ireq := pathAPIForwardAddReq{
 		name: name,
 		req:  req,
-		res:  make(chan pathAPIPushTargetsAddRes),
+		res:  make(chan pathAPIForwardAddRes),
 	}
 
 	select {
-	case pm.chAPIPushTargetsAdd <- ireq:
+	case pm.chAPIForwardAdd <- ireq:
 		res := <-ireq.res
 		if res.err != nil {
 			return nil, res.err
 		}
 
-		data, err := res.path.APIPushTargetsAdd(ireq)
+		data, err := res.path.APIForwardAdd(ireq)
 		return data, err
 
 	case <-pm.ctx.Done():
@@ -845,22 +845,22 @@ func (pm *pathManager) APIPushTargetsAdd(name string, req defs.APIPushTargetAdd)
 	}
 }
 
-// APIPushTargetsRemove implements defs.APIPathManager.
-func (pm *pathManager) APIPushTargetsRemove(name string, id uuid.UUID) error {
-	req := pathAPIPushTargetsRemoveReq{
+// APIForwardRemove implements defs.APIPathManager.
+func (pm *pathManager) APIForwardRemove(name string, id uuid.UUID) error {
+	req := pathAPIForwardRemoveReq{
 		name: name,
 		id:   id,
-		res:  make(chan pathAPIPushTargetsRemoveRes),
+		res:  make(chan pathAPIForwardRemoveRes),
 	}
 
 	select {
-	case pm.chAPIPushTargetsRemove <- req:
+	case pm.chAPIForwardRemove <- req:
 		res := <-req.res
 		if res.err != nil {
 			return res.err
 		}
 
-		err := res.path.APIPushTargetsRemove(req)
+		err := res.path.APIForwardRemove(req)
 		return err
 
 	case <-pm.ctx.Done():

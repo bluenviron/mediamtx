@@ -1,4 +1,4 @@
-package push
+package rtmp
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRTMPPublishClientPublishType(t *testing.T) {
+func TestPublishClientPublishType(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
@@ -119,7 +119,7 @@ func TestRTMPPublishClientPublishType(t *testing.T) {
 	u, err := url.Parse("rtmp://" + ln.Addr().String() + "/app/stream")
 	require.NoError(t, err)
 
-	c := &rtmpPublishClient{URL: u}
+	c := &publishClient{URL: u}
 	require.NoError(t, c.Initialize(context.Background()))
 	defer c.Close()
 }

@@ -17,9 +17,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
+	"github.com/bluenviron/mediamtx/internal/forward"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/push"
 	"github.com/bluenviron/mediamtx/internal/recorder"
 	"github.com/bluenviron/mediamtx/internal/staticsources"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -69,50 +69,50 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
-type pathAPIPushTargetsListRes struct {
+type pathAPIForwardListRes struct {
 	path *path
-	data *defs.APIPushTargetList
+	data *defs.APIForwardList
 	err  error
 }
 
-type pathAPIPushTargetsListReq struct {
+type pathAPIForwardListReq struct {
 	name string
-	res  chan pathAPIPushTargetsListRes
+	res  chan pathAPIForwardListRes
 }
 
-type pathAPIPushTargetsGetRes struct {
+type pathAPIForwardGetRes struct {
 	path *path
-	data *defs.APIPushTarget
+	data *defs.APIForward
 	err  error
 }
 
-type pathAPIPushTargetsGetReq struct {
-	name string
-	id   uuid.UUID
-	res  chan pathAPIPushTargetsGetRes
-}
-
-type pathAPIPushTargetsAddRes struct {
-	path *path
-	data *defs.APIPushTarget
-	err  error
-}
-
-type pathAPIPushTargetsAddReq struct {
-	name string
-	req  defs.APIPushTargetAdd
-	res  chan pathAPIPushTargetsAddRes
-}
-
-type pathAPIPushTargetsRemoveRes struct {
-	path *path
-	err  error
-}
-
-type pathAPIPushTargetsRemoveReq struct {
+type pathAPIForwardGetReq struct {
 	name string
 	id   uuid.UUID
-	res  chan pathAPIPushTargetsRemoveRes
+	res  chan pathAPIForwardGetRes
+}
+
+type pathAPIForwardAddRes struct {
+	path *path
+	data *defs.APIForward
+	err  error
+}
+
+type pathAPIForwardAddReq struct {
+	name string
+	req  defs.APIForwardAdd
+	res  chan pathAPIForwardAddRes
+}
+
+type pathAPIForwardRemoveRes struct {
+	path *path
+	err  error
+}
+
+type pathAPIForwardRemoveReq struct {
+	name string
+	id   uuid.UUID
+	res  chan pathAPIForwardRemoveRes
 }
 
 type path struct {
@@ -144,7 +144,7 @@ type path struct {
 	source                         defs.Source
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
-	pushManager                    *push.Manager
+	forwardManager                 *forward.Manager
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
@@ -171,10 +171,10 @@ type path struct {
 	chCancelReaderAdd         chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
-	chAPIPushTargetsList      chan pathAPIPushTargetsListReq
-	chAPIPushTargetsGet       chan pathAPIPushTargetsGetReq
-	chAPIPushTargetsAdd       chan pathAPIPushTargetsAddReq
-	chAPIPushTargetsRemove    chan pathAPIPushTargetsRemoveReq
+	chAPIForwardList          chan pathAPIForwardListReq
+	chAPIForwardGet           chan pathAPIForwardGetReq
+	chAPIForwardAdd           chan pathAPIForwardAddReq
+	chAPIForwardRemove        chan pathAPIForwardRemoveReq
 
 	// out
 	done chan struct{}
@@ -201,10 +201,10 @@ func (pa *path) initialize() {
 	pa.chCancelReaderAdd = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
-	pa.chAPIPushTargetsList = make(chan pathAPIPushTargetsListReq)
-	pa.chAPIPushTargetsGet = make(chan pathAPIPushTargetsGetReq)
-	pa.chAPIPushTargetsAdd = make(chan pathAPIPushTargetsAddReq)
-	pa.chAPIPushTargetsRemove = make(chan pathAPIPushTargetsRemoveReq)
+	pa.chAPIForwardList = make(chan pathAPIForwardListReq)
+	pa.chAPIForwardGet = make(chan pathAPIForwardGetReq)
+	pa.chAPIForwardAdd = make(chan pathAPIForwardAddReq)
+	pa.chAPIForwardRemove = make(chan pathAPIForwardRemoveReq)
 	pa.done = make(chan struct{})
 
 	pa.Log(logger.Debug, "created")
@@ -305,8 +305,8 @@ func (pa *path) run() {
 		pa.setNotAvailable()
 	}
 
-	if pa.pushManager != nil {
-		pa.pushManager.Close()
+	if pa.forwardManager != nil {
+		pa.forwardManager.Close()
 	}
 
 	if pa.source != nil {
@@ -417,17 +417,17 @@ func (pa *path) runInner() error {
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
 
-		case req := <-pa.chAPIPushTargetsList:
-			pa.doAPIPushTargetsList(req)
+		case req := <-pa.chAPIForwardList:
+			pa.doAPIForwardList(req)
 
-		case req := <-pa.chAPIPushTargetsGet:
-			pa.doAPIPushTargetsGet(req)
+		case req := <-pa.chAPIForwardGet:
+			pa.doAPIForwardGet(req)
 
-		case req := <-pa.chAPIPushTargetsAdd:
-			pa.doAPIPushTargetsAdd(req)
+		case req := <-pa.chAPIForwardAdd:
+			pa.doAPIForwardAdd(req)
 
-		case req := <-pa.chAPIPushTargetsRemove:
-			pa.doAPIPushTargetsRemove(req)
+		case req := <-pa.chAPIForwardRemove:
+			pa.doAPIForwardRemove(req)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)
@@ -489,8 +489,8 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
 	}
 
-	if pa.pushManager != nil {
-		pa.pushManager.ReloadConf(newConf.PushTargets)
+	if pa.forwardManager != nil {
+		pa.forwardManager.ReloadConf(newConf.Forward)
 	}
 
 	if pa.recorder != nil &&
@@ -860,31 +860,31 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	}
 }
 
-func (pa *path) doAPIPushTargetsList(req pathAPIPushTargetsListReq) {
-	req.res <- pathAPIPushTargetsListRes{data: pa.pushManager.List()}
+func (pa *path) doAPIForwardList(req pathAPIForwardListReq) {
+	req.res <- pathAPIForwardListRes{data: pa.forwardManager.List()}
 }
 
-func (pa *path) doAPIPushTargetsGet(req pathAPIPushTargetsGetReq) {
-	data, err := pa.pushManager.Get(req.id)
-	req.res <- pathAPIPushTargetsGetRes{
+func (pa *path) doAPIForwardGet(req pathAPIForwardGetReq) {
+	data, err := pa.forwardManager.Get(req.id)
+	req.res <- pathAPIForwardGetRes{
 		data: data,
 		err:  err,
 	}
 }
 
-func (pa *path) doAPIPushTargetsAdd(req pathAPIPushTargetsAddReq) {
-	target, err := pa.pushManager.Add(req.req.URL)
+func (pa *path) doAPIForwardAdd(req pathAPIForwardAddReq) {
+	handler, err := pa.forwardManager.Add(req.req.Dest)
 	if err != nil {
-		req.res <- pathAPIPushTargetsAddRes{err: err}
+		req.res <- pathAPIForwardAddRes{err: err}
 		return
 	}
 
-	item := target.APIItem()
-	req.res <- pathAPIPushTargetsAddRes{data: &item}
+	item := handler.APIItem()
+	req.res <- pathAPIForwardAddRes{data: &item}
 }
 
-func (pa *path) doAPIPushTargetsRemove(req pathAPIPushTargetsRemoveReq) {
-	req.res <- pathAPIPushTargetsRemoveRes{err: pa.pushManager.Remove(req.id)}
+func (pa *path) doAPIForwardRemove(req pathAPIForwardRemoveReq) {
+	req.res <- pathAPIForwardRemoveRes{err: pa.forwardManager.Remove(req.id)}
 }
 
 func (pa *path) SafeConf() *conf.Path {
@@ -916,7 +916,7 @@ func (pa *path) shouldClose() bool {
 		len(pa.readers) == 0 &&
 		len(pa.describeRequestsOnHold) == 0 &&
 		len(pa.readerAddRequestsOnHold) == 0 &&
-		(pa.pushManager == nil || !pa.pushManager.HasAPITargets())
+		(pa.forwardManager == nil || !pa.forwardManager.HasAPIForwards())
 }
 
 func (pa *path) onDemandStaticSourceStart(query string) {
@@ -1300,10 +1300,10 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	}
 }
 
-func (pa *path) APIPushTargetsList(req pathAPIPushTargetsListReq) (*defs.APIPushTargetList, error) {
-	req.res = make(chan pathAPIPushTargetsListRes)
+func (pa *path) APIForwardList(req pathAPIForwardListReq) (*defs.APIForwardList, error) {
+	req.res = make(chan pathAPIForwardListRes)
 	select {
-	case pa.chAPIPushTargetsList <- req:
+	case pa.chAPIForwardList <- req:
 		res := <-req.res
 		return res.data, res.err
 
@@ -1312,10 +1312,10 @@ func (pa *path) APIPushTargetsList(req pathAPIPushTargetsListReq) (*defs.APIPush
 	}
 }
 
-func (pa *path) APIPushTargetsGet(req pathAPIPushTargetsGetReq) (*defs.APIPushTarget, error) {
-	req.res = make(chan pathAPIPushTargetsGetRes)
+func (pa *path) APIForwardGet(req pathAPIForwardGetReq) (*defs.APIForward, error) {
+	req.res = make(chan pathAPIForwardGetRes)
 	select {
-	case pa.chAPIPushTargetsGet <- req:
+	case pa.chAPIForwardGet <- req:
 		res := <-req.res
 		return res.data, res.err
 
@@ -1324,10 +1324,10 @@ func (pa *path) APIPushTargetsGet(req pathAPIPushTargetsGetReq) (*defs.APIPushTa
 	}
 }
 
-func (pa *path) APIPushTargetsAdd(req pathAPIPushTargetsAddReq) (*defs.APIPushTarget, error) {
-	req.res = make(chan pathAPIPushTargetsAddRes)
+func (pa *path) APIForwardAdd(req pathAPIForwardAddReq) (*defs.APIForward, error) {
+	req.res = make(chan pathAPIForwardAddRes)
 	select {
-	case pa.chAPIPushTargetsAdd <- req:
+	case pa.chAPIForwardAdd <- req:
 		res := <-req.res
 		return res.data, res.err
 
@@ -1336,10 +1336,10 @@ func (pa *path) APIPushTargetsAdd(req pathAPIPushTargetsAddReq) (*defs.APIPushTa
 	}
 }
 
-func (pa *path) APIPushTargetsRemove(req pathAPIPushTargetsRemoveReq) error {
-	req.res = make(chan pathAPIPushTargetsRemoveRes)
+func (pa *path) APIForwardRemove(req pathAPIForwardRemoveReq) error {
+	req.res = make(chan pathAPIForwardRemoveRes)
 	select {
-	case pa.chAPIPushTargetsRemove <- req:
+	case pa.chAPIForwardRemove <- req:
 		res := <-req.res
 		return res.err
 

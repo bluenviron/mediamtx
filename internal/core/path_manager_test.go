@@ -86,14 +86,14 @@ func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
 	}
 }
 
-func TestPathManagerAPIPushTargetKeepsDynamicPath(t *testing.T) {
+func TestPathManagerAPIForwardKeepsDynamicPath(t *testing.T) {
 	p, ok := newInstance(t, "paths:\n"+
 		"  '~^dyn.+$':\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	target, err := p.pathManager.APIPushTargetsAdd("dynstream", defs.APIPushTargetAdd{
-		URL: "rtmp://127.0.0.1:1/target",
+	forward, err := p.pathManager.APIForwardAdd("dynstream", defs.APIForwardAdd{
+		Dest: "rtmp://127.0.0.1:1/dest",
 	})
 	require.NoError(t, err)
 
@@ -102,7 +102,7 @@ func TestPathManagerAPIPushTargetKeepsDynamicPath(t *testing.T) {
 	_, err = p.pathManager.APIPathsGet("dynstream")
 	require.NoError(t, err)
 
-	err = p.pathManager.APIPushTargetsRemove("dynstream", target.ID)
+	err = p.pathManager.APIForwardRemove("dynstream", forward.ID)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

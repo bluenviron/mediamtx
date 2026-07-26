@@ -211,16 +211,16 @@ type Path struct {
 	Name   string         `json:"name"` // filled by Validate()
 
 	// General
-	Source                     string      `json:"source"`
-	SourceFingerprint          string      `json:"sourceFingerprint"`
-	SourceOnDemand             bool        `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout Duration    `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   Duration    `json:"sourceOnDemandCloseAfter"`
-	MaxReaders                 int         `json:"maxReaders"`
-	PushTargets                PushTargets `json:"pushTargets"`
-	SRTReadPassphrase          string      `json:"srtReadPassphrase"`
-	Fallback                   *string     `json:"fallback,omitempty" deprecated:"true"`
-	UseAbsoluteTimestamp       bool        `json:"useAbsoluteTimestamp"`
+	Source                     string   `json:"source"`
+	SourceFingerprint          string   `json:"sourceFingerprint"`
+	SourceOnDemand             bool     `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int      `json:"maxReaders"`
+	Forward                    Forwards `json:"forward"`
+	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
+	Fallback                   *string  `json:"fallback,omitempty" deprecated:"true"`
+	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Always available
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
@@ -786,9 +786,9 @@ func (pconf *Path) validate(
 		}
 	}
 
-	err := pconf.PushTargets.Validate()
+	err := pconf.Forward.Validate()
 	if err != nil {
-		return fmt.Errorf("invalid 'pushTargets': %w", err)
+		return fmt.Errorf("invalid 'forward': %w", err)
 	}
 
 	if pconf.Fallback != nil {

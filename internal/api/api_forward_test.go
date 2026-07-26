@@ -1,0 +1,135 @@
+package api //nolint:revive
+
+import (
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/forward"
+	"github.com/bluenviron/mediamtx/internal/test"
+)
+
+type testForwardPathManager struct {
+	items map[uuid.UUID]*defs.APIForward
+}
+
+func (*testForwardPathManager) APIPathsList() (*defs.APIPathList, error) {
+	return &defs.APIPathList{}, nil
+}
+
+func (*testForwardPathManager) APIPathsGet(string) (*defs.APIPath, error) {
+	return &defs.APIPath{}, nil
+}
+
+func (m *testForwardPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+	items := make([]defs.APIForward, 0, len(m.items))
+	for _, item := range m.items {
+		items = append(items, *item)
+	}
+
+	return &defs.APIForwardList{Items: items}, nil
+}
+
+func (m *testForwardPathManager) APIForwardGet(_ string, id uuid.UUID) (*defs.APIForward, error) {
+	item, ok := m.items[id]
+	if !ok {
+		return nil, forward.ErrDestNotFound
+	}
+
+	return item, nil
+}
+
+func (m *testForwardPathManager) APIForwardAdd(
+	_ string,
+	req defs.APIForwardAdd,
+) (*defs.APIForward, error) {
+	id := uuid.New()
+	item := &defs.APIForward{
+		ID:       id,
+		Created:  time.Date(2026, 6, 18, 10, 0, 0, 0, time.UTC),
+		Dest:     req.Dest,
+		Protocol: defs.APIForwardProtocolSRT,
+		Source:   defs.APIForwardSourceAPI,
+		State:    defs.APIForwardStateConnecting,
+	}
+	m.items[id] = item
+
+	return item, nil
+}
+
+func (m *testForwardPathManager) APIForwardRemove(_ string, id uuid.UUID) error {
+	if _, ok := m.items[id]; !ok {
+		return forward.ErrDestNotFound
+	}
+
+	delete(m.items, id)
+	return nil
+}
+
+func TestForward(t *testing.T) {
+	id := uuid.New()
+	pathManager := &testForwardPathManager{
+		items: map[uuid.UUID]*defs.APIForward{
+			id: {
+				ID:            id,
+				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
+				Dest:          "rtmp://localhost/live/stream",
+				Protocol:      defs.APIForwardProtocolRTMP,
+				Source:        defs.APIForwardSourceConfig,
+				State:         defs.APIForwardStateError,
+				LastError:     "connection refused",
+				OutboundBytes: 123,
+				BytesSent:     123,
+			},
+		},
+	}
+
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		PathManager:  pathManager,
+		Parent:       &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var list defs.APIForwardList
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/forward/list/mystream", nil, &list)
+	require.Equal(t, 1, list.ItemCount)
+	require.Equal(t, 1, list.PageCount)
+	require.Equal(t, id, list.Items[0].ID)
+
+	var item defs.APIForward
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:9997/v3/paths/forward/get/"+id.String()+"/mystream", nil, &item)
+	require.Equal(t, "rtmp://localhost/live/stream", item.Dest)
+	require.Equal(t, defs.APIForwardProtocolRTMP, item.Protocol)
+	require.Equal(t, defs.APIForwardStateError, item.State)
+	require.Equal(t, "connection refused", item.LastError)
+	require.Equal(t, uint64(123), item.OutboundBytes)
+	require.Equal(t, uint64(123), item.BytesSent)
+
+	var added defs.APIForward
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/forward/add/mystream",
+		defs.APIForwardAdd{Dest: "srt://localhost:8890?streamid=publish:mystream"}, &added)
+	require.Equal(t, defs.APIForwardSourceAPI, added.Source)
+	require.Equal(t, "srt://localhost:8890?streamid=publish:mystream", added.Dest)
+	require.Equal(t, defs.APIForwardProtocolSRT, added.Protocol)
+
+	httpRequest(t, hc, http.MethodDelete,
+		"http://localhost:9997/v3/paths/forward/remove/"+added.ID.String()+"/mystream", nil, nil)
+	_, ok := pathManager.items[added.ID]
+	require.False(t, ok)
+}

@@ -1,4 +1,5 @@
-package push
+// Package rtmp contains the RTMP forward destination.
+package rtmp
 
 import (
 	"context"
@@ -17,7 +18,7 @@ import (
 
 const rtmpPublishTypeLive = "live"
 
-type rtmpPublishClient struct {
+type publishClient struct {
 	URL       *url.URL
 	TLSConfig *tls.Config
 
@@ -133,7 +134,7 @@ func rtmpWaitOnStatus(
 	}
 }
 
-func (c *rtmpPublishClient) Initialize(ctx context.Context) error {
+func (c *publishClient) Initialize(ctx context.Context) error {
 	if c.DialContext == nil {
 		c.DialContext = (&net.Dialer{}).DialContext
 	}
@@ -192,7 +193,7 @@ func (c *rtmpPublishClient) Initialize(ctx context.Context) error {
 	return nil
 }
 
-func (c *rtmpPublishClient) initialize() error {
+func (c *publishClient) initialize() error {
 	c.bc = bytecounter.NewReadWriter(c.nconn)
 
 	_, _, err := handshake.DoClient(c.bc, false, false)
@@ -315,32 +316,32 @@ func (c *rtmpPublishClient) initialize() error {
 	return nil
 }
 
-func (c *rtmpPublishClient) Close() {
+func (c *publishClient) Close() {
 	if c.nconn != nil {
 		c.nconn.Close()
 	}
 }
 
-func (c *rtmpPublishClient) NetConn() net.Conn {
+func (c *publishClient) NetConn() net.Conn {
 	return c.nconn
 }
 
-func (c *rtmpPublishClient) BytesReceived() uint64 {
+func (c *publishClient) BytesReceived() uint64 {
 	return c.bc.Reader.Count()
 }
 
-func (c *rtmpPublishClient) BytesSent() uint64 {
+func (c *publishClient) BytesSent() uint64 {
 	return c.bc.Writer.Count()
 }
 
-func (c *rtmpPublishClient) Read() (message.Message, error) {
+func (c *publishClient) Read() (message.Message, error) {
 	return c.mrw.Read()
 }
 
-func (c *rtmpPublishClient) Write(msg message.Message) error {
+func (c *publishClient) Write(msg message.Message) error {
 	return c.mrw.Write(msg)
 }
 
-func (c *rtmpPublishClient) SetReadDeadline(t time.Time) error {
+func (c *publishClient) SetReadDeadline(t time.Time) error {
 	return c.nconn.SetReadDeadline(t)
 }

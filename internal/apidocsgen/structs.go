@@ -86,8 +86,8 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathConfList{}),
 	},
 	{
-		externalName: "PathConfPushTarget",
-		typ:          reflect.TypeOf(conf.PushTarget{}),
+		externalName: "PathConfForward",
+		typ:          reflect.TypeOf(conf.Forward{}),
 	},
 	{
 		externalName: "PathList",
@@ -142,16 +142,16 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathTrackCodecPropsVP9{}),
 	},
 	{
-		externalName: "PushTarget",
-		typ:          reflect.TypeOf(defs.APIPushTarget{}),
+		externalName: "Forward",
+		typ:          reflect.TypeOf(defs.APIForward{}),
 	},
 	{
-		externalName: "PushTargetAdd",
-		typ:          reflect.TypeOf(defs.APIPushTargetAdd{}),
+		externalName: "ForwardAdd",
+		typ:          reflect.TypeOf(defs.APIForwardAdd{}),
 	},
 	{
-		externalName: "PushTargetList",
-		typ:          reflect.TypeOf(defs.APIPushTargetList{}),
+		externalName: "ForwardList",
+		typ:          reflect.TypeOf(defs.APIForwardList{}),
 	},
 	{
 		externalName: "Recording",
@@ -308,8 +308,8 @@ func schemaName(rt reflect.Type) string {
 	if rt == reflect.TypeOf(conf.Path{}) {
 		return "PathConf"
 	}
-	if rt == reflect.TypeOf(conf.PushTarget{}) {
-		return "PathConfPushTarget"
+	if rt == reflect.TypeOf(conf.Forward{}) {
+		return "PathConfForward"
 	}
 
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
@@ -370,13 +370,13 @@ func isStructEnum(rt reflect.Type) bool {
 	case reflect.TypeOf(defs.APIPathReaderType("")):
 		return true
 
-	case reflect.TypeOf(defs.APIPushTargetProtocol("")):
+	case reflect.TypeOf(defs.APIForwardProtocol("")):
 		return true
 
-	case reflect.TypeOf(defs.APIPushTargetSource("")):
+	case reflect.TypeOf(defs.APIForwardSource("")):
 		return true
 
-	case reflect.TypeOf(defs.APIPushTargetState("")):
+	case reflect.TypeOf(defs.APIForwardState("")):
 		return true
 
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):

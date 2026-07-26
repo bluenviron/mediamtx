@@ -74,7 +74,7 @@ type metricsType string
 
 const (
 	metricsTypePaths          metricsType = "paths"
-	metricsTypePushTargets    metricsType = "push_targets"
+	metricsTypeForward        metricsType = "forward"
 	metricsTypeHLSSessions    metricsType = "hls_sessions"
 	metricsTypeHLSMuxers      metricsType = "hls_muxers"
 	metricsTypeRTSPConns      metricsType = "rtsp_conns"
@@ -231,7 +231,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
-	pushTargetFilter := ctx.Query("push_target")
+	forwardFilter := ctx.Query("forward")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
 	hlsSessionFilter := ctx.Query("hls_session")
 	rtspConnFilter := ctx.Query("rtsp_conn")
@@ -245,7 +245,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 	moqSessionFilter := ctx.Query("moq_session")
 
 	anyFilterActive := pathFilter != "" ||
-		pushTargetFilter != "" ||
+		forwardFilter != "" ||
 		hlsMuxerFilter != "" ||
 		hlsSessionFilter != "" ||
 		rtspConnFilter != "" ||
@@ -346,38 +346,38 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if (typ == "" || typ == metricsTypePushTargets) &&
-		(!anyFilterActive || pathFilter != "" || pushTargetFilter != "") {
+	if (typ == "" || typ == metricsTypeForward) &&
+		(!anyFilterActive || pathFilter != "" || forwardFilter != "") {
 		data, err := pathManager.APIPathsList()
 		if err == nil {
-			type pushTargetWithPath struct {
+			type forwardWithPath struct {
 				path string
-				item defs.APIPushTarget
+				item defs.APIForward
 			}
 
-			var items []pushTargetWithPath
+			var items []forwardWithPath
 			for _, pa := range data.Items {
 				if pathFilter != "" && pathFilter != pa.Name {
 					continue
 				}
 
-				targets, targetsErr := pathManager.APIPushTargetsList(pa.Name)
-				if targetsErr != nil {
+				forwards, forwardsErr := pathManager.APIForwardList(pa.Name)
+				if forwardsErr != nil {
 					continue
 				}
 
-				for _, target := range targets.Items {
-					if pushTargetFilter == "" || pushTargetFilter == target.ID.String() {
-						items = append(items, pushTargetWithPath{
+				for _, item := range forwards.Items {
+					if forwardFilter == "" || forwardFilter == item.ID.String() {
+						items = append(items, forwardWithPath{
 							path: pa.Name,
-							item: target,
+							item: item,
 						})
 					}
 				}
 			}
 
 			if len(items) != 0 {
-				out.WriteString("# Push targets\n")
+				out.WriteString("# Forward\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
 						"id":       i.item.ID.String(),
@@ -385,17 +385,16 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"protocol": string(i.item.Protocol),
 						"source":   string(i.item.Source),
 						"state":    string(i.item.State),
-						"url":      i.item.URL,
 					})
 
-					metric(&out, "push_targets", ta, 1)
-					metric(&out, "push_targets_outbound_bytes", ta, int64(i.item.OutboundBytes))
+					metric(&out, "forward", ta, 1)
+					metric(&out, "forward_outbound_bytes", ta, int64(i.item.OutboundBytes))
 				}
 				out.WriteString("\n")
-			} else if typ == metricsTypePushTargets && pathFilter == "" && pushTargetFilter == "" {
-				out.WriteString("# Push targets\n")
-				metric(&out, "push_targets", "", 0)
-				metric(&out, "push_targets_outbound_bytes", "", 0)
+			} else if typ == metricsTypeForward && pathFilter == "" && forwardFilter == "" {
+				out.WriteString("# Forward\n")
+				metric(&out, "forward", "", 0)
+				metric(&out, "forward_outbound_bytes", "", 0)
 				out.WriteString("\n")
 			}
 		}

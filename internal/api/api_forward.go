@@ -11,17 +11,17 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/push"
+	"github.com/bluenviron/mediamtx/internal/forward"
 )
 
-func (a *API) onPushTargetsList(ctx *gin.Context) {
+func (a *API) onForwardList(ctx *gin.Context) {
 	pathName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	data, err := a.PathManager.APIPushTargetsList(pathName)
+	data, err := a.PathManager.APIForwardList(pathName)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -42,7 +42,7 @@ func (a *API) onPushTargetsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *API) onPushTargetsGet(ctx *gin.Context) {
+func (a *API) onForwardGet(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
@@ -55,9 +55,9 @@ func (a *API) onPushTargetsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.PathManager.APIPushTargetsGet(pathName, id)
+	data, err := a.PathManager.APIForwardGet(pathName, id)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, push.ErrTargetNotFound) {
+		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, forward.ErrDestNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
 		} else {
 			a.writeError(ctx, http.StatusInternalServerError, err)
@@ -68,21 +68,21 @@ func (a *API) onPushTargetsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *API) onPushTargetsAdd(ctx *gin.Context) {
+func (a *API) onForwardAdd(ctx *gin.Context) {
 	pathName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	var req defs.APIPushTargetAdd
+	var req defs.APIForwardAdd
 	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &req)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.PathManager.APIPushTargetsAdd(pathName, req)
+	data, err := a.PathManager.APIForwardAdd(pathName, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, conf.ErrPathNotFound):
@@ -97,7 +97,7 @@ func (a *API) onPushTargetsAdd(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *API) onPushTargetsRemove(ctx *gin.Context) {
+func (a *API) onForwardRemove(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
@@ -110,9 +110,9 @@ func (a *API) onPushTargetsRemove(ctx *gin.Context) {
 		return
 	}
 
-	err = a.PathManager.APIPushTargetsRemove(pathName, id)
+	err = a.PathManager.APIForwardRemove(pathName, id)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, push.ErrTargetNotFound) {
+		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, forward.ErrDestNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
 		} else {
 			a.writeError(ctx, http.StatusInternalServerError, err)

@@ -34,19 +34,19 @@ func (m *testPathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	return path, nil
 }
 
-func (*testPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	return &defs.APIPushTargetList{}, nil
+func (*testPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+	return &defs.APIForwardList{}, nil
 }
 
-func (*testPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
+func (*testPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
 	return nil, conf.ErrPathNotFound
 }
 
-func (*testPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+func (*testPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
 	return nil, conf.ErrPathNotFound
 }
 
-func (*testPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
+func (*testPathManager) APIForwardRemove(string, uuid.UUID) error {
 	return conf.ErrPathNotFound
 }
 

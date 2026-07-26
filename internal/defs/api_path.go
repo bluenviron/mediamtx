@@ -10,10 +10,10 @@ import (
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
-	APIPushTargetsList(string) (*APIPushTargetList, error)
-	APIPushTargetsGet(string, uuid.UUID) (*APIPushTarget, error)
-	APIPushTargetsAdd(string, APIPushTargetAdd) (*APIPushTarget, error)
-	APIPushTargetsRemove(string, uuid.UUID) error
+	APIForwardList(string) (*APIForwardList, error)
+	APIForwardGet(string, uuid.UUID) (*APIForward, error)
+	APIForwardAdd(string, APIForwardAdd) (*APIForward, error)
+	APIForwardRemove(string, uuid.UUID) error
 }
 
 // APIPathSourceType is the type of a path source.

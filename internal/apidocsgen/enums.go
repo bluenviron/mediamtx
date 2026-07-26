@@ -68,19 +68,19 @@ var enums = []struct {
 		File:         filepath.Join("internal", "defs", "api_path.go"),
 	},
 	{
-		externalName: "PushTargetProtocol",
-		internalName: "APIPushTargetProtocol",
-		File:         filepath.Join("internal", "defs", "api_push_target.go"),
+		externalName: "ForwardProtocol",
+		internalName: "APIForwardProtocol",
+		File:         filepath.Join("internal", "defs", "api_forward.go"),
 	},
 	{
-		externalName: "PushTargetSource",
-		internalName: "APIPushTargetSource",
-		File:         filepath.Join("internal", "defs", "api_push_target.go"),
+		externalName: "ForwardSource",
+		internalName: "APIForwardSource",
+		File:         filepath.Join("internal", "defs", "api_forward.go"),
 	},
 	{
-		externalName: "PushTargetState",
-		internalName: "APIPushTargetState",
-		File:         filepath.Join("internal", "defs", "api_push_target.go"),
+		externalName: "ForwardState",
+		internalName: "APIForwardState",
+		File:         filepath.Join("internal", "defs", "api_forward.go"),
 	},
 	{
 		externalName: "PathTrackCodec",

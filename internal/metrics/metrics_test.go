@@ -61,37 +61,37 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (dummyPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	return &defs.APIPushTargetList{}, nil
+func (dummyPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+	return &defs.APIForwardList{}, nil
 }
 
-func (dummyPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
+func (dummyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
 	panic("unused")
 }
 
-func (dummyPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+func (dummyPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
 	panic("unused")
 }
 
-func (dummyPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
+func (dummyPathManager) APIForwardRemove(string, uuid.UUID) error {
 	panic("unused")
 }
 
-type pushTargetPathManager struct {
+type forwardPathManager struct {
 	dummyPathManager
 }
 
-func (pushTargetPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	return &defs.APIPushTargetList{
+func (forwardPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+	return &defs.APIForwardList{
 		ItemCount: 1,
 		PageCount: 1,
-		Items: []defs.APIPushTarget{{
+		Items: []defs.APIForward{{
 			ID:            uuid.MustParse("5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe"),
 			Created:       time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC),
-			URL:           "rtmp://example.com/live/stream",
-			Protocol:      defs.APIPushTargetProtocolRTMP,
-			Source:        defs.APIPushTargetSourceAPI,
-			State:         defs.APIPushTargetStatePushing,
+			Dest:          "rtmp://example.com/live/stream",
+			Protocol:      defs.APIForwardProtocolRTMP,
+			Source:        defs.APIForwardSourceAPI,
+			State:         defs.APIForwardStateForwarding,
 			OutboundBytes: 321,
 			BytesSent:     321,
 		}},
@@ -401,19 +401,19 @@ func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (emptyPathManager) APIPushTargetsList(string) (*defs.APIPushTargetList, error) {
-	return &defs.APIPushTargetList{}, nil
+func (emptyPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+	return &defs.APIForwardList{}, nil
 }
 
-func (emptyPathManager) APIPushTargetsGet(string, uuid.UUID) (*defs.APIPushTarget, error) {
+func (emptyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
 	panic("unused")
 }
 
-func (emptyPathManager) APIPushTargetsAdd(string, defs.APIPushTargetAdd) (*defs.APIPushTarget, error) {
+func (emptyPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
 	panic("unused")
 }
 
-func (emptyPathManager) APIPushTargetsRemove(string, uuid.UUID) error {
+func (emptyPathManager) APIForwardRemove(string, uuid.UUID) error {
 	panic("unused")
 }
 
@@ -1106,7 +1106,7 @@ func TestZeroMetricsFallback(t *testing.T) {
 		string(byts))
 }
 
-func TestPushTargetMetrics(t *testing.T) {
+func TestForwardMetrics(t *testing.T) {
 	m := Metrics{
 		Address:      "localhost:9998",
 		AllowOrigins: []string{"*"},
@@ -1119,13 +1119,13 @@ func TestPushTargetMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer m.Close()
 
-	m.SetPathManager(&pushTargetPathManager{})
+	m.SetPathManager(&forwardPathManager{})
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	res, err := hc.Get("http://localhost:9998/metrics?type=push_targets")
+	res, err := hc.Get("http://localhost:9998/metrics?type=forward")
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -1135,11 +1135,11 @@ func TestPushTargetMetrics(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t,
-		"# Push targets\n"+
-			"push_targets{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"protocol=\"rtmp\",source=\"api\",state=\"pushing\",url=\"rtmp://example.com/live/stream\"} 1\n"+
-			"push_targets_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"protocol=\"rtmp\",source=\"api\",state=\"pushing\",url=\"rtmp://example.com/live/stream\"} 321\n"+
+		"# Forward\n"+
+			"forward{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
+			"path=\"mypath\",protocol=\"rtmp\",source=\"api\",state=\"forwarding\"} 1\n"+
+			"forward_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
+			"protocol=\"rtmp\",source=\"api\",state=\"forwarding\"} 321\n"+
 			"\n",
 		string(byts))
 }
