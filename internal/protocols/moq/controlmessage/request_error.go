@@ -34,8 +34,9 @@ func (m *RequestError) unmarshal(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	m.Code = RequestErrorCode(code)
 	buf = buf[n:]
+
+	m.Code = RequestErrorCode(code)
 
 	var retry varint.Varint
 	n, err = retry.Unmarshal(buf)
@@ -50,9 +51,11 @@ func (m *RequestError) unmarshal(buf []byte) error {
 		return err
 	}
 	buf = buf[n:]
-	if len(buf) < int(l) {
+
+	if uint64(len(buf)) < uint64(l) {
 		return fmt.Errorf("not enough bytes")
 	}
+
 	m.Reason = string(buf[:l])
 
 	return nil

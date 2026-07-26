@@ -67,6 +67,8 @@ func (s *streamID) unmarshal(raw string) error {
 				"query is an optional token containing additional information")
 		}
 
+		parts[len(parts)-1] = strings.TrimSuffix(parts[len(parts)-1], "#feedbackplay")
+
 		switch parts[0] {
 		case "read":
 			s.mode = streamIDModeRead

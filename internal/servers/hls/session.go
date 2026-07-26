@@ -58,18 +58,22 @@ func (s *session) initialize(ctx *gin.Context) error {
 	s.lastRequestTime.Store(time.Now().UnixNano())
 
 	accessReq := defs.PathAccessRequest{
-		Name:      s.pathName,
-		Query:     s.query,
-		Publish:   false,
-		UserAgent: s.userAgent,
-		Proto:     auth.ProtocolHLS,
-		ID:        &s.uuid,
-		IP:        net.ParseIP(ctx.ClientIP()),
+		Name:                 s.pathName,
+		Query:                s.query,
+		Publish:              false,
+		UserAgent:            s.userAgent,
+		Proto:                auth.ProtocolHLS,
+		ID:                   &s.uuid,
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
+
 	if s.isCDN {
 		accessReq.SkipAuth = true
+		s.Log(logger.Info, "created by %s (CDN)", s.remoteAddr)
 	} else {
 		accessReq.Credentials = httpp.Credentials(ctx.Request)
+		s.Log(logger.Info, "created by %s", s.remoteAddr)
 	}
 
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
@@ -122,11 +126,7 @@ func (s *session) initialize(ctx *gin.Context) error {
 
 	res.Stream.AddReader(s.reader)
 
-	if s.isCDN {
-		s.Log(logger.Info, "created by %s (CDN), reading from muxer '%s'", s.remoteAddr, s.pathName)
-	} else {
-		s.Log(logger.Info, "created by %s, reading from muxer '%s'", s.remoteAddr, s.pathName)
-	}
+	s.Log(logger.Info, "is reading from muxer '%s'", s.pathName)
 
 	s.onUnreadHook = hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,

@@ -249,7 +249,9 @@ type InboundTrack struct {
 
 	track     *webrtc.TrackRemote
 	receiver  *webrtc.RTPReceiver
+	midIndex  int
 	rid       string
+	ridIndex  int
 	writeRTCP func([]rtcp.Packet) error
 	log       logger.Writer
 
@@ -334,6 +336,9 @@ func (t *InboundTrack) start() {
 
 			pkts, err2 := rtcp.Unmarshal(buf[:n])
 			if err2 != nil {
+				// it's currently impossible for this to be triggered,
+				// because malformed RTCP packets are already blocked by pion/interceptor
+				// and in particular by the NACK interceptor.
 				panic(err2)
 			}
 

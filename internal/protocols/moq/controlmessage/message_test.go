@@ -172,3 +172,18 @@ func TestMarshal(t *testing.T) {
 		})
 	}
 }
+
+func FuzzUnmarshal(f *testing.F) {
+	for _, ca := range cases {
+		f.Add(ca.enc)
+	}
+
+	f.Fuzz(func(_ *testing.T, buf []byte) {
+		m, err := Read(bytes.NewReader(buf))
+		if err != nil {
+			return
+		}
+
+		m.Marshal()
+	})
+}

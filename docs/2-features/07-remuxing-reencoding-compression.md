@@ -6,9 +6,9 @@ To change the format, codec or compression of a stream, use _FFmpeg_ or _GStream
 paths:
   compressed:
   original:
-    runOnReady: >
+    runOnAvailable: >
       ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
         -c:v libx264 -pix_fmt yuv420p -preset ultrafast -b:v 600k
         -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
-    runOnReadyRestart: yes
+    runOnAvailableRestart: yes
 ```

@@ -167,7 +167,8 @@ func (c *conn) runRead() error {
 				User: query.Get("user"),
 				Pass: query.Get("pass"),
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
@@ -262,7 +263,8 @@ func (c *conn) runPublish() error {
 				User: query.Get("user"),
 				Pass: query.Get("pass"),
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {

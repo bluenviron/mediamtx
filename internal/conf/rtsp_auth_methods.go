@@ -13,6 +13,11 @@ type RTSPAuthMethods []RTSPAuthMethod
 
 // UnmarshalEnv implements env.Unmarshaler.
 func (d *RTSPAuthMethods) UnmarshalEnv(_ string, v string) error {
+	if v == "" {
+		*d = []RTSPAuthMethod{}
+		return nil
+	}
+
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return jsonwrapper.Unmarshal(byts, d)
 }

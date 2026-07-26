@@ -13,6 +13,11 @@ type LogDestinations []LogDestination
 
 // UnmarshalEnv implements env.Unmarshaler.
 func (d *LogDestinations) UnmarshalEnv(_ string, v string) error {
+	if v == "" {
+		*d = []LogDestination{}
+		return nil
+	}
+
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return jsonwrapper.Unmarshal(byts, d)
 }

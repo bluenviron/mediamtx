@@ -90,20 +90,20 @@ func getToken(tokenInHTTPQuery bool, req *Request) string {
 
 // Manager is the authentication manager.
 type Manager struct {
-	Method             conf.AuthMethod
-	InternalUsers      []conf.AuthInternalUser
-	HTTPAddress        string
-	HTTPFingerprint    string
+	Method                           conf.AuthMethod
+	InternalUsers                    []conf.AuthInternalUser
+	HTTPAddress                      string
+	HTTPFingerprint                  string
 	HTTPExclude                      []conf.AuthInternalUserPermission
 	HTTPForceInternalUsersForActions []conf.AuthInternalUserPermission
-	JWTJWKS            string
-	JWTJWKSFingerprint string
-	JWTClaimKey        string
-	JWTExclude         []conf.AuthInternalUserPermission
-	JWTInHTTPQuery     *bool
-	JWTIssuer          string
-	JWTAudience        string
-	ReadTimeout        time.Duration
+	JWTJWKS                          string
+	JWTJWKSFingerprint               string
+	JWTClaimKey                      string
+	JWTExclude                       []conf.AuthInternalUserPermission
+	JWTInHTTPQuery                   *bool
+	JWTIssuer                        string
+	JWTAudience                      string
+	ReadTimeout                      time.Duration
 
 	mutex           sync.RWMutex
 	jwksLastRefresh time.Time
@@ -142,7 +142,7 @@ func (m *Manager) Authenticate(req *Request) (string, *Error) {
 	if err != nil {
 		return "", &Error{
 			Wrapped:        err,
-			AskCredentials: (req.Credentials.User == "" && req.Credentials.Pass == "" && token == ""),
+			AskCredentials: req.EnableAskCredentials && req.Credentials.User == "" && req.Credentials.Pass == "" && token == "",
 		}
 	}
 

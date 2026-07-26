@@ -98,7 +98,8 @@ type path struct {
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
-	onNotReadyHook                 func()
+	onUnavailableHook              func()
+	onOfflineHook                  func()
 	readers                        map[defs.Reader]struct{}
 	describeRequestsOnHold         []defs.PathDescribeReq
 	readerAddRequestsOnHold        []defs.PathAddReaderReq
@@ -174,7 +175,7 @@ func (pa *path) isAvailable() bool {
 }
 
 func (pa *path) isOnline() bool {
-	return pa.source != nil
+	return pa.onOfflineHook != nil || (pa.source != nil && !pa.conf.AlwaysAvailable)
 }
 
 func (pa *path) run() {
@@ -439,7 +440,7 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	}
 
 	if pa.conf.AlwaysAvailable {
-		pa.onlineTime = time.Now()
+		pa.setOnline(pa.source.APISourceDescribe(), "")
 	}
 
 	if pa.conf.HasOnDemandStaticSource() {
@@ -457,6 +458,8 @@ func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyRe
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {
+		pa.setOffline()
+
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
 			panic("should not happen")
@@ -566,7 +569,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.name)
 
 	if pa.conf.AlwaysAvailable {
-		pa.onlineTime = time.Now()
+		pa.setOnline(req.Author.APISourceDescribe(), req.AccessRequest.Query)
 	}
 
 	if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
@@ -822,6 +825,30 @@ func (pa *path) onDemandPublisherStop(reason string) {
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
+func (pa *path) setOnline(sourceDesc *defs.APIPathSource, publisherQuery string) {
+	pa.setOffline()
+
+	pa.onOfflineHook = hooks.OnOnline(hooks.OnOnlineParams{
+		Logger:          pa,
+		ExternalCmdPool: pa.externalCmdPool,
+		Conf:            pa.conf,
+		ExternalCmdEnv:  pa.ExternalCmdEnv(),
+		Desc:            sourceDesc,
+		Query:           publisherQuery,
+	})
+
+	pa.onlineTime = time.Now()
+}
+
+func (pa *path) setOffline() {
+	if pa.onOfflineHook == nil {
+		return
+	}
+
+	pa.onOfflineHook()
+	pa.onOfflineHook = nil
+}
+
 func (pa *path) setAvailable(
 	source defs.Source,
 	publisherQuery string,
@@ -845,10 +872,6 @@ func (pa *path) setAvailable(
 
 	pa.availableTime = time.Now()
 
-	if !pa.conf.AlwaysAvailable {
-		pa.onlineTime = time.Now()
-	}
-
 	if pa.conf.Record {
 		pa.startRecording()
 	}
@@ -858,7 +881,7 @@ func (pa *path) setAvailable(
 		sourceDesc = source.APISourceDescribe()
 	}
 
-	pa.onNotReadyHook = hooks.OnReady(hooks.OnReadyParams{
+	pa.onUnavailableHook = hooks.OnAvailable(hooks.OnAvailableParams{
 		Logger:          pa,
 		ExternalCmdPool: pa.externalCmdPool,
 		Conf:            pa.conf,
@@ -866,6 +889,10 @@ func (pa *path) setAvailable(
 		Desc:            sourceDesc,
 		Query:           publisherQuery,
 	})
+
+	if !pa.conf.AlwaysAvailable {
+		pa.setOnline(sourceDesc, publisherQuery)
+	}
 
 	if pa.conf.AlwaysAvailable {
 		pa.Log(logger.Info, "stream is available, %s", defs.MediasInfo(pa.stream.OrigDesc.Medias))
@@ -894,13 +921,14 @@ func (pa *path) consumeOnHoldRequests() {
 
 func (pa *path) setNotAvailable() {
 	pa.parent.setPathNotReady(pa)
+	pa.setOffline()
 
 	for r := range pa.readers {
 		pa.executeRemoveReader(r)
 		r.Close()
 	}
 
-	pa.onNotReadyHook()
+	pa.onUnavailableHook()
 
 	if pa.recorder != nil {
 		pa.recorder.Close()
@@ -966,6 +994,8 @@ func (pa *path) executeRemovePublisher() {
 	if !pa.conf.AlwaysAvailable {
 		pa.setNotAvailable()
 	} else {
+		pa.setOffline()
+
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
 			panic("should not happen")

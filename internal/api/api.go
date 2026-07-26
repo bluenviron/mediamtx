@@ -249,23 +249,25 @@ func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
-		Action:      conf.AuthActionAPI,
-		Query:       ctx.Request.URL.RawQuery,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:               conf.AuthActionAPI,
+		Query:                ctx.Request.URL.RawQuery,
+		Credentials:          httpp.Credentials(ctx.Request),
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
 
 	_, err := a.AuthManager.Authenticate(req)
 	if err != nil {
-		auth.DelayBruteForce(err)
-
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 			a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
-		a.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: a,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
 		a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return
