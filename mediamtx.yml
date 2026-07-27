@@ -368,6 +368,9 @@ hlsDirectory: ""
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
 hlsMuxerCloseAfter: 60s
+# HLS sessions are closed when no requests have been received
+# and this amount of time has passed.
+hlsSessionCloseAfter: 10s
 # Secret to identify requests coming from a CDN.
 # The CDN must insert this secret in every request in the
 # 'Authorization: Bearer' header.

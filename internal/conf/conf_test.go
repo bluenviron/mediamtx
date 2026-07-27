@@ -246,6 +246,39 @@ func TestConfFromEnv(t *testing.T) {
 	})
 }
 
+func TestConfHLSSessionCloseAfter(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		conf, _, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, 10*Duration(time.Second), conf.HLSSessionCloseAfter)
+	})
+
+	t.Run("file", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte("hlsSessionCloseAfter: 5s\n"))
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, 5*Duration(time.Second), conf.HLSSessionCloseAfter)
+	})
+
+	t.Run("environment", func(t *testing.T) {
+		t.Setenv("MTX_HLSSESSIONCLOSEAFTER", "5s")
+
+		conf, _, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, 5*Duration(time.Second), conf.HLSSessionCloseAfter)
+	})
+
+	for _, value := range []string{"0s", "-1s"} {
+		t.Run("invalid "+value, func(t *testing.T) {
+			tmpf := createTempFile(t, []byte("hlsSessionCloseAfter: "+value+"\n"))
+
+			_, _, err := Load(tmpf, nil, nil)
+			require.EqualError(t, err, "'hlsSessionCloseAfter' must be greater than zero")
+		})
+	}
+}
+
 func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
 	plaintext := "paths:\n" +

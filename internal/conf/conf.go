@@ -349,24 +349,25 @@ type Conf struct {
 	RTMPTrustedProxies IPNetworks `json:"rtmpTrustedProxies"`
 
 	// HLS server
-	HLS                bool       `json:"hls"`
-	HLSDisable         *bool      `json:"hlsDisable,omitempty" deprecated:"true"`
-	HLSAddress         string     `json:"hlsAddress"`
-	HLSEncryption      bool       `json:"hlsEncryption"`
-	HLSServerKey       string     `json:"hlsServerKey"`
-	HLSServerCert      string     `json:"hlsServerCert"`
-	HLSAllowOrigin     *string    `json:"hlsAllowOrigin,omitempty" deprecated:"true"`
-	HLSAllowOrigins    []string   `json:"hlsAllowOrigins"`
-	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
-	HLSAlwaysRemux     bool       `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant `json:"hlsVariant"`
-	HLSSegmentCount    int        `json:"hlsSegmentCount"`
-	HLSSegmentDuration Duration   `json:"hlsSegmentDuration"`
-	HLSPartDuration    Duration   `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize `json:"hlsSegmentMaxSize"`
-	HLSDirectory       string     `json:"hlsDirectory"`
-	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
-	HLSCDNSecret       string     `json:"hlsCDNSecret"`
+	HLS                  bool       `json:"hls"`
+	HLSDisable           *bool      `json:"hlsDisable,omitempty" deprecated:"true"`
+	HLSAddress           string     `json:"hlsAddress"`
+	HLSEncryption        bool       `json:"hlsEncryption"`
+	HLSServerKey         string     `json:"hlsServerKey"`
+	HLSServerCert        string     `json:"hlsServerCert"`
+	HLSAllowOrigin       *string    `json:"hlsAllowOrigin,omitempty" deprecated:"true"`
+	HLSAllowOrigins      []string   `json:"hlsAllowOrigins"`
+	HLSTrustedProxies    IPNetworks `json:"hlsTrustedProxies"`
+	HLSAlwaysRemux       bool       `json:"hlsAlwaysRemux"`
+	HLSVariant           HLSVariant `json:"hlsVariant"`
+	HLSSegmentCount      int        `json:"hlsSegmentCount"`
+	HLSSegmentDuration   Duration   `json:"hlsSegmentDuration"`
+	HLSPartDuration      Duration   `json:"hlsPartDuration"`
+	HLSSegmentMaxSize    StringSize `json:"hlsSegmentMaxSize"`
+	HLSDirectory         string     `json:"hlsDirectory"`
+	HLSSessionCloseAfter Duration   `json:"hlsSessionCloseAfter"`
+	HLSMuxerCloseAfter   Duration   `json:"hlsMuxerCloseAfter"`
+	HLSCDNSecret         string     `json:"hlsCDNSecret"`
 
 	// WebRTC server
 	WebRTC                      bool              `json:"webrtc"`
@@ -518,6 +519,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
+	conf.HLSSessionCloseAfter = 10 * Duration(time.Second)
 
 	// WebRTC server
 	conf.WebRTC = true
@@ -957,6 +959,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		if conf.HLSAddress == "" {
 			return fmt.Errorf("'hlsAddress' must be set when HLS is enabled")
 		}
+	}
+
+	if conf.HLSSessionCloseAfter <= 0 {
+		return fmt.Errorf("'hlsSessionCloseAfter' must be greater than zero")
 	}
 
 	if conf.HLSCDNSecret != "" {

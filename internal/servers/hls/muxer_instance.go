@@ -21,8 +21,6 @@ import (
 const (
 	sessionCookieName     = "hlsSession"
 	sessionQueryParamName = "session"
-	sessionCloseAfter     = 30 * time.Second
-	sessionCleanupPeriod  = sessionCloseAfter / 3
 )
 
 type instanceParent interface {

@@ -28,26 +28,31 @@ func emptyTimer() *time.Timer {
 	return t
 }
 
+func getSessionCleanupPeriod(closeAfter conf.Duration) time.Duration {
+	return max(time.Duration(closeAfter)/3, time.Nanosecond)
+}
+
 type muxerCloseInstanceReq struct {
 	instance *muxerInstance
 	err      error
 }
 
 type muxer struct {
-	parentCtx       context.Context
-	remoteAddr      string
-	variant         conf.HLSVariant
-	segmentCount    int
-	segmentDuration conf.Duration
-	partDuration    conf.Duration
-	segmentMaxSize  conf.StringSize
-	directory       string
-	closeAfter      conf.Duration
-	wg              *sync.WaitGroup
-	pathName        string
-	pathManager     serverPathManager
-	parent          *Server
-	query           string
+	parentCtx         context.Context
+	remoteAddr        string
+	variant           conf.HLSVariant
+	segmentCount      int
+	segmentDuration   conf.Duration
+	partDuration      conf.Duration
+	segmentMaxSize    conf.StringSize
+	directory         string
+	closeAfter        conf.Duration
+	sessionCloseAfter conf.Duration
+	wg                *sync.WaitGroup
+	pathName          string
+	pathManager       serverPathManager
+	parent            *Server
+	query             string
 
 	ctx             context.Context
 	ctxCancel       func()
@@ -177,7 +182,7 @@ func (m *muxer) runInner() error {
 		recreateInstanceTimer.Stop()
 	}()
 
-	sessionCleanupTicker := time.NewTicker(sessionCleanupPeriod)
+	sessionCleanupTicker := time.NewTicker(getSessionCleanupPeriod(m.sessionCloseAfter))
 	defer sessionCleanupTicker.Stop()
 
 	var activityCheckTimer *time.Timer
@@ -241,14 +246,14 @@ func (m *muxer) runInner() error {
 			for secret, sx := range m.sessionsBySecret {
 				lastRequest := time.Unix(0, sx.lastRequestTime.Load())
 
-				if now.Sub(lastRequest) >= sessionCloseAfter {
+				if now.Sub(lastRequest) >= time.Duration(m.sessionCloseAfter) {
 					delete(m.sessionsBySecret, secret)
 					sx.close2(fmt.Errorf("inactive"))
 				}
 			}
 			if m.cdnSession != nil {
 				lastRequest := time.Unix(0, m.cdnSession.lastRequestTime.Load())
-				if now.Sub(lastRequest) >= sessionCloseAfter {
+				if now.Sub(lastRequest) >= time.Duration(m.sessionCloseAfter) {
 					m.cdnSession.close2(fmt.Errorf("inactive"))
 					m.cdnSession = nil
 				}

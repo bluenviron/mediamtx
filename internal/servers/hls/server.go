@@ -103,28 +103,29 @@ type serverParent interface {
 
 // Server is a HLS server.
 type Server struct {
-	Address         string
-	DumpPackets     bool
-	Encryption      bool
-	ServerKey       string
-	ServerCert      string
-	AllowOrigins    []string
-	TrustedProxies  conf.IPNetworks
-	AlwaysRemux     bool
-	Variant         conf.HLSVariant
-	SegmentCount    int
-	SegmentDuration conf.Duration
-	PartDuration    conf.Duration
-	SegmentMaxSize  conf.StringSize
-	Directory       string
-	CDNSecret       string
-	ReadTimeout     conf.Duration
-	WriteTimeout    conf.Duration
-	MuxerCloseAfter conf.Duration
-	ExternalCmdPool *externalcmd.Pool
-	Metrics         serverMetrics
-	PathManager     serverPathManager
-	Parent          serverParent
+	Address           string
+	DumpPackets       bool
+	Encryption        bool
+	ServerKey         string
+	SessionCloseAfter conf.Duration
+	ServerCert        string
+	AllowOrigins      []string
+	TrustedProxies    conf.IPNetworks
+	AlwaysRemux       bool
+	Variant           conf.HLSVariant
+	SegmentCount      int
+	SegmentDuration   conf.Duration
+	PartDuration      conf.Duration
+	SegmentMaxSize    conf.StringSize
+	Directory         string
+	CDNSecret         string
+	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
+	MuxerCloseAfter   conf.Duration
+	ExternalCmdPool   *externalcmd.Pool
+	Metrics           serverMetrics
+	PathManager       serverPathManager
+	Parent            serverParent
 
 	ctx        context.Context
 	ctxCancel  func()
@@ -342,20 +343,21 @@ outer:
 
 func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *muxer {
 	r := &muxer{
-		parentCtx:       s.ctx,
-		remoteAddr:      remoteAddr,
-		variant:         s.Variant,
-		segmentCount:    s.SegmentCount,
-		segmentDuration: s.SegmentDuration,
-		partDuration:    s.PartDuration,
-		segmentMaxSize:  s.SegmentMaxSize,
-		directory:       s.Directory,
-		wg:              &s.wg,
-		pathName:        pathName,
-		pathManager:     s.PathManager,
-		parent:          s,
-		query:           query,
-		closeAfter:      s.MuxerCloseAfter,
+		parentCtx:         s.ctx,
+		remoteAddr:        remoteAddr,
+		variant:           s.Variant,
+		segmentCount:      s.SegmentCount,
+		segmentDuration:   s.SegmentDuration,
+		partDuration:      s.PartDuration,
+		segmentMaxSize:    s.SegmentMaxSize,
+		directory:         s.Directory,
+		wg:                &s.wg,
+		pathName:          pathName,
+		pathManager:       s.PathManager,
+		parent:            s,
+		query:             query,
+		closeAfter:        s.MuxerCloseAfter,
+		sessionCloseAfter: s.SessionCloseAfter,
 	}
 	r.initialize()
 	s.muxers[pathName] = r

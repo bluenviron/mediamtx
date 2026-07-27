@@ -31,6 +31,12 @@ type dummyPathManager struct {
 	addReaderImpl    func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
 
+func TestSessionCleanupPeriod(t *testing.T) {
+	require.Equal(t, 10*time.Second, getSessionCleanupPeriod(30*conf.Duration(time.Second)))
+	require.Equal(t, 5*time.Second/3, getSessionCleanupPeriod(5*conf.Duration(time.Second)))
+	require.Equal(t, time.Nanosecond, getSessionCleanupPeriod(conf.Duration(time.Nanosecond)))
+}
+
 func (pm *dummyPathManager) SetHLSServer(*Server) []defs.Path {
 	if pm.setHLSServerImpl != nil {
 		return pm.setHLSServerImpl()
@@ -68,12 +74,13 @@ func (pa *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 
 func TestServerPreflightRequest(t *testing.T) {
 	s := &Server{
-		Address:      "127.0.0.1:8888",
-		AllowOrigins: []string{"*"},
-		ReadTimeout:  conf.Duration(10 * time.Second),
-		WriteTimeout: conf.Duration(10 * time.Second),
-		PathManager:  &dummyPathManager{},
-		Parent:       test.NilLogger,
+		Address:           "127.0.0.1:8888",
+		AllowOrigins:      []string{"*"},
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		PathManager:       &dummyPathManager{},
+		Parent:            test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -112,11 +119,12 @@ func TestServerIndexNotConfigured(t *testing.T) {
 	}
 
 	s := &Server{
-		Address:      "127.0.0.1:8888",
-		ReadTimeout:  conf.Duration(10 * time.Second),
-		WriteTimeout: conf.Duration(10 * time.Second),
-		PathManager:  pm,
-		Parent:       test.NilLogger,
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		PathManager:       pm,
+		Parent:            test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -146,11 +154,12 @@ func TestServerIndexNotConfigured(t *testing.T) {
 
 func TestServerIndexRedirect(t *testing.T) {
 	s := &Server{
-		Address:      "127.0.0.1:8888",
-		ReadTimeout:  conf.Duration(10 * time.Second),
-		WriteTimeout: conf.Duration(10 * time.Second),
-		PathManager:  &dummyPathManager{},
-		Parent:       test.NilLogger,
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		PathManager:       &dummyPathManager{},
+		Parent:            test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -188,11 +197,12 @@ func TestServerIndexRedirectNoXSS(t *testing.T) {
 			}
 
 			s := &Server{
-				Address:      "127.0.0.1:8888",
-				ReadTimeout:  conf.Duration(10 * time.Second),
-				WriteTimeout: conf.Duration(10 * time.Second),
-				PathManager:  pm,
-				Parent:       test.NilLogger,
+				Address:           "127.0.0.1:8888",
+				SessionCloseAfter: 30 * conf.Duration(time.Second),
+				ReadTimeout:       conf.Duration(10 * time.Second),
+				WriteTimeout:      conf.Duration(10 * time.Second),
+				PathManager:       pm,
+				Parent:            test.NilLogger,
 			}
 			err := s.Initialize()
 			require.NoError(t, err)
@@ -238,22 +248,23 @@ func TestServerNotFound(t *testing.T) {
 			}
 
 			s := &Server{
-				Address:         "127.0.0.1:8888",
-				Encryption:      false,
-				ServerKey:       "",
-				ServerCert:      "",
-				AlwaysRemux:     ca == "always remux on",
-				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-				SegmentCount:    7,
-				SegmentDuration: conf.Duration(1 * time.Second),
-				PartDuration:    conf.Duration(200 * time.Millisecond),
-				SegmentMaxSize:  50 * 1024 * 1024,
-				TrustedProxies:  conf.IPNetworks{},
-				Directory:       "",
-				ReadTimeout:     conf.Duration(10 * time.Second),
-				WriteTimeout:    conf.Duration(10 * time.Second),
-				PathManager:     pm,
-				Parent:          test.NilLogger,
+				Address:           "127.0.0.1:8888",
+				SessionCloseAfter: 30 * conf.Duration(time.Second),
+				Encryption:        false,
+				ServerKey:         "",
+				ServerCert:        "",
+				AlwaysRemux:       ca == "always remux on",
+				Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:      7,
+				SegmentDuration:   conf.Duration(1 * time.Second),
+				PartDuration:      conf.Duration(200 * time.Millisecond),
+				SegmentMaxSize:    50 * 1024 * 1024,
+				TrustedProxies:    conf.IPNetworks{},
+				Directory:         "",
+				ReadTimeout:       conf.Duration(10 * time.Second),
+				WriteTimeout:      conf.Duration(10 * time.Second),
+				PathManager:       pm,
+				Parent:            test.NilLogger,
 			}
 			err := s.Initialize()
 			require.NoError(t, err)
@@ -363,19 +374,20 @@ func TestServerRead(t *testing.T) {
 				}
 
 				s := &Server{
-					Address:         "127.0.0.1:8888",
-					AlwaysRemux:     ca == "always remux on",
-					Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-					SegmentCount:    7,
-					SegmentDuration: conf.Duration(1 * time.Second),
-					PartDuration:    conf.Duration(200 * time.Millisecond),
-					SegmentMaxSize:  50 * 1024 * 1024,
-					TrustedProxies:  conf.IPNetworks{},
-					CDNSecret:       "myCDNSecret",
-					ReadTimeout:     conf.Duration(10 * time.Second),
-					WriteTimeout:    conf.Duration(10 * time.Second),
-					PathManager:     pm,
-					Parent:          test.NilLogger,
+					Address:           "127.0.0.1:8888",
+					SessionCloseAfter: 30 * conf.Duration(time.Second),
+					AlwaysRemux:       ca == "always remux on",
+					Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+					SegmentCount:      7,
+					SegmentDuration:   conf.Duration(1 * time.Second),
+					PartDuration:      conf.Duration(200 * time.Millisecond),
+					SegmentMaxSize:    50 * 1024 * 1024,
+					TrustedProxies:    conf.IPNetworks{},
+					CDNSecret:         "myCDNSecret",
+					ReadTimeout:       conf.Duration(10 * time.Second),
+					WriteTimeout:      conf.Duration(10 * time.Second),
+					PathManager:       pm,
+					Parent:            test.NilLogger,
 				}
 				err = s.Initialize()
 				require.NoError(t, err)
@@ -509,22 +521,23 @@ func TestServerDirectory(t *testing.T) {
 	}
 
 	s := &Server{
-		Address:         "127.0.0.1:8888",
-		Encryption:      false,
-		ServerKey:       "",
-		ServerCert:      "",
-		AlwaysRemux:     true,
-		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-		SegmentCount:    7,
-		SegmentDuration: conf.Duration(1 * time.Second),
-		PartDuration:    conf.Duration(200 * time.Millisecond),
-		SegmentMaxSize:  50 * 1024 * 1024,
-		TrustedProxies:  conf.IPNetworks{},
-		Directory:       filepath.Join(dir, "mydir"),
-		ReadTimeout:     conf.Duration(10 * time.Second),
-		WriteTimeout:    conf.Duration(10 * time.Second),
-		PathManager:     pm,
-		Parent:          test.NilLogger,
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		Encryption:        false,
+		ServerKey:         "",
+		ServerCert:        "",
+		AlwaysRemux:       true,
+		Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:      7,
+		SegmentDuration:   conf.Duration(1 * time.Second),
+		PartDuration:      conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:    50 * 1024 * 1024,
+		TrustedProxies:    conf.IPNetworks{},
+		Directory:         filepath.Join(dir, "mydir"),
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		PathManager:       pm,
+		Parent:            test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
@@ -570,20 +583,21 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 	}
 
 	s := &Server{
-		Address:         "127.0.0.1:8888",
-		Encryption:      false,
-		ServerKey:       "",
-		ServerCert:      "",
-		AlwaysRemux:     true,
-		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-		SegmentCount:    7,
-		SegmentDuration: conf.Duration(1 * time.Second),
-		PartDuration:    conf.Duration(200 * time.Millisecond),
-		SegmentMaxSize:  50 * 1024 * 1024,
-		ReadTimeout:     conf.Duration(10 * time.Second),
-		WriteTimeout:    conf.Duration(10 * time.Second),
-		PathManager:     pm,
-		Parent:          test.NilLogger,
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		Encryption:        false,
+		ServerKey:         "",
+		ServerCert:        "",
+		AlwaysRemux:       true,
+		Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:      7,
+		SegmentDuration:   conf.Duration(1 * time.Second),
+		PartDuration:      conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:    50 * 1024 * 1024,
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		PathManager:       pm,
+		Parent:            test.NilLogger,
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
@@ -594,18 +608,19 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 
 func TestAuthError(t *testing.T) {
 	s := &Server{
-		Address:         "127.0.0.1:8888",
-		Encryption:      false,
-		ServerKey:       "",
-		ServerCert:      "",
-		AlwaysRemux:     true,
-		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-		SegmentCount:    7,
-		SegmentDuration: conf.Duration(1 * time.Second),
-		PartDuration:    conf.Duration(200 * time.Millisecond),
-		SegmentMaxSize:  50 * 1024 * 1024,
-		ReadTimeout:     conf.Duration(10 * time.Second),
-		WriteTimeout:    conf.Duration(10 * time.Second),
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		Encryption:        false,
+		ServerKey:         "",
+		ServerCert:        "",
+		AlwaysRemux:       true,
+		Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:      7,
+		SegmentDuration:   conf.Duration(1 * time.Second),
+		PartDuration:      conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:    50 * 1024 * 1024,
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
 			addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 				if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
@@ -643,18 +658,19 @@ func TestAuthError(t *testing.T) {
 
 func TestAuthQueryPreservedAcrossRedirect(t *testing.T) {
 	s := &Server{
-		Address:         "127.0.0.1:8888",
-		Encryption:      false,
-		ServerKey:       "",
-		ServerCert:      "",
-		AlwaysRemux:     true,
-		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-		SegmentCount:    7,
-		SegmentDuration: conf.Duration(1 * time.Second),
-		PartDuration:    conf.Duration(200 * time.Millisecond),
-		SegmentMaxSize:  50 * 1024 * 1024,
-		ReadTimeout:     conf.Duration(10 * time.Second),
-		WriteTimeout:    conf.Duration(10 * time.Second),
+		Address:           "127.0.0.1:8888",
+		SessionCloseAfter: 30 * conf.Duration(time.Second),
+		Encryption:        false,
+		ServerKey:         "",
+		ServerCert:        "",
+		AlwaysRemux:       true,
+		Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:      7,
+		SegmentDuration:   conf.Duration(1 * time.Second),
+		PartDuration:      conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:    50 * 1024 * 1024,
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
 			findPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 				return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
@@ -708,18 +724,19 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 			}
 
 			s := &Server{
-				Address:         "127.0.0.1:8888",
-				AlwaysRemux:     (ca == "always remux on"),
-				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-				SegmentCount:    7,
-				SegmentDuration: conf.Duration(1 * time.Second),
-				PartDuration:    conf.Duration(200 * time.Millisecond),
-				SegmentMaxSize:  50 * 1024 * 1024,
-				TrustedProxies:  conf.IPNetworks{},
-				ReadTimeout:     conf.Duration(10 * time.Second),
-				WriteTimeout:    conf.Duration(10 * time.Second),
-				PathManager:     pm,
-				Parent:          test.NilLogger,
+				Address:           "127.0.0.1:8888",
+				SessionCloseAfter: 30 * conf.Duration(time.Second),
+				AlwaysRemux:       (ca == "always remux on"),
+				Variant:           conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:      7,
+				SegmentDuration:   conf.Duration(1 * time.Second),
+				PartDuration:      conf.Duration(200 * time.Millisecond),
+				SegmentMaxSize:    50 * 1024 * 1024,
+				TrustedProxies:    conf.IPNetworks{},
+				ReadTimeout:       conf.Duration(10 * time.Second),
+				WriteTimeout:      conf.Duration(10 * time.Second),
+				PathManager:       pm,
+				Parent:            test.NilLogger,
 			}
 			err = s.Initialize()
 			require.NoError(t, err)

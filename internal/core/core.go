@@ -613,28 +613,29 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.HLS &&
 		p.hlsServer == nil {
 		i := &hls.Server{
-			Address:         p.conf.HLSAddress,
-			DumpPackets:     p.conf.DumpPackets,
-			Encryption:      p.conf.HLSEncryption,
-			ServerKey:       p.conf.HLSServerKey,
-			ServerCert:      p.conf.HLSServerCert,
-			AllowOrigins:    p.conf.HLSAllowOrigins,
-			TrustedProxies:  p.conf.HLSTrustedProxies,
-			AlwaysRemux:     p.conf.HLSAlwaysRemux,
-			Variant:         p.conf.HLSVariant,
-			SegmentCount:    p.conf.HLSSegmentCount,
-			SegmentDuration: p.conf.HLSSegmentDuration,
-			PartDuration:    p.conf.HLSPartDuration,
-			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
-			Directory:       p.conf.HLSDirectory,
-			CDNSecret:       p.conf.HLSCDNSecret,
-			ReadTimeout:     p.conf.ReadTimeout,
-			WriteTimeout:    p.conf.WriteTimeout,
-			MuxerCloseAfter: p.conf.HLSMuxerCloseAfter,
-			ExternalCmdPool: p.externalCmdPool,
-			Metrics:         p.metrics,
-			PathManager:     p.pathManager,
-			Parent:          p,
+			Address:           p.conf.HLSAddress,
+			DumpPackets:       p.conf.DumpPackets,
+			Encryption:        p.conf.HLSEncryption,
+			ServerKey:         p.conf.HLSServerKey,
+			ServerCert:        p.conf.HLSServerCert,
+			AllowOrigins:      p.conf.HLSAllowOrigins,
+			TrustedProxies:    p.conf.HLSTrustedProxies,
+			AlwaysRemux:       p.conf.HLSAlwaysRemux,
+			Variant:           p.conf.HLSVariant,
+			SegmentCount:      p.conf.HLSSegmentCount,
+			SegmentDuration:   p.conf.HLSSegmentDuration,
+			PartDuration:      p.conf.HLSPartDuration,
+			SegmentMaxSize:    p.conf.HLSSegmentMaxSize,
+			Directory:         p.conf.HLSDirectory,
+			CDNSecret:         p.conf.HLSCDNSecret,
+			ReadTimeout:       p.conf.ReadTimeout,
+			WriteTimeout:      p.conf.WriteTimeout,
+			MuxerCloseAfter:   p.conf.HLSMuxerCloseAfter,
+			SessionCloseAfter: p.conf.HLSSessionCloseAfter,
+			ExternalCmdPool:   p.externalCmdPool,
+			Metrics:           p.metrics,
+			PathManager:       p.pathManager,
+			Parent:            p,
 		}
 		err = i.Initialize()
 		if err != nil {
@@ -963,6 +964,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.HLSMuxerCloseAfter != p.conf.HLSMuxerCloseAfter ||
+		newConf.HLSSessionCloseAfter != p.conf.HLSSessionCloseAfter ||
 		newConf.HLSCDNSecret != p.conf.HLSCDNSecret ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		closePathManager ||
