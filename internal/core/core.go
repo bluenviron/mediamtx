@@ -77,7 +77,10 @@ func getArch() string {
 	return arch
 }
 
-func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
+func recordCleanerNeeded(pathConfs map[string]*conf.Path, recordDeleteMaxSize conf.StringSize) bool {
+	if recordDeleteMaxSize != 0 {
+		return true
+	}
 	for _, e := range pathConfs {
 		if e.RecordDeleteAfter != 0 {
 			return true
@@ -412,10 +415,11 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.recordCleaner == nil &&
-		atLeastOneRecordDeleteAfter(p.conf.Paths) {
+		recordCleanerNeeded(p.conf.Paths, p.conf.RecordDeleteMaxSize) {
 		p.recordCleaner = &recordcleaner.Cleaner{
-			PathConfs: p.conf.Paths,
-			Parent:    p,
+			PathConfs:           p.conf.Paths,
+			RecordDeleteMaxSize: p.conf.RecordDeleteMaxSize,
+			Parent:              p,
 		}
 		p.recordCleaner.Initialize()
 	}
@@ -823,10 +827,13 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
-		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
+		recordCleanerNeeded(newConf.Paths, newConf.RecordDeleteMaxSize) !=
+			recordCleanerNeeded(p.conf.Paths, p.conf.RecordDeleteMaxSize) ||
 		closeLogger
-	if !closeRecorderCleaner && p.recordCleaner != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.recordCleaner.ReloadPathConfs(newConf.Paths)
+	if !closeRecorderCleaner && p.recordCleaner != nil &&
+		(!reflect.DeepEqual(newConf.Paths, p.conf.Paths) ||
+			newConf.RecordDeleteMaxSize != p.conf.RecordDeleteMaxSize) {
+		p.recordCleaner.ReloadPathConfs(newConf.Paths, newConf.RecordDeleteMaxSize)
 	}
 
 	closePlaybackServer := newConf == nil ||

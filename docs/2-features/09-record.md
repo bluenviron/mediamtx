@@ -45,6 +45,14 @@ pathDefaults:
   recordDeleteAfter: 1d
 ```
 
+To cap total disk usage across all paths, set the global `recordDeleteMaxSize` parameter. When the limit is exceeded, the oldest completed segments are deleted first, even if they have not yet reached `recordDeleteAfter`:
+
+```yml
+# Maximum total size of all recording segments across all paths.
+# Set to 0 to disable size-based deletion.
+recordDeleteMaxSize: 100G
+```
+
 All available recording parameters are listed in the [configuration file](../5-references/1-configuration-file.md).
 
 ## Remote upload
