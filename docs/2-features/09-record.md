@@ -49,7 +49,7 @@ To cap total disk usage across all paths, set the global `recordDeleteMaxSize` p
 
 ```yml
 # Maximum total size of all recording segments across all paths.
-# Set to 0 to disable size-based deletion.
+# Set to 0B (or "0") to disable size-based deletion.
 recordDeleteMaxSize: 100G
 ```
 

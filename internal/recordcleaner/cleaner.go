@@ -165,6 +165,7 @@ func (c *Cleaner) deleteOverflowSegments() {
 
 	entries, err := c.gatherSegmentEntries()
 	if err != nil {
+		c.Log(logger.Warn, "failed to gather recording segments: %v", err)
 		return
 	}
 

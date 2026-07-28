@@ -145,10 +145,7 @@ func TestCleanerMaxSize(t *testing.T) {
 		RecordDeleteMaxSize: 8,
 		Parent:              test.NilLogger,
 	}
-	c.Initialize()
-	defer c.Close()
-
-	time.Sleep(500 * time.Millisecond)
+	c.doRun()
 
 	_, err = os.Stat(filepath.Join(dir, "path2", "2009-05-18_22-15-25-000001.mp4"))
 	require.Error(t, err)
@@ -184,10 +181,7 @@ func TestCleanerMaxSizeUnderQuota(t *testing.T) {
 		RecordDeleteMaxSize: 100,
 		Parent:              test.NilLogger,
 	}
-	c.Initialize()
-	defer c.Close()
-
-	time.Sleep(500 * time.Millisecond)
+	c.doRun()
 
 	_, err = os.Stat(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000001.mp4"))
 	require.NoError(t, err)
@@ -228,10 +222,7 @@ func TestCleanerMaxSizeAndAge(t *testing.T) {
 		RecordDeleteMaxSize: 4,
 		Parent:              test.NilLogger,
 	}
-	c.Initialize()
-	defer c.Close()
-
-	time.Sleep(500 * time.Millisecond)
+	c.doRun()
 
 	_, err = os.Stat(filepath.Join(dir, "path1", "2008-05-20_22-15-25-000001.mp4"))
 	require.Error(t, err)
@@ -266,10 +257,7 @@ func TestCleanerMaxSizeOnly(t *testing.T) {
 		RecordDeleteMaxSize: 4,
 		Parent:              test.NilLogger,
 	}
-	c.Initialize()
-	defer c.Close()
-
-	time.Sleep(500 * time.Millisecond)
+	c.doRun()
 
 	_, err = os.Stat(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000001.mp4"))
 	require.Error(t, err)
@@ -306,10 +294,7 @@ func TestCleanerMaxSizeProtectsNewest(t *testing.T) {
 		RecordDeleteMaxSize: 1,
 		Parent:              test.NilLogger,
 	}
-	c.Initialize()
-	defer c.Close()
-
-	time.Sleep(500 * time.Millisecond)
+	c.doRun()
 
 	_, err = os.Stat(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000001.mp4"))
 	require.Error(t, err)

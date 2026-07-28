@@ -245,7 +245,7 @@ playbackTrustedProxies: []
 # Maximum total size of all recording segments across all paths.
 # When exceeded, the oldest completed segments are deleted until under the limit,
 # even if they have not yet reached recordDeleteAfter.
-# Set to 0 to disable size-based deletion.
+# Set to 0B (or "0") to disable size-based deletion.
 recordDeleteMaxSize: 0B
 
 ###############################################
