@@ -288,7 +288,11 @@ func TestCleanerMaxSizeProtectsNewest(t *testing.T) {
 	// Single path with one large newest segment that alone exceeds the limit.
 	err = os.WriteFile(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000001.mp4"), []byte{1, 2}, 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dir, "path1", "2009-05-20_22-15-25-000001.mp4"), []byte{1, 2, 3, 4, 5, 6, 7, 8}, 0o644)
+	err = os.WriteFile(
+		filepath.Join(dir, "path1", "2009-05-20_22-15-25-000001.mp4"),
+		[]byte{1, 2, 3, 4, 5, 6, 7, 8},
+		0o644,
+	)
 	require.NoError(t, err)
 
 	c := &Cleaner{

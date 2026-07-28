@@ -52,7 +52,7 @@ func (c *Cleaner) Initialize() {
 	go c.run()
 }
 
-// Close closes the Cleaner.
+// Close closes a Cleaner.
 func (c *Cleaner) Close() {
 	c.ctxCancel()
 	<-c.done
@@ -201,15 +201,15 @@ func (c *Cleaner) deleteOverflowSegments() {
 		}
 
 		c.Log(logger.Debug, "removing %s (storage limit)", e.fpath)
-		err := os.Remove(e.fpath)
+		err = os.Remove(e.fpath)
 		if err != nil {
 			continue
 		}
 
 		totalSize -= uint64(e.size)
 
-		pathConf, _, err := conf.FindPathConf(c.PathConfs, e.pathName)
-		if err == nil {
+		pathConf, _, findErr := conf.FindPathConf(c.PathConfs, e.pathName)
+		if findErr == nil {
 			touchedPathConfs[pathConf] = struct{}{}
 		}
 	}
@@ -238,8 +238,8 @@ func (c *Cleaner) gatherSegmentEntries() ([]segmentEntry, error) {
 		}
 
 		for _, seg := range segments {
-			fi, err := os.Stat(seg.Fpath)
-			if err != nil {
+			fi, err2 := os.Stat(seg.Fpath)
+			if err2 != nil {
 				continue
 			}
 
