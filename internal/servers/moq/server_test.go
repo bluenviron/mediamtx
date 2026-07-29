@@ -147,7 +147,7 @@ func TestAuthError(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
-				d := &webtransport.Dialer{
+				d := &webtransport.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 					QUICConfig: &quic.Config{
 						EnableDatagrams:                  true,
@@ -335,7 +335,7 @@ func TestServer(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			d := &webtransport.Dialer{
+			d := &webtransport.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true, //nolint:gosec
 				},
@@ -505,7 +505,7 @@ func TestServerUnsupportedVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	d := &webtransport.Dialer{
+	d := &webtransport.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		QUICConfig: &quic.Config{
 			EnableDatagrams:                  true,
