@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
-	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -449,7 +449,7 @@ func TestServer(t *testing.T) {
 			err = frameSG2.Read(frameStream2)
 			require.NoError(t, err)
 
-			expectedPayload, err2 := mch264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}).Marshal()
+			expectedPayload, err2 := h264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}).Marshal()
 			require.NoError(t, err2)
 			require.Equal(t, expectedPayload, frameSG.Objects[0].Payload)
 			require.Equal(t, expectedPayload, frameSG2.Objects[0].Payload)
@@ -473,7 +473,7 @@ func TestServer(t *testing.T) {
 			err = frameSG3.Read(frameStream3)
 			require.NoError(t, err)
 
-			expectedPayload2, err2 := mch264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 2}}).Marshal()
+			expectedPayload2, err2 := h264.AVCC([][]byte{test.FormatH264.SPS, test.FormatH264.PPS, {5, 2}}).Marshal()
 			require.NoError(t, err2)
 			require.Equal(t, expectedPayload2, frameSG3.Objects[0].Payload)
 			require.Equal(t, uint64(3), frameSG3.Header.TrackAlias)

@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	code.cloudfoundry.org/bytefmt v0.82.0
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/MicahParks/jwkset v0.11.0
-	github.com/MicahParks/keyfunc/v3 v3.8.0
+	github.com/MicahParks/jwkset v0.11.1
+	github.com/MicahParks/keyfunc/v3 v3.8.1
 	github.com/abema/go-mp4 v1.7.1
 	github.com/alecthomas/kong v1.16.0
 	github.com/asticode/go-astits v1.15.0
@@ -29,7 +29,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.6
 	github.com/minio/selfupdate v0.6.0
-	github.com/pion/ice/v4 v4.3.0
+	github.com/pion/ice/v4 v4.4.0
 	github.com/pion/interceptor v0.1.46
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.17
@@ -102,7 +102,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

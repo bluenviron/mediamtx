@@ -4,8 +4,8 @@ import (
 	"bytes"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
-	mch265 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -20,22 +20,22 @@ func formatUpdaterH265(outFormat format.Format, payload unit.Payload, updateOutD
 	update := false
 
 	for _, nalu := range au {
-		typ := mch265.NALUType((nalu[0] >> 1) & 0b111111)
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
-		case mch265.NALUType_VPS_NUT:
+		case h265.NALUType_VPS_NUT:
 			if !bytes.Equal(nalu, formatH265.VPS) {
 				vps = nalu
 				update = true
 			}
 
-		case mch265.NALUType_SPS_NUT:
+		case h265.NALUType_SPS_NUT:
 			if !bytes.Equal(nalu, formatH265.SPS) {
 				sps = nalu
 				update = true
 			}
 
-		case mch265.NALUType_PPS_NUT:
+		case h265.NALUType_PPS_NUT:
 			if !bytes.Equal(nalu, formatH265.PPS) {
 				pps = nalu
 				update = true
@@ -60,16 +60,16 @@ func formatUpdaterH264(outFormat format.Format, payload unit.Payload, updateOutD
 	update := false
 
 	for _, nalu := range au {
-		typ := mch264.NALUType(nalu[0] & 0x1F)
+		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
-		case mch264.NALUTypeSPS:
+		case h264.NALUTypeSPS:
 			if !bytes.Equal(nalu, sps) {
 				sps = nalu
 				update = true
 			}
 
-		case mch264.NALUTypePPS:
+		case h264.NALUTypePPS:
 			if !bytes.Equal(nalu, pps) {
 				pps = nalu
 				update = true

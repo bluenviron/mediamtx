@@ -383,3 +383,168 @@ func TestFromStreamResampleOpusAbsoluteTimestamp(t *testing.T) {
 		t.Fatal("absolute timestamp mapping did not become available")
 	}
 }
+
+func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
+	for _, ca := range []struct {
+		name        string
+		format      format.Format
+		payloadType uint8
+		payload     []byte
+	}{
+		{
+			name: "opus stereo",
+			format: &format.Opus{
+				ChannelCount: 2,
+			},
+			payloadType: 111,
+			payload:     []byte{1},
+		},
+		{
+			name:        "g722",
+			format:      &format.G722{},
+			payloadType: 9,
+			payload:     []byte{1, 2, 3, 4},
+		},
+		{
+			name: "g711 pcma 8khz mono",
+			format: &format.G711{
+				PayloadTyp:   8,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+			payloadType: 8,
+			payload:     []byte{1, 2, 3, 4},
+		},
+		{
+			name: "g711 pcmu 8khz mono",
+			format: &format.G711{
+				MULaw:        true,
+				PayloadTyp:   0,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
+			payloadType: 0,
+			payload:     []byte{1, 2, 3, 4},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			strm := &stream.Stream{
+				OrigDesc: &description.Session{Medias: []*description.Media{{
+					Type:    description.MediaTypeAudio,
+					Formats: []format.Format{ca.format},
+				}}},
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				ReplaceNTP:        false,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			t.Cleanup(strm.Close)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: true,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			pcReader := &PeerConnection{
+				LocalRandomUDP:    true,
+				IPsFromInterfaces: true,
+				Publish:           false,
+				Log:               test.NilLogger,
+			}
+			err = pcReader.Start()
+			require.NoError(t, err)
+			t.Cleanup(pcReader.Close)
+
+			pcPublisher := &PeerConnection{
+				LocalRandomUDP:    true,
+				IPsFromInterfaces: true,
+				Publish:           true,
+				Log:               test.NilLogger,
+			}
+
+			r := &stream.Reader{Parent: test.NilLogger}
+
+			err = FromStream(strm.OrigDesc, r, pcPublisher)
+			require.NoError(t, err)
+
+			err = pcPublisher.Start()
+			require.NoError(t, err)
+			t.Cleanup(pcPublisher.Close)
+
+			const originalSSRC = uint32(563424)
+			require.NotEmpty(t, pcPublisher.OutboundTracks)
+			require.NotEqual(t, originalSSRC, pcPublisher.OutboundTracks[0].ssrc)
+
+			offer, err := pcReader.CreatePartialOffer(false)
+			require.NoError(t, err)
+
+			answer, err := pcPublisher.CreateFullAnswer(offer, false)
+			require.NoError(t, err)
+
+			err = pcReader.SetAnswer(answer)
+			require.NoError(t, err)
+
+			err = pcReader.WaitUntilConnected(10 * time.Second)
+			require.NoError(t, err)
+
+			err = pcPublisher.WaitUntilConnected(10 * time.Second)
+			require.NoError(t, err)
+
+			strm.AddReader(r)
+			t.Cleanup(func() { strm.RemoveReader(r) })
+
+			makeUnit := func(seq uint16) *unit.Unit {
+				return &unit.Unit{
+					PTS: 0,
+					NTP: time.Now(),
+					RTPPackets: []*rtp.Packet{{
+						Header: rtp.Header{
+							Version:        2,
+							Marker:         true,
+							PayloadType:    ca.payloadType,
+							SequenceNumber: seq,
+							Timestamp:      45343,
+							SSRC:           originalSSRC,
+						},
+						Payload: append([]byte(nil), ca.payload...),
+					}},
+				}
+			}
+
+			// prime the pipeline to allow track gathering
+			subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], makeUnit(1123))
+
+			err = pcReader.GatherInboundTracks(2 * time.Second)
+			require.NoError(t, err)
+
+			tracks := pcReader.InboundTracks()
+			require.Len(t, tracks, 1)
+
+			done := make(chan struct{})
+			n := 0
+			tracks[0].OnPacketRTP = func(_ *rtp.Packet) {
+				n++
+				if n == 2 {
+					close(done)
+				}
+			}
+
+			pcReader.StartReading()
+
+			testUnit := makeUnit(1124)
+			subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], testUnit)
+
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("did not receive packet")
+			}
+
+			require.Equal(t, originalSSRC, testUnit.RTPPackets[0].SSRC)
+		})
+	}
+}
