@@ -407,7 +407,13 @@ func setupAudioTrack(
 			media,
 			g722Format,
 			func(u *unit.Unit) error {
-				for _, pkt := range u.RTPPackets {
+				for _, orig := range u.RTPPackets {
+					// create a copy of the packet that we can edit freely
+					pkt := &rtp.Packet{
+						Header:  orig.Header,
+						Payload: orig.Payload,
+					}
+
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp), 8000))
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
