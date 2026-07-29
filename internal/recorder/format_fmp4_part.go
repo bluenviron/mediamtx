@@ -14,7 +14,7 @@ func writePart(
 	f io.Writer,
 	sequenceNumber uint32,
 	partTracks map[*formatFMP4Track]*fmp4.PartTrack,
-) error {
+) (int, error) {
 	fmp4PartTracks := make([]*fmp4.PartTrack, len(partTracks))
 	i := 0
 	for _, partTrack := range partTracks {
@@ -30,11 +30,10 @@ func writePart(
 	var buf seekablebuffer.Buffer
 	err := part.Marshal(&buf)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = f.Write(buf.Bytes())
-	return err
+	return f.Write(buf.Bytes())
 }
 
 type formatFMP4Part struct {
@@ -52,7 +51,7 @@ func (p *formatFMP4Part) initialize() {
 	p.partTracks = make(map[*formatFMP4Track]*fmp4.PartTrack)
 }
 
-func (p *formatFMP4Part) close(w io.Writer) error {
+func (p *formatFMP4Part) close(w io.Writer) (int, error) {
 	return writePart(w, p.number, p.partTracks)
 }
 
