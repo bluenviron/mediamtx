@@ -134,6 +134,22 @@ func (si *seekIndex) recordPart(
 		size:   uint64(size),
 		tracks: entryTracks,
 	})
+
+	// the index can never reference more than reserved parts, and write()
+	// coalesces entries to fit, so granularity beyond that is discarded
+	// anyway. Merge adjacent pairs once entries reach twice the reserved
+	// count, to keep memory usage bounded when partDuration is much smaller
+	// than segmentDuration.
+	if len(si.entries) >= 2*si.reserved {
+		for i := 0; i < len(si.entries); i += 2 {
+			e := si.entries[i]
+			if i+1 < len(si.entries) {
+				mergeSeekIndexEntries(&e, si.entries[i+1])
+			}
+			si.entries[i/2] = e
+		}
+		si.entries = si.entries[:(len(si.entries)+1)/2]
+	}
 }
 
 // write overwrites the placeholder written by reserve with one sidx box per

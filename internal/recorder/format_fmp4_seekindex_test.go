@@ -186,6 +186,40 @@ func TestRecorderFMP4SeekIndex(t *testing.T) {
 	require.Equal(t, uint32(90000), mdhd.DurationV0)
 }
 
+func TestSeekIndexRecordPartBounded(t *testing.T) {
+	track := &formatFMP4Track{}
+	tracks := []*formatFMP4Track{track}
+
+	si := seekIndex{reserved: 10}
+
+	// simulate a pathological configuration in which parts are much
+	// shorter than the segment: entries must be coalesced on the fly
+	// instead of accumulating unboundedly.
+	for i := range 10000 {
+		si.recordPart(100, map[*formatFMP4Track]*fmp4.PartTrack{
+			track: {
+				BaseTime: uint64(i) * 9000,
+				Samples:  []*fmp4.Sample{{}},
+			},
+		}, tracks)
+
+		require.Less(t, len(si.entries), 2*si.reserved)
+	}
+
+	// no part may be dropped: total referenced size must be preserved.
+	var totalSize uint64
+	for _, e := range si.entries {
+		totalSize += e.size
+	}
+	require.Equal(t, uint64(100*10000), totalSize)
+
+	// entries must remain in order.
+	require.Equal(t, uint64(0), si.entries[0].tracks[0].baseTime)
+	for i := 1; i < len(si.entries); i++ {
+		require.Greater(t, si.entries[i].tracks[0].baseTime, si.entries[i-1].tracks[0].baseTime)
+	}
+}
+
 func writeTestSeekIndex(t *testing.T, reserved int, entries []seekIndexEntry) amp4.Sidx {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.bin")
