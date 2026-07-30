@@ -9,6 +9,7 @@ import (
 	"time"
 
 	amp4 "github.com/abema/go-mp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 )
 
 const (
@@ -74,22 +75,83 @@ func mergeSeekIndexEntries(dst *seekIndexEntry, src seekIndexEntry) {
 	}
 }
 
-// writeSeekIndex overwrites the placeholder written by
-// writeSeekIndexPlaceholder with one sidx box per track, allowing players to
-// seek without scanning the whole file. A sidx per track is needed since
-// FFmpeg-based players seek through the index only on streams referenced by
-// a sidx. Unused space is turned into a free box placed before the sidx
-// boxes, so that the last sidx ends exactly where the first moof starts:
-// FFmpeg-based players treat the index as complete only when the byte ranges
-// it references start right after it and extend to the end of the file.
-func writeSeekIndex(
+// seekIndex accumulates the layout of the parts written into a segment and
+// turns it into one sidx box per track when the segment closes. Space for
+// the index is reserved with a free box when the segment file is created;
+// recordings interrupted by a crash keep the placeholder and remain
+// readable.
+type seekIndex struct {
+	pos      int64
+	reserved int
+	entries  []seekIndexEntry
+}
+
+// reserve writes a placeholder free box at the current file position,
+// sized for the number of references the segment is expected to need.
+func (si *seekIndex) reserve(
 	f io.WriteSeeker,
-	pos int64,
-	reserved int,
-	entries []seekIndexEntry,
+	segmentDuration time.Duration,
+	partDuration time.Duration,
+	trackCount int,
+) error {
+	si.reserved = seekIndexReservedEntries(segmentDuration, partDuration)
+	if si.reserved <= 0 {
+		return nil
+	}
+
+	var err error
+	si.pos, err = f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+
+	return writeSeekIndexPlaceholder(f, trackCount, si.reserved)
+}
+
+// recordPart records the size and per-track layout of a part
+// (moof + mdat pair) that has just been written.
+func (si *seekIndex) recordPart(
+	size int,
+	partTracks map[*formatFMP4Track]*fmp4.PartTrack,
+	tracks []*formatFMP4Track,
+) {
+	if si.reserved <= 0 {
+		return
+	}
+
+	entryTracks := make([]seekIndexEntryTrack, len(tracks))
+	for i, track := range tracks {
+		if partTrack, ok := partTracks[track]; ok && len(partTrack.Samples) > 0 {
+			entryTracks[i] = seekIndexEntryTrack{
+				present:  true,
+				baseTime: partTrack.BaseTime,
+				sap:      !partTrack.Samples[0].IsNonSyncSample,
+			}
+		}
+	}
+
+	si.entries = append(si.entries, seekIndexEntry{
+		size:   uint64(size),
+		tracks: entryTracks,
+	})
+}
+
+// write overwrites the placeholder written by reserve with one sidx box per
+// track, allowing players to seek without scanning the whole file. A sidx
+// per track is needed since FFmpeg-based players seek through the index only
+// on streams referenced by a sidx. Unused space is turned into a free box
+// placed before the sidx boxes, so that the last sidx ends exactly where the
+// first moof starts: FFmpeg-based players treat the index as complete only
+// when the byte ranges it references start right after it and extend to the
+// end of the file.
+func (si *seekIndex) write(
+	f io.WriteSeeker,
 	segmentDuration time.Duration,
 	tracks []*formatFMP4Track,
 ) error {
+	reserved := si.reserved
+	entries := si.entries
+
 	if reserved <= 0 || len(entries) == 0 {
 		return nil
 	}
@@ -210,7 +272,7 @@ func writeSeekIndex(
 		buf = append(buf, payload.Bytes()...)
 	}
 
-	_, err := f.Seek(pos, io.SeekStart)
+	_, err := f.Seek(si.pos, io.SeekStart)
 	if err != nil {
 		return err
 	}

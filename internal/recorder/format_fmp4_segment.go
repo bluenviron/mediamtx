@@ -54,21 +54,6 @@ func writeInit(
 	return err
 }
 
-func readBoxHeader(f io.Reader) (string, uint32, error) {
-	buf := make([]byte, 8)
-	_, err := io.ReadFull(f, buf)
-	if err != nil {
-		return "", 0, err
-	}
-
-	size := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
-	if size < 8 {
-		return "", 0, fmt.Errorf("invalid box size")
-	}
-
-	return string(buf[4:]), size, nil
-}
-
 func scaleDuration(d time.Duration, timeScale uint32) uint64 {
 	return uint64(multiplyAndDivide(int64(d), int64(timeScale), int64(time.Second)))
 }
@@ -97,49 +82,55 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 		return err
 	}
 
-	// check and skip ftyp header and content
+	// collect the position of every box to patch; patching is done
+	// afterwards in order not to write to the file while it's being walked.
+	var mvhdInfo *amp4.BoxInfo
+	var tkhdInfos []*amp4.BoxInfo
+	var mdhdInfos []*amp4.BoxInfo
 
-	typ, ftypSize, err := readBoxHeader(f)
+	_, err = amp4.ReadBoxStructure(f, func(h *amp4.ReadHandle) (any, error) {
+		switch h.BoxInfo.Type.String() {
+		case "moov", "trak", "mdia":
+			return h.Expand()
+
+		case "mvhd":
+			bi := h.BoxInfo
+			mvhdInfo = &bi
+
+		case "tkhd":
+			bi := h.BoxInfo
+			tkhdInfos = append(tkhdInfos, &bi)
+
+		case "mdhd":
+			bi := h.BoxInfo
+			mdhdInfos = append(mdhdInfos, &bi)
+		}
+		return nil, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	if typ != "ftyp" {
-		return fmt.Errorf("ftyp box not found")
+	if mvhdInfo == nil {
+		return fmt.Errorf("mvhd box not found")
 	}
 
-	moovStart, err := f.Seek(int64(ftypSize), io.SeekStart)
-	if err != nil {
-		return err
-	}
+	patchFullBox := func(bi *amp4.BoxInfo, box amp4.IBox, patch func()) error {
+		payloadPos := int64(bi.Offset + bi.HeaderSize)
 
-	// check moov header
-
-	typ, moovSize, err := readBoxHeader(f)
-	if err != nil {
-		return err
-	}
-
-	if typ != "moov" {
-		return fmt.Errorf("moov box not found")
-	}
-
-	moovEnd := moovStart + int64(moovSize)
-
-	patchFullBox := func(pos int64, size uint32, box amp4.IBox, patch func()) error {
-		_, err2 := f.Seek(pos, io.SeekStart)
+		_, err2 := f.Seek(payloadPos, io.SeekStart)
 		if err2 != nil {
 			return err2
 		}
 
-		_, err2 = amp4.Unmarshal(f, uint64(size-8), box, amp4.Context{})
+		_, err2 = amp4.Unmarshal(f, bi.Size-bi.HeaderSize, box, amp4.Context{})
 		if err2 != nil {
 			return err2
 		}
 
 		patch()
 
-		_, err2 = f.Seek(pos, io.SeekStart)
+		_, err2 = f.Seek(payloadPos, io.SeekStart)
 		if err2 != nil {
 			return err2
 		}
@@ -148,105 +139,45 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 		return err2
 	}
 
+	// patch mvhd first: tkhd durations are expressed in the movie timescale.
 	var movieTimeScale uint32
 
-	// foreach moov child
+	var mvhd amp4.Mvhd
+	err = patchFullBox(mvhdInfo, &mvhd, func() {
+		movieTimeScale = mvhd.Timescale
+		patchDuration(&mvhd,
+			func(v uint32) { mvhd.DurationV0 = v },
+			func(v uint64) { mvhd.DurationV1 = v },
+			d, mvhd.Timescale)
+	})
+	if err != nil {
+		return err
+	}
 
-	for pos := moovStart + 8; pos < moovEnd; {
-		_, err = f.Seek(pos, io.SeekStart)
+	for _, bi := range tkhdInfos {
+		var tkhd amp4.Tkhd
+		err = patchFullBox(bi, &tkhd, func() {
+			patchDuration(&tkhd,
+				func(v uint32) { tkhd.DurationV0 = v },
+				func(v uint64) { tkhd.DurationV1 = v },
+				d, movieTimeScale)
+		})
 		if err != nil {
 			return err
 		}
+	}
 
-		var size uint32
-		typ, size, err = readBoxHeader(f)
+	for _, bi := range mdhdInfos {
+		var mdhd amp4.Mdhd
+		err = patchFullBox(bi, &mdhd, func() {
+			patchDuration(&mdhd,
+				func(v uint32) { mdhd.DurationV0 = v },
+				func(v uint64) { mdhd.DurationV1 = v },
+				d, mdhd.Timescale)
+		})
 		if err != nil {
 			return err
 		}
-
-		switch typ {
-		case "mvhd":
-			var mvhd amp4.Mvhd
-			err = patchFullBox(pos+8, size, &mvhd, func() {
-				movieTimeScale = mvhd.Timescale
-				patchDuration(&mvhd,
-					func(v uint32) { mvhd.DurationV0 = v },
-					func(v uint64) { mvhd.DurationV1 = v },
-					d, mvhd.Timescale)
-			})
-			if err != nil {
-				return err
-			}
-
-		case "trak":
-			trakEnd := pos + int64(size)
-
-			// foreach trak child
-
-			for pos2 := pos + 8; pos2 < trakEnd; {
-				_, err = f.Seek(pos2, io.SeekStart)
-				if err != nil {
-					return err
-				}
-
-				var size2 uint32
-				typ, size2, err = readBoxHeader(f)
-				if err != nil {
-					return err
-				}
-
-				switch typ {
-				case "tkhd":
-					var tkhd amp4.Tkhd
-					err = patchFullBox(pos2+8, size2, &tkhd, func() {
-						patchDuration(&tkhd,
-							func(v uint32) { tkhd.DurationV0 = v },
-							func(v uint64) { tkhd.DurationV1 = v },
-							d, movieTimeScale)
-					})
-					if err != nil {
-						return err
-					}
-
-				case "mdia":
-					mdiaEnd := pos2 + int64(size2)
-
-					// foreach mdia child
-
-					for pos3 := pos2 + 8; pos3 < mdiaEnd; {
-						_, err = f.Seek(pos3, io.SeekStart)
-						if err != nil {
-							return err
-						}
-
-						var size3 uint32
-						typ, size3, err = readBoxHeader(f)
-						if err != nil {
-							return err
-						}
-
-						if typ == "mdhd" {
-							var mdhd amp4.Mdhd
-							err = patchFullBox(pos3+8, size3, &mdhd, func() {
-								patchDuration(&mdhd,
-									func(v uint32) { mdhd.DurationV0 = v },
-									func(v uint64) { mdhd.DurationV1 = v },
-									d, mdhd.Timescale)
-							})
-							if err != nil {
-								return err
-							}
-						}
-
-						pos3 += int64(size3)
-					}
-				}
-
-				pos2 += int64(size2)
-			}
-		}
-
-		pos += int64(size)
 	}
 
 	return nil
@@ -258,14 +189,12 @@ type formatFMP4Segment struct {
 	startNTP time.Time
 	number   uint64
 
-	path              string
-	fi                *os.File
-	curPart           *formatFMP4Part
-	endDTS            time.Duration
-	nextPartNumber    uint32
-	seekIndexPos      int64
-	seekIndexReserved int
-	seekIndexEntries  []seekIndexEntry
+	path           string
+	fi             *os.File
+	curPart        *formatFMP4Part
+	endDTS         time.Duration
+	nextPartNumber uint32
+	seekIndex      seekIndex
 }
 
 func (s *formatFMP4Segment) initialize() {
@@ -285,13 +214,7 @@ func (s *formatFMP4Segment) close() error {
 		duration := s.endDTS - s.startDTS
 
 		// write a seek index to allow players to seek without reading the whole file
-		err2 := writeSeekIndex(
-			s.fi,
-			s.seekIndexPos,
-			s.seekIndexReserved,
-			s.seekIndexEntries,
-			duration,
-			s.f.tracks)
+		err2 := s.seekIndex.write(s.fi, duration, s.f.tracks)
 		if err == nil {
 			err = err2
 		}
@@ -345,19 +268,10 @@ func (s *formatFMP4Segment) closeCurPart() error {
 		}
 
 		// reserve space for the seek index
-		s.seekIndexReserved = seekIndexReservedEntries(s.f.ri.segmentDuration, s.f.ri.partDuration)
-		if s.seekIndexReserved > 0 {
-			s.seekIndexPos, err = fi.Seek(0, io.SeekCurrent)
-			if err != nil {
-				fi.Close()
-				return err
-			}
-
-			err = writeSeekIndexPlaceholder(fi, len(s.f.tracks), s.seekIndexReserved)
-			if err != nil {
-				fi.Close()
-				return err
-			}
+		err = s.seekIndex.reserve(fi, s.f.ri.segmentDuration, s.f.ri.partDuration, len(s.f.tracks))
+		if err != nil {
+			fi.Close()
+			return err
 		}
 
 		s.fi = fi
@@ -368,23 +282,7 @@ func (s *formatFMP4Segment) closeCurPart() error {
 		return err
 	}
 
-	if s.seekIndexReserved > 0 {
-		entryTracks := make([]seekIndexEntryTrack, len(s.f.tracks))
-		for i, track := range s.f.tracks {
-			if partTrack, ok := s.curPart.partTracks[track]; ok && len(partTrack.Samples) > 0 {
-				entryTracks[i] = seekIndexEntryTrack{
-					present:  true,
-					baseTime: partTrack.BaseTime,
-					sap:      !partTrack.Samples[0].IsNonSyncSample,
-				}
-			}
-		}
-
-		s.seekIndexEntries = append(s.seekIndexEntries, seekIndexEntry{
-			size:   uint64(n),
-			tracks: entryTracks,
-		})
-	}
+	s.seekIndex.recordPart(n, s.curPart.partTracks, s.f.tracks)
 
 	return nil
 }

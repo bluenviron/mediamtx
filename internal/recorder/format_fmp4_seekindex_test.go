@@ -208,7 +208,8 @@ func writeTestSeekIndex(t *testing.T, reserved int, entries []seekIndexEntry) am
 		},
 	}}
 
-	err = writeSeekIndex(f, 0, reserved, entries, 5*time.Second, tracks)
+	si := seekIndex{reserved: reserved, entries: entries}
+	err = si.write(f, 5*time.Second, tracks)
 	require.NoError(t, err)
 
 	_, err = f.Seek(0, io.SeekStart)
