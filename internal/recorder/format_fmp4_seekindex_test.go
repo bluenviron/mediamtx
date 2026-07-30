@@ -320,3 +320,119 @@ func TestWriteSeekIndexMerge(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteSeekIndexMultiTrack(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.bin")
+
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer f.Close()
+
+	// the video track is not the first one, to check that references are
+	// grouped on the sync samples of the video track.
+	tracks := []*formatFMP4Track{
+		{initTrack: &fmp4.InitTrack{
+			ID:        5,
+			TimeScale: 48000,
+			Codec:     &mcodecs.Opus{ChannelCount: 2},
+		}},
+		{initTrack: &fmp4.InitTrack{
+			ID:        7,
+			TimeScale: 90000,
+			Codec: &mcodecs.H264{
+				SPS: test.FormatH264.SPS,
+				PPS: test.FormatH264.PPS,
+			},
+		}},
+	}
+
+	err = writeSeekIndexPlaceholder(f, len(tracks), 10)
+	require.NoError(t, err)
+
+	si := seekIndex{
+		reserved: 10,
+		entries: []seekIndexEntry{
+			{
+				size: 100,
+				tracks: []seekIndexEntryTrack{
+					{present: true, baseTime: 0, sap: true},
+					{present: true, baseTime: 0, sap: true},
+				},
+			},
+			{
+				// the video track doesn't start with a sync sample: this
+				// entry must be merged with the previous one even though
+				// the audio track is present and sync.
+				size: 200,
+				tracks: []seekIndexEntryTrack{
+					{},
+					{present: true, baseTime: 45000, sap: false},
+				},
+			},
+			{
+				size: 300,
+				tracks: []seekIndexEntryTrack{
+					{present: true, baseTime: 48000, sap: true},
+					{present: true, baseTime: 90000, sap: true},
+				},
+			},
+		},
+	}
+
+	err = si.write(f, 2*time.Second, tracks)
+	require.NoError(t, err)
+
+	_, err = f.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+
+	byts, err := io.ReadAll(f)
+	require.NoError(t, err)
+
+	// expected layout: free, then one sidx per track, with the last sidx
+	// ending exactly where the first moof would start.
+	spans := listBoxes(t, byts)
+	require.Equal(t, 3, len(spans))
+	require.Equal(t, "free", spans[0].typ)
+	require.Equal(t, "sidx", spans[1].typ)
+	require.Equal(t, "sidx", spans[2].typ)
+	require.Equal(t, int64(len(byts)), spans[2].pos+int64(spans[2].size))
+
+	parseSidx := func(sp boxSpan) amp4.Sidx {
+		var sidx amp4.Sidx
+		_, err = amp4.Unmarshal(
+			bytes.NewReader(byts[sp.pos+8:sp.pos+int64(sp.size)]),
+			uint64(sp.size-8), &sidx, amp4.Context{})
+		require.NoError(t, err)
+		return sidx
+	}
+
+	// the audio sidx comes first and its first_offset must skip the video
+	// sidx that follows it.
+	audio := parseSidx(spans[1])
+	require.Equal(t, uint32(5), audio.ReferenceID)
+	require.Equal(t, uint32(48000), audio.Timescale)
+	require.Equal(t, uint64(0), audio.EarliestPresentationTimeV1)
+	require.Equal(t, uint64(spans[2].size), audio.FirstOffsetV1)
+	require.Equal(t, uint16(2), audio.ReferenceCount)
+
+	video := parseSidx(spans[2])
+	require.Equal(t, uint32(7), video.ReferenceID)
+	require.Equal(t, uint32(90000), video.Timescale)
+	require.Equal(t, uint64(0), video.EarliestPresentationTimeV1)
+	require.Equal(t, uint64(0), video.FirstOffsetV1)
+	require.Equal(t, uint16(2), video.ReferenceCount)
+
+	// both sidx boxes reference the same byte ranges, with durations
+	// expressed on each track's own timeline.
+	for _, sidx := range []amp4.Sidx{audio, video} {
+		require.Equal(t, uint32(300), sidx.References[0].ReferencedSize)
+		require.Equal(t, uint32(300), sidx.References[1].ReferencedSize)
+		require.True(t, sidx.References[0].StartsWithSAP)
+		require.True(t, sidx.References[1].StartsWithSAP)
+	}
+	require.Equal(t, uint32(48000), audio.References[0].SubsegmentDuration)
+	require.Equal(t, uint32(48000), audio.References[1].SubsegmentDuration)
+	require.Equal(t, uint32(90000), video.References[0].SubsegmentDuration)
+	require.Equal(t, uint32(90000), video.References[1].SubsegmentDuration)
+}
