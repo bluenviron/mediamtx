@@ -25,7 +25,7 @@ lint-apidocs:
 	go run ./internal/apidocsgen --check
 	echo "$$DOCKERFILE_APIDOCS_LINT" | docker build . -f - -t temp
 	docker run --rm -v "$(shell pwd)/api:/s" -w /s temp \
-	sh -c "openapi lint openapi.yaml"
+	sh -c "openapi lint openapi.yaml && openapi lint playback.openapi.yaml"
 
 lint-other:
 	echo "$$DOCKERFILE_PRETTIER" | docker build . -f - -t temp
