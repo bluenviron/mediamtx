@@ -1,16 +1,17 @@
-package confwatcher
+package confwatcher_test
 
 import (
 	"os"
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNoFile(t *testing.T) {
-	w := &ConfWatcher{FilePath: "/nonexistent"}
+	w := &confwatcher.ConfWatcher{FilePath: "/nonexistent"}
 	err := w.Initialize()
 	require.Error(t, err)
 }
@@ -18,7 +19,7 @@ func TestNoFile(t *testing.T) {
 func TestWrite(t *testing.T) {
 	fpath := test.CreateTempFile(t, []byte("{}"))
 
-	w := &ConfWatcher{FilePath: fpath}
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
 	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
@@ -44,7 +45,7 @@ func TestWrite(t *testing.T) {
 func TestWriteMultipleTimes(t *testing.T) {
 	fpath := test.CreateTempFile(t, []byte("{}"))
 
-	w := &ConfWatcher{FilePath: fpath}
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
 	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
@@ -87,7 +88,7 @@ func TestWriteMultipleTimes(t *testing.T) {
 func TestDeleteCreate(t *testing.T) {
 	fpath := test.CreateTempFile(t, []byte("{}"))
 
-	w := &ConfWatcher{FilePath: fpath}
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
 	err := w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
@@ -120,7 +121,7 @@ func TestSymlinkDeleteCreate(t *testing.T) {
 	err := os.Symlink(fpath, fpath+"-sym")
 	require.NoError(t, err)
 
-	w := &ConfWatcher{FilePath: fpath + "-sym"}
+	w := &confwatcher.ConfWatcher{FilePath: fpath + "-sym"}
 	err = w.Initialize()
 	require.NoError(t, err)
 	defer w.Close()
