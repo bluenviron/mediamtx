@@ -3,7 +3,7 @@ openapi: 3.0.0
 info:
   version: 1.0.0
   title: MediaMTX Playback API
-  description: Playback API of MediaMTX, used to list and retrieve recorded segments.
+  description: Playback API of MediaMTX, used to list and retrieve recorded time spans.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -11,15 +11,9 @@ info:
 servers:
   - url: http://localhost:9996
 
-security:
-  - basicAuth: []
+security: []
 
 components:
-  securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
-
   schemas:
     Error:
       type: object
@@ -42,117 +36,115 @@ components:
         url:
           type: string
 
-  parameters:
-    pathName:
-      name: path
-      in: query
-      required: true
-      schema:
-        type: string
-
 paths:
   /list:
     get:
       operationId: listSegments
-      summary: List recorded segments for a path.
+      summary: List recorded time spans for a path.
       parameters:
-        - $ref: '#/components/parameters/pathName'
+        - name: path
+          in: query
+          required: true
+          description: Path name.
+          schema:
+            type: string
         - name: start
           in: query
+          description: Return recordings that start at or after this time.
           schema:
             type: string
             format: date-time
         - name: end
           in: query
+          description: Return recordings that end at or before this time.
           schema:
             type: string
             format: date-time
       responses:
-        '200':
-          description: Segments found.
+        "200":
+          description: Recorded time spans found.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ListEntry'
-        '400':
-          description: Bad request.
-          content:
-            text/plain:
-              schema:
-                type: string
-        '401':
-          description: Authentication error.
+                  $ref: "#/components/schemas/ListEntry"
+        "400":
+          description: Invalid request parameters or path configuration.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: No segments found.
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No recordings found for the requested path and time range.
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-        '500':
-          description: Internal server error.
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error while enumerating recordings.
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: "#/components/schemas/Error"
 
   /get:
     get:
       operationId: getSegment
-      summary: Get a recording as a video file.
+      summary: Download a recording time span as an MP4 file.
       parameters:
-        - $ref: '#/components/parameters/pathName'
+        - name: path
+          in: query
+          required: true
+          description: Path name.
+          schema:
+            type: string
         - name: start
           in: query
           required: true
+          description: Start time of the requested recording time span.
           schema:
             type: string
             format: date-time
         - name: duration
           in: query
           required: true
+          description: >-
+            Maximum duration of the returned recording, in seconds. The server
+            also accepts the deprecated Go duration format, for example `1m30s`.
           schema:
-            type: number
-            format: double
+            type: string
+            example: "200.5"
         - name: format
           in: query
+          description: Output container format.
           schema:
             type: string
             enum: [fmp4, mp4]
             default: fmp4
       responses:
-        '200':
-          description: Video file.
+        "200":
+          description: Recording time span returned as an MP4-compatible file.
           headers:
             Accept-Ranges:
               schema:
                 type: string
                 enum: [none]
+              description: The playback server does not support byte-range requests.
           content:
             video/mp4:
               schema:
                 type: string
                 format: binary
-        '400':
-          description: Bad request.
-          content:
-            text/plain:
-              schema:
-                type: string
-        '401':
-          description: Authentication error.
+        "400":
+          description: Invalid request parameters, format, or path configuration.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: No segments found.
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No recordings found for the requested path and time range.
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: "#/components/schemas/Error"
