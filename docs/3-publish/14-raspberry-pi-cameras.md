@@ -123,3 +123,20 @@ paths:
 ```
 
 The secondary stream will be available on path `/secondary`.
+
+## Multiple cameras
+
+It is possible to stream several cameras at once by using `rpiCameraCamID`:
+
+```yml
+paths:
+  # first camera
+  cam1:
+    source: rpiCamera
+    rpiCameraCamID: 0
+
+  # second camera
+  cam2:
+    source: rpiCamera
+    rpiCameraCamID: 1
+```

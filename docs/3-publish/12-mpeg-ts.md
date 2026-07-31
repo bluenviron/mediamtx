@@ -13,10 +13,16 @@ In order to read a UDP MPEG-TS stream, edit `mediamtx.yml` and replace everythin
 ```yml
 paths:
   mypath:
-    source: udp+mpegts://238.0.0.1:1234
+    source: udp+mpegts://ip:port
 ```
 
-Where `238.0.0.1` is the IP for listening packets, in this case a multicast IP.
+The IP is usually a multicast IP, for instance:
+
+```yml
+paths:
+  mypath:
+    source: udp+mpegts://238.0.0.1:1234
+```
 
 If the listening IP is a multicast IP, _MediaMTX_ will listen for incoming packets on the default multicast interface, picked by the operating system. It is possible to specify the interface manually by using the `interface` parameter:
 
