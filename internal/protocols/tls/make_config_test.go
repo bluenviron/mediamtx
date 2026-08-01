@@ -1,4 +1,4 @@
-package tls //nolint:revive
+package tls_test //nolint:revive
 
 import (
 	"crypto/tls"
@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	mtls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 )
 
 var testTLSCertPub = []byte(`-----BEGIN CERTIFICATE-----
@@ -87,7 +89,7 @@ func TestMakeConfigFingerprint(t *testing.T) {
 		require.NoError(t, err2)
 	}()
 
-	conf := MakeConfig("33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739")
+	conf := mtls.MakeConfig("33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739")
 
 	conn, err := tls.Dial("tcp", "localhost:8556", conf)
 	require.NoError(t, err)

@@ -1,4 +1,4 @@
-package httpp
+package httpp_test
 
 import (
 	"net"
@@ -10,11 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestUnixSocket(t *testing.T) {
-	s := &Server{
+	s := &httpp.Server{
 		Address:      "unix://http.sock",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,

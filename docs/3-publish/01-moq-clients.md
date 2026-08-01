@@ -19,13 +19,14 @@ Media-over-QUIC has a wide range of features and variants, most of them in activ
 There are some server requirements:
 
 - HTTPS is mandatory.
-- Clients must be able to access both the HTTP/2 listener (`:8892`) and the HTTP/3 listener (`:8892`), the latter of which runs over UDP.
+- Clients must be able to access both the HTTP/2 listener (`:8892/TCP`) and the HTTP/3 listener (`:8892/UDP`).
+- If the server is behind Docker, NAT or a firewall, expose and forward both `8892/TCP` and `8892/UDP` to the server.
 
 And there are some client (browser) requirements:
 
 - If the server certificate is self-signed, browser must support the [serverCertificatesHashes option](https://caniuse.com/mdn-api_webtransport_webtransport_options_servercertificatehashes_parameter) (all except iOS Safari do).
 - Browser must support [WebTransport](https://caniuse.com/webtransport) and [WebCodecs](https://caniuse.com/webcodecs) (all modern browsers do)
-- When publishing tracks, the browser to support [MediaStreamTrackProcessor](https://caniuse.com/mdn-api_mediastreamtrackprocessor) (only Chrome does).
+- When publishing tracks, browser must support [MediaStreamTrackProcessor](https://caniuse.com/mdn-api_mediastreamtrackprocessor) (only Chrome does).
 
 You can publish a stream with Media-over-QUIC and a web browser by visiting:
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
-	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v5/pkg/sdpunmarshaler"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -44,14 +44,13 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
-	var sd sdp.SessionDescription
-	err := sd.Unmarshal([]byte(params.Conf.RTPSDP))
+	sd, err := sdpunmarshaler.Unmarshal([]byte(params.Conf.RTPSDP))
 	if err != nil {
 		return err
 	}
 
 	var desc description.Session
-	err = desc.Unmarshal(&sd)
+	err = desc.Unmarshal2(sd)
 	if err != nil {
 		return err
 	}
