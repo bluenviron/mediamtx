@@ -9,13 +9,13 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	mediamtxpprof "github.com/bluenviron/mediamtx/internal/pprof"
+	"github.com/bluenviron/mediamtx/internal/pprof"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPreflightRequest(t *testing.T) {
-	s := &mediamtxpprof.PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -53,7 +53,7 @@ func TestPreflightRequest(t *testing.T) {
 func TestPprof(t *testing.T) {
 	checked := false
 
-	s := &mediamtxpprof.PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -94,7 +94,7 @@ func TestPprof(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	s := &mediamtxpprof.PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
