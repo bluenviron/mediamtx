@@ -78,6 +78,11 @@ linters:
         - stringsbuilder
         - testingcontext
 
+    revive:
+      enable-default-rules: true
+      rules:
+        - name: redundant-import-alias
+
   exclusions:
     rules:
       - linters:
