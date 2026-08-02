@@ -580,13 +580,19 @@ func (s *Stream) updateLastTime(pts time.Duration) {
 func (s *Stream) writeRTSP(outMedia *description.Media, pkts []*rtp.Packet, ntp time.Time) {
 	if s.rtspStream != nil {
 		for _, pkt := range pkts {
-			s.rtspStream.WritePacketRTPWithNTP(outMedia, pkt, ntp) //nolint:errcheck
+			err := s.rtspStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSP stream: %v", err)
+			}
 		}
 	}
 
 	if s.rtspsStream != nil {
 		for _, pkt := range pkts {
-			s.rtspsStream.WritePacketRTPWithNTP(outMedia, pkt, ntp) //nolint:errcheck
+			err := s.rtspsStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSPS stream: %v", err)
+			}
 		}
 	}
 }
