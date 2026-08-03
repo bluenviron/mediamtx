@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sort"
 	"sync"
@@ -17,6 +18,17 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+)
+
+// srtListen is a package-level indirection over srt.Listen so that tests
+// can substitute a fake listener implementation.
+var srtListen = srt.Listen
+
+// Listener restart backoff parameters. Variables (rather than constants) so
+// that tests can override them without changing production behavior.
+var (
+	listenerRestartBaseDelay = 500 * time.Millisecond
+	listenerRestartMaxDelay  = 30 * time.Second
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -87,11 +99,12 @@ type Server struct {
 	PathManager         serverPathManager
 	Parent              serverParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	ln        srt.Listener
-	conns     map[*conn]struct{}
+	ctx          context.Context
+	ctxCancel    func()
+	wg           sync.WaitGroup
+	ln           srt.Listener
+	listenerConf srt.Config
+	conns        map[*conn]struct{}
 
 	// in
 	chNewConnRequest chan srt.ConnRequest
@@ -104,13 +117,13 @@ type Server struct {
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	conf := srt.DefaultConfig()
-	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
-	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
-	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+	s.listenerConf = srt.DefaultConfig()
+	s.listenerConf.ConnectionTimeout = time.Duration(s.ReadTimeout)
+	s.listenerConf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
+	s.listenerConf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
 
 	var err error
-	s.ln, err = srt.Listen("srt", s.Address, conf)
+	s.ln, err = srtListen("srt", s.Address, s.listenerConf)
 	if err != nil {
 		return err
 	}
@@ -168,8 +181,16 @@ outer:
 	for {
 		select {
 		case err := <-s.chAcceptErr:
-			s.Log(logger.Error, "%s", err)
-			break outer
+			// ErrListenerClosed is the normal signal emitted when we Close()
+			// the listener ourselves during shutdown.
+			if errors.Is(err, srt.ErrListenerClosed) {
+				break outer
+			}
+			s.Log(logger.Warn, "listener failed: %s; attempting restart", err)
+			if rerr := s.restartListener(); rerr != nil {
+				s.Log(logger.Error, "listener restart aborted: %s", rerr)
+				break outer
+			}
 
 		case req := <-s.chNewConnRequest:
 			c := &conn{
@@ -235,7 +256,61 @@ outer:
 
 	s.ctxCancel()
 
-	s.ln.Close()
+	if s.ln != nil {
+		s.ln.Close()
+	}
+}
+
+// restartListener disposes of the dead gosrt listener and re-creates a new
+// one with the same configuration, using bounded exponential backoff with
+// jitter. It returns nil on success, or a non-nil error when the server
+// context has been cancelled (i.e. the server is shutting down).
+//
+// Existing live *conn instances and the server goroutine are untouched;
+// only the accept side is recreated.
+func (s *Server) restartListener() error {
+	if s.ln != nil {
+		s.ln.Close()
+		s.ln = nil
+	}
+
+	delay := listenerRestartBaseDelay
+	attempt := 0
+
+	for {
+		attempt++
+
+		// jitter: +/- 25% of the current delay
+		jitter := time.Duration(rand.Int63n(int64(delay/2))) - delay/4
+		wait := delay + jitter
+
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("server is closing")
+		case <-time.After(wait):
+		}
+
+		ln, err := srtListen("srt", s.Address, s.listenerConf)
+		if err != nil {
+			s.Log(logger.Warn, "listener restart attempt %d failed: %s", attempt, err)
+			delay *= 2
+			if delay > listenerRestartMaxDelay {
+				delay = listenerRestartMaxDelay
+			}
+			continue
+		}
+
+		s.ln = ln
+		s.Log(logger.Info, "listener restarted on %s after %d attempt(s)", s.Address, attempt)
+
+		l := &listener{
+			ln:     s.ln,
+			wg:     &s.wg,
+			parent: s,
+		}
+		l.initialize()
+		return nil
+	}
 }
 
 func (s *Server) findConnByUUID(uuid uuid.UUID) *conn {
