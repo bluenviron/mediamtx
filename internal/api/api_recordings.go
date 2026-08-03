@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,6 +13,26 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/gin-gonic/gin"
 )
+
+// this prevents directory traversal.
+// functionally it's useless since there's already conf.IsValidPathName, but it's needed by CodeQL.
+func isSubdirectoryOf(base string, path string) error {
+	baseAbs, err := filepath.Abs(filepath.Clean(base))
+	if err != nil {
+		return err
+	}
+
+	candidateAbs, err := filepath.Abs(filepath.Join(baseAbs, path))
+	if err != nil {
+		return err
+	}
+
+	if !strings.HasPrefix(candidateAbs, baseAbs) {
+		return fmt.Errorf("path escapes base directory")
+	}
+
+	return nil
+}
 
 func recordingsOfPath(
 	pathConf *conf.Path,
@@ -100,14 +121,28 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		return
 	}
 
+	commonPath := recordstore.CommonPath(pathConf.RecordPath)
+
 	pathFormat := recordstore.PathAddExtension(
 		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
 		pathConf.RecordFormat,
 	)
 
+	err = isSubdirectoryOf(commonPath, pathFormat)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
 	segmentPath := recordstore.Path{
 		Start: start,
 	}.Encode(pathFormat)
+
+	err = isSubdirectoryOf(pathFormat, segmentPath)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
 
 	err = os.Remove(segmentPath)
 	if err != nil {
