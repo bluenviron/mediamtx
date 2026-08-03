@@ -4,13 +4,51 @@ import (
 	"bytes"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	mch264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
-	mch265 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+// prototype of a function that remuxes a unit payload.
+// payload is assumed to be non-nil and to be of the same type as the format.
 type unitRemuxer func(format.Format, unit.Payload) unit.Payload
+
+func unitRemuxerAV1(_ format.Format, payload unit.Payload) unit.Payload {
+	tu := payload.(unit.PayloadAV1)
+
+	n := 0
+
+	for _, obu := range tu {
+		typ := av1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == av1.OBUTypeTemporalDelimiter {
+			continue
+		}
+		n++
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	filteredTU := make([][]byte, n)
+	i := 0
+
+	for _, obu := range tu {
+		typ := av1.OBUType((obu[0] >> 3) & 0b1111)
+
+		if typ == av1.OBUTypeTemporalDelimiter {
+			continue
+		}
+
+		filteredTU[i] = obu
+		i++
+	}
+
+	return unit.PayloadAV1(filteredTU)
+}
 
 func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 	formatH265 := forma.(*format.H265)
@@ -20,16 +58,16 @@ func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 	n := 0
 
 	for _, nalu := range au {
-		typ := mch265.NALUType((nalu[0] >> 1) & 0b111111)
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
-		case mch265.NALUType_VPS_NUT, mch265.NALUType_SPS_NUT, mch265.NALUType_PPS_NUT:
+		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
 			continue
 
-		case mch265.NALUType_AUD_NUT:
+		case h265.NALUType_AUD_NUT:
 			continue
 
-		case mch265.NALUType_IDR_W_RADL, mch265.NALUType_IDR_N_LP, mch265.NALUType_CRA_NUT:
+		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
 			if !isKeyFrame {
 				isKeyFrame = true
 
@@ -57,13 +95,13 @@ func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 	}
 
 	for _, nalu := range au {
-		typ := mch265.NALUType((nalu[0] >> 1) & 0b111111)
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
-		case mch265.NALUType_VPS_NUT, mch265.NALUType_SPS_NUT, mch265.NALUType_PPS_NUT:
+		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
 			continue
 
-		case mch265.NALUType_AUD_NUT:
+		case h265.NALUType_AUD_NUT:
 			continue
 		}
 
@@ -82,16 +120,16 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 	n := 0
 
 	for _, nalu := range au {
-		typ := mch264.NALUType(nalu[0] & 0x1F)
+		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
-		case mch264.NALUTypeSPS, mch264.NALUTypePPS:
+		case h264.NALUTypeSPS, h264.NALUTypePPS:
 			continue
 
-		case mch264.NALUTypeAccessUnitDelimiter:
+		case h264.NALUTypeAccessUnitDelimiter:
 			continue
 
-		case mch264.NALUTypeIDR:
+		case h264.NALUTypeIDR:
 			if !isKeyFrame {
 				isKeyFrame = true
 
@@ -118,13 +156,13 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 	}
 
 	for _, nalu := range au {
-		typ := mch264.NALUType(nalu[0] & 0x1F)
+		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
-		case mch264.NALUTypeSPS, mch264.NALUTypePPS:
+		case h264.NALUTypeSPS, h264.NALUTypePPS:
 			continue
 
-		case mch264.NALUTypeAccessUnitDelimiter:
+		case h264.NALUTypeAccessUnitDelimiter:
 			continue
 		}
 
@@ -164,6 +202,9 @@ func unitRemuxerMPEG4Video(forma format.Format, payload unit.Payload) unit.Paylo
 
 func newUnitRemuxer(forma format.Format) unitRemuxer {
 	switch forma.(type) {
+	case *format.AV1:
+		return unitRemuxerAV1
+
 	case *format.H265:
 		return unitRemuxerH265
 

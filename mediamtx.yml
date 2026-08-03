@@ -473,22 +473,22 @@ pathDefaults:
 
   # Source of the stream. This can be:
   # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
-  # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
-  # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
-  # * rtsp+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTP tunneling
-  # * rtsps+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTPS tunneling
-  # * rtsp+ws://existing-url -> the stream is pulled from another RTSP server / camera, with WebSocket tunneling
-  # * rtsps+ws://existing-url -> the stream is pulled from another RTSP server / camera, with secure WebSocket tunneling
-  # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
-  # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
-  # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
-  # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
+  # * rtsp://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera
+  # * rtsps://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera with RTSPS
+  # * rtsp+http://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with HTTP tunneling
+  # * rtsps+http://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with HTTPS tunneling
+  # * rtsp+ws://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with WebSocket tunneling
+  # * rtsps+ws://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with secure WebSocket tunneling
+  # * rtmp://user:pass@host:port/path#streamKey -> the stream is pulled from another RTMP server / camera
+  # * rtmps://user:pass@host:port/path#streamKey -> the stream is pulled from another RTMP server / camera with RTMPS
+  # * http://user:pass@host:port/stream.m3u8 -> the stream is pulled from another HLS server / camera
+  # * https://user:pass@host:port/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
   # * udp+mpegts://ip:port -> the stream is pulled from MPEG-TS over UDP, by listening on the specified address
-  # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
+  # * unix+mpegts://socketPath -> the stream is pulled from MPEG-TS over a Unix socket
   # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
-  # * srt://existing-url -> the stream is pulled from another SRT server / camera
-  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
-  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
+  # * srt://host:port?streamid=streamid -> the stream is pulled from another SRT server / camera
+  # * whep://host:port/path -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
+  # * wheps://host:port/path -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
   # The following variables can be used in the source string:

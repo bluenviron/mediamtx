@@ -10,8 +10,10 @@ In order to ingest a WebRTC stream from a remote server, add the corresponding W
 ```yml
 paths:
   proxied:
-    # url of the source stream, in the format whep://host:port/path (HTTP) or wheps:// (HTTPS)
-    source: wheps://host:port/path
+    # url of the source stream. Use whep:// for HTTP and wheps:// for HTTPS
+    source: whep://host:port/path
+    # Token to insert in the Authorization: Bearer header.
+    whepBearerToken: ""
 ```
 
 If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](../4-read/03-webrtc.md):

@@ -1,4 +1,4 @@
-package certloader
+package certloader_test
 
 import (
 	"crypto/tls"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func TestCertReload(t *testing.T) {
 	serverCertPath := test.CreateTempFile(t, test.TLSCertPub)
 	serverKeyPath := test.CreateTempFile(t, test.TLSCertKey)
 
-	loader := &CertLoader{
+	loader := &certloader.CertLoader{
 		CertPath: serverCertPath,
 		KeyPath:  serverKeyPath,
 		Parent:   test.NilLogger,

@@ -1,0 +1,150 @@
+openapi: 3.0.0
+
+info:
+  version: 1.0.0
+  title: MediaMTX Playback API
+  description: Playback API of MediaMTX, used to list and retrieve recorded time spans.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:9996
+
+security: []
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error:
+          type: string
+
+    ListEntry:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        duration:
+          type: number
+          format: double
+        url:
+          type: string
+
+paths:
+  /list:
+    get:
+      operationId: listSegments
+      summary: List recorded time spans for a path.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Path name.
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Return recordings that start at or after this time.
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: Return recordings that end at or before this time.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Recorded time spans found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ListEntry"
+        "400":
+          description: Invalid request parameters or path configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No recordings found for the requested path and time range.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error while enumerating recordings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /get:
+    get:
+      operationId: getSegment
+      summary: Download a recording time span as an MP4 file.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Path name.
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          description: Start time of the requested recording time span.
+          schema:
+            type: string
+            format: date-time
+        - name: duration
+          in: query
+          required: true
+          description: >-
+            Maximum duration of the returned recording, in seconds. The server
+            also accepts the deprecated Go duration format, for example `1m30s`.
+          schema:
+            type: string
+            example: "200.5"
+        - name: format
+          in: query
+          description: Output container format.
+          schema:
+            type: string
+            enum: [fmp4, mp4]
+            default: fmp4
+      responses:
+        "200":
+          description: Recording time span returned as an MP4-compatible file.
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+                enum: [none]
+              description: The playback server does not support byte-range requests.
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid request parameters, format, or path configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No recordings found for the requested path and time range.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

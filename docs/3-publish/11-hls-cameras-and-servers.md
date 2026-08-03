@@ -11,8 +11,9 @@ HLS is a streaming protocol that works by splitting streams into segments, and b
 ```yml
 paths:
   proxied:
-    # url of the playlist of the stream, in the format http://user:pass@host:port/path
-    source: http://original-url/stream/index.m3u8
+    source: http://user:pass@host:port/path
 ```
+
+If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
 
 The resulting stream will be available on path `/proxied`.
