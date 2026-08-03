@@ -27,7 +27,7 @@ const (
 )
 
 // this prevents directory traversal.
-// functionally it's useless since there's already conf.IsPathName, but it's needed by CodeQL.
+// functionally it's useless since there's already conf.IsValidPathName, but it's needed by CodeQL.
 func safeSubDirectory(base string, pathName string) (string, error) {
 	baseAbs, err := filepath.Abs(filepath.Clean(base))
 	if err != nil {
