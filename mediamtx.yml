@@ -147,7 +147,7 @@ authJWTAudience:
 # Global settings -> Control API
 
 # Enable the control API server, which allows to control the server.
-api: false
+api: true
 # Address of the TCP/HTTP listener.
 apiAddress: :9997
 # Enable HTTPS.
@@ -219,7 +219,7 @@ pprofTrustedProxies: []
 # Global settings -> Playback server
 
 # Enable the playback server, which allows to download recordings from the server.
-playback: false
+playback: true
 # Address of the TCP/HTTP listener.
 playbackAddress: :9996
 # Enable HTTPS.
@@ -840,8 +840,16 @@ pathDefaults:
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
   # example:
-  # my_camera:
-  #   source: rtsp://my_camera
+  my_camera:
+    source: rtsp://192.168.100.47:8554
+    sourceOnDemand: no
+    record: yes
+    recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    recordFormat: fmp4
+    # recordPartDuration: 1s
+    recordSegmentDuration: 1m
+    recordDeleteAfter: 30d
+    overridePublisher: yes
 
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.

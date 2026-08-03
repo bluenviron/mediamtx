@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"time"
 
@@ -529,4 +530,17 @@ func segmentFMP4MuxParts(
 	}
 
 	return segmentDuration, nil
+}
+
+func GetSegmentDuration(path string) (time.Duration, error) {
+
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	_, duration, err := segmentFMP4ReadHeader(f)
+
+	return duration, err
 }

@@ -1,0 +1,29 @@
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /
+
+COPY . .
+
+RUN go mod download
+
+RUN go build -o mediamtx .
+
+
+FROM alpine:latest
+
+WORKDIR /
+
+# install ffmpeg
+RUN apk add --no-cache ffmpeg ca-certificates
+
+COPY --from=builder /mediamtx /mediamtx
+
+COPY mediamtx.yml /mediamtx.yml
+
+EXPOSE 8554
+EXPOSE 8888
+EXPOSE 8889
+EXPOSE 9997
+EXPOSE 9996
+
+ENTRYPOINT ["/mediamtx", "/mediamtx.yml"]
