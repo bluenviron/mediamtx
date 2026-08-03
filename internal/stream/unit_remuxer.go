@@ -51,60 +51,6 @@ func unitRemuxerAV1(_ format.Format, _ int64, payload unit.Payload) unit.Payload
 	return unit.PayloadAV1(filteredTU)
 }
 
-// filterH265NonVCL strips parameter sets and AUDs from a NALU array that
-// contains no VCL NALU, keeping anything else (e.g. prefix SEI) that should
-// be carried over to the next access unit. Suffix SEI is dropped: since it
-// follows the picture it belongs to, a solitary suffix-SEI unit cannot be
-// reattached to a picture that has already been emitted.
-func filterH265NonVCL(au [][]byte) [][]byte {
-	n := 0
-
-	for _, nalu := range au {
-		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-		switch typ {
-		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT,
-			h265.NALUType_AUD_NUT, h265.NALUType_SUFFIX_SEI_NUT:
-			continue
-		}
-		n++
-	}
-
-	if n == 0 {
-		return nil
-	}
-
-	filtered := make([][]byte, n)
-	i := 0
-
-	for _, nalu := range au {
-		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-		switch typ {
-		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT,
-			h265.NALUType_AUD_NUT, h265.NALUType_SUFFIX_SEI_NUT:
-			continue
-		}
-
-		filtered[i] = nalu
-		i++
-	}
-
-	return filtered
-}
-
-// isH265NonPicture reports whether typ can never carry picture data on its
-// own. Anything else (VCL NALUs, but also unrecognized/reserved types) is
-// treated as content, matching the pre-existing pass-through behavior.
-func isH265NonPicture(typ h265.NALUType) bool {
-	switch typ {
-	case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT,
-		h265.NALUType_AUD_NUT, h265.NALUType_PREFIX_SEI_NUT, h265.NALUType_SUFFIX_SEI_NUT:
-		return true
-	}
-	return false
-}
-
 // unitRemuxerH265 returns a unitRemuxer that, in addition to stripping
 // parameter sets and AUDs, holds back access units that carry no picture
 // data (e.g. a standalone prefix-SEI access unit) and prepends them to the
@@ -118,134 +64,65 @@ func unitRemuxerH265() unitRemuxer {
 		au := payload.(unit.PayloadH265)
 
 		hasPicture := false
+		isKeyFrame := false
+
 		for _, nalu := range au {
-			if !isH265NonPicture(h265.NALUType((nalu[0] >> 1) & 0b111111)) {
+			switch h265.NALUType((nalu[0] >> 1) & 0b111111) {
+			case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT,
+				h265.NALUType_AUD_NUT, h265.NALUType_PREFIX_SEI_NUT, h265.NALUType_SUFFIX_SEI_NUT:
+
+			case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
 				hasPicture = true
-				break
+				isKeyFrame = true
+
+			default:
+				hasPicture = true
 			}
 		}
 
 		if !hasPicture {
-			filtered := filterH265NonVCL(au)
-			if filtered != nil {
-				pending = filtered
-				pendingPTS = pts
+			var kept [][]byte
+			for _, nalu := range au {
+				switch h265.NALUType((nalu[0] >> 1) & 0b111111) {
+				case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT, h265.NALUType_AUD_NUT:
+
+				// a solitary suffix SEI belongs to a picture that has already
+				// been emitted, and cannot be reattached to it
+				case h265.NALUType_SUFFIX_SEI_NUT:
+
+				default:
+					kept = append(kept, nalu)
+				}
+			}
+			if kept != nil {
+				pending, pendingPTS = kept, pts
 			}
 			return unit.PayloadH265(nil)
 		}
 
 		var prefix [][]byte
-		if pending != nil {
-			if pendingPTS == pts {
-				prefix = pending
-			}
-			pending = nil
+		if pending != nil && pendingPTS == pts {
+			prefix = pending
 		}
+		pending = nil
 
-		isKeyFrame := false
-		n := len(prefix)
-
-		for _, nalu := range au {
-			typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-			switch typ {
-			case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
-				continue
-
-			case h265.NALUType_AUD_NUT:
-				continue
-
-			case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-				if !isKeyFrame {
-					isKeyFrame = true
-
-					// prepend parameters
-					if formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
-						n += 3
-					}
-				}
-			}
-			n++
-		}
-
-		filteredAU := make([][]byte, n)
-		i := 0
+		out := make([][]byte, 0, len(prefix)+len(au)+3)
 
 		if isKeyFrame && formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
-			filteredAU[0] = formatH265.VPS
-			filteredAU[1] = formatH265.SPS
-			filteredAU[2] = formatH265.PPS
-			i = 3
+			out = append(out, formatH265.VPS, formatH265.SPS, formatH265.PPS)
 		}
-
-		i += copy(filteredAU[i:], prefix)
+		out = append(out, prefix...)
 
 		for _, nalu := range au {
-			typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-			switch typ {
-			case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
-				continue
-
-			case h265.NALUType_AUD_NUT:
+			switch h265.NALUType((nalu[0] >> 1) & 0b111111) {
+			case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT, h265.NALUType_AUD_NUT:
 				continue
 			}
-
-			filteredAU[i] = nalu
-			i++
+			out = append(out, nalu)
 		}
 
-		return unit.PayloadH265(filteredAU)
+		return unit.PayloadH265(out)
 	}
-}
-
-// isH264NonPicture reports whether typ can never carry picture data on its
-// own. Anything else (VCL NALUs, but also unrecognized/reserved types) is
-// treated as content, matching the pre-existing pass-through behavior.
-func isH264NonPicture(typ h264.NALUType) bool {
-	switch typ {
-	case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter, h264.NALUTypeSEI:
-		return true
-	}
-	return false
-}
-
-// filterH264NonVCL strips parameter sets and AUDs from a NALU array that
-// contains no VCL NALU, keeping anything else (e.g. SEI) that should be
-// carried over to the next access unit.
-func filterH264NonVCL(au [][]byte) [][]byte {
-	n := 0
-
-	for _, nalu := range au {
-		typ := h264.NALUType(nalu[0] & 0x1F)
-
-		switch typ {
-		case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
-			continue
-		}
-		n++
-	}
-
-	if n == 0 {
-		return nil
-	}
-
-	filtered := make([][]byte, n)
-	i := 0
-
-	for _, nalu := range au {
-		typ := h264.NALUType(nalu[0] & 0x1F)
-
-		switch typ {
-		case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
-			continue
-		}
-
-		filtered[i] = nalu
-		i++
-	}
-
-	return filtered
 }
 
 // unitRemuxerH264 returns a unitRemuxer that, in addition to stripping
@@ -262,83 +139,59 @@ func unitRemuxerH264() unitRemuxer {
 		au := payload.(unit.PayloadH264)
 
 		hasPicture := false
+		isKeyFrame := false
+
 		for _, nalu := range au {
-			if !isH264NonPicture(h264.NALUType(nalu[0] & 0x1F)) {
+			switch h264.NALUType(nalu[0] & 0x1F) {
+			case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter, h264.NALUTypeSEI:
+
+			case h264.NALUTypeIDR:
 				hasPicture = true
-				break
+				isKeyFrame = true
+
+			default:
+				hasPicture = true
 			}
 		}
 
 		if !hasPicture {
-			filtered := filterH264NonVCL(au)
-			if filtered != nil {
-				pending = filtered
-				pendingPTS = pts
+			var kept [][]byte
+			for _, nalu := range au {
+				switch h264.NALUType(nalu[0] & 0x1F) {
+				case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+
+				default:
+					kept = append(kept, nalu)
+				}
+			}
+			if kept != nil {
+				pending, pendingPTS = kept, pts
 			}
 			return unit.PayloadH264(nil)
 		}
 
 		var prefix [][]byte
-		if pending != nil {
-			if pendingPTS == pts {
-				prefix = pending
-			}
-			pending = nil
+		if pending != nil && pendingPTS == pts {
+			prefix = pending
 		}
+		pending = nil
 
-		isKeyFrame := false
-		n := len(prefix)
-
-		for _, nalu := range au {
-			typ := h264.NALUType(nalu[0] & 0x1F)
-
-			switch typ {
-			case h264.NALUTypeSPS, h264.NALUTypePPS:
-				continue
-
-			case h264.NALUTypeAccessUnitDelimiter:
-				continue
-
-			case h264.NALUTypeIDR:
-				if !isKeyFrame {
-					isKeyFrame = true
-
-					// prepend parameters
-					if formatH264.SPS != nil && formatH264.PPS != nil {
-						n += 2
-					}
-				}
-			}
-			n++
-		}
-
-		filteredAU := make([][]byte, n)
-		i := 0
+		out := make([][]byte, 0, len(prefix)+len(au)+2)
 
 		if isKeyFrame && formatH264.SPS != nil && formatH264.PPS != nil {
-			filteredAU[0] = formatH264.SPS
-			filteredAU[1] = formatH264.PPS
-			i = 2
+			out = append(out, formatH264.SPS, formatH264.PPS)
 		}
-
-		i += copy(filteredAU[i:], prefix)
+		out = append(out, prefix...)
 
 		for _, nalu := range au {
-			typ := h264.NALUType(nalu[0] & 0x1F)
-
-			switch typ {
-			case h264.NALUTypeSPS, h264.NALUTypePPS:
-				continue
-
-			case h264.NALUTypeAccessUnitDelimiter:
+			switch h264.NALUType(nalu[0] & 0x1F) {
+			case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
 				continue
 			}
-
-			filteredAU[i] = nalu
-			i++
+			out = append(out, nalu)
 		}
 
-		return unit.PayloadH264(filteredAU)
+		return unit.PayloadH264(out)
 	}
 }
 
