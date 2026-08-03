@@ -1,3 +1,4 @@
+// Package rtmp contains the RTMP forward destination.
 package rtmp
 
 import (
@@ -105,21 +106,9 @@ func (d *Dest) OutboundBytes() uint64 {
 
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
-	var conn interface {
-		gortmplib.Conn
-		Close()
-		Initialize(context.Context) error
-		NetConn() net.Conn
-	}
-	if d.URL.User != nil {
-		conn = &gortmplib.Client{
-			URL:     urlWithDefaultPort(d.URL),
-			Publish: true,
-		}
-	} else {
-		conn = &publishClient{
-			URL: urlWithDefaultPort(d.URL),
-		}
+	conn := &gortmplib.Client{
+		URL:     urlWithDefaultPort(d.URL),
+		Publish: true,
 	}
 
 	err := conn.Initialize(ctx)

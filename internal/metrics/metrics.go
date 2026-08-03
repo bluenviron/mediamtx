@@ -383,7 +383,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"id":       i.item.ID.String(),
 						"path":     i.path,
 						"protocol": string(i.item.Protocol),
-						"source":   string(i.item.Source),
 						"state":    string(i.item.State),
 					})
 

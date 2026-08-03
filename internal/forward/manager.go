@@ -4,7 +4,6 @@ package forward
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -16,9 +15,6 @@ import (
 
 // ErrDestNotFound is returned when a forward destination is not found.
 var ErrDestNotFound = errors.New("forward destination not found")
-
-// ErrDestAlreadyExists is returned when a forward destination already exists.
-var ErrDestAlreadyExists = errors.New("forward destination already exists")
 
 // PathManager is the path manager interface.
 type PathManager interface {
@@ -42,18 +38,15 @@ type Manager struct {
 
 	mutex        sync.RWMutex
 	closed       bool
-	destHandlers map[uuid.UUID]*DestHandler
-	staticDests  map[string]uuid.UUID
+	destHandlers []*DestHandler
 }
 
 // Initialize initializes Manager.
 func (m *Manager) Initialize(forwards conf.Forwards) {
-	m.destHandlers = make(map[uuid.UUID]*DestHandler)
-	m.staticDests = make(map[string]uuid.UUID)
+	m.destHandlers = make([]*DestHandler, 0, len(forwards))
 
-	for _, forward := range forwards {
-		handler := m.addDestLocked(forward.Dest, defs.APIForwardSourceConfig)
-		m.staticDests[forward.Dest] = handler.ID()
+	for i, forward := range forwards {
+		m.destHandlers = append(m.destHandlers, m.addDestLocked(forward.Dest, i+1))
 	}
 }
 
@@ -67,12 +60,8 @@ func (m *Manager) Close() {
 
 	m.closed = true
 
-	destHandlers := make([]*DestHandler, 0, len(m.destHandlers))
-	for _, destHandler := range m.destHandlers {
-		destHandlers = append(destHandlers, destHandler)
-	}
+	destHandlers := m.destHandlers
 	m.destHandlers = nil
-	m.staticDests = nil
 	m.mutex.Unlock()
 
 	for _, handler := range destHandlers {
@@ -88,10 +77,9 @@ func (m *Manager) Log(level logger.Level, format string, args ...any) {
 	m.Parent.Log(level, "[forward] "+format, args...)
 }
 
-func (m *Manager) addDestLocked(dest string, source defs.APIForwardSource) *DestHandler {
+func (m *Manager) addDestLocked(dest string, pos int) *DestHandler {
 	handler := &DestHandler{
 		Dest:              dest,
-		Source:            source,
 		ReadTimeout:       m.ReadTimeout,
 		WriteTimeout:      m.WriteTimeout,
 		UDPMaxPayloadSize: m.UDPMaxPayloadSize,
@@ -100,19 +88,8 @@ func (m *Manager) addDestLocked(dest string, source defs.APIForwardSource) *Dest
 		PathManager:       m.PathManager,
 		Parent:            m,
 	}
-	handler.Initialize()
-
-	m.destHandlers[handler.ID()] = handler
+	handler.Initialize(pos)
 	return handler
-}
-
-func (m *Manager) destHandlerWithDestLocked(dest string) *DestHandler {
-	for _, handler := range m.destHandlers {
-		if handler.Dest == dest {
-			return handler
-		}
-	}
-	return nil
 }
 
 // ReloadConf reloads statically-configured destinations.
@@ -123,81 +100,33 @@ func (m *Manager) ReloadConf(forwards conf.Forwards) {
 		return
 	}
 
-	var toClose []*DestHandler
-	newStaticDests := make(map[string]struct{})
-	for _, forward := range forwards {
-		newStaticDests[forward.Dest] = struct{}{}
-		if _, ok := m.staticDests[forward.Dest]; !ok {
-			if existing := m.destHandlerWithDestLocked(forward.Dest); existing != nil {
-				delete(m.destHandlers, existing.ID())
-				toClose = append(toClose, existing)
-			}
-
-			handler := m.addDestLocked(forward.Dest, defs.APIForwardSourceConfig)
-			m.staticDests[forward.Dest] = handler.ID()
-		}
+	oldHandlers := make(map[string]*DestHandler, len(m.destHandlers))
+	for _, handler := range m.destHandlers {
+		oldHandlers[handler.Dest] = handler
 	}
 
-	for dest, id := range m.staticDests {
-		if _, ok := newStaticDests[dest]; !ok {
-			if handler, exists := m.destHandlers[id]; exists {
-				delete(m.destHandlers, id)
-				toClose = append(toClose, handler)
-			}
-			delete(m.staticDests, dest)
+	newHandlers := make([]*DestHandler, 0, len(forwards))
+	for i, forward := range forwards {
+		handler, ok := oldHandlers[forward.Dest]
+		if ok {
+			delete(oldHandlers, forward.Dest)
+			handler.setPos(i + 1)
+		} else {
+			handler = m.addDestLocked(forward.Dest, i+1)
 		}
+		newHandlers = append(newHandlers, handler)
 	}
+
+	toClose := make([]*DestHandler, 0, len(oldHandlers))
+	for _, handler := range oldHandlers {
+		toClose = append(toClose, handler)
+	}
+	m.destHandlers = newHandlers
 	m.mutex.Unlock()
 
 	for _, handler := range toClose {
 		handler.CloseAsync()
 	}
-}
-
-// Add adds a destination.
-func (m *Manager) Add(dest string) (*DestHandler, error) {
-	forwardConf := &conf.Forward{Dest: dest}
-	err := forwardConf.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if m.closed {
-		return nil, fmt.Errorf("terminated")
-	}
-
-	if m.destHandlerWithDestLocked(dest) != nil {
-		return nil, ErrDestAlreadyExists
-	}
-
-	return m.addDestLocked(dest, defs.APIForwardSourceAPI), nil
-}
-
-// Remove removes a destination.
-func (m *Manager) Remove(id uuid.UUID) error {
-	m.mutex.Lock()
-	if m.closed {
-		m.mutex.Unlock()
-		return fmt.Errorf("terminated")
-	}
-
-	handler, ok := m.destHandlers[id]
-	if !ok {
-		m.mutex.Unlock()
-		return ErrDestNotFound
-	}
-
-	delete(m.destHandlers, id)
-	if handler.Source == defs.APIForwardSourceConfig {
-		delete(m.staticDests, handler.Dest)
-	}
-	m.mutex.Unlock()
-
-	handler.CloseAsync()
-	return nil
 }
 
 // Get gets a destination.
@@ -209,13 +138,14 @@ func (m *Manager) Get(id uuid.UUID) (*defs.APIForward, error) {
 		return nil, fmt.Errorf("terminated")
 	}
 
-	handler, ok := m.destHandlers[id]
-	if !ok {
-		return nil, ErrDestNotFound
+	for _, handler := range m.destHandlers {
+		if handler.ID() == id {
+			item := handler.APIItem()
+			return &item, nil
+		}
 	}
 
-	item := handler.APIItem()
-	return &item, nil
+	return nil, ErrDestNotFound
 }
 
 // List lists all destinations.
@@ -223,31 +153,10 @@ func (m *Manager) List() *defs.APIForwardList {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	items := make([]defs.APIForward, 0, len(m.destHandlers))
-	for _, handler := range m.destHandlers {
-		items = append(items, handler.APIItem())
+	items := make([]defs.APIForward, len(m.destHandlers))
+	for i, handler := range m.destHandlers {
+		items[i] = handler.APIItem()
 	}
-
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Dest != items[j].Dest {
-			return items[i].Dest < items[j].Dest
-		}
-		return items[i].ID.String() < items[j].ID.String()
-	})
 
 	return &defs.APIForwardList{Items: items}
-}
-
-// HasAPIForwards returns whether the manager contains API-created destinations.
-func (m *Manager) HasAPIForwards() bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for _, handler := range m.destHandlers {
-		if handler.Source == defs.APIForwardSourceAPI {
-			return true
-		}
-	}
-
-	return false
 }

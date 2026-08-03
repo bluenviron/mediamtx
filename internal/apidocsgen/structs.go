@@ -146,10 +146,6 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIForward{}),
 	},
 	{
-		externalName: "ForwardAdd",
-		typ:          reflect.TypeOf(defs.APIForwardAdd{}),
-	},
-	{
 		externalName: "ForwardList",
 		typ:          reflect.TypeOf(defs.APIForwardList{}),
 	},
@@ -371,9 +367,6 @@ func isStructEnum(rt reflect.Type) bool {
 		return true
 
 	case reflect.TypeOf(defs.APIForwardProtocol("")):
-		return true
-
-	case reflect.TypeOf(defs.APIForwardSource("")):
 		return true
 
 	case reflect.TypeOf(defs.APIForwardState("")):

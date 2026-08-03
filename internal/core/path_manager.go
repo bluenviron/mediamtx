@@ -96,22 +96,20 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	chReloadConf       chan map[string]*conf.Path
-	chSetHLSServer     chan pathSetHLSServerReq
-	chRemovePath       chan *path
-	chClosePathIfIdle  chan *path
-	chSetPathReady     chan *path
-	chSetPathNotReady  chan *path
-	chFindPathConf     chan defs.PathFindPathConfReq
-	chDescribe         chan defs.PathDescribeReq
-	chAddReader        chan defs.PathAddReaderReq
-	chAddPublisher     chan defs.PathAddPublisherReq
-	chAPIPathsList     chan pathAPIPathsListReq
-	chAPIPathsGet      chan pathAPIPathsGetReq
-	chAPIForwardList   chan pathAPIForwardListReq
-	chAPIForwardGet    chan pathAPIForwardGetReq
-	chAPIForwardAdd    chan pathAPIForwardAddReq
-	chAPIForwardRemove chan pathAPIForwardRemoveReq
+	chReloadConf      chan map[string]*conf.Path
+	chSetHLSServer    chan pathSetHLSServerReq
+	chRemovePath      chan *path
+	chClosePathIfIdle chan *path
+	chSetPathReady    chan *path
+	chSetPathNotReady chan *path
+	chFindPathConf    chan defs.PathFindPathConfReq
+	chDescribe        chan defs.PathDescribeReq
+	chAddReader       chan defs.PathAddReaderReq
+	chAddPublisher    chan defs.PathAddPublisherReq
+	chAPIPathsList    chan pathAPIPathsListReq
+	chAPIPathsGet     chan pathAPIPathsGetReq
+	chAPIForwardList  chan pathAPIForwardListReq
+	chAPIForwardGet   chan pathAPIForwardGetReq
 }
 
 func (pm *pathManager) initialize() {
@@ -134,8 +132,6 @@ func (pm *pathManager) initialize() {
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 	pm.chAPIForwardList = make(chan pathAPIForwardListReq)
 	pm.chAPIForwardGet = make(chan pathAPIForwardGetReq)
-	pm.chAPIForwardAdd = make(chan pathAPIForwardAddReq)
-	pm.chAPIForwardRemove = make(chan pathAPIForwardRemoveReq)
 
 	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
@@ -221,12 +217,6 @@ outer:
 
 		case req := <-pm.chAPIForwardGet:
 			pm.doAPIForwardGet(req)
-
-		case req := <-pm.chAPIForwardAdd:
-			pm.doAPIForwardAdd(req)
-
-		case req := <-pm.chAPIForwardRemove:
-			pm.doAPIForwardRemove(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -496,30 +486,6 @@ func (pm *pathManager) doAPIForwardGet(req pathAPIForwardGetReq) {
 	}
 
 	req.res <- pathAPIForwardGetRes{path: pa}
-}
-
-func (pm *pathManager) doAPIForwardAdd(req pathAPIForwardAddReq) {
-	pathConf, pathMatches, err := conf.FindPathConf(pm.pathConfs, req.name)
-	if err != nil {
-		req.res <- pathAPIForwardAddRes{err: err}
-		return
-	}
-
-	if _, ok := pm.paths[req.name]; !ok {
-		pm.createPath(pathConf, req.name, pathMatches)
-	}
-
-	req.res <- pathAPIForwardAddRes{path: pm.paths[req.name]}
-}
-
-func (pm *pathManager) doAPIForwardRemove(req pathAPIForwardRemoveReq) {
-	pa, ok := pm.paths[req.name]
-	if !ok {
-		req.res <- pathAPIForwardRemoveRes{err: conf.ErrPathNotFound}
-		return
-	}
-
-	req.res <- pathAPIForwardRemoveRes{path: pa}
 }
 
 func (pm *pathManager) createPath(
@@ -819,51 +785,5 @@ func (pm *pathManager) APIForwardGet(name string, id uuid.UUID) (*defs.APIForwar
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
-	}
-}
-
-// APIForwardAdd implements defs.APIPathManager.
-func (pm *pathManager) APIForwardAdd(name string, req defs.APIForwardAdd) (*defs.APIForward, error) {
-	ireq := pathAPIForwardAddReq{
-		name: name,
-		req:  req,
-		res:  make(chan pathAPIForwardAddRes),
-	}
-
-	select {
-	case pm.chAPIForwardAdd <- ireq:
-		res := <-ireq.res
-		if res.err != nil {
-			return nil, res.err
-		}
-
-		data, err := res.path.APIForwardAdd(ireq)
-		return data, err
-
-	case <-pm.ctx.Done():
-		return nil, fmt.Errorf("terminated")
-	}
-}
-
-// APIForwardRemove implements defs.APIPathManager.
-func (pm *pathManager) APIForwardRemove(name string, id uuid.UUID) error {
-	req := pathAPIForwardRemoveReq{
-		name: name,
-		id:   id,
-		res:  make(chan pathAPIForwardRemoveRes),
-	}
-
-	select {
-	case pm.chAPIForwardRemove <- req:
-		res := <-req.res
-		if res.err != nil {
-			return res.err
-		}
-
-		err := res.path.APIForwardRemove(req)
-		return err
-
-	case <-pm.ctx.Done():
-		return fmt.Errorf("terminated")
 	}
 }

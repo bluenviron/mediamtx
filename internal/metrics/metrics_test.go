@@ -69,14 +69,6 @@ func (dummyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, erro
 	panic("unused")
 }
 
-func (dummyPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
-	panic("unused")
-}
-
-func (dummyPathManager) APIForwardRemove(string, uuid.UUID) error {
-	panic("unused")
-}
-
 type forwardPathManager struct {
 	dummyPathManager
 }
@@ -87,10 +79,10 @@ func (forwardPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
 		PageCount: 1,
 		Items: []defs.APIForward{{
 			ID:            uuid.MustParse("5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe"),
+			Pos:           1,
 			Created:       time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC),
 			Dest:          "rtmp://example.com/live/stream",
 			Protocol:      defs.APIForwardProtocolRTMP,
-			Source:        defs.APIForwardSourceAPI,
 			State:         defs.APIForwardStateForwarding,
 			OutboundBytes: 321,
 			BytesSent:     321,
@@ -406,14 +398,6 @@ func (emptyPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
 }
 
 func (emptyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
-	panic("unused")
-}
-
-func (emptyPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
-	panic("unused")
-}
-
-func (emptyPathManager) APIForwardRemove(string, uuid.UUID) error {
 	panic("unused")
 }
 
@@ -1137,9 +1121,9 @@ func TestForwardMetrics(t *testing.T) {
 	require.Equal(t,
 		"# Forward\n"+
 			"forward{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
-			"path=\"mypath\",protocol=\"rtmp\",source=\"api\",state=\"forwarding\"} 1\n"+
+			"path=\"mypath\",protocol=\"rtmp\",state=\"forwarding\"} 1\n"+
 			"forward_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"protocol=\"rtmp\",source=\"api\",state=\"forwarding\"} 321\n"+
+			"protocol=\"rtmp\",state=\"forwarding\"} 321\n"+
 			"\n",
 		string(byts))
 }

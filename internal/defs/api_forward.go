@@ -16,15 +16,6 @@ const (
 	APIForwardStateError      APIForwardState = "error"
 )
 
-// APIForwardSource is where a forward was created from.
-type APIForwardSource string
-
-// forward sources.
-const (
-	APIForwardSourceConfig APIForwardSource = "config"
-	APIForwardSourceAPI    APIForwardSource = "api"
-)
-
 // APIForwardProtocol is the protocol used by a forward.
 type APIForwardProtocol string
 
@@ -40,10 +31,10 @@ const (
 // APIForward is a forward.
 type APIForward struct {
 	ID            uuid.UUID          `json:"id"`
+	Pos           int                `json:"pos"`
 	Created       time.Time          `json:"created"`
 	Dest          string             `json:"dest"`
 	Protocol      APIForwardProtocol `json:"protocol"`
-	Source        APIForwardSource   `json:"source"`
 	State         APIForwardState    `json:"state"`
 	LastError     string             `json:"lastError"`
 	OutboundBytes uint64             `json:"outboundBytes"`
@@ -56,9 +47,4 @@ type APIForwardList struct {
 	ItemCount int          `json:"itemCount"`
 	PageCount int          `json:"pageCount"`
 	Items     []APIForward `json:"items"`
-}
-
-// APIForwardAdd is a forward add request.
-type APIForwardAdd struct {
-	Dest string `json:"dest"`
 }

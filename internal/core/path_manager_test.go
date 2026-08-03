@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"net/http"
 	"regexp"
 	"testing"
@@ -84,31 +83,6 @@ func TestPathManagerDynamicPathAutoDeletion(t *testing.T) {
 			require.Empty(t, data.Items)
 		})
 	}
-}
-
-func TestPathManagerAPIForwardKeepsDynamicPath(t *testing.T) {
-	p, ok := newInstance(t, "paths:\n"+
-		"  '~^dyn.+$':\n")
-	require.Equal(t, true, ok)
-	defer p.Close()
-
-	forward, err := p.pathManager.APIForwardAdd("dynstream", defs.APIForwardAdd{
-		Dest: "rtmp://127.0.0.1:1/dest",
-	})
-	require.NoError(t, err)
-
-	time.Sleep(100 * time.Millisecond)
-
-	_, err = p.pathManager.APIPathsGet("dynstream")
-	require.NoError(t, err)
-
-	err = p.pathManager.APIForwardRemove("dynstream", forward.ID)
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		_, err = p.pathManager.APIPathsGet("dynstream")
-		return errors.Is(err, conf.ErrPathNotFound)
-	}, 2*time.Second, 100*time.Millisecond)
 }
 
 func TestPathManagerDynamicPathDescribeAndPublish(t *testing.T) {

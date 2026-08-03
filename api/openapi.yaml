@@ -150,12 +150,6 @@ components:
         - rtsps
         - srt
 
-    ForwardSource:
-      type: string
-      enum:
-        - config
-        - api
-
     ForwardState:
       type: string
       enum:
@@ -1434,18 +1428,13 @@ components:
         outboundBytes:
           type: integer
           format: uint64
+        pos:
+          type: integer
+          format: int64
         protocol:
           $ref: "#/components/schemas/ForwardProtocol"
-        source:
-          $ref: "#/components/schemas/ForwardSource"
         state:
           $ref: "#/components/schemas/ForwardState"
-
-    ForwardAdd:
-      type: object
-      properties:
-        dest:
-          type: string
 
     ForwardList:
       type: object
@@ -2746,15 +2735,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/forward/list/{name}:
+  /v3/paths/forward/list:
     get:
       operationId: pathsForwardList
       tags: [Paths]
       summary: returns all forward destinations of a path.
       description: ""
       parameters:
-        - name: name
-          in: path
+        - name: path
+          in: query
           required: true
           description: name of the path.
           schema:
@@ -2797,7 +2786,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/forward/get/{id}/{name}:
+  /v3/paths/forward/get:
     get:
       operationId: pathsForwardGet
       tags: [Paths]
@@ -2805,14 +2794,14 @@ paths:
       description: ""
       parameters:
         - name: id
-          in: path
+          in: query
           required: true
           description: ID of the forward destination.
           schema:
             type: string
             format: uuid
-        - name: name
-          in: path
+        - name: path
+          in: query
           required: true
           description: name of the path.
           schema:
@@ -2824,97 +2813,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Forward"
-        "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: path or forward destination not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v3/paths/forward/add/{name}:
-    post:
-      operationId: pathsForwardAdd
-      tags: [Paths]
-      summary: adds a forward destination to a path.
-      description: ""
-      parameters:
-        - name: name
-          in: path
-          required: true
-          description: name of the path.
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ForwardAdd"
-      responses:
-        "200":
-          description: the request was successful.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Forward"
-        "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: path not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v3/paths/forward/remove/{id}/{name}:
-    delete:
-      operationId: pathsForwardRemove
-      tags: [Paths]
-      summary: removes a forward destination from a path.
-      description: ""
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ID of the forward destination.
-          schema:
-            type: string
-            format: uuid
-        - name: name
-          in: path
-          required: true
-          description: name of the path.
-          schema:
-            type: string
-      responses:
-        "200":
-          description: the request was successful.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OK"
         "400":
           description: invalid request.
           content:

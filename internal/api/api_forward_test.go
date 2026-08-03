@@ -26,7 +26,11 @@ func (*testForwardPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	return &defs.APIPath{}, nil
 }
 
-func (m *testForwardPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
+func (m *testForwardPathManager) APIForwardList(path string) (*defs.APIForwardList, error) {
+	if path != "my/nested/stream" {
+		return nil, conf.ErrPathNotFound
+	}
+
 	items := make([]defs.APIForward, 0, len(m.items))
 	for _, item := range m.items {
 		items = append(items, *item)
@@ -35,7 +39,11 @@ func (m *testForwardPathManager) APIForwardList(string) (*defs.APIForwardList, e
 	return &defs.APIForwardList{Items: items}, nil
 }
 
-func (m *testForwardPathManager) APIForwardGet(_ string, id uuid.UUID) (*defs.APIForward, error) {
+func (m *testForwardPathManager) APIForwardGet(path string, id uuid.UUID) (*defs.APIForward, error) {
+	if path != "my/nested/stream" {
+		return nil, conf.ErrPathNotFound
+	}
+
 	item, ok := m.items[id]
 	if !ok {
 		return nil, forward.ErrDestNotFound
@@ -44,43 +52,16 @@ func (m *testForwardPathManager) APIForwardGet(_ string, id uuid.UUID) (*defs.AP
 	return item, nil
 }
 
-func (m *testForwardPathManager) APIForwardAdd(
-	_ string,
-	req defs.APIForwardAdd,
-) (*defs.APIForward, error) {
-	id := uuid.New()
-	item := &defs.APIForward{
-		ID:       id,
-		Created:  time.Date(2026, 6, 18, 10, 0, 0, 0, time.UTC),
-		Dest:     req.Dest,
-		Protocol: defs.APIForwardProtocolSRT,
-		Source:   defs.APIForwardSourceAPI,
-		State:    defs.APIForwardStateConnecting,
-	}
-	m.items[id] = item
-
-	return item, nil
-}
-
-func (m *testForwardPathManager) APIForwardRemove(_ string, id uuid.UUID) error {
-	if _, ok := m.items[id]; !ok {
-		return forward.ErrDestNotFound
-	}
-
-	delete(m.items, id)
-	return nil
-}
-
 func TestForward(t *testing.T) {
 	id := uuid.New()
 	pathManager := &testForwardPathManager{
 		items: map[uuid.UUID]*defs.APIForward{
 			id: {
 				ID:            id,
+				Pos:           1,
 				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
 				Dest:          "rtmp://localhost/live/stream",
 				Protocol:      defs.APIForwardProtocolRTMP,
-				Source:        defs.APIForwardSourceConfig,
 				State:         defs.APIForwardStateError,
 				LastError:     "connection refused",
 				OutboundBytes: 123,
@@ -106,30 +87,20 @@ func TestForward(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	var list defs.APIForwardList
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/forward/list/mystream", nil, &list)
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:9997/v3/paths/forward/list?path=my%2Fnested%2Fstream", nil, &list)
 	require.Equal(t, 1, list.ItemCount)
 	require.Equal(t, 1, list.PageCount)
 	require.Equal(t, id, list.Items[0].ID)
+	require.Equal(t, 1, list.Items[0].Pos)
 
 	var item defs.APIForward
 	httpRequest(t, hc, http.MethodGet,
-		"http://localhost:9997/v3/paths/forward/get/"+id.String()+"/mystream", nil, &item)
+		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+id.String(), nil, &item)
 	require.Equal(t, "rtmp://localhost/live/stream", item.Dest)
 	require.Equal(t, defs.APIForwardProtocolRTMP, item.Protocol)
 	require.Equal(t, defs.APIForwardStateError, item.State)
 	require.Equal(t, "connection refused", item.LastError)
 	require.Equal(t, uint64(123), item.OutboundBytes)
 	require.Equal(t, uint64(123), item.BytesSent)
-
-	var added defs.APIForward
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/paths/forward/add/mystream",
-		defs.APIForwardAdd{Dest: "srt://localhost:8890?streamid=publish:mystream"}, &added)
-	require.Equal(t, defs.APIForwardSourceAPI, added.Source)
-	require.Equal(t, "srt://localhost:8890?streamid=publish:mystream", added.Dest)
-	require.Equal(t, defs.APIForwardProtocolSRT, added.Protocol)
-
-	httpRequest(t, hc, http.MethodDelete,
-		"http://localhost:9997/v3/paths/forward/remove/"+added.ID.String()+"/mystream", nil, nil)
-	_, ok := pathManager.items[added.ID]
-	require.False(t, ok)
 }

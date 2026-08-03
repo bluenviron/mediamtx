@@ -12,8 +12,6 @@ type APIPathManager interface {
 	APIPathsGet(string) (*APIPath, error)
 	APIForwardList(string) (*APIForwardList, error)
 	APIForwardGet(string, uuid.UUID) (*APIForward, error)
-	APIForwardAdd(string, APIForwardAdd) (*APIForward, error)
-	APIForwardRemove(string, uuid.UUID) error
 }
 
 // APIPathSourceType is the type of a path source.

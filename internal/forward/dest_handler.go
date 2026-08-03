@@ -2,6 +2,7 @@ package forward
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strings"
@@ -42,7 +43,6 @@ func (*destReader) APIReaderDescribe() *defs.APIPathReader {
 // DestHandler manages a forward destination.
 type DestHandler struct {
 	Dest              string
-	Source            defs.APIForwardSource
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
@@ -56,6 +56,7 @@ type DestHandler struct {
 	done      chan struct{}
 
 	uuid    uuid.UUID
+	pos     int
 	created time.Time
 
 	mutex         sync.RWMutex
@@ -66,14 +67,21 @@ type DestHandler struct {
 }
 
 // Initialize initializes DestHandler.
-func (h *DestHandler) Initialize() {
+func (h *DestHandler) Initialize(pos int) {
 	h.ctx, h.ctxCancel = context.WithCancel(context.Background())
 	h.done = make(chan struct{})
 	h.uuid = uuid.New()
+	h.pos = pos
 	h.created = time.Now()
 	h.setState(defs.APIForwardStateConnecting, "")
 
 	go h.run()
+}
+
+func (h *DestHandler) setPos(pos int) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	h.pos = pos
 }
 
 // ID returns the ID.
@@ -94,7 +102,12 @@ func (h *DestHandler) CloseAsync() {
 
 // Log implements logger.Writer.
 func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
-	h.Parent.Log(level, "[dest "+h.uuid.String()+"] "+format, args...)
+	h.mutex.RLock()
+	pos := h.pos
+	h.mutex.RUnlock()
+
+	id := hex.EncodeToString(h.uuid[:4])
+	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{pos, id}, args...)...)
 }
 
 func (h *DestHandler) setState(state defs.APIForwardState, lastError string) {
@@ -147,10 +160,10 @@ func (h *DestHandler) APIItem() defs.APIForward {
 
 	return defs.APIForward{
 		ID:            h.uuid,
+		Pos:           h.pos,
 		Created:       h.created,
 		Dest:          h.Dest,
 		Protocol:      destProtocol(h.Dest),
-		Source:        h.Source,
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,

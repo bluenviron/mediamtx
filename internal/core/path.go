@@ -92,29 +92,6 @@ type pathAPIForwardGetReq struct {
 	res  chan pathAPIForwardGetRes
 }
 
-type pathAPIForwardAddRes struct {
-	path *path
-	data *defs.APIForward
-	err  error
-}
-
-type pathAPIForwardAddReq struct {
-	name string
-	req  defs.APIForwardAdd
-	res  chan pathAPIForwardAddRes
-}
-
-type pathAPIForwardRemoveRes struct {
-	path *path
-	err  error
-}
-
-type pathAPIForwardRemoveReq struct {
-	name string
-	id   uuid.UUID
-	res  chan pathAPIForwardRemoveRes
-}
-
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
@@ -173,8 +150,6 @@ type path struct {
 	chAPIPathsGet             chan pathAPIPathsGetReq
 	chAPIForwardList          chan pathAPIForwardListReq
 	chAPIForwardGet           chan pathAPIForwardGetReq
-	chAPIForwardAdd           chan pathAPIForwardAddReq
-	chAPIForwardRemove        chan pathAPIForwardRemoveReq
 
 	// out
 	done chan struct{}
@@ -203,8 +178,6 @@ func (pa *path) initialize() {
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 	pa.chAPIForwardList = make(chan pathAPIForwardListReq)
 	pa.chAPIForwardGet = make(chan pathAPIForwardGetReq)
-	pa.chAPIForwardAdd = make(chan pathAPIForwardAddReq)
-	pa.chAPIForwardRemove = make(chan pathAPIForwardRemoveReq)
 	pa.done = make(chan struct{})
 
 	pa.Log(logger.Debug, "created")
@@ -422,16 +395,6 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chAPIForwardGet:
 			pa.doAPIForwardGet(req)
-
-		case req := <-pa.chAPIForwardAdd:
-			pa.doAPIForwardAdd(req)
-
-		case req := <-pa.chAPIForwardRemove:
-			pa.doAPIForwardRemove(req)
-
-			if pa.shouldClose() {
-				pa.parent.closePathIfIdle(pa)
-			}
 
 		case <-pa.ctx.Done():
 			return fmt.Errorf("terminated")
@@ -872,21 +835,6 @@ func (pa *path) doAPIForwardGet(req pathAPIForwardGetReq) {
 	}
 }
 
-func (pa *path) doAPIForwardAdd(req pathAPIForwardAddReq) {
-	handler, err := pa.forwardManager.Add(req.req.Dest)
-	if err != nil {
-		req.res <- pathAPIForwardAddRes{err: err}
-		return
-	}
-
-	item := handler.APIItem()
-	req.res <- pathAPIForwardAddRes{data: &item}
-}
-
-func (pa *path) doAPIForwardRemove(req pathAPIForwardRemoveReq) {
-	req.res <- pathAPIForwardRemoveRes{err: pa.forwardManager.Remove(req.id)}
-}
-
 func (pa *path) SafeConf() *conf.Path {
 	pa.confMutex.RLock()
 	defer pa.confMutex.RUnlock()
@@ -915,8 +863,7 @@ func (pa *path) shouldClose() bool {
 		pa.source == nil &&
 		len(pa.readers) == 0 &&
 		len(pa.describeRequestsOnHold) == 0 &&
-		len(pa.readerAddRequestsOnHold) == 0 &&
-		(pa.forwardManager == nil || !pa.forwardManager.HasAPIForwards())
+		len(pa.readerAddRequestsOnHold) == 0
 }
 
 func (pa *path) onDemandStaticSourceStart(query string) {
@@ -1321,29 +1268,5 @@ func (pa *path) APIForwardGet(req pathAPIForwardGetReq) (*defs.APIForward, error
 
 	case <-pa.ctx.Done():
 		return nil, fmt.Errorf("terminated")
-	}
-}
-
-func (pa *path) APIForwardAdd(req pathAPIForwardAddReq) (*defs.APIForward, error) {
-	req.res = make(chan pathAPIForwardAddRes)
-	select {
-	case pa.chAPIForwardAdd <- req:
-		res := <-req.res
-		return res.data, res.err
-
-	case <-pa.ctx.Done():
-		return nil, fmt.Errorf("terminated")
-	}
-}
-
-func (pa *path) APIForwardRemove(req pathAPIForwardRemoveReq) error {
-	req.res = make(chan pathAPIForwardRemoveRes)
-	select {
-	case pa.chAPIForwardRemove <- req:
-		res := <-req.res
-		return res.err
-
-	case <-pa.ctx.Done():
-		return fmt.Errorf("terminated")
 	}
 }

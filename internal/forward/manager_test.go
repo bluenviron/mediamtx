@@ -1,8 +1,10 @@
 package forward
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,9 +24,15 @@ func (*testPathManager) AddReader(defs.PathAddReaderReq) (*defs.PathAddReaderRes
 	return nil, fmt.Errorf("no stream is available")
 }
 
-type testLogger struct{}
+type testLogger struct {
+	entries chan string
+}
 
-func (*testLogger) Log(logger.Level, string, ...any) {}
+func (l *testLogger) Log(_ logger.Level, format string, args ...any) {
+	if l.entries != nil {
+		l.entries <- fmt.Sprintf(format, args...)
+	}
+}
 
 type testBlockingPath struct {
 	removeReaderStarted chan struct{}
@@ -74,44 +82,77 @@ func (m *testBlockingPathManager) AddReader(defs.PathAddReaderReq) (*defs.PathAd
 }
 
 func TestManager(t *testing.T) {
+	logEntries := make(chan string, 32)
 	m := &Manager{
 		PathName:    "test",
 		PathManager: &testPathManager{},
-		Parent:      &testLogger{},
+		Parent:      &testLogger{entries: logEntries},
 	}
-	m.Initialize(conf.Forwards{{Dest: "rtmp://localhost/app/stream"}})
+	m.Initialize(conf.Forwards{
+		{Dest: "rtmp://localhost/app/stream"},
+		{Dest: "rtsp://localhost:8554/stream"},
+	})
 	defer m.Close()
 
 	list := m.List()
-	require.Len(t, list.Items, 1)
-	require.Equal(t, defs.APIForwardSourceConfig, list.Items[0].Source)
+	require.Len(t, list.Items, 2)
+	require.Equal(t, "rtmp://localhost/app/stream", list.Items[0].Dest)
+	require.Equal(t, 1, list.Items[0].Pos)
+	require.Equal(t, "rtsp://localhost:8554/stream", list.Items[1].Dest)
+	require.Equal(t, 2, list.Items[1].Pos)
+	rtmpID := list.Items[0].ID
+	rtspID := list.Items[1].ID
 
-	_, err := m.Add("rtmp://localhost/app/stream")
-	require.ErrorIs(t, err, ErrDestAlreadyExists)
+	m.destHandlers[0].Log(logger.Info, "marker")
+	expectedLog := "[forward] [dest 1 " + hex.EncodeToString(rtmpID[:4]) + "] marker"
+	require.Eventually(t, func() bool {
+		select {
+		case entry := <-logEntries:
+			return strings.Contains(entry, expectedLog)
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
 
-	added, err := m.Add("rtsp://localhost:8554/stream")
-	require.NoError(t, err)
-	require.Equal(t, defs.APIForwardSourceAPI, added.APIItem().Source)
-
-	m.ReloadConf(conf.Forwards{{Dest: "rtsp://localhost:8554/stream"}})
+	m.ReloadConf(conf.Forwards{
+		{Dest: "rtsp://localhost:8554/stream"},
+		{Dest: "srt://localhost:8890?streamid=publish:test"},
+		{Dest: "rtmp://localhost/app/stream"},
+	})
 	list = m.List()
-	require.Len(t, list.Items, 1)
-	require.Equal(t, "rtsp://localhost:8554/stream", list.Items[0].Dest)
-	require.Equal(t, defs.APIForwardSourceConfig, list.Items[0].Source)
+	require.Len(t, list.Items, 3)
+	require.Equal(t, rtspID, list.Items[0].ID)
+	require.Equal(t, 1, list.Items[0].Pos)
+	require.Equal(t, "srt://localhost:8890?streamid=publish:test", list.Items[1].Dest)
+	require.Equal(t, 2, list.Items[1].Pos)
+	require.Equal(t, rtmpID, list.Items[2].ID)
+	require.Equal(t, 3, list.Items[2].Pos)
+	m.destHandlers[2].Log(logger.Info, "marker after reload")
+	expectedLog = "[forward] [dest 3 " + hex.EncodeToString(rtmpID[:4]) + "] marker after reload"
+	require.Eventually(t, func() bool {
+		select {
+		case entry := <-logEntries:
+			return strings.Contains(entry, expectedLog)
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+
+	item, err := m.Get(rtmpID)
+	require.NoError(t, err)
+	require.Equal(t, 3, item.Pos)
 
 	_, err = m.Get(uuid.New())
 	require.ErrorIs(t, err, ErrDestNotFound)
-
-	err = m.Remove(list.Items[0].ID)
-	require.NoError(t, err)
 
 	m.ReloadConf(conf.Forwards{{Dest: "srt://localhost:8890?streamid=publish:test"}})
 	list = m.List()
 	require.Len(t, list.Items, 1)
 	require.Equal(t, "srt://localhost:8890?streamid=publish:test", list.Items[0].Dest)
+	require.Equal(t, 1, list.Items[0].Pos)
 }
 
-func TestManagerRemoveDoesNotWaitForDestShutdown(t *testing.T) {
+func TestManagerReloadDoesNotWaitForDestShutdown(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
@@ -140,10 +181,8 @@ func TestManagerRemoveDoesNotWaitForDestShutdown(t *testing.T) {
 		PathManager: pathManager,
 		Parent:      &testLogger{},
 	}
-	m.Initialize(nil)
-
-	dest, err := m.Add("rtmp://" + ln.Addr().String() + "/dest")
-	require.NoError(t, err)
+	m.Initialize(conf.Forwards{{Dest: "rtmp://" + ln.Addr().String() + "/dest"}})
+	dest := m.destHandlers[0]
 
 	select {
 	case <-pathManager.added:
@@ -159,16 +198,16 @@ func TestManagerRemoveDoesNotWaitForDestShutdown(t *testing.T) {
 		t.Fatal("dest did not connect")
 	}
 
-	removeDone := make(chan error, 1)
+	reloadDone := make(chan struct{})
 	go func() {
-		removeDone <- m.Remove(dest.ID())
+		m.ReloadConf(nil)
+		close(reloadDone)
 	}()
 
 	select {
-	case err = <-removeDone:
-		require.NoError(t, err)
+	case <-reloadDone:
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Remove() is waiting for dest shutdown")
+		t.Fatal("ReloadConf() is waiting for dest shutdown")
 	}
 
 	select {

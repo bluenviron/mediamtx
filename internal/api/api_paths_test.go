@@ -42,14 +42,6 @@ func (*testPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, erro
 	return nil, conf.ErrPathNotFound
 }
 
-func (*testPathManager) APIForwardAdd(string, defs.APIForwardAdd) (*defs.APIForward, error) {
-	return nil, conf.ErrPathNotFound
-}
-
-func (*testPathManager) APIForwardRemove(string, uuid.UUID) error {
-	return conf.ErrPathNotFound
-}
-
 func TestPathsList(t *testing.T) {
 	now := time.Now()
 	pathManager := &testPathManager{
