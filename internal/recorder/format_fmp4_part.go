@@ -56,6 +56,16 @@ func (p *formatFMP4Part) close(w io.Writer) error {
 	return writePart(w, p.number, p.partTracks)
 }
 
+// full reports whether adding this sample would take the part over its size
+// limit.
+//
+// Asked before writing rather than discovered during it, so a caller that has a
+// choice about where to end the part can act on it. write() still refuses an
+// oversized sample, which is what happens when there is no choice.
+func (p *formatFMP4Part) full(sample *formatFMP4Sample) bool {
+	return (p.size + uint64(len(sample.Payload))) > uint64(p.maxPartSize)
+}
+
 func (p *formatFMP4Part) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
 	size := uint64(len(sample.Payload))
 	if (p.size + size) > uint64(p.maxPartSize) {

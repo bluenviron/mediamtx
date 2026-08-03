@@ -403,6 +403,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 			newConf.RecordPath != oldConf.RecordPath ||
 			newConf.RecordFormat != oldConf.RecordFormat ||
 			newConf.RecordPartDuration != oldConf.RecordPartDuration ||
+			newConf.RecordPartAlignToKeyframe != oldConf.RecordPartAlignToKeyframe ||
 			newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
 			newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
 			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
@@ -943,13 +944,14 @@ func (pa *path) setNotAvailable() {
 
 func (pa *path) startRecording() {
 	pa.recorder = &recorder.Recorder{
-		PathFormat:      pa.conf.RecordPath,
-		Format:          pa.conf.RecordFormat,
-		PartDuration:    time.Duration(pa.conf.RecordPartDuration),
-		MaxPartSize:     pa.conf.RecordMaxPartSize,
-		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
-		PathName:        pa.name,
-		Stream:          pa.stream,
+		PathFormat:          pa.conf.RecordPath,
+		Format:              pa.conf.RecordFormat,
+		PartDuration:        time.Duration(pa.conf.RecordPartDuration),
+		PartAlignToKeyframe: pa.conf.RecordPartAlignToKeyframe,
+		MaxPartSize:         pa.conf.RecordMaxPartSize,
+		SegmentDuration:     time.Duration(pa.conf.RecordSegmentDuration),
+		PathName:            pa.name,
+		Stream:              pa.stream,
 		OnSegmentCreate: func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentCreate != "" {
 				env := pa.ExternalCmdEnv()
