@@ -149,6 +149,12 @@ authJWTAudience:
 # Enable the control API server, which allows to control the server.
 api: false
 # Address of the TCP/HTTP listener.
+# Address format: [host]:port
+#   :port          all interfaces, dual-stack on Linux (bindv6only=0 default), IPv4 fallback otherwise
+#   0.0.0.0:port   all IPv4 interfaces only
+#   [::]:port      all IPv6 interfaces, dual-stack when bindv6only=0
+#   192.0.2.1:port specific IPv4 interface
+#   [::1]:port     IPv6 loopback only
 apiAddress: :9997
 # Enable HTTPS.
 apiEncryption: false
