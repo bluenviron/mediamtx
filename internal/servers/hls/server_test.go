@@ -538,17 +538,17 @@ func TestServerDirectory(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSafeSubDirectory(t *testing.T) {
+func TestAbsolutePathInside(t *testing.T) {
 	base := t.TempDir()
 
-	path, err := safeSubDirectory(base, "group/cam1")
+	path, err := absolutePathInside(base, filepath.Join(base, "group", "cam1"))
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(base, "group", "cam1"), path)
 
-	_, err = safeSubDirectory(base, "../cam1")
+	_, err = absolutePathInside(base, filepath.Join(base, "..", "cam1"))
 	require.Error(t, err)
 
-	_, err = safeSubDirectory(base, "group/../../cam1")
+	_, err = absolutePathInside(base, filepath.Join(base, "group", "..", "..", "cam1"))
 	require.Error(t, err)
 }
 

@@ -28,13 +28,13 @@ const (
 
 // this prevents directory traversal.
 // functionally it's useless since there's already conf.IsValidPathName, but it's needed by CodeQL.
-func safeSubDirectory(base string, pathName string) (string, error) {
+func absolutePathInside(base string, candidate string) (string, error) {
 	baseAbs, err := filepath.Abs(filepath.Clean(base))
 	if err != nil {
 		return "", err
 	}
 
-	candidateAbs, err := filepath.Abs(filepath.Join(baseAbs, pathName))
+	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +78,7 @@ func (mi *muxerInstance) initialize() error {
 
 	if mi.directory != "" {
 		var err error
-		muxerDirectory, err = safeSubDirectory(mi.directory, mi.pathName)
+		muxerDirectory, err = absolutePathInside(mi.directory, filepath.Join(mi.directory, mi.pathName))
 		if err != nil {
 			return err
 		}
