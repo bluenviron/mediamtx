@@ -9,7 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
-	gosrt "github.com/datarhei/gosrt"
+	srtlib "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestDest(t *testing.T) {
-	ln, err := gosrt.Listen("srt", "127.0.0.1:0", gosrt.DefaultConfig())
+	ln, err := srtlib.Listen("srt", "127.0.0.1:0", srtlib.DefaultConfig())
 	require.NoError(t, err)
 	defer ln.Close()
 
