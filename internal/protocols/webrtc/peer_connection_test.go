@@ -869,11 +869,13 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	_, err = pc1.CreateDataChannel("", nil)
 	require.NoError(t, err)
 
-	dataChanCreated := make(chan struct{})
+	dataChanOpened := make(chan struct{})
 	dataReceived := make(chan struct{})
 
 	pc1.OnDataChannel(func(dc *webrtc.DataChannel) {
-		close(dataChanCreated)
+		dc.OnOpen(func() {
+			close(dataChanOpened)
+		})
 
 		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 			require.Equal(t, []byte("test data"), msg.Data)
@@ -902,6 +904,12 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
+	outboundDataChanOpened := make(chan struct{})
+
+	pc2.OutboundDataChannels[0].dataChan.OnOpen(func() {
+		close(outboundDataChanOpened)
+	})
+
 	answer, err := pc2.CreateFullAnswer(&offer, false)
 	require.NoError(t, err)
 
@@ -911,9 +919,11 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	err = pc2.WaitUntilConnected(10 * time.Second)
 	require.NoError(t, err)
 
-	<-dataChanCreated
+	<-outboundDataChanOpened
+	<-dataChanOpened
 
-	pc2.OutboundDataChannels[0].Write([]byte("test data"))
+	err = pc2.OutboundDataChannels[0].dataChan.Send([]byte("test data"))
+	require.NoError(t, err)
 
 	<-dataReceived
 }
