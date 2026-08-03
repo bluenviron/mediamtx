@@ -16,22 +16,22 @@ import (
 
 // this prevents directory traversal.
 // functionally it's useless since there's already conf.IsValidPathName, but it's needed by CodeQL.
-func isSubdirectoryOf(base string, path string) error {
+func absolutePathInside(base string, candidate string) (string, error) {
 	baseAbs, err := filepath.Abs(filepath.Clean(base))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	candidateAbs, err := filepath.Abs(filepath.Join(baseAbs, path))
+	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if !strings.HasPrefix(candidateAbs, baseAbs) {
-		return fmt.Errorf("path escapes base directory")
+		return "", fmt.Errorf("path escapes base directory")
 	}
 
-	return nil
+	return candidateAbs, nil
 }
 
 func recordingsOfPath(
@@ -128,7 +128,7 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		pathConf.RecordFormat,
 	)
 
-	err = isSubdirectoryOf(commonPath, pathFormat)
+	pathFormat, err = absolutePathInside(commonPath, pathFormat)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -138,7 +138,7 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		Start: start,
 	}.Encode(pathFormat)
 
-	err = isSubdirectoryOf(pathFormat, segmentPath)
+	segmentPath, err = absolutePathInside(commonPath, segmentPath)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
