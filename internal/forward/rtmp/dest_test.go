@@ -170,20 +170,3 @@ func TestFourCCList(t *testing.T) {
 		Formats: []format.Format{&format.H265{}},
 	}}}))
 }
-
-func TestURLWithDefaultPort(t *testing.T) {
-	for _, ca := range []struct {
-		rawURL string
-		host   string
-	}{
-		{"rtmp://example.com/live/stream", "example.com:1935"},
-		{"rtmps://example.com/live/stream", "example.com:443"},
-		{"rtmp://example.com:1937/live/stream", "example.com:1937"},
-	} {
-		t.Run(ca.rawURL, func(t *testing.T) {
-			u, err := url.Parse(ca.rawURL)
-			require.NoError(t, err)
-			require.Equal(t, ca.host, urlWithDefaultPort(u).Host)
-		})
-	}
-}

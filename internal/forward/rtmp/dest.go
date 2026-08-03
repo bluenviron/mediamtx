@@ -4,7 +4,6 @@ package rtmp
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -64,20 +63,6 @@ func fourCCList(desc *description.Session) amf0.StrictArray {
 	}
 }
 
-func urlWithDefaultPort(u *url.URL) *url.URL {
-	if u.Port() != "" {
-		return u
-	}
-
-	du := *u
-	if u.Scheme == "rtmp" {
-		du.Host = net.JoinHostPort(u.Hostname(), "1935")
-	} else {
-		du.Host = net.JoinHostPort(u.Hostname(), "443")
-	}
-	return &du
-}
-
 // Dest is a RTMP forward destination.
 type Dest struct {
 	URL          *url.URL
@@ -107,7 +92,7 @@ func (d *Dest) OutboundBytes() uint64 {
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 	conn := &gortmplib.Client{
-		URL:     urlWithDefaultPort(d.URL),
+		URL:     d.URL,
 		Publish: true,
 	}
 
