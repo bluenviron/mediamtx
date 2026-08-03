@@ -536,6 +536,25 @@ pathDefaults:
   alwaysAvailableFile: ""
 
   ###############################################
+  # Default path settings -> Fallback source
+
+  # URL of a fallback source (RTSP, RTMP, SRT, or any other supported pull
+  # protocol) that is streamed to readers when no live publisher is connected.
+  # Readers stay connected across the switch - no reconnect required.
+  # Can only be used when source is "publisher".
+  # The fallback source and the live publisher must use the same codec and
+  # resolution; no transcoding is performed. Switches are aligned to the
+  # next keyframe to avoid mid-GOP glitches.
+  fallbackSource: ""
+  # Controls how the fallback connection is managed:
+  #   preconnect (default): the fallback source is connected at all times.
+  #     When the primary publisher drops, the switch is instant (already flowing).
+  #   ondemand: the fallback source is connected only while no publisher is present.
+  #     Uses less upstream bandwidth at the cost of a connect-time gap on switch.
+  fallbackSourceMode: preconnect
+
+
+  ###############################################
   # Default path settings -> Record
 
   # Record streams to disk.
