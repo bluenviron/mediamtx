@@ -39,7 +39,7 @@ The server will return a list of timespans in JSON format:
 The server provides an endpoint to download recordings:
 
 ```
-http://localhost:9996/get?path=[mypath]&start=[start]&duration=[duration]&format=[format]
+http://localhost:9996/get?path=[mypath]&start=[start]&duration=[duration]&format=[format]&origin=[origin]
 ```
 
 Where:
@@ -48,6 +48,7 @@ Where:
 - [start] is the start date in [RFC3339 format](https://www.utctime.net/)
 - [duration] is the maximum duration of the recording in seconds
 - [format] (optional) is the output format of the stream. Available values are "fmp4" (default) and "mp4"
+- [origin] (optional) is the date the output timeline is numbered from, in [RFC3339 format](https://www.utctime.net/). It must not be after [start]. By default each response is numbered from zero, which is what a player expects of a standalone file; set it when serving several consecutive requests as segments of one stream, so that they follow one another instead of overlapping. It shifts the timeline only: which samples are returned still follows [start]. Applies to the "fmp4" format.
 
 All parameters must be [url-encoded](https://www.urlencoder.org/). For instance:
 
