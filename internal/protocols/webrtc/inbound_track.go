@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"crypto/rand"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver"
@@ -17,15 +18,6 @@ const (
 	mimeTypeMultiopus = "audio/multiopus"
 	mimeTypeL16       = "audio/L16"
 )
-
-func inboundTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
-	for _, ext := range params.HeaderExtensions {
-		if ext.URI == twccExtensionURI {
-			return uint8(ext.ID)
-		}
-	}
-	return 0
-}
 
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
@@ -243,6 +235,24 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 }
 
+func inboundTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
+	for _, ext := range params.HeaderExtensions {
+		if ext.URI == twccExtensionURI {
+			return uint8(ext.ID)
+		}
+	}
+	return 0
+}
+
+func randUint16() (uint16, error) {
+	var b [2]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return uint16(b[0])<<8 | uint16(b[1]), nil
+}
+
 // InboundTrack is an incoming track.
 type InboundTrack struct {
 	OnPacketRTP func(*rtp.Packet)
@@ -370,6 +380,12 @@ func (t *InboundTrack) start() {
 	}
 
 	// read incoming RTP packets.
+
+	seqNumber, err := randUint16()
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		for {
 			pkt, _, err2 := t.track.ReadRTP()
@@ -389,6 +405,12 @@ func (t *InboundTrack) start() {
 				if len(pkt.Payload) == 0 {
 					continue
 				}
+
+				// recompute SequenceNumber, in order to:
+				// - prevent downstream packet loss detectors from being triggered by packet losses handled here
+				// - account for the Chrome filtering above.
+				pkt.SequenceNumber = seqNumber
+				seqNumber++
 
 				t.stripTWCCExtension(pkt)
 				t.OnPacketRTP(pkt)
