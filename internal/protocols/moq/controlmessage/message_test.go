@@ -1,9 +1,10 @@
-package controlmessage
+package controlmessage_test
 
 import (
 	"bytes"
 	"testing"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 var cases = []struct {
 	name string
 	enc  []byte
-	dec  Message
+	dec  controlmessage.Message
 }{
 	{
 		name: "setup",
@@ -19,7 +20,37 @@ var cases = []struct {
 			0xAF, 0x00, // type 0x2F00 (2-byte varint)
 			0x00, 0x00, // length = 0
 		},
-		dec: &Setup{},
+		dec: &controlmessage.Setup{},
+	},
+	{
+		name: "setup with path",
+		enc: []byte{
+			0xAF, 0x00, // type 0x2F00 (2-byte varint)
+			0x00, 0x06, // length = 6
+			0x01,                   // delta type = PATH (0x01)
+			0x04,                   // option len
+			0x2F, 0x66, 0x6F, 0x6F, // "/foo"
+		},
+		dec: &controlmessage.Setup{
+			Path: "/foo",
+		},
+	},
+	{
+		name: "setup with path and authority",
+		enc: []byte{
+			0xAF, 0x00, // type 0x2F00 (2-byte varint)
+			0x00, 0x11, // length = 17
+			0x01,                   // delta type = PATH (0x01 - 0 = 0x01)
+			0x04,                   // option len
+			0x2F, 0x66, 0x6F, 0x6F, // "/foo"
+			0x04,                                                 // delta type = AUTHORITY (0x05 - 0x01 = 0x04)
+			0x09,                                                 // option len
+			0x6C, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x74, // "localhost"
+		},
+		dec: &controlmessage.Setup{
+			Path:      "/foo",
+			Authority: "localhost",
+		},
 	},
 	{
 		name: "subscribe",
@@ -32,7 +63,7 @@ var cases = []struct {
 			0x03, 0x62, 0x61, 0x72, // track name = "bar"
 			0x00, // parameters count = 0
 		},
-		dec: &Subscribe{
+		dec: &controlmessage.Subscribe{
 			RequestID: 1,
 			Namespace: []string{"foo"},
 			TrackName: "bar",
@@ -54,7 +85,7 @@ var cases = []struct {
 			0x01,                               // token type = 1
 			0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // token value = "secret"
 		},
-		dec: &Subscribe{
+		dec: &controlmessage.Subscribe{
 			RequestID: 1,
 			Namespace: []string{"foo"},
 			TrackName: "bar",
@@ -75,7 +106,7 @@ var cases = []struct {
 			0x01, // TrackAlias = 1
 			0x00, // Number of Parameters = 0
 		},
-		dec: &SubscribeOk{
+		dec: &controlmessage.SubscribeOk{
 			TrackAlias: 1,
 		},
 	},
@@ -88,7 +119,7 @@ var cases = []struct {
 			0x00,                   // retryInterval = 0 (ignored)
 			0x03, 0x66, 0x6F, 0x6F, // Reason = "foo"
 		},
-		dec: &RequestError{
+		dec: &controlmessage.RequestError{
 			Code:   1,
 			Reason: "foo",
 		},
@@ -100,7 +131,7 @@ var cases = []struct {
 			0x00, 0x01, // length = 1
 			0x00, // Number of Parameters = 0
 		},
-		dec: &RequestOk{},
+		dec: &controlmessage.RequestOk{},
 	},
 	{
 		name: "publish",
@@ -114,7 +145,7 @@ var cases = []struct {
 			0x02, // TrackAlias = 2
 			0x00, // parameters count = 0
 		},
-		dec: &Publish{
+		dec: &controlmessage.Publish{
 			RequestID:  1,
 			Namespace:  []string{"foo"},
 			TrackName:  "bar",
@@ -138,7 +169,7 @@ var cases = []struct {
 			0x01,                               // token type = 1
 			0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // token value = "secret"
 		},
-		dec: &Publish{
+		dec: &controlmessage.Publish{
 			RequestID:  1,
 			Namespace:  []string{"foo"},
 			TrackName:  "bar",
@@ -157,7 +188,7 @@ var cases = []struct {
 func TestUnmarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			m, err := Read(bytes.NewReader(ca.enc))
+			m, err := controlmessage.Read(bytes.NewReader(ca.enc))
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, m)
 		})
@@ -179,7 +210,7 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, buf []byte) {
-		m, err := Read(bytes.NewReader(buf))
+		m, err := controlmessage.Read(bytes.NewReader(buf))
 		if err != nil {
 			return
 		}

@@ -1,9 +1,10 @@
-package reorderer
+package reorderer_test
 
 import (
 	"testing"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func makeSG(groupID uint64) *subgroup.SubGroup {
 }
 
 func TestReordererFirstPush(t *testing.T) {
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -29,7 +30,7 @@ func TestReordererFirstPush(t *testing.T) {
 }
 
 func TestReordererInOrder(t *testing.T) {
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -49,7 +50,7 @@ func TestReordererInOrder(t *testing.T) {
 }
 
 func TestReordererStale(t *testing.T) {
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg5 := makeSG(5)
@@ -69,7 +70,7 @@ func TestReordererStale(t *testing.T) {
 }
 
 func TestReordererOutOfOrderPending(t *testing.T) {
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -84,7 +85,7 @@ func TestReordererOutOfOrderPending(t *testing.T) {
 }
 
 func TestReordererOutOfOrderFilled(t *testing.T) {
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -107,7 +108,7 @@ func TestReordererOutOfOrderFilled(t *testing.T) {
 }
 
 func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
-	r := &Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -134,7 +135,7 @@ func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
 }
 
 func TestReordererMaxReordered(t *testing.T) { //nolint:dupl
-	r := &Reorderer{MaxReordered: 2, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 2, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)

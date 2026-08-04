@@ -1,8 +1,9 @@
-package parameter
+package parameter_test
 
 import (
 	"testing"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/stretchr/testify/require"
 )
 
@@ -10,7 +11,7 @@ var cases = []struct {
 	name  string
 	count int
 	enc   []byte
-	dec   Parameters
+	dec   parameter.Parameters
 }{
 	{
 		name:  "no parameters",
@@ -28,9 +29,9 @@ var cases = []struct {
 			0x01,                               // token type = 1
 			0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // token value = "secret"
 		},
-		dec: Parameters{
-			&AuthorizationToken{
-				AliasType:  AuthorizationTokenAliasTypeUseValue,
+		dec: parameter.Parameters{
+			&parameter.AuthorizationToken{
+				AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
 				TokenType:  1,
 				TokenValue: []byte("secret"),
 			},
@@ -41,7 +42,7 @@ var cases = []struct {
 func TestUnmarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			var params Parameters
+			var params parameter.Parameters
 			_, err := params.Unmarshal(ca.count, ca.enc)
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, params)
@@ -65,7 +66,7 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, count int, buf []byte) {
-		var params Parameters
+		var params parameter.Parameters
 		_, err := params.Unmarshal(count, buf)
 		if err != nil {
 			return

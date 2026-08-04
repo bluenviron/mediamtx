@@ -447,6 +447,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+        moqQUICAddress:
+          type: string
         moqServerCert:
           type: string
         moqServerKey:
@@ -825,6 +827,8 @@ components:
           type: string
         state:
           $ref: "#/components/schemas/MoQSessionState"
+        transport:
+          type: string
         userAgent:
           type: string
         version:

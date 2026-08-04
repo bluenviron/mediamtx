@@ -8,7 +8,7 @@ import (
 )
 
 // Header is the SUBGROUP_HEADER structure.
-// spec: draft-18, section 11.4.2
+// spec: draft-18/19, section 11.4.2
 type Header struct {
 	Properties  bool
 	FirstObject bool

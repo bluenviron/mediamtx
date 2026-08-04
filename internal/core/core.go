@@ -706,6 +706,7 @@ func (p *Core) createResources(initial bool) error {
 		i := &moq.Server{
 			HTTP2Address:      p.conf.MoQHTTP2Address,
 			HTTP3Address:      p.conf.MoQHTTP3Address,
+			QUICAddress:       p.conf.MoQQUICAddress,
 			ServerKey:         p.conf.MoQServerKey,
 			ServerCert:        p.conf.MoQServerCert,
 			AllowOrigins:      p.conf.MoQAllowOrigins,
@@ -1013,6 +1014,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.MoQ != p.conf.MoQ ||
 		newConf.MoQHTTP2Address != p.conf.MoQHTTP2Address ||
 		newConf.MoQHTTP3Address != p.conf.MoQHTTP3Address ||
+		newConf.MoQQUICAddress != p.conf.MoQQUICAddress ||
 		newConf.MoQServerKey != p.conf.MoQServerKey ||
 		newConf.MoQServerCert != p.conf.MoQServerCert ||
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||

@@ -8,7 +8,7 @@ import (
 )
 
 // Parameter is a parameter of a control message.
-// spec: draft-18, section 10.2
+// spec: draft-18/19, section 10.2
 type Parameter interface {
 	isParameter()
 	paramType() uint64

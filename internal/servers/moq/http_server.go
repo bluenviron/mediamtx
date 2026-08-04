@@ -350,7 +350,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
 		version:   version,
-		wt:        wt,
+		conn:      &connWebTransport{session: wt},
 	})
 	if res.err != nil {
 		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck
