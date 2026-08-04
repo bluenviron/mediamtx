@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -102,11 +101,25 @@ func (h *DestHandler) outboundBytesLocked() uint64 {
 }
 
 func destProtocol(dest string) defs.APIForwardDestProtocol {
-	u, err := url.Parse(dest)
-	if err != nil {
-		return ""
+	switch {
+	case strings.HasPrefix(dest, "rtmp://"):
+		return defs.APIForwardDestProtocolRTMP
+
+	case strings.HasPrefix(dest, "rtmps://"):
+		return defs.APIForwardDestProtocolRTMPS
+
+	case strings.HasPrefix(dest, "rtsp://"):
+		return defs.APIForwardDestProtocolRTSP
+
+	case strings.HasPrefix(dest, "rtsps://"):
+		return defs.APIForwardDestProtocolRTSPS
+
+	case strings.HasPrefix(dest, "srt://"):
+		return defs.APIForwardDestProtocolSRT
+
+	default:
+		panic("should not happen")
 	}
-	return defs.APIForwardDestProtocol(u.Scheme)
 }
 
 func (h *DestHandler) run(strm *stream.Stream) {
@@ -148,23 +161,19 @@ func (h *DestHandler) run(strm *stream.Stream) {
 
 func (h *DestHandler) runOnce(strm *stream.Stream) error {
 	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches)
-	u, err := url.Parse(resolvedDest)
-	if err != nil {
-		return err
-	}
 
 	var dest Dest
 
-	switch u.Scheme {
-	case "rtmp", "rtmps":
+	switch destProtocol(resolvedDest) {
+	case defs.APIForwardDestProtocolRTMP, defs.APIForwardDestProtocolRTMPS:
 		dest = &forwardrtmp.Dest{
 			Stream:       strm,
-			URL:          u,
+			Dest:         resolvedDest,
 			WriteTimeout: h.WriteTimeout,
 			Parent:       h,
 		}
 
-	case "rtsp", "rtsps":
+	case defs.APIForwardDestProtocolRTSP, defs.APIForwardDestProtocolRTSPS:
 		dest = &forwardrtsp.Dest{
 			Stream:       strm,
 			Dest:         resolvedDest,
@@ -173,7 +182,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Parent:       h,
 		}
 
-	case "srt":
+	case defs.APIForwardDestProtocolSRT:
 		dest = &forwardsrt.Dest{
 			Stream:            strm,
 			Dest:              resolvedDest,
@@ -183,7 +192,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 		}
 
 	default:
-		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		panic("should not happen")
 	}
 
 	h.Log(logger.Info, "forwarding to '%s'", resolvedDest)
@@ -207,7 +216,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 	}()
 
 	select {
-	case err = <-errChan:
+	case err := <-errChan:
 		destCtxCancel()
 		return err
 

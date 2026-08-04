@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 	"testing"
 	"time"
 
@@ -101,14 +100,11 @@ func TestDest(t *testing.T) {
 	}
 	require.NoError(t, subStream.Initialize())
 
-	u, err := url.Parse("rtmp://" + ln.Addr().String() + "/stream")
-	require.NoError(t, err)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dest := &rtmp.Dest{
 		Stream:       strm,
-		URL:          u,
+		Dest:         "rtmp://" + ln.Addr().String() + "/stream",
 		WriteTimeout: conf.Duration(10 * time.Second),
 		Parent:       test.NilLogger,
 	}

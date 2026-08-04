@@ -33,7 +33,7 @@ func (p *ForwardDest) Validate() error {
 	case "rtmp", "rtmps", "rtsp", "rtsps", "srt":
 	default:
 		return fmt.Errorf(
-			"unsupported scheme '%s', supported schemes are rtmp, rtmps, rtsp, rtsps and srt",
+			"unsupported scheme '%s', supported ones are rtmp, rtmps, rtsp, rtsps and srt",
 			u.Scheme)
 	}
 
