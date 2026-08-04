@@ -3,6 +3,7 @@ package forward
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -21,6 +22,8 @@ import (
 )
 
 const retryPause = 5 * time.Second
+
+var errTerminated = errors.New("terminated")
 
 func resolveDest(dest string, pathName string, matches []string) string {
 	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
@@ -63,7 +66,7 @@ type DestHandler struct {
 func (h *DestHandler) initialize() {
 	h.uuid = uuid.New()
 	h.created = time.Now()
-	h.setState(defs.APIForwardDestStateConnecting, "")
+	h.state = defs.APIForwardDestStateIdle
 }
 
 func (h *DestHandler) start(strm *stream.Stream) {
@@ -90,31 +93,6 @@ func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{h.Pos, id}, args...)...)
 }
 
-func (h *DestHandler) setState(state defs.APIForwardDestState, lastError string) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	h.state = state
-	h.lastError = lastError
-}
-
-func (h *DestHandler) setActiveDest(dest Dest) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	h.activeDest = dest
-}
-
-func (h *DestHandler) clearActiveDest() {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	if h.activeDest != nil {
-		h.outboundBytes += h.activeDest.OutboundBytes()
-		h.activeDest = nil
-	}
-}
-
 func (h *DestHandler) outboundBytesLocked() uint64 {
 	outboundBytes := h.outboundBytes
 	if h.activeDest != nil {
@@ -134,13 +112,28 @@ func destProtocol(dest string) defs.APIForwardDestProtocol {
 func (h *DestHandler) run(strm *stream.Stream) {
 	defer close(h.done)
 
+	defer func() {
+		h.mutex.Lock()
+		h.state = defs.APIForwardDestStateIdle
+		h.mutex.Unlock()
+	}()
+
 	for {
+		h.mutex.Lock()
+		h.state = defs.APIForwardDestStateForwarding
+		h.lastError = ""
+		h.mutex.Unlock()
+
 		err := h.runOnce(strm)
-		if h.ctx.Err() != nil {
+		if errors.Is(err, errTerminated) {
 			return
 		}
 
-		h.setState(defs.APIForwardDestStateError, err.Error())
+		h.mutex.Lock()
+		h.state = defs.APIForwardDestStateError
+		h.lastError = err.Error()
+		h.mutex.Unlock()
+
 		h.Log(logger.Error, err.Error())
 
 		timer := time.NewTimer(retryPause)
@@ -154,8 +147,6 @@ func (h *DestHandler) run(strm *stream.Stream) {
 }
 
 func (h *DestHandler) runOnce(strm *stream.Stream) error {
-	h.setState(defs.APIForwardDestStateConnecting, "")
-
 	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches)
 	u, err := url.Parse(resolvedDest)
 	if err != nil {
@@ -197,17 +188,34 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	h.Log(logger.Info, "forwarding to '%s'", resolvedDest)
 
-	h.setState(defs.APIForwardDestStateForwarding, "")
+	h.mutex.Lock()
+	h.activeDest = dest
+	h.mutex.Unlock()
 
-	h.setActiveDest(dest)
-	defer h.clearActiveDest()
+	defer func() {
+		h.mutex.Lock()
+		h.outboundBytes += h.activeDest.OutboundBytes()
+		h.activeDest = nil
+		h.mutex.Unlock()
+	}()
 
-	err = dest.Run(h.ctx)
-	if err != nil {
+	destCtx, destCtxCancel := context.WithCancel(context.Background())
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- dest.Run(destCtx)
+	}()
+
+	select {
+	case err = <-errChan:
+		destCtxCancel()
 		return err
-	}
 
-	return fmt.Errorf("terminated")
+	case <-h.ctx.Done():
+		destCtxCancel()
+		<-errChan
+		return errTerminated
+	}
 }
 
 // APIItem returns an API item.

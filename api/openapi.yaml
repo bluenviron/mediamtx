@@ -153,7 +153,7 @@ components:
     ForwardDestState:
       type: string
       enum:
-        - connecting
+        - idle
         - forwarding
         - error
 

@@ -274,7 +274,7 @@ func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
 		var list defs.APIForwardDestList
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
-		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateConnecting {
+		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateIdle {
 			return false
 		}
 		id = list.Items[0].ID
@@ -338,7 +338,7 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 		var list defs.APIForwardDestList
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
-		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateConnecting {
+		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateIdle {
 			return false
 		}
 		id = list.Items[0].ID

@@ -12,7 +12,7 @@ type APIForwardDestState string
 
 // forward states.
 const (
-	APIForwardDestStateConnecting APIForwardDestState = "connecting"
+	APIForwardDestStateIdle       APIForwardDestState = "idle"
 	APIForwardDestStateForwarding APIForwardDestState = "forwarding"
 	APIForwardDestStateError      APIForwardDestState = "error"
 )
