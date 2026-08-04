@@ -1108,7 +1108,7 @@ func TestForwardMetrics(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	res, err := hc.Get("http://localhost:9998/metrics?type=forward")
+	res, err := hc.Get("http://localhost:9998/metrics?type=forward_dests")
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -1118,12 +1118,13 @@ func TestForwardMetrics(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t,
-		"# Forward\n"+
-			"forward{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
+		"# Forward destinations\n"+
+			"forward_dests{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
 			"path=\"mypath\",protocol=\"rtmp\",state=\"forwarding\"} 1\n"+
-			"forward_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
+			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
 			"protocol=\"rtmp\",state=\"forwarding\"} 321\n"+
 			"\n",
+		"\n",
 		string(byts))
 }
 

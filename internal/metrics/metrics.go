@@ -74,7 +74,7 @@ type metricsType string
 
 const (
 	metricsTypePaths          metricsType = "paths"
-	metricsTypeForward        metricsType = "forward"
+	metricsTypeForwardDests   metricsType = "forward_dests"
 	metricsTypeHLSSessions    metricsType = "hls_sessions"
 	metricsTypeHLSMuxers      metricsType = "hls_muxers"
 	metricsTypeRTSPConns      metricsType = "rtsp_conns"
@@ -231,7 +231,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 	typ := metricsType(ctx.Query("type"))
 	pathFilter := ctx.Query("path")
-	forwardFilter := ctx.Query("forward")
+	forwardFilter := ctx.Query("forward_dest")
 	hlsMuxerFilter := ctx.Query("hls_muxer")
 	hlsSessionFilter := ctx.Query("hls_session")
 	rtspConnFilter := ctx.Query("rtsp_conn")
@@ -346,7 +346,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if (typ == "" || typ == metricsTypeForward) &&
+	if (typ == "" || typ == metricsTypeForwardDests) &&
 		(!anyFilterActive || pathFilter != "" || forwardFilter != "") {
 		data, err := pathManager.APIPathsList()
 		if err == nil {
@@ -377,7 +377,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			if len(items) != 0 {
-				out.WriteString("# Forward\n")
+				out.WriteString("# Forward destinations\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
 						"id":       i.item.ID.String(),
@@ -386,14 +386,14 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"state":    string(i.item.State),
 					})
 
-					metric(&out, "forward", ta, 1)
-					metric(&out, "forward_outbound_bytes", ta, int64(i.item.OutboundBytes))
+					metric(&out, "forward_dests", ta, 1)
+					metric(&out, "forward_dests_outbound_bytes", ta, int64(i.item.OutboundBytes))
 				}
 				out.WriteString("\n")
-			} else if typ == metricsTypeForward && pathFilter == "" && forwardFilter == "" {
-				out.WriteString("# Forward\n")
-				metric(&out, "forward", "", 0)
-				metric(&out, "forward_outbound_bytes", "", 0)
+			} else if typ == metricsTypeForwardDests && pathFilter == "" && forwardFilter == "" {
+				out.WriteString("# Forward destinations\n")
+				metric(&out, "forward_dests", "", 0)
+				metric(&out, "forward_dests_outbound_bytes", "", 0)
 				out.WriteString("\n")
 			}
 		}
