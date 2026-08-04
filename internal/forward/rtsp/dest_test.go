@@ -86,6 +86,7 @@ func TestDest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dest := &Dest{
+		Stream:       strm,
 		Dest:         "rtsp://" + ln.Addr().String() + "/stream",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -94,7 +95,7 @@ func TestDest(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- dest.Run(ctx, strm)
+		done <- dest.Run(ctx)
 	}()
 
 	select {

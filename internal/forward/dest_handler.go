@@ -17,71 +17,64 @@ import (
 	forwardrtsp "github.com/bluenviron/mediamtx/internal/forward/rtsp"
 	forwardsrt "github.com/bluenviron/mediamtx/internal/forward/srt"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const retryPause = 5 * time.Second
 
-type destReader struct {
-	cancel context.CancelFunc
-	once   sync.Once
-}
+func resolveDest(dest string, pathName string, matches []string) string {
+	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
+	out = strings.ReplaceAll(out, "$path", pathName)
 
-func (*destReader) Log(_ logger.Level, _ string, _ ...any) {
-}
-
-func (r *destReader) Close() {
-	r.once.Do(r.cancel)
-}
-
-func (*destReader) APIReaderDescribe() *defs.APIPathReader {
-	return &defs.APIPathReader{
-		Type: defs.APIPathReaderTypeHidden,
-		ID:   "",
+	if len(matches) > 1 {
+		for i, ma := range matches[1:] {
+			out = strings.ReplaceAll(out, fmt.Sprintf("$G%d", i+1), ma)
+		}
 	}
+
+	return out
 }
 
 // DestHandler manages a forward destination.
 type DestHandler struct {
+	Pos               int
 	Dest              string
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
-	PathManager       PathManager
 	Parent            logger.Writer
 
 	ctx       context.Context
 	ctxCancel func()
-	done      chan struct{}
 
-	uuid    uuid.UUID
-	pos     int
-	created time.Time
-
+	uuid          uuid.UUID
+	created       time.Time
 	mutex         sync.RWMutex
 	state         defs.APIForwardDestState
 	lastError     string
 	outboundBytes uint64
 	activeDest    Dest
+
+	done chan struct{}
 }
 
-// Initialize initializes DestHandler.
-func (h *DestHandler) Initialize(pos int) {
-	h.ctx, h.ctxCancel = context.WithCancel(context.Background())
-	h.done = make(chan struct{})
+func (h *DestHandler) initialize() {
 	h.uuid = uuid.New()
-	h.pos = pos
 	h.created = time.Now()
 	h.setState(defs.APIForwardDestStateConnecting, "")
-
-	go h.run()
 }
 
-func (h *DestHandler) setPos(pos int) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	h.pos = pos
+func (h *DestHandler) start(strm *stream.Stream) {
+	h.ctx, h.ctxCancel = context.WithCancel(context.Background())
+	h.done = make(chan struct{})
+	go h.run(strm)
+}
+
+func (h *DestHandler) stop() {
+	h.ctxCancel()
+	<-h.done
 }
 
 // ID returns the ID.
@@ -89,25 +82,10 @@ func (h *DestHandler) ID() uuid.UUID {
 	return h.uuid
 }
 
-// Close closes DestHandler.
-func (h *DestHandler) Close() {
-	h.ctxCancel()
-	<-h.done
-}
-
-// CloseAsync closes DestHandler without waiting for its goroutine to return.
-func (h *DestHandler) CloseAsync() {
-	h.ctxCancel()
-}
-
 // Log implements logger.Writer.
 func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
-	h.mutex.RLock()
-	pos := h.pos
-	h.mutex.RUnlock()
-
 	id := hex.EncodeToString(h.uuid[:4])
-	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{pos, id}, args...)...)
+	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{h.Pos, id}, args...)...)
 }
 
 func (h *DestHandler) setState(state defs.APIForwardDestState, lastError string) {
@@ -151,43 +129,11 @@ func destProtocol(dest string) defs.APIForwardDestProtocol {
 	return defs.APIForwardDestProtocol(u.Scheme)
 }
 
-// APIItem returns an API item.
-func (h *DestHandler) APIItem() defs.APIForwardDest {
-	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-
-	outboundBytes := h.outboundBytesLocked()
-
-	return defs.APIForwardDest{
-		ID:            h.uuid,
-		Pos:           h.pos,
-		Created:       h.created,
-		Dest:          h.Dest,
-		Protocol:      destProtocol(h.Dest),
-		State:         h.state,
-		LastError:     h.lastError,
-		OutboundBytes: outboundBytes,
-	}
-}
-
-func resolveDest(dest string, pathName string, matches []string) string {
-	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
-	out = strings.ReplaceAll(out, "$path", pathName)
-
-	if len(matches) > 1 {
-		for i, ma := range matches[1:] {
-			out = strings.ReplaceAll(out, fmt.Sprintf("$G%d", i+1), ma)
-		}
-	}
-
-	return out
-}
-
-func (h *DestHandler) run() {
+func (h *DestHandler) run(strm *stream.Stream) {
 	defer close(h.done)
 
 	for {
-		err := h.runOnce()
+		err := h.runOnce(strm)
 		if h.ctx.Err() != nil {
 			return
 		}
@@ -205,30 +151,8 @@ func (h *DestHandler) run() {
 	}
 }
 
-func (h *DestHandler) runOnce() error {
+func (h *DestHandler) runOnce(strm *stream.Stream) error {
 	h.setState(defs.APIForwardDestStateConnecting, "")
-
-	readerCtx, readerCancel := context.WithCancel(h.ctx)
-	defer readerCancel()
-
-	reader := &destReader{
-		cancel: readerCancel,
-	}
-
-	res, err := h.PathManager.AddReader(defs.PathAddReaderReq{
-		Author: reader,
-		AccessRequest: defs.PathAccessRequest{
-			Name:      h.PathName,
-			SkipAuth:  true,
-			UserAgent: "mediamtx-forward",
-		},
-		Cancel: readerCtx.Done(),
-	})
-	if err != nil {
-		return err
-	}
-
-	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: reader})
 
 	resolvedDest := resolveDest(h.Dest, h.PathName, h.Matches)
 	u, err := url.Parse(resolvedDest)
@@ -241,6 +165,7 @@ func (h *DestHandler) runOnce() error {
 	switch u.Scheme {
 	case "rtmp", "rtmps":
 		dest = &forwardrtmp.Dest{
+			Stream:       strm,
 			URL:          u,
 			WriteTimeout: h.WriteTimeout,
 			Parent:       h,
@@ -248,6 +173,7 @@ func (h *DestHandler) runOnce() error {
 
 	case "rtsp", "rtsps":
 		dest = &forwardrtsp.Dest{
+			Stream:       strm,
 			Dest:         resolvedDest,
 			ReadTimeout:  h.ReadTimeout,
 			WriteTimeout: h.WriteTimeout,
@@ -256,6 +182,7 @@ func (h *DestHandler) runOnce() error {
 
 	case "srt":
 		dest = &forwardsrt.Dest{
+			Stream:            strm,
 			Dest:              resolvedDest,
 			WriteTimeout:      h.WriteTimeout,
 			UDPMaxPayloadSize: h.UDPMaxPayloadSize,
@@ -266,15 +193,36 @@ func (h *DestHandler) runOnce() error {
 		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
 
-	h.setState(defs.APIForwardDestStateForwarding, "")
 	h.Log(logger.Info, "forwarding to '%s'", resolvedDest)
+
+	h.setState(defs.APIForwardDestStateForwarding, "")
+
 	h.setActiveDest(dest)
 	defer h.clearActiveDest()
 
-	err = dest.Run(readerCtx, res.Stream)
+	err = dest.Run(h.ctx)
 	if err != nil {
 		return err
 	}
 
 	return fmt.Errorf("terminated")
+}
+
+// APIItem returns an API item.
+func (h *DestHandler) APIItem() defs.APIForwardDest {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	outboundBytes := h.outboundBytesLocked()
+
+	return defs.APIForwardDest{
+		ID:            h.uuid,
+		Pos:           h.Pos,
+		Created:       h.created,
+		Dest:          h.Dest,
+		Protocol:      destProtocol(h.Dest),
+		State:         h.state,
+		LastError:     h.lastError,
+		OutboundBytes: outboundBytes,
+	}
 }

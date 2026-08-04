@@ -65,6 +65,7 @@ func fourCCList(desc *description.Session) amf0.StrictArray {
 
 // Dest is a RTMP forward destination.
 type Dest struct {
+	Stream       *stream.Stream
 	URL          *url.URL
 	WriteTimeout conf.Duration
 	Parent       logger.Writer
@@ -90,7 +91,7 @@ func (d *Dest) OutboundBytes() uint64 {
 }
 
 // Run runs the destination.
-func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
+func (d *Dest) Run(ctx context.Context) error {
 	conn := &gortmplib.Client{
 		URL:     d.URL,
 		Publish: true,
@@ -107,10 +108,10 @@ func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 	d.mutex.Unlock()
 
 	r := &stream.Reader{Parent: d}
-	outDesc := strm.OutDescCopy()
+	outDesc := d.Stream.OutDescCopy()
 
 	err = rtmpprotocol.FromStream(
-		strm.OrigDesc,
+		d.Stream.OrigDesc,
 		outDesc,
 		r,
 		conn,
@@ -123,8 +124,8 @@ func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 
 	conn.NetConn().SetReadDeadline(time.Time{})
 
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
+	d.Stream.AddReader(r)
+	defer d.Stream.RemoveReader(r)
 
 	select {
 	case readErr := <-r.Error():

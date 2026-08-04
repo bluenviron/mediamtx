@@ -10,15 +10,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // ErrDestNotFound is returned when a forward destination is not found.
 var ErrDestNotFound = errors.New("forward destination not found")
-
-// PathManager is the path manager interface.
-type PathManager interface {
-	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
-}
 
 // ManagerParent is the parent interface.
 type ManagerParent interface {
@@ -33,11 +29,12 @@ type Manager struct {
 	PathName          string
 	Matches           []string
 	Forward           conf.Forward
-	PathManager       PathManager
 	Parent            ManagerParent
 
 	mutex        sync.RWMutex
 	destHandlers []*DestHandler
+	started      bool
+	stream       *stream.Stream
 }
 
 // Initialize initializes Manager.
@@ -45,21 +42,8 @@ func (m *Manager) Initialize() {
 	m.destHandlers = make([]*DestHandler, 0, len(m.Forward))
 
 	for i, dest := range m.Forward {
-		m.destHandlers = append(m.destHandlers, m.addDestLocked(dest.Dest, i+1))
-	}
-}
-
-// Close closes the manager.
-func (m *Manager) Close() {
-	m.mutex.Lock()
-
-	destHandlers := m.destHandlers
-	m.destHandlers = nil
-
-	m.mutex.Unlock()
-
-	for _, handler := range destHandlers {
-		handler.Close()
+		destHandler := m.createDestHandler(dest.Dest, i+1)
+		m.destHandlers = append(m.destHandlers, destHandler)
 	}
 }
 
@@ -68,53 +52,81 @@ func (m *Manager) Log(level logger.Level, format string, args ...any) {
 	m.Parent.Log(level, "[forward] "+format, args...)
 }
 
-func (m *Manager) addDestLocked(dest string, pos int) *DestHandler {
+func (m *Manager) createDestHandler(dest string, pos int) *DestHandler {
 	handler := &DestHandler{
+		Pos:               pos,
 		Dest:              dest,
 		ReadTimeout:       m.ReadTimeout,
 		WriteTimeout:      m.WriteTimeout,
 		UDPMaxPayloadSize: m.UDPMaxPayloadSize,
 		PathName:          m.PathName,
 		Matches:           m.Matches,
-		PathManager:       m.PathManager,
 		Parent:            m,
 	}
-	handler.Initialize(pos)
+	handler.initialize()
 	return handler
 }
 
 // ReloadConf reloads statically-configured destinations.
-func (m *Manager) ReloadConf(forwards conf.Forward) {
+func (m *Manager) ReloadConf(forward conf.Forward) {
 	m.mutex.Lock()
 
-	newHandlers := make([]*DestHandler, len(forwards))
+	newHandlers := make([]*DestHandler, len(forward))
 	toClose := make([]*DestHandler, 0)
 
-	for i, forward := range forwards {
-		if i < len(m.destHandlers) && m.destHandlers[i].Dest == forward.Dest {
+	for i, dest := range forward {
+		if i < len(m.destHandlers) && m.destHandlers[i].Dest == dest.Dest {
 			newHandlers[i] = m.destHandlers[i]
 		} else {
 			if i < len(m.destHandlers) {
 				toClose = append(toClose, m.destHandlers[i])
 			}
-			newHandlers[i] = m.addDestLocked(forward.Dest, i+1)
+
+			destHandler := m.createDestHandler(dest.Dest, i+1)
+			if m.started {
+				destHandler.start(m.stream)
+			}
+
+			newHandlers[i] = destHandler
 		}
 	}
 
-	for i := len(forwards); i < len(m.destHandlers); i++ {
+	for i := len(forward); i < len(m.destHandlers); i++ {
 		toClose = append(toClose, m.destHandlers[i])
 	}
 
 	m.destHandlers = newHandlers
+
 	m.mutex.Unlock()
 
-	for _, handler := range toClose {
-		handler.CloseAsync()
+	if m.started {
+		for _, handler := range toClose {
+			handler.stop()
+		}
+	}
+}
+
+// Start starts all forward destinations.
+func (m *Manager) Start(strm *stream.Stream) {
+	m.started = true
+	m.stream = strm
+
+	for _, dest := range m.destHandlers {
+		dest.start(strm)
+	}
+}
+
+// Stop stops all forward destinations.
+func (m *Manager) Stop() {
+	m.started = false
+
+	for _, dest := range m.destHandlers {
+		dest.stop()
 	}
 }
 
 // Get gets a destination.
-func (m *Manager) Get(id uuid.UUID) (*defs.APIForwardDest, error) {
+func (m *Manager) APIGet(id uuid.UUID) (*defs.APIForwardDest, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -129,7 +141,7 @@ func (m *Manager) Get(id uuid.UUID) (*defs.APIForwardDest, error) {
 }
 
 // List lists all destinations.
-func (m *Manager) List() *defs.APIForwardDestList {
+func (m *Manager) APIList() *defs.APIForwardDestList {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

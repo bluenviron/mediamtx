@@ -18,6 +18,7 @@ import (
 
 // Dest is a RTSP forward destination.
 type Dest struct {
+	Stream       *stream.Stream
 	Dest         string
 	ReadTimeout  conf.Duration
 	WriteTimeout conf.Duration
@@ -44,8 +45,8 @@ func (d *Dest) OutboundBytes() uint64 {
 }
 
 // Run runs the destination.
-func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
-	desc := strm.OutDescCopy()
+func (d *Dest) Run(ctx context.Context) error {
+	desc := d.Stream.OutDescCopy()
 
 	dialer := &net.Dialer{}
 	client := &gortsplib.Client{
@@ -70,7 +71,7 @@ func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 
 	r := &stream.Reader{Parent: d}
 
-	for i, media := range strm.OrigDesc.Medias {
+	for i, media := range d.Stream.OrigDesc.Medias {
 		outMedia := desc.Medias[i]
 
 		for _, forma := range media.Formats {
@@ -86,8 +87,8 @@ func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 		}
 	}
 
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
+	d.Stream.AddReader(r)
+	defer d.Stream.RemoveReader(r)
 
 	select {
 	case readErr := <-r.Error():

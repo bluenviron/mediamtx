@@ -22,6 +22,7 @@ func maxPayloadSize(v int) int {
 
 // Dest is a SRT forward destination.
 type Dest struct {
+	Stream            *stream.Stream
 	Dest              string
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
@@ -48,7 +49,7 @@ func (d *Dest) OutboundBytes() uint64 {
 }
 
 // Run runs the destination.
-func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
+func (d *Dest) Run(ctx context.Context) error {
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(d.Dest)
 	if err != nil {
@@ -83,13 +84,13 @@ func (d *Dest) Run(ctx context.Context, strm *stream.Stream) error {
 	r := &stream.Reader{Parent: d}
 	bw := bufio.NewWriterSize(conn, int(srtConf.PayloadSize))
 
-	err = mpegts.FromStream(strm.OrigDesc, r, bw, conn, time.Duration(d.WriteTimeout))
+	err = mpegts.FromStream(d.Stream.OrigDesc, r, bw, conn, time.Duration(d.WriteTimeout))
 	if err != nil {
 		return err
 	}
 
-	strm.AddReader(r)
-	defer strm.RemoveReader(r)
+	d.Stream.AddReader(r)
+	defer d.Stream.RemoveReader(r)
 
 	select {
 	case readErr := <-r.Error():

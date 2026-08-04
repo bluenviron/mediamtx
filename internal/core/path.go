@@ -187,7 +187,6 @@ func (pa *path) initialize() {
 		PathName:          pa.name,
 		Matches:           pa.matches,
 		Forward:           pa.conf.Forward,
-		PathManager:       pa.parent,
 		Parent:            pa,
 	}
 	pa.forwardManager.Initialize()
@@ -288,10 +287,6 @@ func (pa *path) run() {
 
 	if pa.stream != nil {
 		pa.setNotAvailable()
-	}
-
-	if pa.forwardManager != nil {
-		pa.forwardManager.Close()
 	}
 
 	if pa.source != nil {
@@ -464,9 +459,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
 	}
 
-	if pa.forwardManager != nil {
-		pa.forwardManager.ReloadConf(newConf.Forward)
-	}
+	pa.forwardManager.ReloadConf(newConf.Forward)
 
 	if pa.recorder != nil &&
 		(newConf.Record != oldConf.Record ||
@@ -836,11 +829,14 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 }
 
 func (pa *path) doAPIForwardDestList(req pathAPIForwardDestListReq) {
-	req.res <- pathAPIForwardDestListRes{data: pa.forwardManager.List()}
+	data := pa.forwardManager.APIList()
+
+	req.res <- pathAPIForwardDestListRes{data: data}
 }
 
 func (pa *path) doAPIForwardDestGet(req pathAPIForwardDestGetReq) {
-	data, err := pa.forwardManager.Get(req.id)
+	data, err := pa.forwardManager.APIGet(req.id)
+
 	req.res <- pathAPIForwardDestGetRes{
 		data: data,
 		err:  err,
@@ -986,10 +982,6 @@ func (pa *path) setAvailable(
 
 	pa.availableTime = time.Now()
 
-	if pa.conf.Record {
-		pa.startRecording()
-	}
-
 	var sourceDesc *defs.APIPathSource
 	if source != nil {
 		sourceDesc = source.APISourceDescribe()
@@ -1006,6 +998,12 @@ func (pa *path) setAvailable(
 
 	if !pa.conf.AlwaysAvailable {
 		pa.setOnline(sourceDesc, publisherQuery)
+	}
+
+	pa.forwardManager.Start(pa.stream)
+
+	if pa.conf.Record {
+		pa.startRecording()
 	}
 
 	if pa.conf.AlwaysAvailable {
@@ -1048,6 +1046,8 @@ func (pa *path) setNotAvailable() {
 		pa.recorder.Close()
 		pa.recorder = nil
 	}
+
+	pa.forwardManager.Stop()
 
 	if pa.stream != nil {
 		pa.stream.Close()
