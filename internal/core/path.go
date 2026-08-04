@@ -180,6 +180,17 @@ func (pa *path) initialize() {
 	pa.chAPIForwardGet = make(chan pathAPIForwardGetReq)
 	pa.done = make(chan struct{})
 
+	pa.forwardManager = &forward.Manager{
+		ReadTimeout:       pa.readTimeout,
+		WriteTimeout:      pa.writeTimeout,
+		UDPMaxPayloadSize: pa.udpMaxPayloadSize,
+		PathName:          pa.name,
+		Matches:           pa.matches,
+		PathManager:       pa.parent,
+		Parent:            pa,
+	}
+	pa.forwardManager.Initialize(pa.conf.Forward)
+
 	pa.Log(logger.Debug, "created")
 
 	pa.wg.Add(1)

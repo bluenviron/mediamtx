@@ -12,7 +12,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/forward"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/metrics"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
@@ -514,16 +513,6 @@ func (pm *pathManager) createPath(
 	pa.initialize()
 	pm.paths[name] = pa
 
-	pa.forwardManager = &forward.Manager{
-		ReadTimeout:       pm.readTimeout,
-		WriteTimeout:      pm.writeTimeout,
-		UDPMaxPayloadSize: pm.udpMaxPayloadSize,
-		PathName:          name,
-		Matches:           matches,
-		PathManager:       pm,
-		Parent:            pa,
-	}
-	pa.forwardManager.Initialize(pathConf.Forward)
 }
 
 // ReloadPathConfs is called by core.
