@@ -84,14 +84,15 @@ func (m *testBlockingPathManager) AddReader(defs.PathAddReaderReq) (*defs.PathAd
 func TestManager(t *testing.T) {
 	logEntries := make(chan string, 32)
 	m := &Manager{
-		PathName:    "test",
+		PathName: "test",
+		Forward: conf.Forwards{
+			{Dest: "rtmp://localhost/app/stream"},
+			{Dest: "rtsp://localhost:8554/stream"},
+		},
 		PathManager: &testPathManager{},
 		Parent:      &testLogger{entries: logEntries},
 	}
-	m.Initialize(conf.Forwards{
-		{Dest: "rtmp://localhost/app/stream"},
-		{Dest: "rtsp://localhost:8554/stream"},
-	})
+	m.Initialize()
 	defer m.Close()
 
 	list := m.List()
@@ -178,10 +179,11 @@ func TestManagerReloadDoesNotWaitForDestShutdown(t *testing.T) {
 
 	m := &Manager{
 		PathName:    "test",
+		Forward:     conf.Forwards{{Dest: "rtmp://" + ln.Addr().String() + "/dest"}},
 		PathManager: pathManager,
 		Parent:      &testLogger{},
 	}
-	m.Initialize(conf.Forwards{{Dest: "rtmp://" + ln.Addr().String() + "/dest"}})
+	m.Initialize()
 	dest := m.destHandlers[0]
 
 	select {

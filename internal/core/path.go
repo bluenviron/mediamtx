@@ -186,10 +186,11 @@ func (pa *path) initialize() {
 		UDPMaxPayloadSize: pa.udpMaxPayloadSize,
 		PathName:          pa.name,
 		Matches:           pa.matches,
+		Forward:           pa.conf.Forward,
 		PathManager:       pa.parent,
 		Parent:            pa,
 	}
-	pa.forwardManager.Initialize(pa.conf.Forward)
+	pa.forwardManager.Initialize()
 
 	pa.Log(logger.Debug, "created")
 

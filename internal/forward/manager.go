@@ -33,6 +33,7 @@ type Manager struct {
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
+	Forward           conf.Forwards
 	PathManager       PathManager
 	Parent            ManagerParent
 
@@ -42,11 +43,11 @@ type Manager struct {
 }
 
 // Initialize initializes Manager.
-func (m *Manager) Initialize(forwards conf.Forwards) {
-	m.destHandlers = make([]*DestHandler, 0, len(forwards))
+func (m *Manager) Initialize() {
+	m.destHandlers = make([]*DestHandler, 0, len(m.Forward))
 
-	for i, forward := range forwards {
-		m.destHandlers = append(m.destHandlers, m.addDestLocked(forward.Dest, i+1))
+	for i, dest := range m.Forward {
+		m.destHandlers = append(m.destHandlers, m.addDestLocked(dest.Dest, i+1))
 	}
 }
 
