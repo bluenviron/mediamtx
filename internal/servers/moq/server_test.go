@@ -272,6 +272,11 @@ func TestServer(t *testing.T) {
 		expectedVersion defs.APIMoQVersion
 	}{
 		{
+			name:            "draft-17",
+			clientProtocols: []string{"moqt-17"},
+			expectedVersion: defs.APIMoQVersionDraft17,
+		},
+		{
 			name:            "draft-18",
 			clientProtocols: []string{"moqt-18"},
 			expectedVersion: defs.APIMoQVersionDraft18,
@@ -284,6 +289,11 @@ func TestServer(t *testing.T) {
 		{
 			name:            "draft-19-preferred",
 			clientProtocols: []string{"moqt-19", "moqt-18"},
+			expectedVersion: defs.APIMoQVersionDraft19,
+		},
+		{
+			name:            "highest-preferred",
+			clientProtocols: []string{"moqt-17", "moqt-18", "moqt-19"},
 			expectedVersion: defs.APIMoQVersionDraft19,
 		},
 	} {
