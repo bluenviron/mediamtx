@@ -121,6 +121,27 @@ authHTTPExclude:
   - action: pprof
 ```
 
+Some of the excluded actions can be validated through internal users instead of being left unauthenticated:
+
+```yml
+authHTTPExclude:
+  - action: publish
+  - action: api
+  - action: metrics
+  - action: pprof
+authHTTPForceInternalUsersForActions:
+  - action: publish
+  - action: api
+authInternalUsers:
+  - user: internal
+    pass: internalpass
+    permissions:
+      - action: publish
+      - action: api
+```
+
+In this example, `read` is still validated through the external HTTP server, while `publish` and `api` are validated through internal users. `metrics` and `pprof` remain excluded from any authentication.
+
 If the authentication server uses HTTPS and has a self-signed or invalid TLS certificate, you can provide the fingerprint of the certificate to validate it anyway:
 
 ```yml
