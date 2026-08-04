@@ -217,7 +217,7 @@ type Path struct {
 	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int      `json:"maxReaders"`
-	Forward                    Forwards `json:"forward"`
+	Forward                    Forward  `json:"forward"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
 	Fallback                   *string  `json:"fallback,omitempty" deprecated:"true"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`

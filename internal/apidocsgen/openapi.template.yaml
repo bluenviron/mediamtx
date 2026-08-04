@@ -752,7 +752,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ForwardList"
+                $ref: "#/components/schemas/ForwardDestList"
         "400":
           description: invalid request.
           content:
@@ -798,7 +798,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Forward"
+                $ref: "#/components/schemas/ForwardDest"
         "400":
           description: invalid request.
           content:

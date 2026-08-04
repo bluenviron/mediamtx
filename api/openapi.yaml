@@ -141,7 +141,7 @@ components:
         - webRTCSource
         - moqSession
 
-    ForwardProtocol:
+    ForwardDestProtocol:
       type: string
       enum:
         - rtmp
@@ -150,7 +150,7 @@ components:
         - rtsps
         - srt
 
-    ForwardState:
+    ForwardDestState:
       type: string
       enum:
         - connecting
@@ -934,7 +934,7 @@ components:
         forward:
           type: array
           items:
-            $ref: "#/components/schemas/PathConfForward"
+            $ref: "#/components/schemas/PathConfForwardDest"
         maxReaders:
           type: integer
           format: int64
@@ -1255,7 +1255,7 @@ components:
           type: integer
           format: int64
 
-    PathConfForward:
+    PathConfForwardDest:
       type: object
       properties:
         dest:
@@ -1408,7 +1408,7 @@ components:
           type: integer
           format: int64
 
-    Forward:
+    ForwardDest:
       type: object
       properties:
         bytesSent:
@@ -1432,11 +1432,11 @@ components:
           type: integer
           format: int64
         protocol:
-          $ref: "#/components/schemas/ForwardProtocol"
+          $ref: "#/components/schemas/ForwardDestProtocol"
         state:
-          $ref: "#/components/schemas/ForwardState"
+          $ref: "#/components/schemas/ForwardDestState"
 
-    ForwardList:
+    ForwardDestList:
       type: object
       properties:
         itemCount:
@@ -1445,7 +1445,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/Forward"
+            $ref: "#/components/schemas/ForwardDest"
         pageCount:
           type: integer
           format: int64
@@ -2766,7 +2766,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ForwardList"
+                $ref: "#/components/schemas/ForwardDestList"
         "400":
           description: invalid request.
           content:
@@ -2812,7 +2812,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Forward"
+                $ref: "#/components/schemas/ForwardDest"
         "400":
           description: invalid request.
           content:

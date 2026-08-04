@@ -233,23 +233,23 @@ func TestPathForwardRTMP(t *testing.T) {
 		return path.Ready
 	}, 5*time.Second, 100*time.Millisecond)
 
-	var list defs.APIForwardList
+	var list defs.APIForwardDestList
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
 	require.Len(t, list.Items, 1)
 	added := list.Items[0]
 	require.Equal(t, dest, added.Dest)
-	require.Equal(t, defs.APIForwardProtocolRTMP, added.Protocol)
+	require.Equal(t, defs.APIForwardDestProtocolRTMP, added.Protocol)
 	require.Equal(t, 1, added.Pos)
 
 	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
 	require.Eventually(t, func() bool {
-		var item defs.APIForward
+		var item defs.APIForwardDest
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
-		return item.State == defs.APIForwardStateForwarding &&
-			item.Protocol == defs.APIForwardProtocolRTMP &&
+		return item.State == defs.APIForwardDestStateForwarding &&
+			item.Protocol == defs.APIForwardDestProtocolRTMP &&
 			item.OutboundBytes > 0 &&
 			item.BytesSent == item.OutboundBytes
 	}, 5*time.Second, 100*time.Millisecond)
@@ -272,10 +272,10 @@ func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
 
 	var id uuid.UUID
 	require.Eventually(t, func() bool {
-		var list defs.APIForwardList
+		var list defs.APIForwardDestList
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
-		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardStateError {
+		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateError {
 			return false
 		}
 		id = list.Items[0].ID
@@ -287,7 +287,7 @@ func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
 	source.Close()
 
 	require.Eventually(t, func() bool {
-		var list defs.APIForwardList
+		var list defs.APIForwardDestList
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
 		return list.ItemCount == 1 && list.Items[0].ID == id
@@ -307,11 +307,11 @@ drained:
 
 	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
-	var item defs.APIForward
+	var item defs.APIForwardDest
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/get?path=source&id="+id.String(), nil, &item)
 	require.Equal(t, id, item.ID)
-	require.Equal(t, defs.APIForwardStateForwarding, item.State)
+	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
 	require.Greater(t, item.OutboundBytes, uint64(0))
 }
 
@@ -336,10 +336,10 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 
 	var id uuid.UUID
 	require.Eventually(t, func() bool {
-		var list defs.APIForwardList
+		var list defs.APIForwardDestList
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
-		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardStateError {
+		if list.ItemCount != 1 || list.Items[0].State != defs.APIForwardDestStateError {
 			return false
 		}
 		id = list.Items[0].ID
@@ -349,11 +349,11 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 	ready.Store(true)
 	waitRTMPForwardFrame(t, w, track, received, serverErr)
 
-	var item defs.APIForward
+	var item defs.APIForwardDest
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/get?path=source&id="+id.String(), nil, &item)
 	require.Equal(t, id, item.ID)
-	require.Equal(t, defs.APIForwardStateForwarding, item.State)
-	require.Equal(t, defs.APIForwardProtocolRTMP, item.Protocol)
+	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
+	require.Equal(t, defs.APIForwardDestProtocolRTMP, item.Protocol)
 	require.Greater(t, item.OutboundBytes, uint64(0))
 }

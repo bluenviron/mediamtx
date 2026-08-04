@@ -85,7 +85,7 @@ func TestManager(t *testing.T) {
 	logEntries := make(chan string, 32)
 	m := &Manager{
 		PathName: "test",
-		Forward: conf.Forwards{
+		Forward: conf.Forward{
 			{Dest: "rtmp://localhost/app/stream"},
 			{Dest: "rtsp://localhost:8554/stream"},
 		},
@@ -115,7 +115,7 @@ func TestManager(t *testing.T) {
 		}
 	}, time.Second, 10*time.Millisecond)
 
-	m.ReloadConf(conf.Forwards{
+	m.ReloadConf(conf.Forward{
 		{Dest: "rtsp://localhost:8554/stream"},
 		{Dest: "srt://localhost:8890?streamid=publish:test"},
 		{Dest: "rtmp://localhost/app/stream"},
@@ -146,7 +146,7 @@ func TestManager(t *testing.T) {
 	_, err = m.Get(uuid.New())
 	require.ErrorIs(t, err, ErrDestNotFound)
 
-	m.ReloadConf(conf.Forwards{{Dest: "srt://localhost:8890?streamid=publish:test"}})
+	m.ReloadConf(conf.Forward{{Dest: "srt://localhost:8890?streamid=publish:test"}})
 	list = m.List()
 	require.Len(t, list.Items, 1)
 	require.Equal(t, "srt://localhost:8890?streamid=publish:test", list.Items[0].Dest)
@@ -179,7 +179,7 @@ func TestManagerReloadDoesNotWaitForDestShutdown(t *testing.T) {
 
 	m := &Manager{
 		PathName:    "test",
-		Forward:     conf.Forwards{{Dest: "rtmp://" + ln.Addr().String() + "/dest"}},
+		Forward:     conf.Forward{{Dest: "rtmp://" + ln.Addr().String() + "/dest"}},
 		PathManager: pathManager,
 		Parent:      &testLogger{},
 	}

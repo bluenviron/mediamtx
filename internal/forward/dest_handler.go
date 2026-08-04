@@ -60,7 +60,7 @@ type DestHandler struct {
 	created time.Time
 
 	mutex         sync.RWMutex
-	state         defs.APIForwardState
+	state         defs.APIForwardDestState
 	lastError     string
 	outboundBytes uint64
 	activeDest    Dest
@@ -73,7 +73,7 @@ func (h *DestHandler) Initialize(pos int) {
 	h.uuid = uuid.New()
 	h.pos = pos
 	h.created = time.Now()
-	h.setState(defs.APIForwardStateConnecting, "")
+	h.setState(defs.APIForwardDestStateConnecting, "")
 
 	go h.run()
 }
@@ -110,7 +110,7 @@ func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{pos, id}, args...)...)
 }
 
-func (h *DestHandler) setState(state defs.APIForwardState, lastError string) {
+func (h *DestHandler) setState(state defs.APIForwardDestState, lastError string) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -143,22 +143,22 @@ func (h *DestHandler) outboundBytesLocked() uint64 {
 	return outboundBytes
 }
 
-func destProtocol(dest string) defs.APIForwardProtocol {
+func destProtocol(dest string) defs.APIForwardDestProtocol {
 	u, err := url.Parse(dest)
 	if err != nil {
 		return ""
 	}
-	return defs.APIForwardProtocol(u.Scheme)
+	return defs.APIForwardDestProtocol(u.Scheme)
 }
 
 // APIItem returns an API item.
-func (h *DestHandler) APIItem() defs.APIForward {
+func (h *DestHandler) APIItem() defs.APIForwardDest {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
 	outboundBytes := h.outboundBytesLocked()
 
-	return defs.APIForward{
+	return defs.APIForwardDest{
 		ID:            h.uuid,
 		Pos:           h.pos,
 		Created:       h.created,
@@ -193,7 +193,7 @@ func (h *DestHandler) run() {
 			return
 		}
 
-		h.setState(defs.APIForwardStateError, err.Error())
+		h.setState(defs.APIForwardDestStateError, err.Error())
 		h.Log(logger.Error, err.Error())
 
 		timer := time.NewTimer(retryPause)
@@ -207,7 +207,7 @@ func (h *DestHandler) run() {
 }
 
 func (h *DestHandler) runOnce() error {
-	h.setState(defs.APIForwardStateConnecting, "")
+	h.setState(defs.APIForwardDestStateConnecting, "")
 
 	readerCtx, readerCancel := context.WithCancel(h.ctx)
 	defer readerCancel()
@@ -267,7 +267,7 @@ func (h *DestHandler) runOnce() error {
 		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
 
-	h.setState(defs.APIForwardStateForwarding, "")
+	h.setState(defs.APIForwardDestStateForwarding, "")
 	h.Log(logger.Info, "forwarding to '%s'", resolvedDest)
 	h.setActiveDest(dest)
 	defer h.clearActiveDest()

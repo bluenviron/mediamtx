@@ -69,27 +69,27 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
-type pathAPIForwardListRes struct {
+type pathAPIForwardDestListRes struct {
 	path *path
-	data *defs.APIForwardList
+	data *defs.APIForwardDestList
 	err  error
 }
 
-type pathAPIForwardListReq struct {
+type pathAPIForwardDestListReq struct {
 	name string
-	res  chan pathAPIForwardListRes
+	res  chan pathAPIForwardDestListRes
 }
 
-type pathAPIForwardGetRes struct {
+type pathAPIForwardDestGetRes struct {
 	path *path
-	data *defs.APIForward
+	data *defs.APIForwardDest
 	err  error
 }
 
-type pathAPIForwardGetReq struct {
+type pathAPIForwardDestGetReq struct {
 	name string
 	id   uuid.UUID
-	res  chan pathAPIForwardGetRes
+	res  chan pathAPIForwardDestGetRes
 }
 
 type path struct {
@@ -148,8 +148,8 @@ type path struct {
 	chCancelReaderAdd         chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
-	chAPIForwardList          chan pathAPIForwardListReq
-	chAPIForwardGet           chan pathAPIForwardGetReq
+	chAPIForwardDestList      chan pathAPIForwardDestListReq
+	chAPIForwardDestGet       chan pathAPIForwardDestGetReq
 
 	// out
 	done chan struct{}
@@ -176,8 +176,8 @@ func (pa *path) initialize() {
 	pa.chCancelReaderAdd = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
-	pa.chAPIForwardList = make(chan pathAPIForwardListReq)
-	pa.chAPIForwardGet = make(chan pathAPIForwardGetReq)
+	pa.chAPIForwardDestList = make(chan pathAPIForwardDestListReq)
+	pa.chAPIForwardDestGet = make(chan pathAPIForwardDestGetReq)
 	pa.done = make(chan struct{})
 
 	pa.forwardManager = &forward.Manager{
@@ -402,11 +402,11 @@ func (pa *path) runInner() error {
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
 
-		case req := <-pa.chAPIForwardList:
-			pa.doAPIForwardList(req)
+		case req := <-pa.chAPIForwardDestList:
+			pa.doAPIForwardDestList(req)
 
-		case req := <-pa.chAPIForwardGet:
-			pa.doAPIForwardGet(req)
+		case req := <-pa.chAPIForwardDestGet:
+			pa.doAPIForwardDestGet(req)
 
 		case <-pa.ctx.Done():
 			return fmt.Errorf("terminated")
@@ -835,13 +835,13 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	}
 }
 
-func (pa *path) doAPIForwardList(req pathAPIForwardListReq) {
-	req.res <- pathAPIForwardListRes{data: pa.forwardManager.List()}
+func (pa *path) doAPIForwardDestList(req pathAPIForwardDestListReq) {
+	req.res <- pathAPIForwardDestListRes{data: pa.forwardManager.List()}
 }
 
-func (pa *path) doAPIForwardGet(req pathAPIForwardGetReq) {
+func (pa *path) doAPIForwardDestGet(req pathAPIForwardDestGetReq) {
 	data, err := pa.forwardManager.Get(req.id)
-	req.res <- pathAPIForwardGetRes{
+	req.res <- pathAPIForwardDestGetRes{
 		data: data,
 		err:  err,
 	}
@@ -1259,10 +1259,10 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	}
 }
 
-func (pa *path) APIForwardList(req pathAPIForwardListReq) (*defs.APIForwardList, error) {
-	req.res = make(chan pathAPIForwardListRes)
+func (pa *path) APIForwardDestList(req pathAPIForwardDestListReq) (*defs.APIForwardDestList, error) {
+	req.res = make(chan pathAPIForwardDestListRes)
 	select {
-	case pa.chAPIForwardList <- req:
+	case pa.chAPIForwardDestList <- req:
 		res := <-req.res
 		return res.data, res.err
 
@@ -1271,10 +1271,10 @@ func (pa *path) APIForwardList(req pathAPIForwardListReq) (*defs.APIForwardList,
 	}
 }
 
-func (pa *path) APIForwardGet(req pathAPIForwardGetReq) (*defs.APIForward, error) {
-	req.res = make(chan pathAPIForwardGetRes)
+func (pa *path) APIForwardDestGet(req pathAPIForwardDestGetReq) (*defs.APIForwardDest, error) {
+	req.res = make(chan pathAPIForwardDestGetRes)
 	select {
-	case pa.chAPIForwardGet <- req:
+	case pa.chAPIForwardDestGet <- req:
 		res := <-req.res
 		return res.data, res.err
 

@@ -34,11 +34,11 @@ func (m *testPathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	return path, nil
 }
 
-func (*testPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
-	return &defs.APIForwardList{}, nil
+func (*testPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+	return &defs.APIForwardDestList{}, nil
 }
 
-func (*testPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
+func (*testPathManager) APIForwardDestGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	return nil, conf.ErrPathNotFound
 }
 

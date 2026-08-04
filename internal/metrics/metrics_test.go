@@ -61,11 +61,11 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (dummyPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
-	return &defs.APIForwardList{}, nil
+func (dummyPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+	return &defs.APIForwardDestList{}, nil
 }
 
-func (dummyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
+func (dummyPathManager) APIForwardDestGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	panic("unused")
 }
 
@@ -73,17 +73,17 @@ type forwardPathManager struct {
 	dummyPathManager
 }
 
-func (forwardPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
-	return &defs.APIForwardList{
+func (forwardPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+	return &defs.APIForwardDestList{
 		ItemCount: 1,
 		PageCount: 1,
-		Items: []defs.APIForward{{
+		Items: []defs.APIForwardDest{{
 			ID:            uuid.MustParse("5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe"),
 			Pos:           1,
 			Created:       time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC),
 			Dest:          "rtmp://example.com/live/stream",
-			Protocol:      defs.APIForwardProtocolRTMP,
-			State:         defs.APIForwardStateForwarding,
+			Protocol:      defs.APIForwardDestProtocolRTMP,
+			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 321,
 			BytesSent:     321,
 		}},
@@ -393,11 +393,11 @@ func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (emptyPathManager) APIForwardList(string) (*defs.APIForwardList, error) {
-	return &defs.APIForwardList{}, nil
+func (emptyPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+	return &defs.APIForwardDestList{}, nil
 }
 
-func (emptyPathManager) APIForwardGet(string, uuid.UUID) (*defs.APIForward, error) {
+func (emptyPathManager) APIForwardDestGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	panic("unused")
 }
 

@@ -33,7 +33,7 @@ type Manager struct {
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
-	Forward           conf.Forwards
+	Forward           conf.Forward
 	PathManager       PathManager
 	Parent            ManagerParent
 
@@ -94,7 +94,7 @@ func (m *Manager) addDestLocked(dest string, pos int) *DestHandler {
 }
 
 // ReloadConf reloads statically-configured destinations.
-func (m *Manager) ReloadConf(forwards conf.Forwards) {
+func (m *Manager) ReloadConf(forwards conf.Forward) {
 	m.mutex.Lock()
 	if m.closed {
 		m.mutex.Unlock()
@@ -131,7 +131,7 @@ func (m *Manager) ReloadConf(forwards conf.Forwards) {
 }
 
 // Get gets a destination.
-func (m *Manager) Get(id uuid.UUID) (*defs.APIForward, error) {
+func (m *Manager) Get(id uuid.UUID) (*defs.APIForwardDest, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -150,14 +150,14 @@ func (m *Manager) Get(id uuid.UUID) (*defs.APIForward, error) {
 }
 
 // List lists all destinations.
-func (m *Manager) List() *defs.APIForwardList {
+func (m *Manager) List() *defs.APIForwardDestList {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	items := make([]defs.APIForward, len(m.destHandlers))
+	items := make([]defs.APIForwardDest, len(m.destHandlers))
 	for i, handler := range m.destHandlers {
 		items[i] = handler.APIItem()
 	}
 
-	return &defs.APIForwardList{Items: items}
+	return &defs.APIForwardDestList{Items: items}
 }

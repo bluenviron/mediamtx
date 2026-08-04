@@ -15,7 +15,7 @@ import (
 )
 
 type testForwardPathManager struct {
-	items map[uuid.UUID]*defs.APIForward
+	items map[uuid.UUID]*defs.APIForwardDest
 }
 
 func (*testForwardPathManager) APIPathsList() (*defs.APIPathList, error) {
@@ -26,20 +26,20 @@ func (*testForwardPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	return &defs.APIPath{}, nil
 }
 
-func (m *testForwardPathManager) APIForwardList(path string) (*defs.APIForwardList, error) {
+func (m *testForwardPathManager) APIForwardDestList(path string) (*defs.APIForwardDestList, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
 
-	items := make([]defs.APIForward, 0, len(m.items))
+	items := make([]defs.APIForwardDest, 0, len(m.items))
 	for _, item := range m.items {
 		items = append(items, *item)
 	}
 
-	return &defs.APIForwardList{Items: items}, nil
+	return &defs.APIForwardDestList{Items: items}, nil
 }
 
-func (m *testForwardPathManager) APIForwardGet(path string, id uuid.UUID) (*defs.APIForward, error) {
+func (m *testForwardPathManager) APIForwardDestGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
@@ -55,14 +55,14 @@ func (m *testForwardPathManager) APIForwardGet(path string, id uuid.UUID) (*defs
 func TestForward(t *testing.T) {
 	id := uuid.New()
 	pathManager := &testForwardPathManager{
-		items: map[uuid.UUID]*defs.APIForward{
+		items: map[uuid.UUID]*defs.APIForwardDest{
 			id: {
 				ID:            id,
 				Pos:           1,
 				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
 				Dest:          "rtmp://localhost/live/stream",
-				Protocol:      defs.APIForwardProtocolRTMP,
-				State:         defs.APIForwardStateError,
+				Protocol:      defs.APIForwardDestProtocolRTMP,
+				State:         defs.APIForwardDestStateError,
 				LastError:     "connection refused",
 				OutboundBytes: 123,
 				BytesSent:     123,
@@ -86,7 +86,7 @@ func TestForward(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	var list defs.APIForwardList
+	var list defs.APIForwardDestList
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/list?path=my%2Fnested%2Fstream", nil, &list)
 	require.Equal(t, 1, list.ItemCount)
@@ -94,12 +94,12 @@ func TestForward(t *testing.T) {
 	require.Equal(t, id, list.Items[0].ID)
 	require.Equal(t, 1, list.Items[0].Pos)
 
-	var item defs.APIForward
+	var item defs.APIForwardDest
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+id.String(), nil, &item)
 	require.Equal(t, "rtmp://localhost/live/stream", item.Dest)
-	require.Equal(t, defs.APIForwardProtocolRTMP, item.Protocol)
-	require.Equal(t, defs.APIForwardStateError, item.State)
+	require.Equal(t, defs.APIForwardDestProtocolRTMP, item.Protocol)
+	require.Equal(t, defs.APIForwardDestStateError, item.State)
 	require.Equal(t, "connection refused", item.LastError)
 	require.Equal(t, uint64(123), item.OutboundBytes)
 	require.Equal(t, uint64(123), item.BytesSent)

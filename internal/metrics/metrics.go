@@ -352,7 +352,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		if err == nil {
 			type forwardWithPath struct {
 				path string
-				item defs.APIForward
+				item defs.APIForwardDest
 			}
 
 			var items []forwardWithPath
@@ -361,7 +361,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					continue
 				}
 
-				forwards, forwardsErr := pathManager.APIForwardList(pa.Name)
+				forwards, forwardsErr := pathManager.APIForwardDestList(pa.Name)
 				if forwardsErr != nil {
 					continue
 				}

@@ -86,8 +86,8 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathConfList{}),
 	},
 	{
-		externalName: "PathConfForward",
-		typ:          reflect.TypeOf(conf.Forward{}),
+		externalName: "PathConfForwardDest",
+		typ:          reflect.TypeOf(conf.ForwardDest{}),
 	},
 	{
 		externalName: "PathList",
@@ -142,12 +142,12 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathTrackCodecPropsVP9{}),
 	},
 	{
-		externalName: "Forward",
-		typ:          reflect.TypeOf(defs.APIForward{}),
+		externalName: "ForwardDest",
+		typ:          reflect.TypeOf(defs.APIForwardDest{}),
 	},
 	{
-		externalName: "ForwardList",
-		typ:          reflect.TypeOf(defs.APIForwardList{}),
+		externalName: "ForwardDestList",
+		typ:          reflect.TypeOf(defs.APIForwardDestList{}),
 	},
 	{
 		externalName: "Recording",
@@ -304,8 +304,8 @@ func schemaName(rt reflect.Type) string {
 	if rt == reflect.TypeOf(conf.Path{}) {
 		return "PathConf"
 	}
-	if rt == reflect.TypeOf(conf.Forward{}) {
-		return "PathConfForward"
+	if rt == reflect.TypeOf(conf.ForwardDest{}) {
+		return "PathConfForwardDest"
 	}
 
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
@@ -366,10 +366,10 @@ func isStructEnum(rt reflect.Type) bool {
 	case reflect.TypeOf(defs.APIPathReaderType("")):
 		return true
 
-	case reflect.TypeOf(defs.APIForwardProtocol("")):
+	case reflect.TypeOf(defs.APIForwardDestProtocol("")):
 		return true
 
-	case reflect.TypeOf(defs.APIForwardState("")):
+	case reflect.TypeOf(defs.APIForwardDestState("")):
 		return true
 
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):

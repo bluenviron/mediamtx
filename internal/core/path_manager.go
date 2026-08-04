@@ -95,20 +95,20 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	chReloadConf      chan map[string]*conf.Path
-	chSetHLSServer    chan pathSetHLSServerReq
-	chRemovePath      chan *path
-	chClosePathIfIdle chan *path
-	chSetPathReady    chan *path
-	chSetPathNotReady chan *path
-	chFindPathConf    chan defs.PathFindPathConfReq
-	chDescribe        chan defs.PathDescribeReq
-	chAddReader       chan defs.PathAddReaderReq
-	chAddPublisher    chan defs.PathAddPublisherReq
-	chAPIPathsList    chan pathAPIPathsListReq
-	chAPIPathsGet     chan pathAPIPathsGetReq
-	chAPIForwardList  chan pathAPIForwardListReq
-	chAPIForwardGet   chan pathAPIForwardGetReq
+	chReloadConf         chan map[string]*conf.Path
+	chSetHLSServer       chan pathSetHLSServerReq
+	chRemovePath         chan *path
+	chClosePathIfIdle    chan *path
+	chSetPathReady       chan *path
+	chSetPathNotReady    chan *path
+	chFindPathConf       chan defs.PathFindPathConfReq
+	chDescribe           chan defs.PathDescribeReq
+	chAddReader          chan defs.PathAddReaderReq
+	chAddPublisher       chan defs.PathAddPublisherReq
+	chAPIPathsList       chan pathAPIPathsListReq
+	chAPIPathsGet        chan pathAPIPathsGetReq
+	chAPIForwardDestList chan pathAPIForwardDestListReq
+	chAPIForwardDestGet  chan pathAPIForwardDestGetReq
 }
 
 func (pm *pathManager) initialize() {
@@ -129,8 +129,8 @@ func (pm *pathManager) initialize() {
 	pm.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pm.chAPIPathsList = make(chan pathAPIPathsListReq)
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
-	pm.chAPIForwardList = make(chan pathAPIForwardListReq)
-	pm.chAPIForwardGet = make(chan pathAPIForwardGetReq)
+	pm.chAPIForwardDestList = make(chan pathAPIForwardDestListReq)
+	pm.chAPIForwardDestGet = make(chan pathAPIForwardDestGetReq)
 
 	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
@@ -211,11 +211,11 @@ outer:
 		case req := <-pm.chAPIPathsGet:
 			pm.doAPIPathsGet(req)
 
-		case req := <-pm.chAPIForwardList:
-			pm.doAPIForwardList(req)
+		case req := <-pm.chAPIForwardDestList:
+			pm.doAPIForwardDestList(req)
 
-		case req := <-pm.chAPIForwardGet:
-			pm.doAPIForwardGet(req)
+		case req := <-pm.chAPIForwardDestGet:
+			pm.doAPIForwardDestGet(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -467,24 +467,24 @@ func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{path: pa}
 }
 
-func (pm *pathManager) doAPIForwardList(req pathAPIForwardListReq) {
+func (pm *pathManager) doAPIForwardDestList(req pathAPIForwardDestListReq) {
 	pa, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIForwardListRes{err: conf.ErrPathNotFound}
+		req.res <- pathAPIForwardDestListRes{err: conf.ErrPathNotFound}
 		return
 	}
 
-	req.res <- pathAPIForwardListRes{path: pa}
+	req.res <- pathAPIForwardDestListRes{path: pa}
 }
 
-func (pm *pathManager) doAPIForwardGet(req pathAPIForwardGetReq) {
+func (pm *pathManager) doAPIForwardDestGet(req pathAPIForwardDestGetReq) {
 	pa, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIForwardGetRes{err: conf.ErrPathNotFound}
+		req.res <- pathAPIForwardDestGetRes{err: conf.ErrPathNotFound}
 		return
 	}
 
-	req.res <- pathAPIForwardGetRes{path: pa}
+	req.res <- pathAPIForwardDestGetRes{path: pa}
 }
 
 func (pm *pathManager) createPath(
@@ -512,7 +512,6 @@ func (pm *pathManager) createPath(
 	}
 	pa.initialize()
 	pm.paths[name] = pa
-
 }
 
 // ReloadPathConfs is called by core.
@@ -732,21 +731,21 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	}
 }
 
-// APIForwardList implements defs.APIPathManager.
-func (pm *pathManager) APIForwardList(name string) (*defs.APIForwardList, error) {
-	req := pathAPIForwardListReq{
+// APIForwardDestList implements defs.APIPathManager.
+func (pm *pathManager) APIForwardDestList(name string) (*defs.APIForwardDestList, error) {
+	req := pathAPIForwardDestListReq{
 		name: name,
-		res:  make(chan pathAPIForwardListRes),
+		res:  make(chan pathAPIForwardDestListRes),
 	}
 
 	select {
-	case pm.chAPIForwardList <- req:
+	case pm.chAPIForwardDestList <- req:
 		res := <-req.res
 		if res.err != nil {
 			return nil, res.err
 		}
 
-		data, err := res.path.APIForwardList(req)
+		data, err := res.path.APIForwardDestList(req)
 		return data, err
 
 	case <-pm.ctx.Done():
@@ -754,22 +753,22 @@ func (pm *pathManager) APIForwardList(name string) (*defs.APIForwardList, error)
 	}
 }
 
-// APIForwardGet implements defs.APIPathManager.
-func (pm *pathManager) APIForwardGet(name string, id uuid.UUID) (*defs.APIForward, error) {
-	req := pathAPIForwardGetReq{
+// APIForwardDestGet implements defs.APIPathManager.
+func (pm *pathManager) APIForwardDestGet(name string, id uuid.UUID) (*defs.APIForwardDest, error) {
+	req := pathAPIForwardDestGetReq{
 		name: name,
 		id:   id,
-		res:  make(chan pathAPIForwardGetRes),
+		res:  make(chan pathAPIForwardDestGetRes),
 	}
 
 	select {
-	case pm.chAPIForwardGet <- req:
+	case pm.chAPIForwardDestGet <- req:
 		res := <-req.res
 		if res.err != nil {
 			return nil, res.err
 		}
 
-		data, err := res.path.APIForwardGet(req)
+		data, err := res.path.APIForwardDestGet(req)
 		return data, err
 
 	case <-pm.ctx.Done():
