@@ -105,6 +105,13 @@ func TestResolveSource(t *testing.T) {
 			query:    "",
 			expected: "udp+rtp://192.168.1.100:5000",
 		},
+		{
+			name:     "multi digit group substitution",
+			source:   "rtsp://example.com/$G10",
+			matches:  []string{"full", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9", "g10"},
+			query:    "",
+			expected: "rtsp://example.com/g10",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			result := resolveSource(ca.source, ca.matches, ca.query)
