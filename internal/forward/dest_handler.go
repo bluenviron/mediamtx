@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,16 @@ import (
 const retryPause = 5 * time.Second
 
 var errTerminated = errors.New("terminated")
+
+func sanitizeDestURL(dest string) string {
+	u, err := url.Parse(dest)
+	if err != nil {
+		return dest
+	}
+	u.User = nil
+	u.Fragment = ""
+	return u.String()
+}
 
 func resolveDest(dest string, pathName string, matches []string, query string) string {
 	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
@@ -198,7 +209,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 		panic("should not happen")
 	}
 
-	h.Log(logger.Info, "forwarding to '%s'", resolvedDest)
+	h.Log(logger.Info, "forwarding to '%s'", sanitizeDestURL(resolvedDest))
 
 	h.mutex.Lock()
 	h.activeDest = dest
