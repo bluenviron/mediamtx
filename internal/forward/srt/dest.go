@@ -34,7 +34,7 @@ type Dest struct {
 
 // Log implements logger.Writer.
 func (d *Dest) Log(level logger.Level, format string, args ...any) {
-	d.Parent.Log(level, "[SRT] "+format, args...)
+	d.Parent.Log(level, format, args...)
 }
 
 // OutboundBytes returns the number of bytes sent by the destination.

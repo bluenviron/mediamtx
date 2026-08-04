@@ -53,6 +53,7 @@ type DestHandler struct {
 
 	uuid          uuid.UUID
 	created       time.Time
+	protocol      defs.APIForwardDestProtocol
 	mutex         sync.RWMutex
 	state         defs.APIForwardDestState
 	lastError     string
@@ -65,6 +66,7 @@ type DestHandler struct {
 func (h *DestHandler) initialize() {
 	h.uuid = uuid.New()
 	h.created = time.Now()
+	h.protocol = destProtocol(h.Conf.Dest)
 	h.state = defs.APIForwardDestStateIdle
 }
 
@@ -89,7 +91,8 @@ func (h *DestHandler) ID() uuid.UUID {
 // Log implements logger.Writer.
 func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(h.uuid[:4])
-	h.Parent.Log(level, "[forward dest %d %s] "+format, append([]any{h.Pos, id}, args...)...)
+	h.Parent.Log(level, "[%s dest %d %s] "+format,
+		append([]any{strings.ToUpper(string(h.protocol)), h.Pos, id}, args...)...)
 }
 
 func (h *DestHandler) outboundBytesLocked() uint64 {
@@ -164,7 +167,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	var dest Dest
 
-	switch destProtocol(resolvedDest) {
+	switch h.protocol {
 	case defs.APIForwardDestProtocolRTMP, defs.APIForwardDestProtocolRTMPS:
 		dest = &forwardrtmp.Dest{
 			Stream:       strm,
@@ -239,7 +242,7 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		Pos:           h.Pos,
 		Created:       h.created,
 		Conf:          h.Conf,
-		Protocol:      destProtocol(h.Conf.Dest),
+		Protocol:      h.protocol,
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,
