@@ -549,7 +549,6 @@ pathDefaults:
     # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
     # The following variables can be used:
     # * $MTX_PATH: path name
-    # * $MTX_QUERY: query parameters (passed by publisher)
     # * $G1, $G2, ...: regular expression groups, if path name is a regular expression.
     # - dest:
 

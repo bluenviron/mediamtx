@@ -66,7 +66,7 @@ func TestManager(t *testing.T) {
 	require.NoError(t, strm.Initialize())
 	defer strm.Close()
 
-	m.Start(strm, "")
+	m.Start(strm)
 	defer m.Stop()
 
 	<-done
@@ -103,7 +103,7 @@ func TestManagerReloadConf(t *testing.T) {
 				require.NoError(t, strm.Initialize())
 				defer strm.Close()
 
-				m.Start(strm, "")
+				m.Start(strm)
 				defer m.Stop()
 			}
 

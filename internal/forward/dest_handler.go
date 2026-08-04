@@ -35,14 +35,12 @@ func sanitizeDestURL(dest string) string {
 	return u.String()
 }
 
-func resolveDest(dest string, pathName string, matches []string, query string) string {
+func resolveDest(dest string, pathName string, matches []string) string {
 	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
 
 	for i := len(matches) - 1; i >= 1; i-- {
 		out = strings.ReplaceAll(out, "$G"+strconv.FormatInt(int64(i), 10), matches[i])
 	}
-
-	out = strings.ReplaceAll(out, "$MTX_QUERY", query)
 
 	return out
 }
@@ -56,7 +54,6 @@ type DestHandler struct {
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
-	Query             string
 	Parent            logger.Writer
 
 	ctx       context.Context
@@ -174,7 +171,7 @@ func (h *DestHandler) run(strm *stream.Stream) {
 }
 
 func (h *DestHandler) runOnce(strm *stream.Stream) error {
-	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches, h.Query)
+	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches)
 
 	var dest Dest
 

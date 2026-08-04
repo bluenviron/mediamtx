@@ -932,7 +932,7 @@ func (pa *path) setAvailable(
 		pa.setOnline(sourceDesc, publisherQuery)
 	}
 
-	pa.forwardManager.Start(pa.stream, publisherQuery)
+	pa.forwardManager.Start(pa.stream)
 
 	if pa.conf.Record {
 		pa.startRecording()

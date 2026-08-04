@@ -13,7 +13,6 @@ type ForwardDest struct {
 
 func validateForwardDest(dest string) (*url.URL, error) {
 	replaced := strings.ReplaceAll(dest, "$MTX_PATH", "path")
-	replaced = strings.ReplaceAll(replaced, "$path", "path")
 
 	return validateURL(replaced)
 }
