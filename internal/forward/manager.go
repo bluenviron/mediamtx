@@ -3,7 +3,6 @@ package forward
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -38,7 +37,6 @@ type Manager struct {
 	Parent            ManagerParent
 
 	mutex        sync.RWMutex
-	closed       bool
 	destHandlers []*DestHandler
 }
 
@@ -54,15 +52,10 @@ func (m *Manager) Initialize() {
 // Close closes the manager.
 func (m *Manager) Close() {
 	m.mutex.Lock()
-	if m.closed {
-		m.mutex.Unlock()
-		return
-	}
-
-	m.closed = true
 
 	destHandlers := m.destHandlers
 	m.destHandlers = nil
+
 	m.mutex.Unlock()
 
 	for _, handler := range destHandlers {
@@ -93,10 +86,6 @@ func (m *Manager) addDestLocked(dest string, pos int) *DestHandler {
 // ReloadConf reloads statically-configured destinations.
 func (m *Manager) ReloadConf(forwards conf.Forward) {
 	m.mutex.Lock()
-	if m.closed {
-		m.mutex.Unlock()
-		return
-	}
 
 	oldHandlers := make(map[string]*DestHandler, len(m.destHandlers))
 	for _, handler := range m.destHandlers {
@@ -131,10 +120,6 @@ func (m *Manager) ReloadConf(forwards conf.Forward) {
 func (m *Manager) Get(id uuid.UUID) (*defs.APIForwardDest, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-
-	if m.closed {
-		return nil, fmt.Errorf("terminated")
-	}
 
 	for _, handler := range m.destHandlers {
 		if handler.ID() == id {
