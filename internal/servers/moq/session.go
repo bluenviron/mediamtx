@@ -620,7 +620,14 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 		return fmt.Errorf("terminated")
 	}
 
-	_, err := wstream.Write(controlmessage.RequestOk{}.Marshal())
+	var ackPayload []byte
+	if s.version == defs.APIMoQVersionDraft17 {
+		ackPayload = controlmessage.PublishOk{}.Marshal()
+	} else {
+		ackPayload = controlmessage.RequestOk{}.Marshal()
+	}
+
+	_, err := wstream.Write(ackPayload)
 	if err != nil {
 		return err
 	}
@@ -637,7 +644,14 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 	}
 	s.mutex.Unlock()
 
-	_, err := wstream.Write(controlmessage.RequestOk{}.Marshal())
+	var ackPayload []byte
+	if s.version == defs.APIMoQVersionDraft17 {
+		ackPayload = controlmessage.PublishOk{}.Marshal()
+	} else {
+		ackPayload = controlmessage.RequestOk{}.Marshal()
+	}
+
+	_, err := wstream.Write(ackPayload)
 	if err != nil {
 		return err
 	}

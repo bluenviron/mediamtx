@@ -6,18 +6,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
 )
 
-const typeRequestOk varint.Varint = 0x07
+const typePublishOk varint.Varint = 0x1E
 
-// RequestOk is the REQUEST_OK control message.
-// spec: draft-18/19, section 10.5
-type RequestOk struct {
+// PublishOk is the PUBLISH_OK control message.
+// spec: draft-17, section 9.12
+// spec: draft-18/19, section 10.5 (alias of REQUEST_OK)
+type PublishOk struct {
 	Parameters      parameter.Parameters
 	TrackProperties property.Properties
 }
 
-func (*RequestOk) isMessage() {}
+func (*PublishOk) isMessage() {}
 
-func (m *RequestOk) unmarshal(buf []byte) error {
+func (m *PublishOk) unmarshal(buf []byte) error {
 	var numParams varint.Varint
 	n, err := numParams.Unmarshal(buf)
 	if err != nil {
@@ -34,18 +35,18 @@ func (m *RequestOk) unmarshal(buf []byte) error {
 	return m.TrackProperties.Unmarshal(buf)
 }
 
-func (m RequestOk) marshalSize() int {
+func (m PublishOk) marshalSize() int {
 	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	return typeRequestOk.MarshalSize() + 2 + payloadSize
+	return typePublishOk.MarshalSize() + 2 + payloadSize
 }
 
-func (m RequestOk) marshalTo(buf []byte) int {
+func (m PublishOk) marshalTo(buf []byte) int {
 	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	n := typeRequestOk.MarshalTo(buf)
+	n := typePublishOk.MarshalTo(buf)
 	buf[n] = byte(payloadSize >> 8)
 	buf[n+1] = byte(payloadSize)
 	n += 2
@@ -56,7 +57,7 @@ func (m RequestOk) marshalTo(buf []byte) int {
 }
 
 // Marshal implements Message.
-func (m RequestOk) Marshal() []byte {
+func (m PublishOk) Marshal() []byte {
 	buf := make([]byte, m.marshalSize())
 	m.marshalTo(buf)
 	return buf

@@ -125,6 +125,15 @@ var cases = []struct {
 		},
 	},
 	{
+		name: "publish_ok",
+		enc: []byte{
+			0x1E,       // type 0x1E
+			0x00, 0x01, // length = 1
+			0x00, // Number of Parameters = 0
+		},
+		dec: &controlmessage.PublishOk{},
+	},
+	{
 		name: "request_ok",
 		enc: []byte{
 			0x07,       // type 0x07

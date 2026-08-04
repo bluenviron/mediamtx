@@ -50,6 +50,8 @@ func Read(r io.Reader) (Message, error) {
 		m = &RequestError{}
 	case typePublish:
 		m = &Publish{}
+	case typePublishOk:
+		m = &PublishOk{}
 	case typeRequestOk:
 		m = &RequestOk{}
 	default:

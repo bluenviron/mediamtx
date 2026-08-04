@@ -17,6 +17,7 @@ import (
 var supportedMoqtALPNs = []string{
 	string(defs.APIMoQVersionDraft19),
 	string(defs.APIMoQVersionDraft18),
+	string(defs.APIMoQVersionDraft17),
 }
 
 type nativeListenerParent interface {
@@ -96,6 +97,9 @@ func alpnToVersion(alpn string) defs.APIMoQVersion {
 
 	case string(defs.APIMoQVersionDraft18):
 		return defs.APIMoQVersionDraft18
+
+	case string(defs.APIMoQVersionDraft17):
+		return defs.APIMoQVersionDraft17
 	}
 
 	return ""
