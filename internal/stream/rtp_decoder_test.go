@@ -5,11 +5,12 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/pion/rtp"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/pion/rtp"
-	"github.com/stretchr/testify/require"
 )
 
 var casesDecodeEncode = []struct {

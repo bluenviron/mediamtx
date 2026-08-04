@@ -11,6 +11,10 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -23,9 +27,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/webtransport-go"
-	"github.com/stretchr/testify/require"
 )
 
 type serverDummyPath struct{}

@@ -18,6 +18,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -28,8 +31,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/google/uuid"
-	"golang.org/x/sync/errgroup"
 )
 
 const maxReorderedSubGroups = 50

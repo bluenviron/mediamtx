@@ -4,16 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
-
-	pwebrtc "github.com/pion/webrtc/v4"
-
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/pion/rtp"
+	pwebrtc "github.com/pion/webrtc/v4"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/pion/rtp"
-	"github.com/stretchr/testify/require"
 )
 
 func TestToStreamNoSupportedCodecs(t *testing.T) {

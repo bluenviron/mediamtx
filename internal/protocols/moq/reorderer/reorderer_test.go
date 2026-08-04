@@ -3,10 +3,11 @@ package reorderer_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
-	"github.com/stretchr/testify/require"
 )
 
 type nopLogger struct{}

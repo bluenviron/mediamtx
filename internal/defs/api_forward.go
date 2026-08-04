@@ -3,8 +3,9 @@ package defs
 import (
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/google/uuid"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 // APIForwardDestState is the state of a forward destination.

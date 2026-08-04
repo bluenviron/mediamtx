@@ -3,9 +3,10 @@ package api //nolint:revive
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
-	"github.com/gin-gonic/gin"
 )
 
 func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {

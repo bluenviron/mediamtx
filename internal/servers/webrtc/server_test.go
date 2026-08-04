@@ -14,6 +14,12 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/google/uuid"
+	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -23,11 +29,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/google/uuid"
-	"github.com/pion/rtp"
-	"github.com/pion/sdp/v3"
-	pwebrtc "github.com/pion/webrtc/v4"
-	"github.com/stretchr/testify/require"
 )
 
 func whipAnswer(body []byte) *pwebrtc.SessionDescription {

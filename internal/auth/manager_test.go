@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/MicahParks/jwkset"
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 var testTLSCertPub = []byte(`-----BEGIN CERTIFICATE-----

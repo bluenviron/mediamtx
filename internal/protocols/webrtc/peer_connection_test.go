@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
 	"github.com/pion/rtcp"
@@ -16,6 +15,8 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 type nilWriter struct{}
