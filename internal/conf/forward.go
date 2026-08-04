@@ -45,18 +45,11 @@ type Forwards []Forward
 
 // Validate validates the configuration.
 func (p Forwards) Validate() error {
-	seen := make(map[string]struct{})
-
 	for i, entry := range p {
 		err := entry.Validate()
 		if err != nil {
 			return fmt.Errorf("entry %d: %w", i, err)
 		}
-
-		if _, ok := seen[entry.Dest]; ok {
-			return fmt.Errorf("entry %d: destination is duplicated", i)
-		}
-		seen[entry.Dest] = struct{}{}
 	}
 
 	return nil

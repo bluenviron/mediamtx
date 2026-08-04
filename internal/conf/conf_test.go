@@ -852,15 +852,6 @@ func TestConfErrors(t *testing.T) {
 				"    - dest: http://localhost/stream\n",
 			"invalid 'forward': entry 0: unsupported scheme 'http', supported schemes are rtmp, rtmps, rtsp, rtsps and srt",
 		},
-		{
-			"duplicated forward destination",
-			"paths:\n" +
-				"  mypath:\n" +
-				"    forward:\n" +
-				"    - dest: rtmp://localhost/stream\n" +
-				"    - dest: rtmp://localhost/stream\n",
-			"invalid 'forward': entry 1: destination is duplicated",
-		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf := createTempFile(t, []byte(ca.conf))
