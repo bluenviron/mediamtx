@@ -1,4 +1,4 @@
-package rtp
+package rtp_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -58,7 +59,7 @@ func TestSourceUDP(t *testing.T) {
 			p.Initialize()
 			defer p.Close()
 
-			so := &Source{
+			so := &rtp.Source{
 				ReadTimeout: conf.Duration(10 * time.Second),
 				Parent:      p,
 			}
@@ -168,7 +169,7 @@ func TestSourceUnixSocket(t *testing.T) {
 				p.Initialize()
 				defer p.Close()
 
-				so := &Source{
+				so := &rtp.Source{
 					ReadTimeout: conf.Duration(10 * time.Second),
 					Parent:      p,
 				}

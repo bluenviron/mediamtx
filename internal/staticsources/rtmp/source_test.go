@@ -1,4 +1,4 @@
-package rtmp
+package rtmp_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -64,7 +65,7 @@ func TestSource(t *testing.T) {
 				p.Initialize()
 				defer p.Close()
 
-				so := &Source{
+				so := &rtmp.Source{
 					ReadTimeout:  conf.Duration(10 * time.Second),
 					WriteTimeout: conf.Duration(10 * time.Second),
 					Parent:       p,

@@ -28,6 +28,7 @@ type Manager struct {
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
+	Query             string
 	Forward           conf.Forward
 	Parent            ManagerParent
 
@@ -61,6 +62,7 @@ func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler
 		UDPMaxPayloadSize: m.UDPMaxPayloadSize,
 		PathName:          m.PathName,
 		Matches:           m.Matches,
+		Query:             m.Query,
 		Parent:            m,
 	}
 	handler.initialize()
@@ -107,11 +109,13 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 }
 
 // Start starts all forward destinations.
-func (m *Manager) Start(strm *stream.Stream) {
+func (m *Manager) Start(strm *stream.Stream, query string) {
 	m.started = true
 	m.stream = strm
+	m.Query = query
 
 	for _, dest := range m.destHandlers {
+		dest.Query = query
 		dest.start(strm)
 	}
 }

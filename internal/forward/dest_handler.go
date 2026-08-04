@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,14 +24,14 @@ const retryPause = 5 * time.Second
 
 var errTerminated = errors.New("terminated")
 
-func resolveDest(dest string, pathName string, matches []string) string {
+func resolveDest(dest string, pathName string, matches []string, query string) string {
 	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
 
-	if len(matches) > 1 {
-		for i, ma := range matches[1:] {
-			out = strings.ReplaceAll(out, fmt.Sprintf("$G%d", i+1), ma)
-		}
+	for i := len(matches) - 1; i >= 1; i-- {
+		out = strings.ReplaceAll(out, "$G"+strconv.FormatInt(int64(i), 10), matches[i])
 	}
+
+	out = strings.ReplaceAll(out, "$MTX_QUERY", query)
 
 	return out
 }
@@ -45,6 +45,7 @@ type DestHandler struct {
 	UDPMaxPayloadSize int
 	PathName          string
 	Matches           []string
+	Query             string
 	Parent            logger.Writer
 
 	ctx       context.Context
@@ -159,7 +160,7 @@ func (h *DestHandler) run(strm *stream.Stream) {
 }
 
 func (h *DestHandler) runOnce(strm *stream.Stream) error {
-	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches)
+	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches, h.Query)
 
 	var dest Dest
 

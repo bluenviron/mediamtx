@@ -1,4 +1,4 @@
-package rtsp
+package rtsp_test
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -170,7 +171,7 @@ func TestSource(t *testing.T) {
 			p.Initialize()
 			defer p.Close()
 
-			so := &Source{
+			so := &rtsp.Source{
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 2048,
@@ -277,7 +278,7 @@ func TestNoPassword(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &rtsp.Source{
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 2048,
@@ -370,7 +371,7 @@ func TestScale(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &rtsp.Source{
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 2048,
@@ -484,7 +485,7 @@ func TestRange(t *testing.T) {
 			p.Initialize()
 			defer p.Close()
 
-			so := &Source{
+			so := &rtsp.Source{
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 2048,
@@ -580,7 +581,7 @@ func TestSkipBackChannel(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &rtsp.Source{
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 2048,
@@ -660,7 +661,7 @@ func TestOnlyBackChannelsError(t *testing.T) {
 	p := &test.StaticSourceParent{}
 	p.Initialize()
 
-	so := &Source{
+	so := &rtsp.Source{
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		WriteQueueSize: 2048,

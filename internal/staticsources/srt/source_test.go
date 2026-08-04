@@ -1,4 +1,4 @@
-package srt
+package srt_test
 
 import (
 	"bufio"
@@ -8,23 +8,24 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
-	srt "github.com/datarhei/gosrt"
+	srtlib "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestSource(t *testing.T) {
-	ln, err := srt.Listen("srt", "127.0.0.1:9002", srt.DefaultConfig())
+	ln, err := srtlib.Listen("srt", "127.0.0.1:9002", srtlib.DefaultConfig())
 	require.NoError(t, err)
 	defer ln.Close()
 
 	p := &test.StaticSourceParent{}
 	p.Initialize()
 
-	so := &Source{
+	so := &srt.Source{
 		ReadTimeout: conf.Duration(10 * time.Second),
 		Parent:      p,
 	}
