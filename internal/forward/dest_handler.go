@@ -167,7 +167,6 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,
-		BytesSent:     outboundBytes,
 	}
 }
 

@@ -65,7 +65,6 @@ func TestForward(t *testing.T) {
 				State:         defs.APIForwardDestStateError,
 				LastError:     "connection refused",
 				OutboundBytes: 123,
-				BytesSent:     123,
 			},
 		},
 	}
@@ -102,5 +101,4 @@ func TestForward(t *testing.T) {
 	require.Equal(t, defs.APIForwardDestStateError, item.State)
 	require.Equal(t, "connection refused", item.LastError)
 	require.Equal(t, uint64(123), item.OutboundBytes)
-	require.Equal(t, uint64(123), item.BytesSent)
 }

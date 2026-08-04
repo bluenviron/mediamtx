@@ -85,7 +85,6 @@ func (forwardPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, 
 			Protocol:      defs.APIForwardDestProtocolRTMP,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 321,
-			BytesSent:     321,
 		}},
 	}, nil
 }

@@ -250,8 +250,7 @@ func TestPathForwardRTMP(t *testing.T) {
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
 		return item.State == defs.APIForwardDestStateForwarding &&
 			item.Protocol == defs.APIForwardDestProtocolRTMP &&
-			item.OutboundBytes > 0 &&
-			item.BytesSent == item.OutboundBytes
+			item.OutboundBytes > 0
 	}, 5*time.Second, 100*time.Millisecond)
 }
 

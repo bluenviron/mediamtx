@@ -1411,11 +1411,6 @@ components:
     ForwardDest:
       type: object
       properties:
-        bytesSent:
-          type: integer
-          format: uint64
-          description: deprecated
-          deprecated: true
         created:
           type: string
         dest:
