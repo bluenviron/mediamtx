@@ -5,8 +5,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/quic-go/webtransport-go"
+
+	"github.com/bluenviron/mediamtx/internal/defs"
 )
 
 type connWebTransport struct {

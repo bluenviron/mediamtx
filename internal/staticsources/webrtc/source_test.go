@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
+	webrtclib "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -16,7 +17,6 @@ import (
 	pwebrtc "github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
-	webrtclib "github.com/pion/webrtc/v4"
 )
 
 func whipOffer(body []byte) *webrtclib.SessionDescription {

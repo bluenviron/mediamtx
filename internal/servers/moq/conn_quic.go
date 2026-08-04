@@ -5,8 +5,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/quic-go/quic-go"
+
+	"github.com/bluenviron/mediamtx/internal/defs"
 )
 
 type connQUIC struct {

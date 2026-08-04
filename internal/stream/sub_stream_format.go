@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )

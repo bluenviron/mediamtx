@@ -18,8 +18,9 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpsimpleaudio"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
-	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
+
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type rtpDecoder interface {

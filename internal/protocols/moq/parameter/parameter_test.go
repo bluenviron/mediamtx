@@ -3,8 +3,9 @@ package parameter_test
 import (
 	"testing"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 )
 
 var cases = []struct {

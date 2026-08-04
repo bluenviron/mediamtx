@@ -5,10 +5,11 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRTPEncoder(t *testing.T) {

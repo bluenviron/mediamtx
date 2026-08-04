@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func TestFindAllPathsWithSegments(t *testing.T) {

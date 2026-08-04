@@ -3,8 +3,9 @@ package property_test
 import (
 	"testing"
 
-	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 )
 
 var cases = []struct {

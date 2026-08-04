@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerTracker(t *testing.T) {
