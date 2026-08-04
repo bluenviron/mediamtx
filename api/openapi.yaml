@@ -1411,9 +1411,9 @@ components:
     ForwardDest:
       type: object
       properties:
+        conf:
+          $ref: "#/components/schemas/PathConfForwardDest"
         created:
-          type: string
-        dest:
           type: string
         id:
           type: string

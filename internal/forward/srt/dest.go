@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	srt "github.com/datarhei/gosrt"
+	srtlib "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -50,7 +50,7 @@ func (d *Dest) OutboundBytes() uint64 {
 
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context) error {
-	srtConf := srt.DefaultConfig()
+	srtConf := srtlib.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(d.Dest)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := srt.Dial("srt", address, srtConf)
+	conn, err := srtlib.Dial("srt", address, srtConf)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	d.mutex.Lock()
 	d.outboundBytesFunc = func() uint64 {
-		var stats srt.Statistics
+		var stats srtlib.Statistics
 		conn.Stats(&stats)
 		return stats.Accumulated.ByteSent
 	}

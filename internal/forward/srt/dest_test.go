@@ -1,4 +1,4 @@
-package srt
+package srt_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/forward/srt"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -44,7 +45,7 @@ func TestDest(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dest := &Dest{
+	dest := &srt.Dest{
 		Stream:            strm,
 		Dest:              "srt://" + ln.Addr().String(),
 		WriteTimeout:      conf.Duration(10 * time.Second),

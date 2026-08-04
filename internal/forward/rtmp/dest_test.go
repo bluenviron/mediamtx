@@ -1,4 +1,4 @@
-package rtmp
+package rtmp_test
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/forward/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -28,6 +29,7 @@ func TestDest(t *testing.T) {
 
 	received := make(chan [][]byte, 8)
 	serverErr := make(chan error, 1)
+
 	go func() {
 		nconn, listenAcceptErr := ln.Accept()
 		if listenAcceptErr != nil {
@@ -104,7 +106,7 @@ func TestDest(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dest := &Dest{
+	dest := &rtmp.Dest{
 		Stream:       strm,
 		URL:          u,
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -156,18 +158,4 @@ frameLoop:
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for RTMP destination to stop")
 	}
-}
-
-func TestFourCCList(t *testing.T) {
-	require.Empty(t, fourCCList(&description.Session{Medias: []*description.Media{{
-		Type: description.MediaTypeVideo,
-		Formats: []format.Format{&format.H264{
-			PayloadTyp: 96,
-		}},
-	}}}))
-
-	require.NotEmpty(t, fourCCList(&description.Session{Medias: []*description.Media{{
-		Type:    description.MediaTypeVideo,
-		Formats: []format.Format{&format.H265{}},
-	}}}))
 }

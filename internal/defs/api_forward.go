@@ -3,6 +3,7 @@ package defs
 import (
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/google/uuid"
 )
 
@@ -33,7 +34,7 @@ type APIForwardDest struct {
 	ID            uuid.UUID              `json:"id"`
 	Pos           int                    `json:"pos"`
 	Created       time.Time              `json:"created"`
-	Dest          string                 `json:"dest"`
+	Conf          conf.ForwardDest       `json:"conf"`
 	Protocol      APIForwardDestProtocol `json:"protocol"`
 	State         APIForwardDestState    `json:"state"`
 	LastError     string                 `json:"lastError"`

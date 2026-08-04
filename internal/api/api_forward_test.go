@@ -60,7 +60,7 @@ func TestForward(t *testing.T) {
 				ID:            id,
 				Pos:           1,
 				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
-				Dest:          "rtmp://localhost/live/stream",
+				Conf:          conf.ForwardDest{Dest: "rtmp://localhost/live/stream"},
 				Protocol:      defs.APIForwardDestProtocolRTMP,
 				State:         defs.APIForwardDestStateError,
 				LastError:     "connection refused",
@@ -96,7 +96,7 @@ func TestForward(t *testing.T) {
 	var item defs.APIForwardDest
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+id.String(), nil, &item)
-	require.Equal(t, "rtmp://localhost/live/stream", item.Dest)
+	require.Equal(t, "rtmp://localhost/live/stream", item.Conf.Dest)
 	require.Equal(t, defs.APIForwardDestProtocolRTMP, item.Protocol)
 	require.Equal(t, defs.APIForwardDestStateError, item.State)
 	require.Equal(t, "connection refused", item.LastError)

@@ -42,7 +42,7 @@ func (m *Manager) Initialize() {
 	m.destHandlers = make([]*DestHandler, 0, len(m.Forward))
 
 	for i, dest := range m.Forward {
-		destHandler := m.createDestHandler(dest.Dest, i+1)
+		destHandler := m.createDestHandler(i+1, dest)
 		m.destHandlers = append(m.destHandlers, destHandler)
 	}
 }
@@ -52,10 +52,10 @@ func (m *Manager) Log(level logger.Level, format string, args ...any) {
 	m.Parent.Log(level, "[forward] "+format, args...)
 }
 
-func (m *Manager) createDestHandler(dest string, pos int) *DestHandler {
+func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler {
 	handler := &DestHandler{
 		Pos:               pos,
-		Dest:              dest,
+		Conf:              conf,
 		ReadTimeout:       m.ReadTimeout,
 		WriteTimeout:      m.WriteTimeout,
 		UDPMaxPayloadSize: m.UDPMaxPayloadSize,
@@ -75,14 +75,14 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 	toClose := make([]*DestHandler, 0)
 
 	for i, dest := range forward {
-		if i < len(m.destHandlers) && m.destHandlers[i].Dest == dest.Dest {
+		if i < len(m.destHandlers) && m.destHandlers[i].Conf.Dest == dest.Dest {
 			newHandlers[i] = m.destHandlers[i]
 		} else {
 			if i < len(m.destHandlers) {
 				toClose = append(toClose, m.destHandlers[i])
 			}
 
-			destHandler := m.createDestHandler(dest.Dest, i+1)
+			destHandler := m.createDestHandler(i+1, dest)
 			if m.started {
 				destHandler.start(m.stream)
 			}
@@ -125,7 +125,7 @@ func (m *Manager) Stop() {
 	}
 }
 
-// Get gets a destination.
+// APIGet gets a destination.
 func (m *Manager) APIGet(id uuid.UUID) (*defs.APIForwardDest, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
@@ -140,7 +140,7 @@ func (m *Manager) APIGet(id uuid.UUID) (*defs.APIForwardDest, error) {
 	return nil, ErrDestNotFound
 }
 
-// List lists all destinations.
+// APIList lists all destinations.
 func (m *Manager) APIList() *defs.APIForwardDestList {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()

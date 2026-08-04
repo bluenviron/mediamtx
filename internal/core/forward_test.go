@@ -238,7 +238,7 @@ func TestPathForwardRTMP(t *testing.T) {
 		"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
 	require.Len(t, list.Items, 1)
 	added := list.Items[0]
-	require.Equal(t, dest, added.Dest)
+	require.Equal(t, dest, added.Conf.Dest)
 	require.Equal(t, defs.APIForwardDestProtocolRTMP, added.Protocol)
 	require.Equal(t, 1, added.Pos)
 

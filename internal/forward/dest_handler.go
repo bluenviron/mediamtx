@@ -38,7 +38,7 @@ func resolveDest(dest string, pathName string, matches []string) string {
 // DestHandler manages a forward destination.
 type DestHandler struct {
 	Pos               int
-	Dest              string
+	Conf              conf.ForwardDest
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
@@ -154,7 +154,7 @@ func (h *DestHandler) run(strm *stream.Stream) {
 func (h *DestHandler) runOnce(strm *stream.Stream) error {
 	h.setState(defs.APIForwardDestStateConnecting, "")
 
-	resolvedDest := resolveDest(h.Dest, h.PathName, h.Matches)
+	resolvedDest := resolveDest(h.Conf.Dest, h.PathName, h.Matches)
 	u, err := url.Parse(resolvedDest)
 	if err != nil {
 		return err
@@ -219,8 +219,8 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		ID:            h.uuid,
 		Pos:           h.Pos,
 		Created:       h.created,
-		Dest:          h.Dest,
-		Protocol:      destProtocol(h.Dest),
+		Conf:          h.Conf,
+		Protocol:      destProtocol(h.Conf.Dest),
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,
