@@ -449,6 +449,8 @@ moqHTTP2Address: :8892
 # Address of the UDP/HTTP3 listener.
 # This hosts the WebTransport endpoint.
 moqHTTP3Address: :8892
+# Address of the UDP/QUIC listener used for native MoQ-over-QUIC.
+moqQUICAddress: :8893
 # Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048

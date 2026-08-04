@@ -1,17 +1,18 @@
-package subgroup
+package subgroup_test
 
 import (
 	"bytes"
 	"testing"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/stretchr/testify/require"
 )
 
 var cases = []struct {
 	name string
 	enc  []byte
-	dec  SubGroup
+	dec  subgroup.SubGroup
 }{
 	{
 		name: "stream without properties",
@@ -26,14 +27,14 @@ var cases = []struct {
 			0x00, // payload length = 0 (end-of-stream)
 			0x03, // status = EndOfGroup
 		},
-		dec: SubGroup{
-			Header: Header{
+		dec: subgroup.SubGroup{
+			Header: subgroup.Header{
 				Properties:  false,
 				FirstObject: false,
 				TrackAlias:  1,
 				GroupID:     0,
 			},
-			Objects: []Object{{
+			Objects: []subgroup.Object{{
 				Payload: []byte("hello"),
 			}},
 		},
@@ -55,14 +56,14 @@ var cases = []struct {
 			0x00, // payload length = 0 (end-of-stream)
 			0x03, // status = EndOfGroup
 		},
-		dec: SubGroup{
-			Header: Header{
+		dec: subgroup.SubGroup{
+			Header: subgroup.Header{
 				Properties:  true,
 				FirstObject: false,
 				TrackAlias:  1,
 				GroupID:     0,
 			},
-			Objects: []Object{{
+			Objects: []subgroup.Object{{
 				Properties: property.Properties{
 					new(property.Timestamp(1000)),
 				},
@@ -75,7 +76,7 @@ var cases = []struct {
 func TestUnmarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			var s SubGroup
+			var s subgroup.SubGroup
 			err := s.Read(bytes.NewReader(ca.enc))
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, s)
@@ -97,7 +98,7 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, buf []byte) {
-		var s SubGroup
+		var s subgroup.SubGroup
 		err := s.Read(bytes.NewReader(buf))
 		if err != nil {
 			return

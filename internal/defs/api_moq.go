@@ -32,6 +32,15 @@ const (
 	APIMoQVersionDraft19 APIMoQVersion = "moqt-19"
 )
 
+// APIMoQSessionTransport is the underlying transport of a MoQ session.
+type APIMoQSessionTransport string
+
+// transports.
+const (
+	APIMoQSessionTransportWebTransport APIMoQSessionTransport = "webtransport"
+	APIMoQSessionTransportQUIC         APIMoQSessionTransport = "quic"
+)
+
 // APIMoQSessionList is a list of MoQ sessions.
 type APIMoQSessionList struct {
 	ItemCount int             `json:"itemCount"`
@@ -41,14 +50,15 @@ type APIMoQSessionList struct {
 
 // APIMoQSession is a MoQ session.
 type APIMoQSession struct {
-	ID            uuid.UUID          `json:"id"`
-	Created       time.Time          `json:"created"`
-	RemoteAddr    string             `json:"remoteAddr"`
-	State         APIMoQSessionState `json:"state"`
-	Path          string             `json:"path"`
-	Query         string             `json:"query"`
-	UserAgent     string             `json:"userAgent"`
-	Version       APIMoQVersion      `json:"version"`
-	InboundBytes  uint64             `json:"inboundBytes"`
-	OutboundBytes uint64             `json:"outboundBytes"`
+	ID            uuid.UUID              `json:"id"`
+	Created       time.Time              `json:"created"`
+	RemoteAddr    string                 `json:"remoteAddr"`
+	State         APIMoQSessionState     `json:"state"`
+	Path          string                 `json:"path"`
+	Query         string                 `json:"query"`
+	UserAgent     string                 `json:"userAgent"`
+	Transport     APIMoQSessionTransport `json:"transport"`
+	Version       APIMoQVersion          `json:"version"`
+	InboundBytes  uint64                 `json:"inboundBytes"`
+	OutboundBytes uint64                 `json:"outboundBytes"`
 }

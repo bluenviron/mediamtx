@@ -10,7 +10,7 @@ Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC,
 Media-over-QUIC has a wide range of features and variants, most of them in active development. We currently support the following:
 
 - The server supports `draft-19` and `draft-18` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-19), and prefers `draft-19` when both are offered during negotiation.
-- We only support using Media-over-QUIC through browsers and in particular through the WebTransport API. We do not support using QUIC directly.
+- We support using Media-over-QUIC through browsers with the WebTransport API and through native QUIC clients.
 - We support the `PUBLISH` and `SUBSCRIBE` messages only, which are the ones meant to be used with a routing solution like _MediaMTX_.
 - We use the MOQT Streaming Format (MSF) to advertise tracks, described in [this specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-msf-00).
 - We use the Low Overhead Media Container (LOC) to ship frames, described in [this specification](https://datatracker.ietf.org/doc/draft-ietf-moq-loc/).
@@ -34,4 +34,4 @@ You can publish a stream with Media-over-QUIC and a web browser by visiting:
 https://localhost:8892/mystream/publish
 ```
 
-The only clients that can currently publish with Media-over-QUIC are [Web browsers](16-web-browsers.md).
+You can also publish with native QUIC clients by connecting directly to `moqQUICAddress` (default is `:8893`).

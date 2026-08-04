@@ -8,7 +8,7 @@ import (
 )
 
 // Property is an object property.
-// spec: draft-18, section 11.2.1.2
+// spec: draft-18/19, section 11.2.1.2
 type Property interface {
 	isProperty()
 	propType() varint.Varint
@@ -18,7 +18,7 @@ type Property interface {
 }
 
 // Properties are object properties.
-// spec: draft-18, section 11.2.1.2
+// spec: draft-18/19, section 11.2.1.2
 type Properties []Property
 
 // Unmarshal decodes properties.

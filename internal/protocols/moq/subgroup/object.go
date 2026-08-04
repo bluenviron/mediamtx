@@ -14,7 +14,7 @@ const (
 )
 
 // Object is an object of a subgroup stream.
-// spec: draft-18, section 11.4.2
+// spec: draft-18/19, section 11.4.2
 type Object struct {
 	IDDelta    uint64
 	Properties property.Properties

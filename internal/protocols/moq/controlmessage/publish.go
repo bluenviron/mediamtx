@@ -15,7 +15,7 @@ const (
 )
 
 // Publish is the PUBLISH control message.
-// spec: draft-18, section 10.10
+// spec: draft-18/19, section 10.10
 type Publish struct {
 	RequestID       uint64
 	Namespace       []string

@@ -400,6 +400,7 @@ type Conf struct {
 	MoQ               bool       `json:"moq"`
 	MoQHTTP2Address   string     `json:"moqHTTP2Address"`
 	MoQHTTP3Address   string     `json:"moqHTTP3Address"`
+	MoQQUICAddress    string     `json:"moqQUICAddress"`
 	MoQServerKey      string     `json:"moqServerKey"`
 	MoQServerCert     string     `json:"moqServerCert"`
 	MoQAllowOrigins   []string   `json:"moqAllowOrigins"`
@@ -539,6 +540,7 @@ func (conf *Conf) setDefaults() {
 	conf.MoQ = true
 	conf.MoQHTTP2Address = ":8892"
 	conf.MoQHTTP3Address = ":8892"
+	conf.MoQQUICAddress = ":8893"
 	conf.MoQServerKey = "auto.key"
 	conf.MoQServerCert = "auto.crt"
 	conf.MoQAllowOrigins = []string{"*"}
@@ -1054,6 +1056,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l.Log(logger.Warn, "parameter 'moqHTTPS3Address' is deprecated "+
 			"and has been replaced with 'moqHTTP3Address'")
 		conf.MoQHTTP3Address = *conf.MoQHTTPS3Address
+	}
+
+	if conf.MoQ && conf.MoQQUICAddress == "" {
+		return fmt.Errorf("'moqQUICAddress' must be set when MoQ is enabled")
 	}
 
 	// Record (deprecated)
