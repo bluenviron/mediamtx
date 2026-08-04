@@ -856,14 +856,15 @@ func (pa *path) setAvailable(
 	replaceNTP bool,
 ) error {
 	pa.stream = &stream.Stream{
-		OrigDesc:              desc,
-		AlwaysAvailable:       pa.conf.AlwaysAvailable,
-		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
-		AlwaysAvailableFile:   pa.conf.AlwaysAvailableFile,
-		WriteQueueSize:        pa.writeQueueSize,
-		RTPMaxPayloadSize:     pa.rtpMaxPayloadSize,
-		ReplaceNTP:            replaceNTP,
-		Parent:                pa,
+		OrigDesc:                   desc,
+		AlwaysAvailable:            pa.conf.AlwaysAvailable,
+		AlwaysAvailableTracks:      pa.conf.AlwaysAvailableTracks,
+		AlwaysAvailableFile:        pa.conf.AlwaysAvailableFile,
+		AlwaysAvailablePreloadSize: pa.conf.AlwaysAvailablePreloadSize,
+		WriteQueueSize:             pa.writeQueueSize,
+		RTPMaxPayloadSize:          pa.rtpMaxPayloadSize,
+		ReplaceNTP:                 replaceNTP,
+		Parent:                     pa,
 	}
 	err := pa.stream.Initialize()
 	if err != nil {
