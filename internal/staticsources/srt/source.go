@@ -47,7 +47,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
-	sconn, err := srt.Dial("srt", address, conf)
+	sconn, err := srt.DialWithContext(params.Context, "srt", address, conf)
 	if err != nil {
 		return err
 	}

@@ -104,12 +104,12 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	err = conn.Initialize(ctx)
 	if err != nil {
-		return fmt.Errorf("connect RTMP destination: %w", err)
+		return err
 	}
 
 	terminate := make(chan struct{})
 
-	errChan := make(chan error, 1)
+	errChan := make(chan error)
 	go func() {
 		errChan <- d.runInner(conn, terminate)
 	}()
