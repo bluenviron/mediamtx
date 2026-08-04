@@ -974,3 +974,197 @@ func TestPeerConnectionAdditionalHostsUnresolvable(t *testing.T) {
 	require.Contains(t, answer.SDP, "127.0.0.1")
 	require.NotContains(t, answer.SDP, "unresolvable.invalid")
 }
+
+func TestPeerConnectionRecomputeSequenceNumber(t *testing.T) {
+	for _, ca := range []struct {
+		name          string
+		packets       []*rtp.Packet
+		expectedCount int
+		check         func(t *testing.T, seqNums []uint16)
+	}{
+		{
+			name: "skip empty packets",
+			packets: []*rtp.Packet{
+				{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1000,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{5, 2},
+				},
+				{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1001,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{},
+				},
+				{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1002,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{5, 2},
+				},
+				{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1003,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{},
+				},
+				{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1004,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{5, 2},
+				},
+			},
+			expectedCount: 3,
+			check: func(t *testing.T, seqNums []uint16) {
+				require.Len(t, seqNums, 3)
+				require.Equal(t, seqNums[1], seqNums[0]+1)
+				require.Equal(t, seqNums[2], seqNums[1]+1)
+			},
+		},
+		{
+			name: "preserve real gaps",
+			packets: func() []*rtp.Packet {
+				packets := []*rtp.Packet{{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 1000,
+						Timestamp:      45343,
+						SSRC:           124123,
+					},
+					Payload: []byte{5, 2},
+				}}
+
+				for i := uint16(1002); i <= 1065; i++ {
+					packets = append(packets, &rtp.Packet{
+						Header: rtp.Header{
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: i,
+							Timestamp:      45343,
+							SSRC:           124123,
+						},
+						Payload: []byte{5, 2},
+					})
+				}
+
+				return packets
+			}(),
+			expectedCount: 2,
+			check: func(t *testing.T, seqNums []uint16) {
+				require.Len(t, seqNums, 2)
+				require.Equal(t, seqNums[1], seqNums[0]+2)
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+			require.NoError(t, err)
+			defer pub.Close() //nolint:errcheck
+
+			videoTrack, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeVP8,
+					ClockRate: 90000,
+				},
+				"video", "publisher",
+			)
+			require.NoError(t, err)
+
+			_, err = pub.AddTrack(videoTrack)
+			require.NoError(t, err)
+
+			reader := &PeerConnection{
+				LocalRandomUDP:    true,
+				IPsFromInterfaces: true,
+				Publish:           false,
+				Log:               test.NilLogger,
+			}
+			err = reader.Start()
+			require.NoError(t, err)
+			defer reader.Close()
+
+			offer, err := pub.CreateOffer(nil)
+			require.NoError(t, err)
+
+			err = pub.SetLocalDescription(offer)
+			require.NoError(t, err)
+
+			answer, err := reader.CreateFullAnswer(&offer, false)
+			require.NoError(t, err)
+
+			err = pub.SetRemoteDescription(*answer)
+			require.NoError(t, err)
+
+			err = reader.WaitUntilConnected(10 * time.Second)
+			require.NoError(t, err)
+
+			go func() {
+				time.Sleep(200 * time.Millisecond)
+
+				for _, pkt := range ca.packets {
+					err2 := videoTrack.WriteRTP(pkt)
+					if err2 != nil {
+						return
+					}
+				}
+			}()
+
+			err = reader.GatherInboundTracks(5 * time.Second)
+			require.NoError(t, err)
+
+			tracks := reader.InboundTracks()
+			require.Len(t, tracks, 1)
+
+			received := make(chan []uint16, 1)
+			var seqNums []uint16
+
+			tracks[0].OnPacketRTP = func(p *rtp.Packet) {
+				require.NotEmpty(t, p.Payload)
+				seqNums = append(seqNums, p.SequenceNumber)
+				if len(seqNums) == ca.expectedCount {
+					received <- append([]uint16(nil), seqNums...)
+				}
+			}
+
+			reader.StartReading()
+
+			select {
+			case seqs := <-received:
+				ca.check(t, seqs)
+
+			case <-time.After(2 * time.Second):
+				require.FailNow(t, "timeout waiting for packets")
+			}
+		})
+	}
+}

@@ -119,6 +119,8 @@ func (c *conn) run() { //nolint:dupl
 }
 
 func (c *conn) runInner() error {
+	c.Log(logger.Debug, "stream ID: %v", c.connReq.StreamId())
+
 	var streamID streamID
 	err := streamID.unmarshal(c.connReq.StreamId())
 	if err != nil {

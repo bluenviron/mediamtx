@@ -381,10 +381,11 @@ func (t *InboundTrack) start() {
 
 	// read incoming RTP packets.
 
-	seqNumber, err := randUint16()
+	seqNumberOffset, err := randUint16()
 	if err != nil {
 		panic(err)
 	}
+	seqNumberOffsetInitialized := false
 
 	go func() {
 		for {
@@ -403,14 +404,18 @@ func (t *InboundTrack) start() {
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.
 				if len(pkt.Payload) == 0 {
+					if seqNumberOffsetInitialized {
+						seqNumberOffset--
+					}
 					continue
 				}
 
-				// recompute SequenceNumber, in order to:
-				// - prevent downstream packet loss detectors from being triggered by packet losses handled here
-				// - account for the Chrome filtering above.
-				pkt.SequenceNumber = seqNumber
-				seqNumber++
+				// recompute SequenceNumber, in order to account for the Chrome filtering above
+				if !seqNumberOffsetInitialized {
+					seqNumberOffset -= pkt.SequenceNumber
+					seqNumberOffsetInitialized = true
+				}
+				pkt.SequenceNumber += seqNumberOffset
 
 				t.stripTWCCExtension(pkt)
 				t.OnPacketRTP(pkt)
