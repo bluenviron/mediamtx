@@ -1,4 +1,4 @@
-package hls
+package hls_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/hls"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -93,7 +94,7 @@ func TestSource(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &hls.Source{
 		Parent: p,
 	}
 
@@ -181,7 +182,7 @@ func TestSourceCookie(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &hls.Source{
 		Parent: p,
 	}
 
