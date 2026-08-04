@@ -66,9 +66,6 @@ func (m *Manager) Close() {
 	m.mutex.Unlock()
 
 	for _, handler := range destHandlers {
-		handler.CloseAsync()
-	}
-	for _, handler := range destHandlers {
 		handler.Close()
 	}
 }
