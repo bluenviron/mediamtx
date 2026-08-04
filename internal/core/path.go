@@ -145,7 +145,6 @@ type path struct {
 	chAddPublisher            chan defs.PathAddPublisherReq
 	chRemovePublisher         chan defs.PathRemovePublisherReq
 	chAddReader               chan defs.PathAddReaderReq
-	chCancelReaderAdd         chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
 	chAPIForwardDestList      chan pathAPIForwardDestListReq
@@ -173,7 +172,6 @@ func (pa *path) initialize() {
 	pa.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pa.chRemovePublisher = make(chan defs.PathRemovePublisherReq)
 	pa.chAddReader = make(chan defs.PathAddReaderReq)
-	pa.chCancelReaderAdd = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 	pa.chAPIForwardDestList = make(chan pathAPIForwardDestListReq)
@@ -375,13 +373,6 @@ func (pa *path) runInner() error {
 			pa.doAddReader(req)
 
 			pa.pendingRequests.Add(-1)
-
-			if pa.shouldClose() {
-				pa.parent.closePathIfIdle(pa)
-			}
-
-		case req := <-pa.chCancelReaderAdd:
-			pa.doCancelReaderAdd(req)
 
 			if pa.shouldClose() {
 				pa.parent.closePathIfIdle(pa)
@@ -657,7 +648,6 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 			pa.onDemandStaticSourceStart(req.AccessRequest.Query)
 		}
 		pa.readerAddRequestsOnHold = append(pa.readerAddRequestsOnHold, req)
-		pa.cancelReaderAddOnHold(req)
 		return
 	}
 
@@ -666,41 +656,10 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 			pa.onDemandPublisherStart(req.AccessRequest.Query)
 		}
 		pa.readerAddRequestsOnHold = append(pa.readerAddRequestsOnHold, req)
-		pa.cancelReaderAddOnHold(req)
 		return
 	}
 
 	req.Res <- defs.PathAddReaderRes{Err: &defs.PathNoStreamAvailableError{PathName: pa.name}}
-}
-
-func (pa *path) cancelReaderAddOnHold(req defs.PathAddReaderReq) {
-	if req.Cancel == nil {
-		return
-	}
-
-	go func() {
-		select {
-		case <-req.Cancel:
-			select {
-			case pa.chCancelReaderAdd <- req:
-			case <-pa.ctx.Done():
-			}
-
-		case <-pa.ctx.Done():
-		}
-	}()
-}
-
-func (pa *path) doCancelReaderAdd(req defs.PathAddReaderReq) {
-	for i, heldReq := range pa.readerAddRequestsOnHold {
-		if heldReq.Res == req.Res {
-			pa.readerAddRequestsOnHold = append(
-				pa.readerAddRequestsOnHold[:i],
-				pa.readerAddRequestsOnHold[i+1:]...)
-			heldReq.Res <- defs.PathAddReaderRes{Err: fmt.Errorf("terminated")}
-			return
-		}
-	}
 }
 
 func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
