@@ -543,10 +543,10 @@ pathDefaults:
   # Forward the stream of this path to one or more external servers.
   forward: []
     # forward destination. This can be:
-    # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
-    # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
     # * rtsp://user:pass@host:port/path -> the stream is forwarded to another RTSP server
     # * rtsps://user:pass@host:port/path -> the stream is forwarded to another RTSP server with RTSPS
+    # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
+    # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
     # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
     # The destination can contain the variable $MTX_PATH. If the path name is a regular expression,
     # regular expression groups can be used with $G1, $G2, and so on.

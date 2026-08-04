@@ -1,25 +1,47 @@
-# Forward
+# Forward streams
 
-Incoming streams can be forwarded to other servers with `forward`. This forwards the original stream without running external processes.
+Incoming streams can be natively forwarded to other servers with the following protocols:
 
-```yml
-pathDefaults:
-  forward:
-    - dest: rtmp://other-server/live/$MTX_PATH
-    - dest: rtsp://other-server:8554/$MTX_PATH
-    - dest: srt://other-server:8890?streamid=publish:$MTX_PATH
-```
+- [RTSP](#rtsp)
+- [RTMP](#rtmp)
+- [SRT](#srt)
 
-Each destination is started when the path is created and reconnects automatically when the stream or remote server becomes unavailable.
+It is also possible to use [FFmpeg](#ffmpeg) to perform the forwarding.
 
-The `dest` field supports the following schemes: `rtmp`, `rtmps`, `rtsp`, `rtsps` and `srt`. It can contain the variable `$MTX_PATH`. If the path name is a regular expression, regular expression groups can be used with `$G1`, `$G2`, and so on:
+## RTSP
+
+Add the target URL inside `dest` of a `forward` entry:
 
 ```yml
 paths:
-  "~^camera_(.+)$":
+  mypath:
     forward:
-      - dest: rtsp://other-server:8554/$G1
+    - dest: rtsp://user:pass@host:port/path
 ```
+
+## RTMP
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+    - dest: rtmp://user:pass@host:port/path#streamKey
+```
+
+## SRT
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+    - dest: srt://host:port?streamid=streamid
+```
+
+## FFmpeg
 
 When the destination requires transcoding, filtering or a protocol that is not supported by `forward`, use _FFmpeg_ inside the `runOnAvailable` parameter instead:
 

@@ -1,4 +1,4 @@
-# Read a stream
+# Read streams
 
 Live streams can be read from the server with the following protocols:
 
