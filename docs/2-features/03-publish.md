@@ -1,4 +1,4 @@
-# Publish a stream
+# Publish streams
 
 Live streams can be published to the server with the following protocols:
 

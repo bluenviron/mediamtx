@@ -1,6 +1,49 @@
-# Forward
+# Forward streams
 
-To forward incoming streams to another server, use _FFmpeg_ inside the `runOnAvailable` parameter:
+Incoming streams can be natively forwarded to other servers with the following protocols:
+
+- [RTSP](#rtsp)
+- [RTMP](#rtmp)
+- [SRT](#srt)
+
+It is also possible to use [FFmpeg](#ffmpeg) to perform the forwarding.
+
+## RTSP
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+      - dest: rtsp://user:pass@host:port/path
+```
+
+## RTMP
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+      - dest: rtmp://user:pass@host:port/path#streamKey
+```
+
+## SRT
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+      - dest: srt://host:port?streamid=streamid
+```
+
+## FFmpeg
+
+When the destination requires transcoding, filtering or a protocol that is not supported by `forward`, use _FFmpeg_ inside the `runOnAvailable` parameter instead:
 
 ```yml
 pathDefaults:

@@ -2,12 +2,16 @@ package defs
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // APIPathManager contains methods used by the API and Metrics server.
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	APIForwardDestList(string) (*APIForwardDestList, error)
+	APIForwardDestGet(string, uuid.UUID) (*APIForwardDest, error)
 }
 
 // APIPathSourceType is the type of a path source.

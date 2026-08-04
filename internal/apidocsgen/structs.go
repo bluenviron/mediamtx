@@ -86,6 +86,10 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathConfList{}),
 	},
 	{
+		externalName: "PathConfForwardDest",
+		typ:          reflect.TypeOf(conf.ForwardDest{}),
+	},
+	{
 		externalName: "PathList",
 		typ:          reflect.TypeOf(defs.APIPathList{}),
 	},
@@ -136,6 +140,14 @@ var structs = []struct {
 	{
 		externalName: "PathTrackCodecPropsVP9",
 		typ:          reflect.TypeOf(defs.APIPathTrackCodecPropsVP9{}),
+	},
+	{
+		externalName: "ForwardDest",
+		typ:          reflect.TypeOf(defs.APIForwardDest{}),
+	},
+	{
+		externalName: "ForwardDestList",
+		typ:          reflect.TypeOf(defs.APIForwardDestList{}),
 	},
 	{
 		externalName: "Recording",
@@ -292,6 +304,9 @@ func schemaName(rt reflect.Type) string {
 	if rt == reflect.TypeOf(conf.Path{}) {
 		return "PathConf"
 	}
+	if rt == reflect.TypeOf(conf.ForwardDest{}) {
+		return "PathConfForwardDest"
+	}
 
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
 		return "PathTrackCodec"
@@ -349,6 +364,12 @@ func isStructEnum(rt reflect.Type) bool {
 		return true
 
 	case reflect.TypeOf(defs.APIPathReaderType("")):
+		return true
+
+	case reflect.TypeOf(defs.APIForwardDestProtocol("")):
+		return true
+
+	case reflect.TypeOf(defs.APIForwardDestState("")):
 		return true
 
 	case reflect.TypeOf(defs.APIPathTrackCodec("")):
