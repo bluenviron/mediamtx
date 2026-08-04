@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,6 +25,26 @@ const (
 	sessionCloseAfter     = 30 * time.Second
 	sessionCleanupPeriod  = sessionCloseAfter / 3
 )
+
+// this prevents directory traversal.
+// functionally it's useless since there's already conf.IsValidPathName, but it's needed by CodeQL.
+func absolutePathInside(base string, candidate string) (string, error) {
+	baseAbs, err := filepath.Abs(filepath.Clean(base))
+	if err != nil {
+		return "", err
+	}
+
+	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasPrefix(candidateAbs, baseAbs) {
+		return "", fmt.Errorf("path escapes base directory")
+	}
+
+	return candidateAbs, nil
+}
 
 type instanceParent interface {
 	logger.Writer
@@ -54,9 +75,18 @@ func (mi *muxerInstance) initialize() error {
 	mi.Log(logger.Debug, "instance created")
 
 	var muxerDirectory string
+
 	if mi.directory != "" {
-		muxerDirectory = filepath.Join(mi.directory, mi.pathName)
-		os.MkdirAll(muxerDirectory, 0o755)
+		var err error
+		muxerDirectory, err = absolutePathInside(mi.directory, filepath.Join(mi.directory, mi.pathName))
+		if err != nil {
+			return err
+		}
+
+		err = os.MkdirAll(muxerDirectory, 0o755)
+		if err != nil {
+			return err
+		}
 	}
 
 	mi.hmuxer = &gohlslib.Muxer{
