@@ -67,12 +67,14 @@ func (h *DestHandler) initialize() {
 }
 
 func (h *DestHandler) start(strm *stream.Stream) {
+	h.Log(logger.Debug, "starting")
 	h.ctx, h.ctxCancel = context.WithCancel(context.Background())
 	h.done = make(chan struct{})
 	go h.run(strm)
 }
 
 func (h *DestHandler) stop() {
+	h.Log(logger.Debug, "stopping")
 	h.ctxCancel()
 	<-h.done
 }

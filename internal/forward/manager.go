@@ -125,7 +125,7 @@ func (m *Manager) Stop() {
 	}
 }
 
-// APIGet gets a destination.
+// APIGet gets a forward destination.
 func (m *Manager) APIGet(id uuid.UUID) (*defs.APIForwardDest, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
@@ -140,7 +140,7 @@ func (m *Manager) APIGet(id uuid.UUID) (*defs.APIForwardDest, error) {
 	return nil, ErrDestNotFound
 }
 
-// APIList lists all destinations.
+// APIList lists all forward destinations.
 func (m *Manager) APIList() *defs.APIForwardDestList {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()

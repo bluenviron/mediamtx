@@ -745,8 +745,8 @@ func (pm *pathManager) APIForwardDestList(name string) (*defs.APIForwardDestList
 			return nil, res.err
 		}
 
-		data, err := res.path.APIForwardDestList(req)
-		return data, err
+		data := res.path.APIForwardDestList()
+		return data, nil
 
 	case <-pm.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -768,7 +768,7 @@ func (pm *pathManager) APIForwardDestGet(name string, id uuid.UUID) (*defs.APIFo
 			return nil, res.err
 		}
 
-		data, err := res.path.APIForwardDestGet(req)
+		data, err := res.path.APIForwardDestGet(req.id)
 		return data, err
 
 	case <-pm.ctx.Done():
