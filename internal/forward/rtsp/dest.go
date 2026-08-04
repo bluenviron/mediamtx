@@ -4,7 +4,6 @@ package rtsp
 import (
 	"context"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
@@ -50,22 +49,24 @@ func (d *Dest) OutboundBytes() uint64 {
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
 
-	dialCtx, dialCtxCancel := context.WithCancel(context.Background())
-	defer dialCtxCancel()
-
 	u, err := base.ParseURL(d.Dest)
 	if err != nil {
 		return err
 	}
 
-	dialer := &net.Dialer{}
 	client := &gortsplib.Client{
 		Scheme:       u.Scheme,
 		Host:         u.Host,
 		ReadTimeout:  time.Duration(d.ReadTimeout),
 		WriteTimeout: time.Duration(d.WriteTimeout),
-		DialContext: func(_ context.Context, network string, address string) (net.Conn, error) {
-			return dialer.DialContext(dialCtx, network, address)
+		OnRequest: func(req *base.Request) {
+			d.Log(logger.Debug, "[c->s] %v", req)
+		},
+		OnResponse: func(res *base.Response) {
+			d.Log(logger.Debug, "[s->c] %v", res)
+		},
+		OnTransportSwitch: func(err error) {
+			d.Log(logger.Warn, err.Error())
 		},
 	}
 
@@ -73,7 +74,6 @@ func (d *Dest) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
 
 	terminate := make(chan struct{})
 
@@ -84,11 +84,11 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	select {
 	case err = <-errChan:
+		client.Close()
 		return err
 
 	case <-ctx.Done():
 		close(terminate)
-		dialCtxCancel()
 		client.Close()
 		<-errChan
 		return fmt.Errorf("terminated")
