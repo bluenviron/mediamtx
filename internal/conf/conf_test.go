@@ -850,7 +850,7 @@ func TestConfErrors(t *testing.T) {
 				"  mypath:\n" +
 				"    forward:\n" +
 				"    - dest: http://localhost/stream\n",
-			"invalid 'forward': entry 0: unsupported scheme 'http', supported schemes are rtmp, rtmps, rtsp, rtsps and srt",
+			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are rtmp, rtmps, rtsp, rtsps and srt",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
