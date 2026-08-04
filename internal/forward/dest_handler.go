@@ -26,7 +26,6 @@ var errTerminated = errors.New("terminated")
 
 func resolveDest(dest string, pathName string, matches []string) string {
 	out := strings.ReplaceAll(dest, "$MTX_PATH", pathName)
-	out = strings.ReplaceAll(out, "$path", pathName)
 
 	if len(matches) > 1 {
 		for i, ma := range matches[1:] {
