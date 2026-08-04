@@ -67,11 +67,44 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 
+	terminate := make(chan struct{})
+
+	type runResult struct {
+		err error
+	}
+
+	errChan := make(chan runResult, 1)
+	go func() {
+		errChan <- runResult{err: d.runInner(ctx, address, srtConf, terminate)}
+	}()
+
+	select {
+	case res := <-errChan:
+		return res.err
+
+	case <-ctx.Done():
+		close(terminate)
+		return fmt.Errorf("terminated")
+	}
+}
+
+func (d *Dest) runInner(ctx context.Context, address string, srtConf srtlib.Config, terminate <-chan struct{}) error {
 	conn, err := srtlib.Dial("srt", address, srtConf)
 	if err != nil {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 		return err
 	}
 	defer conn.Close()
+
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
 
 	d.mutex.Lock()
 	d.outboundBytesFunc = func() uint64 {
@@ -96,8 +129,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	case readErr := <-r.Error():
 		return readErr
 
-	case <-ctx.Done():
-		conn.Close()
-		return fmt.Errorf("terminated")
+	case <-terminate:
+		return nil
 	}
 }

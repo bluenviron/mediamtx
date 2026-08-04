@@ -120,3 +120,40 @@ func TestDest(t *testing.T) {
 		t.Fatal("timed out waiting for SRT destination to stop")
 	}
 }
+
+func TestDestCancelWhileDialing(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dest := &srt.Dest{
+		Stream:            strm,
+		Dest:              "srt://198.51.100.1:9000?conntimeo=10000",
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		UDPMaxPayloadSize: 1472,
+		Parent:            test.NilLogger,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- dest.Run(ctx)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case runErr := <-done:
+		require.EqualError(t, runErr, "terminated")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for SRT destination to stop")
+	}
+}

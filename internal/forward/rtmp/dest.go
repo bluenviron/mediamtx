@@ -106,8 +106,28 @@ func (d *Dest) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("connect RTMP destination: %w", err)
 	}
-	defer conn.Close()
 
+	terminate := make(chan struct{})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- d.runInner(conn, terminate)
+	}()
+
+	select {
+	case err = <-errChan:
+		conn.Close()
+		return err
+
+	case <-ctx.Done():
+		close(terminate)
+		conn.Close()
+		<-errChan
+		return fmt.Errorf("terminated")
+	}
+}
+
+func (d *Dest) runInner(conn *gortmplib.Client, terminate <-chan struct{}) error {
 	d.mutex.Lock()
 	d.outboundBytesFunc = conn.BytesSent
 	d.mutex.Unlock()
@@ -115,7 +135,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	r := &stream.Reader{Parent: d}
 	outDesc := d.Stream.OutDescCopy()
 
-	err = rtmpprotocol.FromStream(
+	err := rtmpprotocol.FromStream(
 		d.Stream.OrigDesc,
 		outDesc,
 		r,
@@ -133,11 +153,10 @@ func (d *Dest) Run(ctx context.Context) error {
 	defer d.Stream.RemoveReader(r)
 
 	select {
-	case readErr := <-r.Error():
-		return readErr
+	case err = <-r.Error():
+		return err
 
-	case <-ctx.Done():
-		conn.Close()
-		return fmt.Errorf("terminated")
+	case <-terminate:
+		return nil
 	}
 }

@@ -145,3 +145,66 @@ func TestDest(t *testing.T) {
 		t.Fatal("timed out waiting for RTSP destination to stop")
 	}
 }
+
+func TestDestCancelWhileStarting(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	accepted := make(chan struct{}, 1)
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+
+		nconn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer nconn.Close()
+
+		accepted <- struct{}{}
+		<-time.After(5 * time.Second)
+	}()
+
+	desc := &description.Session{Medias: []*description.Media{}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dest := &rtsp.Dest{
+		Stream:       strm,
+		Dest:         "rtsp://" + ln.Addr().String() + "/stream",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Parent:       test.NilLogger,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- dest.Run(ctx)
+	}()
+
+	select {
+	case <-accepted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for RTSP connection")
+	}
+
+	cancel()
+
+	select {
+	case runErr := <-done:
+		require.EqualError(t, runErr, "terminated")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for RTSP destination to stop")
+	}
+
+	<-serverDone
+}

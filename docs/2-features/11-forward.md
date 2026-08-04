@@ -16,7 +16,7 @@ Add the target URL inside `dest` of a `forward` entry:
 paths:
   mypath:
     forward:
-    - dest: rtsp://user:pass@host:port/path
+      - dest: rtsp://user:pass@host:port/path
 ```
 
 ## RTMP
@@ -27,7 +27,7 @@ Add the target URL inside `dest` of a `forward` entry:
 paths:
   mypath:
     forward:
-    - dest: rtmp://user:pass@host:port/path#streamKey
+      - dest: rtmp://user:pass@host:port/path#streamKey
 ```
 
 ## SRT
@@ -38,7 +38,7 @@ Add the target URL inside `dest` of a `forward` entry:
 paths:
   mypath:
     forward:
-    - dest: srt://host:port?streamid=streamid
+      - dest: srt://host:port?streamid=streamid
 ```
 
 ## FFmpeg

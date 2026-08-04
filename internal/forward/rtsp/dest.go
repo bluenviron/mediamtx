@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -48,20 +50,71 @@ func (d *Dest) OutboundBytes() uint64 {
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
 
+	dialCtx, dialCtxCancel := context.WithCancel(context.Background())
+	defer dialCtxCancel()
+
+	u, err := base.ParseURL(d.Dest)
+	if err != nil {
+		return err
+	}
+
 	dialer := &net.Dialer{}
 	client := &gortsplib.Client{
+		Scheme:       u.Scheme,
+		Host:         u.Host,
 		ReadTimeout:  time.Duration(d.ReadTimeout),
 		WriteTimeout: time.Duration(d.WriteTimeout),
 		DialContext: func(_ context.Context, network string, address string) (net.Conn, error) {
-			return dialer.DialContext(ctx, network, address)
+			return dialer.DialContext(dialCtx, network, address)
 		},
 	}
 
-	err := client.StartRecording(d.Dest, desc)
+	err = client.Start()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
+	terminate := make(chan struct{})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- d.runInner(client, desc, terminate)
+	}()
+
+	select {
+	case err = <-errChan:
+		return err
+
+	case <-ctx.Done():
+		close(terminate)
+		dialCtxCancel()
+		client.Close()
+		<-errChan
+		return fmt.Errorf("terminated")
+	}
+}
+
+func (d *Dest) runInner(client *gortsplib.Client, desc *description.Session, terminate <-chan struct{}) error {
+	u, err := base.ParseURL(d.Dest)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Announce(u, desc)
+	if err != nil {
+		return err
+	}
+
+	err = client.SetupAll(u, desc.Medias)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Record()
+	if err != nil {
+		return err
+	}
 
 	d.mutex.Lock()
 	d.outboundBytesFunc = func() uint64 {
@@ -91,11 +144,10 @@ func (d *Dest) Run(ctx context.Context) error {
 	defer d.Stream.RemoveReader(r)
 
 	select {
-	case readErr := <-r.Error():
-		return readErr
+	case err = <-r.Error():
+		return err
 
-	case <-ctx.Done():
-		client.Close()
-		return fmt.Errorf("terminated")
+	case <-terminate:
+		return nil
 	}
 }
