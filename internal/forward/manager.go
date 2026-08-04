@@ -49,7 +49,7 @@ func (m *Manager) Initialize() {
 
 // Log implements logger.Writer.
 func (m *Manager) Log(level logger.Level, format string, args ...any) {
-	m.Parent.Log(level, "[forward] "+format, args...)
+	m.Parent.Log(level, format, args...)
 }
 
 func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler {

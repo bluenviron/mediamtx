@@ -89,7 +89,7 @@ func (h *DestHandler) ID() uuid.UUID {
 // Log implements logger.Writer.
 func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(h.uuid[:4])
-	h.Parent.Log(level, "[dest %d %s] "+format, append([]any{h.Pos, id}, args...)...)
+	h.Parent.Log(level, "[forward dest %d %s] "+format, append([]any{h.Pos, id}, args...)...)
 }
 
 func (h *DestHandler) outboundBytesLocked() uint64 {
