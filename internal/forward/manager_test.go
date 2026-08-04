@@ -102,7 +102,6 @@ func TestManager(t *testing.T) {
 	require.Equal(t, "rtsp://localhost:8554/stream", list.Items[1].Dest)
 	require.Equal(t, 2, list.Items[1].Pos)
 	rtmpID := list.Items[0].ID
-	rtspID := list.Items[1].ID
 
 	m.destHandlers[0].Log(logger.Info, "marker")
 	expectedLog := "[forward] [dest 1 " + hex.EncodeToString(rtmpID[:4]) + "] marker"
@@ -115,21 +114,23 @@ func TestManager(t *testing.T) {
 		}
 	}, time.Second, 10*time.Millisecond)
 
+	// pos 0: same dest → kept; pos 1: dest changed → recreated; pos 2: new
 	m.ReloadConf(conf.Forward{
-		{Dest: "rtsp://localhost:8554/stream"},
-		{Dest: "srt://localhost:8890?streamid=publish:test"},
 		{Dest: "rtmp://localhost/app/stream"},
+		{Dest: "srt://localhost:8890?streamid=publish:test"},
+		{Dest: "rtsp://localhost:8554/stream"},
 	})
 	list = m.List()
 	require.Len(t, list.Items, 3)
-	require.Equal(t, rtspID, list.Items[0].ID)
+	require.Equal(t, rtmpID, list.Items[0].ID)
 	require.Equal(t, 1, list.Items[0].Pos)
 	require.Equal(t, "srt://localhost:8890?streamid=publish:test", list.Items[1].Dest)
 	require.Equal(t, 2, list.Items[1].Pos)
-	require.Equal(t, rtmpID, list.Items[2].ID)
+	require.Equal(t, "rtsp://localhost:8554/stream", list.Items[2].Dest)
 	require.Equal(t, 3, list.Items[2].Pos)
-	m.destHandlers[2].Log(logger.Info, "marker after reload")
-	expectedLog = "[forward] [dest 3 " + hex.EncodeToString(rtmpID[:4]) + "] marker after reload"
+
+	m.destHandlers[0].Log(logger.Info, "marker after reload")
+	expectedLog = "[forward] [dest 1 " + hex.EncodeToString(rtmpID[:4]) + "] marker after reload"
 	require.Eventually(t, func() bool {
 		select {
 		case entry := <-logEntries:
@@ -141,7 +142,7 @@ func TestManager(t *testing.T) {
 
 	item, err := m.Get(rtmpID)
 	require.NoError(t, err)
-	require.Equal(t, 3, item.Pos)
+	require.Equal(t, 1, item.Pos)
 
 	_, err = m.Get(uuid.New())
 	require.ErrorIs(t, err, ErrDestNotFound)

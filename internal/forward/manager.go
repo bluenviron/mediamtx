@@ -87,27 +87,24 @@ func (m *Manager) addDestLocked(dest string, pos int) *DestHandler {
 func (m *Manager) ReloadConf(forwards conf.Forward) {
 	m.mutex.Lock()
 
-	oldHandlers := make(map[string]*DestHandler, len(m.destHandlers))
-	for _, handler := range m.destHandlers {
-		oldHandlers[handler.Dest] = handler
-	}
+	newHandlers := make([]*DestHandler, len(forwards))
+	toClose := make([]*DestHandler, 0)
 
-	newHandlers := make([]*DestHandler, 0, len(forwards))
 	for i, forward := range forwards {
-		handler, ok := oldHandlers[forward.Dest]
-		if ok {
-			delete(oldHandlers, forward.Dest)
-			handler.setPos(i + 1)
+		if i < len(m.destHandlers) && m.destHandlers[i].Dest == forward.Dest {
+			newHandlers[i] = m.destHandlers[i]
 		} else {
-			handler = m.addDestLocked(forward.Dest, i+1)
+			if i < len(m.destHandlers) {
+				toClose = append(toClose, m.destHandlers[i])
+			}
+			newHandlers[i] = m.addDestLocked(forward.Dest, i+1)
 		}
-		newHandlers = append(newHandlers, handler)
 	}
 
-	toClose := make([]*DestHandler, 0, len(oldHandlers))
-	for _, handler := range oldHandlers {
-		toClose = append(toClose, handler)
+	for i := len(forwards); i < len(m.destHandlers); i++ {
+		toClose = append(toClose, m.destHandlers[i])
 	}
+
 	m.destHandlers = newHandlers
 	m.mutex.Unlock()
 
