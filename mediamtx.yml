@@ -511,9 +511,7 @@ pathDefaults:
   # readers connected and this amount of time has passed.
   sourceOnDemandCloseAfter: 10s
   # Maximum number of readers. Zero means no limit.
-  maxReaders:
-    0
-    # - dest: rtmp://other-server/live/$MTX_PATH
+  maxReaders: 0
   # SRT encryption passphrase required to read from this path.
   srtReadPassphrase:
   # Use absolute timestamp of frames, instead of replacing them with the current time.
