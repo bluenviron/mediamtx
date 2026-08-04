@@ -217,7 +217,6 @@ type Path struct {
 	SourceOnDemandStartTimeout Duration `json:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   Duration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int      `json:"maxReaders"`
-	Forward                    Forward  `json:"forward"`
 	SRTReadPassphrase          string   `json:"srtReadPassphrase"`
 	Fallback                   *string  `json:"fallback,omitempty" deprecated:"true"`
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
@@ -226,6 +225,9 @@ type Path struct {
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
 	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
 	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
+
+	// Forward
+	Forward Forward `json:"forward"`
 
 	// Record
 	Record                bool         `json:"record"`

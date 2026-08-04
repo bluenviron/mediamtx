@@ -933,6 +933,7 @@ components:
           deprecated: true
         forward:
           type: array
+          description: Forward
           items:
             $ref: "#/components/schemas/PathConfForwardDest"
         maxReaders:
