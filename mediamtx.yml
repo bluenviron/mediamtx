@@ -551,7 +551,7 @@ pathDefaults:
     # * $MTX_PATH: path name
     # * $MTX_QUERY: query parameters (passed by publisher)
     # * $G1, $G2, ...: regular expression groups, if path name is a regular expression.
-    # - dest: some-url
+    # - dest:
 
   ###############################################
   # Default path settings -> Record
