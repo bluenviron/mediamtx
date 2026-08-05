@@ -9,16 +9,22 @@ import (
 const typeAuthorizationToken = 0x03
 
 // AuthorizationTokenAliasType is a value of Alias Type.
-// spec: draft-18/19, section 10.2.2
+// spec:
+// * draft-17, section 9.3.2
+// * draft-18/19, section 10.2.2
 type AuthorizationTokenAliasType uint64
 
-// spec: draft-18/19, section 10.2.2
+// spec:
+// * draft-17, section 9.3.2
+// * draft-18/19, section 10.2.2
 const (
 	AuthorizationTokenAliasTypeUseValue AuthorizationTokenAliasType = 0x03
 )
 
 // AuthorizationToken is the AUTHORIZATION_TOKEN parameter.
-// spec: draft-18/19, section 10.2.2
+// spec:
+// * draft-17, section 9.3.2
+// * draft-18/19, section 10.2.2
 type AuthorizationToken struct {
 	AliasType  AuthorizationTokenAliasType
 	TokenType  uint64
