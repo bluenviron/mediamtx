@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	code.cloudfoundry.org/bytefmt v0.83.0
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/MicahParks/jwkset v0.11.2
+	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.1
 	github.com/abema/go-mp4 v1.7.1
 	github.com/alecthomas/kong v1.16.0
