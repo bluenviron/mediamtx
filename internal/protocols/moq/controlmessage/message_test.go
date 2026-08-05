@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 )
 
@@ -15,6 +16,22 @@ var cases = []struct {
 	enc  []byte
 	dec  controlmessage.Message
 }{
+	{
+		name: "draft-16 client setup",
+		enc: []byte{
+			0x20,       // type 0x20
+			0x00, 0x00, // length = 0
+		},
+		dec: &controlmessage.ClientSetup{},
+	},
+	{
+		name: "draft-16 server setup",
+		enc: []byte{
+			0x21,       // type 0x21
+			0x00, 0x00, // length = 0
+		},
+		dec: &controlmessage.ServerSetup{},
+	},
 	{
 		name: "setup",
 		enc: []byte{
@@ -66,7 +83,7 @@ var cases = []struct {
 		},
 		dec: &controlmessage.Subscribe{
 			RequestID: 1,
-			Namespace: []string{"foo"},
+			Namespace: namespace.Namespace{"foo"},
 			TrackName: "bar",
 		},
 	},
@@ -88,7 +105,7 @@ var cases = []struct {
 		},
 		dec: &controlmessage.Subscribe{
 			RequestID: 1,
-			Namespace: []string{"foo"},
+			Namespace: namespace.Namespace{"foo"},
 			TrackName: "bar",
 			Parameters: []parameter.Parameter{
 				&parameter.AuthorizationToken{
@@ -157,7 +174,7 @@ var cases = []struct {
 		},
 		dec: &controlmessage.Publish{
 			RequestID:  1,
-			Namespace:  []string{"foo"},
+			Namespace:  namespace.Namespace{"foo"},
 			TrackName:  "bar",
 			TrackAlias: 2,
 		},
@@ -181,7 +198,7 @@ var cases = []struct {
 		},
 		dec: &controlmessage.Publish{
 			RequestID:  1,
-			Namespace:  []string{"foo"},
+			Namespace:  namespace.Namespace{"foo"},
 			TrackName:  "bar",
 			TrackAlias: 2,
 			Parameters: []parameter.Parameter{

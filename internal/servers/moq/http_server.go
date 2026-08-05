@@ -46,6 +46,7 @@ var supportedMoqtVersions = []defs.APIMoQVersion{
 	defs.APIMoQVersionDraft19,
 	defs.APIMoQVersionDraft18,
 	defs.APIMoQVersionDraft17,
+	defs.APIMoQVersionDraft16,
 }
 
 type ginUnwrapper interface {

@@ -9,7 +9,7 @@ Media-over-QUIC is a streaming protocol built upon cutting edge protocols (QUIC,
 
 Media-over-QUIC has a wide range of features and variants, most of them in active development. We currently support the following:
 
-- The server supports `draft-19`, `draft-18` and `draft-17` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-19), and prefers `draft-19` when multiple versions are offered during negotiation.
+- The server supports `draft-19`, `draft-18`, `draft-17` and `draft-16` of the [main specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-19), and prefers `draft-19` when multiple versions are offered during negotiation.
 - We support using Media-over-QUIC through browsers with the WebTransport API and through native QUIC clients.
 - We support the `PUBLISH` and `SUBSCRIBE` messages only, which are the ones meant to be used with a routing solution like _MediaMTX_.
 - We use the MOQT Streaming Format (MSF) to advertise tracks, described in [this specification](https://datatracker.ietf.org/doc/html/draft-ietf-moq-msf-00).
