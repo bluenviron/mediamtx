@@ -175,9 +175,11 @@ func (s *session) runInner() error {
 		return s.runBidiStreamAcceptor(errGroup)
 	})
 
-	errGroup.Go(func() error {
-		return s.runSetupWriter()
-	})
+	if s.version != defs.APIMoQVersionDraft16 {
+		errGroup.Go(func() error {
+			return s.runSetupWriter()
+		})
+	}
 
 	select {
 	case <-s.ctx.Done():
@@ -254,47 +256,11 @@ func (s *session) onUniMessage(r io.Reader) error {
 
 	switch m := msg.(type) {
 	case *controlmessage.Setup:
-		err = func() error {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+		if s.version == defs.APIMoQVersionDraft16 {
+			return fmt.Errorf("received SETUP over unidirectional stream with draft-16")
+		}
 
-			if s.transport == defs.APIMoQSessionTransportWebTransport {
-				if m.Path != "" {
-					return fmt.Errorf("received PATH setup option over WebTransport")
-				}
-				if m.Authority != "" {
-					return fmt.Errorf("received AUTHORITY setup option over WebTransport")
-				}
-			}
-
-			if s.transport == defs.APIMoQSessionTransportQUIC && s.pathName == "" {
-				pathWithQuery := m.Path
-				if pathWithQuery == "" {
-					return fmt.Errorf("missing PATH setup option")
-				}
-
-				u, err2 := url.ParseRequestURI(pathWithQuery)
-				if err2 != nil {
-					return fmt.Errorf("invalid PATH setup option: %w", err2)
-				}
-
-				pathName := strings.Trim(u.Path, "/")
-				if pathName == "" {
-					return fmt.Errorf("invalid PATH setup option: empty path")
-				}
-
-				s.pathName = pathName
-				s.query = u.RawQuery
-			}
-
-			select {
-			case <-s.setupReceived:
-				return fmt.Errorf("SETUP stream is already present")
-			default:
-				close(s.setupReceived)
-				return nil
-			}
-		}()
+		err = s.processSetupMessage(m)
 		if err != nil {
 			return err
 		}
@@ -307,7 +273,80 @@ func (s *session) onUniMessage(r io.Reader) error {
 	}
 }
 
+func (s *session) processSetupMessage(m *controlmessage.Setup) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.transport == defs.APIMoQSessionTransportWebTransport {
+		if m.Path != "" {
+			return fmt.Errorf("received PATH setup option over WebTransport")
+		}
+		if m.Authority != "" {
+			return fmt.Errorf("received AUTHORITY setup option over WebTransport")
+		}
+	}
+
+	if s.transport == defs.APIMoQSessionTransportQUIC && s.pathName == "" {
+		pathWithQuery := m.Path
+		if pathWithQuery == "" {
+			return fmt.Errorf("missing PATH setup option")
+		}
+
+		u, err := url.ParseRequestURI(pathWithQuery)
+		if err != nil {
+			return fmt.Errorf("invalid PATH setup option: %w", err)
+		}
+
+		pathName := strings.Trim(u.Path, "/")
+		if pathName == "" {
+			return fmt.Errorf("invalid PATH setup option: empty path")
+		}
+
+		s.pathName = pathName
+		s.query = u.RawQuery
+	}
+
+	select {
+	case <-s.setupReceived:
+		return fmt.Errorf("SETUP stream is already present")
+	default:
+		close(s.setupReceived)
+		return nil
+	}
+}
+
 func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
+	if s.version == defs.APIMoQVersionDraft16 {
+		select {
+		case <-s.setupReceived:
+		default:
+			msg, err := controlmessage.Read(wstream)
+			if err != nil {
+				return err
+			}
+
+			setupMsg, ok := msg.(*controlmessage.ClientSetup)
+			if !ok {
+				return fmt.Errorf("expected CLIENT_SETUP as first message on draft-16 bidirectional stream")
+			}
+
+			err = s.processSetupMessage((*controlmessage.Setup)(setupMsg))
+			if err != nil {
+				return err
+			}
+
+			buf := controlmessage.ServerSetup(controlmessage.Setup{}).Marshal()
+
+			_, err = wstream.Write(buf)
+			if err != nil {
+				return err
+			}
+
+			_, err = io.Copy(io.Discard, wstream)
+			return err
+		}
+	}
+
 	select {
 	case <-s.setupReceived:
 	case <-s.ctx.Done():
@@ -622,7 +661,7 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 	}
 
 	var ackPayload []byte
-	if s.version == defs.APIMoQVersionDraft17 {
+	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
 		ackPayload = controlmessage.PublishOk{}.Marshal()
 	} else {
 		ackPayload = controlmessage.RequestOk{}.Marshal()
@@ -646,7 +685,7 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 	s.mutex.Unlock()
 
 	var ackPayload []byte
-	if s.version == defs.APIMoQVersionDraft17 {
+	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
 		ackPayload = controlmessage.PublishOk{}.Marshal()
 	} else {
 		ackPayload = controlmessage.RequestOk{}.Marshal()

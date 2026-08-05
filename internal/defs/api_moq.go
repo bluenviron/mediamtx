@@ -28,6 +28,7 @@ type APIMoQVersion string
 
 // protocol versions.
 const (
+	APIMoQVersionDraft16 APIMoQVersion = "moqt-16"
 	APIMoQVersionDraft17 APIMoQVersion = "moqt-17"
 	APIMoQVersionDraft18 APIMoQVersion = "moqt-18"
 	APIMoQVersionDraft19 APIMoQVersion = "moqt-19"

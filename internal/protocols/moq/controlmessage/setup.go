@@ -74,7 +74,7 @@ func (m *Setup) unmarshal(buf []byte) error {
 	return nil
 }
 
-func (m Setup) marshalSize() int {
+func (m Setup) marshalSize(t varint.Varint) int {
 	payloadSize := 0
 	var previousType varint.Varint
 
@@ -93,13 +93,13 @@ func (m Setup) marshalSize() int {
 			len(m.Authority)
 	}
 
-	return typeSetup.MarshalSize() + 2 + payloadSize
+	return t.MarshalSize() + 2 + payloadSize
 }
 
-func (m Setup) marshalTo(buf []byte) int {
-	payloadSize := m.marshalSize() - typeSetup.MarshalSize() - 2
+func (m Setup) marshalTo(buf []byte, t varint.Varint) int {
+	payloadSize := m.marshalSize(t) - t.MarshalSize() - 2
 
-	pos := typeSetup.MarshalTo(buf)
+	pos := t.MarshalTo(buf)
 	buf[pos] = byte(payloadSize >> 8)
 	buf[pos+1] = byte(payloadSize)
 	pos += 2
@@ -126,7 +126,7 @@ func (m Setup) marshalTo(buf []byte) int {
 
 // Marshal implements Message.
 func (m Setup) Marshal() []byte {
-	buf := make([]byte, m.marshalSize())
-	m.marshalTo(buf)
+	buf := make([]byte, m.marshalSize(typeSetup))
+	m.marshalTo(buf, typeSetup)
 	return buf
 }
