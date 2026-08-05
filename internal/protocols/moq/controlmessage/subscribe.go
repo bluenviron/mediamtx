@@ -3,6 +3,7 @@ package controlmessage
 import (
 	"fmt"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
 )
@@ -13,7 +14,7 @@ const typeSubscribe varint.Varint = 0x03
 // spec: draft-18/19, section 10.7
 type Subscribe struct {
 	RequestID  uint64
-	Namespace  []string
+	Namespace  namespace.Namespace
 	TrackName  string
 	Parameters parameter.Parameters
 }
@@ -30,33 +31,11 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 
 	m.RequestID = uint64(requestID)
 
-	var nsCount varint.Varint
-	n, err = nsCount.Unmarshal(buf)
+	n, err = m.Namespace.Unmarshal(buf)
 	if err != nil {
 		return err
 	}
 	buf = buf[n:]
-
-	if nsCount > maxNamespaceFieldCount {
-		return fmt.Errorf("too many namespace fields: %d", nsCount)
-	}
-
-	m.Namespace = make([]string, nsCount)
-	for i := range m.Namespace {
-		var l varint.Varint
-		n, err = l.Unmarshal(buf)
-		if err != nil {
-			return err
-		}
-		buf = buf[n:]
-
-		if uint64(len(buf)) < uint64(l) {
-			return fmt.Errorf("not enough bytes for namespace part")
-		}
-
-		m.Namespace[i] = string(buf[:l])
-		buf = buf[int(l):]
-	}
 
 	var tnLen varint.Varint
 	n, err = tnLen.Unmarshal(buf)
@@ -89,10 +68,7 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 
 func (m Subscribe) marshalSize() int {
 	n := varint.Varint(m.RequestID).MarshalSize() +
-		varint.Varint(len(m.Namespace)).MarshalSize()
-	for _, part := range m.Namespace {
-		n += varint.Varint(len(part)).MarshalSize() + len(part)
-	}
+		m.Namespace.MarshalSize()
 	n += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
 	n += varint.Varint(len(m.Parameters)).MarshalSize()
 	n += m.Parameters.MarshalSize()
@@ -102,10 +78,7 @@ func (m Subscribe) marshalSize() int {
 
 func (m Subscribe) marshalTo(buf []byte) int {
 	payloadSize := varint.Varint(m.RequestID).MarshalSize() +
-		varint.Varint(len(m.Namespace)).MarshalSize()
-	for _, part := range m.Namespace {
-		payloadSize += varint.Varint(len(part)).MarshalSize() + len(part)
-	}
+		m.Namespace.MarshalSize()
 	payloadSize += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
 	payloadSize += varint.Varint(len(m.Parameters)).MarshalSize()
 	payloadSize += m.Parameters.MarshalSize()
@@ -115,11 +88,7 @@ func (m Subscribe) marshalTo(buf []byte) int {
 	buf[n+1] = byte(payloadSize)
 	n += 2
 	n += varint.Varint(m.RequestID).MarshalTo(buf[n:])
-	n += varint.Varint(len(m.Namespace)).MarshalTo(buf[n:])
-	for _, part := range m.Namespace {
-		n += varint.Varint(len(part)).MarshalTo(buf[n:])
-		n += copy(buf[n:], part)
-	}
+	n += m.Namespace.MarshalTo(buf[n:])
 	n += varint.Varint(len(m.TrackName)).MarshalTo(buf[n:])
 	n += copy(buf[n:], m.TrackName)
 
