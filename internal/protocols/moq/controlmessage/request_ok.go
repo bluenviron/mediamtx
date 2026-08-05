@@ -9,7 +9,9 @@ import (
 const typeRequestOk varint.Varint = 0x07
 
 // RequestOk is the REQUEST_OK control message.
-// spec: draft-18/19, section 10.5
+// spec:
+// * draft-17, section 9.6
+// * draft-18/19, section 10.5
 type RequestOk struct {
 	Parameters      parameter.Parameters
 	TrackProperties property.Properties

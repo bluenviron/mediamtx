@@ -11,7 +11,9 @@ import (
 const typeSubscribe varint.Varint = 0x03
 
 // Subscribe is the SUBSCRIBE control message.
-// spec: draft-18/19, section 10.7
+// spec:
+// * draft-17, section 9.8
+// * draft-18/19, section 10.7
 type Subscribe struct {
 	RequestID  uint64
 	Namespace  namespace.Namespace

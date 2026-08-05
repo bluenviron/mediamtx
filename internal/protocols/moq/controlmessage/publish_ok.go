@@ -9,8 +9,9 @@ import (
 const typePublishOk varint.Varint = 0x1E
 
 // PublishOk is the PUBLISH_OK control message.
-// spec: draft-17, section 9.12
-// spec: draft-18/19, section 10.5 (alias of REQUEST_OK)
+// spec:
+// * draft-17, section 9.12
+// * draft-18/19, section 10.5 (alias of REQUEST_OK)
 type PublishOk struct {
 	Parameters      parameter.Parameters
 	TrackProperties property.Properties

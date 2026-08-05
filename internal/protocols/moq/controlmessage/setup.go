@@ -14,7 +14,9 @@ const (
 )
 
 // Setup is the SETUP control message.
-// spec: draft-18/19, section 10.3
+// spec:
+// * draft-17, section 9.4
+// * draft-18/19, section 10.3
 type Setup struct {
 	Path      string
 	Authority string

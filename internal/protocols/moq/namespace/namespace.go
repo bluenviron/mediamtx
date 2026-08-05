@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	// spec: draft-18/19, section 2.4.1
+	// spec: draft-17/18/19, section 2.4.1
 	maxFieldCount = 32
 )
 
 // Namespace is a MOQ track namespace.
-// spec: draft-18/19, section 2.4.1
+// spec: draft-17/18/19, section 2.4.1
 type Namespace []string
 
 // Unmarshal deserializes a namespace from a buffer.

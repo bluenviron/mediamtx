@@ -12,7 +12,9 @@ import (
 const typePublish varint.Varint = 0x1d
 
 // Publish is the PUBLISH control message.
-// spec: draft-18/19, section 10.10
+// spec:
+// * draft-17, section 9.11
+// * draft-18/19, section 10.10
 type Publish struct {
 	RequestID       uint64
 	Namespace       namespace.Namespace
