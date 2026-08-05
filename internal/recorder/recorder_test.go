@@ -847,6 +847,87 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	require.Equal(t, 2, n)
 }
 
+func TestRecorderSegmentDurationAligned(t *testing.T) {
+	for _, ca := range []string{"fmp4", "mpegts"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{
+				{
+					Type:    description.MediaTypeVideo,
+					Formats: []rtspformat.Format{test.FormatH264},
+				},
+			}}
+
+			strm := &stream.Stream{
+				OrigDesc:          desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			dir := t.TempDir()
+
+			var f conf.RecordFormat
+			ext := "mp4"
+			if ca == "mpegts" {
+				f = conf.RecordFormatMPEGTS
+				ext = "ts"
+			} else {
+				f = conf.RecordFormatFMP4
+			}
+
+			created := make(chan string, 4)
+
+			w := &Recorder{
+				PathFormat:             filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				Format:                 f,
+				PartDuration:           100 * time.Millisecond,
+				MaxPartSize:            50 * 1024 * 1024,
+				SegmentDuration:        1 * time.Minute,
+				SegmentDurationAligned: true,
+				PathName:               "mypath",
+				Stream:                 strm,
+				OnSegmentCreate: func(segPath string) {
+					created <- segPath
+				},
+				Parent: test.NilLogger,
+			}
+			w.Initialize()
+
+			for _, ntp := range []time.Time{
+				time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+				time.Date(2008, 5, 20, 22, 15, 30, 0, time.UTC),
+				time.Date(2008, 5, 20, 22, 16, 0, 0, time.UTC),
+				time.Date(2008, 5, 20, 22, 16, 5, 0, time.UTC),
+			} {
+				pts := ntp.Sub(time.Date(2008, 5, 20, 22, 15, 0, 0, time.UTC))
+				subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+					PTS: int64(pts) * 90000 / int64(time.Second),
+					NTP: ntp,
+					Payload: unit.PayloadH264{
+						{5}, // IDR
+					},
+				})
+			}
+
+			time.Sleep(100 * time.Millisecond)
+			w.Close()
+
+			require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000."+ext), <-created)
+			require.Equal(t, filepath.Join(dir, "mypath", "2008-05-20_22-16-00-000000."+ext), <-created)
+		})
+	}
+}
+
 func TestRecorderTimeDriftDetector(t *testing.T) {
 	for _, ca := range []string{"fmp4", "mpegts"} {
 		t.Run(ca, func(t *testing.T) {

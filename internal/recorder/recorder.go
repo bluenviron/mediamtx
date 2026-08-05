@@ -21,16 +21,17 @@ type OnSegmentCompleteFunc = func(path string, duration time.Duration)
 
 // Recorder writes recordings to disk.
 type Recorder struct {
-	PathFormat        string
-	Format            conf.RecordFormat
-	PartDuration      time.Duration
-	MaxPartSize       conf.StringSize
-	SegmentDuration   time.Duration
-	PathName          string
-	Stream            *stream.Stream
-	OnSegmentCreate   OnSegmentCreateFunc
-	OnSegmentComplete OnSegmentCompleteFunc
-	Parent            logger.Writer
+	PathFormat             string
+	Format                 conf.RecordFormat
+	PartDuration           time.Duration
+	MaxPartSize            conf.StringSize
+	SegmentDuration        time.Duration
+	SegmentDurationAligned bool
+	PathName               string
+	Stream                 *stream.Stream
+	OnSegmentCreate        OnSegmentCreateFunc
+	OnSegmentComplete      OnSegmentCompleteFunc
+	Parent                 logger.Writer
 
 	restartPause time.Duration
 
@@ -58,16 +59,17 @@ func (r *Recorder) Initialize() {
 	r.done = make(chan struct{})
 
 	r.currentInstance = &recorderInstance{
-		pathFormat:        r.PathFormat,
-		format:            r.Format,
-		partDuration:      r.PartDuration,
-		maxPartSize:       r.MaxPartSize,
-		segmentDuration:   r.SegmentDuration,
-		pathName:          r.PathName,
-		stream:            r.Stream,
-		onSegmentCreate:   r.OnSegmentCreate,
-		onSegmentComplete: r.OnSegmentComplete,
-		parent:            r,
+		pathFormat:             r.PathFormat,
+		format:                 r.Format,
+		partDuration:           r.PartDuration,
+		maxPartSize:            r.MaxPartSize,
+		segmentDuration:        r.SegmentDuration,
+		segmentDurationAligned: r.SegmentDurationAligned,
+		pathName:               r.PathName,
+		stream:                 r.Stream,
+		onSegmentCreate:        r.OnSegmentCreate,
+		onSegmentComplete:      r.OnSegmentComplete,
+		parent:                 r,
 	}
 	r.currentInstance.initialize()
 
@@ -105,16 +107,17 @@ func (r *Recorder) run() {
 		}
 
 		r.currentInstance = &recorderInstance{
-			pathFormat:        r.PathFormat,
-			format:            r.Format,
-			partDuration:      r.PartDuration,
-			maxPartSize:       r.MaxPartSize,
-			segmentDuration:   r.SegmentDuration,
-			pathName:          r.PathName,
-			stream:            r.Stream,
-			onSegmentCreate:   r.OnSegmentCreate,
-			onSegmentComplete: r.OnSegmentComplete,
-			parent:            r,
+			pathFormat:             r.PathFormat,
+			format:                 r.Format,
+			partDuration:           r.PartDuration,
+			maxPartSize:            r.MaxPartSize,
+			segmentDuration:        r.SegmentDuration,
+			segmentDurationAligned: r.SegmentDurationAligned,
+			pathName:               r.PathName,
+			stream:                 r.Stream,
+			onSegmentCreate:        r.OnSegmentCreate,
+			onSegmentComplete:      r.OnSegmentComplete,
+			parent:                 r,
 		}
 		r.currentInstance.initialize()
 	}
