@@ -262,6 +262,8 @@ type Path struct {
 	RTSPRangeType          RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart         string         `json:"rtspRangeStart"`
 	RTSPScale              string         `json:"rtspScale"`
+	RTSPRequire            string         `json:"rtspRequire"`
+	RTSPRateControl        string         `json:"rtspRateControl"`
 	RTSPUDPReadBufferSize  *uint          `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
 	RTSPUDPSourcePortRange []uint         `json:"rtspUDPSourcePortRange"`
 
