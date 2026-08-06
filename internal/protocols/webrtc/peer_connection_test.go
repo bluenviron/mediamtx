@@ -161,6 +161,7 @@ func TestPeerConnectionCandidates(t *testing.T) {
 				LocalRandomUDP:        (ca == "udp random" || ca == "udp random+stun"),
 				ICEUDPMux:             udpMux,
 				ICETCPMux:             tcpMux,
+				SupportsIPv6:          true,
 				IPsFromInterfaces:     true,
 				IPsFromInterfacesList: []string{"lo"},
 				Log:                   test.NilLogger,
@@ -201,6 +202,45 @@ func TestPeerConnectionCandidates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPeerConnectionCandidatesIPv6Disabled(t *testing.T) {
+	pc2, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(t, err)
+	defer pc2.Close() //nolint:errcheck
+
+	track, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		"video",
+		"publisher",
+	)
+	require.NoError(t, err)
+
+	_, err = pc2.AddTrack(track)
+	require.NoError(t, err)
+
+	offer, err := pc2.CreateOffer(nil)
+	require.NoError(t, err)
+
+	pc := &PeerConnection{
+		SupportsIPv6:          false,
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{"lo"},
+		Log:                   test.NilLogger,
+	}
+
+	err = pc.Start()
+	require.NoError(t, err)
+	defer pc.Close()
+
+	answer, err := pc.CreateFullAnswer(&offer, false)
+	require.NoError(t, err)
+
+	require.NotContains(t, answer.SDP, " udp6 ")
+	require.NotContains(t, answer.SDP, " tcp6 ")
 }
 
 func TestPeerConnectionConnectivity(t *testing.T) {

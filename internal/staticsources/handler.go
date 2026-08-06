@@ -67,6 +67,7 @@ type Handler struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	RTPMaxPayloadSize int
+	SupportsIPv6      bool
 	Matches           []string
 	PathManager       handlerPathManager
 	Parent            handlerParent
@@ -147,6 +148,7 @@ func (s *Handler) Initialize() {
 			DumpPackets:       s.DumpPackets,
 			ReadTimeout:       s.ReadTimeout,
 			UDPReadBufferSize: s.UDPReadBufferSize,
+			SupportsIPv6:      s.SupportsIPv6,
 			Parent:            s,
 		}
 
