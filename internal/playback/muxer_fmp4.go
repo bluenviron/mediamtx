@@ -34,6 +34,13 @@ func findTrack(tracks []*muxerFMP4Track, id int) *muxerFMP4Track {
 type muxerFMP4 struct {
 	w io.Writer
 
+	// baseOffset shifts the timeline of the output. It is zero unless the
+	// caller asked for a specific origin, in which case it holds the distance
+	// from that origin to the start of this request, so that consecutive
+	// requests over one recording produce one continuous timeline instead of
+	// each starting from zero.
+	baseOffset time.Duration
+
 	init               *fmp4.Init
 	nextSequenceNumber uint32
 	tracks             []*muxerFMP4Track
@@ -147,7 +154,7 @@ func (w *muxerFMP4) innerFlush(final bool) error {
 
 			part.Tracks = append(part.Tracks, &fmp4.PartTrack{
 				ID:       track.id,
-				BaseTime: uint64(track.firstDTS),
+				BaseTime: uint64(track.firstDTS + durationGoToMp4(w.baseOffset, track.timeScale)),
 				Samples:  samples,
 			})
 

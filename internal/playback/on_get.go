@@ -146,13 +146,35 @@ func (s *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
+	// origin numbers the output timeline from a moment of the caller's
+	// choosing instead of from start. It exists so that consecutive requests
+	// over one recording can be served as segments of a single stream: without
+	// it every response begins at zero and a player stacks them on top of one
+	// another rather than laying them end to end.
+	//
+	// It shifts the timeline only. Which samples are returned, and which of
+	// them are visible rather than decode-only, still follow start.
+	origin := start
+	if rawOrigin := ctx.Query("origin"); rawOrigin != "" {
+		origin, err = time.Parse(time.RFC3339, rawOrigin)
+		if err != nil {
+			s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid origin: %w", err))
+			return
+		}
+		if origin.After(start) {
+			s.writeError(ctx, http.StatusBadRequest,
+				fmt.Errorf("origin is after start"))
+			return
+		}
+	}
+
 	ww := &writerWrapper{ctx: ctx}
 	var m muxer
 
 	format := ctx.Query("format")
 	switch format {
 	case "", "fmp4":
-		m = &muxerFMP4{w: ww}
+		m = &muxerFMP4{w: ww, baseOffset: start.Sub(origin)}
 
 	case "mp4":
 		m = &muxerMP4{w: ww}

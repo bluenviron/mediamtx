@@ -1080,3 +1080,148 @@ func TestOnGetBetweenSegments(t *testing.T) {
 		})
 	}
 }
+
+func TestOnGetOrigin(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	start := time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local)
+
+	fetch := func(origin string) fmp4.Parts {
+		u, err2 := url.Parse("http://myuser:mypass@localhost:9996/get")
+		require.NoError(t, err2)
+
+		v := url.Values{}
+		v.Set("path", "mypath")
+		v.Set("start", start.Format(time.RFC3339Nano))
+		v.Set("duration", "2")
+		v.Set("format", "fmp4")
+		if origin != "" {
+			v.Set("origin", origin)
+		}
+		u.RawQuery = v.Encode()
+
+		res, err2 := http.DefaultClient.Do(mustRequest(t, u.String()))
+		require.NoError(t, err2)
+		defer res.Body.Close()
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		buf, err2 := io.ReadAll(res.Body)
+		require.NoError(t, err2)
+
+		var parts fmp4.Parts
+		err2 = parts.Unmarshal(buf)
+		require.NoError(t, err2)
+		return parts
+	}
+
+	plain := fetch("")
+	shifted := fetch(start.Add(-2 * time.Second).Format(time.RFC3339Nano))
+
+	timeScales := map[int]uint32{1: 90000, 2: 48000}
+
+	require.Equal(t, len(plain), len(shifted))
+	for i := range plain {
+		require.Equal(t, len(plain[i].Tracks), len(shifted[i].Tracks))
+		for j, track := range plain[i].Tracks {
+			other := shifted[i].Tracks[j]
+			require.Equal(t, track.ID, other.ID)
+
+			// the timeline moves by exactly the distance from origin to start
+			require.Equal(t,
+				track.BaseTime+uint64(2*timeScales[track.ID]),
+				other.BaseTime)
+
+			// and nothing else does: same samples, same order, same payloads
+			require.Equal(t, track.Samples, other.Samples)
+		}
+	}
+}
+
+func TestOnGetInvalidOrigin(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	start := time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local)
+
+	for _, ca := range []struct {
+		name   string
+		origin string
+	}{
+		{"not a timestamp", "yesterday"},
+		// an origin after start would shift the timeline backwards, which is
+		// not a stream a caller can assemble
+		{"after start", start.Add(time.Second).Format(time.RFC3339Nano)},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			u, err2 := url.Parse("http://myuser:mypass@localhost:9996/get")
+			require.NoError(t, err2)
+
+			v := url.Values{}
+			v.Set("path", "mypath")
+			v.Set("start", start.Format(time.RFC3339Nano))
+			v.Set("duration", "2")
+			v.Set("format", "fmp4")
+			v.Set("origin", ca.origin)
+			u.RawQuery = v.Encode()
+
+			res, err2 := http.DefaultClient.Do(mustRequest(t, u.String()))
+			require.NoError(t, err2)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusBadRequest, res.StatusCode)
+		})
+	}
+}
+
+func mustRequest(t *testing.T, u string) *http.Request {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	require.NoError(t, err)
+	return req
+}
