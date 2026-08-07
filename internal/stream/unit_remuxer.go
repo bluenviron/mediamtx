@@ -74,7 +74,7 @@ func (r *h265Remuxer) remux(forma format.Format, pts int64, payload unit.Payload
 	}
 
 	if !hasVCL {
-		var kept [][]byte
+		kept := make([][]byte, 0, len(au))
 		for _, nalu := range au {
 			typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
@@ -86,7 +86,7 @@ func (r *h265Remuxer) remux(forma format.Format, pts int64, payload unit.Payload
 
 			kept = append(kept, nalu)
 		}
-		if kept != nil {
+		if len(kept) != 0 {
 			r.pending, r.pendingPTS = kept, pts
 		}
 		return unit.PayloadH265(nil)
@@ -177,7 +177,7 @@ func (r *h264Remuxer) remux(forma format.Format, pts int64, payload unit.Payload
 	}
 
 	if !hasVCL {
-		var kept [][]byte
+		kept := make([][]byte, 0, len(au))
 		for _, nalu := range au {
 			typ := h264.NALUType(nalu[0] & 0x1F)
 
@@ -188,7 +188,7 @@ func (r *h264Remuxer) remux(forma format.Format, pts int64, payload unit.Payload
 
 			kept = append(kept, nalu)
 		}
-		if kept != nil {
+		if len(kept) != 0 {
 			r.pending, r.pendingPTS = kept, pts
 		}
 		return unit.PayloadH264(nil)
