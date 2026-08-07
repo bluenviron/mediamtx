@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 

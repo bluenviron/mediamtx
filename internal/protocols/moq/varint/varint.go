@@ -7,7 +7,7 @@ import (
 )
 
 // Varint is a variable-length integer.
-// spec: draft-18, section 1.4.1
+// spec: draft-17/18/19, section 1.4.1
 type Varint uint64
 
 // Read reads a Varint from a Reader.

@@ -28,17 +28,17 @@ _MediaMTX_ is a ready-to-use and zero-dependency live media server and media pro
 
 <h3>Features</h3>
 
-- [Publish](https://mediamtx.org/docs/features/publish) live streams to the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, web browsers, Raspberry Pi Cameras and more.
-- [Read](https://mediamtx.org/docs/features/read) live streams from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, web browsers and more.
+- [Publish streams](https://mediamtx.org/docs/features/publish) to the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
+- [Read streams](https://mediamtx.org/docs/features/read) from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)
 - [Serve always-available streams](https://mediamtx.org/docs/features/always-available) even when the publisher is offline
-- [Record](https://mediamtx.org/docs/features/record) streams to disk in fMP4 or MPEG-TS format
-- [Playback](https://mediamtx.org/docs/features/playback) recorded streams
+- [Record streams](https://mediamtx.org/docs/features/record) to disk in fMP4 or MPEG-TS format
+- [Playback recorded streams](https://mediamtx.org/docs/features/playback) from disk
 - [Authenticate](https://mediamtx.org/docs/features/authentication) users with internal, HTTP or JWT authentication
-- [Forward](https://mediamtx.org/docs/features/forward) streams to other servers
-- [Proxy](https://mediamtx.org/docs/features/proxy) requests to other servers
+- [Forward streams](https://mediamtx.org/docs/features/forward) to other servers
+- [Proxy requests](https://mediamtx.org/docs/features/proxy) to other servers
 - [Control](https://mediamtx.org/docs/features/control-api) the server through the Control API
 - [Extract metrics](https://mediamtx.org/docs/features/metrics) from the server in a Prometheus-compatible format
 - [Monitor performance](https://mediamtx.org/docs/features/performance) to investigate CPU and RAM consumption

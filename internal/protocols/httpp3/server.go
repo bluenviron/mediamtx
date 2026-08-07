@@ -18,9 +18,10 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (

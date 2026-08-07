@@ -721,6 +721,103 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v3/paths/forward/list:
+    get:
+      operationId: pathsForwardList
+      tags: [Paths]
+      summary: returns all forward destinations of a path.
+      description: ""
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForwardDestList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/forward/get:
+    get:
+      operationId: pathsForwardGet
+      tags: [Paths]
+      summary: returns a forward destination.
+      description: ""
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: ID of the forward destination.
+          schema:
+            type: string
+            format: uuid
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForwardDest"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or forward destination not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v3/rtspconns/list:
     get:
       operationId: rtspConnsList

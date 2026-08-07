@@ -47,6 +47,7 @@ func TestConfFromFile(t *testing.T) {
 			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
 			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
 			OverridePublisher:          true,
+			Forward:                    Forward{},
 			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:               RecordFormatFMP4,
@@ -842,6 +843,14 @@ func TestConfErrors(t *testing.T) {
 				"  mypath:\n" +
 				"    source: rtsp://user@localhost/stream\n",
 			"username and password must be both provided",
+		},
+		{
+			"invalid forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: http://localhost/stream\n",
+			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are rtmp, rtmps, rtsp, rtsps and srt",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

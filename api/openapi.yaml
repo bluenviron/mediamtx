@@ -98,6 +98,8 @@ components:
     MoQVersion:
       type: string
       enum:
+        - moqt-16
+        - moqt-17
         - moqt-18
         - moqt-19
 
@@ -140,6 +142,22 @@ components:
         - webRTCSession
         - webRTCSource
         - moqSession
+
+    ForwardDestProtocol:
+      type: string
+      enum:
+        - rtmp
+        - rtmps
+        - rtsp
+        - rtsps
+        - srt
+
+    ForwardDestState:
+      type: string
+      enum:
+        - idle
+        - forwarding
+        - error
 
     PathTrackCodec:
       type: string
@@ -431,6 +449,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+        moqQUICAddress:
+          type: string
         moqServerCert:
           type: string
         moqServerKey:
@@ -809,6 +829,8 @@ components:
           type: string
         state:
           $ref: "#/components/schemas/MoQSessionState"
+        transport:
+          type: string
         userAgent:
           type: string
         version:
@@ -915,6 +937,11 @@ components:
           type: string
           nullable: true
           deprecated: true
+        forward:
+          type: array
+          description: Forward
+          items:
+            $ref: "#/components/schemas/PathConfForwardDest"
         maxReaders:
           type: integer
           format: int64
@@ -1235,6 +1262,12 @@ components:
           type: integer
           format: int64
 
+    PathConfForwardDest:
+      type: object
+      properties:
+        dest:
+          type: string
+
     PathList:
       type: object
       properties:
@@ -1379,6 +1412,43 @@ components:
       type: object
       properties:
         profile:
+          type: integer
+          format: int64
+
+    ForwardDest:
+      type: object
+      properties:
+        conf:
+          $ref: "#/components/schemas/PathConfForwardDest"
+        created:
+          type: string
+        id:
+          type: string
+          format: uuid
+        lastError:
+          type: string
+        outboundBytes:
+          type: integer
+          format: uint64
+        pos:
+          type: integer
+          format: int64
+        protocol:
+          $ref: "#/components/schemas/ForwardDestProtocol"
+        state:
+          $ref: "#/components/schemas/ForwardDestState"
+
+    ForwardDestList:
+      type: object
+      properties:
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForwardDest"
+        pageCount:
           type: integer
           format: int64
 
@@ -2656,6 +2726,103 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/forward/list:
+    get:
+      operationId: pathsForwardList
+      tags: [Paths]
+      summary: returns all forward destinations of a path.
+      description: ""
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForwardDestList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/forward/get:
+    get:
+      operationId: pathsForwardGet
+      tags: [Paths]
+      summary: returns a forward destination.
+      description: ""
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: ID of the forward destination.
+          schema:
+            type: string
+            format: uuid
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForwardDest"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or forward destination not found.
           content:
             application/json:
               schema:

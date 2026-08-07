@@ -32,10 +32,8 @@ func emptyTimer() *time.Timer {
 }
 
 func resolveSource(s string, matches []string, query string) string {
-	if len(matches) > 1 {
-		for i, ma := range matches[1:] {
-			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
-		}
+	for i := len(matches) - 1; i >= 1; i-- {
+		s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i), 10), matches[i])
 	}
 
 	s = strings.ReplaceAll(s, "$MTX_QUERY", query)
@@ -69,6 +67,7 @@ type Handler struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	RTPMaxPayloadSize int
+	SupportsIPv6      bool
 	Matches           []string
 	PathManager       handlerPathManager
 	Parent            handlerParent
@@ -149,6 +148,7 @@ func (s *Handler) Initialize() {
 			DumpPackets:       s.DumpPackets,
 			ReadTimeout:       s.ReadTimeout,
 			UDPReadBufferSize: s.UDPReadBufferSize,
+			SupportsIPv6:      s.SupportsIPv6,
 			Parent:            s,
 		}
 

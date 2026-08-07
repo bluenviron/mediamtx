@@ -15,6 +15,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -22,7 +24,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/stretchr/testify/require"
 )
 
 type dummyPathManager struct {
@@ -536,6 +537,20 @@ func TestServerDirectory(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dir, "mydir", "teststream"))
 	require.NoError(t, err)
+}
+
+func TestAbsolutePathInside(t *testing.T) {
+	base := t.TempDir()
+
+	path, err := absolutePathInside(base, filepath.Join(base, "group", "cam1"))
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(base, "group", "cam1"), path)
+
+	_, err = absolutePathInside(base, filepath.Join(base, "..", "cam1"))
+	require.Error(t, err)
+
+	_, err = absolutePathInside(base, filepath.Join(base, "group", "..", "..", "cam1"))
+	require.Error(t, err)
 }
 
 func TestServerDynamicAlwaysRemux(t *testing.T) {

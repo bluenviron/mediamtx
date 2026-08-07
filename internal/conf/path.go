@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -225,6 +226,9 @@ type Path struct {
 	AlwaysAvailable       bool                   `json:"alwaysAvailable"`
 	AlwaysAvailableTracks []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
 	AlwaysAvailableFile   string                 `json:"alwaysAvailableFile"`
+
+	// Forward
+	Forward Forward `json:"forward"`
 
 	// Record
 	Record                bool         `json:"record"`
@@ -785,9 +789,14 @@ func (pconf *Path) validate(
 		}
 	}
 
+	err := pconf.Forward.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid 'forward': %w", err)
+	}
+
 	if pconf.Fallback != nil {
 		l.Log(logger.Warn, "the 'fallback' feature is deprecated, use 'alwaysAvailable' instead")
-		err := checkRedirect(*pconf.Fallback)
+		err = checkRedirect(*pconf.Fallback)
 		if err != nil {
 			return err
 		}
@@ -813,7 +822,7 @@ func (pconf *Path) validate(
 				return fmt.Errorf("'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together")
 			}
 
-			err := checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
+			err = checkAlwaysAvailableFile(pconf.AlwaysAvailableFile)
 			if err != nil {
 				return fmt.Errorf("invalid 'alwaysAvailableFile': %w", err)
 			}

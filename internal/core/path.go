@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
+	"github.com/bluenviron/mediamtx/internal/forward"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/recorder"
@@ -67,6 +69,27 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
+type pathAPIForwardDestListRes struct {
+	path *path
+	err  error
+}
+
+type pathAPIForwardDestListReq struct {
+	name string
+	res  chan pathAPIForwardDestListRes
+}
+
+type pathAPIForwardDestGetRes struct {
+	path *path
+	err  error
+}
+
+type pathAPIForwardDestGetReq struct {
+	name string
+	id   uuid.UUID
+	res  chan pathAPIForwardDestGetRes
+}
+
 type path struct {
 	parentCtx         context.Context
 	logLevel          conf.LogLevel
@@ -76,7 +99,9 @@ type path struct {
 	writeTimeout      conf.Duration
 	writeQueueSize    int
 	udpReadBufferSize uint
+	udpMaxPayloadSize int
 	rtpMaxPayloadSize int
+	supportsIPv6      bool
 	conf              *conf.Path
 	name              string
 	matches           []string
@@ -95,6 +120,7 @@ type path struct {
 	source                         defs.Source
 	stream                         *stream.Stream
 	recorder                       *recorder.Recorder
+	forwardManager                 *forward.Manager
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
@@ -146,6 +172,17 @@ func (pa *path) initialize() {
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
 	pa.done = make(chan struct{})
+
+	pa.forwardManager = &forward.Manager{
+		ReadTimeout:       pa.readTimeout,
+		WriteTimeout:      pa.writeTimeout,
+		UDPMaxPayloadSize: pa.udpMaxPayloadSize,
+		PathName:          pa.name,
+		Matches:           pa.matches,
+		Forward:           pa.conf.Forward,
+		Parent:            pa,
+	}
+	pa.forwardManager.Initialize()
 
 	pa.Log(logger.Debug, "created")
 
@@ -201,6 +238,7 @@ func (pa *path) run() {
 			WriteQueueSize:    pa.writeQueueSize,
 			UDPReadBufferSize: pa.udpReadBufferSize,
 			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
+			SupportsIPv6:      pa.supportsIPv6,
 			Matches:           pa.matches,
 			PathManager:       pa.parent,
 			Parent:            pa,
@@ -339,6 +377,10 @@ func (pa *path) runInner() error {
 		case req := <-pa.chRemoveReader:
 			pa.doRemoveReader(req)
 
+			if pa.shouldClose() {
+				pa.parent.closePathIfIdle(pa)
+			}
+
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
 
@@ -397,6 +439,8 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	if pa.conf.HasStaticSource() {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
 	}
+
+	pa.forwardManager.ReloadConf(newConf.Forward)
 
 	if pa.recorder != nil &&
 		(newConf.Record != oldConf.Record ||
@@ -872,10 +916,6 @@ func (pa *path) setAvailable(
 
 	pa.availableTime = time.Now()
 
-	if pa.conf.Record {
-		pa.startRecording()
-	}
-
 	var sourceDesc *defs.APIPathSource
 	if source != nil {
 		sourceDesc = source.APISourceDescribe()
@@ -892,6 +932,12 @@ func (pa *path) setAvailable(
 
 	if !pa.conf.AlwaysAvailable {
 		pa.setOnline(sourceDesc, publisherQuery)
+	}
+
+	pa.forwardManager.Start(pa.stream)
+
+	if pa.conf.Record {
+		pa.startRecording()
 	}
 
 	if pa.conf.AlwaysAvailable {
@@ -934,6 +980,8 @@ func (pa *path) setNotAvailable() {
 		pa.recorder.Close()
 		pa.recorder = nil
 	}
+
+	pa.forwardManager.Stop()
 
 	if pa.stream != nil {
 		pa.stream.Close()
@@ -1143,4 +1191,12 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	case <-pa.ctx.Done():
 		return nil, fmt.Errorf("terminated")
 	}
+}
+
+func (pa *path) APIForwardDestList() *defs.APIForwardDestList {
+	return pa.forwardManager.APIList()
+}
+
+func (pa *path) APIForwardDestGet(destID uuid.UUID) (*defs.APIForwardDest, error) {
+	return pa.forwardManager.APIGet(destID)
 }

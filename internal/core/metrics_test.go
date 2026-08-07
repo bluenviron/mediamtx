@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -451,11 +452,21 @@ moq_sessions_outbound_bytes 0
 			<-terminate
 		}()
 
-		time.Sleep(500*time.Millisecond + 2*time.Second)
+		var boStr string
+		require.Eventually(t, func() bool {
+			boStr = string(httpPullFile(t, hc, "http://localhost:9998/metrics"))
 
-		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
+			return strings.Contains(boStr, "paths{name=\"rtmp_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtmps_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtsp_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtsps_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"srt_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"webrtc_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "hls_muxers{name=\"webrtc_path\"} 1\n") &&
+				strings.Contains(boStr, "webrtc_sessions{") &&
+				strings.Contains(boStr, "path=\"webrtc_path\"")
+		}, 10*time.Second, 100*time.Millisecond)
 
-		boStr := string(bo)
 		require.Contains(t, boStr, "paths{name=\"rtmp_path\",state=\"ready\"} 1\n")
 		require.Contains(t, boStr, "paths{name=\"rtmps_path\",state=\"ready\"} 1\n")
 		require.Contains(t, boStr, "paths{name=\"rtsp_path\",state=\"ready\"} 1\n")

@@ -449,6 +449,8 @@ moqHTTP2Address: :8892
 # Address of the UDP/HTTP3 listener.
 # This hosts the WebTransport endpoint.
 moqHTTP3Address: :8892
+# Address of the UDP/QUIC listener used for native MoQ-over-QUIC.
+moqQUICAddress: :8893
 # Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
@@ -481,28 +483,27 @@ pathDefaults:
 
   # Source of the stream. This can be:
   # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
-  # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
-  # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
-  # * rtsp+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTP tunneling
-  # * rtsps+http://existing-url -> the stream is pulled from another RTSP server / camera, with HTTPS tunneling
-  # * rtsp+ws://existing-url -> the stream is pulled from another RTSP server / camera, with WebSocket tunneling
-  # * rtsps+ws://existing-url -> the stream is pulled from another RTSP server / camera, with secure WebSocket tunneling
-  # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
-  # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
-  # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
-  # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
+  # * rtsp://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera
+  # * rtsps://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera with RTSPS
+  # * rtsp+http://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with HTTP tunneling
+  # * rtsps+http://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with HTTPS tunneling
+  # * rtsp+ws://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with WebSocket tunneling
+  # * rtsps+ws://user:pass@host:port/path -> the stream is pulled from another RTSP server / camera, with secure WebSocket tunneling
+  # * rtmp://user:pass@host:port/path#streamKey -> the stream is pulled from another RTMP server / camera
+  # * rtmps://user:pass@host:port/path#streamKey -> the stream is pulled from another RTMP server / camera with RTMPS
+  # * http://user:pass@host:port/stream.m3u8 -> the stream is pulled from another HLS server / camera
+  # * https://user:pass@host:port/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
   # * udp+mpegts://ip:port -> the stream is pulled from MPEG-TS over UDP, by listening on the specified address
-  # * unix+mpegts://socket -> the stream is pulled from MPEG-TS over Unix socket, by using the socket
+  # * unix+mpegts://socketPath -> the stream is pulled from MPEG-TS over a Unix socket
   # * udp+rtp://ip:port -> the stream is pulled from RTP over UDP, by listening on the specified address
-  # * srt://existing-url -> the stream is pulled from another SRT server / camera
-  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
-  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
+  # * srt://host:port?streamid=streamid -> the stream is pulled from another SRT server / camera
+  # * whep://host:port/path -> the stream is pulled from another WebRTC server / camera with HTTP+WHEP
+  # * wheps://host:port/path -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
-  # The following variables can be used in the source string:
+  # The following variables can be used:
   # * $MTX_QUERY: query parameters (passed by first reader)
-  # * $G1, $G2, ...: regular expression groups, if path name is
-  #   a regular expression.
+  # * $G1, $G2, ...: regular expression groups, if path name is a regular expression.
   source: publisher
   # If the source is a URL, and the source TLS certificate is self-signed
   # or invalid, you can provide the fingerprint of the certificate in order to
@@ -542,6 +543,22 @@ pathDefaults:
     #   muLaw: false
   # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ""
+
+  ###############################################
+  # Default path settings -> Forward
+
+  # Forward the stream of this path to one or more external servers.
+  forward: []
+    # forward destination. This can be:
+    # * rtsp://user:pass@host:port/path -> the stream is forwarded to another RTSP server
+    # * rtsps://user:pass@host:port/path -> the stream is forwarded to another RTSP server with RTSPS
+    # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
+    # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
+    # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
+    # The following variables can be used:
+    # * $MTX_PATH: path name
+    # * $G1, $G2, ...: regular expression groups, if path name is a regular expression.
+    # - dest:
 
   ###############################################
   # Default path settings -> Record

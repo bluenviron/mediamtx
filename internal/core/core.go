@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -99,6 +100,16 @@ func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption)
 	return v
 }
 
+func supportsIPv6() bool {
+	ln, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6unspecified, Port: 0})
+	if err != nil {
+		return false
+	}
+	defer ln.Close() //nolint:errcheck
+
+	return true
+}
+
 var cli struct {
 	Confpath     string `arg:"" default:""`
 	Version      bool   `help:"print version"`
@@ -112,6 +123,7 @@ type Core struct {
 	ctxCancel       func()
 	confPath        string
 	conf            *conf.Conf
+	supportsIPv6    bool
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
 	authManager     *auth.Manager
@@ -347,6 +359,8 @@ func (p *Core) createResources(initial bool) error {
 
 		gin.SetMode(gin.ReleaseMode)
 
+		p.supportsIPv6 = supportsIPv6()
+
 		p.externalCmdPool = &externalcmd.Pool{}
 		p.externalCmdPool.Initialize()
 	}
@@ -456,7 +470,9 @@ func (p *Core) createResources(initial bool) error {
 			writeTimeout:      p.conf.WriteTimeout,
 			writeQueueSize:    p.conf.WriteQueueSize,
 			udpReadBufferSize: p.conf.UDPReadBufferSize,
+			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
 			rtpMaxPayloadSize: rtpMaxPayloadSize,
+			supportsIPv6:      p.supportsIPv6,
 			pathConfs:         p.conf.Paths,
 			authManager:       p.authManager,
 			externalCmdPool:   p.externalCmdPool,
@@ -660,6 +676,7 @@ func (p *Core) createResources(initial bool) error {
 			UDPReadBufferSize:     p.conf.UDPReadBufferSize,
 			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
+			SupportsIPv6:          p.supportsIPv6,
 			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
 			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
 			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
@@ -707,6 +724,7 @@ func (p *Core) createResources(initial bool) error {
 		i := &moq.Server{
 			HTTP2Address:      p.conf.MoQHTTP2Address,
 			HTTP3Address:      p.conf.MoQHTTP3Address,
+			QUICAddress:       p.conf.MoQQUICAddress,
 			ServerKey:         p.conf.MoQServerKey,
 			ServerCert:        p.conf.MoQServerCert,
 			AllowOrigins:      p.conf.MoQAllowOrigins,
@@ -1031,6 +1049,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.MoQ != p.conf.MoQ ||
 		newConf.MoQHTTP2Address != p.conf.MoQHTTP2Address ||
 		newConf.MoQHTTP3Address != p.conf.MoQHTTP3Address ||
+		newConf.MoQQUICAddress != p.conf.MoQQUICAddress ||
 		newConf.MoQServerKey != p.conf.MoQServerKey ||
 		newConf.MoQServerCert != p.conf.MoQServerCert ||
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||

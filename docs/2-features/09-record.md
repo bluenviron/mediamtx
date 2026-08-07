@@ -1,4 +1,4 @@
-# Record
+# Record streams
 
 Live streams be recorded to disk and played back with the following file containers and codecs:
 

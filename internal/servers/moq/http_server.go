@@ -45,6 +45,8 @@ const (
 var supportedMoqtVersions = []defs.APIMoQVersion{
 	defs.APIMoQVersionDraft19,
 	defs.APIMoQVersionDraft18,
+	defs.APIMoQVersionDraft17,
+	defs.APIMoQVersionDraft16,
 }
 
 type ginUnwrapper interface {
@@ -350,7 +352,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
 		version:   version,
-		wt:        wt,
+		conn:      &connWebTransport{session: wt},
 	})
 	if res.err != nil {
 		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck

@@ -10,6 +10,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
 	"github.com/bluenviron/gortsplib/v5/pkg/sdpunmarshaler"
+	"github.com/pion/rtp"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -20,7 +22,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/pion/rtp"
 )
 
 type parent interface {

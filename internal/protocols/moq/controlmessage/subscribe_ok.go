@@ -9,7 +9,9 @@ import (
 const typeSubscribeOk varint.Varint = 0x04
 
 // SubscribeOk is the SUBSCRIBE_OK control message.
-// spec: draft-18, section 10.8
+// spec:
+// * draft-17, section 9.9
+// * draft-18/19, section 10.8
 type SubscribeOk struct {
 	TrackAlias      uint64
 	Parameters      parameter.Parameters

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/gin-gonic/gin"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func (a *API) onPathsList(ctx *gin.Context) {

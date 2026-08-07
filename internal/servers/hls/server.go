@@ -9,11 +9,12 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/google/uuid"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.

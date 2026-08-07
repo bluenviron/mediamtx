@@ -116,6 +116,8 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
+	group.GET("/paths/forward/list", a.onForwardList)
+	group.GET("/paths/forward/get", a.onForwardGet)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)

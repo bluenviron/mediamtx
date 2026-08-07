@@ -7,6 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -15,8 +18,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type sessionServer interface {

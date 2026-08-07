@@ -20,8 +20,9 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
 	mcopus "github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
-	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/pion/rtp"
+
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type rtpEncoderNotAvailableError struct {

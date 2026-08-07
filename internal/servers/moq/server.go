@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/google/uuid"
-	"github.com/quic-go/webtransport-go"
 )
 
 // ErrSessionNotFound is returned when a session is not found.
@@ -38,7 +38,7 @@ type newSessionReq struct {
 	query     string
 	userAgent string
 	version   defs.APIMoQVersion
-	wt        *webtransport.Session
+	conn      conn
 	res       chan newSessionRes
 }
 
@@ -81,6 +81,7 @@ type serverMetrics interface {
 type Server struct {
 	HTTP2Address      string
 	HTTP3Address      string
+	QUICAddress       string
 	ServerKey         string
 	ServerCert        string
 	AllowOrigins      []string
@@ -92,10 +93,11 @@ type Server struct {
 	Metrics           serverMetrics
 	Parent            serverParent
 
-	ctx        context.Context
-	ctxCancel  context.CancelFunc
-	httpServer *httpServer
-	sessions   map[*session]struct{}
+	ctx            context.Context
+	ctxCancel      context.CancelFunc
+	httpServer     *httpServer
+	nativeListener *nativeListener
+	sessions       map[*session]struct{}
 
 	chNewSession      chan newSessionReq
 	chCloseSession    chan *session
@@ -138,7 +140,25 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.Log(logger.Info, "started with listeners on %s (TCP/HTTP2), %s (UDP/HTTP3)", s.HTTP2Address, s.HTTP3Address)
+	s.nativeListener = &nativeListener{
+		address:           s.QUICAddress,
+		serverKey:         s.ServerKey,
+		serverCert:        s.ServerCert,
+		udpReadBufferSize: s.UDPReadBufferSize,
+		parent:            s,
+	}
+	err = s.nativeListener.initialize()
+	if err != nil {
+		s.httpServer.close()
+		ctxCancel()
+		return err
+	}
+
+	s.Log(logger.Info,
+		"started with listeners on %s (TCP/HTTP2), %s (UDP/HTTP3), %s (UDP/QUIC)",
+		s.HTTP2Address,
+		s.HTTP3Address,
+		s.QUICAddress)
 
 	go s.run()
 
@@ -176,11 +196,12 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
-				wt:          req.wt,
+				conn:        req.conn,
 				wg:          &wg,
 				pathName:    req.pathName,
 				query:       req.query,
 				userAgent:   req.userAgent,
+				transport:   req.conn.Transport(),
 				version:     req.version,
 				pathManager: s.PathManager,
 				parent:      s,
@@ -236,9 +257,13 @@ outer:
 		}
 	}
 
-	// close sessions before closing UDP packet listener
+	// close sessions before closing packet listeners
 	for sx := range s.sessions {
 		sx.Close()
+	}
+
+	if s.nativeListener != nil {
+		s.nativeListener.close()
 	}
 
 	s.httpServer.close()

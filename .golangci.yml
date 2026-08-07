@@ -91,6 +91,14 @@ linters:
 
 formatters:
   enable:
+    - gci
     - gofmt
     - gofumpt
     - goimports
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule

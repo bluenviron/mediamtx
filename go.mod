@@ -5,14 +5,14 @@ go 1.26.0
 require (
 	code.cloudfoundry.org/bytefmt v0.83.0
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/MicahParks/jwkset v0.11.2
+	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.1
 	github.com/abema/go-mp4 v1.7.1
 	github.com/alecthomas/kong v1.16.0
 	github.com/asticode/go-astits v1.15.0
-	github.com/bluenviron/gohlslib/v2 v2.4.1
-	github.com/bluenviron/gortmplib v0.4.1
-	github.com/bluenviron/gortsplib/v5 v5.6.2
+	github.com/bluenviron/gohlslib/v2 v2.4.2
+	github.com/bluenviron/gortmplib v1.0.0
+	github.com/bluenviron/gortsplib/v5 v5.6.3
 	github.com/bluenviron/mediacommon/v2 v2.9.2
 	github.com/datarhei/gosrt v0.11.0
 	github.com/fsnotify/fsnotify v1.10.1
@@ -107,3 +107,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.0.0-20260804162707-b6afcc8add8f

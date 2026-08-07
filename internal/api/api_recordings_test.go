@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -8,9 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRecordingsList(t *testing.T) {
@@ -262,4 +264,18 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestAbsolutePathInside(t *testing.T) {
+	base := t.TempDir()
+
+	inside, err := absolutePathInside(base, filepath.Join(base, "sub", "file.mp4"))
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(base, "sub", "file.mp4"), inside)
+
+	_, err = absolutePathInside(base, filepath.Join(base, "..", "escape.mp4"))
+	require.EqualError(t, err, "path escapes base directory")
+
+	_, err = absolutePathInside(base, fmt.Sprintf("%s-sibling/../file.mp4", base))
+	require.EqualError(t, err, "path escapes base directory")
 }
