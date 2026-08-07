@@ -31,6 +31,7 @@ type Source struct {
 	DumpPackets       bool
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
+	SupportsIPv6      bool
 	Parent            parent
 }
 
@@ -76,6 +77,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 		BearerToken:        params.Conf.WHEPBearerToken,
 		UDPReadBufferSize:  s.UDPReadBufferSize,
+		SupportsIPv6:       s.SupportsIPv6,
 		STUNGatherTimeout:  time.Duration(params.Conf.WHEPSTUNGatherTimeout),
 		HandshakeTimeout:   time.Duration(params.Conf.WHEPHandshakeTimeout),
 		TrackGatherTimeout: time.Duration(params.Conf.WHEPTrackGatherTimeout),

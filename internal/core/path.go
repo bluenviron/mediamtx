@@ -101,6 +101,7 @@ type path struct {
 	udpReadBufferSize uint
 	udpMaxPayloadSize int
 	rtpMaxPayloadSize int
+	supportsIPv6      bool
 	conf              *conf.Path
 	name              string
 	matches           []string
@@ -237,6 +238,7 @@ func (pa *path) run() {
 			WriteQueueSize:    pa.writeQueueSize,
 			UDPReadBufferSize: pa.udpReadBufferSize,
 			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
+			SupportsIPv6:      pa.supportsIPv6,
 			Matches:           pa.matches,
 			PathManager:       pa.parent,
 			Parent:            pa,

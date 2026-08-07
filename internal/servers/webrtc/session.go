@@ -243,6 +243,7 @@ type session struct {
 	additionalHosts       []string
 	iceUDPMux             ice.UDPMux
 	iceTCPMux             *webrtc.TCPMuxWrapper
+	supportsIPv6          bool
 	stunGatherTimeout     conf.Duration
 	handshakeTimeout      conf.Duration
 	trackGatherTimeout    conf.Duration
@@ -368,6 +369,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 		Net:                   s.net,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
+		SupportsIPv6:          s.supportsIPv6,
 		ICEServers:            iceServers,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
@@ -518,6 +520,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		Net:                   s.net,
 		ICEUDPMux:             s.iceUDPMux,
 		ICETCPMux:             s.iceTCPMux,
+		SupportsIPv6:          s.supportsIPv6,
 		ICEServers:            iceServers,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,

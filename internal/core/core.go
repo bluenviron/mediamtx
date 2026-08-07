@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -98,6 +99,16 @@ func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption)
 	return v
 }
 
+func supportsIPv6() bool {
+	ln, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6unspecified, Port: 0})
+	if err != nil {
+		return false
+	}
+	defer ln.Close() //nolint:errcheck
+
+	return true
+}
+
 var cli struct {
 	Confpath     string `arg:"" default:""`
 	Version      bool   `help:"print version"`
@@ -111,6 +122,7 @@ type Core struct {
 	ctxCancel       func()
 	confPath        string
 	conf            *conf.Conf
+	supportsIPv6    bool
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
 	authManager     *auth.Manager
@@ -345,6 +357,8 @@ func (p *Core) createResources(initial bool) error {
 
 		gin.SetMode(gin.ReleaseMode)
 
+		p.supportsIPv6 = supportsIPv6()
+
 		p.externalCmdPool = &externalcmd.Pool{}
 		p.externalCmdPool.Initialize()
 	}
@@ -456,6 +470,7 @@ func (p *Core) createResources(initial bool) error {
 			udpReadBufferSize: p.conf.UDPReadBufferSize,
 			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
 			rtpMaxPayloadSize: rtpMaxPayloadSize,
+			supportsIPv6:      p.supportsIPv6,
 			pathConfs:         p.conf.Paths,
 			authManager:       p.authManager,
 			externalCmdPool:   p.externalCmdPool,
@@ -659,6 +674,7 @@ func (p *Core) createResources(initial bool) error {
 			UDPReadBufferSize:     p.conf.UDPReadBufferSize,
 			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
+			SupportsIPv6:          p.supportsIPv6,
 			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
 			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
 			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,

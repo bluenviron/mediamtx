@@ -197,6 +197,7 @@ type Server struct {
 	UDPReadBufferSize     uint
 	LocalUDPAddress       string
 	LocalTCPAddress       string
+	SupportsIPv6          bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
@@ -370,6 +371,7 @@ outer:
 				additionalHosts:       s.AdditionalHosts,
 				iceUDPMux:             s.iceUDPMux,
 				iceTCPMux:             s.iceTCPMux,
+				supportsIPv6:          s.SupportsIPv6,
 				stunGatherTimeout:     s.STUNGatherTimeout,
 				handshakeTimeout:      s.HandshakeTimeout,
 				trackGatherTimeout:    s.TrackGatherTimeout,
