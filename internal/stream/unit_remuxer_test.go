@@ -132,6 +132,41 @@ func TestUnitRemuxer(t *testing.T) {
 	}
 }
 
+func setupUnitRemuxerMergeTest(
+	t *testing.T,
+	media *description.Media,
+	forma format.Format,
+) (*stream.SubStream, chan *unit.Unit) {
+	desc := &description.Session{Medias: []*description.Media{media}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	t.Cleanup(strm.Close)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	r := &stream.Reader{}
+	recv := make(chan *unit.Unit, 8)
+	r.OnData(media, forma, func(u *unit.Unit) error {
+		recv <- u
+		return nil
+	})
+	strm.AddReader(r)
+	t.Cleanup(func() { strm.RemoveReader(r) })
+
+	return subStream, recv
+}
+
 // TestUnitRemuxerH264SEIMerge verifies that a non-VCL H264 access unit (e.g.
 // the standalone SEI access unit some DJI drones send ahead of every
 // picture) is held back and merged into the next access unit that shares
@@ -154,39 +189,9 @@ func TestUnitRemuxerH264SEIMerge(t *testing.T) {
 		Type:    description.MediaTypeVideo,
 		Formats: []format.Format{forma},
 	}
-	desc := &description.Session{Medias: []*description.Media{media}}
-
-	setup := func(t *testing.T) (*stream.SubStream, chan *unit.Unit) {
-		strm := &stream.Stream{
-			OrigDesc:          desc,
-			WriteQueueSize:    512,
-			RTPMaxPayloadSize: 1450,
-		}
-		err := strm.Initialize()
-		require.NoError(t, err)
-		t.Cleanup(strm.Close)
-
-		subStream := &stream.SubStream{
-			Stream:        strm,
-			UseRTPPackets: false,
-		}
-		err = subStream.Initialize()
-		require.NoError(t, err)
-
-		r := &stream.Reader{}
-		recv := make(chan *unit.Unit, 8)
-		r.OnData(media, forma, func(u *unit.Unit) error {
-			recv <- u
-			return nil
-		})
-		strm.AddReader(r)
-		t.Cleanup(func() { strm.RemoveReader(r) })
-
-		return subStream, recv
-	}
 
 	t.Run("sei then slice at same pts merges", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -205,7 +210,7 @@ func TestUnitRemuxerH264SEIMerge(t *testing.T) {
 	})
 
 	t.Run("sei then slice at different pts does not merge", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -224,7 +229,7 @@ func TestUnitRemuxerH264SEIMerge(t *testing.T) {
 	})
 
 	t.Run("aud only still yields nil", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -262,39 +267,9 @@ func TestUnitRemuxerH265SEIMerge(t *testing.T) {
 		Type:    description.MediaTypeVideo,
 		Formats: []format.Format{forma},
 	}
-	desc := &description.Session{Medias: []*description.Media{media}}
-
-	setup := func(t *testing.T) (*stream.SubStream, chan *unit.Unit) {
-		strm := &stream.Stream{
-			OrigDesc:          desc,
-			WriteQueueSize:    512,
-			RTPMaxPayloadSize: 1450,
-		}
-		err := strm.Initialize()
-		require.NoError(t, err)
-		t.Cleanup(strm.Close)
-
-		subStream := &stream.SubStream{
-			Stream:        strm,
-			UseRTPPackets: false,
-		}
-		err = subStream.Initialize()
-		require.NoError(t, err)
-
-		r := &stream.Reader{}
-		recv := make(chan *unit.Unit, 8)
-		r.OnData(media, forma, func(u *unit.Unit) error {
-			recv <- u
-			return nil
-		})
-		strm.AddReader(r)
-		t.Cleanup(func() { strm.RemoveReader(r) })
-
-		return subStream, recv
-	}
 
 	t.Run("prefix sei then slice at same pts merges", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -313,7 +288,7 @@ func TestUnitRemuxerH265SEIMerge(t *testing.T) {
 	})
 
 	t.Run("prefix sei then slice at different pts does not merge", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -332,7 +307,7 @@ func TestUnitRemuxerH265SEIMerge(t *testing.T) {
 	})
 
 	t.Run("prefix sei then IDR at same pts merges with parameters prepended", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -351,7 +326,7 @@ func TestUnitRemuxerH265SEIMerge(t *testing.T) {
 	})
 
 	t.Run("solitary suffix sei is dropped, not merged", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
@@ -370,7 +345,7 @@ func TestUnitRemuxerH265SEIMerge(t *testing.T) {
 	})
 
 	t.Run("aud only still yields nil", func(t *testing.T) {
-		subStream, recv := setup(t)
+		subStream, recv := setupUnitRemuxerMergeTest(t, media, forma)
 
 		subStream.WriteUnit(media, forma, &unit.Unit{
 			PTS:     90000,
