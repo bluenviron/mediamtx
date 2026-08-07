@@ -235,3 +235,149 @@ func TestUnitRemuxerH264SEIMerge(t *testing.T) {
 		require.True(t, u1.NilPayload())
 	})
 }
+
+// TestUnitRemuxerH265SEIMerge verifies that a non-VCL H265 access unit (e.g.
+// a standalone prefix-SEI access unit) is held back and merged into the next
+// access unit that shares its PTS and carries a picture, instead of being
+// emitted as its own (incomplete) frame. It also verifies that a solitary
+// suffix SEI, which belongs to a picture that would already have been
+// emitted, is dropped rather than held back.
+func TestUnitRemuxerH265SEIMerge(t *testing.T) {
+	vps := []byte{0x40, 0x01, 0x0c}
+	sps := []byte{0x42, 0x01, 0x01}
+	pps := []byte{0x44, 0x01, 0xc1}
+	prefixSEI := []byte{0x4e, 0x01, 0x02} // PREFIX_SEI_NUT
+	suffixSEI := []byte{0x50, 0x01, 0x02} // SUFFIX_SEI_NUT
+	slice := []byte{0x02, 0xaa, 0xbb}     // non-IDR slice
+	idr := []byte{0x26, 0x01}             // IDR_W_RADL
+	aud := []byte{0x46, 0x01}
+
+	forma := &format.H265{
+		VPS: vps,
+		SPS: sps,
+		PPS: pps,
+	}
+
+	media := &description.Media{
+		Type:    description.MediaTypeVideo,
+		Formats: []format.Format{forma},
+	}
+	desc := &description.Session{Medias: []*description.Media{media}}
+
+	setup := func(t *testing.T) (*stream.SubStream, chan *unit.Unit) {
+		strm := &stream.Stream{
+			OrigDesc:          desc,
+			WriteQueueSize:    512,
+			RTPMaxPayloadSize: 1450,
+		}
+		err := strm.Initialize()
+		require.NoError(t, err)
+		t.Cleanup(strm.Close)
+
+		subStream := &stream.SubStream{
+			Stream:        strm,
+			UseRTPPackets: false,
+		}
+		err = subStream.Initialize()
+		require.NoError(t, err)
+
+		r := &stream.Reader{}
+		recv := make(chan *unit.Unit, 8)
+		r.OnData(media, forma, func(u *unit.Unit) error {
+			recv <- u
+			return nil
+		})
+		strm.AddReader(r)
+		t.Cleanup(func() { strm.RemoveReader(r) })
+
+		return subStream, recv
+	}
+
+	t.Run("prefix sei then slice at same pts merges", func(t *testing.T) {
+		subStream, recv := setup(t)
+
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{prefixSEI},
+		})
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{slice},
+		})
+
+		u1 := <-recv
+		require.True(t, u1.NilPayload())
+
+		u2 := <-recv
+		require.Equal(t, unit.PayloadH265{prefixSEI, slice}, u2.Payload)
+	})
+
+	t.Run("prefix sei then slice at different pts does not merge", func(t *testing.T) {
+		subStream, recv := setup(t)
+
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{prefixSEI},
+		})
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     93000,
+			Payload: unit.PayloadH265{slice},
+		})
+
+		u1 := <-recv
+		require.True(t, u1.NilPayload())
+
+		u2 := <-recv
+		require.Equal(t, unit.PayloadH265{slice}, u2.Payload)
+	})
+
+	t.Run("prefix sei then IDR at same pts merges with parameters prepended", func(t *testing.T) {
+		subStream, recv := setup(t)
+
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{prefixSEI},
+		})
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{idr},
+		})
+
+		u1 := <-recv
+		require.True(t, u1.NilPayload())
+
+		u2 := <-recv
+		require.Equal(t, unit.PayloadH265{vps, sps, pps, prefixSEI, idr}, u2.Payload)
+	})
+
+	t.Run("solitary suffix sei is dropped, not merged", func(t *testing.T) {
+		subStream, recv := setup(t)
+
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{suffixSEI},
+		})
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{slice},
+		})
+
+		u1 := <-recv
+		require.True(t, u1.NilPayload())
+
+		u2 := <-recv
+		require.Equal(t, unit.PayloadH265{slice}, u2.Payload)
+	})
+
+	t.Run("aud only still yields nil", func(t *testing.T) {
+		subStream, recv := setup(t)
+
+		subStream.WriteUnit(media, forma, &unit.Unit{
+			PTS:     90000,
+			Payload: unit.PayloadH265{aud},
+		})
+
+		u1 := <-recv
+		require.True(t, u1.NilPayload())
+	})
+}
