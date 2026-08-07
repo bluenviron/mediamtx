@@ -570,6 +570,18 @@ pathDefaults:
   # When a system failure occurs, the last part gets lost.
   # Therefore, the part duration is equal to the RPO (recovery point objective).
   recordPartDuration: 1s
+  # End each fMP4 part at a video random access point, so that every part can be
+  # decoded on its own.
+  # This makes parts usable as independent segments, for instance when serving a
+  # recording as HLS byte ranges, and lets a seek index reference one part per
+  # entry.
+  # recordPartDuration then acts as a minimum: a part lasts until the first
+  # random access point at or after it, so the effective duration follows the
+  # keyframe interval of the stream.
+  # A part that reaches recordMaxPartSize before a random access point arrives is
+  # ended anyway, and does not start at one.
+  # Has no effect on streams without video.
+  recordPartAlignToKeyframe: no
   # This prevents RAM exhaustion.
   recordMaxPartSize: 50M
   # Minimum duration of each segment.

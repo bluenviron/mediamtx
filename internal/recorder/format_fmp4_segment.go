@@ -207,16 +207,12 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 		s.endDTS = endDTS
 	}
 
-	if s.curPart == nil {
-		s.curPart = &formatFMP4Part{
-			maxPartSize:     s.f.ri.maxPartSize,
-			segmentStartDTS: s.startDTS,
-			number:          s.nextPartNumber,
-			startDTS:        dts,
-		}
-		s.curPart.initialize()
-		s.nextPartNumber++
-	} else if s.curPart.duration() >= s.f.ri.partDuration {
+	switch {
+	case s.curPart == nil:
+		s.startPart(dts)
+
+	// The part has lasted long enough and may end here.
+	case s.curPart.duration() >= s.f.ri.partDuration && s.partMayEndBefore(track, sample):
 		err := s.closeCurPart()
 		s.curPart = nil
 
@@ -224,15 +220,53 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 			return err
 		}
 
-		s.curPart = &formatFMP4Part{
-			maxPartSize:     s.f.ri.maxPartSize,
-			segmentStartDTS: s.startDTS,
-			number:          s.nextPartNumber,
-			startDTS:        dts,
+		s.startPart(dts)
+
+	// Waiting for a random access point that has not come, and the part cannot
+	// hold another sample. Ending it here produces a part that does not start
+	// at a keyframe, which a reader can detect from the sample flags; not
+	// ending it would fail the write and stop the recording, which is worse by
+	// a long way. Only reachable when alignment is on: without it the part
+	// would already have been closed on duration.
+	case s.f.ri.partAlignToKeyframe && s.curPart.full(sample):
+		err := s.closeCurPart()
+		s.curPart = nil
+
+		if err != nil {
+			return err
 		}
-		s.curPart.initialize()
-		s.nextPartNumber++
+
+		s.startPart(dts)
 	}
 
 	return s.curPart.write(track, sample, dts)
+}
+
+// partMayEndBefore reports whether the current part may end just before this
+// sample.
+//
+// Without alignment, anywhere: the part is a delivery unit and its boundaries
+// carry no meaning for a decoder. With it, only before a sample decoding can
+// start from — which makes every part independently decodable and is the same
+// condition this file's caller already applies when it closes a segment.
+//
+// A stream with no video has no such samples, so every boundary is allowed:
+// audio frames are all random access points, and refusing to cut would mean
+// never cutting at all.
+func (s *formatFMP4Segment) partMayEndBefore(track *formatFMP4Track, sample *formatFMP4Sample) bool {
+	if !s.f.ri.partAlignToKeyframe || !s.f.hasVideo {
+		return true
+	}
+	return track.initTrack.Codec.IsVideo() && !sample.IsNonSyncSample
+}
+
+func (s *formatFMP4Segment) startPart(dts time.Duration) {
+	s.curPart = &formatFMP4Part{
+		maxPartSize:     s.f.ri.maxPartSize,
+		segmentStartDTS: s.startDTS,
+		number:          s.nextPartNumber,
+		startDTS:        dts,
+	}
+	s.curPart.initialize()
+	s.nextPartNumber++
 }
