@@ -83,6 +83,7 @@ type Server struct {
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
 	ExternalCmdPool     *externalcmd.Pool
+	SRTLALinker         defs.SRTLALinker
 	Metrics             serverMetrics
 	PathManager         serverPathManager
 	Parent              serverParent
