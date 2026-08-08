@@ -279,10 +279,6 @@ func (pa *path) run() {
 		req.Res <- defs.PathAddReaderRes{Err: fmt.Errorf("terminated")}
 	}
 
-	if pa.stream != nil {
-		pa.setNotAvailable()
-	}
-
 	if pa.source != nil {
 		if source, ok := pa.source.(*staticsources.Handler); ok {
 			if !pa.conf.SourceOnDemand || pa.onDemandStaticSourceState != pathOnDemandStateInitial {
@@ -295,6 +291,10 @@ func (pa *path) run() {
 
 	if pa.onUnDemandHook != nil {
 		pa.onUnDemandHook("path destroyed")
+	}
+
+	if pa.stream != nil {
+		pa.setNotAvailable()
 	}
 
 	pa.Log(logger.Debug, "destroyed: %v", err)
