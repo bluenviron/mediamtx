@@ -145,7 +145,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	if !u.NilPayload() {
 		ssf.streamFormat.formatUpdater(ssf.streamFormat.outFormat, u.Payload, ssf.streamFormat.updateOutDesc)
 
-		u.Payload = ssf.streamFormat.unitRemuxer(ssf.streamFormat.outFormat, u.Payload)
+		u.Payload = ssf.streamFormat.unitRemuxer(ssf.streamFormat.outFormat, u.PTS, u.Payload)
 
 		if ssf.streamFormat.rtpEncoder != nil && !u.NilPayload() {
 			var err error
