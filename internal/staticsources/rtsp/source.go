@@ -139,11 +139,29 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			uint16(params.Conf.RTSPUDPSourcePortRange[1]),
 		},
 		OnRequest: func(req *base.Request) {
-			if params.Conf.RTSPScale != "" && req.Method == base.Play {
-				if req.Header == nil {
-					req.Header = base.Header{}
+			if req.Method == base.Play {
+				if params.Conf.RTSPScale != "" {
+					if req.Header == nil {
+						req.Header = base.Header{}
+					}
+					req.Header["Scale"] = base.HeaderValue{params.Conf.RTSPScale}
 				}
-				req.Header["Scale"] = base.HeaderValue{params.Conf.RTSPScale}
+
+				// appended rather than assigned: the client already sets Require when it
+				// is reading a back channel, and both feature tags have to survive.
+				if params.Conf.RTSPRequire != "" {
+					if req.Header == nil {
+						req.Header = base.Header{}
+					}
+					req.Header["Require"] = append(req.Header["Require"], params.Conf.RTSPRequire)
+				}
+
+				if params.Conf.RTSPRateControl != "" {
+					if req.Header == nil {
+						req.Header = base.Header{}
+					}
+					req.Header["Rate-Control"] = base.HeaderValue{params.Conf.RTSPRateControl}
+				}
 			}
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
