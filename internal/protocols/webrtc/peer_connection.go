@@ -244,6 +244,12 @@ func (co *PeerConnection) Start() error {
 
 	settingsEngine.SetNet(co.Net)
 
+	// Do not generate mDNS candidates and do not use mDNS candidates of remote peers.
+	// * they sometimes require a large CPU portion
+	// * they are not involved in any connectivity method mentioned in the documentation
+	// * they work in local networks only
+	settingsEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
+
 	mediaEngine := &webrtc.MediaEngine{}
 
 	if co.Publish {
