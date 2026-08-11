@@ -307,6 +307,10 @@ components:
             $ref: "#/components/schemas/AuthInternalUserPermission"
         authHTTPFingerprint:
           type: string
+        authHTTPForceInternalUsersForActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthInternalUserPermission"
         authInternalUsers:
           type: array
           items:
