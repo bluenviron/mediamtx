@@ -14,7 +14,7 @@ require (
 	github.com/bluenviron/gortmplib v1.0.0
 	github.com/bluenviron/gortsplib/v5 v5.6.3
 	github.com/bluenviron/mediacommon/v2 v2.9.2
-	github.com/datarhei/gosrt v0.11.0
+	github.com/datarhei/gosrt v0.11.1-0.20260811092139-103c469da1f1
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.4
 	github.com/gin-gonic/gin v1.12.0
@@ -107,5 +107,3 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.0.0-20260804162707-b6afcc8add8f
