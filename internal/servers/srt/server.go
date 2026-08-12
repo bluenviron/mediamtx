@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 
 	srt "github.com/datarhei/gosrt"
@@ -79,6 +80,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	UDPMaxPayloadSize   int
+	UDPReadBufferSize   uint
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -108,6 +110,19 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+	if s.UDPReadBufferSize > 0 {
+		bufSize := int(s.UDPReadBufferSize)
+		conf.ListenerControl = func(_, _ string, c syscall.RawConn) error {
+			var opErr error
+			err := c.Control(func(fd uintptr) {
+				opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, bufSize)
+			})
+			if err != nil {
+				return err
+			}
+			return opErr
+		}
+	}
 
 	var err error
 	s.ln, err = srt.Listen("srt", s.Address, conf)

@@ -702,6 +702,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			UDPMaxPayloadSize:   p.conf.UDPMaxPayloadSize,
+			UDPReadBufferSize:   p.conf.UDPReadBufferSize,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
