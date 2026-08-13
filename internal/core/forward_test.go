@@ -89,7 +89,7 @@ func handleRTMPForwardConn(nconn net.Conn, received chan<- [][]byte, serverErr c
 		return
 	}
 
-	acceptConnErr := conn.Accept()
+	acceptConnErr := conn.AcceptConn()
 	if acceptConnErr != nil {
 		serverErr <- acceptConnErr
 		return

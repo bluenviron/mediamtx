@@ -42,7 +42,7 @@ func TestDest(t *testing.T) {
 			serverErr <- initializeErr
 			return
 		}
-		if publishAcceptErr := conn.Accept(); publishAcceptErr != nil {
+		if publishAcceptErr := conn.AcceptConn(); publishAcceptErr != nil {
 			serverErr <- publishAcceptErr
 			return
 		}
