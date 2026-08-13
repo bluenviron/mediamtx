@@ -34,7 +34,7 @@ func TestManager(t *testing.T) {
 		err2 = sc.Initialize()
 		require.NoError(t, err2)
 
-		err2 = sc.Accept()
+		err2 = sc.AcceptConn()
 		require.NoError(t, err2)
 
 		require.Equal(t, true, sc.Publish)

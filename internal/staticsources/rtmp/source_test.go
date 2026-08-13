@@ -103,14 +103,14 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err)
 
 					if auth == "auth" {
-						err = conn.CheckCredentials("myuser", "mypass")
+						err = conn.AcceptConnIfCredentialsMatch("myuser", "mypass")
 						if err != nil {
 							continue
 						}
+					} else {
+						err = conn.AcceptConn()
+						require.NoError(t, err)
 					}
-
-					err = conn.Accept()
-					require.NoError(t, err)
 
 					w := &gortmplib.Writer{
 						Conn: conn,
