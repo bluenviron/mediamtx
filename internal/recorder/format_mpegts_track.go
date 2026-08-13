@@ -63,7 +63,13 @@ func (t *formatMPEGTSTrack) write(
 
 	case (!t.f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration:
+		segmentDurationReached(
+			t.f.currentSegment.startNTP,
+			dts-t.f.currentSegment.startDTS,
+			t.f.ri.segmentDuration,
+			t.f.ri.segmentDurationAligned,
+			ntp,
+		):
 		t.f.currentSegment.lastDTS = dts
 		err := t.f.currentSegment.close()
 		if err != nil {
