@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -597,6 +598,118 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 			},
 		}},
 	}}, parts)
+}
+
+// TestRecorderFMP4TimestampJump reproduces a stream-time discontinuity (e.g. an
+// RTP timestamp jump after packet loss) while absolute time keeps advancing
+// normally. The sample preceding the jump must not be given a duration equal to
+// the size of the jump, which would otherwise make the recorder report (and
+// stamp into the fMP4 header) a multi-hour segment duration before the drift
+// detector resets the recording on the following sample.
+func TestRecorderFMP4TimestampJump(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []rtspformat.Format{&rtspformat.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+			}},
+		},
+	}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	segDone := make(chan struct{}, 10)
+	var mutex sync.Mutex
+	var reported []time.Duration
+
+	w := &Recorder{
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		OnSegmentComplete: func(_ string, d time.Duration) {
+			mutex.Lock()
+			reported = append(reported, d)
+			mutex.Unlock()
+			select {
+			case segDone <- struct{}{}:
+			default:
+			}
+		},
+		Parent:       test.NilLogger,
+		restartPause: 10 * time.Millisecond,
+	}
+	w.Initialize()
+
+	startNTP := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
+
+	writeSample := func(dts int64, ntp time.Time) {
+		subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			PTS: dts,
+			NTP: ntp,
+			Payload: unit.PayloadH264{
+				test.FormatH264.SPS,
+				test.FormatH264.PPS,
+				{5}, // IDR
+			},
+		})
+	}
+
+	const step = int64(90000 / 10) // 100ms at 90kHz
+
+	// 15 samples, 100ms apart in both stream time and absolute time: crosses the
+	// 1s segment boundary, so a well-formed ~1s segment is completed.
+	for i := range 15 {
+		writeSample(int64(i)*step, startNTP.Add(time.Duration(i)*100*time.Millisecond))
+	}
+
+	// A sample whose stream time jumps ~2h ahead while absolute time advances
+	// normally -- the RTP-discontinuity signature.
+	jumpDTS := int64(15)*step + int64(2*3600)*90000
+	writeSample(jumpDTS, startNTP.Add(1600*time.Millisecond))
+
+	// Two further samples to drive the drift-reset path.
+	writeSample(jumpDTS+step, startNTP.Add(1700*time.Millisecond))
+	writeSample(jumpDTS+2*step, startNTP.Add(1800*time.Millisecond))
+
+	select {
+	case <-segDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for a completed segment")
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	w.Close()
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	require.NotEmpty(t, reported)
+	for _, d := range reported {
+		require.Less(t, d, 5*time.Second,
+			"segment duration inflated by timestamp jump: %v", d)
+	}
 }
 
 func TestRecorderSkipTracksPartial(t *testing.T) {
