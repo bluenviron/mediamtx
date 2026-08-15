@@ -26,11 +26,16 @@ func (s *SubGroup) Read(r io.Reader) error {
 	}
 	s.Objects = []Object{o1}
 
+	if len(o1.Payload) == 0 {
+		return fmt.Errorf("unexpected empty object")
+	}
+
 	var o2 Object
 	err = o2.read(r, &s.Header)
 	if err != nil {
 		return err
 	}
+
 	if len(o2.Payload) != 0 {
 		return fmt.Errorf("unexpected second object")
 	}
