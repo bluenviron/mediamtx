@@ -139,6 +139,12 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 					return err
 				}
 
+				for _, nalu := range nalus {
+					if len(nalu) < 2 {
+						return fmt.Errorf("invalid H265 NALU size (%d)", len(nalu))
+					}
+				}
+
 				(*subStream).WriteUnit(media, forma, &unit.Unit{PTS: pts, Payload: unit.PayloadH265(nalus)})
 				return nil
 			})
