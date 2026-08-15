@@ -98,11 +98,17 @@ func FuzzUnmarshal(f *testing.F) {
 		f.Add(ca.enc)
 	}
 
-	f.Fuzz(func(_ *testing.T, buf []byte) {
+	f.Fuzz(func(t *testing.T, buf []byte) {
 		var s subgroup.SubGroup
 		err := s.Read(bytes.NewReader(buf))
 		if err != nil {
 			return
+		}
+
+		require.NotEmpty(t, s.Objects)
+
+		for _, obj := range s.Objects {
+			require.NotEmpty(t, obj.Payload)
 		}
 
 		s.Marshal()
