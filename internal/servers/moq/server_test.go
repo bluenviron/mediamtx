@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
@@ -36,6 +40,29 @@ func (p *serverDummyPath) SafeConf() *conf.Path                          { retur
 func (p *serverDummyPath) ExternalCmdEnv() externalcmd.Environment       { return externalcmd.Environment{} }
 func (p *serverDummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {}
 func (p *serverDummyPath) RemoveReader(_ defs.PathRemoveReaderReq)       {}
+
+type logRecorder struct {
+	mutex sync.Mutex
+	logs  []string
+}
+
+func (l *logRecorder) Log(_ logger.Level, format string, args ...any) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.logs = append(l.logs, fmt.Sprintf(format, args...))
+}
+
+func (l *logRecorder) contains(substr string) bool {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	for _, entry := range l.logs {
+		if strings.Contains(entry, substr) {
+			return true
+		}
+	}
+	return false
+}
 
 func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session, version defs.APIMoQVersion) {
 	t.Helper()
@@ -105,222 +132,6 @@ func performNativeQUICSetup(
 
 	_, err = clientSetup.Write(controlmessage.Setup{Path: path}.Marshal())
 	require.NoError(t, err)
-}
-
-func TestAuthError(t *testing.T) {
-	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
-	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
-
-	for _, ca := range []string{
-		"read page",
-		"publish page",
-		"subscribe",
-		"publish",
-	} {
-		t.Run(ca, func(t *testing.T) {
-			switch ca {
-			case "read page", "publish page":
-				pm := &test.PathManager{
-					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
-							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
-						}
-
-						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
-					},
-				}
-				s := &moq.Server{
-					HTTP2Address:   "127.0.0.1:19895",
-					HTTP3Address:   "127.0.0.1:19896",
-					QUICAddress:    "127.0.0.1:19897",
-					ServerCert:     serverCertFile,
-					ServerKey:      serverKeyFile,
-					AllowOrigins:   []string{"*"},
-					TrustedProxies: conf.IPNetworks{},
-					ReadTimeout:    conf.Duration(10 * time.Second),
-					WriteTimeout:   conf.Duration(10 * time.Second),
-					PathManager:    pm,
-					Parent:         test.NilLogger,
-				}
-				err := s.Initialize()
-				require.NoError(t, err)
-				defer s.Close()
-
-				tr := &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-				}
-				defer tr.CloseIdleConnections()
-				hc := &http.Client{Transport: tr}
-
-				var req *http.Request
-
-				switch ca {
-				case "read page":
-					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/", nil)
-
-				case "publish page":
-					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/publish", nil)
-				}
-				require.NoError(t, err)
-
-				res, err := hc.Do(req)
-				require.NoError(t, err)
-				defer res.Body.Close()
-
-				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-				require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
-
-				switch ca {
-				case "read page":
-					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/", nil)
-
-				case "publish page":
-					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/publish", nil)
-				}
-				require.NoError(t, err)
-
-				res, err = hc.Do(req)
-				require.NoError(t, err)
-				defer res.Body.Close()
-
-				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-				require.Equal(t, ``, res.Header.Get("WWW-Authenticate"))
-
-			case "subscribe", "publish":
-				pm := &test.PathManager{}
-
-				switch ca {
-				case "subscribe":
-					pm.AddReaderImpl = func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
-					}
-
-				case "publish":
-					pm.AddPublisherImpl = func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
-						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
-					}
-				}
-
-				s := &moq.Server{
-					HTTP2Address:   "127.0.0.1:19895",
-					HTTP3Address:   "127.0.0.1:19896",
-					QUICAddress:    "127.0.0.1:19897",
-					ServerCert:     serverCertFile,
-					ServerKey:      serverKeyFile,
-					AllowOrigins:   []string{"*"},
-					TrustedProxies: conf.IPNetworks{},
-					ReadTimeout:    conf.Duration(10 * time.Second),
-					WriteTimeout:   conf.Duration(10 * time.Second),
-					PathManager:    pm,
-					Parent:         test.NilLogger,
-				}
-				err := s.Initialize()
-				require.NoError(t, err)
-				defer s.Close()
-
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-
-				d := &webtransport.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-					QUICConfig: &quic.Config{
-						EnableDatagrams:                  true,
-						EnableStreamResetPartialDelivery: true,
-					},
-					ApplicationProtocols: []string{"moqt-19"},
-				}
-				defer d.Close() //nolint:errcheck
-
-				res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
-				require.NoError(t, err)
-				defer sx.CloseWithError(0, "") //nolint:errcheck
-				defer res.Body.Close()         //nolint:errcheck
-
-				performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
-
-				switch ca {
-				case "subscribe":
-					var catalogBidi *webtransport.Stream
-					catalogBidi, err = sx.OpenStreamSync(ctx)
-					require.NoError(t, err)
-
-					_, err = catalogBidi.Write(controlmessage.Subscribe{
-						RequestID: 1,
-						TrackName: ".catalog",
-						Parameters: parameter.Parameters{
-							&parameter.AuthorizationToken{
-								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
-								TokenType:  1,
-								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
-							},
-						},
-					}.Marshal())
-					require.NoError(t, err)
-
-					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
-					require.NoError(t, err)
-
-					require.Equal(t, &controlmessage.RequestError{
-						Code:   controlmessage.RequestErrorCodeUnauthorized,
-						Reason: "failed to authenticate: auth error",
-					}, msg)
-
-					catalogBidi.Close() //nolint:errcheck
-
-				case "publish":
-					var catalogData *webtransport.SendStream
-					catalogData, err = sx.OpenUniStreamSync(ctx)
-					require.NoError(t, err)
-
-					var cat []byte
-					cat, err = json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
-						Name:      "0",
-						Packaging: "loc",
-						IsLive:    true,
-						Codec:     "avc3.640028",
-					}}})
-					require.NoError(t, err)
-
-					_, err = catalogData.Write((&subgroup.SubGroup{
-						Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
-						Objects: []subgroup.Object{{Payload: cat}},
-					}).Marshal())
-					require.NoError(t, err)
-					catalogData.Close() //nolint:errcheck
-
-					var catalogBidi *webtransport.Stream
-					catalogBidi, err = sx.OpenStreamSync(ctx)
-					require.NoError(t, err)
-
-					_, err = catalogBidi.Write(controlmessage.Publish{
-						RequestID:  1,
-						TrackName:  ".catalog",
-						TrackAlias: 0,
-						Parameters: parameter.Parameters{
-							&parameter.AuthorizationToken{
-								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
-								TokenType:  1,
-								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
-							},
-						},
-					}.Marshal())
-					require.NoError(t, err)
-
-					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
-					require.NoError(t, err)
-
-					require.Equal(t, &controlmessage.RequestError{
-						Code:   controlmessage.RequestErrorCodeUnauthorized,
-						Reason: "failed to authenticate: auth error",
-					}, msg)
-
-					catalogBidi.Close() //nolint:errcheck
-				}
-			}
-		})
-	}
 }
 
 func TestServer(t *testing.T) {
@@ -552,45 +363,6 @@ func TestServer(t *testing.T) {
 	}
 }
 
-func TestServerUnsupportedVersion(t *testing.T) {
-	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
-	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
-
-	s := &moq.Server{
-		HTTP2Address:   "127.0.0.1:19895",
-		HTTP3Address:   "127.0.0.1:19896",
-		QUICAddress:    "127.0.0.1:19897",
-		ServerCert:     serverCertFile,
-		ServerKey:      serverKeyFile,
-		AllowOrigins:   []string{"*"},
-		TrustedProxies: conf.IPNetworks{},
-		ReadTimeout:    conf.Duration(10 * time.Second),
-		WriteTimeout:   conf.Duration(10 * time.Second),
-		PathManager:    &test.PathManager{},
-		Parent:         test.NilLogger,
-	}
-	err := s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	d := &webtransport.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		QUICConfig: &quic.Config{
-			EnableDatagrams:                  true,
-			EnableStreamResetPartialDelivery: true,
-		},
-		ApplicationProtocols: []string{"moqt-20"},
-	}
-	defer d.Close() //nolint:errcheck
-
-	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
-	require.Error(t, err)
-	defer res.Body.Close()
-}
-
 func TestServerNativeQUICSubscribe(t *testing.T) {
 	for _, ca := range []struct {
 		name    string
@@ -699,4 +471,349 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			}, cat)
 		})
 	}
+}
+
+func TestServerAuthError(t *testing.T) {
+	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
+
+	for _, ca := range []string{
+		"read page",
+		"publish page",
+		"subscribe",
+		"publish",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			switch ca {
+			case "read page", "publish page":
+				pm := &test.PathManager{
+					FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+						if req.AccessRequest.Credentials.User == "" && req.AccessRequest.Credentials.Pass == "" {
+							return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+						}
+
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					},
+				}
+				s := &moq.Server{
+					HTTP2Address:   "127.0.0.1:19895",
+					HTTP3Address:   "127.0.0.1:19896",
+					QUICAddress:    "127.0.0.1:19897",
+					ServerCert:     serverCertFile,
+					ServerKey:      serverKeyFile,
+					AllowOrigins:   []string{"*"},
+					TrustedProxies: conf.IPNetworks{},
+					ReadTimeout:    conf.Duration(10 * time.Second),
+					WriteTimeout:   conf.Duration(10 * time.Second),
+					PathManager:    pm,
+					Parent:         test.NilLogger,
+				}
+				err := s.Initialize()
+				require.NoError(t, err)
+				defer s.Close()
+
+				tr := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				}
+				defer tr.CloseIdleConnections()
+				hc := &http.Client{Transport: tr}
+
+				var req *http.Request
+
+				switch ca {
+				case "read page":
+					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/", nil)
+
+				case "publish page":
+					req, err = http.NewRequest(http.MethodGet, "https://127.0.0.1:19895/stream/publish", nil)
+				}
+				require.NoError(t, err)
+
+				res, err := hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+
+				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+				require.Equal(t, `Basic realm="mediamtx"`, res.Header.Get("WWW-Authenticate"))
+
+				switch ca {
+				case "read page":
+					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/", nil)
+
+				case "publish page":
+					req, err = http.NewRequest(http.MethodGet, "https://myuser:mypass@127.0.0.1:19895/stream/publish", nil)
+				}
+				require.NoError(t, err)
+
+				res, err = hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+
+				require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+				require.Equal(t, ``, res.Header.Get("WWW-Authenticate"))
+
+			case "subscribe", "publish":
+				pm := &test.PathManager{}
+
+				switch ca {
+				case "subscribe":
+					pm.AddReaderImpl = func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					}
+
+				case "publish":
+					pm.AddPublisherImpl = func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+						return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+					}
+				}
+
+				s := &moq.Server{
+					HTTP2Address:   "127.0.0.1:19895",
+					HTTP3Address:   "127.0.0.1:19896",
+					QUICAddress:    "127.0.0.1:19897",
+					ServerCert:     serverCertFile,
+					ServerKey:      serverKeyFile,
+					AllowOrigins:   []string{"*"},
+					TrustedProxies: conf.IPNetworks{},
+					ReadTimeout:    conf.Duration(10 * time.Second),
+					WriteTimeout:   conf.Duration(10 * time.Second),
+					PathManager:    pm,
+					Parent:         test.NilLogger,
+				}
+				err := s.Initialize()
+				require.NoError(t, err)
+				defer s.Close()
+
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				d := &webtransport.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+					QUICConfig: &quic.Config{
+						EnableDatagrams:                  true,
+						EnableStreamResetPartialDelivery: true,
+					},
+					ApplicationProtocols: []string{"moqt-19"},
+				}
+				defer d.Close() //nolint:errcheck
+
+				res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+				require.NoError(t, err)
+				defer sx.CloseWithError(0, "") //nolint:errcheck
+				defer res.Body.Close()         //nolint:errcheck
+
+				performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+
+				switch ca {
+				case "subscribe":
+					var catalogBidi *webtransport.Stream
+					catalogBidi, err = sx.OpenStreamSync(ctx)
+					require.NoError(t, err)
+
+					_, err = catalogBidi.Write(controlmessage.Subscribe{
+						RequestID: 1,
+						TrackName: ".catalog",
+						Parameters: parameter.Parameters{
+							&parameter.AuthorizationToken{
+								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+								TokenType:  1,
+								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
+							},
+						},
+					}.Marshal())
+					require.NoError(t, err)
+
+					var msg controlmessage.Message
+					msg, err = controlmessage.Read(catalogBidi)
+					require.NoError(t, err)
+
+					require.Equal(t, &controlmessage.RequestError{
+						Code:   controlmessage.RequestErrorCodeUnauthorized,
+						Reason: "failed to authenticate: auth error",
+					}, msg)
+
+					catalogBidi.Close() //nolint:errcheck
+
+				case "publish":
+					var catalogData *webtransport.SendStream
+					catalogData, err = sx.OpenUniStreamSync(ctx)
+					require.NoError(t, err)
+
+					var cat []byte
+					cat, err = json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+						Name:      "0",
+						Packaging: "loc",
+						IsLive:    true,
+						Codec:     "avc3.640028",
+					}}})
+					require.NoError(t, err)
+
+					_, err = catalogData.Write((&subgroup.SubGroup{
+						Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
+						Objects: []subgroup.Object{{Payload: cat}},
+					}).Marshal())
+					require.NoError(t, err)
+					catalogData.Close() //nolint:errcheck
+
+					var catalogBidi *webtransport.Stream
+					catalogBidi, err = sx.OpenStreamSync(ctx)
+					require.NoError(t, err)
+
+					_, err = catalogBidi.Write(controlmessage.Publish{
+						RequestID:  1,
+						TrackName:  ".catalog",
+						TrackAlias: 0,
+						Parameters: parameter.Parameters{
+							&parameter.AuthorizationToken{
+								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+								TokenType:  1,
+								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
+							},
+						},
+					}.Marshal())
+					require.NoError(t, err)
+
+					var msg controlmessage.Message
+					msg, err = controlmessage.Read(catalogBidi)
+					require.NoError(t, err)
+
+					require.Equal(t, &controlmessage.RequestError{
+						Code:   controlmessage.RequestErrorCodeUnauthorized,
+						Reason: "failed to authenticate: auth error",
+					}, msg)
+
+					catalogBidi.Close() //nolint:errcheck
+				}
+			}
+		})
+	}
+}
+
+func TestServerErrorUnsupportedVersion(t *testing.T) {
+	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
+
+	s := &moq.Server{
+		HTTP2Address:   "127.0.0.1:19895",
+		HTTP3Address:   "127.0.0.1:19896",
+		QUICAddress:    "127.0.0.1:19897",
+		ServerCert:     serverCertFile,
+		ServerKey:      serverKeyFile,
+		AllowOrigins:   []string{"*"},
+		TrustedProxies: conf.IPNetworks{},
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		PathManager:    &test.PathManager{},
+		Parent:         test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	d := &webtransport.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		QUICConfig: &quic.Config{
+			EnableDatagrams:                  true,
+			EnableStreamResetPartialDelivery: true,
+		},
+		ApplicationProtocols: []string{"moqt-20"},
+	}
+	defer d.Close() //nolint:errcheck
+
+	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+	require.Error(t, err)
+	defer res.Body.Close()
+}
+
+func TestServerErrorTooManyTracks(t *testing.T) {
+	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
+	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
+
+	var addPublisherCalled atomic.Bool
+	pm := &test.PathManager{
+		AddPublisherImpl: func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			addPublisherCalled.Store(true)
+			return nil, nil
+		},
+	}
+
+	parent := &logRecorder{}
+	s := &moq.Server{
+		HTTP2Address:   "127.0.0.1:19895",
+		HTTP3Address:   "127.0.0.1:19896",
+		QUICAddress:    "127.0.0.1:19897",
+		ServerCert:     serverCertFile,
+		ServerKey:      serverKeyFile,
+		AllowOrigins:   []string{"*"},
+		TrustedProxies: conf.IPNetworks{},
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		PathManager:    pm,
+		Parent:         parent,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	d := &webtransport.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		QUICConfig: &quic.Config{
+			EnableDatagrams:                  true,
+			EnableStreamResetPartialDelivery: true,
+		},
+		ApplicationProtocols: []string{"moqt-19"},
+	}
+	defer d.Close() //nolint:errcheck
+
+	res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+	require.NoError(t, err)
+	defer sx.CloseWithError(0, "") //nolint:errcheck
+	defer res.Body.Close()         //nolint:errcheck
+
+	performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+
+	tracks := make([]catalog.Track, 51)
+	for i := range tracks {
+		tracks[i] = catalog.Track{
+			Name:      fmt.Sprintf("%d", i),
+			Packaging: "loc",
+			IsLive:    true,
+			Codec:     "avc3.640028",
+		}
+	}
+
+	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: tracks})
+	require.NoError(t, err)
+
+	catalogData, err := sx.OpenUniStreamSync(ctx)
+	require.NoError(t, err)
+
+	_, err = catalogData.Write((&subgroup.SubGroup{
+		Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
+		Objects: []subgroup.Object{{Payload: cat}},
+	}).Marshal())
+	require.NoError(t, err)
+	catalogData.Close() //nolint:errcheck
+
+	catalogBidi, err := sx.OpenStreamSync(ctx)
+	require.NoError(t, err)
+	defer catalogBidi.Close() //nolint:errcheck
+
+	_, err = catalogBidi.Write(controlmessage.Publish{
+		RequestID:  1,
+		TrackName:  ".catalog",
+		TrackAlias: 0,
+	}.Marshal())
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return parent.contains("too many catalog tracks: 51")
+	}, time.Second, 50*time.Millisecond)
+	require.False(t, addPublisherCalled.Load())
 }
