@@ -585,13 +585,23 @@ func (pconf *Path) validate(
 		}
 
 	case pconf.Source == "rpiCamera":
-
 		if pconf.RPICameraWidth == 0 {
 			return fmt.Errorf("invalid 'rpiCameraWidth' value")
 		}
 
 		if pconf.RPICameraHeight == 0 {
 			return fmt.Errorf("invalid 'rpiCameraHeight' value")
+		}
+
+		if pconf.RPICameraCodec == "mjpeg" ||
+			(pconf.RPICameraSecondary && pconf.RPICameraCodec == "auto") {
+			if pconf.RPICameraWidth >= 2048 || (pconf.RPICameraWidth%8) != 0 {
+				return fmt.Errorf("'rpiCameraWidth' must be a multiple of 8 and less than 2048 when using MJPEG")
+			}
+
+			if pconf.RPICameraHeight >= 2048 || (pconf.RPICameraHeight%8) != 0 {
+				return fmt.Errorf("'rpiCameraHeight' must be a multiple of 8 and less than 2048 when using MJPEG")
+			}
 		}
 
 		switch pconf.RPICameraExposure {

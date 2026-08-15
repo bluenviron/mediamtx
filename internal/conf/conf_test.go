@@ -415,6 +415,24 @@ func TestConfErrors(t *testing.T) {
 			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam1' and 'cam2'",
 		},
 		{
+			"invalid rpi camera mjpeg width",
+			"paths:\n" +
+				"  cam:\n" +
+				"    source: rpiCamera\n" +
+				"    rpiCameraCodec: mjpeg\n" +
+				"    rpiCameraWidth: 1921\n",
+			"'rpiCameraWidth' must be a multiple of 8 and less than 2048 when using MJPEG",
+		},
+		{
+			"invalid rpi camera mjpeg height",
+			"paths:\n" +
+				"  cam:\n" +
+				"    source: rpiCamera\n" +
+				"    rpiCameraCodec: mjpeg\n" +
+				"    rpiCameraHeight: 2048\n",
+			"'rpiCameraHeight' must be a multiple of 8 and less than 2048 when using MJPEG",
+		},
+		{
 			"invalid srt publish passphrase",
 			"paths:\n" +
 				"  mypath:\n" +
