@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -294,6 +295,12 @@ func (t *offlineSubStreamTrack) runFile(r io.ReadSeeker, pos int) error {
 				err = avcc.Unmarshal(payload)
 				if err != nil {
 					return err
+				}
+
+				for _, nalu := range avcc {
+					if len(nalu) < 2 {
+						return fmt.Errorf("invalid H265 NALU size (%d)", len(nalu))
+					}
 				}
 
 				t.subStream.WriteUnit(t.media, t.format, &unit.Unit{
