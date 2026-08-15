@@ -240,6 +240,15 @@ playbackAllowOrigins: ["*"]
 playbackTrustedProxies: []
 
 ###############################################
+# Global settings -> Recording cleanup
+
+# Maximum total size of all recording segments across all paths.
+# When exceeded, the oldest completed segments are deleted until under the limit,
+# even if they have not yet reached recordDeleteAfter.
+# Set to 0B (or "0") to disable size-based deletion.
+recordDeleteMaxSize: 0B
+
+###############################################
 # Global settings -> RTSP server
 
 # Enable the RTSP server, which allows to publish and read streams with the RTSP protocol.
