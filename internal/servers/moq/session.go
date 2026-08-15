@@ -33,7 +33,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-const maxReorderedSubGroups = 50
+const (
+	maxReorderedSubGroups = 50
+	maxCatalogTracks      = 50
+)
 
 func findAuthorizationToken(parameters []parameter.Parameter) *parameter.AuthorizationToken {
 	for _, pa := range parameters {
@@ -719,6 +722,10 @@ func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
 	err := json.Unmarshal(sg.Objects[0].Payload, &cat)
 	if err != nil {
 		return fmt.Errorf("failed to parse catalog JSON: %w", err)
+	}
+
+	if len(cat.Tracks) > maxCatalogTracks {
+		return fmt.Errorf("too many catalog tracks: %d", len(cat.Tracks))
 	}
 
 	select {
