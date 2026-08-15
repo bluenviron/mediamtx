@@ -842,6 +842,28 @@ func TestConfErrors(t *testing.T) {
 			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
 		},
 		{
+			"alwaysAvailableTracks g711 sampleRate too low",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    alwaysAvailable: yes\n" +
+				"    alwaysAvailableTracks:\n" +
+				"    - codec: G711\n" +
+				"      sampleRate: 7999\n" +
+				"      channelCount: 1\n",
+			"sampleRate must be greater than or equal to 8000 for codec 'G711'",
+		},
+		{
+			"alwaysAvailableTracks mpeg4audio sampleRate too low",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    alwaysAvailable: yes\n" +
+				"    alwaysAvailableTracks:\n" +
+				"    - codec: MPEG4Audio\n" +
+				"      sampleRate: 22049\n" +
+				"      channelCount: 1\n",
+			"sampleRate must be greater than or equal to 22050 for codec 'MPEG4Audio'",
+		},
+		{
 			"missing udp port",
 			"paths:\n" +
 				"  mypath:\n" +
