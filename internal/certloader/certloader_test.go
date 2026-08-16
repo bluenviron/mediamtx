@@ -28,10 +28,7 @@ func TestCertReload(t *testing.T) {
 	require.NoError(t, err)
 	defer loader.Close()
 
-	getCert := loader.GetCertificate()
-	require.NotNil(t, getCert)
-
-	cert, err := getCert(nil)
+	cert, err := loader.GetCertificate(nil)
 	require.NoError(t, err)
 	require.NotNil(t, cert)
 	require.Equal(t, &testData, cert)
@@ -47,7 +44,7 @@ func TestCertReload(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	cert, err = getCert(nil)
+	cert, err = loader.GetCertificate(nil)
 	require.NoError(t, err)
 	require.NotNil(t, cert)
 	require.Equal(t, &testData, cert)

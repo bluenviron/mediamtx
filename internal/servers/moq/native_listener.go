@@ -3,7 +3,6 @@ package moq
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -29,8 +28,7 @@ type nativeListenerParent interface {
 
 type nativeListener struct {
 	address           string
-	serverKey         string
-	serverCert        string
+	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	udpReadBufferSize uint
 	parent            nativeListenerParent
 
@@ -65,16 +63,9 @@ func (s *nativeListener) initialize() error {
 		}
 	}
 
-	cert, err := tls.LoadX509KeyPair(s.serverCert, s.serverKey)
-	if err != nil {
-		s.ln.Close()
-		ctxCancel()
-		return fmt.Errorf("unable to load TLS keypair for native MoQ QUIC listener: %w", err)
-	}
-
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		NextProtos:   supportedMoqtALPNs,
+		GetCertificate: s.getCertificate,
+		NextProtos:     supportedMoqtALPNs,
 	}
 
 	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
