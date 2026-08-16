@@ -21,27 +21,13 @@ const (
 	maxInboundRPICameraSize = 10 * 1024 * 1024
 )
 
-func absolutePathInside(base string, candidate string) (string, error) {
-	baseAbs, err := filepath.Abs(filepath.Clean(base))
-	if err != nil {
-		return "", err
+func safeArchivePath(name string) (string, error) {
+	name = filepath.Clean(filepath.FromSlash(name))
+	if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid archive entry: %s", name)
 	}
 
-	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
-	if err != nil {
-		return "", err
-	}
-
-	rel, err := filepath.Rel(baseAbs, candidateAbs)
-	if err != nil {
-		return "", err
-	}
-
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path escapes base directory")
-	}
-
-	return candidateAbs, nil
+	return name, nil
 }
 
 func dumpTar(src io.Reader) error {
@@ -63,11 +49,13 @@ func dumpTar(src io.Reader) error {
 			return err
 		}
 
-		var targetPath string
-		targetPath, err = absolutePathInside(baseDir, filepath.Join(baseDir, header.Name))
+		var entryName string
+		entryName, err = safeArchivePath(header.Name)
 		if err != nil {
-			return fmt.Errorf("invalid archive entry: %s", header.Name)
+			return err
 		}
+
+		targetPath := filepath.Join(baseDir, entryName)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
