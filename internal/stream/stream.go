@@ -492,6 +492,9 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) (*gortsplib.ServerStream,
 // AddReader adds a reader.
 // Used by all protocols except RTSP.
 func (s *Stream) AddReader(r *Reader) {
+	r.queueSize = s.WriteQueueSize
+	r.start()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -506,9 +509,6 @@ func (s *Stream) AddReader(r *Reader) {
 		}
 	}
 
-	r.queueSize = s.WriteQueueSize
-	r.start()
-
 	select {
 	case <-s.hasReaders:
 	default:
@@ -520,9 +520,6 @@ func (s *Stream) AddReader(r *Reader) {
 // Used by all protocols except RTSP.
 func (s *Stream) RemoveReader(r *Reader) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	r.stop()
 
 	for medi, formats := range r.onDatas {
 		sm := s.medias[medi]
@@ -534,6 +531,10 @@ func (s *Stream) RemoveReader(r *Reader) {
 	}
 
 	delete(s.readers, r)
+
+	s.mutex.Unlock()
+
+	r.stop()
 }
 
 // WaitForReaders waits for the stream to have at least one reader.

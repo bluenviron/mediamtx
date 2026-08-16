@@ -150,9 +150,11 @@ func (ss *SubStream) Initialize() error {
 		}
 	}
 
+	// keep mutex open to use writeUnit() inside initialize2()
 	ss.Stream.mutex.Lock()
+	defer ss.Stream.mutex.Unlock()
+
 	ss.Stream.subStream = ss
-	ss.Stream.mutex.Unlock()
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
