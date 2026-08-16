@@ -51,12 +51,6 @@ func sanitizeLocation(rawPath string, rawQuery string) string {
 	return res
 }
 
-func isIOS(userAgent string) bool {
-	return strings.Contains(userAgent, "iPad") ||
-		strings.Contains(userAgent, "iPhone") ||
-		strings.Contains(userAgent, "iPod")
-}
-
 type httpServer struct {
 	address        string
 	dumpPackets    bool
@@ -293,11 +287,13 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if ctx.Request.URL.Query().Get("cookieCheck") != "1" {
+			// this is for plain HTTP
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:  "cookieCheck",
 				Value: "1",
 			})
 
+			// this is for HTTPS
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        "cookieCheck",
 				Value:       "1",
@@ -313,11 +309,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("Location", sanitizeLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 
 			ctx.Writer.WriteHeader(http.StatusFound)
-			return
-		}
-
-		if _, err := ctx.Request.Cookie("cookieCheck"); err != nil && isIOS(ctx.Request.UserAgent()) {
-			s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("HLS on iOS requires the server to set and read cookies"))
 			return
 		}
 
@@ -355,11 +346,13 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if cookie, err2 := ctx.Request.Cookie("cookieCheck"); err2 == nil && cookie.Value == "1" {
+			// this is for plain HTTP
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:  sessionCookieName,
 				Value: sx.secret.String(),
 			})
 
+			// this is for HTTPS
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        sessionCookieName,
 				Value:       sx.secret.String(),

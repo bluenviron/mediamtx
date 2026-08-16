@@ -19,7 +19,7 @@ WHIP is a WebRTC extension that allows to publish streams by using a URL, withou
 http://localhost:8889/mystream/whip
 ```
 
-Be aware that not all browsers can read any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
+Be aware that not all browsers can publish tracks with any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
 
 Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](../2-features/26-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 

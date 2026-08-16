@@ -28,6 +28,8 @@ http://localhost:8889/mystream/publish
 
 The resulting stream will be available on path `/mystream`.
 
+Be aware that not all browsers can publish tracks with any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
+
 This web page can be embedded into another web page by using an iframe:
 
 ```html
