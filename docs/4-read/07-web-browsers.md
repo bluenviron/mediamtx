@@ -88,7 +88,15 @@ Otherwise, you can add a `<script>` tag to the `<head>` section of the page:
 Add a `<video>` tag:
 
 ```html
-<video id="myvideo" controls muted autoplay width="640" height="480"></video>
+<video
+  id="myvideo"
+  controls
+  muted
+  autoplay
+  playsinline
+  width="640"
+  height="480"
+></video>
 ```
 
 After the video tag, add a script that initializes the stream when the page is fully loaded:
@@ -168,7 +176,15 @@ Otherwise, you can use a `<script>` tag inside the `<head>` section that points 
 Add a `<video>` tag:
 
 ```html
-<video id="myvideo" controls muted autoplay width="640" height="480"></video>
+<video
+  id="myvideo"
+  controls
+  muted
+  autoplay
+  playsinline
+  width="640"
+  height="480"
+></video>
 ```
 
 After the video tag, add a script that initializes the stream when the page is fully loaded:
