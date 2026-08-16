@@ -24,6 +24,8 @@ http://localhost:8889/mystream
 
 Replace `mystream` with the path name.
 
+Be aware that not all browsers can read tracks with any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
+
 ### HLS
 
 The HLS protocol has a higher latency with respect to WebRTC, but there are fewer problems related to connectivity between server and clients. Visit the web page:
@@ -161,6 +163,8 @@ The iframe method is fit for most use cases, but it has some limitations:
 
 In order to overcome the limitations of the iframe-based method, it is possible to load the stream directly inside a `<video>` tag in the web page, through the _hls.js_ library.
 
+Be aware that _hls.js_ is not compatible with browsers that do not expose the [Media Source Extensions API](https://caniuse.com/mediasource), in particular old iOS versions (iPad iOS `< 13`, iPhone iOS `< 17`).
+
 If you are using a JavaScript bundler, you can import _hls.js_ by adding [its npm package](https://www.npmjs.com/package/hls.js) as dependency and then importing it:
 
 ```js
@@ -192,28 +196,34 @@ After the video tag, add a script that initializes the stream when the page is f
 ```html
 <script>
   window.addEventListener("load", () => {
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        xhrSetup: function (xhr, url) {
-          let user = ""; // fill if needed
-          let pass = ""; // fill if needed
-          let token = ""; // fill if needed
+    const video = document.getElementById("myvideo");
 
-          if (user !== "") {
-            const credentials = btoa(`${user}:${pass}`);
-            xhr.setRequestHeader("Authorization", `Basic ${credentials}`);
-          } else if (token !== "") {
-            xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-          }
-        },
-      });
+    const hls = new Hls({
+      xhrSetup: function (xhr, url) {
+        let user = ""; // fill if needed
+        let pass = ""; // fill if needed
+        let token = ""; // fill if needed
 
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-        hls.loadSource("http://mediamtx-ip:8888/mystream/index.m3u8");
-      });
+        if (user !== "") {
+          const credentials = btoa(`${user}:${pass}`);
+          xhr.setRequestHeader("Authorization", `Basic ${credentials}`);
+        } else if (token !== "") {
+          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        }
+      },
+    });
 
-      hls.attachMedia(document.getElementById("myvideo"));
-    }
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+      hls.loadSource("http://mediamtx-ip:8888/mystream/index.m3u8");
+    });
+
+    // when the video is resumed after a manual or forced pause
+    // (i.e. when the window is minimized), restore live streaming.
+    video.onplay = () => {
+      video.currentTime = hls.liveSyncPosition;
+    };
+
+    hls.attachMedia(video);
   });
 </script>
 ```
