@@ -28,6 +28,8 @@ const (
 	APIForwardDestProtocolRTSP  APIForwardDestProtocol = "rtsp"
 	APIForwardDestProtocolRTSPS APIForwardDestProtocol = "rtsps"
 	APIForwardDestProtocolSRT   APIForwardDestProtocol = "srt"
+	APIForwardDestProtocolWHIP  APIForwardDestProtocol = "whip"
+	APIForwardDestProtocolWHIPS APIForwardDestProtocol = "whips"
 )
 
 // APIForwardDest is a forward destination.

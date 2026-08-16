@@ -67,7 +67,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		tr.TLSClientConfig = tlsConfig
 	}
 
-	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
+	u.Scheme = strings.Replace(u.Scheme, "whep", "http", 1)
 
 	client := whip.Client{
 		URL: u,

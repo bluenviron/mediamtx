@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,9 +15,12 @@ import (
 	"github.com/bluenviron/gortmplib"
 	rtmpcodecs "github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/google/uuid"
+	"github.com/pion/rtp"
+	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	mtxwebrtc "github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -204,10 +208,146 @@ func waitRTMPForwardFrame(
 	}
 }
 
+func startWHIPForwardServer(
+	t *testing.T,
+	expectedBearerToken string,
+) (string, <-chan struct{}, <-chan error) {
+	pc := &mtxwebrtc.PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Log:               test.NilLogger,
+	}
+	err := pc.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		pc.Close()
+	})
+
+	received := make(chan struct{}, 16)
+	serverErr := make(chan error, 16)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if expectedBearerToken != "" {
+				require.Equal(t, "Bearer "+expectedBearerToken, r.Header.Get("Authorization"))
+			}
+
+			switch {
+			case r.Method == http.MethodOptions && r.URL.Path == "/teststream/whip":
+				w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
+				w.WriteHeader(http.StatusNoContent)
+
+			case r.Method == http.MethodPost && r.URL.Path == "/teststream/whip":
+				require.Equal(t, "application/sdp", r.Header.Get("Content-Type"))
+
+				body, err2 := io.ReadAll(r.Body)
+				require.NoError(t, err2)
+				offer := &pwebrtc.SessionDescription{
+					Type: pwebrtc.SDPTypeOffer,
+					SDP:  string(body),
+				}
+
+				answer, err2 := pc.CreateFullAnswer(offer, false)
+				require.NoError(t, err2)
+
+				w.Header().Set("Content-Type", "application/sdp")
+				w.Header().Set("ETag", "test_etag")
+				w.Header().Set("Location", "/teststream/whip/sessionid")
+				w.WriteHeader(http.StatusCreated)
+				_, err2 = w.Write([]byte(answer.SDP))
+				require.NoError(t, err2)
+
+				go func() {
+					err3 := pc.WaitUntilConnected(10 * time.Second)
+					if err3 != nil {
+						serverErr <- err3
+						return
+					}
+
+					err3 = pc.GatherInboundTracks(2 * time.Second)
+					if err3 != nil {
+						serverErr <- err3
+						return
+					}
+
+					if len(pc.InboundTracks()) != 1 {
+						serverErr <- fmt.Errorf("unexpected track count: %d", len(pc.InboundTracks()))
+						return
+					}
+
+					pc.InboundTracks()[0].OnPacketRTP = func(_ *rtp.Packet) {
+						select {
+						case received <- struct{}{}:
+						default:
+						}
+					}
+
+					pc.StartReading()
+				}()
+
+			case r.URL.Path == "/teststream/whip/sessionid" && r.Method == http.MethodPatch:
+				w.WriteHeader(http.StatusNoContent)
+
+			case r.URL.Path == "/teststream/whip/sessionid" && r.Method == http.MethodDelete:
+				w.WriteHeader(http.StatusOK)
+
+			default:
+				serverErr <- fmt.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+
+	t.Cleanup(func() {
+		httpServ.Shutdown(context.Background())
+	})
+
+	return "whip://" + ln.Addr().String() + "/teststream/whip", received, serverErr
+}
+
+func waitWHIPForwardFrame(
+	t *testing.T,
+	w *gortmplib.Writer,
+	track *gortmplib.Track,
+	received <-chan struct{},
+	serverErr <-chan error,
+) {
+	t.Helper()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-received:
+			return
+
+		case err := <-serverErr:
+			require.NoError(t, err)
+
+		case <-ticker.C:
+			err := w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+			require.NoError(t, err)
+
+		case <-timer.C:
+			t.Fatal("timed out waiting for WHIP forwarded frame")
+		}
+	}
+}
+
 func TestPathForwardRTMP(t *testing.T) {
 	dest, received, serverErr := startRTMPForwardServer(t)
 
 	p, ok := newInstance(t, "api: yes\n"+
+		"moq: no\n"+
 		"paths:\n"+
 		"  source:\n"+
 		"    forward:\n"+
@@ -258,6 +398,7 @@ func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {
 	dest, received, serverErr := startRTMPForwardServer(t)
 
 	p, ok := newInstance(t, "api: yes\n"+
+		"moq: no\n"+
 		"paths:\n"+
 		"  source:\n"+
 		"    forward:\n"+
@@ -319,6 +460,7 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 	dest, received, _, serverErr := startRTMPForwardServerControlled(t, ready)
 
 	p, ok := newInstance(t, "api: yes\n"+
+		"moq: no\n"+
 		"paths:\n"+
 		"  source:\n"+
 		"    forward:\n"+
@@ -355,4 +497,60 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
 	require.Equal(t, defs.APIForwardDestProtocolRTMP, item.Protocol)
 	require.Greater(t, item.OutboundBytes, uint64(0))
+}
+
+func TestPathForwardWHIP(t *testing.T) {
+	const bearerToken = "mytoken"
+
+	dest, received, serverErr := startWHIPForwardServer(t, bearerToken)
+
+	p, ok := newInstance(t, "api: yes\n"+
+		"moq: no\n"+
+		"paths:\n"+
+		"  source:\n"+
+		"    forward:\n"+
+		"    - dest: "+dest+"\n"+
+		"      whipBearerToken: "+bearerToken+"\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	source, w, track := startRTMPPublisher(t, "source")
+	defer source.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	err := w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		var path struct {
+			Ready bool `json:"ready"`
+		}
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/get/source", nil, &path)
+		return path.Ready
+	}, 5*time.Second, 100*time.Millisecond)
+
+	var list defs.APIForwardDestList
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:9997/v3/paths/forward/list?path=source", nil, &list)
+	require.Len(t, list.Items, 1)
+	added := list.Items[0]
+	require.Equal(t, dest, added.Conf.Dest)
+	require.Equal(t, bearerToken, added.Conf.WhipBearerToken)
+	require.Equal(t, defs.APIForwardDestProtocolWHIP, added.Protocol)
+	require.Equal(t, 1, added.Pos)
+
+	waitWHIPForwardFrame(t, w, track, received, serverErr)
+
+	require.Eventually(t, func() bool {
+		var item defs.APIForwardDest
+		httpRequest(t, hc, http.MethodGet,
+			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
+		return item.State == defs.APIForwardDestStateForwarding &&
+			item.Protocol == defs.APIForwardDestProtocolWHIP &&
+			item.Conf.WhipBearerToken == bearerToken &&
+			item.OutboundBytes > 0
+	}, 5*time.Second, 100*time.Millisecond)
 }

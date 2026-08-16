@@ -151,6 +151,8 @@ components:
         - rtsp
         - rtsps
         - srt
+        - whip
+        - whips
 
     ForwardDestState:
       type: string
@@ -1266,6 +1268,8 @@ components:
       type: object
       properties:
         dest:
+          type: string
+        whipBearerToken:
           type: string
 
     PathList:

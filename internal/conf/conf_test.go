@@ -885,19 +885,33 @@ func TestConfErrors(t *testing.T) {
 			"username and password must be both provided",
 		},
 		{
+			"valid whip forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: whip://localhost/stream/whip\n" +
+				"      whipBearerToken: mytoken\n",
+			"",
+		},
+		{
 			"invalid forward destination",
 			"paths:\n" +
 				"  mypath:\n" +
 				"    forward:\n" +
 				"    - dest: http://localhost/stream\n",
-			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are rtmp, rtmps, rtsp, rtsps and srt",
+			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are " +
+				"rtmp, rtmps, rtsp, rtsps, srt, whip and whips",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf := createTempFile(t, []byte(ca.conf))
 
 			_, _, err := Load(tmpf, nil, nil)
-			require.EqualError(t, err, ca.err)
+			if ca.err == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, ca.err)
+			}
 		})
 	}
 }

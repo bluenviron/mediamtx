@@ -131,7 +131,7 @@ func TestManagerReloadConf(t *testing.T) {
 
 			m.ReloadConf(conf.Forward{
 				{Dest: "rtmp://localhost:5788/app/stream"}, // unchanged
-				{Dest: "srt://localhost:5790?streamid=publish:test"},
+				{Dest: "whip://localhost:5790/teststream/whip", WhipBearerToken: "mytoken"},
 				{Dest: "rtsp://localhost:5789/stream"},
 			})
 
@@ -148,11 +148,14 @@ func TestManagerReloadConf(t *testing.T) {
 						LastError: list2.Items[0].LastError,
 					},
 					{
-						ID:        list2.Items[1].ID,
-						Pos:       2,
-						Created:   list2.Items[1].Created,
-						Conf:      conf.ForwardDest{Dest: "srt://localhost:5790?streamid=publish:test"},
-						Protocol:  "srt",
+						ID:      list2.Items[1].ID,
+						Pos:     2,
+						Created: list2.Items[1].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "whip://localhost:5790/teststream/whip",
+							WhipBearerToken: "mytoken",
+						},
+						Protocol:  "whip",
 						State:     list2.Items[1].State,
 						LastError: list2.Items[1].LastError,
 					},

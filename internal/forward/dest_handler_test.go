@@ -6,6 +6,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDestProtocol(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		dest     string
+		expected string
+	}{
+		{
+			name:     "rtmp",
+			dest:     "rtmp://example.com/live/stream",
+			expected: "rtmp",
+		},
+		{
+			name:     "rtmps",
+			dest:     "rtmps://example.com/live/stream",
+			expected: "rtmps",
+		},
+		{
+			name:     "rtsp",
+			dest:     "rtsp://example.com/live/stream",
+			expected: "rtsp",
+		},
+		{
+			name:     "rtsps",
+			dest:     "rtsps://example.com/live/stream",
+			expected: "rtsps",
+		},
+		{
+			name:     "srt",
+			dest:     "srt://example.com:9000?streamid=publish:test",
+			expected: "srt",
+		},
+		{
+			name:     "whip",
+			dest:     "whip://example.com/live/stream/whip",
+			expected: "whip",
+		},
+		{
+			name:     "whips",
+			dest:     "whips://example.com/live/stream/whip",
+			expected: "whips",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			require.Equal(t, ca.expected, string(destProtocol(ca.dest)))
+		})
+	}
+}
+
 func TestResolveDest(t *testing.T) {
 	for _, ca := range []struct {
 		name     string
