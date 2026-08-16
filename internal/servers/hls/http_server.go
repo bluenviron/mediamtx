@@ -287,13 +287,9 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if ctx.Request.URL.Query().Get("cookieCheck") != "1" {
-			// this is for plain HTTP
-			http.SetCookie(ctx.Writer, &http.Cookie{
-				Name:  "cookieCheck",
-				Value: "1",
-			})
-
-			// this is for HTTPS
+			// Use exclusively partitioned cookies, which are not shared between different pages/domains.
+			// Unfortunately they are available on HTTPS only. In case of HTTP, fall back to query parameters,
+			// which are still not shared between different pages/domains but are visible in the URL.
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        "cookieCheck",
 				Value:       "1",
@@ -346,13 +342,9 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if cookie, err2 := ctx.Request.Cookie("cookieCheck"); err2 == nil && cookie.Value == "1" {
-			// this is for plain HTTP
-			http.SetCookie(ctx.Writer, &http.Cookie{
-				Name:  sessionCookieName,
-				Value: sx.secret.String(),
-			})
-
-			// this is for HTTPS
+			// Use exclusively partitioned cookies for safety reasons.
+			// Unfortunately they are available on HTTPS only. In case of HTTP, fall back to query parameters,
+			// which are still not shared between different pages/domains but are visible in the URL.
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        sessionCookieName,
 				Value:       sx.secret.String(),
