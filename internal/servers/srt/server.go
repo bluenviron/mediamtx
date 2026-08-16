@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"sort"
 	"sync"
 	"syscall"
@@ -110,17 +111,45 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+
 	if s.UDPReadBufferSize > 0 {
 		bufSize := int(s.UDPReadBufferSize)
-		conf.ListenerControl = func(_, _ string, c syscall.RawConn) error {
-			var opErr error
-			err := c.Control(func(fd uintptr) {
-				opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, bufSize)
+		conf.ListenerControl = func(_, _ string, rawConn syscall.RawConn) error {
+			var err2 error
+			err := rawConn.Control(func(fd uintptr) {
+				err2 = syscall.SetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, bufSize)
 			})
 			if err != nil {
 				return err
 			}
-			return opErr
+
+			if err2 != nil {
+				return err2
+			}
+
+			var v int
+
+			err = rawConn.Control(func(fd uintptr) {
+				v, err2 = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+			})
+			if err != nil {
+				return err
+			}
+
+			if err2 != nil {
+				return err2
+			}
+
+			if runtime.GOOS != "windows" {
+				v /= 2 // on Linux, SO_RCVBUF is double the size of the actual buffer
+			}
+
+			if v != bufSize {
+				return fmt.Errorf("unable to set UDP read buffer size to %d, got %d, check that the operating system allows that",
+					bufSize, v)
+			}
+
+			return nil
 		}
 	}
 

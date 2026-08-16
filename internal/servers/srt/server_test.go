@@ -542,7 +542,7 @@ func TestUDPReadBufferSize(t *testing.T) {
 	var kernelBuf int
 	var opErr error
 	err = raw.Control(func(fd uintptr) {
-		kernelBuf, opErr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+		kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
 	})
 	require.NoError(t, err)
 	require.NoError(t, opErr)
