@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 
 	srt "github.com/datarhei/gosrt"
@@ -79,6 +81,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	UDPMaxPayloadSize   int
+	UDPReadBufferSize   uint
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -108,6 +111,47 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+
+	if s.UDPReadBufferSize > 0 {
+		bufSize := int(s.UDPReadBufferSize)
+		conf.ListenerControl = func(_, _ string, rawConn syscall.RawConn) error {
+			var err2 error
+			err := rawConn.Control(func(fd uintptr) {
+				err2 = syscall.SetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, bufSize)
+			})
+			if err != nil {
+				return err
+			}
+
+			if err2 != nil {
+				return err2
+			}
+
+			var v int
+
+			err = rawConn.Control(func(fd uintptr) {
+				v, err2 = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+			})
+			if err != nil {
+				return err
+			}
+
+			if err2 != nil {
+				return err2
+			}
+
+			if runtime.GOOS != "windows" {
+				v /= 2 // on Linux, SO_RCVBUF is double the size of the actual buffer
+			}
+
+			if v != bufSize {
+				return fmt.Errorf("unable to set UDP read buffer size to %d, got %d, check that the operating system allows that",
+					bufSize, v)
+			}
+
+			return nil
+		}
+	}
 
 	var err error
 	s.ln, err = srt.Listen("srt", s.Address, conf)

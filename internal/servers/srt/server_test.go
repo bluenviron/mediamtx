@@ -3,8 +3,12 @@ package srt
 import (
 	"bufio"
 	"fmt"
+	"net"
+	"reflect"
+	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
@@ -489,4 +493,61 @@ func TestServerRead(t *testing.T) {
 			},
 		},
 	}, list)
+}
+
+// listenerUDPConn extracts the underlying *net.UDPConn from a gosrt.Listener
+// by reaching through the unexported *listener → *packetConn → PacketConn chain.
+func listenerUDPConn(ln srt.Listener) *net.UDPConn {
+	v := reflect.ValueOf(ln).Elem()
+	pcPtr := *(*unsafe.Pointer)(unsafe.Pointer(v.FieldByName("pc").UnsafeAddr()))
+
+	// packetConn's first field is net.PacketConn (exported)
+	pktConnField := reflect.NewAt(
+		reflect.StructOf([]reflect.StructField{
+			{Name: "PacketConn", Type: reflect.TypeOf((*net.PacketConn)(nil)).Elem()},
+		}),
+		pcPtr,
+	).Elem().Field(0).Interface().(net.PacketConn)
+
+	return pktConnField.(*net.UDPConn)
+}
+
+func TestUDPReadBufferSize(t *testing.T) {
+	externalCmdPool := &externalcmd.Pool{}
+	externalCmdPool.Initialize()
+	defer externalCmdPool.Close()
+
+	// Pick a size well above the default 212992 so the effect is unambiguous.
+	bufSize := uint(1048576) // 1 MB
+
+	s := &Server{
+		Address:           "127.0.0.1:0",
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		UDPMaxPayloadSize: 1472,
+		UDPReadBufferSize: bufSize,
+		ExternalCmdPool:   externalCmdPool,
+		PathManager:       &test.PathManager{},
+		Parent:            test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Verify the kernel receive buffer was increased.
+	udpConn := listenerUDPConn(s.ln)
+	raw, err := udpConn.SyscallConn()
+	require.NoError(t, err)
+
+	var kernelBuf int
+	var opErr error
+	err = raw.Control(func(fd uintptr) {
+		kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+	})
+	require.NoError(t, err)
+	require.NoError(t, opErr)
+
+	// The kernel doubles the value passed to setsockopt SO_RCVBUF.
+	require.GreaterOrEqual(t, kernelBuf, int(bufSize),
+		"SO_RCVBUF = %d, expected >= %d", kernelBuf, bufSize)
 }
