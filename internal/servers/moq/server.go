@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -95,6 +96,7 @@ type Server struct {
 
 	ctx            context.Context
 	ctxCancel      context.CancelFunc
+	loader         *certloader.CertLoader
 	httpServer     *httpServer
 	nativeListener *nativeListener
 	sessions       map[*session]struct{}
@@ -121,11 +123,22 @@ func (s *Server) Initialize() error {
 	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
 	s.done = make(chan struct{})
 
+	s.loader = &certloader.CertLoader{
+		CertPath:  s.ServerCert,
+		KeyPath:   s.ServerKey,
+		AllowAuto: true,
+		Parent:    s,
+	}
+	err := s.loader.Initialize()
+	if err != nil {
+		ctxCancel()
+		return err
+	}
+
 	s.httpServer = &httpServer{
 		http2Address:      s.HTTP2Address,
 		http3Address:      s.HTTP3Address,
-		serverKey:         s.ServerKey,
-		serverCert:        s.ServerCert,
+		getCertificate:    s.loader.GetCertificate,
 		allowOrigins:      s.AllowOrigins,
 		trustedProxies:    s.TrustedProxies,
 		udpReadBufferSize: s.UDPReadBufferSize,
@@ -134,22 +147,23 @@ func (s *Server) Initialize() error {
 		pathManager:       s.PathManager,
 		parent:            s,
 	}
-	err := s.httpServer.initialize()
+	err = s.httpServer.initialize()
 	if err != nil {
+		s.loader.Close()
 		ctxCancel()
 		return err
 	}
 
 	s.nativeListener = &nativeListener{
 		address:           s.QUICAddress,
-		serverKey:         s.ServerKey,
-		serverCert:        s.ServerCert,
+		getCertificate:    s.loader.GetCertificate,
 		udpReadBufferSize: s.UDPReadBufferSize,
 		parent:            s,
 	}
 	err = s.nativeListener.initialize()
 	if err != nil {
 		s.httpServer.close()
+		s.loader.Close()
 		ctxCancel()
 		return err
 	}
@@ -267,6 +281,10 @@ outer:
 	}
 
 	s.httpServer.close()
+
+	if s.loader != nil {
+		s.loader.Close()
+	}
 
 	wg.Wait()
 }

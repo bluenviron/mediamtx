@@ -104,8 +104,7 @@ type httpServerParent interface {
 type httpServer struct {
 	http2Address      string
 	http3Address      string
-	serverCert        string
-	serverKey         string
+	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	allowOrigins      []string
 	trustedProxies    conf.IPNetworks
 	udpReadBufferSize uint
@@ -125,16 +124,14 @@ func (s *httpServer) initialize() error {
 	routerHTTP2.Use(s.onRequestHTTPS2)
 
 	s.innerHTTP2 = &httpp.Server{
-		Address:       s.http2Address,
-		AllowOrigins:  s.allowOrigins,
-		ReadTimeout:   time.Duration(s.readTimeout),
-		WriteTimeout:  time.Duration(s.writeTimeout),
-		Encryption:    true,
-		ServerKey:     s.serverKey,
-		ServerCert:    s.serverCert,
-		AllowAutoCert: true,
-		Handler:       routerHTTP2,
-		Parent:        s,
+		Address:        s.http2Address,
+		AllowOrigins:   s.allowOrigins,
+		ReadTimeout:    time.Duration(s.readTimeout),
+		WriteTimeout:   time.Duration(s.writeTimeout),
+		Encryption:     true,
+		GetCertificate: s.getCertificate,
+		Handler:        routerHTTP2,
+		Parent:         s,
 	}
 	err := s.innerHTTP2.Initialize()
 	if err != nil {

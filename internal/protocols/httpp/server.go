@@ -43,6 +43,7 @@ type Server struct {
 	ServerCert        string
 	ServerKey         string
 	AllowAutoCert     bool
+	GetCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	Handler           http.Handler
 	Parent            logger.Writer
 
@@ -64,23 +65,31 @@ func (s *Server) Initialize() error {
 	var tlsConfig *tls.Config
 
 	if s.Encryption {
-		if s.ServerCert == "" {
-			return fmt.Errorf("server cert is missing")
-		}
+		var getCertificate func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 
-		s.loader = &certloader.CertLoader{
-			CertPath:  s.ServerCert,
-			KeyPath:   s.ServerKey,
-			AllowAuto: s.AllowAutoCert,
-			Parent:    s.Parent,
-		}
-		err := s.loader.Initialize()
-		if err != nil {
-			return err
+		if s.GetCertificate != nil {
+			getCertificate = s.GetCertificate
+		} else {
+			if s.ServerCert == "" {
+				return fmt.Errorf("server cert is missing")
+			}
+
+			s.loader = &certloader.CertLoader{
+				CertPath:  s.ServerCert,
+				KeyPath:   s.ServerKey,
+				AllowAuto: s.AllowAutoCert,
+				Parent:    s.Parent,
+			}
+			err := s.loader.Initialize()
+			if err != nil {
+				return err
+			}
+
+			getCertificate = s.loader.GetCertificate
 		}
 
 		tlsConfig = &tls.Config{
-			GetCertificate: s.loader.GetCertificate(),
+			GetCertificate: getCertificate,
 		}
 	}
 

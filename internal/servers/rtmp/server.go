@@ -172,7 +172,7 @@ func (s *Server) Initialize() error {
 		}
 
 		net, addr := restrictnetwork.Restrict("tcp", s.Address)
-		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate})
 		if err != nil {
 			return err
 		}
