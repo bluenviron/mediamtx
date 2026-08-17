@@ -19,16 +19,84 @@ import (
 )
 
 type testParent struct {
-	log func(_ logger.Level, _ string, _ ...any)
+	log  func(_ logger.Level, _ string, _ ...any)
+	conf *conf.Conf
 }
 
-func (p testParent) Log(l logger.Level, s string, a ...any) {
+func (p *testParent) Log(l logger.Level, s string, a ...any) {
 	if p.log != nil {
 		p.log(l, s, a...)
 	}
 }
 
-func (testParent) APIConfigSet(_ *conf.Conf) {}
+func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
+func (p *testParent) APIConfigGlobalPatch(in conf.OptionalGlobal) error {
+	newConf := p.conf.Clone()
+	newConf.PatchGlobal(&in)
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
+
+func (p *testParent) APIConfigPathDefaultsPatch(in conf.OptionalPath) error {
+	newConf := p.conf.Clone()
+	newConf.PatchPathDefaults(&in)
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
+
+func (p *testParent) APIConfigPathsAdd(name string, in conf.OptionalPath) error {
+	newConf := p.conf.Clone()
+	if err := newConf.AddPath(name, &in); err != nil {
+		return err
+	}
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
+
+func (p *testParent) APIConfigPathsPatch(name string, in conf.OptionalPath) error {
+	newConf := p.conf.Clone()
+	if err := newConf.PatchPath(name, &in); err != nil {
+		return err
+	}
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
+
+func (p *testParent) APIConfigPathsReplace(name string, in conf.OptionalPath) error {
+	newConf := p.conf.Clone()
+	if err := newConf.ReplacePath(name, &in); err != nil {
+		return err
+	}
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
+
+func (p *testParent) APIConfigPathsDelete(name string) error {
+	newConf := p.conf.Clone()
+	if err := newConf.RemovePath(name); err != nil {
+		return err
+	}
+	if err := newConf.Validate(nil); err != nil {
+		return err
+	}
+	p.conf = newConf
+	return nil
+}
 
 func tempConf(t *testing.T, cnt string) *conf.Conf {
 	fi := test.CreateTempFile(t, []byte(cnt))
@@ -123,15 +191,12 @@ func TestPreflightRequest(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
-	cnf := tempConf(t, "api: yes\n")
-
 	api := API{
 		Version:      "v1.2.3",
 		Started:      time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local),
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
@@ -185,13 +250,10 @@ func TestAuthJWKSRefresh(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	cnf := tempConf(t, "api: yes\n")
-
 	api := API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
 				if req.Credentials.User == "" {

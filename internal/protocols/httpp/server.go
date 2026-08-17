@@ -2,6 +2,7 @@
 package httpp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -17,6 +18,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
+)
+
+const (
+	shutdownTimeout = 2 * time.Second
 )
 
 type nilWriter struct{}
@@ -206,7 +211,11 @@ func (s *Server) Initialize() error {
 // Close closes all resources and waits for all routines to return.
 func (s *Server) Close() {
 	s.ln.Close()
-	s.inner.Close() //nolint:errcheck
+
+	ctx, ctxCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	s.inner.Shutdown(ctx) //nolint:errcheck
+	ctxCancel()
+
 	s.tracker.close()
 
 	if s.loader != nil {

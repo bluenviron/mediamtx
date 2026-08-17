@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"reflect"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -55,7 +54,13 @@ type apiAuthManager interface {
 
 type apiParent interface {
 	logger.Writer
-	APIConfigSet(conf *conf.Conf)
+	APIConfigSnapshot() *conf.Conf
+	APIConfigGlobalPatch(conf.OptionalGlobal) error
+	APIConfigPathDefaultsPatch(conf.OptionalPath) error
+	APIConfigPathsAdd(string, conf.OptionalPath) error
+	APIConfigPathsPatch(string, conf.OptionalPath) error
+	APIConfigPathsReplace(string, conf.OptionalPath) error
+	APIConfigPathsDelete(string) error
 }
 
 // API is an API server.
@@ -71,7 +76,6 @@ type API struct {
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
-	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    defs.APIPathManager
 	RTSPServer     defs.APIRTSPServer
@@ -85,7 +89,6 @@ type API struct {
 	Parent         apiParent
 
 	httpServer *httpp.Server
-	mutex      sync.RWMutex
 }
 
 // Initialize initializes API.
@@ -286,11 +289,4 @@ func (a *API) onInfo(ctx *gin.Context) {
 func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
 	a.AuthManager.RefreshJWTJWKS()
 	a.writeOK(ctx)
-}
-
-// ReloadConf is called by core.
-func (a *API) ReloadConf(conf *conf.Conf) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	a.Conf = conf
 }
