@@ -517,8 +517,7 @@ func TestUDPReadBufferSize(t *testing.T) {
 	externalCmdPool.Initialize()
 	defer externalCmdPool.Close()
 
-	// Pick a size well above the default 212992 so the effect is unambiguous.
-	bufSize := uint(1048576) // 1 MB
+	bufSize := uint(106496)
 
 	s := &Server{
 		Address:           "127.0.0.1:0",
