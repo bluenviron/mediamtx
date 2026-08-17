@@ -281,6 +281,28 @@ func TestAPIPathsList(t *testing.T) {
 	})
 }
 
+func TestAPIConfigGlobalPatchDisableAPI(t *testing.T) {
+	p, ok := newInstance(t, "api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]any{
+		"api": false,
+	}, nil)
+
+	time.Sleep(500 * time.Millisecond)
+
+	_, err := hc.Get("http://localhost:9997/v3/config/global/get") //nolint:bodyclose
+	require.Error(t, err)
+
+	var urlErr *url.Error
+	require.ErrorAs(t, err, &urlErr)
+}
+
 func TestAPIPathsGet(t *testing.T) {
 	p, ok := newInstance(t, "api: yes\n"+
 		"paths:\n"+

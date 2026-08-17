@@ -31,8 +31,9 @@ func TestHandlerTracker(t *testing.T) {
 		defer tr.CloseIdleConnections()
 		hc := &http.Client{Transport: tr}
 
-		_, err2 := hc.Get("http://localhost:4667/test") //nolint:bodyclose
-		require.Error(t, err2)
+		res, err2 := hc.Get("http://localhost:4667/test")
+		require.NoError(t, err2)
+		defer res.Body.Close()
 	}()
 
 	<-requestReceived

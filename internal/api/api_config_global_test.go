@@ -22,7 +22,6 @@ func TestConfigGlobalGet(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
 				require.Equal(t, conf.AuthActionAPI, req.Action)
@@ -32,7 +31,7 @@ func TestConfigGlobalGet(t *testing.T) {
 				return req.Credentials.User, nil
 			},
 		},
-		Parent: &testParent{},
+		Parent: &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -56,9 +55,8 @@ func TestConfigGlobalPatch(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -93,9 +91,8 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
