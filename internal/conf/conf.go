@@ -439,17 +439,6 @@ func (conf *Conf) setDefaults() {
 	// Authentication
 	conf.AuthMethod = AuthMethodInternal
 	conf.AuthInternalUsers = defaultAuthInternalUsers
-	conf.AuthHTTPExclude = []AuthInternalUserPermission{
-		{
-			Action: AuthActionAPI,
-		},
-		{
-			Action: AuthActionMetrics,
-		},
-		{
-			Action: AuthActionPprof,
-		},
-	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
 
 	// Control API

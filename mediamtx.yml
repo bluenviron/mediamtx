@@ -93,10 +93,10 @@ authInternalUsers:
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
-# to authenticate, the server calls this URL with the POST method
+# to perform an action, the server calls this URL with the POST method
 # and a payload described in the documentation.
-# If the response code is 20x, authentication is accepted, otherwise
-# it is discarded.
+# If the response code is 20x, the action is allowed, otherwise
+# it is forbidden.
 authHTTPAddress:
 # If the HTTP authentication URL has a self-signed or invalid certificate,
 # you can provide the fingerprint of the certificate in order to
@@ -106,10 +106,7 @@ authHTTPAddress:
 authHTTPFingerprint:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
-authHTTPExclude:
-  - action: api
-  - action: metrics
-  - action: pprof
+authHTTPExclude: []
 
 # JWT-based authentication.
 # Users have to log in through an external identity server and obtain a JWT.
