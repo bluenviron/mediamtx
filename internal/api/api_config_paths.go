@@ -13,7 +13,7 @@ import (
 )
 
 func (a *API) onConfigPathsList(ctx *gin.Context) {
-	c := a.Parent.APIConfigSnapshot()
+	c := redactCredentials(a.Parent.APIConfigSnapshot())
 
 	data := &defs.APIPathConfList{
 		Items: make([]conf.Path, len(c.Paths)),
@@ -41,7 +41,7 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 		return
 	}
 
-	c := a.Parent.APIConfigSnapshot()
+	c := redactCredentials(a.Parent.APIConfigSnapshot())
 
 	p, ok := c.Paths[confName]
 	if !ok {
