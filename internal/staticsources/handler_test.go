@@ -92,6 +92,13 @@ func TestResolveSource(t *testing.T) {
 			expected: "whep://example.com:443/mystream",
 		},
 		{
+			name:     "moq protocol",
+			source:   "moqt://$G1:$G2/$G3",
+			matches:  []string{"srv_example.com_443_mystream", "example.com", "443", "mystream"},
+			query:    "",
+			expected: "moqt://example.com:443/mystream",
+		},
+		{
 			name:     "mpeg ts udp",
 			source:   "udp://$G1:$G2",
 			matches:  []string{"srv_192.168.1.100_9000", "192.168.1.100", "9000"},

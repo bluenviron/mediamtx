@@ -1,6 +1,6 @@
 # Web browsers
 
-Web browsers can publish a stream to the server by acting as a [Media-over-QUIC client](01-moq-clients.md) or a [WebRTC client](04-webrtc-clients.md).
+Web browsers can publish a stream to the server by acting as a [Media-over-QUIC client](01-moq-clients.md) or a [WebRTC client](05-webrtc-clients.md).
 
 ## Media-over-QUIC
 

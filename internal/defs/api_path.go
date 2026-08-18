@@ -34,6 +34,7 @@ const (
 	APIPathSourceTypeRTPSource       APIPathSourceType = "rtpSource"
 	APIPathSourceTypeWebRTCSession   APIPathSourceType = "webRTCSession"
 	APIPathSourceTypeWebRTCSource    APIPathSourceType = "webRTCSource"
+	APIPathSourceTypeMoQSource       APIPathSourceType = "moqSource"
 	APIPathSourceTypeMoQSession      APIPathSourceType = "moqSession"
 )
 
