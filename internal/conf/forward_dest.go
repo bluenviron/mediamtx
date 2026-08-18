@@ -9,7 +9,8 @@ import (
 // ForwardDest is a destination to which a path is forwarded.
 type ForwardDest struct {
 	Dest            string `json:"dest"`
-	WhipBearerToken string `json:"whipBearerToken"`
+	DestFingerprint string `json:"destFingerprint"`
+	WHIPBearerToken string `json:"whipBearerToken"`
 }
 
 func validateForwardDest(dest string) (*url.URL, error) {

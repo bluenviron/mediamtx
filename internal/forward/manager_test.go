@@ -83,6 +83,7 @@ func TestManagerReloadConf(t *testing.T) {
 				Forward: conf.Forward{
 					{Dest: "rtmp://localhost:5788/app/stream"},
 					{Dest: "rtsp://localhost:5789/stream"},
+					{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "mytoken"},
 				},
 				Parent: test.NilLogger,
 			}
@@ -126,13 +127,25 @@ func TestManagerReloadConf(t *testing.T) {
 						Protocol: "rtsp",
 						State:    list1.Items[1].State,
 					},
+					{
+						ID:      list1.Items[2].ID,
+						Pos:     3,
+						Created: list1.Items[2].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "whip://localhost:5790/teststream/whip",
+							WHIPBearerToken: "mytoken",
+						},
+						Protocol:  "whip",
+						State:     list1.Items[2].State,
+						LastError: list1.Items[2].LastError,
+					},
 				},
 			}, list1)
 
 			m.ReloadConf(conf.Forward{
-				{Dest: "rtmp://localhost:5788/app/stream"}, // unchanged
-				{Dest: "whip://localhost:5790/teststream/whip", WhipBearerToken: "mytoken"},
-				{Dest: "rtsp://localhost:5789/stream"},
+				{Dest: "rtmp://localhost:5788/app/stream"},                             // unchanged
+				{Dest: "rtsp://localhost:5789/stream", DestFingerprint: "fingerprint"}, // changed params
+				{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "othertoken"},
 			})
 
 			list2 := m.APIList()
@@ -152,23 +165,31 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:     2,
 						Created: list2.Items[1].Created,
 						Conf: conf.ForwardDest{
-							Dest:            "whip://localhost:5790/teststream/whip",
-							WhipBearerToken: "mytoken",
+							Dest:            "rtsp://localhost:5789/stream",
+							DestFingerprint: "fingerprint",
 						},
-						Protocol:  "whip",
+						Protocol:  "rtsp",
 						State:     list2.Items[1].State,
 						LastError: list2.Items[1].LastError,
 					},
 					{
-						ID:       list2.Items[2].ID,
-						Pos:      3,
-						Created:  list2.Items[2].Created,
-						Conf:     conf.ForwardDest{Dest: "rtsp://localhost:5789/stream"},
-						Protocol: "rtsp",
-						State:    list2.Items[2].State,
+						ID:      list2.Items[2].ID,
+						Pos:     3,
+						Created: list2.Items[2].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "whip://localhost:5790/teststream/whip",
+							WHIPBearerToken: "othertoken",
+						},
+						Protocol:  "whip",
+						State:     list2.Items[2].State,
+						LastError: list2.Items[2].LastError,
 					},
 				},
 			}, list2)
+
+			require.Equal(t, list1.Items[0].ID, list2.Items[0].ID)
+			require.NotEqual(t, list1.Items[1].ID, list2.Items[1].ID)
+			require.NotEqual(t, list1.Items[2].ID, list2.Items[2].ID)
 		})
 	}
 }

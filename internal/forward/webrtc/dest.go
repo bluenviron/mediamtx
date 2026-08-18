@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	pwebrtc "github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -21,8 +22,9 @@ import (
 type Dest struct {
 	Stream          *stream.Stream
 	Dest            string
+	DestFingerprint string
 	ReadTimeout     conf.Duration
-	WhipBearerToken string
+	BearerToken     string
 	Parent          logger.Writer
 
 	mutex  sync.RWMutex
@@ -56,8 +58,6 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	u.Scheme = strings.Replace(u.Scheme, "whip", "http", 1)
 
-	hc := &http.Client{Timeout: time.Duration(d.ReadTimeout)}
-
 	r := &stream.Reader{Parent: d}
 	pc := &pwebrtc.PeerConnection{}
 
@@ -66,14 +66,22 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 
+	tr := &http.Transport{
+		TLSClientConfig: ptls.MakeConfig(d.DestFingerprint),
+	}
+	defer tr.CloseIdleConnections()
+
 	client := &whip.Client{
 		URL:                  u,
 		Publish:              true,
 		OutboundTracks:       pc.OutboundTracks,
 		OutboundDataChannels: pc.OutboundDataChannels,
-		HTTPClient:           hc,
-		BearerToken:          d.WhipBearerToken,
-		Log:                  d,
+		HTTPClient: &http.Client{
+			Timeout:   time.Duration(d.ReadTimeout),
+			Transport: tr,
+		},
+		BearerToken: d.BearerToken,
+		Log:         d,
 	}
 	if err = client.Initialize(ctx); err != nil {
 		return err

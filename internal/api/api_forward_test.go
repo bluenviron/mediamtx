@@ -71,7 +71,7 @@ func TestForward(t *testing.T) {
 				ID:            whipID,
 				Pos:           2,
 				Created:       time.Date(2026, 6, 18, 9, 1, 0, 0, time.UTC),
-				Conf:          conf.ForwardDest{Dest: "whip://localhost/live/stream/whip", WhipBearerToken: "mytoken"},
+				Conf:          conf.ForwardDest{Dest: "whip://localhost/live/stream/whip", WHIPBearerToken: "mytoken"},
 				Protocol:      defs.APIForwardDestProtocolWHIP,
 				State:         defs.APIForwardDestStateForwarding,
 				OutboundBytes: 456,
@@ -117,7 +117,7 @@ func TestForward(t *testing.T) {
 			ID:            whipID,
 			Pos:           2,
 			Created:       time.Date(2026, 6, 18, 9, 1, 0, 0, time.UTC),
-			Conf:          conf.ForwardDest{Dest: "whip://localhost/live/stream/whip", WhipBearerToken: "mytoken"},
+			Conf:          conf.ForwardDest{Dest: "whip://localhost/live/stream/whip", WHIPBearerToken: "mytoken"},
 			Protocol:      defs.APIForwardDestProtocolWHIP,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 456,
@@ -128,7 +128,7 @@ func TestForward(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet,
 		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+whipID.String(), nil, &item)
 	require.Equal(t, "whip://localhost/live/stream/whip", item.Conf.Dest)
-	require.Equal(t, "mytoken", item.Conf.WhipBearerToken)
+	require.Equal(t, "mytoken", item.Conf.WHIPBearerToken)
 	require.Equal(t, defs.APIForwardDestProtocolWHIP, item.Protocol)
 	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
 	require.Equal(t, uint64(456), item.OutboundBytes)

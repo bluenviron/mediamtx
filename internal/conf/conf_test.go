@@ -890,6 +890,7 @@ func TestConfErrors(t *testing.T) {
 				"  mypath:\n" +
 				"    forward:\n" +
 				"    - dest: whip://localhost/stream/whip\n" +
+				"      destFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n" +
 				"      whipBearerToken: mytoken\n",
 			"",
 		},

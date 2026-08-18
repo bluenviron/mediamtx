@@ -10,8 +10,14 @@ In order to ingest a WebRTC stream from a remote server, add the corresponding W
 ```yml
 paths:
   proxied:
-    # url of the source stream. Use whep:// for HTTP and wheps:// for HTTPS
+    # Use whep:// for HTTP and wheps:// for HTTPS.
     source: whep://host:port/path
+    # If the source is HTTPS and the source TLS certificate is self-signed
+    # or invalid, you can provide the fingerprint of the certificate in order to
+    # validate it anyway. It can be obtained by running:
+    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+    sourceFingerprint:
     # Token to insert in the Authorization: Bearer header.
     whepBearerToken: ""
 ```

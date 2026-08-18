@@ -150,11 +150,11 @@ func TestDest(t *testing.T) {
 	defer cancel()
 
 	dest := &forwardwebrtc.Dest{
-		Stream:          strm,
-		Dest:            destURL,
-		ReadTimeout:     conf.Duration(10 * time.Second),
-		WhipBearerToken: bearerToken,
-		Parent:          test.NilLogger,
+		Stream:      strm,
+		Dest:        destURL,
+		ReadTimeout: conf.Duration(10 * time.Second),
+		BearerToken: bearerToken,
+		Parent:      test.NilLogger,
 	}
 
 	done := make(chan error, 1)
