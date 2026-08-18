@@ -200,16 +200,18 @@ func (f *formatFMP4) initialize() bool {
 							firstReceived = true
 						}
 
-						var sampl fmp4.Sample
-						err := sampl.FillAV1(u.Payload.(unit.PayloadAV1))
+						payload, err := av1.Bitstream(u.Payload.(unit.PayloadAV1)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    u.PTS,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -373,16 +375,19 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						var sampl fmp4.Sample
-						err = sampl.FillH265(int32(u.PTS-dts), u.Payload.(unit.PayloadH265))
+						payload, err := h264.AVCC(u.Payload.(unit.PayloadH265)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    dts,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								PTSOffset:       int32(u.PTS - dts),
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: dts,
+							ntp: u.NTP,
 						})
 					})
 
@@ -453,16 +458,19 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						var sampl fmp4.Sample
-						err = sampl.FillH264(int32(u.PTS-dts), u.Payload.(unit.PayloadH264))
+						payload, err := h264.AVCC(u.Payload.(unit.PayloadH264)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    dts,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								PTSOffset:       int32(u.PTS - dts),
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: dts,
+							ntp: u.NTP,
 						})
 					})
 
