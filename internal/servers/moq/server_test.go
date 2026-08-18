@@ -234,7 +234,7 @@ func TestServer(t *testing.T) {
 			}
 			defer d.Close() //nolint:errcheck
 
-			res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+			res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 			require.NoError(t, err)
 			defer sx.CloseWithError(0, "") //nolint:errcheck
 			defer res.Body.Close()         //nolint:errcheck
@@ -597,7 +597,7 @@ func TestServerAuthError(t *testing.T) {
 				}
 				defer d.Close() //nolint:errcheck
 
-				res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+				res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 				require.NoError(t, err)
 				defer sx.CloseWithError(0, "") //nolint:errcheck
 				defer res.Body.Close()         //nolint:errcheck
@@ -723,7 +723,7 @@ func TestServerErrorUnsupportedVersion(t *testing.T) {
 	}
 	defer d.Close() //nolint:errcheck
 
-	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 	require.Error(t, err)
 	defer res.Body.Close()
 }
@@ -771,7 +771,7 @@ func TestServerErrorTooManyTracks(t *testing.T) {
 	}
 	defer d.Close() //nolint:errcheck
 
-	res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream/moq", nil)
+	res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 	require.NoError(t, err)
 	defer sx.CloseWithError(0, "") //nolint:errcheck
 	defer res.Body.Close()         //nolint:errcheck

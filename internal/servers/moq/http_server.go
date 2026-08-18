@@ -310,14 +310,18 @@ func (s *httpServer) onRequestHTTPS2(ctx *gin.Context) {
 }
 
 func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
-	if ctx.Request.Method != http.MethodConnect ||
-		!strings.HasSuffix(ctx.Request.URL.Path, "/moq") ||
-		len(ctx.Request.URL.Path) <= len("/moq") {
+	if ctx.Request.Method != http.MethodConnect {
 		return
 	}
 
-	pathName := ctx.Request.URL.Path[1 : len(ctx.Request.URL.Path)-len("/moq")]
-	if len(pathName) == 0 {
+	pathName := ctx.Request.URL.Path[1:]
+
+	// support legacy /moq suffix
+	if strings.HasSuffix(pathName, "/moq") && len(pathName) > len("/moq") {
+		pathName = strings.TrimSuffix(pathName, "/moq")
+	}
+
+	if pathName == "" {
 		return
 	}
 
