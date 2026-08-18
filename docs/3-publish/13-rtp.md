@@ -58,4 +58,4 @@ paths:
       a=rtpmap:96 H264/90000
 ```
 
-Some clients that can publish with UDP and MPEG-TS are [FFmpeg](16-ffmpeg.md) and [GStreamer](17-gstreamer.md).
+Some clients that can publish with UDP and MPEG-TS are [FFmpeg](17-ffmpeg.md) and [GStreamer](18-gstreamer.md).

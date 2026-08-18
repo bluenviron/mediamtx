@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	sshls "github.com/bluenviron/mediamtx/internal/staticsources/hls"
+	ssmoq "github.com/bluenviron/mediamtx/internal/staticsources/moq"
 	ssmpegts "github.com/bluenviron/mediamtx/internal/staticsources/mpegts"
 	ssrpicamera "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
 	ssrtmp "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
@@ -138,6 +139,12 @@ func (s *Handler) Initialize() {
 
 	case strings.HasPrefix(s.Conf.Source, "srt://"):
 		s.instance = &sssrt.Source{
+			ReadTimeout: s.ReadTimeout,
+			Parent:      s,
+		}
+
+	case strings.HasPrefix(s.Conf.Source, "moqt://"):
+		s.instance = &ssmoq.Source{
 			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
 		}

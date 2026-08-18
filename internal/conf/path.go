@@ -272,6 +272,9 @@ type Path struct {
 	RTPSDP               string `json:"rtpSDP"`
 	RTPUDPReadBufferSize *uint  `json:"rtpUDPReadBufferSize,omitempty" deprecated:"true"`
 
+	// MoQ source
+	MoQTransport MoQTransport `json:"moqTransport"`
+
 	// WHEP source
 	WHEPBearerToken        string   `json:"whepBearerToken"`
 	WHEPSTUNGatherTimeout  Duration `json:"whepSTUNGatherTimeout"`
@@ -380,6 +383,9 @@ func (pconf *Path) setDefaults() {
 
 	// RTSP source
 	pconf.RTSPUDPSourcePortRange = []uint{32768, 60999}
+
+	// MoQ source
+	pconf.MoQTransport = MoQTransportQUIC
 
 	// WHEP source
 	pconf.WHEPSTUNGatherTimeout = Duration(5 * time.Second)
@@ -562,6 +568,12 @@ func (pconf *Path) validate(
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
+		_, err := validateURL(pconf.Source)
+		if err != nil {
+			return err
+		}
+
+	case strings.HasPrefix(pconf.Source, "moqt://"):
 		_, err := validateURL(pconf.Source)
 		if err != nil {
 			return err

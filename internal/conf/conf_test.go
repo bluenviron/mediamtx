@@ -56,6 +56,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			RTSPUDPSourcePortRange:     []uint{32768, 60999},
+			MoQTransport:               MoQTransportQUIC,
 			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
 			WHEPHandshakeTimeout:       10 * Duration(time.Second),
 			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
@@ -131,6 +132,10 @@ func TestConfFromFile(t *testing.T) {
 		{
 			name:   "wheps with placeholders",
 			source: "wheps://$G1:$G2/$G3",
+		},
+		{
+			name:   "moqt with placeholders",
+			source: "moqt://$G1:$G2/$G3",
 		},
 		{
 			name:   "udp with placeholders",

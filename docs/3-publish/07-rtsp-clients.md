@@ -14,7 +14,7 @@ rtsp://localhost:8554/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-Some clients that can publish with RTSP are [FFmpeg](16-ffmpeg.md), [GStreamer](17-gstreamer.md), [OBS Studio](18-obs-studio.md), [Python and OpenCV](19-python-opencv.md).
+Some clients that can publish with RTSP are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md), [OBS Studio](19-obs-studio.md), [Python and OpenCV](20-python-opencv.md).
 
 Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
 

@@ -1,6 +1,6 @@
 # OBS Studio
 
-OBS Studio can publish streams to the server by acting as a [RTMP client](08-rtmp-clients.md) or a [WebRTC client](04-webrtc-clients.md) protocols. The recommended way is acting as a RTMP client.
+OBS Studio can publish streams to the server by acting as a [RTMP client](09-rtmp-clients.md) or a [WebRTC client](05-webrtc-clients.md) protocols. The recommended way is acting as a RTMP client.
 
 ## OBS Studio as a RTMP client
 
@@ -177,7 +177,7 @@ OBS Studio requires _MediaMTX_ to use a TLS certificate signed by a public certi
 
 ### Standard
 
-Recent versions of OBS Studio can also publish streams to the server with the [WebRTC / WHIP protocol](04-webrtc-clients.md) Use the following parameters:
+Recent versions of OBS Studio can also publish streams to the server with the [WebRTC / WHIP protocol](05-webrtc-clients.md) Use the following parameters:
 
 - Service: `WHIP`
 - Server: `http://localhost:8889/mystream/whip`

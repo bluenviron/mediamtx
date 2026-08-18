@@ -141,6 +141,7 @@ components:
         - rtpSource
         - webRTCSession
         - webRTCSource
+        - moqSource
         - moqSession
 
     ForwardDestProtocol:
@@ -947,6 +948,9 @@ components:
         maxReaders:
           type: integer
           format: int64
+        moqTransport:
+          type: string
+          description: MoQ source
         mpegtsUDPReadBufferSize:
           type: integer
           format: uint64
