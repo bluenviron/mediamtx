@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	maxReorderedSubGroups = 50
-	maxCatalogTracks      = 50
+	maxReorderedSubGroups    = 50
+	maxReorderedPendingBytes = 100 * 1024 * 1024
+	maxCatalogTracks         = 50
 )
 
 func findAuthorizationToken(parameters []parameter.Parameter) *parameter.AuthorizationToken {

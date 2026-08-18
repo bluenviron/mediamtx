@@ -15,8 +15,9 @@ type inboundTrack struct {
 
 func (t *inboundTrack) initialize() {
 	t.reorderer = &reorderer.Reorderer{
-		MaxReordered: maxReorderedSubGroups,
-		Parent:       t.parent,
+		MaxReordered:    maxReorderedSubGroups,
+		MaxPendingBytes: maxReorderedPendingBytes,
+		Parent:          t.parent,
 	}
 	t.reorderer.Initialize()
 }
