@@ -15,7 +15,12 @@ import (
 )
 
 func TestConfigGlobalGet(t *testing.T) {
-	cnf := tempConf(t, "api: yes\n")
+	cnf := tempConf(t, "api: yes\n"+
+		"authInternalUsers:\n"+
+		"  - user: myuser\n"+
+		"    pass: mypass\n"+
+		"    permissions:\n"+
+		"      - action: api\n")
 	checked := false
 
 	api := API{
@@ -44,6 +49,10 @@ func TestConfigGlobalGet(t *testing.T) {
 	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, true, out["api"])
+
+	authInternalUsers := out["authInternalUsers"].([]any)
+	require.Len(t, authInternalUsers, 1)
+	require.Equal(t, redactedCredential, authInternalUsers[0].(map[string]any)["pass"])
 
 	require.True(t, checked)
 }
