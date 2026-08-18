@@ -1,6 +1,6 @@
 # Unity
 
-Software written with the Unity Engine can publish a stream to the server by acting as a [WebRTC client](05-webrtc-clients.md).
+Software written with the Unity Engine can publish a stream to the server by acting as a [WebRTC client](04-webrtc-clients.md).
 
 Create a new Unity project or open an existing one.
 

@@ -1,6 +1,6 @@
 # Web browsers
 
-Web browsers can publish a stream to the server by acting as a [Media-over-QUIC client](01-moq-clients.md) or a [WebRTC client](05-webrtc-clients.md).
+Web browsers can publish a stream to the server by acting as a [Media-over-QUIC client](01-moq-clients.md) or a [WebRTC client](04-webrtc-clients.md).
 
 ## Media-over-QUIC
 
@@ -28,7 +28,7 @@ http://localhost:8889/mystream/publish
 
 The resulting stream will be available on path `/mystream`.
 
-Be aware that not all browsers can publish tracks with any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
+Be aware that not all browsers can publish tracks with any codec, check [Codec support in browsers](../2-features/25-webrtc-specific-features.md#codec-support-in-browsers).
 
 This web page can be embedded into another web page by using an iframe:
 
