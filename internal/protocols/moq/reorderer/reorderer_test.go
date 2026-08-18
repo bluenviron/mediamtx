@@ -20,8 +20,17 @@ func makeSG(groupID uint64) *subgroup.SubGroup {
 	}
 }
 
+func makeSGWithPayload(groupID uint64, size int) *subgroup.SubGroup {
+	return &subgroup.SubGroup{
+		Header: subgroup.Header{GroupID: groupID},
+		Objects: []subgroup.Object{{
+			Payload: make([]byte, size),
+		}},
+	}
+}
+
 func TestReordererFirstPush(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -31,7 +40,7 @@ func TestReordererFirstPush(t *testing.T) {
 }
 
 func TestReordererInOrder(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -51,7 +60,7 @@ func TestReordererInOrder(t *testing.T) {
 }
 
 func TestReordererStale(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg5 := makeSG(5)
@@ -71,7 +80,7 @@ func TestReordererStale(t *testing.T) {
 }
 
 func TestReordererOutOfOrderPending(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -86,7 +95,7 @@ func TestReordererOutOfOrderPending(t *testing.T) {
 }
 
 func TestReordererOutOfOrderFilled(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -109,7 +118,7 @@ func TestReordererOutOfOrderFilled(t *testing.T) {
 }
 
 func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 5, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -136,7 +145,7 @@ func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
 }
 
 func TestReordererMaxReordered(t *testing.T) { //nolint:dupl
-	r := &reorderer.Reorderer{MaxReordered: 2, Parent: nopLogger{}}
+	r := &reorderer.Reorderer{MaxReordered: 2, MaxPendingBytes: 100000, Parent: nopLogger{}}
 	r.Initialize()
 
 	sg0 := makeSG(0)
@@ -162,4 +171,24 @@ func TestReordererMaxReordered(t *testing.T) { //nolint:dupl
 	out, err = r.Push(sg5)
 	require.NoError(t, err)
 	require.Equal(t, []*subgroup.SubGroup{sg2, sg4, sg5}, out)
+}
+
+func TestReordererMaxPendingBytes(t *testing.T) {
+	r := &reorderer.Reorderer{MaxReordered: 10, MaxPendingBytes: 100, Parent: nopLogger{}}
+	r.Initialize()
+
+	sg0 := makeSG(0)
+	out, err := r.Push(sg0)
+	require.NoError(t, err)
+	require.Equal(t, []*subgroup.SubGroup{sg0}, out)
+
+	sg2 := makeSGWithPayload(2, 60)
+	out, err = r.Push(sg2)
+	require.NoError(t, err)
+	require.Nil(t, out)
+
+	sg4 := makeSGWithPayload(4, 60)
+	out, err = r.Push(sg4)
+	require.NoError(t, err)
+	require.Equal(t, []*subgroup.SubGroup{sg2, sg4}, out)
 }

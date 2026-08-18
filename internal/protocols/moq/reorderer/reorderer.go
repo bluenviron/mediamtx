@@ -11,13 +11,23 @@ import (
 
 // Reorderer is a subgroup reorderer.
 type Reorderer struct {
-	MaxReordered int
-	Parent       logger.Writer
+	MaxReordered    int
+	MaxPendingBytes int
+	Parent          logger.Writer
 
-	initialized bool
-	mu          sync.Mutex
-	curGroupID  uint64
-	pending     map[uint64]*subgroup.SubGroup
+	initialized  bool
+	mu           sync.Mutex
+	curGroupID   uint64
+	pending      map[uint64]*subgroup.SubGroup
+	pendingBytes int
+}
+
+func subGroupPayloadSize(sg *subgroup.SubGroup) int {
+	n := 0
+	for _, obj := range sg.Objects {
+		n += len(obj.Payload)
+	}
+	return n
 }
 
 // Initialize initializes the reorderer.
@@ -45,7 +55,11 @@ func (r *Reorderer) Push(sg *subgroup.SubGroup) ([]*subgroup.SubGroup, error) {
 		return []*subgroup.SubGroup{sg}, nil
 
 	default:
+		if prev, ok := r.pending[sg.Header.GroupID]; ok {
+			r.pendingBytes -= subGroupPayloadSize(prev)
+		}
 		r.pending[sg.Header.GroupID] = sg
+		r.pendingBytes += subGroupPayloadSize(sg)
 
 		diff := sg.Header.GroupID - r.curGroupID
 
@@ -56,10 +70,16 @@ func (r *Reorderer) Push(sg *subgroup.SubGroup) ([]*subgroup.SubGroup, error) {
 			}
 		}
 
-		if countInRange == diff {
+		switch {
+		case countInRange == diff:
 			return r.flushUpTo(sg.Header.GroupID), nil
-		} else if len(r.pending) > r.MaxReordered {
+
+		case len(r.pending) > r.MaxReordered:
 			r.Parent.Log(logger.Warn, "too many reordered subgroups, flushing")
+			return r.flushUpTo(sg.Header.GroupID), nil
+
+		case r.pendingBytes > r.MaxPendingBytes:
+			r.Parent.Log(logger.Warn, "too many reordered bytes, flushing")
 			return r.flushUpTo(sg.Header.GroupID), nil
 		}
 	}
@@ -79,6 +99,7 @@ func (r *Reorderer) flushUpTo(maxGroupID uint64) []*subgroup.SubGroup {
 	out := make([]*subgroup.SubGroup, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, r.pending[id])
+		r.pendingBytes -= subGroupPayloadSize(r.pending[id])
 		delete(r.pending, id)
 	}
 
@@ -90,6 +111,7 @@ func (r *Reorderer) flushUpTo(maxGroupID uint64) []*subgroup.SubGroup {
 			break
 		}
 		out = append(out, next)
+		r.pendingBytes -= subGroupPayloadSize(next)
 		delete(r.pending, r.curGroupID+1)
 		r.curGroupID++
 	}
