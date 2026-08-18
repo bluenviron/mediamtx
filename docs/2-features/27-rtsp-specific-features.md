@@ -103,7 +103,7 @@ paths:
   source: rtsp+http://standard-rtsp-url
 ```
 
-There are also the `rtsps+http`, `rtsp+ws`, `rtsps+ws` schemas to handle any variant.
+There are also the `rtsps+http`, `rtsp+ws`, `rtsps+ws` schemes to handle any variant.
 
 ## MPEG-TS inside RTSP
 

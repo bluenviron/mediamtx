@@ -185,19 +185,21 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 	switch h.protocol {
 	case defs.APIForwardDestProtocolRTMP, defs.APIForwardDestProtocolRTMPS:
 		dest = &forwardrtmp.Dest{
-			Stream:       strm,
-			Dest:         resolvedDest,
-			WriteTimeout: h.WriteTimeout,
-			Parent:       h,
+			Stream:          strm,
+			Dest:            resolvedDest,
+			DestFingerprint: h.Conf.DestFingerprint,
+			WriteTimeout:    h.WriteTimeout,
+			Parent:          h,
 		}
 
 	case defs.APIForwardDestProtocolRTSP, defs.APIForwardDestProtocolRTSPS:
 		dest = &forwardrtsp.Dest{
-			Stream:       strm,
-			Dest:         resolvedDest,
-			ReadTimeout:  h.ReadTimeout,
-			WriteTimeout: h.WriteTimeout,
-			Parent:       h,
+			Stream:          strm,
+			Dest:            resolvedDest,
+			DestFingerprint: h.Conf.DestFingerprint,
+			ReadTimeout:     h.ReadTimeout,
+			WriteTimeout:    h.WriteTimeout,
+			Parent:          h,
 		}
 
 	case defs.APIForwardDestProtocolSRT:
@@ -213,8 +215,9 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 		dest = &forwardwebrtc.Dest{
 			Stream:          strm,
 			Dest:            resolvedDest,
+			DestFingerprint: h.Conf.DestFingerprint,
 			ReadTimeout:     h.ReadTimeout,
-			WhipBearerToken: h.Conf.WhipBearerToken,
+			BearerToken:     h.Conf.WHIPBearerToken,
 			Parent:          h,
 		}
 

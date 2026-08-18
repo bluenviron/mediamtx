@@ -1269,6 +1269,8 @@ components:
       properties:
         dest:
           type: string
+        destFingerprint:
+          type: string
         whipBearerToken:
           type: string
 

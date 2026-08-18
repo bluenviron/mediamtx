@@ -75,7 +75,7 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 	toClose := make([]*DestHandler, 0)
 
 	for i, dest := range forward {
-		if i < len(m.destHandlers) && m.destHandlers[i].Conf.Dest == dest.Dest {
+		if i < len(m.destHandlers) && m.destHandlers[i].Conf == dest {
 			newHandlers[i] = m.destHandlers[i]
 		} else {
 			if i < len(m.destHandlers) {

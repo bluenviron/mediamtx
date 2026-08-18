@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	rtmpprotocol "github.com/bluenviron/mediamtx/internal/protocols/rtmp"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -65,10 +66,11 @@ func fourCCList(desc *description.Session) amf0.StrictArray {
 
 // Dest is a RTMP forward destination.
 type Dest struct {
-	Stream       *stream.Stream
-	Dest         string
-	WriteTimeout conf.Duration
-	Parent       logger.Writer
+	Stream          *stream.Stream
+	Dest            string
+	DestFingerprint string
+	WriteTimeout    conf.Duration
+	Parent          logger.Writer
 
 	mutex             sync.RWMutex
 	outboundBytesFunc func() uint64
@@ -98,8 +100,9 @@ func (d *Dest) Run(ctx context.Context) error {
 	}
 
 	conn := &gortmplib.Client{
-		URL:     u,
-		Publish: true,
+		URL:       u,
+		Publish:   true,
+		TLSConfig: ptls.MakeConfig(d.DestFingerprint),
 	}
 
 	err = conn.Initialize(ctx)

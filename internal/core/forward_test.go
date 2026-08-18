@@ -538,7 +538,7 @@ func TestPathForwardWHIP(t *testing.T) {
 	require.Len(t, list.Items, 1)
 	added := list.Items[0]
 	require.Equal(t, dest, added.Conf.Dest)
-	require.Equal(t, bearerToken, added.Conf.WhipBearerToken)
+	require.Equal(t, bearerToken, added.Conf.WHIPBearerToken)
 	require.Equal(t, defs.APIForwardDestProtocolWHIP, added.Protocol)
 	require.Equal(t, 1, added.Pos)
 
@@ -550,7 +550,7 @@ func TestPathForwardWHIP(t *testing.T) {
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
 		return item.State == defs.APIForwardDestStateForwarding &&
 			item.Protocol == defs.APIForwardDestProtocolWHIP &&
-			item.Conf.WhipBearerToken == bearerToken &&
+			item.Conf.WHIPBearerToken == bearerToken &&
 			item.OutboundBytes > 0
 	}, 5*time.Second, 100*time.Millisecond)
 }

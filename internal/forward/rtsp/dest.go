@@ -13,17 +13,19 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 // Dest is a RTSP forward destination.
 type Dest struct {
-	Stream       *stream.Stream
-	Dest         string
-	ReadTimeout  conf.Duration
-	WriteTimeout conf.Duration
-	Parent       logger.Writer
+	Stream          *stream.Stream
+	Dest            string
+	DestFingerprint string
+	ReadTimeout     conf.Duration
+	WriteTimeout    conf.Duration
+	Parent          logger.Writer
 
 	mutex             sync.RWMutex
 	outboundBytesFunc func() uint64
@@ -59,6 +61,7 @@ func (d *Dest) Run(ctx context.Context) error {
 		Host:         u.Host,
 		ReadTimeout:  time.Duration(d.ReadTimeout),
 		WriteTimeout: time.Duration(d.WriteTimeout),
+		TLSConfig:    ptls.MakeConfig(d.DestFingerprint),
 		OnRequest: func(req *base.Request) {
 			d.Log(logger.Debug, "[c->s] %v", req)
 		},
