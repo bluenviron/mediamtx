@@ -1,6 +1,6 @@
 # GStreamer
 
-GStreamer can publish a stream to the server by acting as a [RTSP client](07-rtsp-clients.md), [RTMP client](09-rtmp-clients.md), [SRT client](02-srt-clients.md), [WebRTC client](05-webrtc-clients.md) or by sending [MPEG-TS packets](12-mpeg-ts.md) or [RTP packets](13-rtp.md). The recommended way is acting as a RTSP client.
+GStreamer can publish a stream to the server by acting as a [RTSP client](06-rtsp-clients.md), [RTMP client](08-rtmp-clients.md), [SRT client](02-srt-clients.md), [WebRTC client](04-webrtc-clients.md) or by sending [MPEG-TS packets](11-mpeg-ts.md) or [RTP packets](12-rtp.md). The recommended way is acting as a RTSP client.
 
 ## GStreamer as a RTSP client
 
@@ -58,7 +58,7 @@ audiotestsrc ! audioconvert ! avenc_aac ! mux.
 
 ## GStreamer and RTP over UDP
 
-In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (read [RTP](13-rtp.md)). Then:
+In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (read [RTP](12-rtp.md)). Then:
 
 ```sh
 gst-launch-1.0 -v \

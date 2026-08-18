@@ -14,8 +14,8 @@ srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
 
 Replace `mystream` with any name you want. The resulting stream will be available on path `/mystream`.
 
-If you need to use the standard stream ID syntax instead of the custom one in use by this server, read [Standard stream ID syntax](../2-features/25-srt-specific-features.md#standard-stream-id-syntax).
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, read [Standard stream ID syntax](../2-features/24-srt-specific-features.md#standard-stream-id-syntax).
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
-Some clients that can publish with SRT are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md), [OBS Studio](19-obs-studio.md).
+Some clients that can publish with SRT are [FFmpeg](16-ffmpeg.md), [GStreamer](17-gstreamer.md), [OBS Studio](18-obs-studio.md).

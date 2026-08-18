@@ -24,7 +24,7 @@ http://localhost:8889/mystream
 
 Replace `mystream` with the path name.
 
-Be aware that not all browsers can read tracks with any codec, check [Codec support in browsers](../2-features/26-webrtc-specific-features.md#codec-support-in-browsers).
+Be aware that not all browsers can read tracks with any codec, check [Codec support in browsers](../2-features/25-webrtc-specific-features.md#codec-support-in-browsers).
 
 ### HLS
 

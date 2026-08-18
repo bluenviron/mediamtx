@@ -5,7 +5,7 @@
 | **video** | AV1, VP9, H265, H264                                                                |
 | **audio** | Opus, FLAC, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM |
 
-RTMP is a protocol that allows to read and publish streams. It has been expanded to support modern codecs (Enhanced RTMP) and it supports encryption, read [RTMP-specific features](../2-features/28-rtmp-specific-features.md). Streams can be published to the server by using the URL:
+RTMP is a protocol that allows to read and publish streams. It has been expanded to support modern codecs (Enhanced RTMP) and it supports encryption, read [RTMP-specific features](../2-features/27-rtmp-specific-features.md). Streams can be published to the server by using the URL:
 
 ```
 rtmp://localhost/mystream
@@ -13,4 +13,4 @@ rtmp://localhost/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-Some clients that can publish with RTMP are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md) and [OBS Studio](19-obs-studio.md).
+Some clients that can publish with RTMP are [FFmpeg](16-ffmpeg.md), [GStreamer](17-gstreamer.md) and [OBS Studio](18-obs-studio.md).
