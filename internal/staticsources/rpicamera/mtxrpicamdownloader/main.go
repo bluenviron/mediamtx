@@ -21,13 +21,18 @@ const (
 	maxInboundRPICameraSize = 10 * 1024 * 1024
 )
 
-func safeArchivePath(name string) (string, error) {
+func safeArchivePath(baseDir string, name string) (string, error) {
 	name = filepath.Clean(filepath.FromSlash(name))
-	if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+	if name == "." || !filepath.IsLocal(name) {
 		return "", fmt.Errorf("invalid archive entry: %s", name)
 	}
 
-	return name, nil
+	targetPath := filepath.Join(baseDir, name)
+	if targetPath != baseDir && !strings.HasPrefix(targetPath, baseDir+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid archive entry: %s", name)
+	}
+
+	return targetPath, nil
 }
 
 func dumpTar(src io.Reader) error {
@@ -36,7 +41,11 @@ func dumpTar(src io.Reader) error {
 		return err
 	}
 
-	baseDir := "."
+	baseDir, err := filepath.Abs(".")
+	if err != nil {
+		return err
+	}
+
 	tr := tar.NewReader(uncompressed)
 
 	for {
@@ -49,13 +58,11 @@ func dumpTar(src io.Reader) error {
 			return err
 		}
 
-		var entryName string
-		entryName, err = safeArchivePath(header.Name)
+		var targetPath string
+		targetPath, err = safeArchivePath(baseDir, header.Name)
 		if err != nil {
 			return err
 		}
-
-		targetPath := filepath.Join(baseDir, entryName)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
