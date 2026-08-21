@@ -158,3 +158,16 @@ func (h *handlerLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Log(logger.Debug, "[conn %v] [s->c] %s", r.RemoteAddr, resRecorder.dump())
 }
+
+// Flush propagates the flush to the wrapped writer, so that handlers streaming
+// a long response (server-sent events) are not held until they return.
+func (w *responseRecorder) Flush() {
+	if f, ok := w.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *responseRecorder) Unwrap() http.ResponseWriter {
+	return w.w
+}
