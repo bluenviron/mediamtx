@@ -106,6 +106,33 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		},
 		PayloadType: 106,
 	},
+	// RTX (RFC 4588) companions for the two H264 entries above. webrtc.ConfigureNack()
+	// (peer_connection.go) only registers the NACK RTCP interceptor -- pion still
+	// needs an explicit RTX codec registered per media codec before it can answer a
+	// publisher's retransmission offer with one, so without this, incoming video has
+	// no RTX payload type at all and NACK-triggered retransmission can never actually
+	// happen, regardless of what the publisher offers. Scoped to H264 here (the two
+	// codecs we could validate against a real WHIP publisher) rather than every codec
+	// in this list -- the 96-127 payload type range is already at 23/32 slots used
+	// between video and audio, so covering the rest needs either renumbering some of
+	// the existing static assignments or a different scheme, which felt like a
+	// separate, bigger change from this one.
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=105",
+		},
+		PayloadType: 107,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=106",
+		},
+		PayloadType: 108,
+	},
 }
 
 var incomingAudioCodecs = []webrtc.RTPCodecParameters{
