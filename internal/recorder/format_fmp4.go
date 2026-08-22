@@ -772,7 +772,6 @@ func (f *formatFMP4) initialize() bool {
 				codec := &mcodecs.AC3{
 					SampleRate:   origFormat.SampleRate,
 					ChannelCount: origFormat.ChannelCount,
-					Fscod:        0,
 					Bsid:         8,
 					Bsmod:        0,
 					Acmod:        7,

@@ -60,7 +60,7 @@ func decode(v reflect.Value, raw json.RawMessage, path string) error {
 		v = v.Elem()
 	}
 
-	if unm, ok := v.Addr().Interface().(json.Unmarshaler); ok {
+	if unm, ok := reflect.TypeAssert[json.Unmarshaler](v.Addr()); ok {
 		return unm.UnmarshalJSON(raw)
 	}
 

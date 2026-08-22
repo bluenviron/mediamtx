@@ -710,7 +710,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 	aacConfig2 := &mpeg4audio.AudioSpecificConfig{
 		Type:          2, // MPEG4-AAC LC
 		SampleRate:    48000,
-		ChannelCount:  2,
+		ChannelCount:  2, //nolint:staticcheck
 		ChannelConfig: 2,
 	}
 

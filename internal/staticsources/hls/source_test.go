@@ -25,9 +25,10 @@ func TestSource(t *testing.T) {
 	track2 := &mpegts.Track{
 		Codec: &tscodecs.MPEG4Audio{
 			Config: mpeg4audio.AudioSpecificConfig{
-				Type:         2,
-				SampleRate:   44100,
-				ChannelCount: 2,
+				Type:          2,
+				SampleRate:    44100,
+				ChannelConfig: 2,
+				ChannelCount:  2, //nolint:staticcheck
 			},
 		},
 	}

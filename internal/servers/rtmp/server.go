@@ -238,7 +238,7 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 func (s *Server) Close() {
 	s.Log(logger.Info, "closing")
 
-	if !interfaceIsEmpty((s.Metrics)) {
+	if !interfaceIsEmpty(s.Metrics) {
 		if s.Encryption {
 			s.Metrics.SetRTMPSServer(nil)
 		} else {
