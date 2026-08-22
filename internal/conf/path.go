@@ -262,6 +262,8 @@ type Path struct {
 	RTSPRangeType          RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart         string         `json:"rtspRangeStart"`
 	RTSPScale              string         `json:"rtspScale"`
+	RTSPRequire            string         `json:"rtspRequire"`
+	RTSPRateControl        bool           `json:"rtspRateControl"`
 	RTSPUDPReadBufferSize  *uint          `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
 	RTSPUDPSourcePortRange []uint         `json:"rtspUDPSourcePortRange"`
 
@@ -382,6 +384,7 @@ func (pconf *Path) setDefaults() {
 	pconf.OverridePublisher = true
 
 	// RTSP source
+	pconf.RTSPRateControl = true
 	pconf.RTSPUDPSourcePortRange = []uint{32768, 60999}
 
 	// MoQ source
@@ -505,6 +508,16 @@ func (pconf *Path) validate(
 		if pconf.SourceAnyPortEnable != nil {
 			l.Log(logger.Warn, "parameter 'sourceAnyPortEnable' is deprecated and has been replaced with 'rtspAnyPort'")
 			pconf.RTSPAnyPort = *pconf.SourceAnyPortEnable
+		}
+
+		// with rate control disabled, the client paces the stream,
+		// therefore the ONVIF streaming specification allows no scale other than 1 and -1.
+		if !pconf.RTSPRateControl {
+			switch pconf.RTSPScale {
+			case "", "1", "1.0", "-1", "-1.0":
+			default:
+				return fmt.Errorf("'rtspScale' must be 1 or -1 when 'rtspRateControl' is false")
+			}
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
