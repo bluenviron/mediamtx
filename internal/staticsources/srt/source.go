@@ -25,6 +25,7 @@ type parent interface {
 type Source struct {
 	ReadTimeout conf.Duration
 	Parent      parent
+	sconn       srt.Conn
 }
 
 // Log implements logger.Writer.
@@ -51,6 +52,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
+	s.sconn = sconn
 
 	readDone := make(chan error)
 	go func() {
@@ -132,5 +134,26 @@ func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: defs.APIPathSourceTypeSRTSource,
 		ID:   "",
+	}
+}
+
+var _ defs.StaticSourceStatsProvider = (*Source)(nil)
+
+// SourceStats exports SRT source statistics.
+// SRT provides receive packet loss but no RTP-style jitter.
+func (s *Source) SourceStats() defs.StaticSourceStats {
+	if s.sconn == nil {
+		return nil
+	}
+
+	var stats srt.Statistics
+	s.sconn.Stats(&stats)
+
+	return &defs.SRTSourceStats{
+		BaseSourceStats: defs.BaseSourceStats{
+			PacketsReceived: stats.Accumulated.PktRecv,
+			PacketsLost:     stats.Accumulated.PktRecvLoss,
+			// Jitter intentionally nil: not available over SRT.
+		},
 	}
 }
