@@ -43,9 +43,10 @@ func TestRecorder(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -280,7 +281,7 @@ func TestRecorder(t *testing.T) {
 								Config: mpeg4audio.AudioSpecificConfig{
 									Type:          2,
 									SampleRate:    44100,
-									ChannelCount:  2,
+									ChannelCount:  2, //nolint:staticcheck
 									ChannelConfig: 2,
 								},
 							},
@@ -411,9 +412,10 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -504,9 +506,10 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -863,9 +866,10 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 					Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 						PayloadTyp: 96,
 						Config: &mpeg4audio.AudioSpecificConfig{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
+							Type:          2,
+							SampleRate:    44100,
+							ChannelConfig: 2,
+							ChannelCount:  2, //nolint:staticcheck
 						},
 						SizeLength:       13,
 						IndexLength:      3,

@@ -23,8 +23,8 @@ type Listener struct {
 func (l *Listener) Initialize() {
 	l.inner = &proxyproto.Listener{
 		Listener: l.Wrapped,
-		Policy: func(upstream net.Addr) (proxyproto.Policy, error) {
-			tcpAddr, ok := upstream.(*net.TCPAddr)
+		ConnPolicy: func(connPolicyOptions proxyproto.ConnPolicyOptions) (proxyproto.Policy, error) {
+			tcpAddr, ok := connPolicyOptions.Upstream.(*net.TCPAddr)
 			if ok && l.TrustedProxies.Contains(tcpAddr.IP) {
 				return proxyproto.USE, nil
 			}

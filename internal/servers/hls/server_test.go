@@ -397,7 +397,7 @@ func TestServerRead(t *testing.T) {
 								Codec: &codecs.MPEG4Audio{
 									Config: mpeg4audio.AudioSpecificConfig{
 										Type:          2,
-										ChannelCount:  2,
+										ChannelCount:  2, //nolint:staticcheck
 										ChannelConfig: 2,
 										SampleRate:    44100,
 									},
