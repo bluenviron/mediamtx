@@ -9,6 +9,11 @@ Incoming streams can be natively forwarded to other servers with the following p
 
 It is also possible to use [FFmpeg](#ffmpeg) to perform the forwarding.
 
+We provide instructions to forward streams to the following services:
+
+- [YouTube](#youtube)
+- [Twitch](#twitch)
+
 ## SRT
 
 Add the target URL inside `dest` of a `forward` entry:
@@ -89,4 +94,36 @@ pathDefaults:
     -c copy
     -f rtsp rtsp://other-server:8554/another-path
   runOnAvailableRestart: yes
+```
+
+## YouTube
+
+Open YouTube, sign in with a valid account, search for the _Create_, _Go Live_ button, click it. In the next page, search for _Default stream key_, copy the key somewhere, then search for the _Stream URL_ section and copy the URL. Insert the stream URL and the stream key in _MediaMTX_ in this way:
+
+```yml
+paths:
+  mypath:
+    forward:
+      # Use an hashtag to separate the URL from the stream key.
+      # "a.rtmp.youtube.com/live2" was the URL YouTube was reporting last time this documentation was updated. Check that it is still correct.
+      # Also replace rtmp:// with rtmps:// in order to enable encryption in-transit.
+      - dest: rtmps://a.rtmp.youtube.com/live2#streamKey
+        # Last time we checked, the TLS certificate was invalid. Use destFingerprint to validate it anyway.
+        destFingerprint: 131409734af825d8e994cce4cb205bc5de6c657271673650aabd8c504c27e891
+```
+
+**Warning**: YouTube requires streams to have both a video and an audio track. Video-only streams are silently rejected.
+
+## Twitch
+
+Open Twitch, sign in with a valid account, go to _Settings_, _Stream_. Search for the _Primary Stream Key_, copy it somewhere. Then search for _Recommended Ingest Endpoints_, that should be in [this page](https://help.twitch.tv/s/twitch-ingest-recommendation?language=en_US). Copy one of the URLs. Insert the URL and the stream key in _MediaMTX_ in this way:
+
+```yml
+paths:
+  mypath:
+    forward:
+      # Use an hashtag to separate the URL from the stream key.
+      # "rtmp://ingest.global-contribute.live-video.net/app" was the URL Twitch was reporting last time this documentation was updated. Check that it is still correct.
+      # Also replace rtmp:// with rtmps:// in order to enable encryption in-transit.
+      - dest: rtmps://ingest.global-contribute.live-video.net/app#streamKey
 ```
