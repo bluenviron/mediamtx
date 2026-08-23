@@ -113,11 +113,16 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	// no RTX payload type at all and NACK-triggered retransmission can never actually
 	// happen, regardless of what the publisher offers.
 	//
-	// No renumbering needed: RegisterCodec (peer_connection.go) stores video and
-	// audio codecs in separate lists (m.videoCodecs / m.audioCodecs), so a payload
-	// type only has to be unique within this list, not across the whole 96-127
-	// range shared with incomingAudioCodecs -- confirmed against pion's own
-	// MediaEngine.RegisterCodec. 109-117 were simply unused within this list.
+	// Payload types below must not collide with anything in incomingAudioCodecs:
+	// pion's RegisterCodec keeps separate internal video/audio lists, but real
+	// clients validate payload-type uniqueness across the whole BUNDLE group in the
+	// negotiated SDP, not per pion-internal bookkeeping -- see the fixes in #4394
+	// and #4456 for the exact class of bug this caused before. 123-127 are the
+	// last free slots in the conventional 96-127 dynamic range; 35 and 36 come from
+	// 30-63, which Chromium also accepts for dynamic payload types (everything in
+	// [30,63] union [96,127] except the [64,95] gap -- same range this codebase
+	// already relies on in internal/servers/webrtc/reader.js, sourced from
+	// https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/call/payload_type.h).
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeRTX,
@@ -140,7 +145,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=98",
 		},
-		PayloadType: 111,
+		PayloadType: 123,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -148,7 +153,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=99",
 		},
-		PayloadType: 112,
+		PayloadType: 124,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -156,7 +161,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=100",
 		},
-		PayloadType: 113,
+		PayloadType: 125,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -164,7 +169,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=101",
 		},
-		PayloadType: 114,
+		PayloadType: 126,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -172,7 +177,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=102",
 		},
-		PayloadType: 115,
+		PayloadType: 127,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -180,7 +185,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=103",
 		},
-		PayloadType: 116,
+		PayloadType: 35,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -188,7 +193,7 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=104",
 		},
-		PayloadType: 117,
+		PayloadType: 36,
 	},
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
