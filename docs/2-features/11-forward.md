@@ -127,3 +127,8 @@ paths:
       # Also replace rtmp:// with rtmps:// in order to enable encryption in-transit.
       - dest: rtmps://ingest.global-contribute.live-video.net/app#streamKey
 ```
+
+**Warning**: Enhanced Broadcasting (2K / HEVC / Dual Format).
+Although MediaMTX supports Enhanced RTMP (including H.265/HEVC and multitrack video), the simple `forward` mechanism above only works with classic single-track H.264.
+Twitch Enhanced Broadcasting requires a special Automatic Stream Configuration (ASC) handshake that returns a dynamic ERTMP ingest endpoint. The static URL listed in the Recommended Ingest Endpoints page does not support this flow and will reject HEVC / multitrack streams.
+For Enhanced Broadcasting use a compatible client (OBS Studio with Enhanced Broadcasting enabled) that performs the ASC handshake itself.
