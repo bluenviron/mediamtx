@@ -106,100 +106,16 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		},
 		PayloadType: 106,
 	},
-	// RTX (RFC 4588) companions for every video codec above. webrtc.ConfigureNack()
-	// (peer_connection.go) only registers the NACK RTCP interceptor -- pion still
-	// needs an explicit RTX codec registered per media codec before it can answer a
-	// publisher's retransmission offer with one, so without this, incoming video has
-	// no RTX payload type at all and NACK-triggered retransmission can never actually
-	// happen, regardless of what the publisher offers.
-	//
-	// Payload types below must not collide with anything in incomingAudioCodecs:
-	// pion's RegisterCodec keeps separate internal video/audio lists, but real
-	// clients validate payload-type uniqueness across the whole BUNDLE group in the
-	// negotiated SDP, not per pion-internal bookkeeping -- see the fixes in #4394
-	// and #4456 for the exact class of bug this caused before. 123-127 are the
-	// last free slots in the conventional 96-127 dynamic range; 35 and 36 come from
-	// 30-63, which Chromium also accepts for dynamic payload types (everything in
-	// [30,63] union [96,127] except the [64,95] gap -- same range this codebase
-	// already relies on in internal/servers/webrtc/reader.js, sourced from
-	// https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/call/payload_type.h).
+	// RTX (RFC 4588) companions for every video codec above. ConfigureNack()
+	// only enables NACK handling; pion also needs an RTX codec registered for
+	// each video codec before it can negotiate retransmissions. Payload types
+	// must stay unique across both incomingVideoCodecs and incomingAudioCodecs,
+	// so these use the remaining free slots in order.
 	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeRTX,
 			ClockRate:   90000,
 			SDPFmtpLine: "apt=96",
-		},
-		PayloadType: 109,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=97",
-		},
-		PayloadType: 110,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=98",
-		},
-		PayloadType: 123,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=99",
-		},
-		PayloadType: 124,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=100",
-		},
-		PayloadType: 125,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=101",
-		},
-		PayloadType: 126,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=102",
-		},
-		PayloadType: 127,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=103",
-		},
-		PayloadType: 35,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=104",
-		},
-		PayloadType: 36,
-	},
-	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=105",
 		},
 		PayloadType: 107,
 	},
@@ -207,9 +123,81 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeRTX,
 			ClockRate:   90000,
-			SDPFmtpLine: "apt=106",
+			SDPFmtpLine: "apt=97",
 		},
 		PayloadType: 108,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=98",
+		},
+		PayloadType: 109,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=99",
+		},
+		PayloadType: 110,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=100",
+		},
+		PayloadType: 123,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=101",
+		},
+		PayloadType: 124,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=102",
+		},
+		PayloadType: 125,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=103",
+		},
+		PayloadType: 126,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=104",
+		},
+		PayloadType: 127,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=105",
+		},
+		PayloadType: 35,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=106",
+		},
+		PayloadType: 36,
 	},
 }
 

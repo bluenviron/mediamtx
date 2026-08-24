@@ -28,11 +28,11 @@ func TestPeerConnectionReadRegistersRTXForVideoCodecs(t *testing.T) {
 		payloadType uint8
 		rtxPT       uint8
 	}{
-		{"av1", webrtc.MimeTypeAV1, "profile=1", 96, 109},
-		{"vp9", webrtc.MimeTypeVP9, "profile-id=0", 101, 126},
-		{"vp8", webrtc.MimeTypeVP8, "", 102, 127},
-		{"h265", webrtc.MimeTypeH265, "level-id=93;profile-id=2;tier-flag=0;tx-mode=SRST", 103, 35},
-		{"h264", webrtc.MimeTypeH264, "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f", 106, 107},
+		{"av1", webrtc.MimeTypeAV1, "profile=1", 96, 107},
+		{"vp9", webrtc.MimeTypeVP9, "profile-id=0", 101, 124},
+		{"vp8", webrtc.MimeTypeVP8, "", 102, 125},
+		{"h265", webrtc.MimeTypeH265, "level-id=93;profile-id=2;tier-flag=0;tx-mode=SRST", 103, 126},
+		{"h264", webrtc.MimeTypeH264, "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f", 106, 36},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			// The publisher side needs to offer RTX itself for there to be anything
