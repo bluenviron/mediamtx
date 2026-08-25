@@ -343,6 +343,21 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	}, conf.AuthInternalUsers)
 }
 
+func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
+	tmpf := createTempFile(t, []byte(
+		"webrtcICEServers:\n"+
+			"- \"turn:myuser:mypass:[2001:db8::1]:3478?transport=tcp\"\n"))
+
+	conf, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, []WebRTCICEServer{{
+		URL:      "turn:[2001:db8::1]:3478?transport=tcp",
+		Username: "myuser",
+		Password: "mypass",
+	}}, conf.WebRTCICEServers2)
+}
+
 func TestConfErrors(t *testing.T) {
 	for _, ca := range []struct {
 		name string
