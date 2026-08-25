@@ -2,6 +2,7 @@
 package rtsp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -234,7 +235,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	readErr := make(chan error)
 	go func() {
-		readErr <- s.runInner(c, u, params.Conf)
+		readErr <- s.runInner(params.Context, c, u, params.Conf, decodeErrors)
 	}()
 
 	for {
@@ -252,7 +253,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 }
 
-func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path) error {
+func (s *Source) runInner(
+	ctx context.Context,
+	c *gortsplib.Client,
+	u *base.URL,
+	pathConf *conf.Path,
+	decodeErrors *errordumper.Dumper,
+) error {
 	desc, _, err := c.Describe(u)
 	if err != nil {
 		return err
@@ -280,27 +287,52 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 		Medias: medias,
 	}
 
-	var subStream *stream.SubStream
+	var demuxer *mpegtsDemuxer
 
-	rtsp.ToStream(
-		c,
-		desc2.Medias,
-		pathConf,
-		&subStream,
-		s)
+	if pathConf.RTSPDemuxMpegts {
+		mpegtsMedia, mpegtsFormat := findSingleMPEGTSFormat(desc2)
+		if mpegtsFormat != nil {
+			s.Log(logger.Info, "MPEG-TS demux mode enabled")
 
-	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-		Desc:          desc2,
-		UseRTPPackets: true,
-		ReplaceNTP:    !pathConf.UseAbsoluteTimestamp,
-	})
-	if res.Err != nil {
-		return res.Err
+			demuxer = &mpegtsDemuxer{
+				log:          s,
+				parent:       s.Parent,
+				client:       c,
+				mpegtsMedia:  mpegtsMedia,
+				mpegtsFormat: mpegtsFormat,
+				decodeErrors: decodeErrors,
+			}
+			err = demuxer.initialize()
+			if err != nil {
+				return err
+			}
+			defer demuxer.close()
+		}
 	}
 
-	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+	if demuxer == nil {
+		var subStream *stream.SubStream
 
-	subStream = res.SubStream
+		rtsp.ToStream(
+			c,
+			desc2.Medias,
+			pathConf,
+			&subStream,
+			s)
+
+		res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+			Desc:          desc2,
+			UseRTPPackets: true,
+			ReplaceNTP:    !pathConf.UseAbsoluteTimestamp,
+		})
+		if res.Err != nil {
+			return res.Err
+		}
+
+		defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
+		subStream = res.SubStream
+	}
 
 	rangeHeader, err := createRangeHeader(pathConf)
 	if err != nil {
@@ -310,6 +342,12 @@ func (s *Source) runInner(c *gortsplib.Client, u *base.URL, pathConf *conf.Path)
 	_, err = c.Play(rangeHeader)
 	if err != nil {
 		return err
+	}
+
+	if demuxer != nil {
+		demuxerErr := demuxer.wait(ctx)
+		c.Close()
+		return demuxerErr
 	}
 
 	return c.Wait()

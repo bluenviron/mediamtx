@@ -27,8 +27,11 @@ It's possible to automatically demux these MPEG-TS-encoded streams, by toggling 
 ```yml
 pathDefaults:
   # Demux MPEG-TS over RTSP into elementary streams.
-  # When enabled, RTSP publishers sending MP2T/90000 will be demultiplexed
+  # When enabled, RTSP publishers sending MP2T/90000, and RTSP static sources
+  # (source: rtsp://...) that expose a single MP2T track, will be demultiplexed
   # and their elementary streams (H.264, H.265, AAC, etc.) exposed as native tracks.
   # This allows HLS, WebRTC, and other outputs to work transparently with MPEG-TS sources.
   rtspDemuxMpegts: true
 ```
+
+The same flag also applies when MediaMTX **pulls** an RTSP source (`source: rtsp://...`). See [RTSP cameras and servers](08-rtsp-cameras-and-servers.md).
