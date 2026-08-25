@@ -6,15 +6,15 @@ ADD binaries/mediamtx_*_linux_armv7.tar.gz /linux/arm/v7
 ADD binaries/mediamtx_*_linux_arm64.tar.gz /linux/arm64
 
 #################################################################
-FROM --platform=linux/arm/v7 debian:bullseye-slim AS base-arm-v7
+FROM --platform=linux/arm/v7 debian:bookworm-slim AS base-arm-v7
 
 # even though the base image is armv7,
 # Raspbian libraries and compilers provide armv6 compatibility.
 
 RUN apt update \
 	&& apt install -y wget gpg \
-	&& echo "deb http://archive.raspbian.org/raspbian bullseye main rpi firmware" > /etc/apt/sources.list \
-	&& echo "deb http://archive.raspberrypi.org/debian bullseye main" > /etc/apt/sources.list.d/raspi.list \
+	&& echo "deb http://archive.raspbian.org/raspbian bookworm main rpi firmware" > /etc/apt/sources.list \
+	&& echo "deb http://archive.raspberrypi.org/debian bookworm main" > /etc/apt/sources.list.d/raspi.list \
 	&& wget -O- https://archive.raspbian.org/raspbian.public.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/raspbian.gpg \
 	&& wget -O- https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi.gpg \
 	&& rm -rf /var/lib/apt/lists/*
@@ -26,11 +26,11 @@ RUN apt update && apt install --reinstall -y \
     && rm -rf /var/lib/apt/lists/*
 
 #################################################################
-FROM --platform=linux/arm64 debian:bullseye-slim AS base-arm64
+FROM --platform=linux/arm64 debian:bookworm-slim AS base-arm64
 
 RUN apt update \
 	&& apt install -y wget gpg \
-	&& echo "deb http://archive.raspberrypi.org/debian bullseye main" > /etc/apt/sources.list.d/raspi.list \
+	&& echo "deb http://archive.raspberrypi.org/debian bookworm main" > /etc/apt/sources.list.d/raspi.list \
 	&& wget -O- https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi.gpg \
 	&& rm -rf /var/lib/apt/lists/*
 
