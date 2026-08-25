@@ -392,6 +392,14 @@ func TestPathForwardRTMP(t *testing.T) {
 			item.Protocol == defs.APIForwardDestProtocolRTMP &&
 			item.OutboundBytes > 0
 	}, 5*time.Second, 100*time.Millisecond)
+
+	destURL, err := url.Parse(dest)
+	require.NoError(t, err)
+
+	var item defs.APIForwardDest
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
+	require.Equal(t, destURL.Host, item.RemoteAddr)
 }
 
 func TestPathForwardRTMPReconnectsAfterSourceUnavailable(t *testing.T) {

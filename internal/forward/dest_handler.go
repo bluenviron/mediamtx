@@ -112,6 +112,13 @@ func (h *DestHandler) outboundBytesLocked() uint64 {
 	return outboundBytes
 }
 
+func (h *DestHandler) remoteAddrLocked() string {
+	if h.activeDest != nil {
+		return h.activeDest.RemoteAddr()
+	}
+	return ""
+}
+
 func destProtocol(dest string) defs.APIForwardDestProtocol {
 	switch {
 	case strings.HasPrefix(dest, "rtmp://"):
@@ -263,6 +270,7 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 	defer h.mutex.RUnlock()
 
 	outboundBytes := h.outboundBytesLocked()
+	remoteAddr := h.remoteAddrLocked()
 
 	return defs.APIForwardDest{
 		ID:            h.uuid,
@@ -273,5 +281,6 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,
+		RemoteAddr:    remoteAddr,
 	}
 }

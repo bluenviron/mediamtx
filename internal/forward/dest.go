@@ -8,4 +8,5 @@ import (
 type Dest interface {
 	Run(context.Context) error
 	OutboundBytes() uint64
+	RemoteAddr() string
 }

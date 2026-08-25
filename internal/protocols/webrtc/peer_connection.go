@@ -1028,6 +1028,17 @@ func (co *PeerConnection) RemoteCandidate() string {
 	return candidateLabel(cp.Remote)
 }
 
+// RemoteAddr returns the address of the selected remote candidate.
+// It returns an empty string if the candidate pair has not been selected yet.
+func (co *PeerConnection) RemoteAddr() string {
+	cp, err := co.wr.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil || cp == nil || cp.Remote == nil {
+		return ""
+	}
+
+	return net.JoinHostPort(cp.Remote.Address, strconv.FormatInt(int64(cp.Remote.Port), 10))
+}
+
 func bytesStats(wr *webrtc.PeerConnection) (uint64, uint64) {
 	for _, stats := range wr.GetStats() {
 		if tstats, ok := stats.(webrtc.TransportStats); ok {

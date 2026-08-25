@@ -74,6 +74,7 @@ type Dest struct {
 
 	mutex             sync.RWMutex
 	outboundBytesFunc func() uint64
+	remoteAddr        string
 }
 
 // Log implements logger.Writer.
@@ -90,6 +91,13 @@ func (d *Dest) OutboundBytes() uint64 {
 		return 0
 	}
 	return d.outboundBytesFunc()
+}
+
+// RemoteAddr returns the address of the remote peer.
+func (d *Dest) RemoteAddr() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.remoteAddr
 }
 
 // Run runs the destination.
@@ -133,6 +141,7 @@ func (d *Dest) Run(ctx context.Context) error {
 func (d *Dest) runInner(conn *gortmplib.Client, terminate <-chan struct{}) error {
 	d.mutex.Lock()
 	d.outboundBytesFunc = conn.BytesSent
+	d.remoteAddr = conn.NetConn().RemoteAddr().String()
 	d.mutex.Unlock()
 
 	r := &stream.Reader{Parent: d}

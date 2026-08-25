@@ -1121,9 +1121,9 @@ func TestForwardMetrics(t *testing.T) {
 	require.Equal(t,
 		"# Forward destinations\n"+
 			"forward_dests{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
-			"path=\"mypath\",protocol=\"rtmp\",state=\"forwarding\"} 1\n"+
+			"path=\"mypath\",protocol=\"rtmp\",remoteAddr=\"\",state=\"forwarding\"} 1\n"+
 			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"protocol=\"rtmp\",state=\"forwarding\"} 321\n"+
+			"protocol=\"rtmp\",remoteAddr=\"\",state=\"forwarding\"} 321\n"+
 			"\n",
 		string(byts))
 }

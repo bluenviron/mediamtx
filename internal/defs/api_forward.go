@@ -42,6 +42,7 @@ type APIForwardDest struct {
 	State         APIForwardDestState    `json:"state"`
 	LastError     string                 `json:"lastError"`
 	OutboundBytes uint64                 `json:"outboundBytes"`
+	RemoteAddr    string                 `json:"remoteAddr"`
 }
 
 // APIForwardDestList is a list of forward destinations.

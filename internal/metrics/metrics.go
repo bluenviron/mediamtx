@@ -380,10 +380,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# Forward destinations\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
-						"id":       i.item.ID.String(),
-						"path":     i.path,
-						"protocol": string(i.item.Protocol),
-						"state":    string(i.item.State),
+						"id":         i.item.ID.String(),
+						"path":       i.path,
+						"protocol":   string(i.item.Protocol),
+						"state":      string(i.item.State),
+						"remoteAddr": i.item.RemoteAddr,
 					})
 
 					metric(&out, "forward_dests", ta, 1)

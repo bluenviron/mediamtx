@@ -49,6 +49,19 @@ func (d *Dest) OutboundBytes() uint64 {
 	return client.PeerConnection().Stats().BytesSent
 }
 
+// RemoteAddr returns the address of the remote peer.
+func (d *Dest) RemoteAddr() string {
+	d.mutex.RLock()
+	client := d.client
+	d.mutex.RUnlock()
+
+	if client == nil || client.PeerConnection() == nil {
+		return ""
+	}
+
+	return client.PeerConnection().RemoteAddr()
+}
+
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context) error {
 	u, err := url.Parse(d.Dest)
