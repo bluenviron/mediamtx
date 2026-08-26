@@ -3,6 +3,7 @@ package srtla
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"net"
@@ -55,8 +56,8 @@ type connEntry struct {
 type group struct {
 	id             [srtlaIDLen]byte
 	conns          []*connEntry
-	srtConn    *net.UDPConn
-	srtAddrKey string
+	srtConn        *net.UDPConn
+	srtAddrKey     string
 	lastSeen       time.Time
 	lastAddr       *net.UDPAddr
 	path           string
@@ -65,7 +66,8 @@ type group struct {
 }
 
 func (g *group) shortID() string {
-	return hex.EncodeToString(g.id[:8])
+	digest := sha256.Sum256(g.id[:])
+	return hex.EncodeToString(digest[:16])
 }
 
 type serverParent interface {
@@ -94,7 +96,7 @@ type Server struct {
 	Parent     serverParent
 
 	ln           *net.UDPConn
-	srtAddrPort netip.AddrPort
+	srtAddrPort  netip.AddrPort
 	wg           sync.WaitGroup
 	done         chan struct{}
 	mu           sync.Mutex
@@ -526,8 +528,7 @@ func (s *Server) srtReadLoop(g *group) {
 		}
 
 		pktType := binary.BigEndian.Uint16(buf[:2])
-		pktData := make([]byte, n)
-		copy(pktData, buf[:n])
+		pktData := buf[:n]
 
 		s.mu.Lock()
 		if pktType == srtTypeACK {
@@ -681,7 +682,7 @@ func (s *Server) APISRTLAGroupsList() []defs.APISRTLAGroup {
 	items := make([]defs.APISRTLAGroup, 0, len(s.groups))
 	for _, g := range s.groups {
 		items = append(items, defs.APISRTLAGroup{
-			ID:             hex.EncodeToString(g.id[:]),
+			ID:             g.shortID(),
 			Path:           g.path,
 			ConnsActive:    len(g.conns),
 			BytesReceived:  g.bytesReceived.Load(),
