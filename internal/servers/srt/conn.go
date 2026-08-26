@@ -113,8 +113,8 @@ func (c *conn) run() { //nolint:dupl
 
 	c.ctxCancel()
 
-	if c.parent.SRTLALinker != nil {
-		c.parent.SRTLALinker.CloseGroupByAddr(c.connReq.RemoteAddr().String())
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.CloseGroupByAddr(c.connReq.RemoteAddr().String())
 	}
 
 	c.parent.closeConn(c)
@@ -257,8 +257,8 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 	c.sconn = sconn
 	c.mutex.Unlock()
 
-	if c.parent.SRTLALinker != nil {
-		c.parent.SRTLALinker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
 	}
 
 	for {
@@ -326,8 +326,8 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.sconn = sconn
 	c.mutex.Unlock()
 
-	if c.parent.SRTLALinker != nil {
-		c.parent.SRTLALinker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",

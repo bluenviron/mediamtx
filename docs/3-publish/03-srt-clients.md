@@ -27,9 +27,9 @@ SRTLA (SRT Link Aggregation) allows bonding multiple network connections for imp
 To publish via SRTLA, point the sender to the SRTLA port instead of the SRT port:
 
 ```
-srtla://yourserver:8891?streamid=publish:mystream
+srtla://yourserver:SRTLA_PORT?streamid=publish:mystream
 ```
 
-The SRTLA receiver bonds all registered connections and forwards the aggregated stream to the local SRT server. No additional SRT configuration is needed — path selection, authentication, and codec handling work identically to direct SRT publishing.
+Replace `SRTLA_PORT` with the port in `srtlaAddress`. The SRTLA receiver bonds all registered connections and forwards the aggregated stream to the local SRT server at `srtAddress`. No additional SRT configuration is needed — path selection, authentication, and codec handling work identically to direct SRT publishing.
 
-See [SRTLA configuration](../2-features/25-srt-specific-features.md#srtla-srt-link-aggregation) for server-side setup.
+See [SRTLA configuration](../2-features/24-srt-specific-features.md#srtla-srt-link-aggregation) for server-side setup.

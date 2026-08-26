@@ -501,6 +501,7 @@ moq_sessions_outbound_bytes 0
 			"rtsp":   false,
 			"rtmp":   false,
 			"srt":    false,
+			"srtla":  false,
 			"hls":    false,
 			"webrtc": false,
 		}, nil)

@@ -86,16 +86,17 @@ type Server struct {
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
 	ExternalCmdPool     *externalcmd.Pool
-	SRTLALinker         defs.SRTLALinker
 	Metrics             serverMetrics
 	PathManager         serverPathManager
 	Parent              serverParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	ln        srt.Listener
-	conns     map[*conn]struct{}
+	ctx              context.Context
+	ctxCancel        func()
+	wg               sync.WaitGroup
+	ln               srt.Listener
+	conns            map[*conn]struct{}
+	srtlaLinkerMutex sync.RWMutex
+	srtlaLinker      defs.SRTLALinker
 
 	// in
 	chNewConnRequest chan srt.ConnRequest
@@ -158,6 +159,21 @@ func (s *Server) Initialize() error {
 // Log implements logger.Writer.
 func (s *Server) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[SRT] "+format, args...)
+}
+
+// SetSRTLALinker sets the SRTLA linker used to correlate SRT connections.
+func (s *Server) SetSRTLALinker(linker defs.SRTLALinker) {
+	s.srtlaLinkerMutex.Lock()
+	defer s.srtlaLinkerMutex.Unlock()
+
+	s.srtlaLinker = linker
+}
+
+func (s *Server) getSRTLALinker() defs.SRTLALinker {
+	s.srtlaLinkerMutex.RLock()
+	defer s.srtlaLinkerMutex.RUnlock()
+
+	return s.srtlaLinker
 }
 
 // Close closes the server.

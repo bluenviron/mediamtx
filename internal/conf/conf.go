@@ -1063,6 +1063,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	// Record (deprecated)
 
 	if conf.SRTLA {
+		if !conf.SRT {
+			return fmt.Errorf("'srt' must be enabled when SRTLA is enabled")
+		}
+
 		if conf.SRTLAAddress == "" {
 			return fmt.Errorf("'srtlaAddress' must be set when SRTLA is enabled")
 		}

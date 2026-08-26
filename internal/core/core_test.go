@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -21,6 +22,15 @@ func newInstance(t *testing.T, conf string) (*Core, bool) {
 	tmpf := test.CreateTempFile(t, []byte(conf))
 
 	return New([]string{tmpf})
+}
+
+func srtlaLinkerIsNil(server any) bool {
+	serverValue := reflect.ValueOf(server).Elem()
+	linker := serverValue.FieldByName("srtlaLinker")
+	if !linker.IsValid() {
+		linker = serverValue.FieldByName("SRTLALinker")
+	}
+	return linker.IsNil()
 }
 
 func TestCoreErrors(t *testing.T) {
@@ -127,6 +137,41 @@ func TestCoreHotReloading(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 	}()
+}
+
+func TestCoreHotReloadingSRTLA(t *testing.T) {
+	p, ok := newInstance(t, "rtsp: false\n"+
+		"rtmp: false\n"+
+		"hls: false\n"+
+		"webrtc: false\n"+
+		"moq: false\n"+
+		"srtAddress: 127.0.0.1:0\n"+
+		"srtlaAddress: 127.0.0.1:0\n")
+	require.True(t, ok)
+	defer p.Close()
+
+	srtServer := p.srtServer
+	initialSRTLAServer := p.srtlaServer
+	require.NotNil(t, srtServer)
+	require.NotNil(t, initialSRTLAServer)
+	require.False(t, srtlaLinkerIsNil(srtServer))
+
+	newConf := p.conf.Load().Clone()
+	newConf.SRTLA = false
+	require.NoError(t, newConf.Validate(nil))
+	require.NoError(t, p.reloadConf(newConf))
+	require.Same(t, srtServer, p.srtServer)
+	require.Nil(t, p.srtlaServer)
+	require.True(t, srtlaLinkerIsNil(srtServer))
+
+	newConf = p.conf.Load().Clone()
+	newConf.SRTLA = true
+	require.NoError(t, newConf.Validate(nil))
+	require.NoError(t, p.reloadConf(newConf))
+	require.Same(t, srtServer, p.srtServer)
+	require.NotNil(t, p.srtlaServer)
+	require.NotSame(t, initialSRTLAServer, p.srtlaServer)
+	require.False(t, srtlaLinkerIsNil(srtServer))
 }
 
 func TestCoreHotReloadingAndLoggerError(t *testing.T) {

@@ -30,7 +30,7 @@ srtla: true
 srtlaAddress: :8891
 ```
 
-SRTLA clients connect to port `8891` and register multiple network links. The server aggregates incoming data packets and forwards them to the SRT server on port `8890`. SRT ACK packets are broadcast to all registered links for timely delivery, while other responses are sent only to the most recently active link.
+SRTLA clients connect to the address configured by `srtlaAddress` and register multiple network links. The server aggregates incoming data packets and forwards them to the SRT server at `srtAddress`. SRT ACK packets are broadcast to all registered links for timely delivery, while other responses are sent only to the most recently active link.
 
 Configuration reference:
 
