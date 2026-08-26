@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"regexp"
 	"testing"
 	"time"
 
@@ -461,7 +462,7 @@ func TestServerIPv6LoopbackResolution(t *testing.T) {
 
 	s := &Server{
 		Address:    "[::1]:0",
-		SRTAddress: "[::]:"+fmt.Sprint(port),
+		SRTAddress: "[::]:" + fmt.Sprint(port),
 		Parent:     &testLogger{},
 	}
 	err = s.Initialize()
@@ -482,7 +483,7 @@ func TestServerHostlessWithIPv6Listener(t *testing.T) {
 
 	s := &Server{
 		Address:    "[::1]:0",
-		SRTAddress: ":"+fmt.Sprint(port),
+		SRTAddress: ":" + fmt.Sprint(port),
 		Parent:     &testLogger{},
 	}
 	err = s.Initialize()
@@ -503,6 +504,39 @@ func TestServerIPv4LoopbackResolution(t *testing.T) {
 	defer s.Close()
 
 	require.Equal(t, netip.MustParseAddr("127.0.0.1"), s.srtAddrPort.Addr())
+}
+
+func TestGroupShortID(t *testing.T) {
+	var id1 [srtlaIDLen]byte
+	for i := range id1 {
+		id1[i] = byte(i)
+	}
+	id2 := id1
+	id2[srtlaIDLen-1]++
+
+	shortID1 := (&group{id: id1}).shortID()
+	shortID2 := (&group{id: id2}).shortID()
+
+	require.Equal(t, "40aff2e9d2d8922e47afd4648e696749", shortID1)
+	require.Len(t, shortID1, 32)
+	require.Regexp(t, regexp.MustCompile(`^[0-9a-f]{32}$`), shortID1)
+	require.NotEqual(t, shortID1, shortID2)
+}
+
+func TestServerAPISRTLAGroupsListUsesShortID(t *testing.T) {
+	var id [srtlaIDLen]byte
+	for i := range id {
+		id[i] = byte(i)
+	}
+	g := &group{id: id}
+	s := &Server{
+		groups: map[[srtlaIDLen]byte]*group{id: g},
+	}
+
+	items := s.APISRTLAGroupsList()
+
+	require.Len(t, items, 1)
+	require.Equal(t, g.shortID(), items[0].ID)
 }
 
 func doRegistration(t *testing.T, client *net.UDPConn, srtlaAddr *net.UDPAddr) [srtlaIDLen]byte {

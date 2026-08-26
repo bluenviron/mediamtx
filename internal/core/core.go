@@ -1027,7 +1027,7 @@ func (p *Core) createResources(initial bool) error {
 			return err
 		}
 		p.srtlaServer = i
-		p.srtServer.SRTLALinker = i
+		p.srtServer.SetSRTLALinker(i)
 	}
 
 	if p.conf.API &&
@@ -1381,6 +1381,9 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 	}
 
 	if closeSRTLAServer && p.srtlaServer != nil {
+		if p.srtServer != nil {
+			p.srtServer.SetSRTLALinker(nil)
+		}
 		p.srtlaServer.Close()
 		p.srtlaServer = nil
 	}
