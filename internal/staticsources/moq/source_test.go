@@ -221,8 +221,7 @@ func (s *testMoqServer) runSession(c testServerConn, webTransport bool) {
 			return
 		}
 		if acceptErr != nil {
-			if strings.Contains(acceptErr.Error(), "Application error 0x0") ||
-				strings.Contains(acceptErr.Error(), "context canceled") {
+			if isExpectedSessionShutdownError(acceptErr) {
 				return
 			}
 			s.fail(acceptErr)
@@ -247,8 +246,7 @@ func (s *testMoqServer) performSetup(c testServerConn, webTransport bool) error 
 
 	setupReader, err := c.AcceptUniStream(s.ctx)
 	if err != nil {
-		if strings.Contains(err.Error(), "Application error 0x0") ||
-			strings.Contains(err.Error(), "context canceled") {
+		if isExpectedSessionShutdownError(err) {
 			return nil
 		}
 		return err
@@ -395,6 +393,14 @@ func (s *testMoqServer) writeSubGroup(c testServerConn, trackName string, trackA
 
 	_, err = uni.Write(sg.Marshal())
 	return err
+}
+
+func isExpectedSessionShutdownError(err error) bool {
+	errstr := err.Error()
+	return strings.Contains(errstr, "context canceled") ||
+		strings.Contains(errstr, "Application error 0x0") ||
+		(strings.Contains(errstr, "H3_DATAGRAM_ERROR") &&
+			strings.Contains(errstr, "Application error 0x100"))
 }
 
 func (s *testMoqServer) fail(err error) {
