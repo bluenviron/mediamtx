@@ -14,6 +14,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	forwardmoq "github.com/bluenviron/mediamtx/internal/forward/moq"
 	forwardrtmp "github.com/bluenviron/mediamtx/internal/forward/rtmp"
 	forwardrtsp "github.com/bluenviron/mediamtx/internal/forward/rtsp"
 	forwardsrt "github.com/bluenviron/mediamtx/internal/forward/srt"
@@ -129,6 +130,9 @@ func destProtocol(dest string) defs.APIForwardDestProtocol {
 	case strings.HasPrefix(dest, "srt://"):
 		return defs.APIForwardDestProtocolSRT
 
+	case strings.HasPrefix(dest, "moqt://"):
+		return defs.APIForwardDestProtocolMoQ
+
 	case strings.HasPrefix(dest, "whip://"):
 		return defs.APIForwardDestProtocolWHIP
 
@@ -209,6 +213,15 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			WriteTimeout:      h.WriteTimeout,
 			UDPMaxPayloadSize: h.UDPMaxPayloadSize,
 			Parent:            h,
+		}
+
+	case defs.APIForwardDestProtocolMoQ:
+		dest = &forwardmoq.Dest{
+			Stream:          strm,
+			Dest:            resolvedDest,
+			DestFingerprint: h.Conf.DestFingerprint,
+			Transport:       h.Conf.MoQTransport,
+			Parent:          h,
 		}
 
 	case defs.APIForwardDestProtocolWHIP, defs.APIForwardDestProtocolWHIPS:

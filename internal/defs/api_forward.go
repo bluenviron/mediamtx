@@ -28,6 +28,7 @@ const (
 	APIForwardDestProtocolRTSP  APIForwardDestProtocol = "rtsp"
 	APIForwardDestProtocolRTSPS APIForwardDestProtocol = "rtsps"
 	APIForwardDestProtocolSRT   APIForwardDestProtocol = "srt"
+	APIForwardDestProtocolMoQ   APIForwardDestProtocol = "moq"
 	APIForwardDestProtocolWHIP  APIForwardDestProtocol = "whip"
 	APIForwardDestProtocolWHIPS APIForwardDestProtocol = "whips"
 )

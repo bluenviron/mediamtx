@@ -905,6 +905,16 @@ func TestConfErrors(t *testing.T) {
 			"username and password must be both provided",
 		},
 		{
+			"valid moq forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: moqt://localhost/stream\n" +
+				"      destFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n" +
+				"      moqTransport: webtransport\n",
+			"",
+		},
+		{
 			"valid whip forward destination",
 			"paths:\n" +
 				"  mypath:\n" +
@@ -921,7 +931,7 @@ func TestConfErrors(t *testing.T) {
 				"    forward:\n" +
 				"    - dest: http://localhost/stream\n",
 			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are " +
-				"rtmp, rtmps, rtsp, rtsps, srt, whip and whips",
+				"rtmp, rtmps, rtsp, rtsps, srt, moqt, whip and whips",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

@@ -113,7 +113,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	client.StartReading()
 
 	readErr := make(chan error)
-
 	go func() {
 		readErr <- client.Wait()
 	}()

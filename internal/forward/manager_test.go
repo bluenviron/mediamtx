@@ -83,6 +83,7 @@ func TestManagerReloadConf(t *testing.T) {
 				Forward: conf.Forward{
 					{Dest: "rtmp://localhost:5788/app/stream"},
 					{Dest: "rtsp://localhost:5789/stream"},
+					{Dest: "moqt://localhost:5791/teststream", MoQTransport: conf.MoQTransportWebTransport},
 					{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "mytoken"},
 				},
 				Parent: test.NilLogger,
@@ -132,19 +133,32 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:     3,
 						Created: list1.Items[2].Created,
 						Conf: conf.ForwardDest{
+							Dest:         "moqt://localhost:5791/teststream",
+							MoQTransport: conf.MoQTransportWebTransport,
+						},
+						Protocol:  "moq",
+						State:     list1.Items[2].State,
+						LastError: list1.Items[2].LastError,
+					},
+					{
+						ID:      list1.Items[3].ID,
+						Pos:     4,
+						Created: list1.Items[3].Created,
+						Conf: conf.ForwardDest{
 							Dest:            "whip://localhost:5790/teststream/whip",
 							WHIPBearerToken: "mytoken",
 						},
 						Protocol:  "whip",
-						State:     list1.Items[2].State,
-						LastError: list1.Items[2].LastError,
+						State:     list1.Items[3].State,
+						LastError: list1.Items[3].LastError,
 					},
 				},
 			}, list1)
 
 			m.ReloadConf(conf.Forward{
-				{Dest: "rtmp://localhost:5788/app/stream"},                             // unchanged
-				{Dest: "rtsp://localhost:5789/stream", DestFingerprint: "fingerprint"}, // changed params
+				{Dest: "rtmp://localhost:5788/app/stream"},
+				{Dest: "rtsp://localhost:5789/stream", DestFingerprint: "fingerprint"},
+				{Dest: "moqt://localhost:5791/teststream", MoQTransport: conf.MoQTransportQUIC},
 				{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "othertoken"},
 			})
 
@@ -177,12 +191,24 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:     3,
 						Created: list2.Items[2].Created,
 						Conf: conf.ForwardDest{
+							Dest:         "moqt://localhost:5791/teststream",
+							MoQTransport: conf.MoQTransportQUIC,
+						},
+						Protocol:  "moq",
+						State:     list2.Items[2].State,
+						LastError: list2.Items[2].LastError,
+					},
+					{
+						ID:      list2.Items[3].ID,
+						Pos:     4,
+						Created: list2.Items[3].Created,
+						Conf: conf.ForwardDest{
 							Dest:            "whip://localhost:5790/teststream/whip",
 							WHIPBearerToken: "othertoken",
 						},
 						Protocol:  "whip",
-						State:     list2.Items[2].State,
-						LastError: list2.Items[2].LastError,
+						State:     list2.Items[3].State,
+						LastError: list2.Items[3].LastError,
 					},
 				},
 			}, list2)
@@ -190,6 +216,7 @@ func TestManagerReloadConf(t *testing.T) {
 			require.Equal(t, list1.Items[0].ID, list2.Items[0].ID)
 			require.NotEqual(t, list1.Items[1].ID, list2.Items[1].ID)
 			require.NotEqual(t, list1.Items[2].ID, list2.Items[2].ID)
+			require.NotEqual(t, list1.Items[3].ID, list2.Items[3].ID)
 		})
 	}
 }

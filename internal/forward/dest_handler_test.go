@@ -38,6 +38,11 @@ func TestDestProtocol(t *testing.T) {
 			expected: "srt",
 		},
 		{
+			name:     "moq",
+			dest:     "moqt://example.com/live/stream",
+			expected: "moq",
+		},
+		{
 			name:     "whip",
 			dest:     "whip://example.com/live/stream/whip",
 			expected: "whip",
