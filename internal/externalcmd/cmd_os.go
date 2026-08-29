@@ -44,7 +44,7 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 				return 0
 			}
 			if ee, ok := errors.AsType[*exec.ExitError](err2); ok {
-				ee.ExitCode()
+				return ee.ExitCode()
 			}
 			return 0
 		}()
