@@ -30,10 +30,10 @@ var cases = []struct {
 		},
 		dec: subgroup.SubGroup{
 			Header: subgroup.Header{
-				Properties:  false,
-				FirstObject: false,
-				TrackAlias:  1,
-				GroupID:     0,
+				HasProperties: false,
+				IsFirstObject: false,
+				TrackAlias:    1,
+				GroupID:       0,
 			},
 			Objects: []subgroup.Object{{
 				Payload: []byte("hello"),
@@ -59,10 +59,10 @@ var cases = []struct {
 		},
 		dec: subgroup.SubGroup{
 			Header: subgroup.Header{
-				Properties:  true,
-				FirstObject: false,
-				TrackAlias:  1,
-				GroupID:     0,
+				HasProperties: true,
+				IsFirstObject: false,
+				TrackAlias:    1,
+				GroupID:       0,
 			},
 			Objects: []subgroup.Object{{
 				Properties: property.Properties{
