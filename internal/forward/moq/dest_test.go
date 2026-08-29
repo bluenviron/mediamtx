@@ -16,14 +16,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	mediacommonh264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/quic-go/quic-go"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	forwardmoq "github.com/bluenviron/mediamtx/internal/forward/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
 	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
@@ -31,15 +32,22 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
-	ssmoq "github.com/bluenviron/mediamtx/internal/staticsources/moq"
+	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-const testVersion = defs.APIMoQVersionDraft19
+const testVersion = "moqt-19"
 
 func isSubGroupStream(b byte) bool {
 	return (b & 0x90) == 0x10
+}
+
+type receivedTrack struct {
+	alias    uint64
+	payload  []byte
+	hasTS    bool
+	ptsValue int64
 }
 
 type testMoqServer struct {
@@ -52,6 +60,7 @@ type testMoqServer struct {
 	ctx       context.Context
 	ctxCancel func()
 	closeFunc func()
+	received  chan receivedTrack
 }
 
 func newTestMoqServer(
@@ -71,12 +80,12 @@ func newTestMoqServer(
 		transport:          transport,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
+		received:           make(chan receivedTrack, 16),
 	}
 
 	switch transport {
 	case conf.MoQTransportWebTransport:
 		ts.initializeWebTransport(t)
-
 	default:
 		ts.initializeQUIC(t)
 	}
@@ -92,7 +101,7 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 
 	ln, err := quic.ListenAddr("127.0.0.1:0", &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{string(testVersion)},
+		NextProtos:   []string{testVersion},
 	}, &quic.Config{EnableDatagrams: true})
 	require.NoError(t, err)
 
@@ -132,12 +141,12 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 		}
 
 		offered := r.Header.Get("WT-Available-Protocols")
-		if !strings.Contains(offered, string(testVersion)) {
+		if !strings.Contains(offered, testVersion) {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 
-		w.Header().Set("WT-Protocol", `"`+string(testVersion)+`"`)
+		w.Header().Set("WT-Protocol", `"`+testVersion+`"`)
 
 		session, err := h3s.Upgrade(w, r)
 		if err != nil {
@@ -168,7 +177,7 @@ func (s *testMoqServer) runSession(c protomoq.Conn) {
 			}
 
 			eg.Go(func() error {
-				return s.handleBidiStream(bidi, c)
+				return s.handleBidiStream(bidi)
 			})
 		}
 	})
@@ -200,53 +209,29 @@ func (s *testMoqServer) runSession(c protomoq.Conn) {
 	eg.Wait() //nolint:errcheck
 }
 
-func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser, c protomoq.Conn) error {
+func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser) error {
 	msg, err := controlmessage.Read(bidi)
 	if err != nil {
 		return err
 	}
 
-	sub, ok := msg.(*controlmessage.Subscribe)
-	if !ok {
-		return fmt.Errorf("unexpected control message on bidi stream: %T", msg)
-	}
-
-	err = s.checkAuthorization(sub.Parameters)
-	if err != nil {
-		return err
-	}
-
-	var payload []byte
-	switch sub.TrackName {
-	case ".catalog":
-		payload, err = catalogPayload()
+	if m, ok := msg.(*controlmessage.Publish); ok {
+		err = s.checkAuthorization(m.Parameters)
 		if err != nil {
 			return err
 		}
 
-	case "0":
-		payload, err = mediaPayload()
+		_, err = bidi.Write(controlmessage.RequestOk{}.Marshal())
 		if err != nil {
 			return err
 		}
 
-	default:
-		return fmt.Errorf("unknown track")
+		bidi.Close()              //nolint:errcheck
+		io.Copy(io.Discard, bidi) //nolint:errcheck
+		return fmt.Errorf("unexpected publish close")
 	}
 
-	_, err = bidi.Write(controlmessage.SubscribeOk{TrackAlias: sub.RequestID}.Marshal())
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		s.writeSubGroup(c, sub.TrackName, sub.RequestID, payload) //nolint:errcheck
-	}()
-
-	bidi.Close()              //nolint:errcheck
-	io.Copy(io.Discard, bidi) //nolint:errcheck
-
-	return nil
+	return fmt.Errorf("unexpected control message: %T", msg)
 }
 
 func (s *testMoqServer) handleUniStream(uni io.Reader) error {
@@ -257,17 +242,45 @@ func (s *testMoqServer) handleUniStream(uni io.Reader) error {
 	}
 
 	if isSubGroupStream(firstByte[0]) {
-		return fmt.Errorf("unexpected sub-group stream on uni stream")
-	}
+		var sg subgroup.SubGroup
+		err = sg.Read(br)
+		if err != nil {
+			return err
+		}
 
-	msg, err := controlmessage.Read(br)
-	if err != nil {
-		return err
-	}
+		if len(sg.Objects) == 0 {
+			return fmt.Errorf("subgroup has no objects")
+		}
 
-	_, ok := msg.(*controlmessage.Setup)
-	if !ok {
-		return fmt.Errorf("unexpected control message on uni stream: %T", msg)
+		hasTS := false
+		var ptsValue int64
+		for _, pr := range sg.Objects[0].Properties {
+			if ts, ok := pr.(*property.Timestamp); ok {
+				hasTS = true
+				ptsValue = int64(*ts)
+			}
+		}
+
+		select {
+		case s.received <- receivedTrack{
+			alias:    sg.Header.TrackAlias,
+			payload:  sg.Objects[0].Payload,
+			hasTS:    hasTS,
+			ptsValue: ptsValue,
+		}:
+		default:
+		}
+	} else {
+		var msg controlmessage.Message
+		msg, err = controlmessage.Read(br)
+		if err != nil {
+			return err
+		}
+
+		_, ok := msg.(*controlmessage.Setup)
+		if !ok {
+			return fmt.Errorf("unexpected control message on uni stream: %T", msg)
+		}
 	}
 
 	return nil
@@ -302,34 +315,6 @@ func (s *testMoqServer) checkAuthorization(params parameter.Parameters) error {
 	return nil
 }
 
-func (s *testMoqServer) writeSubGroup(c protomoq.Conn, trackName string, trackAlias uint64, payload []byte) error {
-	uni, err := c.OpenUniStreamSync(s.ctx)
-	if err != nil {
-		return err
-	}
-	defer uni.Close() //nolint:errcheck
-
-	sg := &subgroup.SubGroup{
-		Header: subgroup.Header{
-			IsFirstObject: true,
-			TrackAlias:    trackAlias,
-			GroupID:       0,
-		},
-		Objects: []subgroup.Object{{
-			Payload: payload,
-		}},
-	}
-
-	if trackName != ".catalog" {
-		ts := property.Timestamp(0)
-		sg.Header.HasProperties = true
-		sg.Objects[0].Properties = property.Properties{&ts}
-	}
-
-	_, err = uni.Write(sg.Marshal())
-	return err
-}
-
 func (s *testMoqServer) Close() {
 	s.ctxCancel()
 	if s.closeFunc != nil {
@@ -339,22 +324,6 @@ func (s *testMoqServer) Close() {
 
 func basicAuthToken(user string, pass string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
-}
-
-func catalogPayload() ([]byte, error) {
-	return json.Marshal(catalog.Catalog{
-		Version: 1,
-		Tracks: []catalog.Track{{
-			Name:      "0",
-			Packaging: "loc",
-			IsLive:    true,
-			Codec:     "avc3.640028",
-		}},
-	})
-}
-
-func mediaPayload() ([]byte, error) {
-	return mediacommonh264.AVCC{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}.Marshal()
 }
 
 func fingerprintFromRaw(t *testing.T, raw []byte) string {
@@ -374,42 +343,19 @@ func freeUDPAddress(t *testing.T) string {
 	return addr
 }
 
-type fingerprintErrorParent struct{}
-
-func (*fingerprintErrorParent) Log(_ logger.Level, _ string, _ ...any) {}
-
-func (*fingerprintErrorParent) SetReady(_ defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
-	panic("should not happen")
-}
-
-func (*fingerprintErrorParent) SetNotReady(_ defs.PathSourceStaticSetNotReadyReq) {}
-
-func TestSource(t *testing.T) {
+func TestDest(t *testing.T) {
 	for _, ca := range []struct {
 		name      string
 		transport conf.MoQTransport
 		withAuth  bool
 		withQuery bool
 	}{
-		{
-			name:      "quic",
-			transport: conf.MoQTransportQUIC,
-		},
-		{
-			name:      "quic_auth_query",
-			transport: conf.MoQTransportQUIC,
-			withAuth:  true,
-			withQuery: true,
-		},
-		{
-			name:      "webtransport",
-			transport: conf.MoQTransportWebTransport,
-		},
+		{name: "quic", transport: conf.MoQTransportQUIC},
+		{name: "quic auth", transport: conf.MoQTransportQUIC, withAuth: true},
+		{name: "webtransport", transport: conf.MoQTransportWebTransport},
+		{name: "webtransport auth query", transport: conf.MoQTransportWebTransport, withAuth: true, withQuery: true},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
 			expectedRequestURI := "/teststream"
 			if ca.withQuery {
 				expectedRequestURI += "?key=value"
@@ -423,13 +369,24 @@ func TestSource(t *testing.T) {
 			server := newTestMoqServer(t, ca.transport, expectedRequestURI, expectedAuth)
 			defer server.Close()
 
-			p := &test.StaticSourceParent{}
-			p.Initialize()
-
-			so := &ssmoq.Source{
-				ReadTimeout: conf.Duration(10 * time.Second),
-				Parent:      p,
+			desc := &description.Session{Medias: []*description.Media{{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{test.FormatH264},
+			}}}
+			strm := &stream.Stream{
+				OrigDesc:          desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
 			}
+			require.NoError(t, strm.Initialize())
+			defer strm.Close()
+
+			subStream := &stream.SubStream{Stream: strm, UseRTPPackets: false}
+			require.NoError(t, subStream.Initialize())
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			resolved := "moqt://" + server.address + "/teststream"
 			if ca.withAuth {
@@ -439,76 +396,64 @@ func TestSource(t *testing.T) {
 				resolved += "?key=value"
 			}
 
-			sourceErr := make(chan error, 1)
-			go func() {
-				sourceErr <- so.Run(defs.StaticSourceRunParams{
-					Context:        ctx,
-					ResolvedSource: resolved,
-					Conf: &conf.Path{
-						MoQTransport:      ca.transport,
-						SourceFingerprint: server.fingerprint,
-					},
-					ReloadConf: make(chan *conf.Path),
-				})
-			}()
-
-			select {
-			case u := <-p.Unit:
-				require.Equal(t, unit.PayloadH264{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}, u.Payload)
-
-			case err := <-sourceErr:
-				require.NoError(t, err)
-				return
-
-			case <-ctx.Done():
-				t.Fatal("timeout waiting for unit")
+			dest := &forwardmoq.Dest{
+				Stream:          strm,
+				Dest:            resolved,
+				DestFingerprint: server.fingerprint,
+				Transport:       ca.transport,
+				Parent:          test.NilLogger,
 			}
 
+			done := make(chan error, 1)
+			go func() {
+				done <- dest.Run(ctx)
+			}()
+
+			strm.WaitForReaders()
+			subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+				PTS:     0,
+				Payload: unit.PayloadH264{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}},
+			})
+
+			gotCatalog := false
+			gotMedia := false
+			timer := time.NewTimer(5 * time.Second)
+			defer timer.Stop()
+			for !gotCatalog || !gotMedia {
+				select {
+				case rec := <-server.received:
+					switch rec.alias {
+					case 0:
+						var cat catalog.Catalog
+						require.NoError(t, json.Unmarshal(rec.payload, &cat))
+						require.Len(t, cat.Tracks, 1)
+						gotCatalog = true
+					case 1:
+						expected, err := mediacommonh264.AVCC{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}.Marshal()
+						require.NoError(t, err)
+						require.Equal(t, expected, rec.payload)
+						require.True(t, rec.hasTS)
+						require.Equal(t, int64(0), rec.ptsValue)
+						gotMedia = true
+					}
+				case runErr := <-done:
+					t.Fatalf("MoQ destination stopped before forwarding: %v", runErr)
+				case <-timer.C:
+					t.Fatal("timed out waiting for MoQ forwarded data")
+				}
+			}
+
+			require.Eventually(t, func() bool {
+				return dest.OutboundBytes() > 0
+			}, 5*time.Second, 10*time.Millisecond)
+
 			cancel()
-			require.NoError(t, <-sourceErr)
-			p.Close()
+			select {
+			case runErr := <-done:
+				require.Error(t, runErr)
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for MoQ destination to stop")
+			}
 		})
 	}
-}
-
-func TestSourceWebTransportFingerprintError(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	server := newTestMoqServer(t, conf.MoQTransportWebTransport, "/teststream", "")
-	defer server.Close()
-
-	so := &ssmoq.Source{Parent: &fingerprintErrorParent{}}
-
-	err := so.Run(defs.StaticSourceRunParams{
-		Context:        ctx,
-		ResolvedSource: "moqt://" + server.address + "/teststream",
-		Conf: &conf.Path{
-			MoQTransport:      conf.MoQTransportWebTransport,
-			SourceFingerprint: strings.Repeat("0", 64),
-		},
-		ReloadConf: make(chan *conf.Path),
-	})
-	require.ErrorContains(t, err, "source fingerprint does not match")
-}
-
-func TestSourceFingerprintError(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	server := newTestMoqServer(t, conf.MoQTransportQUIC, "/teststream", "")
-	defer server.Close()
-
-	so := &ssmoq.Source{Parent: &fingerprintErrorParent{}}
-
-	err := so.Run(defs.StaticSourceRunParams{
-		Context:        ctx,
-		ResolvedSource: "moqt://" + server.address + "/teststream",
-		Conf: &conf.Path{
-			MoQTransport:      conf.MoQTransportQUIC,
-			SourceFingerprint: strings.Repeat("0", 64),
-		},
-		ReloadConf: make(chan *conf.Path),
-	})
-	require.ErrorContains(t, err, "source fingerprint does not match")
 }

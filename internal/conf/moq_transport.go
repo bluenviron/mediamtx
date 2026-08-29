@@ -23,6 +23,9 @@ func (d *MoQTransport) UnmarshalJSON(b []byte) error {
 	}
 
 	switch *d {
+	case "":
+		*d = MoQTransportQUIC
+
 	case MoQTransportQUIC, MoQTransportWebTransport:
 
 	default:
