@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 )
 
 // ErrSessionNotFound is returned when a session is not found.
@@ -39,7 +40,7 @@ type newSessionReq struct {
 	query     string
 	userAgent string
 	version   defs.APIMoQVersion
-	conn      conn
+	conn      moq.Conn
 	res       chan newSessionRes
 }
 
@@ -217,7 +218,6 @@ outer:
 				pathName:    req.pathName,
 				query:       req.query,
 				userAgent:   req.userAgent,
-				transport:   req.conn.Transport(),
 				version:     req.version,
 				pathManager: s.PathManager,
 				parent:      s,
