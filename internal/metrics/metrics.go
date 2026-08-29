@@ -164,7 +164,10 @@ func (m *Metrics) Initialize() error {
 // Close closes Metrics.
 func (m *Metrics) Close() {
 	m.Log(logger.Info, "closing")
+
 	m.httpServer.Close()
+
+	m.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.

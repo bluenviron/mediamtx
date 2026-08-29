@@ -83,7 +83,10 @@ func (pp *PPROF) Initialize() error {
 // Close closes PPROF.
 func (pp *PPROF) Close() {
 	pp.Log(logger.Info, "closing")
+
 	pp.httpServer.Close()
+
+	pp.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.
