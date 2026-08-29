@@ -198,6 +198,8 @@ func (s *Server) Close() {
 
 	s.ctxCancel()
 	<-s.done
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {

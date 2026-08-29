@@ -241,7 +241,10 @@ func (a *API) Initialize() error {
 // Close closes the API.
 func (a *API) Close() {
 	a.Log(logger.Info, "closing")
+
 	a.httpServer.Close()
+
+	a.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.
