@@ -649,7 +649,7 @@ func TestServerAuthError(t *testing.T) {
 					require.NoError(t, err)
 
 					_, err = catalogData.Write((&subgroup.SubGroup{
-						Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
+						Header:  subgroup.Header{IsFirstObject: true, TrackAlias: 0, GroupID: 0},
 						Objects: []subgroup.Object{{Payload: cat}},
 					}).Marshal())
 					require.NoError(t, err)
@@ -795,7 +795,7 @@ func TestServerErrorTooManyTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = catalogData.Write((&subgroup.SubGroup{
-		Header:  subgroup.Header{FirstObject: true, TrackAlias: 0, GroupID: 0},
+		Header:  subgroup.Header{IsFirstObject: true, TrackAlias: 0, GroupID: 0},
 		Objects: []subgroup.Object{{Payload: cat}},
 	}).Marshal())
 	require.NoError(t, err)

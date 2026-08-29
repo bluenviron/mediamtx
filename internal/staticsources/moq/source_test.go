@@ -376,9 +376,9 @@ func (s *testMoqServer) writeSubGroup(c testServerConn, trackName string, trackA
 
 	sg := &subgroup.SubGroup{
 		Header: subgroup.Header{
-			FirstObject: true,
-			TrackAlias:  trackAlias,
-			GroupID:     0,
+			IsFirstObject: true,
+			TrackAlias:    trackAlias,
+			GroupID:       0,
 		},
 		Objects: []subgroup.Object{{
 			Payload: payload,
@@ -387,7 +387,7 @@ func (s *testMoqServer) writeSubGroup(c testServerConn, trackName string, trackA
 
 	if trackName != ".catalog" {
 		ts := property.Timestamp(0)
-		sg.Header.Properties = true
+		sg.Header.HasProperties = true
 		sg.Objects[0].Properties = property.Properties{&ts}
 	}
 

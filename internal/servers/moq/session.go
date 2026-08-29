@@ -471,10 +471,10 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 
 	sg := &subgroup.SubGroup{
 		Header: subgroup.Header{
-			Properties:  false,
-			FirstObject: true,
-			TrackAlias:  m.RequestID,
-			GroupID:     0,
+			HasProperties: false,
+			IsFirstObject: true,
+			TrackAlias:    m.RequestID,
+			GroupID:       0,
 		},
 		Objects: []subgroup.Object{{
 			Payload: enc,
@@ -532,10 +532,10 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 
 		sg := &subgroup.SubGroup{
 			Header: subgroup.Header{
-				Properties:  true,
-				FirstObject: true,
-				TrackAlias:  m.RequestID,
-				GroupID:     groupID,
+				HasProperties: true,
+				IsFirstObject: true,
+				TrackAlias:    m.RequestID,
+				GroupID:       groupID,
 			},
 			Objects: []subgroup.Object{{
 				Properties: property.Properties{
