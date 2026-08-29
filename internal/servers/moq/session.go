@@ -202,13 +202,10 @@ func (s *session) runSetupWriter() error {
 	if err != nil {
 		return err
 	}
+	defer wstream.Close() //nolint:errcheck
 
 	_, err = wstream.Write(controlmessage.Setup{}.Marshal())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
@@ -355,7 +352,9 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 				return err
 			}
 
+			wstream.Close() //nolint:errcheck
 			_, err = io.Copy(io.Discard, wstream)
+
 			return err
 		}
 	}
@@ -443,6 +442,7 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 		}.Marshal())
 
 		// wait for the client to read the error
+		wstream.Close() //nolint:errcheck
 		io.Copy(io.Discard, wstream)
 
 		return err
@@ -496,7 +496,9 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("SUBSCRIBE catalog stream closed")
 }
 
@@ -573,6 +575,8 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
+
 	streamClosed := make(chan struct{})
 	go func() {
 		io.Copy(io.Discard, wstream)
@@ -582,8 +586,10 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 	select {
 	case err = <-r.Error():
 		return err
+
 	case <-streamClosed:
 		return nil
+
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
@@ -653,6 +659,7 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 			}.Marshal()) //nolint:errcheck
 
 			// wait for the client to read the error
+			wstream.Close() //nolint:errcheck
 			io.Copy(io.Discard, wstream)
 
 			return err
@@ -685,7 +692,9 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH catalog stream closed")
 }
 
@@ -709,7 +718,9 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
