@@ -86,12 +86,11 @@ type sessionParent interface {
 }
 
 type session struct {
-	conn        conn
+	conn        moq.Conn
 	wg          *sync.WaitGroup
 	pathName    string
 	query       string
 	userAgent   string
-	transport   defs.APIMoQSessionTransport
 	version     defs.APIMoQVersion
 	pathManager serverPathManager
 	parent      sessionParent
@@ -187,13 +186,13 @@ func (s *session) runInner() error {
 
 	select {
 	case <-s.ctx.Done():
-		s.conn.CloseWithError(0, "") //nolint:errcheck
-		errGroup.Wait()              //nolint:errcheck
+		s.conn.CloseWithError(0, "")
+		errGroup.Wait() //nolint:errcheck
 		return fmt.Errorf("terminated")
 
 	case <-errGroupCtx.Done():
 		s.ctxCancel()
-		s.conn.CloseWithError(0, "") //nolint:errcheck
+		s.conn.CloseWithError(0, "")
 		return errGroup.Wait()
 	}
 }
@@ -277,37 +276,47 @@ func (s *session) onUniMessage(r io.Reader) error {
 	}
 }
 
+func (s *session) transport() defs.APIMoQSessionTransport {
+	if _, ok := s.conn.(*moq.ConnQUIC); ok {
+		return defs.APIMoQSessionTransportQUIC
+	}
+
+	return defs.APIMoQSessionTransportWebTransport
+}
+
 func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.transport == defs.APIMoQSessionTransportWebTransport {
+	switch s.transport() {
+	case defs.APIMoQSessionTransportWebTransport:
 		if m.Path != "" {
 			return fmt.Errorf("received PATH setup option over WebTransport")
 		}
 		if m.Authority != "" {
 			return fmt.Errorf("received AUTHORITY setup option over WebTransport")
 		}
-	}
 
-	if s.transport == defs.APIMoQSessionTransportQUIC && s.pathName == "" {
-		pathWithQuery := m.Path
-		if pathWithQuery == "" {
-			return fmt.Errorf("missing PATH setup option")
+	case defs.APIMoQSessionTransportQUIC:
+		if s.pathName == "" {
+			pathWithQuery := m.Path
+			if pathWithQuery == "" {
+				return fmt.Errorf("missing PATH setup option")
+			}
+
+			u, err := url.ParseRequestURI(pathWithQuery)
+			if err != nil {
+				return fmt.Errorf("invalid PATH setup option: %w", err)
+			}
+
+			pathName := strings.Trim(u.Path, "/")
+			if pathName == "" {
+				return fmt.Errorf("invalid PATH setup option: empty path")
+			}
+
+			s.pathName = pathName
+			s.query = u.RawQuery
 		}
-
-		u, err := url.ParseRequestURI(pathWithQuery)
-		if err != nil {
-			return fmt.Errorf("invalid PATH setup option: %w", err)
-		}
-
-		pathName := strings.Trim(u.Path, "/")
-		if pathName == "" {
-			return fmt.Errorf("invalid PATH setup option: empty path")
-		}
-
-		s.pathName = pathName
-		s.query = u.RawQuery
 	}
 
 	select {
@@ -779,7 +788,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		Path:          pathName,
 		Query:         query,
 		UserAgent:     s.userAgent,
-		Transport:     s.transport,
+		Transport:     s.transport(),
 		Version:       s.version,
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),

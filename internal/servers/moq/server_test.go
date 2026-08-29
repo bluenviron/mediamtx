@@ -260,6 +260,7 @@ func TestServer(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(sessions.Items))
 			require.Equal(t, ca.expectedVersion, sessions.Items[0].Version)
+			require.Equal(t, defs.APIMoQSessionTransportWebTransport, sessions.Items[0].Transport)
 
 			catalogDataStream, err := sx.AcceptUniStream(ctx)
 			require.NoError(t, err)

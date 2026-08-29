@@ -17,13 +17,13 @@ import (
 
 	mediacommonh264 "github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/quic-go/quic-go"
-	"github.com/quic-go/webtransport-go"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
+	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
@@ -35,53 +35,6 @@ import (
 )
 
 const testVersion = defs.APIMoQVersionDraft19
-
-type testServerConn interface {
-	OpenUniStreamSync(context.Context) (io.WriteCloser, error)
-	AcceptUniStream(context.Context) (io.Reader, error)
-	AcceptStream(context.Context) (io.ReadWriteCloser, error)
-	CloseWithError(uint64, string) error
-}
-
-type testQUICConn struct {
-	conn *quic.Conn
-}
-
-func (c *testQUICConn) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
-	return c.conn.OpenUniStreamSync(ctx)
-}
-
-func (c *testQUICConn) AcceptUniStream(ctx context.Context) (io.Reader, error) {
-	return c.conn.AcceptUniStream(ctx)
-}
-
-func (c *testQUICConn) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
-	return c.conn.AcceptStream(ctx)
-}
-
-func (c *testQUICConn) CloseWithError(code uint64, msg string) error {
-	return c.conn.CloseWithError(quic.ApplicationErrorCode(code), msg)
-}
-
-type testWTConn struct {
-	session *webtransport.Session
-}
-
-func (c *testWTConn) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
-	return c.session.OpenUniStreamSync(ctx)
-}
-
-func (c *testWTConn) AcceptUniStream(ctx context.Context) (io.Reader, error) {
-	return c.session.AcceptUniStream(ctx)
-}
-
-func (c *testWTConn) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
-	return c.session.AcceptStream(ctx)
-}
-
-func (c *testWTConn) CloseWithError(code uint64, msg string) error {
-	return c.session.CloseWithError(webtransport.SessionErrorCode(code), msg)
-}
 
 type testMoqServer struct {
 	address            string
@@ -156,7 +109,7 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 				return
 			}
 
-			go s.runSession(&testQUICConn{conn: acceptedConn}, false)
+			go s.runSession(&protomoq.ConnQUIC{Conn: acceptedConn}, false)
 		}
 	}()
 }
@@ -195,7 +148,7 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 			return
 		}
 
-		go s.runSession(&testWTConn{session: session}, true)
+		go s.runSession(&protomoq.ConnWebTransport{Session: session}, true)
 	})
 
 	err := h3s.Initialize()
@@ -206,8 +159,8 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 	s.closeFunc = h3s.Close
 }
 
-func (s *testMoqServer) runSession(c testServerConn, webTransport bool) {
-	defer c.CloseWithError(0, "") //nolint:errcheck
+func (s *testMoqServer) runSession(c protomoq.Conn, webTransport bool) {
+	defer c.CloseWithError(0, "")
 
 	err := s.performSetup(c, webTransport)
 	if err != nil {
@@ -232,7 +185,7 @@ func (s *testMoqServer) runSession(c testServerConn, webTransport bool) {
 	}
 }
 
-func (s *testMoqServer) performSetup(c testServerConn, webTransport bool) error {
+func (s *testMoqServer) performSetup(c protomoq.Conn, webTransport bool) error {
 	setupWriter, err := c.OpenUniStreamSync(s.ctx)
 	if err != nil {
 		return err
@@ -273,7 +226,7 @@ func (s *testMoqServer) performSetup(c testServerConn, webTransport bool) error 
 	return nil
 }
 
-func (s *testMoqServer) handleSubscribe(c testServerConn, bidi io.ReadWriteCloser) {
+func (s *testMoqServer) handleSubscribe(c protomoq.Conn, bidi io.ReadWriteCloser) {
 	msg, err := controlmessage.Read(bidi)
 	if err != nil {
 		if s.ctx.Err() == nil {
@@ -367,7 +320,7 @@ func (s *testMoqServer) checkAuthorization(params parameter.Parameters) error {
 	return nil
 }
 
-func (s *testMoqServer) writeSubGroup(c testServerConn, trackName string, trackAlias uint64, payload []byte) error {
+func (s *testMoqServer) writeSubGroup(c protomoq.Conn, trackName string, trackAlias uint64, payload []byte) error {
 	uni, err := c.OpenUniStreamSync(s.ctx)
 	if err != nil {
 		return err

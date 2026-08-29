@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 )
 
 var supportedMoqtALPNs = []string{
@@ -122,8 +123,8 @@ func (s *nativeListener) run() {
 
 		res := s.parent.newSession(newSessionReq{
 			version: version,
-			conn: &connQUIC{
-				conn: conn,
+			conn: &moq.ConnQUIC{
+				Conn: conn,
 			},
 		})
 		if res.err != nil {
