@@ -10,7 +10,7 @@ import (
 )
 
 func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {
-	c := redactCredentials(a.Parent.APIConfigSnapshot())
+	c := conf.Redact(a.Parent.APIConfigSnapshot())
 
 	ctx.JSON(http.StatusOK, c.PathDefaults)
 }

@@ -35,7 +35,7 @@ func TestConfigPathDefaultsGet(t *testing.T) {
 	var out map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
 	require.Equal(t, "publisher", out["source"])
-	require.Equal(t, redactedCredential, out["readPass"])
+	require.Equal(t, "<redacted>", out["readPass"])
 }
 
 func TestConfigPathDefaultsPatch(t *testing.T) {
