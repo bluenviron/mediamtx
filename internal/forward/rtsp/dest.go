@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -63,7 +64,7 @@ func (d *Dest) Run(ctx context.Context) error {
 		WriteTimeout: time.Duration(d.WriteTimeout),
 		TLSConfig:    ptls.MakeConfig(d.DestFingerprint),
 		OnRequest: func(req *base.Request) {
-			d.Log(logger.Debug, "[c->s] %v", req)
+			d.Log(logger.Debug, "[c->s] %v", rtsp.RequestForLog(req))
 		},
 		OnResponse: func(res *base.Response) {
 			d.Log(logger.Debug, "[s->c] %v", res)

@@ -1,4 +1,4 @@
-package httpp
+package httpp_test
 
 import (
 	"net/http"
@@ -7,13 +7,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerTracker(t *testing.T) {
 	requestReceived := make(chan struct{})
 
-	s := &Server{
+	s := &httpp.Server{
 		Address:      "localhost:4667",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
